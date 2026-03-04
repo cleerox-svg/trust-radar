@@ -6,9 +6,7 @@ Create Date: 2024-01-01 00:00:00.000000
 """
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -17,36 +15,43 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE IF NOT EXISTS user_plan AS ENUM ('free', 'pro', 'enterprise')")
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE user_plan AS ENUM ('free', 'pro', 'enterprise');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
-    op.create_table(
-        "users",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("email", sa.String(320), nullable=False, unique=True),
-        sa.Column("password_hash", sa.String(255), nullable=False),
-        sa.Column("plan", sa.Enum("free", "pro", "enterprise", name="user_plan"), nullable=False, server_default="free"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
-    )
-    op.create_index("ix_users_email", "users", ["email"])
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY,
+            email VARCHAR(320) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            plan user_plan NOT NULL DEFAULT 'free',
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)")
 
-    op.create_table(
-        "ai_requests",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("service", sa.String(50), nullable=False),
-        sa.Column("request_type", sa.String(100), nullable=False),
-        sa.Column("prompt_tokens", sa.Integer, nullable=False, server_default="0"),
-        sa.Column("completion_tokens", sa.Integer, nullable=False, server_default="0"),
-        sa.Column("model", sa.String(100), nullable=False),
-        sa.Column("cost_usd", sa.Float, nullable=False, server_default="0.0"),
-        sa.Column("result_summary", sa.Text, nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
-    )
-    op.create_index("ix_ai_requests_user_id", "ai_requests", ["user_id"])
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS ai_requests (
+            id UUID PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            service VARCHAR(50) NOT NULL,
+            request_type VARCHAR(100) NOT NULL,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            model VARCHAR(100) NOT NULL,
+            cost_usd FLOAT NOT NULL DEFAULT 0.0,
+            result_summary TEXT,
+            created_at TIMESTAMPTZ DEFAULT now()
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_ai_requests_user_id ON ai_requests (user_id)")
 
 
 def downgrade() -> None:
-    op.drop_table("ai_requests")
-    op.drop_table("users")
-    op.execute("DROP TYPE user_plan")
+    op.execute("DROP TABLE IF EXISTS ai_requests")
+    op.execute("DROP TABLE IF EXISTS users")
+    op.execute("DROP TYPE IF EXISTS user_plan")
