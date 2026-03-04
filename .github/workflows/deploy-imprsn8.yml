@@ -60,6 +60,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Inject resource IDs into wrangler.toml
+        env:
+          IMPRSN8_D1_DATABASE_ID: ${{ secrets.IMPRSN8_D1_DATABASE_ID }}
+          IMPRSN8_KV_NAMESPACE_ID: ${{ secrets.IMPRSN8_KV_NAMESPACE_ID }}
+        run: envsubst < wrangler.toml > wrangler.toml.tmp && mv wrangler.toml.tmp wrangler.toml
+
       - name: Run DB migrations (production)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
