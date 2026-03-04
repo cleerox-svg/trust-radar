@@ -17,7 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE user_plan AS ENUM ('free', 'pro', 'enterprise')")
+    op.execute("CREATE TYPE IF NOT EXISTS user_plan AS ENUM ('free', 'pro', 'enterprise')")
 
     op.create_table(
         "users",
