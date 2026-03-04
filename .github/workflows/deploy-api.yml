@@ -54,5 +54,5 @@ jobs:
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service api --detach
+        run: railway up --service api --project ${{ secrets.RAILWAY_PROJECT_ID }} --detach
         working-directory: packages/api
