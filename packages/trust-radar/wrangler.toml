@@ -5,8 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 # ─── Routes ──────────────────────────────────────────────────
 routes = [
-  { pattern = "lrx-radar.com/*", custom_domain = true },
-  { pattern = "www.lrx-radar.com/*", custom_domain = true }
+  { pattern = "lrx-radar.com", custom_domain = true },
+  { pattern = "www.lrx-radar.com", custom_domain = true }
 ]
 
 # ─── D1 Database ─────────────────────────────────────────────
