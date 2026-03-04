@@ -1,0 +1,25 @@
+{
+  "name": "lrx-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LRX Platform Monorepo — Trust Radar & imprsn8",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "deploy:radar": "turbo run deploy --filter=trust-radar",
+    "deploy:imprsn8": "turbo run deploy --filter=imprsn8",
+    "deploy:api": "turbo run deploy --filter=api",
+    "deploy:all": "turbo run deploy"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

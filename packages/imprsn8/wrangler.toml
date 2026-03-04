@@ -1,0 +1,47 @@
+name = "imprsn8"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── Routes ──────────────────────────────────────────────────
+routes = [
+  { pattern = "imprsn8.com/*", custom_domain = true },
+  { pattern = "www.imprsn8.com/*", custom_domain = true }
+]
+
+# ─── D1 Database ─────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "imprsn8-db"
+database_id = "$IMPRSN8_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# ─── KV Namespace (sessions / cache) ─────────────────────────
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "$IMPRSN8_KV_NAMESPACE_ID"
+
+# ─── R2 Bucket (profile assets) ──────────────────────────────
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "imprsn8-assets"
+
+# ─── Environment variables ────────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+LRX_API_URL = "https://api.lrx.io"
+
+# ─── Secrets (set via: wrangler secret put <NAME>) ────────────
+# JWT_SECRET
+# LRX_API_KEY
+
+# ─── Local dev overrides ─────────────────────────────────────
+[env.dev]
+name = "imprsn8-dev"
+vars = { ENVIRONMENT = "development", LRX_API_URL = "http://localhost:8000" }
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "imprsn8-db"
+database_id = "$IMPRSN8_D1_DATABASE_ID"
+migrations_dir = "migrations"

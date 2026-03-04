@@ -1,0 +1,43 @@
+name = "trust-radar"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── Routes ──────────────────────────────────────────────────
+routes = [
+  { pattern = "lrx-radar.com/*", custom_domain = true },
+  { pattern = "www.lrx-radar.com/*", custom_domain = true }
+]
+
+# ─── D1 Database ─────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "radar-db"
+database_id = "$RADAR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# ─── KV Namespace (cache) ────────────────────────────────────
+[[kv_namespaces]]
+binding = "CACHE"
+id = "$RADAR_KV_NAMESPACE_ID"
+
+# ─── Environment variables ────────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+LRX_API_URL = "https://api.lrx.io"
+
+# ─── Secrets (set via: wrangler secret put <NAME>) ────────────
+# JWT_SECRET
+# VIRUSTOTAL_API_KEY
+# LRX_API_KEY
+
+# ─── Local dev overrides ─────────────────────────────────────
+[env.dev]
+name = "trust-radar-dev"
+vars = { ENVIRONMENT = "development", LRX_API_URL = "http://localhost:8000" }
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "radar-db"
+database_id = "$RADAR_D1_DATABASE_ID"
+migrations_dir = "migrations"

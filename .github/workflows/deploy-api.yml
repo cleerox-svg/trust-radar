@@ -1,0 +1,58 @@
+name: Deploy — FastAPI (Railway)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/api/**"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check app
+
+      - name: Type check (mypy)
+        run: mypy app --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=app --cov-report=term-missing
+        continue-on-error: true  # Remove once tests are added
+
+  deploy:
+    name: Deploy to Railway
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service api --detach
+        working-directory: packages/api
