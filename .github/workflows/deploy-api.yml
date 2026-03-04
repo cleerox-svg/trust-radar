@@ -2,7 +2,7 @@ name: Deploy — FastAPI (Railway)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "packages/api/**"
       - ".github/workflows/deploy-api.yml"
