@@ -27,8 +27,8 @@ export async function signJWT(
   const now = Math.floor(Date.now() / 1000);
   const fullPayload: JWTPayload = { ...payload, iat: now, exp: now + expiresInSeconds };
 
-  const header = b64url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
-  const body = b64url(encoder.encode(JSON.stringify(fullPayload)));
+  const header = b64url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })).buffer as ArrayBuffer);
+  const body = b64url(encoder.encode(JSON.stringify(fullPayload)).buffer as ArrayBuffer);
   const key = await getKey(secret);
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(`${header}.${body}`));
 
