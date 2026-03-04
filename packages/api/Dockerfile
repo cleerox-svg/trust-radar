@@ -15,4 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run migrations then start
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+COPY start.sh .
+RUN chmod +x start.sh
+CMD ["./start.sh"]
