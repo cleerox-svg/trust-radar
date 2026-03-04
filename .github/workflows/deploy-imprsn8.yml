@@ -2,7 +2,7 @@ name: Deploy — imprsn8 (imprsn8.com)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "packages/imprsn8/**"
       - ".github/workflows/deploy-imprsn8.yml"
