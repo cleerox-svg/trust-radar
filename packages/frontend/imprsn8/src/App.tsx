@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { Sidebar, useSidebarData } from "./components/Sidebar";
 import type { InfluencerProfile } from "./lib/types";
 
@@ -25,6 +26,7 @@ function RequireAuth() {
 function AppShell() {
   const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   if (loading) {
     return (
@@ -41,15 +43,47 @@ function AppShell() {
 
   return (
     <div className="flex h-screen bg-soc-bg overflow-hidden">
-      <Sidebar
-        user={user}
-        influencerList={influencerList}
-        selectedInfluencer={selectedInfluencer}
-        onInfluencerChange={(inf: InfluencerProfile | null) => setSelectedInfluencer(inf)}
-        threatCount={threatCount}
-      />
-      <main className="flex-1 overflow-y-auto">
-        <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — drawer on mobile, fixed on desktop */}
+      <div className={`
+        fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <Sidebar
+          user={user}
+          influencerList={influencerList}
+          selectedInfluencer={selectedInfluencer}
+          onInfluencerChange={(inf: InfluencerProfile | null) => { setSelectedInfluencer(inf); setMobileOpen(false); }}
+          threatCount={threatCount}
+          onClose={() => setMobileOpen(false)}
+        />
+      </div>
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-soc-border bg-soc-card shrink-0">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-1.5 rounded-lg border border-soc-border text-slate-400 hover:text-gold hover:border-gold/50 transition-all"
+          >
+            <Menu size={18} />
+          </button>
+          <div className="text-base font-extrabold tracking-tight text-slate-100">
+            imprsn<span className="text-gold">8</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
+        </div>
       </main>
     </div>
   );
