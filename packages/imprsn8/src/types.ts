@@ -32,8 +32,7 @@ export interface User {
 export interface JWTPayload {
   sub: string;
   email: string;
-  role: UserRole;
-  is_admin: boolean;
+  plan: UserPlan;
   iat: number;
   exp: number;
 }
@@ -193,6 +192,16 @@ export interface AgentRun {
   error_msg: string | null;
   started_at: string;
   completed_at: string | null;
+}
+
+// ─── Analysis ──────────────────────────────────────────────────────────────
+export type AnalysisType = "bio" | "content" | "profile" | "portfolio";
+
+export interface ScoreBreakdown {
+  clarity: number;
+  professionalism: number;
+  consistency: number;
+  impact: number;
 }
 
 // ─── Stats ─────────────────────────────────────────────────────────────────
