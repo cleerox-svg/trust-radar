@@ -55,7 +55,7 @@ export default function TrendsPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="stat-card">
           <div className="text-xs text-radar-muted">Total signals (period)</div>
           <div className="text-2xl font-bold font-mono text-radar-cyan">{totalSignals.toLocaleString()}</div>

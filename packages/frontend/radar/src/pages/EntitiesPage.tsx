@@ -79,7 +79,7 @@ export default function EntitiesPage() {
       </div>
 
       {/* Risk summary */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
         {(["safe", "low", "medium", "high", "critical"] as const).map((r) => (
           <button
             key={r}
@@ -120,8 +120,8 @@ export default function EntitiesPage() {
           Loading entities…
         </div>
       ) : (
-        <div className="card !p-0 overflow-hidden">
-          <table className="w-full text-xs">
+        <div className="card !p-0 overflow-hidden overflow-x-auto">
+          <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="border-b border-radar-border bg-radar-sidebar">
                 <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Score</th>

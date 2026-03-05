@@ -166,7 +166,7 @@ export default function AIAdvisorPage() {
               scanResult.trust_score >= 50 ? "text-radar-yellow" : "text-radar-red"
             }`}>{scanResult.trust_score}</span>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-radar-muted">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-radar-muted">
             <span>Risk: <span className="text-radar-text font-mono">{scanResult.risk_level}</span></span>
             <span>SSL: <span className={scanResult.metadata.ssl_valid ? "text-radar-green" : "text-radar-red"}>{scanResult.metadata.ssl_valid ? "valid" : "invalid"}</span></span>
             {scanResult.metadata.country && <span>Country: <span className="text-radar-text">{scanResult.metadata.country}</span></span>}
