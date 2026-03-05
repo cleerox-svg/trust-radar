@@ -6,7 +6,7 @@ INSERT OR IGNORE INTO users (id, email, password_hash, display_name, plan, role,
 VALUES (
   'admin-00000000-0000-0000-0000-000000000001',
   'admin@imprsn8.io',
-  '8255d91c8db453fb78cb647a5d8678e68d8b28bcf4089e959a66abd528bad760',
+  '5ce41ada64f1e8ffb0acfaafa622b141438f3a5777785e7f0b830fb73e40d3d6',
   'Admin',
   'enterprise',
   'admin',
