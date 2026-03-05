@@ -17,6 +17,13 @@ const LoginSchema = z.object({
 export async function handleRegister(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
+  if (!env.JWT_SECRET) {
+    return json({ success: false, error: "Server misconfiguration: JWT_SECRET not set" }, 503, origin);
+  }
+  if (!env.DB) {
+    return json({ success: false, error: "Server misconfiguration: DB not bound" }, 503, origin);
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = RegisterSchema.safeParse(body);
 
@@ -50,6 +57,13 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
 export async function handleLogin(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+
+  if (!env.JWT_SECRET) {
+    return json({ success: false, error: "Server misconfiguration: JWT_SECRET not set" }, 503, origin);
+  }
+  if (!env.DB) {
+    return json({ success: false, error: "Server misconfiguration: DB not bound" }, 503, origin);
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = LoginSchema.safeParse(body);

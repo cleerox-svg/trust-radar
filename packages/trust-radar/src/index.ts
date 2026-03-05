@@ -12,9 +12,19 @@ const router = Router();
 // ─── CORS preflight ───────────────────────────────────────────
 router.options("*", (request: Request) => handleOptions(request));
 
-// ─── Health ───────────────────────────────────────────────────
-router.get("/health", () =>
-  Response.json({ status: "ok", service: "trust-radar", ts: Date.now() })
+// ─── Health / diagnostics ─────────────────────────────────────
+router.get("/health", (_request: Request, env: Env) =>
+  Response.json({
+    status: "ok",
+    service: "trust-radar",
+    ts: Date.now(),
+    bindings: {
+      DB: !!env.DB,
+      CACHE: !!env.CACHE,
+      JWT_SECRET: !!env.JWT_SECRET,
+      VIRUSTOTAL_API_KEY: !!env.VIRUSTOTAL_API_KEY,
+    },
+  })
 );
 
 // ─── Auth ─────────────────────────────────────────────────────
