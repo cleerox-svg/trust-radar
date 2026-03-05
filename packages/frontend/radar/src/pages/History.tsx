@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { scans, type ScanResult } from "../lib/api";
 
 const RISK_COLOR: Record<string, string> = {
@@ -11,22 +11,16 @@ const RISK_COLOR: Record<string, string> = {
 };
 
 export default function History() {
-  const navigate = useNavigate();
   const [items, setItems] = useState<ScanResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("radar_token");
-    if (!token) {
-      navigate("/login");
-      return;
-    }
     scans.history()
       .then(setItems)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load history"))
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, []);
 
   if (loading) {
     return (
@@ -40,7 +34,7 @@ export default function History() {
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-100">Scan History</h1>
-        <Link to="/" className="btn-primary text-sm py-2">New scan</Link>
+        <Link to="/scan" className="btn-primary text-sm py-2">New scan</Link>
       </div>
 
       {error && <div className="card border-radar-red/30 text-radar-red text-sm">{error}</div>}
@@ -49,7 +43,7 @@ export default function History() {
         <div className="card text-center space-y-3 py-16">
           <div className="text-4xl">🔍</div>
           <p className="text-radar-muted">No scans yet. Run your first analysis.</p>
-          <Link to="/" className="btn-primary inline-block text-sm">Start scanning</Link>
+          <Link to="/scan" className="btn-primary inline-block text-sm">Start scanning</Link>
         </div>
       ) : (
         <div className="card p-0 overflow-hidden">
