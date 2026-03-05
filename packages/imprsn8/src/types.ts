@@ -1,7 +1,8 @@
 export interface Env {
   DB: D1Database;
   SESSIONS: KVNamespace;
-  ASSETS: R2Bucket;
+  ASSETS: Fetcher;
+  PROFILE_ASSETS: R2Bucket;
   JWT_SECRET: string;
   LRX_API_URL: string;
   LRX_API_KEY: string;

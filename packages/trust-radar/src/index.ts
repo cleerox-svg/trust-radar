@@ -50,10 +50,14 @@ router.get("/api/scan/history", async (request: Request, env: Env) => {
   return handleScanHistory(request, env, ctx.userId);
 });
 
-// ─── 404 ─────────────────────────────────────────────────────
-router.all("*", (request: Request) =>
-  json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"))
-);
+// ─── Static assets fallback (SPA) ────────────────────────────
+router.all("*", (request: Request, env: Env) => {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/")) {
+    return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
+  }
+  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+});
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

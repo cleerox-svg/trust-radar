@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   CACHE: KVNamespace;
+  ASSETS: Fetcher;
   JWT_SECRET: string;
   VIRUSTOTAL_API_KEY: string;
   LRX_API_URL: string;
