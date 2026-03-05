@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - "packages/imprsn8/**"
+      - "packages/frontend/**"
       - ".github/workflows/deploy-imprsn8.yml"
   workflow_dispatch:
 
@@ -16,15 +17,12 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/imprsn8
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
+          run_install: false
 
       - uses: actions/setup-node@v4
         with:
@@ -34,7 +32,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
+      - name: Type check (worker)
+        working-directory: packages/imprsn8
+        run: pnpm typecheck
+
+      - name: Type check (frontend)
+        working-directory: packages/frontend
         run: pnpm typecheck
 
   deploy:
@@ -42,15 +45,12 @@ jobs:
     needs: typecheck
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: packages/imprsn8
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
+          run_install: false
 
       - uses: actions/setup-node@v4
         with:
@@ -60,19 +60,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend
+        working-directory: packages/frontend
+        run: pnpm build:imprsn8
+
       - name: Inject resource IDs into wrangler.toml
+        working-directory: packages/imprsn8
         env:
           IMPRSN8_D1_DATABASE_ID: ${{ secrets.IMPRSN8_D1_DATABASE_ID }}
           IMPRSN8_KV_NAMESPACE_ID: ${{ secrets.IMPRSN8_KV_NAMESPACE_ID }}
         run: envsubst < wrangler.toml > wrangler.toml.tmp && mv wrangler.toml.tmp wrangler.toml
 
       - name: Run DB migrations (production)
+        working-directory: packages/imprsn8
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.TRUST_RADAR_IMPRSN8 }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm run db:migrate:prod
 
-      - name: Deploy Worker
+      - name: Deploy Worker + Assets
+        working-directory: packages/imprsn8
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.TRUST_RADAR_IMPRSN8 }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

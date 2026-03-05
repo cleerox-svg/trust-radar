@@ -17,15 +17,12 @@ jobs:
     strategy:
       matrix:
         package: [trust-radar, imprsn8]
-    defaults:
-      run:
-        working-directory: packages/${{ matrix.package }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
+          run_install: false
 
       - uses: actions/setup-node@v4
         with:
@@ -36,7 +33,34 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type check
+        working-directory: packages/${{ matrix.package }}
         run: pnpm typecheck
+
+  typecheck-frontend:
+    name: TypeCheck & Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: packages/frontend
+        run: pnpm typecheck
+
+      - name: Build both frontends
+        working-directory: packages/frontend
+        run: pnpm build
 
   lint-api:
     name: Lint API
