@@ -1,126 +1,115 @@
+import type {
+  User, InfluencerProfile, MonitoredAccount, ImpersonationReport,
+  TakedownRequest, AgentDefinition, AgentRun, OverviewStats,
+  ThreatStatus, ThreatSeverity, TakedownStatus, Platform,
+} from "./types";
+
 const BASE = "/api";
 
-export interface User {
-  id: string;
-  email: string;
-  username: string | null;
-  display_name: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  plan: string;
-  impression_score: number;
-  total_analyses: number;
-  is_admin: boolean;
-  created_at: string;
-}
-
-export interface Analysis {
-  id: string;
-  type: "profile" | "content" | "bio" | "portfolio";
-  input_text?: string;
-  input_url?: string;
-  platform?: string;
-  score: number;
-  breakdown: { clarity: number; professionalism: number; consistency: number; impact: number };
-  suggestions: string[];
-  strengths: string[];
-  created_at: string;
-}
-
-export interface SocialProfile {
-  id: string;
-  platform: string;
-  handle: string;
-  profile_url: string | null;
-  verified: boolean;
-  created_at: string;
-}
-
-export interface ScorePoint {
-  date: string;
-  score: number;
-}
-
-export interface Campaign {
-  id: string;
-  name: string;
-  channel: string;
-  status: "active" | "paused" | "done";
-  reach: number;
-  impressions: number;
-  conversions: number;
-  started_at: string;
-  created_at: string;
-}
-
-export interface AdminUser { id: string; email: string; username: string | null; display_name: string | null; plan: string; impression_score: number; total_analyses: number; is_admin: boolean; created_at: string; }
-export interface AdminStats { users: { total: number; pro: number; enterprise: number; avg_impression_score: number }; analyses: { total: number; avg_score: number }; }
-
-function getToken() {
-  return localStorage.getItem("imprsn8_token");
-}
+function getToken() { return localStorage.getItem("imprsn8_token"); }
 
 function authHeaders(): HeadersInit {
   const t = getToken();
-  return t ? { Authorization: `Bearer ${t}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  return t
+    ? { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }
+    : { "Content-Type": "application/json" };
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
+    ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const json = await res.json() as { success: boolean; data?: T; error?: string };
-  if (!json.success) throw new Error((json.error as string) ?? "Request failed");
+  if (!json.success) throw new Error(String(json.error ?? "Request failed"));
   return json.data as T;
+}
+
+async function apiWithTotal<T>(path: string): Promise<{ data: T; total: number }> {
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+  const json = await res.json() as { success: boolean; data?: T; total?: number; error?: string };
+  if (!json.success) throw new Error(String(json.error ?? "Request failed"));
+  return { data: json.data as T, total: json.total ?? 0 };
 }
 
 export const auth = {
   register: (email: string, password: string) =>
-    api<{ token: string; user: User }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
+    api<{ token: string; user: User }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
   login: (email: string, password: string) =>
-    api<{ token: string; user: User }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
+    api<{ token: string; user: User }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => api<User>("/auth/me"),
 };
 
-export const profile = {
-  update: (data: Partial<Pick<User, "display_name" | "bio" | "username">>) =>
-    api<User>("/profile", { method: "PATCH", body: JSON.stringify(data) }),
+export const overview = {
+  stats: (influencerId?: string) =>
+    api<OverviewStats>(`/overview${influencerId ? `?influencer_id=${influencerId}` : ""}`),
 };
 
-export const analyses = {
-  start: (type: Analysis["type"], input: string, platform?: string) =>
-    api<Analysis>("/analyze", {
-      method: "POST",
-      body: JSON.stringify(type === "profile" ? { type, input_url: input, platform } : { type, input_text: input }),
-    }),
-  list: () => api<Analysis[]>("/analyses"),
-  scoreHistory: () => api<ScorePoint[]>("/score/history"),
+export const influencers = {
+  list: () => api<InfluencerProfile[]>("/influencers"),
+  get: (id: string) => api<InfluencerProfile>(`/influencers/${id}`),
+  create: (data: { display_name: string; handle: string; avatar_url?: string; tier?: string }) =>
+    api<InfluencerProfile>("/influencers", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<InfluencerProfile>) =>
+    api<InfluencerProfile>(`/influencers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
-export const socials = {
-  list: () => api<SocialProfile[]>("/social"),
-  add: (platform: string, handle: string, profile_url?: string) =>
-    api<SocialProfile>("/social", { method: "POST", body: JSON.stringify({ platform, handle, profile_url }) }),
-  remove: (platform: string) =>
-    api<{ message: string }>(`/social/${platform}`, { method: "DELETE" }),
+export const accounts = {
+  list: (params?: { influencer_id?: string; platform?: string; risk?: string }) => {
+    const qs = new URLSearchParams(Object.entries(params ?? {}).filter(([, v]) => Boolean(v)) as [string, string][]);
+    return api<MonitoredAccount[]>(`/accounts${qs.toString() ? `?${qs}` : ""}`);
+  },
+  add: (data: { influencer_id: string; platform: Platform; handle: string; profile_url?: string; is_verified?: number }) =>
+    api<MonitoredAccount>("/accounts", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { risk_score?: number; risk_category?: string; follower_count?: number }) =>
+    api<MonitoredAccount>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    api<{ message: string }>(`/accounts/${id}`, { method: "DELETE" }),
 };
 
-export const campaigns = {
-  list: () => api<Campaign[]>("/campaigns"),
-  create: (name: string, channel: string) =>
-    api<Campaign>("/campaigns", { method: "POST", body: JSON.stringify({ name, channel }) }),
+export const threats = {
+  list: (params?: { influencer_id?: string; severity?: ThreatSeverity; status?: ThreatStatus; platform?: string; limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    );
+    return apiWithTotal<ImpersonationReport[]>(`/threats${qs.toString() ? `?${qs}` : ""}`);
+  },
+  get: (id: string) => api<ImpersonationReport>(`/threats/${id}`),
+  create: (data: Partial<ImpersonationReport>) =>
+    api<ImpersonationReport>("/threats", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { status?: ThreatStatus; severity?: ThreatSeverity; soc_note?: string }) =>
+    api<ImpersonationReport>(`/threats/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const takedowns = {
+  list: (params?: { influencer_id?: string; status?: TakedownStatus }) => {
+    const qs = new URLSearchParams(Object.entries(params ?? {}).filter(([, v]) => Boolean(v)) as [string, string][]);
+    return api<TakedownRequest[]>(`/takedowns${qs.toString() ? `?${qs}` : ""}`);
+  },
+  create: (data: { influencer_id: string; platform: string; suspect_handle: string; takedown_type: string; report_id?: string; evidence_json?: unknown[] }) =>
+    api<TakedownRequest>("/takedowns", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { status?: TakedownStatus; case_ref?: string; resolution?: string }) =>
+    api<TakedownRequest>(`/takedowns/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const agents = {
+  list: () => api<AgentDefinition[]>("/agents"),
+  runs: (params?: { agent_id?: string; influencer_id?: string; limit?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    );
+    return api<AgentRun[]>(`/agents/runs${qs.toString() ? `?${qs}` : ""}`);
+  },
+  trigger: (agentId: string, influencerId?: string) =>
+    api<{ run_id: string; agent: string; status: string; message: string }>(
+      `/agents/${agentId}/trigger`,
+      { method: "POST", body: JSON.stringify({ influencer_id: influencerId }) }
+    ),
 };
 
 export const admin = {
-  stats: () => api<AdminStats>("/admin/stats"),
-  users: (limit = 50, offset = 0) => api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
-  updateUser: (id: string, data: { plan?: string; is_admin?: boolean }) =>
-    api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  stats: () => api<{ users: number; influencers: number; active_threats: number; pending_takedowns: number }>("/admin/stats"),
+  users: (limit = 50, offset = 0) =>
+    api<{ users: User[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
+  updateUser: (id: string, data: { role?: string; is_admin?: number; plan?: string; assigned_influencer_id?: string | null }) =>
+    api<User>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };

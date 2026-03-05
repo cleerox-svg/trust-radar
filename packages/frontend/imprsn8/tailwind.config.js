@@ -12,29 +12,52 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          bg: "#06060f",
-          card: "#0f0f1e",
-          border: "#1e1b4b",
-          purple: "#8b5cf6",
-          "purple-dim": "#7c3aed",
-          pink: "#ec4899",
-          muted: "#6b7280",
+        soc: {
+          bg:           "#07071A",
+          card:         "#10102C",
+          border:       "#1E1B54",
+          "border-bright": "#2D2A7A",
+          navy:         "#0D0D2B",
         },
+        gold: {
+          DEFAULT:      "#C8A84B",
+          dim:          "#9A7C30",
+          muted:        "#6B5420",
+          light:        "#E4C870",
+        },
+        purple: {
+          DEFAULT:      "#7B3FE4",
+          dim:          "#5C2DB0",
+          light:        "#A06EF5",
+          subtle:       "#2A1A5E",
+        },
+        threat: {
+          critical:     "#FF3B3B",
+          high:         "#FF8C00",
+          medium:       "#F5C518",
+          low:          "#4CAF50",
+        },
+        status: {
+          live:         "#22C55E",
+          idle:         "#64748B",
+          error:        "#EF4444",
+          scheduled:    "#3B82F6",
+        },
+      },
+      fontFamily: {
+        sans:   ["Inter", "system-ui", "sans-serif"],
+        mono:   ["JetBrains Mono", "Fira Code", "monospace"],
+        syne:   ["Syne", "system-ui", "sans-serif"],
       },
       animation: {
-        "gradient-x": "gradient-x 4s ease infinite",
-        float: "float 3s ease-in-out infinite",
+        "pulse-dot": "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
+        "ping-slow":  "ping 3s cubic-bezier(0,0,0.2,1) infinite",
+        "fade-in":    "fadeIn 0.3s ease",
+        "slide-in":   "slideIn 0.25s ease",
       },
       keyframes: {
-        "gradient-x": {
-          "0%, 100%": { "background-position": "0% 50%" },
-          "50%": { "background-position": "100% 50%" },
-        },
-        float: {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-8px)" },
-        },
+        fadeIn:  { from: { opacity: "0" }, to: { opacity: "1" } },
+        slideIn: { from: { opacity: "0", transform: "translateX(-8px)" }, to: { opacity: "1", transform: "translateX(0)" } },
       },
     },
   },

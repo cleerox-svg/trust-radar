@@ -1,52 +1,84 @@
-import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Navbar from "./components/Navbar";
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Sidebar, useSidebarData } from "./components/Sidebar";
+import type { InfluencerProfile } from "./lib/types";
+
+// Pages
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
+import Overview from "./pages/Overview";
+import MonitoredAccounts from "./pages/MonitoredAccounts";
+import ThreatsFound from "./pages/ThreatsFound";
+import Takedowns from "./pages/Takedowns";
+import AgentsPanel from "./pages/AgentsPanel";
+import Settings from "./pages/Settings";
 import AdminPage from "./pages/AdminPage";
-import { auth } from "./lib/api";
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
+// ─── Auth guard ───────────────────────────────────────────────────────────
+function RequireAuth() {
   const token = localStorage.getItem("imprsn8_token");
-  return token ? <>{children}</> : <Navigate to="/login" replace />;
+  return token ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+// ─── Authenticated shell with sidebar ─────────────────────────────────────
+function AppShell() {
+  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading } = useSidebarData();
+  const [threatCount, setThreatCount] = useState(0);
 
-  useEffect(() => {
-    const token = localStorage.getItem("imprsn8_token");
-    if (!token) { setIsAdmin(false); return; }
-    auth.me().then((u) => setIsAdmin(u.is_admin)).catch(() => setIsAdmin(false));
-  }, []);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-soc-bg">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+          <div className="text-xs text-slate-600 font-mono tracking-widest">LOADING SOC...</div>
+        </div>
+      </div>
+    );
+  }
 
-  if (isAdmin === null) return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-8 h-8 border-2 border-brand-purple border-t-transparent rounded-full animate-spin" />
+  if (!user) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="flex h-screen bg-soc-bg overflow-hidden">
+      <Sidebar
+        user={user}
+        influencerList={influencerList}
+        selectedInfluencer={selectedInfluencer}
+        onInfluencerChange={(inf: InfluencerProfile | null) => setSelectedInfluencer(inf)}
+        threatCount={threatCount}
+      />
+      <main className="flex-1 overflow-y-auto">
+        <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
+      </main>
     </div>
   );
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-            <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected shell */}
+        <Route element={<RequireAuth />}>
+          <Route element={<AppShell />}>
+            <Route path="/dashboard"  element={<Overview />} />
+            <Route path="/accounts"   element={<MonitoredAccounts />} />
+            <Route path="/threats"    element={<ThreatsFound />} />
+            <Route path="/takedowns"  element={<Takedowns />} />
+            <Route path="/agents"     element={<AgentsPanel />} />
+            <Route path="/settings"   element={<Settings />} />
+            <Route path="/admin"      element={<AdminPage />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }
