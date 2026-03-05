@@ -3,6 +3,8 @@ import { handleOptions, json } from "./lib/cors";
 import { handleRegister, handleLogin, handleMe, handleUpdateProfile } from "./handlers/auth";
 import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./handlers/analysis";
 import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
+import { handleDashboardStats, handleImpressionTrend, handleChannelMix } from "./handlers/stats";
+import { handleListCampaigns, handleCreateCampaign, handleListEvents } from "./handlers/campaigns";
 import { requireAuth, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -66,6 +68,42 @@ router.delete("/api/social/:platform", async (request: Request & { params: Recor
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleDeleteSocial(request, env, ctx.userId, request.params["platform"] ?? "");
+});
+
+// ─── Dashboard Stats ──────────────────────────────────────────
+router.get("/api/dashboard/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDashboardStats(request, env, ctx.userId);
+});
+router.get("/api/dashboard/trend", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleImpressionTrend(request, env, ctx.userId);
+});
+router.get("/api/dashboard/channels", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleChannelMix(request, env, ctx.userId);
+});
+
+// ─── Campaigns ────────────────────────────────────────────────
+router.get("/api/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCampaigns(request, env, ctx.userId);
+});
+router.post("/api/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateCampaign(request, env, ctx.userId);
+});
+
+// ─── Impression Events (live feed) ────────────────────────────
+router.get("/api/events", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListEvents(request, env, ctx.userId);
 });
 
 // ─── Static assets fallback (SPA) ────────────────────────────
