@@ -10,6 +10,7 @@ export interface User {
   plan: string;
   impression_score: number;
   total_analyses: number;
+  is_admin: boolean;
   created_at: string;
 }
 
@@ -39,6 +40,21 @@ export interface ScorePoint {
   date: string;
   score: number;
 }
+
+export interface Campaign {
+  id: string;
+  name: string;
+  channel: string;
+  status: "active" | "paused" | "done";
+  reach: number;
+  impressions: number;
+  conversions: number;
+  started_at: string;
+  created_at: string;
+}
+
+export interface AdminUser { id: string; email: string; username: string | null; display_name: string | null; plan: string; impression_score: number; total_analyses: number; is_admin: boolean; created_at: string; }
+export interface AdminStats { users: { total: number; pro: number; enterprise: number; avg_impression_score: number }; analyses: { total: number; avg_score: number }; }
 
 function getToken() {
   return localStorage.getItem("imprsn8_token");
@@ -94,4 +110,17 @@ export const socials = {
     api<SocialProfile>("/social", { method: "POST", body: JSON.stringify({ platform, handle, profile_url }) }),
   remove: (platform: string) =>
     api<{ message: string }>(`/social/${platform}`, { method: "DELETE" }),
+};
+
+export const campaigns = {
+  list: () => api<Campaign[]>("/campaigns"),
+  create: (name: string, channel: string) =>
+    api<Campaign>("/campaigns", { method: "POST", body: JSON.stringify({ name, channel }) }),
+};
+
+export const admin = {
+  stats: () => api<AdminStats>("/admin/stats"),
+  users: (limit = 50, offset = 0) => api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
+  updateUser: (id: string, data: { plan?: string; is_admin?: boolean }) =>
+    api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };

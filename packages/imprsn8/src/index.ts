@@ -5,7 +5,8 @@ import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./hand
 import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
 import { handleDashboardStats, handleImpressionTrend, handleChannelMix } from "./handlers/stats";
 import { handleListCampaigns, handleCreateCampaign, handleListEvents } from "./handlers/campaigns";
-import { requireAuth, isAuthContext } from "./middleware/auth";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
 const router = Router();
@@ -104,6 +105,23 @@ router.get("/api/events", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleListEvents(request, env, ctx.userId);
+});
+
+// ─── Admin ────────────────────────────────────────────────────
+router.get("/api/admin/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminStats(request, env);
+});
+router.get("/api/admin/users", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminListUsers(request, env);
+});
+router.patch("/api/admin/users/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
 });
 
 // ─── Static assets fallback (SPA) ────────────────────────────

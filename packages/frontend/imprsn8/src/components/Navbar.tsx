@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { auth } from "../lib/api";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem("imprsn8_token");
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    auth.me().then((u) => setIsAdmin(u.is_admin)).catch(() => {});
+  }, [token]);
 
   function logout() {
     localStorage.removeItem("imprsn8_token");
@@ -26,6 +33,11 @@ export default function Navbar() {
               <Link to="/dashboard" className="text-sm text-slate-400 hover:text-brand-purple transition-colors">
                 Dashboard
               </Link>
+              {isAdmin && (
+                <Link to="/admin" className="text-sm text-red-400 hover:text-red-300 transition-colors font-mono">
+                  Admin
+                </Link>
+              )}
               <button onClick={logout} className="text-sm text-slate-400 hover:text-red-400 transition-colors">
                 Sign out
               </button>
@@ -68,6 +80,11 @@ export default function Navbar() {
               <Link to="/dashboard" onClick={() => setOpen(false)} className="block py-2 text-sm text-slate-400 hover:text-brand-purple transition-colors">
                 Dashboard
               </Link>
+              {isAdmin && (
+                <Link to="/admin" onClick={() => setOpen(false)} className="block py-2 text-sm text-red-400 hover:text-red-300 transition-colors font-mono">
+                  Admin
+                </Link>
+              )}
               <button onClick={logout} className="block w-full text-left py-2 text-sm text-slate-400 hover:text-red-400 transition-colors">
                 Sign out
               </button>
