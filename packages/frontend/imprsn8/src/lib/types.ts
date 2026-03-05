@@ -1,17 +1,6 @@
-export interface Env {
-  DB: D1Database;
-  SESSIONS: KVNamespace;
-  ASSETS: Fetcher;
-  PROFILE_ASSETS: R2Bucket;
-  JWT_SECRET: string;
-  LRX_API_URL: string;
-  LRX_API_KEY: string;
-  ENVIRONMENT: string;
-}
+// ─── Shared frontend types (mirrors backend types.ts) ─────────────────────
 
-// ─── User / Auth ───────────────────────────────────────────────────────────
 export type UserRole = "influencer" | "staff" | "soc" | "admin";
-export type UserPlan = "free" | "pro" | "enterprise";
 
 export interface User {
   id: string;
@@ -20,50 +9,26 @@ export interface User {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
-  plan: UserPlan;
+  plan: string;
   role: UserRole;
   is_admin: number;
-  impression_score: number;
-  total_analyses: number;
   assigned_influencer_id: string | null;
   created_at: string;
 }
 
-export interface JWTPayload {
-  sub: string;
-  email: string;
-  role: UserRole;
-  is_admin: boolean;
-  iat: number;
-  exp: number;
-}
-
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-// ─── Influencer Profiles ───────────────────────────────────────────────────
-export type InfluencerTier = "starter" | "pro" | "enterprise";
-
 export interface InfluencerProfile {
   id: string;
-  user_id: string | null;
   display_name: string;
   handle: string;
   avatar_url: string | null;
-  tier: InfluencerTier;
+  tier: string;
   active: number;
-  created_at: string;
-  updated_at: string;
   monitored_count?: number;
   active_threats?: number;
   pending_takedowns?: number;
+  created_at: string;
 }
 
-// ─── Monitored Accounts ────────────────────────────────────────────────────
 export type Platform =
   | "tiktok" | "instagram" | "x" | "youtube" | "facebook"
   | "linkedin" | "twitch" | "threads" | "snapchat" | "pinterest";
@@ -73,6 +38,8 @@ export type RiskCategory = "legitimate" | "suspicious" | "imposter" | "unscored"
 export interface MonitoredAccount {
   id: string;
   influencer_id: string;
+  influencer_name?: string;
+  influencer_handle?: string;
   platform: Platform;
   handle: string;
   profile_url: string | null;
@@ -87,7 +54,6 @@ export interface MonitoredAccount {
   updated_at: string;
 }
 
-// ─── Impersonation Reports ─────────────────────────────────────────────────
 export type ThreatType =
   | "full_clone" | "handle_squat" | "bio_copy" | "avatar_copy"
   | "scam_campaign" | "deepfake_media" | "unofficial_clips" | "voice_clone" | "other";
@@ -110,6 +76,8 @@ export interface SimilarityBreakdown {
 export interface ImpersonationReport {
   id: string;
   influencer_id: string;
+  influencer_name?: string;
+  influencer_handle?: string;
   platform: Platform;
   suspect_handle: string;
   suspect_url: string | null;
@@ -124,11 +92,8 @@ export interface ImpersonationReport {
   detected_by: AgentName;
   detected_at: string;
   updated_at: string;
-  influencer_name?: string;
-  influencer_handle?: string;
 }
 
-// ─── Takedown Requests ─────────────────────────────────────────────────────
 export type TakedownType = "dmca" | "impersonation" | "trademark" | "platform_tos" | "court_order";
 export type TakedownStatus =
   | "draft" | "submitted" | "acknowledged" | "in_review" | "resolved" | "rejected";
@@ -142,6 +107,7 @@ export interface EvidenceItem {
 export interface TakedownRequest {
   id: string;
   influencer_id: string;
+  influencer_name?: string;
   report_id: string | null;
   platform: string;
   suspect_handle: string;
@@ -150,17 +116,15 @@ export interface TakedownRequest {
   case_ref: string | null;
   evidence_json: EvidenceItem[];
   submitted_by: string | null;
+  submitted_by_name?: string;
   submitted_at: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
   resolution: string | null;
   created_at: string;
   updated_at: string;
-  influencer_name?: string;
-  submitted_by_name?: string;
 }
 
-// ─── Agents ────────────────────────────────────────────────────────────────
 export type AgentCategory = "detect" | "respond" | "monitor" | "analyze";
 export type AgentRunStatus = "running" | "completed" | "failed" | "cancelled";
 
@@ -172,18 +136,17 @@ export interface AgentDefinition {
   category: AgentCategory;
   is_active: number;
   schedule_mins: number | null;
-  config_json: Record<string, unknown>;
-  created_at: string;
-  last_run_at?: string | null;
-  last_run_status?: AgentRunStatus | null;
-  runs_today?: number;
-  threats_found_today?: number;
+  last_run_at: string | null;
+  last_run_status: AgentRunStatus | null;
+  runs_today: number;
+  threats_found_today: number;
 }
 
 export interface AgentRun {
   id: string;
   agent_id: string;
   agent_name?: string;
+  codename?: string;
   influencer_id: string | null;
   influencer_name?: string | null;
   status: AgentRunStatus;
@@ -195,7 +158,6 @@ export interface AgentRun {
   completed_at: string | null;
 }
 
-// ─── Stats ─────────────────────────────────────────────────────────────────
 export interface OverviewStats {
   accounts_monitored: number;
   platforms_count: number;
