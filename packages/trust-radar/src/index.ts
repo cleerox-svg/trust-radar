@@ -97,7 +97,8 @@ export default {
       .catch((err: unknown) => {
         console.error("Unhandled error:", err);
         const origin = request.headers.get("Origin");
-        return json({ success: false, error: "Internal server error" }, 500, origin);
+        const message = err instanceof Error ? err.message : String(err);
+        return json({ success: false, error: "Internal server error", detail: message }, 500, origin);
       });
   },
 };
