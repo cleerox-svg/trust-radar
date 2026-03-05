@@ -1,11 +1,13 @@
 import { Router } from "itty-router";
 import { handleOptions, json } from "./lib/cors";
 import { handleRegister, handleLogin, handleMe, handleUpdateProfile } from "./handlers/auth";
-import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./handlers/analysis";
-import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
-import { handleDashboardStats, handleImpressionTrend, handleChannelMix } from "./handlers/stats";
-import { handleListCampaigns, handleCreateCampaign, handleListEvents } from "./handlers/campaigns";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import { handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import { handleListInfluencers, handleGetInfluencer, handleCreateInfluencer, handleUpdateInfluencer } from "./handlers/influencers";
+import { handleListAccounts, handleAddAccount, handleUpdateAccount, handleDeleteAccount } from "./handlers/accounts";
+import { handleListThreats, handleGetThreat, handleCreateThreat, handleUpdateThreat } from "./handlers/threats";
+import { handleListTakedowns, handleCreateTakedown, handleUpdateTakedown } from "./handlers/takedowns";
+import { handleListAgents, handleGetAgentRuns, handleTriggerAgent } from "./handlers/agents";
+import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -20,12 +22,8 @@ router.get("/health", () =>
 );
 
 // ─── Auth ─────────────────────────────────────────────────────
-router.post("/api/auth/register", (request: Request, env: Env) =>
-  handleRegister(request, env)
-);
-router.post("/api/auth/login", (request: Request, env: Env) =>
-  handleLogin(request, env)
-);
+router.post("/api/auth/register", (request: Request, env: Env) => handleRegister(request, env));
+router.post("/api/auth/login", (request: Request, env: Env) => handleLogin(request, env));
 router.get("/api/auth/me", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -37,74 +35,118 @@ router.patch("/api/profile", async (request: Request, env: Env) => {
   return handleUpdateProfile(request, env, ctx.userId);
 });
 
-// ─── Analysis ─────────────────────────────────────────────────
-router.post("/api/analyze", async (request: Request, env: Env) => {
+// ─── Overview Stats ───────────────────────────────────────────
+router.get("/api/overview", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleAnalyze(request, env, ctx.userId);
-});
-router.get("/api/analyses", async (request: Request, env: Env) => {
-  const ctx = await requireAuth(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleAnalysisHistory(request, env, ctx.userId);
-});
-router.get("/api/score/history", async (request: Request, env: Env) => {
-  const ctx = await requireAuth(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleScoreHistory(request, env, ctx.userId);
+  const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
+  return handleOverviewStats(request, env, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
 });
 
-// ─── Social Profiles ──────────────────────────────────────────
-router.get("/api/social", async (request: Request, env: Env) => {
+// ─── Influencer Profiles ──────────────────────────────────────
+router.get("/api/influencers", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleListSocials(request, env, ctx.userId);
+  return handleListInfluencers(request, env);
 });
-router.post("/api/social", async (request: Request, env: Env) => {
+router.get("/api/influencers/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleAddSocial(request, env, ctx.userId);
+  return handleGetInfluencer(request, env, request.params["id"] ?? "");
 });
-router.delete("/api/social/:platform", async (request: Request & { params: Record<string, string> }, env: Env) => {
-  const ctx = await requireAuth(request, env);
+router.post("/api/influencers", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleDeleteSocial(request, env, ctx.userId, request.params["platform"] ?? "");
+  return handleCreateInfluencer(request, env);
 });
-
-// ─── Dashboard Stats ──────────────────────────────────────────
-router.get("/api/dashboard/stats", async (request: Request, env: Env) => {
-  const ctx = await requireAuth(request, env);
+router.patch("/api/influencers/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleDashboardStats(request, env, ctx.userId);
-});
-router.get("/api/dashboard/trend", async (request: Request, env: Env) => {
-  const ctx = await requireAuth(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleImpressionTrend(request, env, ctx.userId);
-});
-router.get("/api/dashboard/channels", async (request: Request, env: Env) => {
-  const ctx = await requireAuth(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleChannelMix(request, env, ctx.userId);
+  return handleUpdateInfluencer(request, env, request.params["id"] ?? "");
 });
 
-// ─── Campaigns ────────────────────────────────────────────────
-router.get("/api/campaigns", async (request: Request, env: Env) => {
+// ─── Monitored Accounts ───────────────────────────────────────
+router.get("/api/accounts", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleListCampaigns(request, env, ctx.userId);
+  const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
+  return handleListAccounts(request, env, ctx.userId, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
 });
-router.post("/api/campaigns", async (request: Request, env: Env) => {
+router.post("/api/accounts", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleCreateCampaign(request, env, ctx.userId);
+  return handleAddAccount(request, env);
+});
+router.patch("/api/accounts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateAccount(request, env, request.params["id"] ?? "");
+});
+router.delete("/api/accounts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteAccount(request, env, request.params["id"] ?? "");
 });
 
-// ─── Impression Events (live feed) ────────────────────────────
-router.get("/api/events", async (request: Request, env: Env) => {
+// ─── Threats (IOI Feed) ───────────────────────────────────────
+router.get("/api/threats", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleListEvents(request, env, ctx.userId);
+  const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
+  return handleListThreats(request, env, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
+});
+router.get("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetThreat(request, env, request.params["id"] ?? "");
+});
+router.post("/api/threats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateThreat(request, env);
+});
+router.patch("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string }>();
+  return handleUpdateThreat(request, env, request.params["id"] ?? "", user?.role ?? "influencer");
+});
+
+// ─── Takedowns ────────────────────────────────────────────────
+router.get("/api/takedowns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
+  return handleListTakedowns(request, env, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
+});
+router.post("/api/takedowns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string }>();
+  return handleCreateTakedown(request, env, ctx.userId, user?.role ?? "influencer");
+});
+router.patch("/api/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string }>();
+  return handleUpdateTakedown(request, env, request.params["id"] ?? "", ctx.userId, user?.role ?? "influencer");
+});
+
+// ─── Agents ───────────────────────────────────────────────────
+router.get("/api/agents", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListAgents(request, env);
+});
+router.get("/api/agents/runs", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetAgentRuns(request, env);
+});
+router.post("/api/agents/:id/trigger", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerAgent(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Admin ────────────────────────────────────────────────────
@@ -124,7 +166,7 @@ router.patch("/api/admin/users/:id", async (request: Request & { params: Record<
   return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
 });
 
-// ─── Static assets fallback (SPA) ────────────────────────────
+// ─── SPA fallback ─────────────────────────────────────────────
 router.all("*", (request: Request, env: Env) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
