@@ -184,6 +184,23 @@ export async function handleScan(
 
   // Run fresh scan
   const scanData = await runScan(url, env);
+
+  // LRX AI insight (best-effort, 5s timeout)
+  if (env.LRX_API_URL && env.LRX_API_KEY) {
+    try {
+      type InsightResp = { success: boolean; data?: { summary: string; explanation: string; recommendations: string[] } };
+      const insight = await Promise.race<InsightResp | null>([
+        fetch(`${env.LRX_API_URL}/api/ai/scan-insight`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": env.LRX_API_KEY },
+          body: JSON.stringify({ url, trust_score: scanData.trust_score, risk_level: scanData.risk_level, flags: scanData.flags }),
+        }).then((r) => r.json() as Promise<InsightResp>),
+        new Promise<null>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      ]);
+      if (insight?.success && insight.data) scanData.metadata.ai_insight = insight.data;
+    } catch { /* non-fatal */ }
+  }
+
   const id = crypto.randomUUID();
   const flagsJson = JSON.stringify(scanData.flags);
   const metaJson = JSON.stringify(scanData.metadata);

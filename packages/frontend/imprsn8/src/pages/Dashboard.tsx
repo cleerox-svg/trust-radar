@@ -1,5 +1,8 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { auth, analyses, socials, type User, type Analysis, type SocialProfile } from "../lib/api";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+import { auth, analyses, socials, profile as profileApi, type User, type Analysis, type SocialProfile, type ScorePoint } from "../lib/api";
 
 const PLATFORMS = ["linkedin", "twitter", "github", "instagram", "tiktok", "youtube", "website"] as const;
 const PLATFORM_ICONS: Record<string, string> = {
@@ -31,6 +34,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [recentAnalyses, setRecentAnalyses] = useState<Analysis[]>([]);
   const [userSocials, setUserSocials] = useState<SocialProfile[]>([]);
+  const [scoreHistory, setScoreHistory] = useState<ScorePoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Analyze form
@@ -40,17 +44,24 @@ export default function Dashboard() {
   const [analyzeError, setAnalyzeError] = useState("");
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
 
+  // Profile edit
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ display_name: "", bio: "", username: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
   // Social form
   const [socialPlatform, setSocialPlatform] = useState("linkedin");
   const [socialHandle, setSocialHandle] = useState("");
   const [addingSocial, setAddingSocial] = useState(false);
 
   useEffect(() => {
-    Promise.all([auth.me(), analyses.list(), socials.list()])
-      .then(([u, a, s]) => {
+    Promise.all([auth.me(), analyses.list(), socials.list(), analyses.scoreHistory()])
+      .then(([u, a, s, h]) => {
         setUser(u);
         setRecentAnalyses(a.slice(0, 5));
         setUserSocials(s);
+        setScoreHistory(h);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -70,6 +81,25 @@ export default function Dashboard() {
       setAnalyzeError(err instanceof Error ? err.message : "Analysis failed");
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  async function handleSaveProfile(e: FormEvent) {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileError("");
+    try {
+      const updated = await profileApi.update({
+        display_name: profileForm.display_name || undefined,
+        bio: profileForm.bio || undefined,
+        username: profileForm.username || undefined,
+      });
+      setUser((u) => u ? { ...u, ...updated } : u);
+      setEditingProfile(false);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -187,6 +217,36 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Score trend chart */}
+          {scoreHistory.length > 0 && (
+            <div className="card space-y-4">
+              <div>
+                <h2 className="font-semibold text-slate-200">Impression Score Trend</h2>
+                <p className="text-xs text-brand-muted mt-0.5">Historical score over time</p>
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={scoreHistory} margin={{ top: 5, right: 0, left: -30, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1b4b" />
+                  <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: "#0f0f1e", border: "1px solid #1e1b4b", borderRadius: "8px", fontSize: "12px" }}
+                    labelStyle={{ color: "#6b7280" }}
+                    itemStyle={{ color: "#8b5cf6" }}
+                  />
+                  <Area type="monotone" dataKey="score" name="score" stroke="#8b5cf6" strokeWidth={2.5}
+                    fill="url(#scoreGrad)" dot={{ fill: "#8b5cf6", r: 3 }} activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           {/* Recent history */}
           {recentAnalyses.length > 0 && (
             <div className="card p-0 overflow-hidden">
@@ -214,8 +274,100 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right column: Social profiles */}
+        {/* Right column */}
         <div className="space-y-6">
+          {/* Profile card */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-200">Profile</h2>
+              {!editingProfile && (
+                <button
+                  onClick={() => {
+                    setProfileForm({
+                      display_name: user?.display_name ?? "",
+                      bio: user?.bio ?? "",
+                      username: user?.username ?? "",
+                    });
+                    setEditingProfile(true);
+                  }}
+                  className="text-xs text-brand-muted hover:text-brand-purple transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {!editingProfile ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-brand-purple/20 border border-brand-border flex items-center justify-center text-brand-purple font-bold">
+                    {(user?.display_name ?? user?.email ?? "?")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-200">
+                      {user?.display_name ?? user?.username ?? user?.email?.split("@")[0]}
+                    </div>
+                    {user?.username && (
+                      <div className="text-xs text-brand-muted">@{user.username}</div>
+                    )}
+                  </div>
+                </div>
+                {user?.bio && (
+                  <p className="text-xs text-brand-muted leading-relaxed">{user.bio}</p>
+                )}
+                {!user?.bio && (
+                  <p className="text-xs text-brand-muted italic">No bio yet</p>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleSaveProfile} className="space-y-3">
+                <div>
+                  <label className="text-xs text-brand-muted block mb-1">Display name</label>
+                  <input
+                    className="input text-sm"
+                    value={profileForm.display_name}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, display_name: e.target.value }))}
+                    placeholder="Your name"
+                    maxLength={64}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-brand-muted block mb-1">Username</label>
+                  <input
+                    className="input text-sm"
+                    value={profileForm.username}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
+                    placeholder="handle"
+                    pattern="[a-zA-Z0-9_-]+"
+                    maxLength={32}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-brand-muted block mb-1">Bio</label>
+                  <textarea
+                    className="input text-sm resize-none"
+                    rows={3}
+                    value={profileForm.bio}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, bio: e.target.value }))}
+                    placeholder="A short bio…"
+                    maxLength={500}
+                  />
+                </div>
+                {profileError && (
+                  <p className="text-xs text-red-400">{profileError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary text-sm !px-4 !py-2" disabled={savingProfile}>
+                    {savingProfile ? "Saving…" : "Save"}
+                  </button>
+                  <button type="button" className="btn-ghost text-sm !px-4 !py-2" onClick={() => setEditingProfile(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
           <div className="card space-y-4">
             <h2 className="font-semibold text-slate-200">Social Profiles</h2>
 

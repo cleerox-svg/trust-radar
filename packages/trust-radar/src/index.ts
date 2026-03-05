@@ -2,6 +2,8 @@ import { Router } from "itty-router";
 import { handleOptions, json } from "./lib/cors";
 import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
+import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
+import { handleSignals, handleAlerts, handleAckAlert } from "./handlers/signals";
 import { requireAuth, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -10,9 +12,19 @@ const router = Router();
 // ─── CORS preflight ───────────────────────────────────────────
 router.options("*", (request: Request) => handleOptions(request));
 
-// ─── Health ───────────────────────────────────────────────────
-router.get("/health", () =>
-  Response.json({ status: "ok", service: "trust-radar", ts: Date.now() })
+// ─── Health / diagnostics ─────────────────────────────────────
+router.get("/health", (_request: Request, env: Env) =>
+  Response.json({
+    status: "ok",
+    service: "trust-radar",
+    ts: Date.now(),
+    bindings: {
+      DB: !!env.DB,
+      CACHE: !!env.CACHE,
+      JWT_SECRET: !!env.JWT_SECRET,
+      VIRUSTOTAL_API_KEY: !!env.VIRUSTOTAL_API_KEY,
+    },
+  })
 );
 
 // ─── Auth ─────────────────────────────────────────────────────
@@ -30,17 +42,12 @@ router.get("/api/auth/me", async (request: Request, env: Env) => {
 
 // ─── Scans ────────────────────────────────────────────────────
 router.post("/api/scan", async (request: Request, env: Env) => {
-  // Optional auth — anonymous scans allowed (rate-limited by IP in future)
   const authHeader = request.headers.get("Authorization");
   let userId: string | undefined;
-
   if (authHeader?.startsWith("Bearer ")) {
     const ctx = await requireAuth(request, env);
-    if (isAuthContext(ctx)) {
-      userId = ctx.userId;
-    }
+    if (isAuthContext(ctx)) userId = ctx.userId;
   }
-
   return handleScan(request, env, userId);
 });
 
@@ -49,6 +56,30 @@ router.get("/api/scan/history", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleScanHistory(request, env, ctx.userId);
 });
+
+// ─── Dashboard Stats ──────────────────────────────────────────
+router.get("/api/dashboard/stats", (request: Request, env: Env) =>
+  handleStats(request, env)
+);
+router.get("/api/dashboard/sources", (request: Request, env: Env) =>
+  handleSourceMix(request, env)
+);
+router.get("/api/dashboard/trend", (request: Request, env: Env) =>
+  handleQualityTrend(request, env)
+);
+
+// ─── Signals ──────────────────────────────────────────────────
+router.get("/api/signals", (request: Request, env: Env) =>
+  handleSignals(request, env)
+);
+
+// ─── Alerts ───────────────────────────────────────────────────
+router.get("/api/alerts", (request: Request, env: Env) =>
+  handleAlerts(request, env)
+);
+router.post("/api/alerts/:id/ack", async (request: Request & { params: Record<string, string> }, env: Env) =>
+  handleAckAlert(request, env, request.params["id"] ?? "")
+);
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 router.all("*", (request: Request, env: Env) => {

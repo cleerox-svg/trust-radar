@@ -53,6 +53,11 @@ export interface ScanMetadata {
     harmless: number;
     undetected: number;
   };
+  ai_insight?: {
+    summary: string;
+    explanation: string;
+    recommendations: string[];
+  };
 }
 
 export interface JWTPayload {

@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development (never commit .dev.vars)
+JWT_SECRET=your-secret-key-min-32-chars-long
+VIRUSTOTAL_API_KEY=vt_xxxxxxxxxxxx
+LRX_API_KEY=lrx_xxxxxxxxxxxx
