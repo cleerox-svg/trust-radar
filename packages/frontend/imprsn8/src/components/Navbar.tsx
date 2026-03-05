@@ -10,7 +10,7 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!token) return;
-    auth.me().then((u) => setIsAdmin(u.is_admin)).catch(() => {});
+    auth.me().then((u) => setIsAdmin(u.is_admin === 1)).catch(() => {});
   }, [token]);
 
   function logout() {

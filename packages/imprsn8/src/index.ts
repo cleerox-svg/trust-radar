@@ -7,6 +7,9 @@ import { handleListAccounts, handleAddAccount, handleUpdateAccount, handleDelete
 import { handleListThreats, handleGetThreat, handleCreateThreat, handleUpdateThreat } from "./handlers/threats";
 import { handleListTakedowns, handleCreateTakedown, handleUpdateTakedown } from "./handlers/takedowns";
 import { handleListAgents, handleGetAgentRuns, handleTriggerAgent } from "./handlers/agents";
+import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./handlers/analysis";
+import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
+import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns";
 import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
@@ -147,6 +150,52 @@ router.post("/api/agents/:id/trigger", async (request: Request & { params: Recor
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTriggerAgent(request, env, request.params["id"] ?? "", ctx.userId);
+});
+
+// ─── Analyses ─────────────────────────────────────────────────
+router.post("/api/analyze", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAnalyze(request, env, ctx.userId);
+});
+router.get("/api/analyses", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAnalysisHistory(request, env, ctx.userId);
+});
+router.get("/api/analyses/score-history", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleScoreHistory(request, env, ctx.userId);
+});
+
+// ─── Social Profiles ──────────────────────────────────────────
+router.get("/api/socials", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListSocials(request, env, ctx.userId);
+});
+router.post("/api/socials", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAddSocial(request, env, ctx.userId);
+});
+router.delete("/api/socials/:platform", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteSocial(request, env, ctx.userId, request.params["platform"] ?? "");
+});
+
+// ─── Campaigns ────────────────────────────────────────────────
+router.get("/api/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCampaigns(request, env, ctx.userId);
+});
+router.post("/api/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateCampaign(request, env, ctx.userId);
 });
 
 // ─── Admin ────────────────────────────────────────────────────

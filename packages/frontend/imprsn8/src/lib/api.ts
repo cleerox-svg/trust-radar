@@ -2,7 +2,12 @@ import type {
   User, InfluencerProfile, MonitoredAccount, ImpersonationReport,
   TakedownRequest, AgentDefinition, AgentRun, OverviewStats,
   ThreatStatus, ThreatSeverity, TakedownStatus, Platform,
+  Analysis, AnalysisType, SocialProfile, ScorePoint, Campaign, AdminStats,
 } from "./types";
+
+export type { User, Analysis, SocialProfile, ScorePoint, Campaign };
+export type AdminUser = User;
+export type { AdminStats };
 
 const BASE = "/api";
 
@@ -37,6 +42,32 @@ export const auth = {
   login: (email: string, password: string) =>
     api<{ token: string; user: User }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => api<User>("/auth/me"),
+};
+
+export const profile = {
+  update: (data: { display_name?: string; bio?: string; username?: string }) =>
+    api<User>("/profile", { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const analyses = {
+  list: () => api<Analysis[]>("/analyses"),
+  start: (type: AnalysisType, input: string) =>
+    api<Analysis>("/analyze", { method: "POST", body: JSON.stringify({ type, input_text: input }) }),
+  scoreHistory: () => api<ScorePoint[]>("/analyses/score-history"),
+};
+
+export const socials = {
+  list: () => api<SocialProfile[]>("/socials"),
+  add: (platform: string, handle: string) =>
+    api<SocialProfile>("/socials", { method: "POST", body: JSON.stringify({ platform, handle }) }),
+  remove: (platform: string) =>
+    api<{ message: string }>(`/socials/${platform}`, { method: "DELETE" }),
+};
+
+export const campaigns = {
+  list: () => api<Campaign[]>("/campaigns"),
+  create: (name: string, channel: string) =>
+    api<Campaign>("/campaigns", { method: "POST", body: JSON.stringify({ name, channel }) }),
 };
 
 export const overview = {
@@ -107,9 +138,9 @@ export const agents = {
 };
 
 export const admin = {
-  stats: () => api<{ users: number; influencers: number; active_threats: number; pending_takedowns: number }>("/admin/stats"),
+  stats: () => api<AdminStats>("/admin/stats"),
   users: (limit = 50, offset = 0) =>
-    api<{ users: User[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
-  updateUser: (id: string, data: { role?: string; is_admin?: number; plan?: string; assigned_influencer_id?: string | null }) =>
-    api<User>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
+  updateUser: (id: string, data: { role?: string; is_admin?: boolean; plan?: string; assigned_influencer_id?: string | null }) =>
+    api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
