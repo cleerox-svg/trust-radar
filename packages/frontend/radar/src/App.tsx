@@ -10,6 +10,8 @@ import SendSignals from "./pages/SendSignals";
 import GeoMapPage from "./pages/GeoMapPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import AIAdvisorPage from "./pages/AIAdvisorPage";
+import Home from "./pages/Home";
+import History from "./pages/History";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
@@ -207,6 +209,8 @@ export default function App() {
                 <MainLayout>
                   <Routes>
                     <Route path="/dashboard"      element={<Dashboard />} />
+                    <Route path="/scan"           element={<Home />} />
+                    <Route path="/history"        element={<History />} />
                     <Route path="/signals"        element={<SignalsPage />} />
                     <Route path="/alerts"         element={<AlertsPage />} />
                     <Route path="/entities"       element={<EntitiesPage />} />
