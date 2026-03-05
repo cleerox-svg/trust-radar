@@ -94,7 +94,7 @@ function ThreatDetail({
               <div className="text-xs text-threat-critical mt-0.5 capitalize">{threat.threat_type.replace(/_/g, " ")}</div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div>
               <div className="text-[10px] text-slate-500 uppercase mb-0.5">Platform</div>
               <div className="flex items-center gap-1.5">

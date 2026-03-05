@@ -41,6 +41,11 @@ LRX_API_URL = "https://api.lrx.io"
 # JWT_SECRET
 # LRX_API_KEY
 
+# ─── Dev server settings ─────────────────────────────────────
+[dev]
+port = 4001
+local_protocol = "http"
+
 # ─── Local dev overrides ─────────────────────────────────────
 [env.dev]
 name = "imprsn8-dev"

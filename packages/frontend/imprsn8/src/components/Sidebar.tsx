@@ -33,6 +33,7 @@ interface SidebarProps {
   selectedInfluencer: InfluencerProfile | null;
   onInfluencerChange: (inf: InfluencerProfile | null) => void;
   threatCount?: number;
+  onClose?: () => void;
 }
 
 function LiveClock() {
@@ -48,7 +49,7 @@ function LiveClock() {
   );
 }
 
-export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencerChange, threatCount }: SidebarProps) {
+export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencerChange, threatCount, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const isSocOrAdmin = user.role === "soc" || user.role === "admin";
@@ -63,7 +64,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
   const initial = displayName[0]?.toUpperCase() ?? "?";
 
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col bg-soc-card border-r border-soc-border h-full">
+    <aside className="w-64 lg:w-56 flex-shrink-0 flex flex-col bg-soc-card border-r border-soc-border h-full">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-soc-border">
         <div className="syne text-xl font-extrabold tracking-tight text-slate-100">
@@ -154,6 +155,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 relative ${
                 isActive
@@ -178,6 +180,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
       <div className="px-2 pb-2 border-t border-soc-border pt-2">
         <NavLink
           to="/settings"
+          onClick={onClose}
           className={({ isActive }) =>
             `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
               isActive ? "text-gold bg-gold/10" : "text-slate-500 hover:text-slate-300 hover:bg-soc-border/20"

@@ -96,7 +96,7 @@ export default function Settings() {
           </div>
 
           {/* Role cards */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {ROLE_INFO.map(({ role, icon: Icon, desc, badge }) => (
               <div key={role} className="soc-card p-4">
                 <div className="flex items-center gap-2 mb-2">
