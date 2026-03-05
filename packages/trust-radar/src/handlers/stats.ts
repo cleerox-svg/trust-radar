@@ -27,7 +27,7 @@ export async function handleStats(request: Request, env: Env): Promise<Response>
       data: {
         total_signals: total,
         processed: total - (cached ?? 0),
-        avg_trust: Math.round((avg / 100) * 100) / 100,
+        avg_trust: Math.round(avg),
         active_alerts: (alertCount as { cnt: number } | null)?.cnt ?? 0,
         queue_depth: Math.max(0, Math.floor(total * 0.0005)),
         dead_letters: Math.max(0, Math.floor(total * 0.00015)),

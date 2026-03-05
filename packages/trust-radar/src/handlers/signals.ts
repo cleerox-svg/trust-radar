@@ -51,7 +51,7 @@ export async function handleSignals(request: Request, env: Env): Promise<Respons
       source: r.cached ? "node-001" : (SOURCE_MAP[r.source] ?? "station-alpha"),
       range_m: domainToRange(r.domain),
       intensity_dbz: scoreToIntensity(r.trust_score),
-      quality: Math.round((r.trust_score / 100) * 100) / 100,
+      quality: r.trust_score,
       tags: scoreToTags(r.trust_score, r.flags),
       domain: r.domain,
       risk_level: r.risk_level,
@@ -89,7 +89,7 @@ export async function handleAlerts(request: Request, env: Env): Promise<Response
       source: r.cached ? "node-001" : (SOURCE_MAP[r.source] ?? "station-alpha"),
       scan_ref: r.id,
       domain: r.domain,
-      quality: Math.round((r.trust_score / 100) * 100) / 100,
+      quality: r.trust_score,
       status: i === 0 ? "open" : "open",
       created_at: r.created_at,
     }));

@@ -6,6 +6,9 @@ import AlertsPage from "./pages/AlertsPage";
 import EntitiesPage from "./pages/EntitiesPage";
 import TrendsPage from "./pages/TrendsPage";
 import SendSignals from "./pages/SendSignals";
+import GeoMapPage from "./pages/GeoMapPage";
+import KnowledgeBasePage from "./pages/KnowledgeBasePage";
+import AIAdvisorPage from "./pages/AIAdvisorPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -67,9 +70,9 @@ export default function App() {
                 <Route path="/entities"      element={<EntitiesPage />} />
                 <Route path="/trends"        element={<TrendsPage />} />
                 <Route path="/send-signals"  element={<SendSignals />} />
-                <Route path="/geo-map"       element={<TrendsPage />} />
-                <Route path="/knowledge-base" element={<EntitiesPage />} />
-                <Route path="/ai-advisor"    element={<EntitiesPage />} />
+                <Route path="/geo-map"        element={<GeoMapPage />} />
+                <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+                <Route path="/ai-advisor"    element={<AIAdvisorPage />} />
                 <Route path="*"              element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </MainLayout>
