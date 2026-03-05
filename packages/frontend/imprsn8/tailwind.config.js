@@ -12,6 +12,14 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          bg:     "#07071a",
+          card:   "#0f0f1e",
+          border: "#1e1b4b",
+          muted:  "#6b7280",
+          purple: "#8b5cf6",
+          pink:   "#ec4899",
+        },
         soc: {
           bg:           "#07071A",
           card:         "#10102C",

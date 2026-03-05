@@ -71,7 +71,7 @@ export async function handleMe(request: Request, env: Env, userId: string): Prom
     "SELECT id, email, username, display_name, bio, avatar_url, plan, impression_score, total_analyses, is_admin, created_at FROM users WHERE id = ?"
   ).bind(userId).first<{ id: string; email: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; plan: string; impression_score: number; total_analyses: number; is_admin: number; created_at: string }>();
   if (!user) return json({ success: false, error: "User not found" }, 404, origin);
-  return json({ success: true, data: { ...user, is_admin: !!user.is_admin } }, 200, origin);
+  return json({ success: true, data: user }, 200, origin);
 }
 
 export async function handleUpdateProfile(request: Request, env: Env, userId: string): Promise<Response> {
