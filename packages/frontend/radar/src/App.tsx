@@ -12,6 +12,7 @@ import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import AIAdvisorPage from "./pages/AIAdvisorPage";
 import Home from "./pages/Home";
 import History from "./pages/History";
+import AdminPage from "./pages/AdminPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
@@ -112,6 +113,18 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { user, authLoading } = useAuth();
+  if (authLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-radar-bg">
+      <div className="w-6 h-6 border-2 border-radar-cyan border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_admin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -219,6 +232,7 @@ export default function App() {
                     <Route path="/geo-map"        element={<GeoMapPage />} />
                     <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
                     <Route path="/ai-advisor"     element={<AIAdvisorPage />} />
+                    <Route path="/admin"          element={<RequireAdmin><AdminPage /></RequireAdmin>} />
                     <Route path="*"               element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </MainLayout>

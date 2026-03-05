@@ -52,7 +52,7 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
   const token = await signJWT({ sub: id, email, plan: "free" }, env.JWT_SECRET);
 
-  return json({ success: true, data: { token, user: { id, email, plan: "free" } } }, 201, origin);
+  return json({ success: true, data: { token, user: { id, email, plan: "free", is_admin: false } } }, 201, origin);
 }
 
 export async function handleLogin(request: Request, env: Env): Promise<Response> {
@@ -100,14 +100,14 @@ export async function handleMe(request: Request, env: Env, userId: string): Prom
   const origin = request.headers.get("Origin");
 
   const user = await env.DB.prepare(
-    "SELECT id, email, plan, scans_used, scans_limit, created_at FROM users WHERE id = ?"
+    "SELECT id, email, plan, scans_used, scans_limit, is_admin, created_at FROM users WHERE id = ?"
   )
     .bind(userId)
-    .first();
+    .first<{ id: string; email: string; plan: string; scans_used: number; scans_limit: number; is_admin: number; created_at: string }>();
 
   if (!user) {
     return json({ success: false, error: "User not found" }, 404, origin);
   }
 
-  return json({ success: true, data: user }, 200, origin);
+  return json({ success: true, data: { ...user, is_admin: !!user.is_admin } }, 200, origin);
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { auth, analyses, socials, profile as profileApi, type User, type Analysis, type SocialProfile, type ScorePoint } from "../lib/api";
+import { auth, analyses, socials, campaigns as campaignsApi, profile as profileApi, type User, type Analysis, type SocialProfile, type ScorePoint, type Campaign } from "../lib/api";
 
 const PLATFORMS = ["linkedin", "twitter", "github", "instagram", "tiktok", "youtube", "website"] as const;
 const PLATFORM_ICONS: Record<string, string> = {
@@ -55,16 +55,36 @@ export default function Dashboard() {
   const [socialHandle, setSocialHandle] = useState("");
   const [addingSocial, setAddingSocial] = useState(false);
 
+  // Campaigns
+  const [userCampaigns, setUserCampaigns] = useState<Campaign[]>([]);
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignChannel, setCampaignChannel] = useState("web");
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
+
   useEffect(() => {
-    Promise.all([auth.me(), analyses.list(), socials.list(), analyses.scoreHistory()])
-      .then(([u, a, s, h]) => {
+    Promise.all([auth.me(), analyses.list(), socials.list(), analyses.scoreHistory(), campaignsApi.list()])
+      .then(([u, a, s, h, c]) => {
         setUser(u);
         setRecentAnalyses(a.slice(0, 5));
         setUserSocials(s);
         setScoreHistory(h);
+        setUserCampaigns(c);
       })
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleCreateCampaign(e: FormEvent) {
+    e.preventDefault();
+    if (!campaignName.trim()) return;
+    setCreatingCampaign(true);
+    try {
+      const c = await campaignsApi.create(campaignName.trim(), campaignChannel);
+      setUserCampaigns((prev) => [c, ...prev]);
+      setCampaignName("");
+    } finally {
+      setCreatingCampaign(false);
+    }
+  }
 
   async function handleAnalyze(e: FormEvent) {
     e.preventDefault();
@@ -410,6 +430,50 @@ export default function Dashboard() {
               />
               <button type="submit" className="btn-ghost w-full text-sm py-2" disabled={addingSocial || !socialHandle.trim()}>
                 {addingSocial ? "Adding…" : "+ Add profile"}
+              </button>
+            </form>
+          </div>
+
+          {/* Campaigns */}
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-slate-200">Campaigns</h2>
+
+            {userCampaigns.length > 0 && (
+              <div className="space-y-2">
+                {userCampaigns.slice(0, 4).map((c) => (
+                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-brand-border last:border-0">
+                    <div>
+                      <div className="text-sm text-slate-200 font-medium truncate max-w-[120px]">{c.name}</div>
+                      <div className="text-xs text-brand-muted capitalize">{c.channel} · {c.status}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-mono text-brand-purple">{c.impressions.toLocaleString()}</div>
+                      <div className="text-[10px] text-brand-muted">impressions</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCampaign} className="space-y-3">
+              <input
+                className="input text-sm"
+                placeholder="Campaign name"
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+                disabled={creatingCampaign}
+              />
+              <select
+                className="input text-sm"
+                value={campaignChannel}
+                onChange={(e) => setCampaignChannel(e.target.value)}
+              >
+                {["web", "mobile", "email", "api"].map((ch) => (
+                  <option key={ch} value={ch}>{ch}</option>
+                ))}
+              </select>
+              <button type="submit" className="btn-ghost w-full text-sm py-2" disabled={creatingCampaign || !campaignName.trim()}>
+                {creatingCampaign ? "Creating…" : "+ New campaign"}
               </button>
             </form>
           </div>

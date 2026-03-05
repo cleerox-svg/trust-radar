@@ -4,7 +4,8 @@ import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert } from "./handlers/signals";
-import { requireAuth, isAuthContext } from "./middleware/auth";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
 const router = Router();
@@ -80,6 +81,23 @@ router.get("/api/alerts", (request: Request, env: Env) =>
 router.post("/api/alerts/:id/ack", async (request: Request & { params: Record<string, string> }, env: Env) =>
   handleAckAlert(request, env, request.params["id"] ?? "")
 );
+
+// ─── Admin ────────────────────────────────────────────────────
+router.get("/api/admin/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminStats(request, env);
+});
+router.get("/api/admin/users", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminListUsers(request, env);
+});
+router.patch("/api/admin/users/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
+});
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 router.all("*", (request: Request, env: Env) => {

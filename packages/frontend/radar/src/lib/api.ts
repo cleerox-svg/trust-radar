@@ -14,7 +14,7 @@ export interface ScanResult {
   };
   cached: boolean; created_at: string;
 }
-export interface User { id: string; email: string; plan: string; scans_used: number; scans_limit: number; created_at: string; }
+export interface User { id: string; email: string; plan: string; scans_used: number; scans_limit: number; is_admin: boolean; created_at: string; }
 export interface DashboardStats { total_signals: number; processed: number; avg_trust: number; active_alerts: number; queue_depth: number; dead_letters: number; duplicates: number; stored: number; }
 export interface Signal { id: string; captured_at: string; source: string; range_m: number; intensity_dbz: number; quality: number; tags: string[]; domain?: string; risk_level?: string; }
 export interface SignalAlert { id: string; source: string; scan_ref?: string; domain?: string; quality: number; status: "open" | "acked" | "resolved"; created_at: string; }
@@ -66,4 +66,14 @@ export const signals = { list: (limit = 20) => api<Signal[]>(`/signals?limit=${l
 export const alerts = {
   list: () => api<SignalAlert[]>("/alerts"),
   ack: (id: string) => api<void>(`/alerts/${id}/ack`, { method: "POST" }),
+};
+
+export interface AdminUser { id: string; email: string; plan: string; scans_used: number; scans_limit: number; is_admin: boolean; created_at: string; }
+export interface AdminStats { users: { total: number; pro: number; enterprise: number }; scans: { total: number; high_risk: number; avg_trust: number }; alerts: { total: number; open: number }; }
+
+export const admin = {
+  stats: () => api<AdminStats>("/admin/stats"),
+  users: (limit = 50, offset = 0) => api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
+  updateUser: (id: string, data: { plan?: string; scans_limit?: number; is_admin?: boolean }) =>
+    api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };

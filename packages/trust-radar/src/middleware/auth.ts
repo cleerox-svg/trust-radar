@@ -29,6 +29,19 @@ export async function requireAuth(
   return { userId: payload.sub, email: payload.email, plan: payload.plan };
 }
 
+export async function requireAdmin(request: Request, env: Env): Promise<AuthContext | Response> {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+
+  const row = await env.DB.prepare("SELECT is_admin FROM users WHERE id = ?")
+    .bind(ctx.userId).first<{ is_admin: number }>();
+
+  if (!row?.is_admin) {
+    return json({ success: false, error: "Forbidden" }, 403, request.headers.get("Origin"));
+  }
+  return ctx;
+}
+
 export function isAuthContext(val: AuthContext | Response): val is AuthContext {
   return !(val instanceof Response);
 }

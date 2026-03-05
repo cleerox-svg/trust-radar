@@ -118,6 +118,24 @@ export default function Sidebar({ onClose }: SidebarProps) {
             })}
           </div>
         ))}
+
+        {/* Admin link — only visible to admins */}
+        {user?.is_admin && (
+          <div>
+            <div className="section-label">SYSTEM</div>
+            <NavLink
+              to="/admin"
+              onClick={onClose}
+              className={location.pathname === "/admin" ? "nav-item-active" : "nav-item"}
+            >
+              <span className="shrink-0 opacity-70">
+                <Icon d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </span>
+              <span className="flex-1 truncate">Admin Panel</span>
+              <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-radar-red/20 text-radar-red shrink-0">ADM</span>
+            </NavLink>
+          </div>
+        )}
       </nav>
 
       {/* User footer */}
