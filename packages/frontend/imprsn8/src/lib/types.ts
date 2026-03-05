@@ -12,6 +12,8 @@ export interface User {
   plan: string;
   role: UserRole;
   is_admin: number;
+  impression_score: number;
+  total_analyses: number;
   assigned_influencer_id: string | null;
   created_at: string;
 }
@@ -156,6 +158,57 @@ export interface AgentRun {
   error_msg: string | null;
   started_at: string;
   completed_at: string | null;
+}
+
+export type AnalysisType = "bio" | "content" | "profile" | "portfolio";
+
+export interface ScoreBreakdown {
+  clarity: number;
+  professionalism: number;
+  consistency: number;
+  impact: number;
+}
+
+export interface Analysis {
+  id: string;
+  type: AnalysisType;
+  score: number;
+  breakdown: ScoreBreakdown;
+  strengths: string[];
+  suggestions: string[];
+  created_at: string;
+}
+
+export interface SocialProfile {
+  id: string;
+  platform: string;
+  handle: string;
+}
+
+export interface ScorePoint {
+  date: string;
+  score: number;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  channel: string;
+  status: string;
+  impressions: number;
+}
+
+export interface AdminStats {
+  users: {
+    total: number;
+    pro: number;
+    enterprise: number;
+    avg_impression_score: number;
+  };
+  analyses: {
+    total: number;
+    avg_score: number;
+  };
 }
 
 export interface OverviewStats {
