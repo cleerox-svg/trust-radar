@@ -71,6 +71,12 @@ export async function handleAddAccount(request: Request, env: Env): Promise<Resp
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, influencer_id, platform, handle, profile_url ?? null, is_verified, follower_count ?? null, now, now).run();
 
+  // Capture initial snapshot so baseline exists for drift detection
+  await env.DB.prepare(
+    `INSERT INTO account_snapshots (account_id, avatar_url, follower_count, is_verified, captured_at)
+     VALUES (?, ?, ?, ?, ?)`
+  ).bind(id, profile_url ?? null, follower_count ?? null, is_verified, now).run();
+
   return json({ success: true, data: { id, influencer_id, platform, handle, risk_score: 100, risk_category: "unscored", added_at: now } }, 201, origin);
 }
 

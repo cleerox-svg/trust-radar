@@ -161,11 +161,25 @@ export async function handleOverviewStats(
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  const [userCount, influencerCount, threatCount, takedownCount] = await Promise.all([
+  const [userCount, influencerCount, threatCount, takedownCount,
+         threatsByPlatform, takedownsByType, accountsByRisk, avgScore] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) as cnt FROM users").first<{ cnt: number }>(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM influencer_profiles WHERE active = 1").first<{ cnt: number }>(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM impersonation_reports WHERE status NOT IN ('resolved','dismissed')").first<{ cnt: number }>(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM takedown_requests WHERE status NOT IN ('resolved','rejected')").first<{ cnt: number }>(),
+    env.DB.prepare(
+      `SELECT platform, COUNT(*) as cnt FROM impersonation_reports
+       WHERE status NOT IN ('resolved','dismissed') GROUP BY platform ORDER BY cnt DESC LIMIT 10`
+    ).all<{ platform: string; cnt: number }>(),
+    env.DB.prepare(
+      `SELECT takedown_type, COUNT(*) as cnt FROM takedown_requests GROUP BY takedown_type ORDER BY cnt DESC`
+    ).all<{ takedown_type: string; cnt: number }>(),
+    env.DB.prepare(
+      `SELECT risk_category, COUNT(*) as cnt FROM monitored_accounts GROUP BY risk_category ORDER BY cnt DESC`
+    ).all<{ risk_category: string; cnt: number }>(),
+    env.DB.prepare(
+      `SELECT AVG(impression_score) as avg FROM users WHERE impression_score > 0`
+    ).first<{ avg: number | null }>(),
   ]);
 
   return json({ success: true, data: {
@@ -173,5 +187,9 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
     influencers: influencerCount?.cnt ?? 0,
     active_threats: threatCount?.cnt ?? 0,
     pending_takedowns: takedownCount?.cnt ?? 0,
+    avg_impression_score: Math.round(avgScore?.avg ?? 0),
+    threats_by_platform: threatsByPlatform.results,
+    takedowns_by_type: takedownsByType.results,
+    accounts_by_risk: accountsByRisk.results,
   } }, 200, origin);
 }

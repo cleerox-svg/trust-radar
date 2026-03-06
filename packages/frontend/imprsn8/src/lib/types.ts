@@ -198,17 +198,28 @@ export interface Campaign {
   impressions: number;
 }
 
+export type VariantType = "homoglyph" | "separator" | "suffix" | "prefix" | "swap" | "other";
+
+export interface HandleVariant {
+  id: string;
+  influencer_id: string;
+  platform: string;
+  original_handle: string;
+  variant_handle: string;
+  variant_type: VariantType;
+  is_active: number;
+  created_at: string;
+}
+
 export interface AdminStats {
-  users: {
-    total: number;
-    pro: number;
-    enterprise: number;
-    avg_impression_score: number;
-  };
-  analyses: {
-    total: number;
-    avg_score: number;
-  };
+  users: number;
+  influencers: number;
+  active_threats: number;
+  pending_takedowns: number;
+  avg_impression_score: number;
+  threats_by_platform: { platform: string; cnt: number }[];
+  takedowns_by_type: { takedown_type: string; cnt: number }[];
+  accounts_by_risk: { risk_category: string; cnt: number }[];
 }
 
 export interface ActivityEvent {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2 } from "lucide-react";
+import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag } from "lucide-react";
 import { admin, influencers as influencersApi, type AdminUser } from "../lib/api";
 import type { AdminStats, InfluencerProfile } from "../lib/types";
 
@@ -7,7 +7,7 @@ const PLANS = ["free", "pro", "enterprise"] as const;
 const ROLES = ["influencer", "staff", "soc", "admin"] as const;
 const TIERS = ["starter", "pro", "enterprise"] as const;
 
-type Tab = "influencers" | "users";
+type Tab = "influencers" | "users" | "breakdown";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon?: React.ReactNode }) {
@@ -442,6 +442,58 @@ function InfluencersTab() {
   );
 }
 
+// ─── Platform Breakdown Tab ───────────────────────────────────────────────────
+function BreakdownTab({ stats }: { stats: AdminStats }) {
+  function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+    const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+    return (
+      <div className="flex items-center gap-3 py-2 border-b border-soc-border/50 last:border-0">
+        <span className="text-xs text-slate-400 w-28 truncate capitalize">{label.replace(/_/g, " ")}</span>
+        <div className="flex-1 h-1.5 bg-soc-border rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-xs font-bold font-mono text-slate-200 w-8 text-right">{value}</span>
+      </div>
+    );
+  }
+
+  const maxPlatform = Math.max(...(stats.threats_by_platform.map((r) => r.cnt)), 1);
+  const maxType = Math.max(...(stats.takedowns_by_type.map((r) => r.cnt)), 1);
+  const maxRisk = Math.max(...(stats.accounts_by_risk.map((r) => r.cnt)), 1);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="soc-card">
+        <div className="text-[10px] font-bold text-slate-500 tracking-widest mb-3">THREATS BY PLATFORM</div>
+        {stats.threats_by_platform.length === 0 ? (
+          <div className="text-center py-6 text-slate-600 text-xs">No data</div>
+        ) : stats.threats_by_platform.map((r) => (
+          <Bar key={r.platform} label={r.platform} value={r.cnt} max={maxPlatform} color="bg-threat-critical" />
+        ))}
+      </div>
+      <div className="soc-card">
+        <div className="text-[10px] font-bold text-slate-500 tracking-widest mb-3">TAKEDOWNS BY TYPE</div>
+        {stats.takedowns_by_type.length === 0 ? (
+          <div className="text-center py-6 text-slate-600 text-xs">No data</div>
+        ) : stats.takedowns_by_type.map((r) => (
+          <Bar key={r.takedown_type} label={r.takedown_type} value={r.cnt} max={maxType} color="bg-gold" />
+        ))}
+      </div>
+      <div className="soc-card">
+        <div className="text-[10px] font-bold text-slate-500 tracking-widest mb-3">ACCOUNTS BY RISK</div>
+        {stats.accounts_by_risk.length === 0 ? (
+          <div className="text-center py-6 text-slate-600 text-xs">No data</div>
+        ) : stats.accounts_by_risk.map((r) => {
+          const color = r.risk_category === "imposter" ? "bg-threat-critical" :
+                        r.risk_category === "suspicious" ? "bg-threat-high" :
+                        r.risk_category === "legitimate" ? "bg-status-live" : "bg-slate-500";
+          return <Bar key={r.risk_category} label={r.risk_category} value={r.cnt} max={maxRisk} color={color} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Root AdminPage ───────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("influencers");
@@ -458,6 +510,7 @@ export default function AdminPage() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "influencers", label: "Influencers", icon: <UserCheck size={14} /> },
     { id: "users",       label: "Users",       icon: <Users size={14} /> },
+    { id: "breakdown",   label: "Platform Stats", icon: <BarChart2 size={14} /> },
   ];
 
   return (
@@ -476,10 +529,10 @@ export default function AdminPage() {
       {/* Stats bar */}
       {!loadingStats && stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={<Users size={12} />} label="Total Users" value={stats.users.total} sub={`${stats.users.pro} pro · ${stats.users.enterprise} enterprise`} />
-          <StatCard icon={<BarChart2 size={12} />} label="Avg Imp. Score" value={stats.users.avg_impression_score} />
-          <StatCard icon={<BarChart2 size={12} />} label="Total Analyses" value={stats.analyses.total} />
-          <StatCard icon={<Shield size={12} />} label="Influencers" value={influencerList.length} sub={`${influencerList.filter((i) => i.active).length} active`} />
+          <StatCard icon={<Users size={12} />} label="Total Users" value={stats.users} />
+          <StatCard icon={<Shield size={12} />} label="Influencers" value={stats.influencers} sub={`${influencerList.filter((i) => i.active).length} active`} />
+          <StatCard icon={<AlertTriangle size={12} />} label="Active Threats" value={stats.active_threats} />
+          <StatCard icon={<Flag size={12} />} label="Pending Takedowns" value={stats.pending_takedowns} />
         </div>
       )}
 
@@ -504,6 +557,10 @@ export default function AdminPage() {
       {/* Tab content */}
       {tab === "influencers" && <InfluencersTab />}
       {tab === "users"       && <UsersTab influencerList={influencerList} />}
+      {tab === "breakdown"   && stats && <BreakdownTab stats={stats} />}
+      {tab === "breakdown"   && !stats && !loadingStats && (
+        <div className="text-center py-12 text-slate-500 text-sm">No stats available</div>
+      )}
     </div>
   );
 }
