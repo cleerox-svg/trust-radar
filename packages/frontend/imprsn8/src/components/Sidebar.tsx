@@ -228,31 +228,47 @@ export function useSidebarData() {
     const token = localStorage.getItem("imprsn8_token");
     if (!token) { setUnauthenticated(true); setLoading(false); return; }
 
-    // auth.me() is critical — validates the session and loads the user.
-    // influencers.list() is supplementary — failures must not block the UI.
-    auth.me()
-      .then((u) => {
-        setUser(u);
-        influencers.list()
-          .then((infs) => {
-            setInfluencerList(infs);
-            if ((u.role === "influencer" || u.role === "staff") && u.assigned_influencer_id) {
-              const assigned = infs.find((i) => i.id === u.assigned_influencer_id);
-              if (assigned) setSelectedInfluencer(assigned);
-            }
-          })
-          .catch(() => {
-            // Influencer list failed (DB error, empty table, etc.) — render with empty list
-          });
-      })
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) {
-          localStorage.removeItem("imprsn8_token");
-          setUnauthenticated(true);
+    let cancelled = false;
+
+    // Retry auth.me() up to 3 times with exponential backoff for transient errors.
+    // 401 immediately clears the token and redirects; other errors retry silently.
+    async function fetchMe(): Promise<void> {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (cancelled) return;
+        try {
+          const u = await auth.me();
+          if (cancelled) return;
+          setUser(u);
+          influencers.list()
+            .then((infs) => {
+              if (cancelled) return;
+              setInfluencerList(infs);
+              if ((u.role === "influencer" || u.role === "staff") && u.assigned_influencer_id) {
+                const assigned = infs.find((i) => i.id === u.assigned_influencer_id);
+                if (assigned) setSelectedInfluencer(assigned);
+              }
+            })
+            .catch(() => { /* empty list is fine */ });
+          return; // success — stop looping
+        } catch (err) {
+          if (cancelled) return;
+          if (err instanceof ApiError && err.status === 401) {
+            localStorage.removeItem("imprsn8_token");
+            setUnauthenticated(true);
+            return;
+          }
+          // Transient error — wait before retrying (skip delay after last attempt)
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          }
         }
-        // Non-401 errors (500, network): user stays null, AppShell shows retry UI
-      })
-      .finally(() => setLoading(false));
+      }
+      // All retries exhausted — user stays null, AppShell shows RETRY UI
+    }
+
+    fetchMe().finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated };
