@@ -224,14 +224,64 @@ router.all("*", (request: Request, env: Env) => {
   return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
 });
 
+// ─── Debug / health ───────────────────────────────────────────────────────
+router.get("/api/debug", async (request: Request, env: Env) => {
+  const origin = request.headers.get("Origin");
+  const checks: Record<string, unknown> = {};
+
+  // 1. DB binding
+  if (!env.DB) {
+    return json({ success: false, error: "D1 binding (DB) is missing — check wrangler.toml and IMPRSN8_D1_DATABASE_ID secret" }, 500, origin);
+  }
+  checks["db_binding"] = "ok";
+
+  // 2. Basic DB query
+  try {
+    const row = await env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
+    checks["db_query"] = row?.ok === 1 ? "ok" : "unexpected result";
+  } catch (e) {
+    checks["db_query"] = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 3. Users table exists
+  try {
+    await env.DB.prepare("SELECT COUNT(*) FROM users").first();
+    checks["users_table"] = "ok";
+  } catch (e) {
+    checks["users_table"] = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 4. Check for impression_score column (migration 0008)
+  try {
+    await env.DB.prepare("SELECT impression_score FROM users LIMIT 1").first();
+    checks["col_impression_score"] = "ok";
+  } catch (e) {
+    checks["col_impression_score"] = `MISSING: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 5. Check for role column (migration 0004)
+  try {
+    await env.DB.prepare("SELECT role FROM users LIMIT 1").first();
+    checks["col_role"] = "ok";
+  } catch (e) {
+    checks["col_role"] = `MISSING: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 6. JWT_SECRET present
+  checks["jwt_secret"] = env.JWT_SECRET ? `set (${env.JWT_SECRET.length} chars)` : "MISSING";
+
+  return json({ success: true, data: checks }, 200, origin);
+});
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return router
       .fetch(request, env, ctx)
       .catch((err: unknown) => {
-        console.error("Unhandled error:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[imprsn8] Unhandled error:", msg, err);
         return json(
-          { success: false, error: "Internal server error" },
+          { success: false, error: msg },   // real error — visible in Network tab
           500,
           request.headers.get("Origin")
         );

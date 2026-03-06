@@ -222,6 +222,7 @@ export function useSidebarData() {
   const [selectedInfluencer, setSelectedInfluencer] = useState<InfluencerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthenticated, setUnauthenticated] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -230,14 +231,13 @@ export function useSidebarData() {
 
     let cancelled = false;
 
-    // Retry auth.me() up to 3 times with exponential backoff for transient errors.
-    // 401 immediately clears the token and redirects; other errors retry silently.
     async function fetchMe(): Promise<void> {
       for (let attempt = 0; attempt < 4; attempt++) {
         if (cancelled) return;
         try {
           const u = await auth.me();
           if (cancelled) return;
+          setApiError(null);
           setUser(u);
           influencers.list()
             .then((infs) => {
@@ -249,7 +249,7 @@ export function useSidebarData() {
               }
             })
             .catch(() => { /* empty list is fine */ });
-          return; // success — stop looping
+          return;
         } catch (err) {
           if (cancelled) return;
           if (err instanceof ApiError && err.status === 401) {
@@ -257,13 +257,14 @@ export function useSidebarData() {
             setUnauthenticated(true);
             return;
           }
-          // Transient error — wait before retrying (skip delay after last attempt)
           if (attempt < 3) {
             await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          } else {
+            // Capture the real error message for display
+            setApiError(err instanceof Error ? err.message : String(err));
           }
         }
       }
-      // All retries exhausted — user stays null, AppShell shows RETRY UI
     }
 
     fetchMe().finally(() => { if (!cancelled) setLoading(false); });
@@ -271,5 +272,5 @@ export function useSidebarData() {
     return () => { cancelled = true; };
   }, [navigate]);
 
-  return { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated };
+  return { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated, apiError };
 }
