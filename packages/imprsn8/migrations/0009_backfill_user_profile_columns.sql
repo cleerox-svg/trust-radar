@@ -1,7 +1,9 @@
 -- Migration: 0009_backfill_user_profile_columns
--- Production DB was created without username, bio, avatar_url in the initial
--- schema. Add them safely with IF NOT EXISTS (D1 / SQLite 3.37+).
+-- Adds username, bio, avatar_url to users.
+-- These were never in the original remote schema. The current 0001_initial.sql
+-- no longer includes them so this migration is safe on both production and
+-- fresh databases. D1 does not support ADD COLUMN IF NOT EXISTS.
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN username TEXT;
+ALTER TABLE users ADD COLUMN bio TEXT;
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
