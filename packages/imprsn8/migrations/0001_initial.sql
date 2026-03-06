@@ -7,12 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
   email           TEXT NOT NULL UNIQUE,
   password_hash   TEXT NOT NULL,
   username        TEXT UNIQUE,
-  display_name    TEXT,
   bio             TEXT,
   avatar_url      TEXT,
   plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
-  impression_score INTEGER NOT NULL DEFAULT 0,
-  total_analyses  INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
