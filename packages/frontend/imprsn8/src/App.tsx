@@ -24,7 +24,7 @@ function RequireAuth() {
 
 // ─── Authenticated shell with sidebar ─────────────────────────────────────
 function AppShell() {
-  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated } = useSidebarData();
+  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated, apiError } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -41,11 +41,19 @@ function AppShell() {
 
   if (unauthenticated) return <Navigate to="/login" replace />;
 
-  // auth.me() succeeded token-check but API returned a non-auth error (500, network, etc.)
+  // auth.me() passed the token check but the API returned a non-auth error
   if (!user) return (
     <div className="flex items-center justify-center h-screen bg-soc-bg">
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-4 max-w-md px-6 text-center">
         <div className="text-sm text-slate-400 font-mono tracking-widest">API CONNECTION ERROR</div>
+        {apiError && (
+          <div className="text-xs text-red-400 font-mono bg-red-950/30 border border-red-900/40 rounded px-4 py-3 w-full text-left break-all">
+            {apiError}
+          </div>
+        )}
+        <div className="text-xs text-slate-600 font-mono">
+          Visit <span className="text-slate-400">/api/debug</span> for DB diagnostics
+        </div>
         <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 text-xs font-mono text-gold border border-gold/30 rounded hover:bg-gold/10 transition-colors"
