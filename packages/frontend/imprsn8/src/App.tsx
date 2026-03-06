@@ -15,6 +15,7 @@ import Takedowns from "./pages/Takedowns";
 import AgentsPanel from "./pages/AgentsPanel";
 import Settings from "./pages/Settings";
 import AdminPage from "./pages/AdminPage";
+import BrandDashboard from "./pages/Dashboard";
 
 // ─── Auth guard ───────────────────────────────────────────────────────────
 // Token must exist AND look like a valid JWT (header.payload.signature)
@@ -119,6 +120,7 @@ export default function App() {
             <Route path="/agents"     element={<AgentsPanel />} />
             <Route path="/settings"   element={<Settings />} />
             <Route path="/admin"      element={<AdminPage />} />
+            <Route path="/brand"      element={<BrandDashboard />} />
           </Route>
         </Route>
 

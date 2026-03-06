@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
-  Users, Lock,
+  Users, Lock, TrendingUp,
 } from "lucide-react";
 import { Pulse } from "./ui/Pulse";
 import { auth, influencers, ApiError } from "../lib/api";
@@ -16,6 +16,7 @@ interface NavItem {
   badge?: number;
   adminOnly?: boolean;
   socOnly?: boolean;
+  influencerOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -23,7 +24,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/accounts",    label: "Monitored",         icon: <Shield size={16} /> },
   { to: "/threats",     label: "Threats Found",     icon: <AlertTriangle size={16} /> },
   { to: "/takedowns",   label: "Takedowns",         icon: <Download size={16} /> },
-  { to: "/agents",      label: "Agents",            icon: <Bot size={16} /> },
+  { to: "/agents",      label: "Agents",            icon: <Bot size={16} />, socOnly: true },
+  { to: "/brand",       label: "Brand Score",       icon: <TrendingUp size={16} />, influencerOnly: true },
   { to: "/admin",       label: "Admin Console",     icon: <Lock size={16} />, adminOnly: true },
 ];
 
@@ -166,6 +168,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
         {NAV_ITEMS.filter((item) => {
           if (item.adminOnly && user.role !== "admin") return false;
           if (item.socOnly && !isSocOrAdmin) return false;
+          if (item.influencerOnly && isSocOrAdmin) return false;
           return true;
         }).map((item) => (
           <NavLink
