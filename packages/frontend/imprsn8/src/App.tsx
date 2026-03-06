@@ -40,7 +40,21 @@ function AppShell() {
   }
 
   if (unauthenticated) return <Navigate to="/login" replace />;
-  if (!user) return null;
+
+  // auth.me() succeeded token-check but API returned a non-auth error (500, network, etc.)
+  if (!user) return (
+    <div className="flex items-center justify-center h-screen bg-soc-bg">
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-sm text-slate-400 font-mono tracking-widest">API CONNECTION ERROR</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 text-xs font-mono text-gold border border-gold/30 rounded hover:bg-gold/10 transition-colors"
+        >
+          RETRY
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-soc-bg overflow-hidden">
