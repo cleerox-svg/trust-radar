@@ -37,6 +37,12 @@ bucket_name = "imprsn8-assets"
 ENVIRONMENT = "production"
 LRX_API_URL = "https://api.lrx.io"
 
+# ─── Cron Triggers — data feed auto-pulls ────────────────────
+# Runs every 30 minutes; the scheduled handler checks which feeds
+# are due (last_pulled_at + pull_interval_mins <= now) and executes them.
+[triggers]
+crons = ["*/30 * * * *"]
+
 # ─── Secrets (set via: wrangler secret put <NAME>) ────────────
 # JWT_SECRET
 # LRX_API_KEY

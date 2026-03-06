@@ -12,6 +12,8 @@ import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./hand
 import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
 import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns";
 import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
+import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
+import { runDueFeeds } from "./lib/feedRunner";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -231,6 +233,33 @@ router.patch("/api/admin/users/:id", async (request: Request & { params: Record<
   return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
 });
 
+// ─── Data Feeds ───────────────────────────────────────────────
+router.get("/api/feeds", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListFeeds(request, env);
+});
+router.post("/api/feeds", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateFeed(request, env);
+});
+router.patch("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateFeed(request, env, request.params["id"] ?? "");
+});
+router.delete("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteFeed(request, env, request.params["id"] ?? "");
+});
+router.post("/api/feeds/:id/trigger", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerFeed(request, env, request.params["id"] ?? "");
+});
+
 // ─── SPA fallback ─────────────────────────────────────────────
 router.all("*", (request: Request, env: Env) => {
   const url = new URL(request.url);
@@ -297,10 +326,15 @@ export default {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[imprsn8] Unhandled error:", msg, err);
         return json(
-          { success: false, error: msg },   // real error — visible in Network tab
+          { success: false, error: msg },
           500,
           request.headers.get("Origin")
         );
       });
+  },
+
+  /** Cloudflare Cron Trigger — runs active data feeds on schedule */
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runDueFeeds(env));
   },
 };
