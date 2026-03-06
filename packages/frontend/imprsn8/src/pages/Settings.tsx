@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Plus, Key, Shield, Users, Eye } from "lucide-react";
-import { admin } from "../lib/api";
+import { Search, Plus, Key, Shield, Users, Eye, UserCircle, Check } from "lucide-react";
+import { admin, profile as profileApi } from "../lib/api";
 import type { User } from "../lib/types";
 
 interface Ctx { user: User; }
@@ -29,16 +29,45 @@ const ROLE_INFO = [
   { role: "Infl. Staff", icon: Eye, desc: "Read-only access to assigned influencer dashboard", badge: "text-status-live" },
 ];
 
-type TabId = "access" | "knowledge";
+type TabId = "profile" | "access" | "knowledge";
 
 export default function Settings() {
   const { user } = useOutletContext<Ctx>();
-  const [tab, setTab] = useState<TabId>("access");
+  const [tab, setTab] = useState<TabId>("profile");
 
   // Access management state
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const isAdmin = user.is_admin === 1 || user.role === "admin";
+
+  // Profile editing state
+  const [profileForm, setProfileForm] = useState({
+    display_name: user.display_name ?? "",
+    username: user.username ?? "",
+    bio: user.bio ?? "",
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  async function handleProfileSave(e: React.FormEvent) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileError("");
+    try {
+      await profileApi.update({
+        display_name: profileForm.display_name.trim() || undefined,
+        username: profileForm.username.trim() || undefined,
+        bio: profileForm.bio.trim() || undefined,
+      });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2500);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   // KB state
   const [kbQuery, setKbQuery] = useState("");
@@ -65,20 +94,82 @@ export default function Settings() {
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-soc-border pb-1">
-        {(["access", "knowledge"] as TabId[]).map((t) => (
+        {(["profile", "access", "knowledge"] as TabId[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-all capitalize ${
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-all ${
               tab === t
                 ? "text-gold border-b-2 border-gold -mb-px"
                 : "text-slate-500 hover:text-slate-300"
             }`}
           >
-            {t === "access" ? "Access Management" : "Knowledge Base"}
+            {t === "profile" ? "My Profile" : t === "access" ? "Access Management" : "Knowledge Base"}
           </button>
         ))}
       </div>
+
+      {/* ── My Profile ── */}
+      {tab === "profile" && (
+        <div className="space-y-4 max-w-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center text-xl font-bold text-purple-light">
+              {(user.display_name ?? user.email)[0]?.toUpperCase()}
+            </div>
+            <div>
+              <div className="font-semibold text-slate-200">{user.display_name ?? "—"}</div>
+              <div className="text-xs text-slate-500 font-mono">{user.email}</div>
+              <div className="text-[10px] text-slate-600 mt-0.5 uppercase tracking-wider">{user.role} · {user.plan}</div>
+            </div>
+          </div>
+
+          <form onSubmit={handleProfileSave} className="soc-card space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <UserCircle size={14} className="text-gold" />
+              <span className="text-sm font-semibold text-slate-200">Edit Profile</span>
+            </div>
+
+            {profileError && (
+              <div className="text-red-400 text-xs bg-red-950/30 border border-red-900/30 rounded px-3 py-2">{profileError}</div>
+            )}
+
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Display Name</label>
+              <input
+                className="soc-input"
+                placeholder="Your name"
+                value={profileForm.display_name}
+                onChange={(e) => setProfileForm((f) => ({ ...f, display_name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Username</label>
+              <input
+                className="soc-input"
+                placeholder="@handle"
+                value={profileForm.username}
+                onChange={(e) => setProfileForm((f) => ({ ...f, username: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Bio</label>
+              <textarea
+                className="soc-input w-full min-h-[80px] resize-y"
+                placeholder="Short bio..."
+                value={profileForm.bio}
+                onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value }))}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={profileSaving}
+              className={`btn-gold flex items-center gap-2 ${profileSaved ? "!bg-status-live/20 !border-status-live !text-status-live" : ""}`}
+            >
+              {profileSaved ? <><Check size={13} /> Saved</> : profileSaving ? "Saving…" : "Save Changes"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* ── Access Management ── */}
       {tab === "access" && (

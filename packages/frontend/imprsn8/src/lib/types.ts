@@ -211,6 +211,16 @@ export interface AdminStats {
   };
 }
 
+export interface ActivityEvent {
+  id: string;
+  kind: "agent_run" | "threat_detected" | "threat_updated" | "takedown_created" | "takedown_updated";
+  title: string;
+  detail: string | null;
+  severity: string | null;
+  timestamp: string;
+  influencer_name: string | null;
+}
+
 export interface OverviewStats {
   accounts_monitored: number;
   platforms_count: number;
@@ -220,6 +230,8 @@ export interface OverviewStats {
   critical_takedowns: number;
   agents_active: number;
   agents_total: number;
+  last_agent_run_at: string | null;
   recent_threats: ImpersonationReport[];
   agent_heartbeat: AgentDefinition[];
+  recent_activity: ActivityEvent[];
 }

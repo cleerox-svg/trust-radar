@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ExternalLink } from "lucide-react";
+import { RefreshCw, ExternalLink, Bot, AlertTriangle, Flag, Activity } from "lucide-react";
 import { overview } from "../lib/api";
 import { SeverityBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
 import { Pulse } from "../components/ui/Pulse";
-import type { OverviewStats, InfluencerProfile, User } from "../lib/types";
+import type { OverviewStats, InfluencerProfile, User, ActivityEvent } from "../lib/types";
 
 interface Ctx {
   user: User;
@@ -40,7 +40,8 @@ export default function Overview() {
       const data = await overview.stats(selectedInfluencer?.id);
       setStats(data);
       setThreatCount(data.active_threats);
-      setLastScan(new Date().toISOString());
+      // Use actual last agent run timestamp, not client fetch time
+      setLastScan(data.last_agent_run_at ?? new Date().toISOString());
     } finally {
       setLoading(false);
     }
@@ -146,6 +147,74 @@ export default function Overview() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Activity Timeline */}
+      {(stats?.recent_activity?.length ?? 0) > 0 && (
+        <div className="soc-card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Activity — Last 24h</h2>
+            <span className="text-[10px] text-slate-500 font-mono">{stats!.recent_activity.length} events</span>
+          </div>
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-soc-border" />
+            <div className="space-y-3 pl-6">
+              {stats!.recent_activity.map((ev) => (
+                <ActivityRow key={`${ev.kind}-${ev.id}-${ev.timestamp}`} ev={ev} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityRow({ ev }: { ev: ActivityEvent }) {
+  const icons: Record<ActivityEvent["kind"], React.ReactNode> = {
+    agent_run:        <Bot size={11} className="text-blue-400" />,
+    threat_detected:  <AlertTriangle size={11} className="text-threat-critical" />,
+    threat_updated:   <Activity size={11} className="text-threat-high" />,
+    takedown_created: <Flag size={11} className="text-gold" />,
+    takedown_updated: <Flag size={11} className="text-slate-400" />,
+  };
+  const dotColor: Record<ActivityEvent["kind"], string> = {
+    agent_run:        "bg-blue-400",
+    threat_detected:  "bg-threat-critical",
+    threat_updated:   "bg-threat-high",
+    takedown_created: "bg-gold",
+    takedown_updated: "bg-slate-500",
+  };
+
+  return (
+    <div className="relative flex items-start gap-3 min-w-0">
+      {/* Timeline dot */}
+      <div className={`absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-soc-card flex items-center justify-center ${dotColor[ev.kind]}`}>
+        <span className="text-[8px] text-white flex items-center justify-center w-full h-full">
+          {icons[ev.kind]}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-xs font-medium text-slate-200 truncate">{ev.title}</span>
+          {ev.severity && (
+            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+              ev.severity === "critical" ? "bg-threat-critical/15 text-threat-critical" :
+              ev.severity === "high"     ? "bg-threat-high/15 text-threat-high" :
+              "bg-soc-border text-slate-500"
+            }`}>{ev.severity}</span>
+          )}
+          <span className="text-[9px] text-slate-600 font-mono ml-auto shrink-0">
+            {timeAgo(ev.timestamp)}
+          </span>
+        </div>
+        {(ev.detail || ev.influencer_name) && (
+          <div className="text-[10px] text-slate-500 mt-0.5">
+            {ev.influencer_name && <span className="text-slate-600">{ev.influencer_name} · </span>}
+            {ev.detail}
+          </div>
+        )}
       </div>
     </div>
   );

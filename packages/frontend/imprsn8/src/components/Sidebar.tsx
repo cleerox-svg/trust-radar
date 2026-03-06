@@ -86,10 +86,18 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
                          transition-all text-left"
             >
               {/* Avatar */}
-              <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
-                              flex items-center justify-center text-xs font-bold text-purple-light flex-shrink-0">
-                {initial}
-              </div>
+              {selectedInfluencer?.avatar_url ? (
+                <img
+                  src={selectedInfluencer.avatar_url}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-cover border border-purple/30 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
+                                flex items-center justify-center text-xs font-bold text-purple-light flex-shrink-0">
+                  {initial}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-slate-200 truncate">{displayName}</div>
                 {handle && <div className="text-[10px] text-slate-500 truncate">@{handle}</div>}
@@ -117,10 +125,18 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
                         ? "bg-gold/10 text-gold"
                         : "text-slate-300 hover:bg-soc-border/20"}`}
                   >
-                    <div className="w-5 h-5 rounded-full bg-purple/20 flex items-center justify-center
-                                    text-[9px] font-bold text-purple-light flex-shrink-0">
-                      {inf.display_name[0]?.toUpperCase()}
-                    </div>
+                    {inf.avatar_url ? (
+                      <img
+                        src={inf.avatar_url}
+                        alt=""
+                        className="w-5 h-5 rounded-full object-cover border border-soc-border flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-purple/20 flex items-center justify-center
+                                      text-[9px] font-bold text-purple-light flex-shrink-0">
+                        {inf.display_name[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <div className="font-medium truncate">{inf.display_name}</div>
                       <div className="text-slate-500 truncate">@{inf.handle}</div>

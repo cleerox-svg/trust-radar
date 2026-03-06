@@ -1,5 +1,5 @@
 import { json } from "../lib/cors";
-import type { Env, OverviewStats, ImpersonationReport, AgentDefinition } from "../types";
+import type { Env, OverviewStats, ImpersonationReport, AgentDefinition, ActivityEvent } from "../types";
 
 export async function handleOverviewStats(
   request: Request, env: Env,
@@ -15,7 +15,7 @@ export async function handleOverviewStats(
   const baseParams: unknown[] = influencerId ? [influencerId] : [];
 
   try {
-    const [accountStats, threatStats, takedownStats, agentStats, recentThreatsRows, heartbeatRows] = await Promise.all([
+    const [accountStats, threatStats, takedownStats, agentStats, recentThreatsRows, heartbeatRows, lastRunRow, activityRows] = await Promise.all([
       env.DB.prepare(
         `SELECT COUNT(*) as total, COUNT(DISTINCT platform) as platforms
          FROM monitored_accounts WHERE 1=1 ${whereClause}`
@@ -64,6 +64,64 @@ export async function handleOverviewStats(
         ) td ON td.agent_id = ad.id
         ORDER BY ad.name ASC
       `).all<AgentDefinition>(),
+
+      // Most recent completed agent run (for "last scan" timestamp)
+      env.DB.prepare(
+        "SELECT MAX(completed_at) as ts FROM agent_runs WHERE status = 'completed'"
+      ).first<{ ts: string | null }>(),
+
+      // Activity timeline: last 24h events merged from 3 tables
+      env.DB.prepare(`
+        SELECT * FROM (
+          SELECT
+            ar.id,
+            'agent_run' as kind,
+            (ad.name || ' · ' || ad.codename) as title,
+            (CASE ar.threats_found WHEN 0 THEN 'No threats found'
+             ELSE (ar.threats_found || ' threat(s) found') END) as detail,
+            NULL as severity,
+            COALESCE(ar.completed_at, ar.started_at) as timestamp,
+            ip.display_name as influencer_name
+          FROM agent_runs ar
+          JOIN agent_definitions ad ON ad.id = ar.agent_id
+          LEFT JOIN influencer_profiles ip ON ip.id = ar.influencer_id
+          WHERE ar.started_at >= datetime('now', '-24 hours')
+            AND ar.status = 'completed'
+            ${influencerId ? "AND ar.influencer_id = ?" : ""}
+
+          UNION ALL
+
+          SELECT
+            ir.id,
+            'threat_detected' as kind,
+            ('@' || ir.suspect_handle || ' on ' || ir.platform) as title,
+            ir.threat_type as detail,
+            ir.severity,
+            ir.detected_at as timestamp,
+            ip.display_name as influencer_name
+          FROM impersonation_reports ir
+          JOIN influencer_profiles ip ON ip.id = ir.influencer_id
+          WHERE ir.detected_at >= datetime('now', '-24 hours')
+            ${influencerId ? "AND ir.influencer_id = ?" : ""}
+
+          UNION ALL
+
+          SELECT
+            td.id,
+            'takedown_created' as kind,
+            ('@' || td.suspect_handle || ' · ' || td.takedown_type) as title,
+            ('Status: ' || td.status) as detail,
+            NULL as severity,
+            td.created_at as timestamp,
+            ip.display_name as influencer_name
+          FROM takedown_requests td
+          JOIN influencer_profiles ip ON ip.id = td.influencer_id
+          WHERE td.created_at >= datetime('now', '-24 hours')
+            ${influencerId ? "AND td.influencer_id = ?" : ""}
+        )
+        ORDER BY timestamp DESC
+        LIMIT 30
+      `).bind(...(influencerId ? [influencerId, influencerId, influencerId] : [])).all<ActivityEvent>(),
     ]);
 
     const stats: OverviewStats = {
@@ -75,6 +133,7 @@ export async function handleOverviewStats(
       critical_takedowns: takedownStats?.urgent ?? 0,
       agents_active: agentStats?.active ?? 0,
       agents_total: agentStats?.total ?? 6,
+      last_agent_run_at: lastRunRow?.ts ?? null,
       recent_threats: recentThreatsRows.results.map((r) => ({
         ...r,
         similarity_breakdown: typeof r.similarity_breakdown === "string"
@@ -82,6 +141,7 @@ export async function handleOverviewStats(
           : r.similarity_breakdown,
       })),
       agent_heartbeat: heartbeatRows.results,
+      recent_activity: activityRows.results,
     };
 
     return json({ success: true, data: stats }, 200, origin);
@@ -92,7 +152,8 @@ export async function handleOverviewStats(
       active_threats: 0, critical_threats: 0,
       pending_takedowns: 0, critical_takedowns: 0,
       agents_active: 0, agents_total: 6,
-      recent_threats: [], agent_heartbeat: [],
+      last_agent_run_at: null,
+      recent_threats: [], agent_heartbeat: [], recent_activity: [],
     } as OverviewStats }, 200, origin);
   }
 }
