@@ -14,6 +14,7 @@ import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns"
 import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
 import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
+import { handleSystemHealth } from "./handlers/health";
 import { runDueFeeds } from "./lib/feedRunner";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
@@ -260,6 +261,12 @@ router.post("/api/admin/users/direct-create", async (request: Request, env: Env)
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleDirectCreate(request, env);
+});
+// Admin: platform health (DB, KV, R2, compliance)
+router.get("/api/admin/health", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSystemHealth(request, env);
 });
 
 // ─── Data Feeds ───────────────────────────────────────────────

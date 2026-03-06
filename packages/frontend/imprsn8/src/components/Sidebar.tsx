@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/accounts",    label: "Monitored",         icon: <Shield size={16} /> },
   { to: "/threats",     label: "Threats Found",     icon: <AlertTriangle size={16} /> },
   { to: "/takedowns",   label: "Takedowns",         icon: <Download size={16} /> },
-  { to: "/agents",      label: "Agents",            icon: <Bot size={16} />, socOnly: true },
+  { to: "/agents",      label: "Intelligence",       icon: <Bot size={16} />, socOnly: true },
   { to: "/brand",       label: "Brand Score",       icon: <TrendingUp size={16} />, influencerOnly: true },
   { to: "/admin",       label: "Admin Console",     icon: <Lock size={16} />, adminOnly: true },
 ];
