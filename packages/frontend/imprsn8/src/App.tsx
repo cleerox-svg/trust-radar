@@ -24,7 +24,7 @@ function RequireAuth() {
 
 // ─── Authenticated shell with sidebar ─────────────────────────────────────
 function AppShell() {
-  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading } = useSidebarData();
+  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -39,7 +39,7 @@ function AppShell() {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (unauthenticated) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex h-screen bg-soc-bg overflow-hidden">
