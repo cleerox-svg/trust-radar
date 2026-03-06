@@ -246,3 +246,26 @@ export interface OverviewStats {
   agent_heartbeat: AgentDefinition[];
   recent_activity: ActivityEvent[];
 }
+
+// ─── Data Feeds ─────────────────────────────────────────────────────────────
+export type FeedTier = "free" | "low_cost" | "paid";
+export type FeedStatus = "idle" | "running" | "success" | "error";
+
+export interface DataFeed {
+  id: string;
+  name: string;
+  platform: string;
+  tier: FeedTier;
+  api_key: string | null;      // masked: "****xxxx"
+  api_secret: string | null;   // masked: "****xxxx"
+  settings_json: string;
+  pull_interval_mins: number;
+  last_pulled_at: string | null;
+  last_pull_status: FeedStatus | null;
+  last_pull_error: string | null;
+  pull_count: number;
+  threats_found: number;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}

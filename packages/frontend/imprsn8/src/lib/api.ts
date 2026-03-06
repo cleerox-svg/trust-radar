@@ -3,10 +3,10 @@ import type {
   TakedownRequest, AgentDefinition, AgentRun, OverviewStats,
   ThreatStatus, ThreatSeverity, TakedownStatus, Platform,
   Analysis, AnalysisType, SocialProfile, ScorePoint, Campaign, AdminStats,
-  HandleVariant,
+  HandleVariant, DataFeed,
 } from "./types";
 
-export type { User, Analysis, SocialProfile, ScorePoint, Campaign, HandleVariant };
+export type { User, Analysis, SocialProfile, ScorePoint, Campaign, HandleVariant, DataFeed };
 export type AdminUser = User;
 export type { AdminStats };
 
@@ -153,4 +153,20 @@ export const admin = {
     api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: { role?: string; is_admin?: boolean; plan?: string; assigned_influencer_id?: string | null }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const feeds = {
+  list: () => api<DataFeed[]>("/feeds"),
+  create: (data: {
+    name: string; platform: string; api_key?: string; api_secret?: string;
+    settings_json?: string; pull_interval_mins?: number;
+  }) => api<DataFeed>("/feeds", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: {
+    name?: string; api_key?: string; api_secret?: string;
+    settings_json?: string; pull_interval_mins?: number; is_active?: number;
+  }) => api<DataFeed>(`/feeds/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => api<{ message: string }>(`/feeds/${id}`, { method: "DELETE" }),
+  trigger: (id: string) => api<{ data: DataFeed; meta: { threats_found: number; error?: string } }>(
+    `/feeds/${id}/trigger`, { method: "POST" }
+  ),
 };
