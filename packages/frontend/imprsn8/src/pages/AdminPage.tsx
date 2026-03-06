@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag, Database, Play, Trash2, RefreshCw, Zap, Mail } from "lucide-react";
+import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag, Database, Play, Trash2, RefreshCw, Zap, Mail, UserPlus } from "lucide-react";
 import { admin, influencers as influencersApi, feeds as feedsApi, type AdminUser } from "../lib/api";
 import type { AdminStats, InfluencerProfile, DataFeed } from "../lib/types";
 import { AddFeedModal } from "../components/AddFeedModal";
@@ -55,6 +55,9 @@ function UsersTab({ influencerList }: { influencerList: InfluencerProfile[] }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Invite modal: which influencer to invite (null = picker open, InfluencerProfile = pre-selected)
+  const [inviteTarget, setInviteTarget] = useState<InfluencerProfile | null | "picker">(null);
+  const [pickerSearch, setPickerSearch] = useState("");
 
   useEffect(() => {
     admin.users().then((u) => {
@@ -81,13 +84,75 @@ function UsersTab({ influencerList }: { influencerList: InfluencerProfile[] }) {
     </div>
   );
 
+  const filteredForPicker = influencerList.filter((i) =>
+    i.active && (
+      i.display_name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+      i.handle.toLowerCase().includes(pickerSearch.toLowerCase())
+    )
+  );
+
   return (
     <div className="space-y-4">
       {error && <div className="soc-card border-red-500/30 text-red-400 text-sm">{error}</div>}
+
+      {/* Influencer picker (shown before InviteInfluencerModal when no specific row was clicked) */}
+      {inviteTarget === "picker" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-soc-card border border-soc-border rounded-xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-soc-border">
+              <h2 className="font-bold text-slate-100 text-sm">Select Influencer to Invite</h2>
+              <button onClick={() => setInviteTarget(null)} className="btn-icon !p-1.5"><X size={14} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <input
+                className="soc-input w-full"
+                placeholder="Search by name or handle…"
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                autoFocus
+              />
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {filteredForPicker.length === 0 ? (
+                  <div className="text-xs text-slate-500 text-center py-6">No active influencers found</div>
+                ) : filteredForPicker.map((inf) => (
+                  <button
+                    key={inf.id}
+                    onClick={() => { setInviteTarget(inf); setPickerSearch(""); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-soc-border/30 transition-colors text-left"
+                  >
+                    {inf.avatar_url ? (
+                      <img src={inf.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-soc-border shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center text-sm font-bold text-purple-light shrink-0">
+                        {inf.display_name[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-sm font-medium text-slate-200">{inf.display_name}</div>
+                      <div className="text-[10px] text-slate-500">@{inf.handle}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* InviteInfluencerModal for the selected influencer */}
+      {inviteTarget && inviteTarget !== "picker" && (
+        <InviteInfluencerModal influencer={inviteTarget} onClose={() => setInviteTarget(null)} />
+      )}
+
       <div className="soc-card p-0 overflow-hidden">
         <div className="px-5 py-3.5 border-b border-soc-border flex items-center justify-between">
           <h2 className="font-semibold text-slate-200 text-sm">Users ({total})</h2>
-          <span className="text-[10px] text-slate-500 font-mono">Edit plan, role, and influencer assignment inline</span>
+          <button
+            onClick={() => setInviteTarget("picker")}
+            className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs"
+          >
+            <UserPlus size={12} /> Add / Invite User
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
