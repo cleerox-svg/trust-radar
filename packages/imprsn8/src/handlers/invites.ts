@@ -203,7 +203,7 @@ export async function handleDirectCreate(
 
   await env.DB.prepare(
     `INSERT INTO users (id, email, password_hash, display_name, role, plan, assigned_influencer_id)
-     VALUES (?, ?, ?, ?, ?, 'influencer', ?)`
+     VALUES (?, ?, ?, ?, ?, 'free', ?)`
   ).bind(id, email, passwordHash, display_name ?? null, role, influencer_id).run();
 
   // Return generated password ONCE — it is not stored in plaintext

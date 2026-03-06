@@ -58,7 +58,7 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
-  const plan = resolvedInfluencerId ? "influencer" : "free";
+  const plan = "free"; // plan is always a tier (free/pro/enterprise); role carries the influencer/soc distinction
 
   await env.DB.prepare(
     `INSERT INTO users (id, email, password_hash, username, display_name, role, plan, assigned_influencer_id)
