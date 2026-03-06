@@ -156,6 +156,8 @@ export const admin = {
     api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: { role?: string; is_admin?: boolean; plan?: string; assigned_influencer_id?: string | null }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  health: () => api<any>("/admin/health"),
 };
 
 // ─── Invite types ─────────────────────────────────────────────

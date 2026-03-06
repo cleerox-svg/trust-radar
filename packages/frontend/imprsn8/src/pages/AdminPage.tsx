@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag, Database, Play, Trash2, RefreshCw, Zap, Mail, UserPlus } from "lucide-react";
-import { admin, influencers as influencersApi, feeds as feedsApi, type AdminUser } from "../lib/api";
-import type { AdminStats, InfluencerProfile, DataFeed } from "../lib/types";
-import { AddFeedModal } from "../components/AddFeedModal";
+import {
+  Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2,
+  AlertTriangle, Flag, Database, RefreshCw, Mail, UserPlus,
+  Activity, CheckCircle2, XCircle, Lock, Server, HardDrive,
+} from "lucide-react";
+import { admin, influencers as influencersApi, type AdminUser } from "../lib/api";
+import type { AdminStats, InfluencerProfile } from "../lib/types";
 import { InviteInfluencerModal } from "../components/InviteInfluencerModal";
-import { FEED_CATALOG_MAP, TIER_LABELS, type FeedTier } from "../lib/feedCatalog";
 
 const PLANS = ["free", "pro", "enterprise"] as const;
 const ROLES = ["influencer", "staff", "soc", "admin"] as const;
 const TIERS = ["starter", "pro", "enterprise"] as const;
 
-type Tab = "influencers" | "users" | "breakdown" | "feeds";
+type Tab = "influencers" | "users" | "breakdown" | "health";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon?: React.ReactNode }) {
@@ -578,173 +580,70 @@ function BreakdownTab({ stats }: { stats: AdminStats }) {
   );
 }
 
-// ─── Feeds Tab ────────────────────────────────────────────────────────────────
+// ─── System Health Tab ────────────────────────────────────────────────────────
 
-const FEED_TIER_COLORS: Record<FeedTier, { badge: string; dot: string }> = {
-  free:     { badge: "bg-status-live/10 border-status-live/30 text-status-live", dot: "bg-status-live" },
-  low_cost: { badge: "bg-gold/10 border-gold/30 text-gold",                      dot: "bg-gold" },
-  paid:     { badge: "bg-purple/10 border-purple/20 text-purple-light",           dot: "bg-purple-light" },
-};
+interface HealthData {
+  status: "healthy" | "degraded" | "error";
+  timestamp: string;
+  environment: string;
+  database: {
+    status: "ok" | "error";
+    response_ms: number;
+    sqlite_version: string;
+    journal_mode: string;
+    encryption_at_rest: string;
+    encryption_in_transit: string;
+    last_migration: string;
+    tables: { name: string; rows: number }[];
+  };
+  kv_sessions:  { status: string; binding: string };
+  r2_assets:    { status: string; binding: string };
+  compliance: {
+    data_residency: string;
+    audit_logging:  string;
+    hitl_enforced:  string;
+  };
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  idle:    "text-slate-500",
-  running: "text-gold animate-pulse",
-  success: "text-status-live",
-  error:   "text-threat-critical",
-};
-
-function FeedCard({
-  feed,
-  onTrigger,
-  onToggle,
-  onDelete,
-}: {
-  feed: DataFeed;
-  onTrigger: (id: string) => void;
-  onToggle: (id: string, active: boolean) => void;
-  onDelete: (id: string) => void;
-}) {
-  const catalog = FEED_CATALOG_MAP[feed.platform as keyof typeof FEED_CATALOG_MAP];
-  const tier = (feed.tier ?? "free") as FeedTier;
-  const tc = FEED_TIER_COLORS[tier] ?? FEED_TIER_COLORS.free;
-  const statusColor = STATUS_COLORS[feed.last_pull_status ?? "idle"] ?? "text-slate-500";
-  const lastPull = feed.last_pulled_at
-    ? new Date(feed.last_pulled_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-    : "Never";
-
+function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <div className={`soc-card transition-all ${feed.is_active ? "" : "opacity-50"}`}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-2xl leading-none shrink-0">{catalog?.icon ?? "📡"}</span>
-          <div className="min-w-0">
-            <div className="font-semibold text-sm text-slate-200 truncate">{feed.name}</div>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <div className={`w-1.5 h-1.5 rounded-full ${tc.dot}`} />
-              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tc.badge}`}>
-                {TIER_LABELS[tier]}
-              </span>
-              <span className="text-[9px] text-slate-600 font-mono">{feed.platform}</span>
-            </div>
-          </div>
-        </div>
-        <div className={`text-[10px] font-mono font-bold uppercase tracking-wider shrink-0 ${statusColor}`}>
-          {feed.last_pull_status ?? "idle"}
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-        <div className="bg-soc-bg/60 rounded p-1.5">
-          <div className="text-xs font-bold text-slate-200 font-mono">{feed.pull_count ?? 0}</div>
-          <div className="text-[9px] text-slate-600">Pulls</div>
-        </div>
-        <div className="bg-soc-bg/60 rounded p-1.5">
-          <div className={`text-xs font-bold font-mono ${(feed.threats_found ?? 0) > 0 ? "text-threat-critical" : "text-slate-200"}`}>
-            {feed.threats_found ?? 0}
-          </div>
-          <div className="text-[9px] text-slate-600">Threats</div>
-        </div>
-        <div className="bg-soc-bg/60 rounded p-1.5">
-          <div className="text-xs font-bold text-slate-200 font-mono">{feed.pull_interval_mins}m</div>
-          <div className="text-[9px] text-slate-600">Interval</div>
-        </div>
-      </div>
-
-      {/* Last pull */}
-      <div className="text-[10px] text-slate-600 mb-3">
-        Last pull: <span className="text-slate-400">{lastPull}</span>
-        {feed.last_pull_error && (
-          <div className="text-threat-critical mt-0.5 truncate" title={feed.last_pull_error}>
-            ✕ {feed.last_pull_error}
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => onTrigger(feed.id)}
-          disabled={feed.last_pull_status === "running"}
-          title="Trigger pull now"
-          className="btn-gold !px-2 !py-1.5 !text-xs flex items-center gap-1 flex-1 justify-center disabled:opacity-50"
-        >
-          {feed.last_pull_status === "running"
-            ? <><RefreshCw size={11} className="animate-spin" /> Running</>
-            : <><Play size={11} /> Run</>}
-        </button>
-        <button
-          onClick={() => onToggle(feed.id, !feed.is_active)}
-          title={feed.is_active ? "Pause feed" : "Resume feed"}
-          className="btn-ghost !px-2 !py-1.5 !text-xs"
-        >
-          {feed.is_active ? <Zap size={11} className="text-status-live" /> : <Zap size={11} className="text-slate-500" />}
-        </button>
-        <button
-          onClick={() => onDelete(feed.id)}
-          title="Delete feed"
-          className="btn-icon !p-1.5 hover:text-threat-critical"
-        >
-          <Trash2 size={11} />
-        </button>
-      </div>
+    <div className={`flex items-center gap-1.5 text-xs font-semibold ${ok ? "text-status-live" : "text-threat-critical"}`}>
+      {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+      {label}
     </div>
   );
 }
 
-function FeedsTab() {
-  const [feedList, setFeedList] = useState<DataFeed[]>([]);
+function HealthRow({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-soc-border/50 last:border-0">
+      <span className="text-[11px] text-slate-500 uppercase tracking-wider shrink-0">{label}</span>
+      <span className={`text-xs text-right ${mono ? "font-mono text-slate-300" : "text-slate-300"}`}>{value}</span>
+    </div>
+  );
+}
+
+function HealthTab() {
+  const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [triggering, setTriggering] = useState<string | null>(null);
+  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
-  useEffect(() => {
-    feedsApi.list()
-      .then(setFeedList)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load feeds"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleTrigger(id: string) {
-    setTriggering(id);
-    setFeedList((prev) => prev.map((f) => f.id === id ? { ...f, last_pull_status: "running" } : f));
+  async function load() {
+    setLoading(true);
+    setError("");
     try {
-      const result = await feedsApi.trigger(id);
-      setFeedList((prev) => prev.map((f) => f.id === id ? result.data : f));
+      const result = await admin.health();
+      setData(result);
+      setCheckedAt(new Date());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Trigger failed");
-      setFeedList((prev) => prev.map((f) => f.id === id ? { ...f, last_pull_status: "error" } : f));
+      setError(e instanceof Error ? e.message : "Health check failed");
     } finally {
-      setTriggering(null);
+      setLoading(false);
     }
   }
 
-  async function handleToggle(id: string, active: boolean) {
-    try {
-      const updated = await feedsApi.update(id, { is_active: active ? 1 : 0 });
-      setFeedList((prev) => prev.map((f) => f.id === id ? updated : f));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this feed? This cannot be undone.")) return;
-    try {
-      await feedsApi.delete(id);
-      setFeedList((prev) => prev.filter((f) => f.id !== id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
-    }
-  }
-
-  const tiers: FeedTier[] = ["free", "low_cost", "paid"];
-  const grouped = tiers.map((tier) => ({
-    tier,
-    feeds: feedList.filter((f) => (f.tier ?? "free") === tier),
-  })).filter((g) => g.feeds.length > 0);
+  useEffect(() => { load(); }, []);
 
   if (loading) return (
     <div className="flex justify-center py-16">
@@ -752,68 +651,122 @@ function FeedsTab() {
     </div>
   );
 
-  return (
-    <div className="space-y-6">
-      {error && <div className="soc-card border-red-500/30 text-red-400 text-sm">{error}</div>}
+  if (error) return (
+    <div className="soc-card border-red-500/30 bg-red-950/20 text-red-400 text-sm flex items-center gap-2">
+      <XCircle size={14} />
+      {error}
+    </div>
+  );
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-slate-500">
-          {feedList.length} feed{feedList.length !== 1 ? "s" : ""} configured
-          {feedList.filter((f) => f.is_active).length > 0 && (
-            <span className="ml-1.5 text-status-live">· {feedList.filter((f) => f.is_active).length} active</span>
-          )}
+  if (!data) return null;
+
+  const dbOk = data.database.status === "ok";
+  const kvOk = data.kv_sessions.status === "ok";
+  const r2Ok = data.r2_assets.status === "ok";
+
+  return (
+    <div className="space-y-5">
+      {/* Overall status bar */}
+      <div className={`soc-card flex items-center gap-4 flex-wrap ${
+        data.status === "healthy"
+          ? "border-status-live/30 bg-status-live/5"
+          : "border-gold/30 bg-gold/5"
+      }`}>
+        <div className={`w-3 h-3 rounded-full animate-pulse ${data.status === "healthy" ? "bg-status-live" : "bg-gold"}`} />
+        <div>
+          <div className={`font-bold text-sm uppercase tracking-widest ${data.status === "healthy" ? "text-status-live" : "text-gold"}`}>
+            {data.status === "healthy" ? "All Systems Operational" : "Degraded — Check Below"}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
+            Env: {data.environment} · Checked {checkedAt?.toLocaleTimeString() ?? "—"}
+          </div>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs">
-          <Plus size={12} /> Add Feed
+        <div className="ml-auto flex gap-3">
+          <StatusBadge ok={dbOk} label="Database" />
+          <StatusBadge ok={kvOk} label="KV Sessions" />
+          <StatusBadge ok={r2Ok} label="R2 Assets" />
+        </div>
+        <button onClick={load} disabled={loading} className="btn-icon !p-1.5">
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
-      {/* Empty state */}
-      {feedList.length === 0 && (
-        <div className="soc-card py-16 text-center space-y-3">
-          <Database size={32} className="mx-auto text-slate-700" />
-          <div className="text-slate-500 text-sm">No data feeds configured yet.</div>
-          <button onClick={() => setShowAdd(true)} className="text-gold text-sm hover:underline">
-            Connect your first data source →
-          </button>
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-      {/* Tiered groups */}
-      {grouped.map(({ tier, feeds }) => {
-        const tc = FEED_TIER_COLORS[tier];
-        return (
-          <div key={tier}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-2 h-2 rounded-full ${tc.dot}`} />
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tc.badge}`}>
-                {TIER_LABELS[tier]}
-              </span>
-              <span className="text-[10px] text-slate-600">{feeds.length} feed{feeds.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {feeds.map((feed) => (
-                <FeedCard
-                  key={feed.id}
-                  feed={feed}
-                  onTrigger={handleTrigger}
-                  onToggle={handleToggle}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
+        {/* Database */}
+        <div className="soc-card space-y-0">
+          <div className="flex items-center gap-2 mb-3">
+            <Database size={14} className="text-gold" />
+            <span className="font-semibold text-slate-200 text-sm">Database (Cloudflare D1)</span>
+            <StatusBadge ok={dbOk} label={dbOk ? "OK" : "Error"} />
           </div>
-        );
-      })}
+          <HealthRow label="Response time" value={`${data.database.response_ms} ms`} mono />
+          <HealthRow label="SQLite version"    value={data.database.sqlite_version} mono />
+          <HealthRow label="Journal mode"      value={data.database.journal_mode} mono />
+          <HealthRow label="Last migration"    value={data.database.last_migration} mono />
+          <HealthRow
+            label="Encryption at rest"
+            value={
+              <span className="flex items-center gap-1.5">
+                <Lock size={10} className="text-status-live shrink-0" />
+                {data.database.encryption_at_rest}
+              </span>
+            }
+          />
+          <HealthRow
+            label="Encryption in transit"
+            value={
+              <span className="flex items-center gap-1.5">
+                <Lock size={10} className="text-status-live shrink-0" />
+                {data.database.encryption_in_transit}
+              </span>
+            }
+          />
+        </div>
 
-      {/* Add Feed Modal */}
-      {showAdd && (
-        <AddFeedModal
-          onCreated={(feed) => { setFeedList((prev) => [...prev, feed]); setShowAdd(false); }}
-          onClose={() => setShowAdd(false)}
-        />
-      )}
+        {/* Compliance */}
+        <div className="soc-card space-y-0">
+          <div className="flex items-center gap-2 mb-3">
+            <Lock size={14} className="text-gold" />
+            <span className="font-semibold text-slate-200 text-sm">Compliance &amp; Controls</span>
+          </div>
+          <HealthRow label="Data residency"  value={data.compliance.data_residency} />
+          <HealthRow label="Audit logging"   value={data.compliance.audit_logging} />
+          <HealthRow label="HITL enforcement" value={data.compliance.hitl_enforced} />
+          <HealthRow label="KV Sessions"     value={<StatusBadge ok={kvOk} label={data.kv_sessions.status} />} />
+          <HealthRow label="R2 Assets"       value={<StatusBadge ok={r2Ok} label={data.r2_assets.status} />} />
+        </div>
+
+        {/* Table row counts */}
+        <div className="soc-card md:col-span-2">
+          <div className="flex items-center gap-2 mb-3">
+            <Server size={14} className="text-gold" />
+            <span className="font-semibold text-slate-200 text-sm">Table Row Counts</span>
+            <span className="text-[10px] text-slate-600">Live counts — admin only</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {data.database.tables.map((t) => (
+              <div key={t.name} className="bg-soc-bg/60 rounded p-2.5 text-center">
+                <div className={`text-base font-bold font-mono ${t.rows < 0 ? "text-slate-600" : "text-slate-200"}`}>
+                  {t.rows < 0 ? "—" : t.rows.toLocaleString()}
+                </div>
+                <div className="text-[9px] text-slate-600 mt-0.5 font-mono truncate">{t.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Storage health note */}
+      <div className="flex items-start gap-2 text-[11px] text-slate-600 bg-soc-bg/40 rounded p-3 border border-soc-border/50">
+        <HardDrive size={12} className="mt-0.5 shrink-0 text-slate-600" />
+        <span>
+          Cloudflare D1 databases are replicated globally with point-in-time restore.
+          Encryption keys are managed by Cloudflare's platform — no customer key management required.
+          This view is only visible to admin-role users.
+        </span>
+      </div>
     </div>
   );
 }
@@ -834,8 +787,8 @@ export default function AdminPage() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "influencers", label: "Influencers",    icon: <UserCheck size={14} /> },
     { id: "users",       label: "Users",          icon: <Users size={14} /> },
-    { id: "feeds",       label: "Data Feeds",     icon: <Database size={14} /> },
     { id: "breakdown",   label: "Platform Stats", icon: <BarChart2 size={14} /> },
+    { id: "health",      label: "System Health",  icon: <Activity size={14} /> },
   ];
 
   return (
@@ -882,7 +835,7 @@ export default function AdminPage() {
       {/* Tab content */}
       {tab === "influencers" && <InfluencersTab />}
       {tab === "users"       && <UsersTab influencerList={influencerList} />}
-      {tab === "feeds"       && <FeedsTab />}
+      {tab === "health"      && <HealthTab />}
       {tab === "breakdown"   && stats && <BreakdownTab stats={stats} />}
       {tab === "breakdown"   && !stats && !loadingStats && (
         <div className="text-center py-12 text-slate-500 text-sm">No stats available</div>
