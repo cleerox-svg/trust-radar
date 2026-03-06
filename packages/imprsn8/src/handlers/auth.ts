@@ -9,6 +9,8 @@ const RegisterSchema = z.object({
   password: z.string().min(8).max(128),
   username: z.string().min(2).max(32).regex(/^[a-z0-9_-]+$/i).optional(),
   display_name: z.string().max(64).optional(),
+  // Optional: pre-links account to an influencer profile and marks token used
+  invite_token: z.string().optional(),
 });
 
 const LoginSchema = z.object({
@@ -22,7 +24,7 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
   const parsed = RegisterSchema.safeParse(body);
   if (!parsed.success) return json({ success: false, error: parsed.error.flatten().fieldErrors }, 400, origin);
 
-  const { email, password, username, display_name } = parsed.data;
+  const { email, password, username, display_name, invite_token } = parsed.data;
 
   const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
   if (existing) return json({ success: false, error: "Email already registered" }, 409, origin);
@@ -32,15 +34,49 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
     if (usernameExists) return json({ success: false, error: "Username already taken" }, 409, origin);
   }
 
+  // Validate invite token if provided
+  let resolvedInfluencerId: string | null = null;
+  let resolvedRole: string = "influencer";
+  let inviteId: string | null = null;
+
+  if (invite_token) {
+    const invite = await env.DB.prepare(
+      `SELECT id, influencer_id, role, expires_at, used_at
+       FROM invite_tokens WHERE token = ?`
+    ).bind(invite_token).first<{
+      id: string; influencer_id: string; role: string; expires_at: string; used_at: string | null;
+    }>();
+
+    if (!invite) return json({ success: false, error: "Invalid invite token" }, 400, origin);
+    if (invite.used_at) return json({ success: false, error: "Invite already used" }, 410, origin);
+    if (new Date(invite.expires_at) < new Date()) return json({ success: false, error: "Invite has expired" }, 410, origin);
+
+    resolvedInfluencerId = invite.influencer_id;
+    resolvedRole = invite.role;
+    inviteId = invite.id;
+  }
+
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
+  const plan = resolvedInfluencerId ? "influencer" : "free";
 
   await env.DB.prepare(
-    "INSERT INTO users (id, email, password_hash, username, display_name) VALUES (?, ?, ?, ?, ?)"
-  ).bind(id, email, passwordHash, username ?? null, display_name ?? null).run();
+    `INSERT INTO users (id, email, password_hash, username, display_name, role, plan, assigned_influencer_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, email, passwordHash, username ?? null, display_name ?? null, resolvedRole, plan, resolvedInfluencerId).run();
 
-  const token = await signJWT({ sub: id, email, plan: "free" }, env.JWT_SECRET);
-  return json({ success: true, data: { token, user: { id, email, username, display_name, plan: "free", is_admin: false } } }, 201, origin);
+  // Mark invite as used
+  if (inviteId) {
+    await env.DB.prepare(
+      "UPDATE invite_tokens SET used_at = datetime('now'), used_by_user_id = ? WHERE id = ?"
+    ).bind(id, inviteId).run();
+  }
+
+  const jwtToken = await signJWT({ sub: id, email, plan: plan as "free" | "pro" | "enterprise" }, env.JWT_SECRET);
+  return json({
+    success: true,
+    data: { token: jwtToken, user: { id, email, username, display_name, plan, role: resolvedRole, is_admin: false } },
+  }, 201, origin);
 }
 
 export async function handleLogin(request: Request, env: Env): Promise<Response> {

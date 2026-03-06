@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag, Database, Play, Trash2, RefreshCw, Zap } from "lucide-react";
+import { Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2, AlertTriangle, Flag, Database, Play, Trash2, RefreshCw, Zap, Mail } from "lucide-react";
 import { admin, influencers as influencersApi, feeds as feedsApi, type AdminUser } from "../lib/api";
 import type { AdminStats, InfluencerProfile, DataFeed } from "../lib/types";
 import { AddFeedModal } from "../components/AddFeedModal";
+import { InviteInfluencerModal } from "../components/InviteInfluencerModal";
 import { FEED_CATALOG_MAP, TIER_LABELS, type FeedTier } from "../lib/feedCatalog";
 
 const PLANS = ["free", "pro", "enterprise"] as const;
@@ -248,6 +249,7 @@ function InfluencerRow({
   onUpdated: (updated: InfluencerProfile) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState({ display_name: inf.display_name, handle: inf.handle, tier: inf.tier, avatar_url: inf.avatar_url ?? "" });
   const [saving, setSaving] = useState(false);
 
@@ -318,7 +320,7 @@ function InfluencerRow({
     );
   }
 
-  return (
+  const row = (
     <tr className={`border-b border-soc-border last:border-0 transition-colors ${inf.active ? "hover:bg-soc-border/10" : "opacity-50"}`}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2.5">
@@ -354,6 +356,14 @@ function InfluencerRow({
             <Edit2 size={11} />
           </button>
           <button
+            onClick={() => setInviting(true)}
+            disabled={saving}
+            className="btn-icon !p-1.5 hover:text-gold"
+            title="Invite influencer"
+          >
+            <Mail size={11} />
+          </button>
+          <button
             onClick={toggleActive}
             disabled={saving}
             className={`text-[10px] px-2 py-1 rounded border transition-colors ${
@@ -367,6 +377,13 @@ function InfluencerRow({
         </div>
       </td>
     </tr>
+  );
+
+  return (
+    <>
+      {row}
+      {inviting && <InviteInfluencerModal influencer={inf} onClose={() => setInviting(false)} />}
+    </>
   );
 }
 

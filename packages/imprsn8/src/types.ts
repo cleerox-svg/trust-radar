@@ -7,6 +7,10 @@ export interface Env {
   LRX_API_URL: string;
   LRX_API_KEY: string;
   ENVIRONMENT: string;
+  // Email integration (optional — no-op when unset)
+  EMAIL_PROVIDER?: string;
+  EMAIL_FROM?: string;
+  EMAIL_API_KEY?: string;
 }
 
 // ─── User / Auth ───────────────────────────────────────────────────────────
