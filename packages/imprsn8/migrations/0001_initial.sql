@@ -6,9 +6,6 @@ CREATE TABLE IF NOT EXISTS users (
   id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   email           TEXT NOT NULL UNIQUE,
   password_hash   TEXT NOT NULL,
-  username        TEXT UNIQUE,
-  bio             TEXT,
-  avatar_url      TEXT,
   plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at      TEXT NOT NULL DEFAULT (datetime('now'))

@@ -68,18 +68,34 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 export async function handleMe(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  // Try full query; fall back if impression_score/total_analyses columns are
-  // missing (migration 0008 not yet applied to this DB instance).
+  // The production DB schema has grown via incremental migrations. Try the full
+  // column list first; if any column is missing, fall back to progressively
+  // narrower queries and fill in safe defaults for whatever is absent.
   let user: Record<string, unknown> | null = null;
+
+  // Attempt 1 — full schema (all migrations applied)
   try {
     user = await env.DB.prepare(
       "SELECT id, email, username, display_name, bio, avatar_url, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users WHERE id = ?"
     ).bind(userId).first<Record<string, unknown>>();
-  } catch {
-    const base = await env.DB.prepare(
-      "SELECT id, email, username, display_name, bio, avatar_url, plan, role, is_admin, assigned_influencer_id, created_at FROM users WHERE id = ?"
-    ).bind(userId).first<Record<string, unknown>>();
-    if (base) user = { ...base, impression_score: 0, total_analyses: 0 };
+  } catch { /* some columns missing — try narrower query */ }
+
+  // Attempt 2 — without username/bio/avatar_url (migration 0009 not yet applied)
+  if (!user) {
+    try {
+      const row = await env.DB.prepare(
+        "SELECT id, email, display_name, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users WHERE id = ?"
+      ).bind(userId).first<Record<string, unknown>>();
+      if (row) user = { username: null, bio: null, avatar_url: null, ...row };
+    } catch { /* still missing columns — try minimal query */ }
+  }
+
+  // Attempt 3 — core columns only (original production schema + 0003/0004/0005)
+  if (!user) {
+    const row = await env.DB.prepare(
+      "SELECT id, email, display_name, plan, role, is_admin, assigned_influencer_id, created_at FROM users WHERE id = ?"
+    ).bind(userId).first<Record<string, unknown>>().catch(() => null);
+    if (row) user = { username: null, bio: null, avatar_url: null, impression_score: 0, total_analyses: 0, ...row };
   }
 
   if (!user) return json({ success: false, error: "User not found" }, 404, origin);
