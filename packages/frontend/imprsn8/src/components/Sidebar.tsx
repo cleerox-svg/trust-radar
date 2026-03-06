@@ -6,7 +6,7 @@ import {
   Users, Lock,
 } from "lucide-react";
 import { Pulse } from "./ui/Pulse";
-import { auth, influencers } from "../lib/api";
+import { auth, influencers, ApiError } from "../lib/api";
 import type { User, InfluencerProfile } from "../lib/types";
 
 interface NavItem {
@@ -237,7 +237,12 @@ export function useSidebarData() {
           if (assigned) setSelectedInfluencer(assigned);
         }
       })
-      .catch(() => navigate("/login"))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          localStorage.removeItem("imprsn8_token");
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
   }, [navigate]);
 

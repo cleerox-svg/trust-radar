@@ -20,12 +20,16 @@ function authHeaders(): HeadersInit {
     : { "Content-Type": "application/json" };
 }
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const json = await res.json() as { success: boolean; data?: T; error?: string };
-  if (!json.success) throw new Error(String(json.error ?? "Request failed"));
+  if (!json.success) throw new ApiError(res.status, String(json.error ?? "Request failed"));
   return json.data as T;
 }
 
