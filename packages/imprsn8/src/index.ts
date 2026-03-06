@@ -3,6 +3,7 @@ import { handleOptions, json } from "./lib/cors";
 import { handleRegister, handleLogin, handleMe, handleUpdateProfile } from "./handlers/auth";
 import { handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
 import { handleListInfluencers, handleGetInfluencer, handleCreateInfluencer, handleUpdateInfluencer } from "./handlers/influencers";
+import { handleListVariants, handleAddVariant, handleDeleteVariant } from "./handlers/variants";
 import { handleListAccounts, handleAddAccount, handleUpdateAccount, handleDeleteAccount } from "./handlers/accounts";
 import { handleListThreats, handleGetThreat, handleCreateThreat, handleUpdateThreat } from "./handlers/threats";
 import { handleListTakedowns, handleCreateTakedown, handleUpdateTakedown } from "./handlers/takedowns";
@@ -66,6 +67,21 @@ router.patch("/api/influencers/:id", async (request: Request & { params: Record<
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleUpdateInfluencer(request, env, request.params["id"] ?? "");
+});
+router.get("/api/influencers/:id/variants", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListVariants(request, env, request.params["id"] ?? "");
+});
+router.post("/api/influencers/:id/variants", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAddVariant(request, env, request.params["id"] ?? "");
+});
+router.delete("/api/influencers/:id/variants/:variantId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteVariant(request, env, request.params["id"] ?? "", request.params["variantId"] ?? "");
 });
 
 // ─── Monitored Accounts ───────────────────────────────────────

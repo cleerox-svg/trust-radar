@@ -3,9 +3,10 @@ import type {
   TakedownRequest, AgentDefinition, AgentRun, OverviewStats,
   ThreatStatus, ThreatSeverity, TakedownStatus, Platform,
   Analysis, AnalysisType, SocialProfile, ScorePoint, Campaign, AdminStats,
+  HandleVariant,
 } from "./types";
 
-export type { User, Analysis, SocialProfile, ScorePoint, Campaign };
+export type { User, Analysis, SocialProfile, ScorePoint, Campaign, HandleVariant };
 export type AdminUser = User;
 export type { AdminStats };
 
@@ -86,6 +87,11 @@ export const influencers = {
     api<InfluencerProfile>("/influencers", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Partial<InfluencerProfile>) =>
     api<InfluencerProfile>(`/influencers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  listVariants: (influencerId: string) => api<HandleVariant[]>(`/influencers/${influencerId}/variants`),
+  addVariant: (influencerId: string, data: { platform: string; original_handle: string; variant_handle: string; variant_type: string }) =>
+    api<HandleVariant>(`/influencers/${influencerId}/variants`, { method: "POST", body: JSON.stringify(data) }),
+  deleteVariant: (influencerId: string, variantId: string) =>
+    api<{ message: string }>(`/influencers/${influencerId}/variants/${variantId}`, { method: "DELETE" }),
 };
 
 export const accounts = {

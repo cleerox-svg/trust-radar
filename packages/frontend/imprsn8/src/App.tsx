@@ -15,16 +15,28 @@ import Takedowns from "./pages/Takedowns";
 import AgentsPanel from "./pages/AgentsPanel";
 import Settings from "./pages/Settings";
 import AdminPage from "./pages/AdminPage";
+import BrandDashboard from "./pages/Dashboard";
 
 // ─── Auth guard ───────────────────────────────────────────────────────────
+// Token must exist AND look like a valid JWT (header.payload.signature)
+function isTokenValid(token: string | null): boolean {
+  if (!token) return false;
+  const parts = token.split(".");
+  return parts.length === 3 && parts.every((p) => p.length > 0);
+}
+
 function RequireAuth() {
   const token = localStorage.getItem("imprsn8_token");
-  return token ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isTokenValid(token)) {
+    localStorage.removeItem("imprsn8_token");
+    return <Navigate to="/login" replace />;
+  }
+  return <Outlet />;
 }
 
 // ─── Authenticated shell with sidebar ─────────────────────────────────────
 function AppShell() {
-  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated, apiError } = useSidebarData();
+  const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -39,30 +51,7 @@ function AppShell() {
     );
   }
 
-  if (unauthenticated) return <Navigate to="/login" replace />;
-
-  // auth.me() passed the token check but the API returned a non-auth error
-  if (!user) return (
-    <div className="flex items-center justify-center h-screen bg-soc-bg">
-      <div className="flex flex-col items-center gap-4 max-w-md px-6 text-center">
-        <div className="text-sm text-slate-400 font-mono tracking-widest">API CONNECTION ERROR</div>
-        {apiError && (
-          <div className="text-xs text-red-400 font-mono bg-red-950/30 border border-red-900/40 rounded px-4 py-3 w-full text-left break-all">
-            {apiError}
-          </div>
-        )}
-        <div className="text-xs text-slate-600 font-mono">
-          Visit <span className="text-slate-400">/api/debug</span> for DB diagnostics
-        </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 text-xs font-mono text-gold border border-gold/30 rounded hover:bg-gold/10 transition-colors"
-        >
-          RETRY
-        </button>
-      </div>
-    </div>
-  );
+  if (unauthenticated || !user) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex h-screen bg-soc-bg overflow-hidden">
@@ -131,6 +120,7 @@ export default function App() {
             <Route path="/agents"     element={<AgentsPanel />} />
             <Route path="/settings"   element={<Settings />} />
             <Route path="/admin"      element={<AdminPage />} />
+            <Route path="/brand"      element={<BrandDashboard />} />
           </Route>
         </Route>
 

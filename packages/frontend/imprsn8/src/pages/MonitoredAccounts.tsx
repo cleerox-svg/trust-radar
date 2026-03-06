@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, RefreshCw, Trash2, ExternalLink } from "lucide-react";
-import { accounts } from "../lib/api";
+import { Plus, RefreshCw, Trash2, ExternalLink, Eye } from "lucide-react";
+import { accounts, influencers as influencersApi } from "../lib/api";
 import { Ring } from "../components/ui/Ring";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
 import { RiskBadge } from "../components/ui/SeverityBadge";
-import type { MonitoredAccount, InfluencerProfile, User, Platform } from "../lib/types";
+import type { MonitoredAccount, InfluencerProfile, User, Platform, HandleVariant } from "../lib/types";
 
-interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; }
+interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; influencerList: InfluencerProfile[]; }
 
 const PLATFORMS: Platform[] = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads"];
 
@@ -28,7 +28,7 @@ function timeAgo(ts: string | null): string {
 }
 
 export default function MonitoredAccounts() {
-  const { user, selectedInfluencer } = useOutletContext<Ctx>();
+  const { user, selectedInfluencer, influencerList } = useOutletContext<Ctx>();
   const [list, setList] = useState<MonitoredAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPlatform, setFilterPlatform] = useState("all");
@@ -43,6 +43,44 @@ export default function MonitoredAccounts() {
   });
   const [adding, setAdding] = useState(false);
   const canAdd = user.role === "soc" || user.role === "admin";
+
+  // Handle variants (typosquat watchlist) — only when viewing a specific influencer
+  const [variants, setVariants] = useState<HandleVariant[]>([]);
+  const [showVariants, setShowVariants] = useState(false);
+  const [variantForm, setVariantForm] = useState({ platform: "tiktok", original_handle: "", variant_handle: "", variant_type: "other" });
+  const [addingVariant, setAddingVariant] = useState(false);
+
+  useEffect(() => {
+    if (selectedInfluencer) {
+      influencersApi.listVariants(selectedInfluencer.id).then(setVariants).catch(() => setVariants([]));
+    } else {
+      setVariants([]);
+    }
+  }, [selectedInfluencer]);
+
+  async function handleAddVariant(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedInfluencer || !variantForm.variant_handle.trim()) return;
+    setAddingVariant(true);
+    try {
+      const v = await influencersApi.addVariant(selectedInfluencer.id, {
+        platform: variantForm.platform,
+        original_handle: variantForm.original_handle || selectedInfluencer.handle,
+        variant_handle: variantForm.variant_handle.replace(/^@/, ""),
+        variant_type: variantForm.variant_type,
+      });
+      setVariants((prev) => [v, ...prev]);
+      setVariantForm({ platform: "tiktok", original_handle: "", variant_handle: "", variant_type: "other" });
+    } finally {
+      setAddingVariant(false);
+    }
+  }
+
+  async function handleRemoveVariant(variantId: string) {
+    if (!selectedInfluencer) return;
+    await influencersApi.deleteVariant(selectedInfluencer.id, variantId);
+    setVariants((prev) => prev.filter((v) => v.id !== variantId));
+  }
 
   async function load() {
     setLoading(true);
@@ -106,7 +144,13 @@ export default function MonitoredAccounts() {
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
           {canAdd && (
-            <button onClick={() => setShowAdd(true)} className="btn-gold flex items-center gap-2">
+            <button
+              onClick={() => {
+                setAddForm({ influencer_id: selectedInfluencer?.id ?? "", platform: "tiktok", handle: "", profile_url: "", is_verified: 0 });
+                setShowAdd(true);
+              }}
+              className="btn-gold flex items-center gap-2"
+            >
               <Plus size={14} /> Add Account
             </button>
           )}
@@ -138,6 +182,29 @@ export default function MonitoredAccounts() {
         <div className="soc-card border-gold/20">
           <h3 className="text-sm font-semibold text-slate-200 mb-4">Add Monitored Account</h3>
           <form onSubmit={handleAdd} className="grid grid-cols-2 gap-3">
+            {/* Influencer picker — only shown when not scoped to a specific influencer */}
+            {!selectedInfluencer && (
+              <div className="col-span-2">
+                <label className="text-xs text-slate-500 block mb-1">Influencer *</label>
+                {influencerList.length === 0 ? (
+                  <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded px-3 py-2">
+                    No influencer profiles found. Create one in Admin → Influencers first.
+                  </div>
+                ) : (
+                  <select
+                    className="soc-select"
+                    value={addForm.influencer_id}
+                    onChange={(e) => setAddForm((f) => ({ ...f, influencer_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">— select influencer —</option>
+                    {influencerList.map((inf) => (
+                      <option key={inf.id} value={inf.id}>{inf.display_name} (@{inf.handle})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-xs text-slate-500 block mb-1">Platform</label>
               <select className="soc-select" value={addForm.platform}
@@ -157,11 +224,95 @@ export default function MonitoredAccounts() {
             </div>
             <div className="col-span-2 flex gap-2 justify-end">
               <button type="button" onClick={() => setShowAdd(false)} className="btn-ghost">Cancel</button>
-              <button type="submit" disabled={adding || !addForm.handle.trim()} className="btn-gold">
+              <button
+                type="submit"
+                disabled={adding || !addForm.handle.trim() || (!selectedInfluencer && !addForm.influencer_id)}
+                className="btn-gold"
+              >
                 {adding ? "Adding…" : "Add Account"}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Typosquat Watchlist — only shown when a specific influencer is selected */}
+      {selectedInfluencer && (
+        <div className="soc-card">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 tracking-widest">HANDLE VARIANT WATCHLIST</div>
+              <div className="text-xs text-slate-400 mt-0.5">Typosquat handles being monitored for @{selectedInfluencer.handle}</div>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-xs text-slate-500">{variants.length} variants</span>
+              {canAdd && (
+                <button onClick={() => setShowVariants((v) => !v)} className="btn-icon !p-1.5">
+                  <Plus size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {showVariants && canAdd && (
+            <form onSubmit={handleAddVariant} className="grid grid-cols-2 gap-2.5 mb-4 pb-4 border-b border-soc-border">
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Platform</label>
+                <select className="soc-select !py-1.5 !text-xs" value={variantForm.platform}
+                  onChange={(e) => setVariantForm((f) => ({ ...f, platform: e.target.value }))}>
+                  {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Variant Type</label>
+                <select className="soc-select !py-1.5 !text-xs" value={variantForm.variant_type}
+                  onChange={(e) => setVariantForm((f) => ({ ...f, variant_type: e.target.value }))}>
+                  {["homoglyph","separator","suffix","prefix","swap","other"].map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Original Handle</label>
+                <input className="soc-input !py-1.5 !text-xs" placeholder={`@${selectedInfluencer.handle}`}
+                  value={variantForm.original_handle}
+                  onChange={(e) => setVariantForm((f) => ({ ...f, original_handle: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Typosquat Handle *</label>
+                <input className="soc-input !py-1.5 !text-xs" placeholder="@variant_handle" required
+                  value={variantForm.variant_handle}
+                  onChange={(e) => setVariantForm((f) => ({ ...f, variant_handle: e.target.value }))} />
+              </div>
+              <div className="col-span-2 flex gap-2 justify-end">
+                <button type="button" onClick={() => setShowVariants(false)} className="btn-ghost !py-1.5 !px-3 !text-xs">Cancel</button>
+                <button type="submit" disabled={addingVariant || !variantForm.variant_handle.trim()} className="btn-gold !py-1.5 !px-3 !text-xs">
+                  {addingVariant ? "Adding…" : "Add Variant"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {variants.length === 0 ? (
+            <div className="text-center py-4 text-slate-600 text-xs">No variants tracked yet</div>
+          ) : (
+            <div className="space-y-1.5">
+              {variants.map((v) => (
+                <div key={v.id} className="flex items-center gap-3 py-2 border-b border-soc-border/50 last:border-0">
+                  <Eye size={11} className="text-slate-600 shrink-0" />
+                  <PlatformIcon platform={v.platform as Platform} size="sm" />
+                  <span className="font-mono text-xs text-slate-300">@{v.variant_handle}</span>
+                  <span className="text-[10px] text-slate-500">← @{v.original_handle}</span>
+                  <span className="text-[9px] font-bold bg-purple/10 border border-purple/20 text-purple-light px-1.5 py-0.5 rounded-full uppercase">{v.variant_type}</span>
+                  {canAdd && (
+                    <button onClick={() => handleRemoveVariant(v.id)} className="ml-auto btn-icon !p-1 hover:!border-threat-critical/40 hover:!text-threat-critical">
+                      <Trash2 size={10} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

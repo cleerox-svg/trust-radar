@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
-  Users, Lock,
+  Users, Lock, TrendingUp,
 } from "lucide-react";
 import { Pulse } from "./ui/Pulse";
 import { auth, influencers, ApiError } from "../lib/api";
@@ -16,6 +16,7 @@ interface NavItem {
   badge?: number;
   adminOnly?: boolean;
   socOnly?: boolean;
+  influencerOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -23,7 +24,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/accounts",    label: "Monitored",         icon: <Shield size={16} /> },
   { to: "/threats",     label: "Threats Found",     icon: <AlertTriangle size={16} /> },
   { to: "/takedowns",   label: "Takedowns",         icon: <Download size={16} /> },
-  { to: "/agents",      label: "Agents",            icon: <Bot size={16} /> },
+  { to: "/agents",      label: "Agents",            icon: <Bot size={16} />, socOnly: true },
+  { to: "/brand",       label: "Brand Score",       icon: <TrendingUp size={16} />, influencerOnly: true },
   { to: "/admin",       label: "Admin Console",     icon: <Lock size={16} />, adminOnly: true },
 ];
 
@@ -86,10 +88,18 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
                          transition-all text-left"
             >
               {/* Avatar */}
-              <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
-                              flex items-center justify-center text-xs font-bold text-purple-light flex-shrink-0">
-                {initial}
-              </div>
+              {selectedInfluencer?.avatar_url ? (
+                <img
+                  src={selectedInfluencer.avatar_url}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-cover border border-purple/30 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
+                                flex items-center justify-center text-xs font-bold text-purple-light flex-shrink-0">
+                  {initial}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-slate-200 truncate">{displayName}</div>
                 {handle && <div className="text-[10px] text-slate-500 truncate">@{handle}</div>}
@@ -117,10 +127,18 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
                         ? "bg-gold/10 text-gold"
                         : "text-slate-300 hover:bg-soc-border/20"}`}
                   >
-                    <div className="w-5 h-5 rounded-full bg-purple/20 flex items-center justify-center
-                                    text-[9px] font-bold text-purple-light flex-shrink-0">
-                      {inf.display_name[0]?.toUpperCase()}
-                    </div>
+                    {inf.avatar_url ? (
+                      <img
+                        src={inf.avatar_url}
+                        alt=""
+                        className="w-5 h-5 rounded-full object-cover border border-soc-border flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-purple/20 flex items-center justify-center
+                                      text-[9px] font-bold text-purple-light flex-shrink-0">
+                        {inf.display_name[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <div className="font-medium truncate">{inf.display_name}</div>
                       <div className="text-slate-500 truncate">@{inf.handle}</div>
@@ -150,6 +168,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
         {NAV_ITEMS.filter((item) => {
           if (item.adminOnly && user.role !== "admin") return false;
           if (item.socOnly && !isSocOrAdmin) return false;
+          if (item.influencerOnly && isSocOrAdmin) return false;
           return true;
         }).map((item) => (
           <NavLink
@@ -252,7 +271,8 @@ export function useSidebarData() {
           return;
         } catch (err) {
           if (cancelled) return;
-          if (err instanceof ApiError && err.status === 401) {
+          // 401 or 403 = invalid/expired token → force re-login
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             localStorage.removeItem("imprsn8_token");
             setUnauthenticated(true);
             return;
@@ -260,8 +280,10 @@ export function useSidebarData() {
           if (attempt < 3) {
             await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
           } else {
-            // Capture the real error message for display
-            setApiError(err instanceof Error ? err.message : String(err));
+            // All retries exhausted due to network/server error — treat as unauthenticated
+            // so the user is directed to login rather than a dead error screen
+            localStorage.removeItem("imprsn8_token");
+            setUnauthenticated(true);
           }
         }
       }

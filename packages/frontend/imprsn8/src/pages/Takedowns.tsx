@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ChevronLeft, Lock, Check, X, Flag } from "lucide-react";
+import { RefreshCw, ChevronLeft, Lock, Check, X, Flag, Plus, LayoutGrid, List } from "lucide-react";
 import { takedowns } from "../lib/api";
-import { TakedownStatusBadge, SeverityBadge } from "../components/ui/SeverityBadge";
+import { TakedownStatusBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
-import { Ring } from "../components/ui/Ring";
+import { CreateTakedownModal } from "../components/CreateTakedownModal";
 import type { TakedownRequest, InfluencerProfile, User, TakedownStatus } from "../lib/types";
 
 interface Ctx {
   user: User;
   selectedInfluencer: InfluencerProfile | null;
+  influencerList: InfluencerProfile[];
 }
 
 function timeAgo(ts: string | null | undefined): string {
@@ -21,8 +22,177 @@ function timeAgo(ts: string | null | undefined): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-const ACTIVE_STATUSES: TakedownStatus[] = ["draft", "submitted", "acknowledged", "in_review"];
 const DONE_STATUSES: TakedownStatus[] = ["resolved", "rejected"];
+
+const PIPELINE_STAGES: { status: TakedownStatus; label: string; color: string; headerBg: string }[] = [
+  { status: "draft",        label: "Draft",        color: "text-slate-400",        headerBg: "border-slate-600" },
+  { status: "submitted",    label: "Submitted",     color: "text-blue-400",         headerBg: "border-blue-500/40" },
+  { status: "acknowledged", label: "Acknowledged",  color: "text-purple-400",       headerBg: "border-purple-500/40" },
+  { status: "in_review",    label: "In Review",     color: "text-gold",             headerBg: "border-gold/40" },
+  { status: "resolved",     label: "Done",          color: "text-status-live",      headerBg: "border-status-live/40" },
+];
+
+function TakedownCard({
+  td,
+  onClick,
+}: {
+  td: TakedownRequest;
+  onClick: () => void;
+}) {
+  const isDone = DONE_STATUSES.includes(td.status);
+  return (
+    <div
+      onClick={onClick}
+      className={`soc-card !p-3 cursor-pointer hover:border-soc-border-bright transition-all space-y-2 ${isDone ? "opacity-60" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-bold text-slate-100 font-mono text-sm truncate">@{td.suspect_handle}</span>
+        {td.status === "rejected" && (
+          <span className="text-[9px] font-bold text-slate-500 border border-slate-600 px-1.5 py-0.5 rounded-full shrink-0">REJECTED</span>
+        )}
+        {td.status === "resolved" && (
+          <span className="text-[9px] font-bold text-status-live border border-status-live/30 px-1.5 py-0.5 rounded-full shrink-0">RESOLVED</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <PlatformIcon platform={td.platform as never} size="sm" />
+        <span className="text-[10px] text-slate-400 capitalize">{td.takedown_type.replace(/_/g, " ")}</span>
+      </div>
+      {td.influencer_name && (
+        <div className="text-[10px] text-slate-500 truncate">{td.influencer_name}</div>
+      )}
+      <div className="text-[10px] text-slate-600 font-mono">{timeAgo(td.created_at)}</div>
+      {td.evidence_json && td.evidence_json.length > 0 && (
+        <div className="text-[10px] text-slate-500 flex items-center gap-1">
+          <Check size={9} className="text-status-live" />
+          {td.evidence_json.length} evidence item{td.evidence_json.length !== 1 ? "s" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KanbanBoard({
+  list,
+  onSelect,
+}: {
+  list: TakedownRequest[];
+  onSelect: (td: TakedownRequest) => void;
+}) {
+  // Group by stage; "resolved" column also shows "rejected"
+  const grouped: Record<TakedownStatus, TakedownRequest[]> = {
+    draft: [], submitted: [], acknowledged: [], in_review: [], resolved: [], rejected: [],
+  };
+  for (const td of list) {
+    grouped[td.status].push(td);
+  }
+  // Merge rejected into the resolved (Done) column
+  const doneItems = [...grouped.resolved, ...grouped.rejected].sort(
+    (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  );
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-4 min-h-[400px]">
+      {PIPELINE_STAGES.map((stage) => {
+        const items = stage.status === "resolved" ? doneItems : grouped[stage.status];
+        return (
+          <div key={stage.status} className="flex-shrink-0 w-56">
+            {/* Column header */}
+            <div className={`flex items-center justify-between mb-2 pb-2 border-b ${stage.headerBg}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider ${stage.color}`}>{stage.label}</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                items.length > 0
+                  ? `${stage.color} border-current bg-current/10`
+                  : "text-slate-600 border-slate-700"
+              }`}>
+                {items.length}
+              </span>
+            </div>
+            {/* Cards */}
+            <div className="space-y-2">
+              {items.map((td) => (
+                <TakedownCard key={td.id} td={td} onClick={() => onSelect(td)} />
+              ))}
+              {items.length === 0 && (
+                <div className="text-center py-8 text-slate-700 text-xs">—</div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ListView({
+  list,
+  onSelect,
+}: {
+  list: TakedownRequest[];
+  onSelect: (td: TakedownRequest) => void;
+}) {
+  const active = list.filter((t) => !DONE_STATUSES.includes(t.status));
+  const done = list.filter((t) => DONE_STATUSES.includes(t.status));
+  return (
+    <div className="space-y-5">
+      {active.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+            Active
+            <span className="badge-high">{active.length}</span>
+          </div>
+          {active.map((td) => (
+            <div
+              key={td.id}
+              onClick={() => onSelect(td)}
+              className="soc-card flex items-center gap-4 flex-wrap cursor-pointer hover:border-soc-border-bright transition-all"
+            >
+              <div className="flex-1 min-w-[180px]">
+                <div className="font-bold text-slate-100 font-mono mb-1">@{td.suspect_handle}</div>
+                <div className="text-xs text-slate-500 mb-2">
+                  {td.influencer_name} · {td.platform} · {td.takedown_type.replace(/_/g, " ")}
+                </div>
+                {td.evidence_json && td.evidence_json.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {td.evidence_json.slice(0, 2).map((e, i) => (
+                      <span key={i} className="badge-dismissed text-[9px]">{e.description.slice(0, 30)}</span>
+                    ))}
+                    {td.evidence_json.length > 2 && (
+                      <span className="badge-dismissed text-[9px]">+{td.evidence_json.length - 2} more</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <TakedownStatusBadge status={td.status} />
+            </div>
+          ))}
+        </div>
+      )}
+      {done.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-slate-500">Completed</div>
+          {done.map((td) => (
+            <div
+              key={td.id}
+              onClick={() => onSelect(td)}
+              className="soc-card flex items-center gap-4 flex-wrap cursor-pointer hover:border-soc-border-bright transition-all opacity-70"
+            >
+              <PlatformIcon platform={td.platform as never} size="sm" />
+              <div className="flex-1">
+                <div className="font-medium text-slate-200 font-mono text-sm">@{td.suspect_handle}</div>
+                <div className="text-xs text-slate-500">
+                  {td.influencer_name} · {td.platform}
+                  {td.submitted_at ? ` · Filed ${timeAgo(td.submitted_at)}` : ""}
+                </div>
+              </div>
+              <TakedownStatusBadge status={td.status} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TakedownDetail({
   td,
@@ -70,6 +240,60 @@ function TakedownDetail({
         <h1 className="text-xl font-bold text-slate-100">Takedown Review</h1>
         <span className="badge-submitted capitalize">{td.takedown_type.replace(/_/g, " ")}</span>
         <TakedownStatusBadge status={td.status} />
+      </div>
+
+      {/* Pipeline progress */}
+      <div className="soc-card !p-4">
+        <div className="flex items-center gap-0">
+          {PIPELINE_STAGES.filter((s) => s.status !== "resolved").map((stage, idx) => {
+            const statuses: TakedownStatus[] = ["draft", "submitted", "acknowledged", "in_review"];
+            const currentIdx = statuses.indexOf(td.status as TakedownStatus);
+            const stageIdx = statuses.indexOf(stage.status);
+            const isPast = stageIdx < currentIdx;
+            const isCurrent = stageIdx === currentIdx;
+            const isDoneStatus = DONE_STATUSES.includes(td.status);
+            const isCompleted = isDoneStatus || isPast;
+            return (
+              <div key={stage.status} className="flex items-center flex-1">
+                <div className="flex flex-col items-center flex-1">
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-bold transition-all ${
+                    isCompleted ? "bg-status-live/20 border-status-live text-status-live" :
+                    isCurrent ? `bg-gold/20 border-gold text-gold` :
+                    "bg-soc-bg border-soc-border text-slate-600"
+                  }`}>
+                    {isCompleted ? <Check size={10} /> : idx + 1}
+                  </div>
+                  <span className={`text-[9px] mt-1 font-semibold tracking-wide ${
+                    isCurrent ? stage.color : isCompleted ? "text-status-live" : "text-slate-600"
+                  }`}>
+                    {stage.label}
+                  </span>
+                </div>
+                {idx < PIPELINE_STAGES.length - 2 && (
+                  <div className={`h-px flex-1 mx-1 ${isPast || isDoneStatus ? "bg-status-live/40" : "bg-soc-border"}`} />
+                )}
+              </div>
+            );
+          })}
+          {/* Done step */}
+          <div className="flex items-center flex-1">
+            <div className={`h-px flex-1 mx-1 ${DONE_STATUSES.includes(td.status) ? "bg-status-live/40" : "bg-soc-border"}`} />
+            <div className="flex flex-col items-center">
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-bold ${
+                td.status === "resolved" ? "bg-status-live/20 border-status-live text-status-live" :
+                td.status === "rejected" ? "bg-threat-critical/20 border-threat-critical text-threat-critical" :
+                "bg-soc-bg border-soc-border text-slate-600"
+              }`}>
+                {td.status === "resolved" ? <Check size={10} /> : td.status === "rejected" ? <X size={10} /> : "5"}
+              </div>
+              <span className={`text-[9px] mt-1 font-semibold tracking-wide ${
+                td.status === "resolved" ? "text-status-live" : td.status === "rejected" ? "text-threat-critical" : "text-slate-600"
+              }`}>
+                Done
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* HITL Warning */}
@@ -190,10 +414,13 @@ function TakedownDetail({
 }
 
 export default function Takedowns() {
-  const { user, selectedInfluencer } = useOutletContext<Ctx>();
+  const { user, selectedInfluencer, influencerList } = useOutletContext<Ctx>();
   const [list, setList] = useState<TakedownRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TakedownRequest | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const canCreate = user.role === "soc" || user.role === "admin";
 
   async function load() {
     setLoading(true);
@@ -224,23 +451,53 @@ export default function Takedowns() {
     );
   }
 
-  const pending = list.filter((t) => ACTIVE_STATUSES.includes(t.status));
-  const done = list.filter((t) => DONE_STATUSES.includes(t.status));
+  const pending = list.filter((t) => !DONE_STATUSES.includes(t.status));
 
   return (
+    <>
+    {showCreate && (
+      <CreateTakedownModal
+        influencerList={influencerList}
+        prefill={selectedInfluencer ? { influencer_id: selectedInfluencer.id } : undefined}
+        onCreated={(td) => { setList((prev) => [td, ...prev]); setShowCreate(false); }}
+        onClose={() => setShowCreate(false)}
+      />
+    )}
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Takedown Queue</h1>
+          <h1 className="text-xl font-bold text-slate-100">Takedown Pipeline</h1>
           <p className="text-xs text-slate-500 mt-0.5">ARBITER-Prepared · Human Authorisation Required · Audit-Logged</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
             pending.length > 0 ? "bg-threat-high/10 border-threat-high/30 text-threat-high" : "bg-status-live/10 border-status-live/30 text-status-live"
           }`}>
-            {pending.length} AWAITING REVIEW
+            {pending.length} ACTIVE
           </span>
+          {/* View toggle */}
+          <div className="flex items-center border border-soc-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={`px-2.5 py-1.5 transition-colors ${viewMode === "kanban" ? "bg-gold/10 text-gold" : "text-slate-500 hover:text-slate-300"}`}
+              title="Kanban view"
+            >
+              <LayoutGrid size={13} />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-2.5 py-1.5 transition-colors ${viewMode === "list" ? "bg-gold/10 text-gold" : "text-slate-500 hover:text-slate-300"}`}
+              title="List view"
+            >
+              <List size={13} />
+            </button>
+          </div>
+          {canCreate && (
+            <button onClick={() => setShowCreate(true)} className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs">
+              <Plus size={12} /> New Takedown
+            </button>
+          )}
           <button onClick={load} disabled={loading} className="btn-icon">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
@@ -260,77 +517,22 @@ export default function Takedowns() {
         <div className="flex justify-center py-12">
           <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : list.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <div className="text-4xl mb-3">✅</div>
+          <div>No takedowns in queue</div>
+          {canCreate && (
+            <button onClick={() => setShowCreate(true)} className="text-gold text-sm mt-2 hover:underline">
+              Create the first takedown →
+            </button>
+          )}
+        </div>
+      ) : viewMode === "kanban" ? (
+        <KanbanBoard list={list} onSelect={setSelected} />
       ) : (
-        <>
-          {/* Pending */}
-          {pending.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                Pending Review
-                <span className="badge-high">{pending.length}</span>
-              </div>
-              {pending.map((td) => (
-                <div
-                  key={td.id}
-                  onClick={() => setSelected(td)}
-                  className="soc-card flex items-center gap-4 flex-wrap cursor-pointer hover:border-soc-border-bright transition-all"
-                >
-                  <div className="flex-1 min-w-[180px]">
-                    <div className="font-bold text-slate-100 font-mono mb-1">@{td.suspect_handle}</div>
-                    <div className="text-xs text-slate-500 mb-2">
-                      {td.influencer_name} · {td.platform} · {td.takedown_type.replace(/_/g, " ")}
-                    </div>
-                    {td.evidence_json && td.evidence_json.length > 0 && (
-                      <div className="flex gap-1.5 flex-wrap">
-                        {td.evidence_json.slice(0, 2).map((e, i) => (
-                          <span key={i} className="badge-dismissed text-[9px]">{e.description.slice(0, 30)}</span>
-                        ))}
-                        {td.evidence_json.length > 2 && (
-                          <span className="badge-dismissed text-[9px]">+{td.evidence_json.length - 2} more</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TakedownStatusBadge status={td.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Completed */}
-          {done.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-slate-500">Completed</div>
-              {done.map((td) => (
-                <div
-                  key={td.id}
-                  onClick={() => setSelected(td)}
-                  className="soc-card flex items-center gap-4 flex-wrap cursor-pointer hover:border-soc-border-bright transition-all opacity-70"
-                >
-                  <PlatformIcon platform={td.platform as never} size="sm" />
-                  <div className="flex-1">
-                    <div className="font-medium text-slate-200 font-mono text-sm">@{td.suspect_handle}</div>
-                    <div className="text-xs text-slate-500">
-                      {td.influencer_name} · {td.platform}
-                      {td.submitted_at ? ` · Filed ${timeAgo(td.submitted_at)}` : ""}
-                    </div>
-                  </div>
-                  <TakedownStatusBadge status={td.status} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {list.length === 0 && (
-            <div className="text-center py-16 text-slate-500">
-              <div className="text-4xl mb-3">✅</div>
-              <div>No takedowns in queue</div>
-            </div>
-          )}
-        </>
+        <ListView list={list} onSelect={setSelected} />
       )}
     </div>
+    </>
   );
 }

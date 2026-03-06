@@ -206,9 +206,17 @@ export default function AgentsPanel() {
 
   useEffect(() => { load(); }, []);
 
+  const [triggering, setTriggering] = useState<string | null>(null);
+
   async function handleTrigger(agentId: string) {
-    await agents.trigger(agentId, selectedInfluencer?.id);
-    await load();
+    setTriggering(agentId);
+    try {
+      await agents.trigger(agentId, selectedInfluencer?.id);
+      // Refresh list after trigger to update last_run_at and stats
+      await load();
+    } finally {
+      setTriggering(null);
+    }
   }
 
   const arbiters = agentList.filter((a) => a.name === "ARBITER");
@@ -303,13 +311,32 @@ export default function AgentsPanel() {
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="flex items-center gap-2">
-                  <StatusDot status={agent.is_active} />
-                  <span className={`text-xs font-semibold ${agent.is_active ? "text-status-live" : "text-slate-500"}`}>
-                    {agent.is_active ? "ACTIVE" : "INACTIVE"}
-                  </span>
-                  {agent.name === "ARBITER" && <Lock size={12} className="text-threat-critical" />}
+                {/* Status + trigger */}
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {triggering === agent.id ? (
+                    <div className="flex items-center gap-1.5 text-xs text-gold font-mono">
+                      <div className="w-3 h-3 border border-gold border-t-transparent rounded-full animate-spin" />
+                      Running…
+                    </div>
+                  ) : (
+                    <>
+                      <StatusDot status={agent.is_active} />
+                      <span className={`text-xs font-semibold ${agent.is_active ? "text-status-live" : "text-slate-500"}`}>
+                        {agent.is_active ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                      {agent.name === "ARBITER" && <Lock size={12} className="text-threat-critical" />}
+                      {canTrigger && agent.is_active && (
+                        <button
+                          onClick={() => handleTrigger(agent.id)}
+                          disabled={triggering !== null}
+                          className="btn-icon !p-1.5 ml-1"
+                          title={`Run ${agent.codename}`}
+                        >
+                          <Play size={11} />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -321,6 +348,28 @@ export default function AgentsPanel() {
               <div>No agents registered</div>
             </div>
           )}
+
+          {/* PHANTOM — coming soon card (always shown) */}
+          <div className="soc-card flex items-center gap-4 flex-wrap opacity-50 cursor-not-allowed border-dashed">
+            <div className="w-11 h-11 rounded-xl border border-slate-600 flex items-center justify-center shrink-0 bg-slate-700/20">
+              <Activity size={16} className="text-slate-500" />
+            </div>
+            <div className="min-w-[160px]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-slate-400">Voice Clone Detector</span>
+                <span className="text-[10px] font-bold uppercase text-slate-500">PHANTOM</span>
+              </div>
+              <div className="text-xs text-slate-600">
+                AI voice clone detection across audio &amp; video content
+              </div>
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold bg-slate-700/40 text-slate-400 border border-slate-600 px-2.5 py-1 rounded-full tracking-widest uppercase">
+                Coming Soon
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </div>
