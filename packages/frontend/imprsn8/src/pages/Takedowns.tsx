@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ChevronLeft, Lock, Check, X, Flag } from "lucide-react";
+import { RefreshCw, ChevronLeft, Lock, Check, X, Flag, Plus } from "lucide-react";
 import { takedowns } from "../lib/api";
-import { TakedownStatusBadge, SeverityBadge } from "../components/ui/SeverityBadge";
+import { TakedownStatusBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
-import { Ring } from "../components/ui/Ring";
+import { CreateTakedownModal } from "../components/CreateTakedownModal";
 import type { TakedownRequest, InfluencerProfile, User, TakedownStatus } from "../lib/types";
 
 interface Ctx {
   user: User;
   selectedInfluencer: InfluencerProfile | null;
+  influencerList: InfluencerProfile[];
 }
 
 function timeAgo(ts: string | null | undefined): string {
@@ -190,10 +191,12 @@ function TakedownDetail({
 }
 
 export default function Takedowns() {
-  const { user, selectedInfluencer } = useOutletContext<Ctx>();
+  const { user, selectedInfluencer, influencerList } = useOutletContext<Ctx>();
   const [list, setList] = useState<TakedownRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TakedownRequest | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const canCreate = user.role === "soc" || user.role === "admin";
 
   async function load() {
     setLoading(true);
@@ -228,6 +231,15 @@ export default function Takedowns() {
   const done = list.filter((t) => DONE_STATUSES.includes(t.status));
 
   return (
+    <>
+    {showCreate && (
+      <CreateTakedownModal
+        influencerList={influencerList}
+        prefill={selectedInfluencer ? { influencer_id: selectedInfluencer.id } : undefined}
+        onCreated={(td) => { setList((prev) => [td, ...prev]); setShowCreate(false); }}
+        onClose={() => setShowCreate(false)}
+      />
+    )}
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -241,6 +253,11 @@ export default function Takedowns() {
           }`}>
             {pending.length} AWAITING REVIEW
           </span>
+          {canCreate && (
+            <button onClick={() => setShowCreate(true)} className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs">
+              <Plus size={12} /> New Takedown
+            </button>
+          )}
           <button onClick={load} disabled={loading} className="btn-icon">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
@@ -327,10 +344,16 @@ export default function Takedowns() {
             <div className="text-center py-16 text-slate-500">
               <div className="text-4xl mb-3">✅</div>
               <div>No takedowns in queue</div>
+              {canCreate && (
+                <button onClick={() => setShowCreate(true)} className="text-gold text-sm mt-2 hover:underline">
+                  Create the first takedown →
+                </button>
+              )}
             </div>
           )}
         </>
       )}
     </div>
+    </>
   );
 }

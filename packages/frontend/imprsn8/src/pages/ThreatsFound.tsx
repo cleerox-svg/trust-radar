@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ChevronLeft, Flag, Shield, Copy, X, AlertTriangle, Lock } from "lucide-react";
+import { RefreshCw, ChevronLeft, Flag, Shield, Copy, X, AlertTriangle, Lock, Plus } from "lucide-react";
 import { threats } from "../lib/api";
 import { SeverityBadge, ThreatStatusBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
 import { Ring } from "../components/ui/Ring";
+import { CreateTakedownModal } from "../components/CreateTakedownModal";
 import type { ImpersonationReport, InfluencerProfile, User, ThreatSeverity, ThreatStatus } from "../lib/types";
 
 interface Ctx {
   user: User;
   selectedInfluencer: InfluencerProfile | null;
+  influencerList: InfluencerProfile[];
   setThreatCount: (n: number) => void;
 }
 
@@ -41,15 +43,18 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 function ThreatDetail({
   threat,
+  influencerList,
   onBack,
   onUpdate,
 }: {
   threat: ImpersonationReport;
+  influencerList: InfluencerProfile[];
   onBack: () => void;
   onUpdate: (id: string, data: { status?: ThreatStatus; soc_note?: string }) => Promise<void>;
 }) {
   const [note, setNote] = useState(threat.soc_note ?? "");
   const [saving, setSaving] = useState(false);
+  const [showTakedown, setShowTakedown] = useState(false);
 
   async function handleStatusChange(status: ThreatStatus) {
     setSaving(true);
@@ -168,10 +173,26 @@ function ThreatDetail({
           placeholder="Add your assessment or findings..."
           className="soc-input w-full min-h-[80px] resize-y mb-4"
         />
+        {showTakedown && (
+          <CreateTakedownModal
+            influencerList={influencerList}
+            prefill={{
+              influencer_id:  threat.influencer_id,
+              platform:       threat.platform,
+              suspect_handle: threat.suspect_handle,
+              report_id:      threat.id,
+            }}
+            onCreated={async () => {
+              setShowTakedown(false);
+              await handleStatusChange("actioning");
+            }}
+            onClose={() => setShowTakedown(false)}
+          />
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             disabled={saving}
-            onClick={() => handleStatusChange("actioning")}
+            onClick={() => setShowTakedown(true)}
             className="btn-gold flex items-center gap-1.5"
           >
             <Flag size={13} /> Initiate Takedown
@@ -203,13 +224,162 @@ function ThreatDetail({
   );
 }
 
+// ─── Report Threat Modal ──────────────────────────────────────────────────────
+const THREAT_TYPES = [
+  { value: "full_clone",       label: "Full Identity Clone" },
+  { value: "handle_squat",     label: "Handle Squatting" },
+  { value: "bio_copy",         label: "Bio Copy" },
+  { value: "avatar_copy",      label: "Avatar Copy" },
+  { value: "scam_campaign",    label: "Scam Campaign" },
+  { value: "deepfake_media",   label: "Deepfake Media" },
+  { value: "unofficial_clips", label: "Unofficial Clips" },
+  { value: "voice_clone",      label: "Voice Clone" },
+  { value: "other",            label: "Other" },
+] as const;
+
+const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+const PLATFORMS_LIST = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads"] as const;
+
+function ReportThreatModal({
+  influencerList,
+  defaultInfluencerId,
+  onCreated,
+  onClose,
+}: {
+  influencerList: InfluencerProfile[];
+  defaultInfluencerId?: string;
+  onCreated: (t: ImpersonationReport) => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    influencer_id:  defaultInfluencerId ?? (influencerList[0]?.id ?? ""),
+    platform:       "tiktok",
+    suspect_handle: "",
+    suspect_url:    "",
+    threat_type:    "full_clone" as typeof THREAT_TYPES[number]["value"],
+    severity:       "high" as typeof SEVERITIES[number],
+    similarity_score: "",
+    ai_analysis:    "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.influencer_id || !form.suspect_handle.trim()) { setError("Influencer and handle are required."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const report = await threats.create({
+        influencer_id:    form.influencer_id,
+        platform:         form.platform as ImpersonationReport["platform"],
+        suspect_handle:   form.suspect_handle.trim().replace(/^@/, ""),
+        suspect_url:      form.suspect_url.trim() || null,
+        threat_type:      form.threat_type,
+        severity:         form.severity,
+        similarity_score: form.similarity_score ? Number(form.similarity_score) : null,
+        ai_analysis:      form.ai_analysis.trim() || null,
+        detected_by:      "manual",
+        status:           "new",
+      });
+      onCreated(report);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create report");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-lg bg-soc-card border border-soc-border rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-soc-border sticky top-0 bg-soc-card">
+          <div>
+            <h2 className="font-bold text-slate-100">Report Impersonation Threat</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5 font-mono">Manual IOI — detected_by: analyst</p>
+          </div>
+          <button onClick={onClose} className="btn-icon !p-1.5"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3.5">
+          {error && <div className="text-red-400 text-xs bg-red-950/30 border border-red-900/30 rounded px-3 py-2">{error}</div>}
+          <div>
+            <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Protected Influencer *</label>
+            <select className="soc-select" value={form.influencer_id}
+              onChange={(e) => setForm((f) => ({ ...f, influencer_id: e.target.value }))} required>
+              <option value="">— select —</option>
+              {influencerList.map((inf) => <option key={inf.id} value={inf.id}>{inf.display_name} (@{inf.handle})</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Platform *</label>
+              <select className="soc-select" value={form.platform}
+                onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}>
+                {PLATFORMS_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Suspect Handle *</label>
+              <input className="soc-input" placeholder="@handle" value={form.suspect_handle}
+                onChange={(e) => setForm((f) => ({ ...f, suspect_handle: e.target.value }))} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Threat Type</label>
+              <select className="soc-select" value={form.threat_type}
+                onChange={(e) => setForm((f) => ({ ...f, threat_type: e.target.value as typeof form.threat_type }))}>
+                {THREAT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Severity</label>
+              <select className="soc-select" value={form.severity}
+                onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value as typeof SEVERITIES[number] }))}>
+                {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Profile URL</label>
+              <input className="soc-input" placeholder="https://..." value={form.suspect_url}
+                onChange={(e) => setForm((f) => ({ ...f, suspect_url: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Similarity Score (0–100)</label>
+              <input className="soc-input" placeholder="e.g. 87" type="number" min="0" max="100"
+                value={form.similarity_score}
+                onChange={(e) => setForm((f) => ({ ...f, similarity_score: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Analyst Notes / AI Analysis</label>
+            <textarea className="soc-input w-full min-h-[80px] resize-y" placeholder="Describe the threat, evidence found, and how it was detected..."
+              value={form.ai_analysis} onChange={(e) => setForm((f) => ({ ...f, ai_analysis: e.target.value }))} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+            <button type="submit" disabled={saving || !form.influencer_id || !form.suspect_handle.trim()}
+              className="btn-gold flex items-center gap-2 flex-1 justify-center">
+              <Flag size={13} />
+              {saving ? "Reporting…" : "Submit IOI Report"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function ThreatsFound() {
-  const { user, selectedInfluencer, setThreatCount } = useOutletContext<Ctx>();
+  const { user, selectedInfluencer, influencerList, setThreatCount } = useOutletContext<Ctx>();
   const [list, setList] = useState<ImpersonationReport[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filterKey, setFilterKey] = useState("all");
   const [selected, setSelected] = useState<ImpersonationReport | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   const activeFilter = FILTERS.find((f) => `${f.field}:${f.value}` === filterKey) ?? FILTERS[0];
 
@@ -242,6 +412,7 @@ export default function ThreatsFound() {
     return (
       <ThreatDetail
         threat={selected}
+        influencerList={influencerList}
         onBack={() => setSelected(null)}
         onUpdate={handleUpdate}
       />
@@ -249,6 +420,15 @@ export default function ThreatsFound() {
   }
 
   return (
+    <>
+    {showReport && (
+      <ReportThreatModal
+        influencerList={influencerList}
+        defaultInfluencerId={selectedInfluencer?.id}
+        onCreated={(t) => { setList((prev) => [t, ...prev]); setTotal((n) => n + 1); setShowReport(false); }}
+        onClose={() => setShowReport(false)}
+      />
+    )}
     <div className="p-6 space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -257,6 +437,11 @@ export default function ThreatsFound() {
           <p className="text-xs text-slate-500 mt-0.5">IOI Feed · Actor Registry · Attribution Analysis</p>
         </div>
         <div className="flex gap-2">
+          {(user.role === "soc" || user.role === "admin") && (
+            <button onClick={() => setShowReport(true)} className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs">
+              <Plus size={12} /> Report Threat
+            </button>
+          )}
           <button onClick={load} disabled={loading} className="btn-icon">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
@@ -328,5 +513,6 @@ export default function ThreatsFound() {
         </div>
       )}
     </div>
+    </>
   );
 }

@@ -7,7 +7,7 @@ import { PlatformIcon } from "../components/ui/PlatformIcon";
 import { RiskBadge } from "../components/ui/SeverityBadge";
 import type { MonitoredAccount, InfluencerProfile, User, Platform } from "../lib/types";
 
-interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; }
+interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; influencerList: InfluencerProfile[]; }
 
 const PLATFORMS: Platform[] = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads"];
 
@@ -28,7 +28,7 @@ function timeAgo(ts: string | null): string {
 }
 
 export default function MonitoredAccounts() {
-  const { user, selectedInfluencer } = useOutletContext<Ctx>();
+  const { user, selectedInfluencer, influencerList } = useOutletContext<Ctx>();
   const [list, setList] = useState<MonitoredAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPlatform, setFilterPlatform] = useState("all");
@@ -106,7 +106,13 @@ export default function MonitoredAccounts() {
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
           {canAdd && (
-            <button onClick={() => setShowAdd(true)} className="btn-gold flex items-center gap-2">
+            <button
+              onClick={() => {
+                setAddForm({ influencer_id: selectedInfluencer?.id ?? "", platform: "tiktok", handle: "", profile_url: "", is_verified: 0 });
+                setShowAdd(true);
+              }}
+              className="btn-gold flex items-center gap-2"
+            >
               <Plus size={14} /> Add Account
             </button>
           )}
@@ -138,6 +144,29 @@ export default function MonitoredAccounts() {
         <div className="soc-card border-gold/20">
           <h3 className="text-sm font-semibold text-slate-200 mb-4">Add Monitored Account</h3>
           <form onSubmit={handleAdd} className="grid grid-cols-2 gap-3">
+            {/* Influencer picker — only shown when not scoped to a specific influencer */}
+            {!selectedInfluencer && (
+              <div className="col-span-2">
+                <label className="text-xs text-slate-500 block mb-1">Influencer *</label>
+                {influencerList.length === 0 ? (
+                  <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded px-3 py-2">
+                    No influencer profiles found. Create one in Admin → Influencers first.
+                  </div>
+                ) : (
+                  <select
+                    className="soc-select"
+                    value={addForm.influencer_id}
+                    onChange={(e) => setAddForm((f) => ({ ...f, influencer_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">— select influencer —</option>
+                    {influencerList.map((inf) => (
+                      <option key={inf.id} value={inf.id}>{inf.display_name} (@{inf.handle})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-xs text-slate-500 block mb-1">Platform</label>
               <select className="soc-select" value={addForm.platform}
@@ -157,7 +186,11 @@ export default function MonitoredAccounts() {
             </div>
             <div className="col-span-2 flex gap-2 justify-end">
               <button type="button" onClick={() => setShowAdd(false)} className="btn-ghost">Cancel</button>
-              <button type="submit" disabled={adding || !addForm.handle.trim()} className="btn-gold">
+              <button
+                type="submit"
+                disabled={adding || !addForm.handle.trim() || (!selectedInfluencer && !addForm.influencer_id)}
+                className="btn-gold"
+              >
                 {adding ? "Adding…" : "Add Account"}
               </button>
             </div>

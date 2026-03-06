@@ -252,7 +252,8 @@ export function useSidebarData() {
           return;
         } catch (err) {
           if (cancelled) return;
-          if (err instanceof ApiError && err.status === 401) {
+          // 401 or 403 = invalid/expired token → force re-login
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             localStorage.removeItem("imprsn8_token");
             setUnauthenticated(true);
             return;
@@ -260,8 +261,10 @@ export function useSidebarData() {
           if (attempt < 3) {
             await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
           } else {
-            // Capture the real error message for display
-            setApiError(err instanceof Error ? err.message : String(err));
+            // All retries exhausted due to network/server error — treat as unauthenticated
+            // so the user is directed to login rather than a dead error screen
+            localStorage.removeItem("imprsn8_token");
+            setUnauthenticated(true);
           }
         }
       }
