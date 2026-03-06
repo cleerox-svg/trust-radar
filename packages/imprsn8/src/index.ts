@@ -13,6 +13,7 @@ import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handle
 import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns";
 import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
 import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
+import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
 import { runDueFeeds } from "./lib/feedRunner";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
@@ -231,6 +232,34 @@ router.patch("/api/admin/users/:id", async (request: Request & { params: Record<
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
+});
+
+// ─── Invites ──────────────────────────────────────────────────
+// Public: validate a token before the user registers
+router.get("/api/invites/:token", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  return handleValidateInvite(request, env, request.params["token"] ?? "");
+});
+// Admin: create / list / revoke invite tokens
+router.post("/api/admin/invites", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateInvite(request, env, ctx.userId);
+});
+router.get("/api/admin/invites", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListInvites(request, env);
+});
+router.delete("/api/admin/invites/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRevokeInvite(request, env, request.params["id"] ?? "");
+});
+// Admin: create a user account directly (share creds manually)
+router.post("/api/admin/users/direct-create", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDirectCreate(request, env);
 });
 
 // ─── Data Feeds ───────────────────────────────────────────────

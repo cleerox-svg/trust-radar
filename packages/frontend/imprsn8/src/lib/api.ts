@@ -42,8 +42,11 @@ async function apiWithTotal<T>(path: string): Promise<{ data: T; total: number }
 }
 
 export const auth = {
-  register: (email: string, password: string) =>
-    api<{ token: string; user: User }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (email: string, password: string, invite_token?: string) =>
+    api<{ token: string; user: User }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, ...(invite_token ? { invite_token } : {}) }),
+    }),
   login: (email: string, password: string) =>
     api<{ token: string; user: User }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => api<User>("/auth/me"),
@@ -153,6 +156,62 @@ export const admin = {
     api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: { role?: string; is_admin?: boolean; plan?: string; assigned_influencer_id?: string | null }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+// ─── Invite types ─────────────────────────────────────────────
+export interface InviteToken {
+  id: string;
+  token: string;
+  influencer_id: string;
+  influencer_name: string;
+  role: string;
+  email_hint: string | null;
+  notes: string | null;
+  expires_at: string;
+  used_at: string | null;
+  used_by_user_id: string | null;
+  email_sent_at: string | null;
+  created_at: string;
+}
+export interface InviteValidation {
+  token: string;
+  influencer_id: string;
+  influencer_name: string;
+  handle: string;
+  avatar_url: string | null;
+  role: string;
+  email_hint: string | null;
+  expires_at: string;
+}
+export interface DirectCreateResult {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: string;
+  plan: string;
+  assigned_influencer_id: string;
+  generated_password: string;
+}
+
+export const invites = {
+  validate: (token: string) => api<InviteValidation>(`/invites/${token}`),
+  create: (data: {
+    influencer_id: string;
+    role?: "influencer" | "staff";
+    email_hint?: string;
+    notes?: string;
+    expires_days?: number;
+  }) => api<InviteToken>("/admin/invites", { method: "POST", body: JSON.stringify(data) }),
+  list: (influencerId?: string) =>
+    api<InviteToken[]>(`/admin/invites${influencerId ? `?influencer_id=${influencerId}` : ""}`),
+  revoke: (id: string) => api<{ success: boolean }>(`/admin/invites/${id}`, { method: "DELETE" }),
+  directCreate: (data: {
+    email: string;
+    influencer_id: string;
+    role?: "influencer" | "staff";
+    display_name?: string;
+    password?: string;
+  }) => api<DirectCreateResult>("/admin/users/direct-create", { method: "POST", body: JSON.stringify(data) }),
 };
 
 export const feeds = {
