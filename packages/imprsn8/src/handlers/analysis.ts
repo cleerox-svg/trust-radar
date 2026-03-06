@@ -100,11 +100,14 @@ export async function handleAnalyze(request: Request, env: Env, userId: string):
     score, JSON.stringify(breakdown), JSON.stringify(suggestions), JSON.stringify(strengths)
   ).run();
 
-  // Update user stats
-  await env.DB.prepare(
-    `UPDATE users SET total_analyses = total_analyses + 1, impression_score = ?,
-     updated_at = datetime('now') WHERE id = ?`
-  ).bind(score, userId).run();
+  // Update user stats — guarded in case migration 0008 hasn't run yet on this DB
+  try {
+    await env.DB.prepare(
+      "UPDATE users SET total_analyses = total_analyses + 1, impression_score = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(score, userId).run();
+  } catch {
+    // Columns not yet present — skip; migration will add them on next deploy
+  }
 
   return json({ success: true, data: { id, type: data.type, score, breakdown, strengths, suggestions } }, 200, origin);
 }
@@ -133,7 +136,7 @@ export async function handleAnalysisHistory(request: Request, env: Env, userId: 
 export async function handleScoreHistory(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   const rows = await env.DB.prepare(
-    "SELECT score, snapshot_at FROM score_history WHERE user_id = ? ORDER BY snapshot_at ASC LIMIT 90"
+    "SELECT score, snapshot_at as date FROM score_history WHERE user_id = ? ORDER BY snapshot_at ASC LIMIT 90"
   ).bind(userId).all();
   return json({ success: true, data: rows.results }, 200, origin);
 }
