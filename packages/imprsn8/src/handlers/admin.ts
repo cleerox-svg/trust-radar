@@ -38,13 +38,17 @@ export async function handleAdminListUsers(request: Request, env: Env): Promise<
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50"), 200);
   const offset = parseInt(url.searchParams.get("offset") ?? "0");
 
+  // Try full query; fall back progressively for un-migrated columns
   const { results } = await env.DB.prepare(
     "SELECT id, email, username, display_name, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?"
   ).bind(limit, offset).all().catch(() =>
-    // Fallback if impression_score/total_analyses columns missing
     env.DB.prepare(
-      "SELECT id, email, username, display_name, plan, role, is_admin, 0 AS impression_score, 0 AS total_analyses, assigned_influencer_id, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?"
-    ).bind(limit, offset).all()
+      "SELECT id, email, NULL AS username, display_name, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    ).bind(limit, offset).all().catch(() =>
+      env.DB.prepare(
+        "SELECT id, email, NULL AS username, display_name, plan, role, is_admin, 0 AS impression_score, 0 AS total_analyses, assigned_influencer_id, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?"
+      ).bind(limit, offset).all()
+    )
   );
 
   const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
@@ -86,7 +90,11 @@ export async function handleAdminUpdateUser(request: Request, env: Env, userId: 
 
   const user = await env.DB.prepare(
     "SELECT id, email, username, display_name, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users WHERE id = ?"
-  ).bind(userId).first();
+  ).bind(userId).first().catch(() =>
+    env.DB.prepare(
+      "SELECT id, email, NULL AS username, display_name, plan, role, is_admin, impression_score, total_analyses, assigned_influencer_id, created_at FROM users WHERE id = ?"
+    ).bind(userId).first()
+  );
 
   if (!user) return json({ success: false, error: "User not found" }, 404, origin);
   return json({ success: true, data: user }, 200, origin);
