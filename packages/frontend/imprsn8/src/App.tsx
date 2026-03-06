@@ -40,6 +40,7 @@ function AppShell() {
   }
 
   if (unauthenticated) return <Navigate to="/login" replace />;
+  if (!user) return null;
 
   return (
     <div className="flex h-screen bg-soc-bg overflow-hidden">
