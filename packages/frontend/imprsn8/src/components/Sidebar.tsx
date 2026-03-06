@@ -228,22 +228,29 @@ export function useSidebarData() {
     const token = localStorage.getItem("imprsn8_token");
     if (!token) { setUnauthenticated(true); setLoading(false); return; }
 
-    Promise.all([auth.me(), influencers.list()])
-      .then(([u, infs]) => {
+    // auth.me() is critical — validates the session and loads the user.
+    // influencers.list() is supplementary — failures must not block the UI.
+    auth.me()
+      .then((u) => {
         setUser(u);
-        setInfluencerList(infs);
-        // Auto-select if influencer role has one assigned
-        if ((u.role === "influencer" || u.role === "staff") && u.assigned_influencer_id) {
-          const assigned = infs.find((i) => i.id === u.assigned_influencer_id);
-          if (assigned) setSelectedInfluencer(assigned);
-        }
+        influencers.list()
+          .then((infs) => {
+            setInfluencerList(infs);
+            if ((u.role === "influencer" || u.role === "staff") && u.assigned_influencer_id) {
+              const assigned = infs.find((i) => i.id === u.assigned_influencer_id);
+              if (assigned) setSelectedInfluencer(assigned);
+            }
+          })
+          .catch(() => {
+            // Influencer list failed (DB error, empty table, etc.) — render with empty list
+          });
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           localStorage.removeItem("imprsn8_token");
           setUnauthenticated(true);
         }
-        // Any other error (500, network): stay on page, don't redirect
+        // Non-401 errors (500, network): user stays null, AppShell shows retry UI
       })
       .finally(() => setLoading(false));
   }, [navigate]);
