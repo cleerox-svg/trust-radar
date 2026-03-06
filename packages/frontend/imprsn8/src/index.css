@@ -26,17 +26,19 @@
     @apply bg-gradient-to-r from-brand-purple to-brand-pink bg-clip-text text-transparent;
   }
   .card {
-    @apply bg-brand-card border border-brand-border rounded-xl p-5 transition-all duration-200;
+    @apply bg-brand-card border border-brand-purple/25 rounded-xl p-5 transition-all duration-200
+           shadow-[0_0_50px_rgba(139,92,246,0.07)];
   }
   .input {
-    @apply bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm text-slate-200
+    @apply bg-brand-bg border border-brand-purple/20 rounded-lg px-3 py-2.5 text-sm text-slate-200
            placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/60
            focus:ring-1 focus:ring-brand-purple/30 transition-all duration-150 w-full;
   }
   .btn-primary {
-    @apply bg-brand-purple text-white font-semibold px-5 py-2.5 rounded-lg
-           hover:bg-brand-purple/80 active:scale-95 transition-all duration-150
-           disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink text-white font-semibold px-5 py-2.5 rounded-lg
+           hover:opacity-90 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed
+           shadow-[0_0_20px_rgba(139,92,246,0.35)];
   }
 
   /* ─── Cards ─────────────────────────────────────────────── */
