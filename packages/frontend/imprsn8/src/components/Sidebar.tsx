@@ -221,11 +221,12 @@ export function useSidebarData() {
   const [influencerList, setInfluencerList] = useState<InfluencerProfile[]>([]);
   const [selectedInfluencer, setSelectedInfluencer] = useState<InfluencerProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unauthenticated, setUnauthenticated] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("imprsn8_token");
-    if (!token) { navigate("/login"); return; }
+    if (!token) { setUnauthenticated(true); setLoading(false); return; }
 
     Promise.all([auth.me(), influencers.list()])
       .then(([u, infs]) => {
@@ -240,11 +241,12 @@ export function useSidebarData() {
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           localStorage.removeItem("imprsn8_token");
-          navigate("/login");
+          setUnauthenticated(true);
         }
+        // Any other error (500, network): stay on page, don't redirect
       })
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  return { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading };
+  return { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated };
 }
