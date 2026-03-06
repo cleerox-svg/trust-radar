@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Link2, UserPlus, Copy, Check, Mail, AlertTriangle, ExternalLink } from "lucide-react";
 import { invites, type InviteToken, type DirectCreateResult } from "../lib/api";
 import type { InfluencerProfile } from "../lib/types";
@@ -337,7 +338,7 @@ export function InviteInfluencerModal({
 }) {
   const [tab, setTab] = useState<InviteTab>("link");
 
-  return (
+  const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-soc-card border border-soc-border rounded-xl w-full max-w-md shadow-2xl">
         {/* Header */}
@@ -389,4 +390,6 @@ export function InviteInfluencerModal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
