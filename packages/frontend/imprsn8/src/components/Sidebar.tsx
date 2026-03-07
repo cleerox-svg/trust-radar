@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
@@ -69,12 +69,14 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
     <aside className="w-64 lg:w-56 flex-shrink-0 flex flex-col bg-soc-card border-r border-soc-border h-full">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-soc-border">
-        <div className="syne text-xl font-extrabold tracking-tight text-slate-100">
-          imprsn<span className="text-gold">8</span>
-        </div>
-        <div className="text-[10px] text-slate-600 mt-0.5 font-mono uppercase tracking-widest">
-          Identity Protection
-        </div>
+        <Link to="/" className="block group">
+          <div className="syne text-xl font-extrabold tracking-tight text-slate-100 group-hover:opacity-80 transition-opacity">
+            imprsn<span className="text-gold">8</span>
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5 font-mono uppercase tracking-widest">
+            Identity Protection
+          </div>
+        </Link>
       </div>
 
       {/* Influencer switcher (SOC/Admin only) */}

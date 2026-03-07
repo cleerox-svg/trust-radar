@@ -251,7 +251,7 @@ export default function Home() {
             {[
               { step: "01", title: "Connect your profiles", desc: "Add your handles across Instagram, TikTok, X, YouTube and more." },
               { step: "02", title: "Agents go to work", desc: "AI agents scan continuously, scoring your presence and hunting imposters." },
-              { step: "03", title: "Protect &amp; grow", desc: "Get threat alerts, fire takedowns, and a clear roadmap to raise your score." },
+              { step: "03", title: "Protect & grow", desc: "Get threat alerts, fire takedowns, and a clear roadmap to raise your score." },
             ].map(({ step, title, desc }) => (
               <div key={step} className="text-center space-y-3">
                 <div className="w-12 h-12 rounded-full border border-brand-border bg-brand-card flex items-center justify-center mx-auto font-mono text-sm font-bold gradient-text"
@@ -259,7 +259,7 @@ export default function Home() {
                   {step}
                 </div>
                 <h3 className="font-semibold text-slate-200">{title}</h3>
-                <p className="text-brand-muted text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: desc }} />
+                <p className="text-brand-muted text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
