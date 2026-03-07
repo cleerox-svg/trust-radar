@@ -12,41 +12,44 @@ export default {
   theme: {
     extend: {
       colors: {
+        // All surface + accent tokens use CSS variables so dark/light themes
+        // switch instantly without touching component files.
+        // Pattern: rgb(var(--x) / <alpha-value>) preserves opacity modifiers.
         brand: {
-          bg:     "#07071a",
-          card:   "#0f0f1e",
-          border: "#1e1b4b",
-          muted:  "#6b7280",
-          purple: "#8b5cf6",
-          pink:   "#ec4899",
+          bg:     "rgb(var(--surface-bg)   / <alpha-value>)",
+          card:   "rgb(var(--surface-card) / <alpha-value>)",
+          border: "rgb(var(--surface-border) / <alpha-value>)",
+          muted:  "rgb(var(--text-muted)   / <alpha-value>)",
+          purple: "rgb(var(--accent)       / <alpha-value>)",
+          pink:   "rgb(var(--accent-pink)  / <alpha-value>)",
         },
-        // Unified with brand-* so authenticated and public pages share one palette
+        // soc-* unified with brand-* (same vars)
         soc: {
-          bg:              "#07071a",
-          card:            "#0f0f1e",
-          border:          "#1e1b4b",
-          "border-bright": "#2d2a6a",
-          navy:            "#0d0d2b",
+          bg:              "rgb(var(--surface-bg)           / <alpha-value>)",
+          card:            "rgb(var(--surface-card)         / <alpha-value>)",
+          border:          "rgb(var(--surface-border)       / <alpha-value>)",
+          "border-bright": "rgb(var(--surface-border-bright) / <alpha-value>)",
+          navy:            "rgb(var(--surface-navy)         / <alpha-value>)",
         },
-        // Remapped from gold → brand-purple family so all 'gold' references
-        // across authenticated pages automatically adopt the purple/pink palette
+        // gold remapped to primary accent (purple family) from previous commit
         gold: {
-          DEFAULT: "#8b5cf6",   // brand-purple
-          dim:     "#7c3aed",   // deeper purple
-          muted:   "#4c1d95",   // dark purple
-          light:   "#a78bfa",   // lighter violet
+          DEFAULT: "rgb(var(--accent)       / <alpha-value>)",
+          dim:     "rgb(var(--accent-dim)   / <alpha-value>)",
+          muted:   "rgb(var(--accent-muted) / <alpha-value>)",
+          light:   "rgb(var(--accent-light) / <alpha-value>)",
         },
         purple: {
-          DEFAULT: "#8b5cf6",   // aligned with brand-purple
-          dim:     "#7c3aed",
-          light:   "#a78bfa",
-          subtle:  "#1e1b4b",
+          DEFAULT: "rgb(var(--accent)        / <alpha-value>)",
+          dim:     "rgb(var(--accent-dim)    / <alpha-value>)",
+          light:   "rgb(var(--accent-light)  / <alpha-value>)",
+          subtle:  "rgb(var(--surface-navy)  / <alpha-value>)",
         },
+        // Semantic/status colors — keep hardcoded, no theming needed
         threat: {
-          critical:  "#FF3B3B",
-          high:      "#FF8C00",
-          medium:    "#F5C518",
-          low:       "#4CAF50",
+          critical: "#FF3B3B",
+          high:     "#FF8C00",
+          medium:   "#F5C518",
+          low:      "#4CAF50",
         },
         status: {
           live:      "#22C55E",

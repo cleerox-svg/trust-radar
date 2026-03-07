@@ -4,53 +4,140 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   CSS Custom Properties
+   Variables are stored as RGB channels (space-separated) so
+   Tailwind's opacity modifiers (bg-brand-purple/10 etc.) work.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Dark mode (default) ────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --surface-bg:            7 7 26;
+  --surface-card:          15 15 30;
+  --surface-border:        30 27 75;
+  --surface-border-bright: 45 42 106;
+  --surface-navy:          13 13 43;
+
+  /* Accent — purple/pink brand palette */
+  --accent:       139 92 246;   /* brand-purple #8b5cf6   */
+  --accent-dim:   124 58 237;   /* deeper purple #7c3aed  */
+  --accent-muted: 76 29 149;    /* dark purple #4c1d95    */
+  --accent-light: 167 139 250;  /* lighter violet #a78bfa */
+  --accent-pink:  236 72 153;   /* brand-pink #ec4899     */
+
+  /* Text */
+  --text-muted: 148 163 184;    /* slate-400 — improved from slate-500 */
+}
+
+/* ── Light mode ─────────────────────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  /* Surfaces */
+  --surface-bg:            245 244 255;   /* #f5f4ff soft lavender-white */
+  --surface-card:          255 255 255;
+  --surface-border:        228 224 248;   /* #e4e0f8 */
+  --surface-border-bright: 196 190 245;   /* #c4bef5 */
+  --surface-navy:          237 233 254;   /* #ede9fe */
+
+  /* Accent — slightly darker for sufficient contrast on light bg */
+  --accent:       124 58 237;   /* #7c3aed */
+  --accent-dim:   109 40 217;   /* #6d28d9 */
+  --accent-muted: 237 233 254;  /* #ede9fe — inverted for chip bgs */
+  --accent-light: 139 92 246;   /* #8b5cf6 */
+  --accent-pink:  219 39 119;   /* #db2777 */
+
+  /* Text */
+  --text-muted: 107 99 160;     /* #6b63a0 muted purple-grey */
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Base styles
+   ───────────────────────────────────────────────────────────── */
 @layer base {
-  html, body, #root {
-    height: 100%;
-  }
+  html, body, #root { height: 100%; }
 
   body {
-    @apply bg-brand-bg text-slate-200 antialiased;
+    background-color: rgb(var(--surface-bg));
+    color: #f1f5f9; /* slate-100 — dark mode default */
     font-family: "Inter", system-ui, sans-serif;
+    @apply antialiased;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { @apply bg-brand-card; }
-  ::-webkit-scrollbar-thumb { @apply bg-brand-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-brand-purple/40 rounded-full; }
+  ::-webkit-scrollbar-track { background: rgb(var(--surface-card)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--surface-border)); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--accent) / 0.4); border-radius: 9999px; }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Dark-mode readability — dim slate text is too dark on deep bg
+   ───────────────────────────────────────────────────────────── */
+html:not(.light) .text-slate-500 { color: #94a3b8; } /* slate-400 */
+html:not(.light) .text-slate-600 { color: #64748b; } /* slate-500 */
+
+/* ─────────────────────────────────────────────────────────────
+   Light-mode text inversions
+   ───────────────────────────────────────────────────────────── */
+html.light body                                  { color: #0f0a2e; }
+html.light .text-slate-100,
+html.light .text-slate-200                       { color: #0f0a2e; }
+html.light .text-slate-300                       { color: #2d2060; }
+html.light .text-slate-400                       { color: #4a4478; }
+html.light .text-slate-500                       { color: #6b63a0; }
+html.light .text-slate-600                       { color: #8b85b5; }
+html.light .text-red-400                         { color: #dc2626; }
+html.light .text-green-400                       { color: #16a34a; }
+html.light .text-blue-400                        { color: #2563eb; }
+
+/* ─────────────────────────────────────────────────────────────
+   Component layer
+   ───────────────────────────────────────────────────────────── */
 @layer components {
-  /* ─── Shared gradient + card ─────────────────────────────── */
+
+  /* ─── Gradient text ──────────────────────────────────────── */
   .gradient-text {
     @apply bg-gradient-to-r from-brand-purple to-brand-pink bg-clip-text text-transparent;
   }
+
+  /* ─── Cards ─────────────────────────────────────────────── */
   .card {
     @apply bg-brand-card border border-brand-purple/25 rounded-xl p-5 transition-all duration-200
            shadow-[0_0_50px_rgba(139,92,246,0.07)];
   }
+  .soc-card {
+    @apply bg-brand-card border border-brand-border rounded-xl p-5 transition-all duration-200;
+  }
+  .soc-card-hover {
+    @apply soc-card hover:border-brand-purple/40 hover:-translate-y-0.5;
+  }
+
+  /* ─── Inputs ─────────────────────────────────────────────── */
   .input {
-    @apply bg-brand-bg border border-brand-purple/20 rounded-lg px-3 py-2.5 text-sm text-slate-200
-           placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/60
+    @apply bg-brand-bg border border-brand-purple/20 rounded-lg px-3 py-2.5 text-sm
+           placeholder:text-brand-muted focus:outline-none focus:border-brand-purple/60
            focus:ring-1 focus:ring-brand-purple/30 transition-all duration-150 w-full;
   }
+  .soc-input {
+    @apply bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm
+           placeholder:text-brand-muted focus:outline-none focus:border-brand-purple/60
+           focus:ring-1 focus:ring-brand-purple/30 transition-all duration-150 w-full;
+  }
+  .soc-select {
+    @apply soc-input cursor-pointer;
+  }
+
+  /* ─── Buttons ───────────────────────────────────────────── */
   .btn-primary {
     @apply bg-gradient-to-r from-brand-purple to-brand-pink text-white font-semibold px-5 py-2.5 rounded-lg
            hover:opacity-90 active:scale-95 transition-all duration-150
            disabled:opacity-40 disabled:cursor-not-allowed
            shadow-[0_0_20px_rgba(139,92,246,0.35)];
   }
-
-  /* ─── SOC Cards (unified with brand palette) ─────────────── */
-  .soc-card {
-    @apply bg-brand-card border border-brand-border rounded-xl p-5
-           transition-all duration-200;
-  }
-  .soc-card-hover {
-    @apply soc-card hover:border-brand-purple/40 hover:-translate-y-0.5;
-  }
-
-  /* ─── Buttons ───────────────────────────────────────────── */
+  /* btn-gold = same as btn-primary (purple/pink gradient) */
   .btn-gold {
     @apply bg-gradient-to-r from-brand-purple to-brand-pink text-white font-semibold px-5 py-2.5 rounded-lg text-sm
            hover:opacity-90 active:scale-95 transition-all duration-150
@@ -63,7 +150,7 @@
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply border border-brand-border text-slate-400 px-5 py-2.5 rounded-lg text-sm
+    @apply border border-brand-border px-5 py-2.5 rounded-lg text-sm
            hover:border-brand-purple hover:text-brand-purple transition-all duration-150
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
@@ -72,18 +159,8 @@
            hover:bg-threat-critical/10 transition-all duration-150;
   }
   .btn-icon {
-    @apply p-2 rounded-lg border border-brand-border text-slate-400
+    @apply p-2 rounded-lg border border-brand-border
            hover:border-brand-purple/50 hover:text-brand-purple transition-all duration-150;
-  }
-
-  /* ─── Inputs ─────────────────────────────────────────────── */
-  .soc-input {
-    @apply bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm text-slate-200
-           placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/60
-           focus:ring-1 focus:ring-brand-purple/30 transition-all duration-150 w-full;
-  }
-  .soc-select {
-    @apply soc-input cursor-pointer;
   }
 
   /* ─── Severity badges ────────────────────────────────────── */
@@ -111,7 +188,7 @@
   .badge-resolved   { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-status-live/15 text-status-live border border-status-live/30; }
   .badge-dismissed  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700/20 text-slate-500 border border-slate-600/20; }
 
-  /* ─── Mono / font helpers ────────────────────────────────── */
+  /* ─── Font helpers ───────────────────────────────────────── */
   .mono { font-family: "JetBrains Mono", monospace; }
   .syne { font-family: "Syne", system-ui, sans-serif; }
 

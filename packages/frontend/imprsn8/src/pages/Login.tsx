@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,6 +27,11 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen bg-brand-bg flex flex-col items-center justify-center px-4 overflow-hidden">
+      {/* Floating theme toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-brand-purple/10 blur-[120px]" />

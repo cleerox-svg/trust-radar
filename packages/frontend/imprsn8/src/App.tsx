@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 import { Menu } from "lucide-react";
 import { Sidebar, useSidebarData } from "./components/Sidebar";
 import type { InfluencerProfile } from "./lib/types";
+import { ThemeProvider } from "./lib/theme";
+import { ThemeToggle } from "./components/ui/ThemeToggle";
 
 // Pages
 import Home from "./pages/Home";
@@ -88,9 +90,10 @@ function AppShell() {
           >
             <Menu size={18} />
           </button>
-          <div className="text-base font-extrabold tracking-tight text-slate-100">
+          <div className="text-base font-extrabold tracking-tight text-slate-100 flex-1">
             imprsn<span className="text-gold">8</span>
           </div>
+          <ThemeToggle />
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -103,6 +106,7 @@ function AppShell() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -127,5 +131,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
