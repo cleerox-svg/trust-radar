@@ -20,42 +20,45 @@ export default {
           purple: "#8b5cf6",
           pink:   "#ec4899",
         },
+        // Unified with brand-* so authenticated and public pages share one palette
         soc: {
-          bg:           "#07071A",
-          card:         "#10102C",
-          border:       "#1E1B54",
-          "border-bright": "#2D2A7A",
-          navy:         "#0D0D2B",
+          bg:              "#07071a",
+          card:            "#0f0f1e",
+          border:          "#1e1b4b",
+          "border-bright": "#2d2a6a",
+          navy:            "#0d0d2b",
         },
+        // Remapped from gold → brand-purple family so all 'gold' references
+        // across authenticated pages automatically adopt the purple/pink palette
         gold: {
-          DEFAULT:      "#C8A84B",
-          dim:          "#9A7C30",
-          muted:        "#6B5420",
-          light:        "#E4C870",
+          DEFAULT: "#8b5cf6",   // brand-purple
+          dim:     "#7c3aed",   // deeper purple
+          muted:   "#4c1d95",   // dark purple
+          light:   "#a78bfa",   // lighter violet
         },
         purple: {
-          DEFAULT:      "#7B3FE4",
-          dim:          "#5C2DB0",
-          light:        "#A06EF5",
-          subtle:       "#2A1A5E",
+          DEFAULT: "#8b5cf6",   // aligned with brand-purple
+          dim:     "#7c3aed",
+          light:   "#a78bfa",
+          subtle:  "#1e1b4b",
         },
         threat: {
-          critical:     "#FF3B3B",
-          high:         "#FF8C00",
-          medium:       "#F5C518",
-          low:          "#4CAF50",
+          critical:  "#FF3B3B",
+          high:      "#FF8C00",
+          medium:    "#F5C518",
+          low:       "#4CAF50",
         },
         status: {
-          live:         "#22C55E",
-          idle:         "#64748B",
-          error:        "#EF4444",
-          scheduled:    "#3B82F6",
+          live:      "#22C55E",
+          idle:      "#64748B",
+          error:     "#EF4444",
+          scheduled: "#3B82F6",
         },
       },
       fontFamily: {
-        sans:   ["Inter", "system-ui", "sans-serif"],
-        mono:   ["JetBrains Mono", "Fira Code", "monospace"],
-        syne:   ["Syne", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        syne: ["Syne", "system-ui", "sans-serif"],
       },
       animation: {
         "pulse-dot": "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
