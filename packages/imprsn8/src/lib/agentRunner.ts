@@ -208,26 +208,29 @@ async function runArbiter(env: Env, influencerId: string | null): Promise<AgentR
     const severityMap: Record<string, number> = {};
     for (const t of threats.results) severityMap[t.severity] = t.cnt;
 
-    // Score = weighted threat pressure (capped at 95, starts at 5 baseline)
-    let score = 5;
+    // Score = weighted threat pressure (starts at 0 = no threats = legitimate)
+    let score = 0;
     score += (severityMap["critical"] ?? 0) * 35;
     score += (severityMap["high"]     ?? 0) * 20;
     score += (severityMap["medium"]   ?? 0) * 10;
     score += (severityMap["low"]      ?? 0) * 5;
 
-    // Drift bonus: check snapshot changes in last 7 days
-    const driftCount = await env.DB.prepare(
-      `SELECT COUNT(*) as n FROM account_snapshots
-       WHERE account_id = ? AND captured_at >= datetime('now', '-7 days')`
-    ).bind(acc.id).first<{ n: number }>();
-    if ((driftCount?.n ?? 0) > 3) score += 10; // multiple snapshots in 7 days = active monitoring flagged drift
+    // Drift bonus: count distinct bio/avatar hash values in last 7 days.
+    // More than 1 distinct hash = the profile actually changed, which is suspicious.
+    const driftData = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT bio_hash) as bio_changes, COUNT(DISTINCT avatar_hash) as avatar_changes
+       FROM account_snapshots
+       WHERE account_id = ? AND captured_at >= datetime('now', '-7 days')
+         AND (bio_hash IS NOT NULL OR avatar_hash IS NOT NULL)`
+    ).bind(acc.id).first<{ bio_changes: number; avatar_changes: number }>();
+    const profileDrifted = (driftData?.bio_changes ?? 0) > 1 || (driftData?.avatar_changes ?? 0) > 1;
+    if (profileDrifted) score += 15;
 
     score = Math.min(100, score);
 
     const category =
-      score >= 75 ? "imposter" :
-      score >= 40 ? "suspicious" :
-      score >= 5  ? "suspicious" : "legitimate";
+      score >= 50 ? "imposter" :
+      score >= 10 ? "suspicious" : "legitimate";
 
     // Only write if changed
     const current = await env.DB.prepare(

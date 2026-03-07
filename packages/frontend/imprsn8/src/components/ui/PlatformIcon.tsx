@@ -14,6 +14,11 @@ const PLATFORM_CONFIG: Record<string, { label: string; color: string; bg: string
   threads:   { label: "TH",  color: "#fff",     bg: "#101010" },
   snapchat:  { label: "SC",  color: "#000",     bg: "#FFFC00" },
   pinterest: { label: "PT",  color: "#fff",     bg: "#E60023" },
+  bluesky:   { label: "BS",  color: "#fff",     bg: "#0085FF" },
+  reddit:    { label: "RD",  color: "#fff",     bg: "#FF4500" },
+  github:    { label: "GH",  color: "#fff",     bg: "#24292E" },
+  mastodon:  { label: "MT",  color: "#fff",     bg: "#6364FF" },
+  rss:       { label: "RSS", color: "#fff",     bg: "#F26522" },
 };
 
 interface PlatformIconProps {
@@ -62,7 +67,7 @@ export function PlatformFilterBar({
   const platforms = ["all", ...Object.keys(PLATFORM_CONFIG)];
   return (
     <div className="flex gap-1.5 flex-wrap">
-      {platforms.slice(0, 9).map((p) => (
+      {platforms.map((p) => (
         <button
           key={p}
           onClick={() => onChange(p)}
