@@ -5,13 +5,17 @@
  * all monitored influencer profiles + their watchlisted handle variants, and
  * creates impersonation_reports for any close matches found.
  *
- * Fully implemented: YouTube, Twitch, Bluesky, Reddit, X (Basic/Pro)
+ * Fully implemented: YouTube, Twitch, Bluesky, Reddit, X (Basic/Pro),
+ *                    Mastodon, RSS/Atom, GitHub
  * Stubbed (config accepted, pull deferred): TikTok, Instagram, Facebook,
- *   Pinterest, Threads, Mastodon, RSS, Apify, DataForSEO,
+ *   Pinterest, Threads, Apify, DataForSEO,
  *   Brandwatch, Meltwater, Proxycurl, Mention
+ *
+ * After each run, ARBITER is triggered to rescore affected influencer accounts.
  */
 
 import type { Env, DataFeed } from "../types";
+import { rescoreInfluencers } from "./agentRunner";
 
 // ─── Levenshtein distance ────────────────────────────────────────────────────
 function levenshtein(a: string, b: string): number {
@@ -90,6 +94,7 @@ function matchHandle(scraped: string, targets: Target[]): Match | null {
 }
 
 // ─── Create or skip-if-duplicate impersonation_report ───────────────────────
+// Returns the influencer_id if a new threat was created (for post-run rescoring), or null.
 async function upsertThreat(
   env: Env,
   influencer_id: string,
@@ -99,7 +104,7 @@ async function upsertThreat(
   suspect_followers: number | null,
   similarity_score: number,
   feed_name: string,
-): Promise<boolean> {
+): Promise<string | null> {
   // Skip if we already have an open report for this handle+platform+influencer
   const existing = await env.DB.prepare(
     `SELECT id FROM impersonation_reports
@@ -107,7 +112,7 @@ async function upsertThreat(
        AND status NOT IN ('resolved','dismissed')
      LIMIT 1`
   ).bind(influencer_id, platform, suspect_handle).first<{ id: string }>();
-  if (existing) return false;
+  if (existing) return null;
 
   const severity =
     similarity_score >= 85 ? "critical" :
@@ -118,14 +123,17 @@ async function upsertThreat(
   await env.DB.prepare(
     `INSERT INTO impersonation_reports
      (id, influencer_id, platform, suspect_handle, suspect_url, suspect_followers,
-      threat_type, severity, similarity_score, status, ai_analysis, detected_by, detected_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'handle_squat', ?, ?, 'new', ?, 'RECON', datetime('now'), datetime('now'))`
+      threat_type, severity, similarity_score,
+      similarity_breakdown, status, ai_analysis, detected_by, detected_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'handle_squat', ?, ?,
+             '{"bio_copy":0,"avatar_match":0,"posting_cadence":0,"handle_distance":0}',
+             'new', ?, 'RECON', datetime('now'), datetime('now'))`
   ).bind(
     id, influencer_id, platform, suspect_handle, suspect_url, suspect_followers,
     severity, similarity_score,
     `Detected by feed: ${feed_name}. Handle similarity: ${similarity_score}%.`,
   ).run();
-  return true;
+  return influencer_id;
 }
 
 // ─── Result shape returned by every platform runner ─────────────────────────
@@ -321,6 +329,107 @@ async function runX(feed: DataFeed, env: Env, targets: Target[]): Promise<number
   return found;
 }
 
+/** Mastodon public API — actor search, no auth required */
+async function runMastodon(feed: DataFeed, env: Env, targets: Target[]): Promise<number> {
+  const settings = JSON.parse(feed.settings_json) as { instance?: string; search_queries?: string[] };
+  const instance = settings.instance ?? "mastodon.social";
+  const queries: string[] = settings.search_queries ?? targets.map((t) => t.handles[0]).filter((h): h is string => !!h);
+  let found = 0;
+
+  for (const q of queries.slice(0, 10)) {
+    const url = `https://${instance}/api/v2/search?q=${encodeURIComponent(q)}&type=accounts&limit=20&resolve=false`;
+    const res = await fetch(url, { headers: { "User-Agent": "imprsn8/1.0" } });
+    if (!res.ok) continue;
+    const data = await res.json() as { accounts?: { username: string; display_name: string; url: string; followers_count?: number }[] };
+
+    for (const acct of data.accounts ?? []) {
+      const match = matchHandle(acct.username, targets) ?? matchHandle(acct.display_name, targets);
+      if (match) {
+        const created = await upsertThreat(
+          env, match.target.influencer_id, "mastodon", acct.username,
+          acct.url, acct.followers_count ?? null, match.similarity_score, feed.name,
+        );
+        if (created) found++;
+      }
+    }
+  }
+  return found;
+}
+
+/** GitHub public API — user search, 60 req/hr unauthenticated, 5000/hr with token */
+async function runGitHub(feed: DataFeed, env: Env, targets: Target[]): Promise<number> {
+  const settings = JSON.parse(feed.settings_json) as { search_queries?: string[] };
+  const queries: string[] = settings.search_queries ?? targets.map((t) => t.handles[0]).filter((h): h is string => !!h);
+  const headers: Record<string, string> = {
+    "User-Agent": "imprsn8/1.0",
+    Accept: "application/vnd.github+json",
+  };
+  if (feed.api_key) headers["Authorization"] = `Bearer ${feed.api_key}`;
+  let found = 0;
+
+  for (const q of queries.slice(0, 10)) {
+    const url = `https://api.github.com/search/users?q=${encodeURIComponent(q)}&per_page=30`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) continue;
+    const data = await res.json() as { items?: { login: string; html_url: string; followers?: number }[] };
+
+    for (const u of data.items ?? []) {
+      const match = matchHandle(u.login, targets);
+      if (match) {
+        const created = await upsertThreat(
+          env, match.target.influencer_id, "github", u.login,
+          u.html_url, u.followers ?? null, match.similarity_score, feed.name,
+        );
+        if (created) found++;
+      }
+    }
+  }
+  return found;
+}
+
+/** RSS/Atom feed parser — monitors arbitrary feeds for handle/name mentions */
+async function runRSS(feed: DataFeed, env: Env, targets: Target[]): Promise<number> {
+  const settings = JSON.parse(feed.settings_json) as { feed_urls?: string[] };
+  if (!settings.feed_urls?.length) return 0;
+  let found = 0;
+
+  for (const feedUrl of settings.feed_urls.slice(0, 5)) {
+    try {
+      const res = await fetch(feedUrl, { headers: { "User-Agent": "imprsn8/1.0", Accept: "application/rss+xml, application/atom+xml, text/xml" } });
+      if (!res.ok) continue;
+      const xml = await res.text();
+
+      // Extract titles and descriptions from RSS/Atom items (no XML parser in Workers — use regex)
+      const titleMatches = xml.match(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gis) ?? [];
+      const descMatches  = xml.match(/<description[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/description>/gis) ?? [];
+      const linkMatches  = xml.match(/<link[^>]*>([^<]+)<\/link>/gi) ?? [];
+
+      const entries = titleMatches.slice(1).map((t, i) => ({ // skip first <title> (feed title)
+        title: t.replace(/<[^>]+>|<!\[CDATA\[|\]\]>/gi, "").trim(),
+        desc: (descMatches[i + 1] ?? "").replace(/<[^>]+>|<!\[CDATA\[|\]\]>/gi, "").trim(),
+        link: (linkMatches[i + 1] ?? "").replace(/<[^>]+>/g, "").trim(),
+      }));
+
+      for (const entry of entries.slice(0, 50)) {
+        const text = `${entry.title} ${entry.desc}`.toLowerCase();
+        for (const target of targets) {
+          for (const h of target.handles) {
+            if (text.includes(h.toLowerCase())) {
+              // RSS mention — lower similarity, treat as potential intel
+              const created = await upsertThreat(
+                env, target.influencer_id, "rss", entry.title.slice(0, 100),
+                entry.link || null, null, 40, feed.name,
+              );
+              if (created) found++;
+            }
+          }
+        }
+      }
+    } catch { /* invalid feed */ }
+  }
+  return found;
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 export async function runFeed(feed: DataFeed, env: Env): Promise<RunResult> {
   const targets = await loadTargets(env);
@@ -329,16 +438,28 @@ export async function runFeed(feed: DataFeed, env: Env): Promise<RunResult> {
   try {
     let threats_found = 0;
     switch (feed.platform) {
-      case "youtube":  threats_found = await runYouTube(feed, env, targets); break;
-      case "twitch":   threats_found = await runTwitch(feed, env, targets);  break;
-      case "bluesky":  threats_found = await runBluesky(feed, env, targets); break;
-      case "reddit":   threats_found = await runReddit(feed, env, targets);  break;
+      case "youtube":        threats_found = await runYouTube(feed, env, targets); break;
+      case "twitch":         threats_found = await runTwitch(feed, env, targets);  break;
+      case "bluesky":        threats_found = await runBluesky(feed, env, targets); break;
+      case "reddit":         threats_found = await runReddit(feed, env, targets);  break;
       case "x_basic":
-      case "x_pro":    threats_found = await runX(feed, env, targets);       break;
+      case "x_pro":          threats_found = await runX(feed, env, targets);       break;
+      case "mastodon":       threats_found = await runMastodon(feed, env, targets); break;
+      case "github":         threats_found = await runGitHub(feed, env, targets);  break;
+      case "rss":            threats_found = await runRSS(feed, env, targets);     break;
       default:
         // Platform configured but not yet implemented — recorded successfully.
         return { success: true, threats_found: 0 };
     }
+
+    // Post-run: trigger ARBITER to rescore affected influencer accounts
+    if (threats_found > 0) {
+      const influencerIds = targets.map((t) => t.influencer_id);
+      await rescoreInfluencers(env, influencerIds).catch((e) =>
+        console.error("[feedRunner] ARBITER rescore failed:", e)
+      );
+    }
+
     return { success: true, threats_found };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);

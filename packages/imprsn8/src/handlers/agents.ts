@@ -1,4 +1,5 @@
 import { json } from "../lib/cors";
+import { runAgent } from "../lib/agentRunner";
 import type { Env, AgentDefinition, AgentRun } from "../types";
 
 export async function handleListAgents(request: Request, env: Env): Promise<Response> {
@@ -60,7 +61,7 @@ export async function handleGetAgentRuns(request: Request, env: Env): Promise<Re
 
 export async function handleTriggerAgent(
   request: Request, env: Env,
-  agentId: string, userId: string
+  agentId: string, _userId: string
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   const body = await request.json().catch(() => ({})) as { influencer_id?: string };
@@ -77,14 +78,91 @@ export async function handleTriggerAgent(
      VALUES (?, ?, ?, 'running', ?)`
   ).bind(runId, agentId, body.influencer_id ?? null, now).run();
 
-  // Simulate completion for now — real implementation would enqueue a Durable Object / Queue task
+  // Run the real agent implementation
+  let result: { items_scanned: number; threats_found: number; changes_detected: number; error?: string };
+  try {
+    result = await runAgent(agent.name, env, body.influencer_id ?? null);
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    await env.DB.prepare(
+      `UPDATE agent_runs SET status = 'failed', completed_at = datetime('now'),
+       items_scanned = 0, threats_found = 0, changes_detected = 0, error_msg = ? WHERE id = ?`
+    ).bind(error, runId).run();
+    return json({ success: false, error }, 500, origin);
+  }
+
+  const finalStatus = result.error ? "failed" : "completed";
   await env.DB.prepare(
-    `UPDATE agent_runs SET status = 'completed', completed_at = datetime('now'),
-     items_scanned = ?, threats_found = 0, changes_detected = 0 WHERE id = ?`
-  ).bind(Math.floor(Math.random() * 50) + 10, runId).run();
+    `UPDATE agent_runs
+     SET status = ?, completed_at = datetime('now'),
+         items_scanned = ?, threats_found = ?, changes_detected = ?,
+         error_msg = ?
+     WHERE id = ?`
+  ).bind(
+    finalStatus,
+    result.items_scanned,
+    result.threats_found,
+    result.changes_detected,
+    result.error ?? null,
+    runId,
+  ).run();
 
   return json({
     success: true,
-    data: { run_id: runId, agent: agent.name, status: "completed", message: `${agent.codename} triggered successfully` },
+    data: {
+      run_id: runId,
+      agent: agent.name,
+      status: finalStatus,
+      items_scanned: result.items_scanned,
+      threats_found: result.threats_found,
+      changes_detected: result.changes_detected,
+      message: result.error ?? `${agent.codename} completed successfully`,
+    },
   }, 200, origin);
+}
+
+// ─── Scheduled agent runner (called from Cloudflare Cron) ────────────────────
+// Runs all active agents that are due based on their schedule_mins cadence.
+export async function runDueAgents(env: Env): Promise<void> {
+  const due = await env.DB.prepare(
+    `SELECT * FROM agent_definitions
+     WHERE is_active = 1
+       AND schedule_mins IS NOT NULL
+       AND (
+         -- Never run before
+         NOT EXISTS (SELECT 1 FROM agent_runs WHERE agent_id = agent_definitions.id)
+         OR
+         -- Last run was more than schedule_mins ago
+         (
+           SELECT datetime(started_at, '+' || agent_definitions.schedule_mins || ' minutes')
+           FROM agent_runs WHERE agent_id = agent_definitions.id
+           ORDER BY started_at DESC LIMIT 1
+         ) <= datetime('now')
+       )`
+  ).all<AgentDefinition>();
+
+  for (const agent of due.results) {
+    const runId = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO agent_runs (id, agent_id, status, started_at) VALUES (?, ?, 'running', datetime('now'))`
+    ).bind(runId, agent.id).run();
+
+    let result: { items_scanned: number; threats_found: number; changes_detected: number; error?: string };
+    try {
+      result = await runAgent(agent.name, env, null);
+    } catch (err) {
+      result = { items_scanned: 0, threats_found: 0, changes_detected: 0, error: String(err) };
+    }
+
+    await env.DB.prepare(
+      `UPDATE agent_runs
+       SET status = ?, completed_at = datetime('now'),
+           items_scanned = ?, threats_found = ?, changes_detected = ?, error_msg = ?
+       WHERE id = ?`
+    ).bind(
+      result.error ? "failed" : "completed",
+      result.items_scanned, result.threats_found, result.changes_detected,
+      result.error ?? null, runId,
+    ).run();
+  }
 }

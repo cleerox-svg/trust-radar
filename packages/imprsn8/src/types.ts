@@ -236,9 +236,9 @@ export interface OverviewStats {
 
 // ─── Data Feeds ────────────────────────────────────────────────────────────
 export const FEED_PLATFORMS = [
-  // Free
+  // Free — no credentials required
   "youtube", "twitch", "reddit", "tiktok", "bluesky",
-  "mastodon", "rss", "facebook", "pinterest", "threads",
+  "mastodon", "rss", "github", "facebook", "pinterest", "threads",
   // Low-cost
   "x_basic", "instagram_graph", "apify", "dataforseo",
   // Paid

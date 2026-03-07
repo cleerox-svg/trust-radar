@@ -16,6 +16,7 @@ import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, 
 import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
 import { handleSystemHealth } from "./handlers/health";
 import { runDueFeeds } from "./lib/feedRunner";
+import { runDueAgents } from "./handlers/agents";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -369,8 +370,18 @@ export default {
       });
   },
 
-  /** Cloudflare Cron Trigger — runs active data feeds on schedule */
+  /** Cloudflare Cron Trigger — runs active data feeds and scheduled agents */
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runDueFeeds(env));
+    // Run feeds and agents concurrently; each is independently error-handled.
+    ctx.waitUntil(
+      Promise.allSettled([
+        runDueFeeds(env),
+        runDueAgents(env),
+      ]).then((results) => {
+        for (const r of results) {
+          if (r.status === "rejected") console.error("[cron] task failed:", r.reason);
+        }
+      })
+    );
   },
 };
