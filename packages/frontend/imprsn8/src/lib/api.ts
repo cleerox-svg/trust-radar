@@ -102,7 +102,7 @@ export const accounts = {
     const qs = new URLSearchParams(Object.entries(params ?? {}).filter(([, v]) => Boolean(v)) as [string, string][]);
     return api<MonitoredAccount[]>(`/accounts${qs.toString() ? `?${qs}` : ""}`);
   },
-  add: (data: { influencer_id: string; platform: Platform; handle: string; profile_url?: string; is_verified?: number }) =>
+  add: (data: { influencer_id: string; platform: Platform; handle: string; profile_url?: string; is_verified?: number; follower_count?: number }) =>
     api<MonitoredAccount>("/accounts", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { risk_score?: number; risk_category?: string; follower_count?: number }) =>
     api<MonitoredAccount>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
