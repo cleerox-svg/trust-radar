@@ -10,18 +10,18 @@
   }
 
   body {
-    @apply bg-soc-bg text-slate-200 antialiased;
+    @apply bg-brand-bg text-slate-200 antialiased;
     font-family: "Inter", system-ui, sans-serif;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { @apply bg-soc-card; }
-  ::-webkit-scrollbar-thumb { @apply bg-soc-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-soc-border-bright; }
+  ::-webkit-scrollbar-track { @apply bg-brand-card; }
+  ::-webkit-scrollbar-thumb { @apply bg-brand-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-brand-purple/40 rounded-full; }
 }
 
 @layer components {
-  /* ─── imprsn8 Components ─────────────────────────────────── */
+  /* ─── Shared gradient + card ─────────────────────────────── */
   .gradient-text {
     @apply bg-gradient-to-r from-brand-purple to-brand-pink bg-clip-text text-transparent;
   }
@@ -41,29 +41,30 @@
            shadow-[0_0_20px_rgba(139,92,246,0.35)];
   }
 
-  /* ─── Cards ─────────────────────────────────────────────── */
+  /* ─── SOC Cards (unified with brand palette) ─────────────── */
   .soc-card {
-    @apply bg-soc-card border border-soc-border rounded-xl p-5
+    @apply bg-brand-card border border-brand-border rounded-xl p-5
            transition-all duration-200;
   }
   .soc-card-hover {
-    @apply soc-card hover:border-soc-border-bright hover:-translate-y-0.5;
+    @apply soc-card hover:border-brand-purple/40 hover:-translate-y-0.5;
   }
 
   /* ─── Buttons ───────────────────────────────────────────── */
   .btn-gold {
-    @apply bg-gold text-soc-bg font-semibold px-5 py-2.5 rounded-lg text-sm
-           hover:bg-gold-light active:scale-95 transition-all duration-150
-           disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink text-white font-semibold px-5 py-2.5 rounded-lg text-sm
+           hover:opacity-90 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed
+           shadow-[0_0_20px_rgba(139,92,246,0.3)];
   }
   .btn-purple {
-    @apply bg-purple text-white font-semibold px-5 py-2.5 rounded-lg text-sm
-           hover:bg-purple-light active:scale-95 transition-all duration-150
+    @apply bg-brand-purple text-white font-semibold px-5 py-2.5 rounded-lg text-sm
+           hover:opacity-90 active:scale-95 transition-all duration-150
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply border border-soc-border text-slate-400 px-5 py-2.5 rounded-lg text-sm
-           hover:border-gold hover:text-gold transition-all duration-150
+    @apply border border-brand-border text-slate-400 px-5 py-2.5 rounded-lg text-sm
+           hover:border-brand-purple hover:text-brand-purple transition-all duration-150
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-danger {
@@ -71,15 +72,15 @@
            hover:bg-threat-critical/10 transition-all duration-150;
   }
   .btn-icon {
-    @apply p-2 rounded-lg border border-soc-border text-slate-400
-           hover:border-gold/50 hover:text-gold transition-all duration-150;
+    @apply p-2 rounded-lg border border-brand-border text-slate-400
+           hover:border-brand-purple/50 hover:text-brand-purple transition-all duration-150;
   }
 
   /* ─── Inputs ─────────────────────────────────────────────── */
   .soc-input {
-    @apply bg-soc-bg border border-soc-border rounded-lg px-3 py-2.5 text-sm text-slate-200
-           placeholder:text-slate-600 focus:outline-none focus:border-gold/60
-           focus:ring-1 focus:ring-gold/30 transition-all duration-150 w-full;
+    @apply bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm text-slate-200
+           placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/60
+           focus:ring-1 focus:ring-brand-purple/30 transition-all duration-150 w-full;
   }
   .soc-select {
     @apply soc-input cursor-pointer;
@@ -104,21 +105,21 @@
   }
 
   /* ─── Status badges ──────────────────────────────────────── */
-  .badge-new        { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple/20 text-purple-light border border-purple/30; }
+  .badge-new        { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-purple/20 text-brand-purple border border-brand-purple/30; }
   .badge-draft      { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700/40 text-slate-400 border border-slate-600/30; }
   .badge-submitted  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30; }
   .badge-resolved   { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-status-live/15 text-status-live border border-status-live/30; }
   .badge-dismissed  { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700/20 text-slate-500 border border-slate-600/20; }
 
-  /* ─── Mono data ──────────────────────────────────────────── */
+  /* ─── Mono / font helpers ────────────────────────────────── */
   .mono { font-family: "JetBrains Mono", monospace; }
   .syne { font-family: "Syne", system-ui, sans-serif; }
 
-  /* ─── Gold gradient text ─────────────────────────────────── */
+  /* ─── Gradient text aliases ──────────────────────────────── */
   .gold-text {
-    @apply bg-gradient-to-r from-gold to-gold-light bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink bg-clip-text text-transparent;
   }
   .purple-text {
-    @apply bg-gradient-to-r from-purple to-purple-light bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink bg-clip-text text-transparent;
   }
 }
