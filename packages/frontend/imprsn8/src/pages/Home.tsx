@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { publicApi } from "../lib/api";
 import type { PublicStats } from "../lib/types";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
+import { LogoMark, WordMark } from "../components/LogoMark";
 
 // ── Animated counter ──────────────────────────────────────────
 function useCountUp(target: number, duration = 1800) {
@@ -126,12 +127,20 @@ export default function Home() {
 
         {/* ── Hero ─────────────────────────────────────────────────── */}
         <section className="pt-20 pb-16 text-center space-y-8">
-          {/* Logo mark */}
+          {/* Logo mark + options showcase */}
           <Link to="/" className="inline-block mb-2 group">
-            <span className="font-extrabold text-2xl tracking-tight gradient-text group-hover:opacity-80 transition-opacity">
-              imprsn<span style={{ color: "#eab308" }}>8</span>
-            </span>
+            <WordMark variant="rings" size={34} textSize="text-2xl" className="group-hover:opacity-80 transition-opacity" />
           </Link>
+
+          {/* ── Logo option picker (3 variants displayed for review) ── */}
+          <div className="flex items-center justify-center gap-6 flex-wrap">
+            {(["rings", "radar", "shield"] as const).map((v) => (
+              <div key={v} className="flex flex-col items-center gap-2 border border-brand-border/60 rounded-xl px-5 py-4 bg-brand-card/40 backdrop-blur">
+                <LogoMark variant={v} size={44} />
+                <span className="text-[11px] text-brand-muted uppercase tracking-widest font-medium">{v}</span>
+              </div>
+            ))}
+          </div>
 
           {/* Pill badge */}
           <div className="inline-flex items-center gap-2 border border-brand-border/80 rounded-full px-4 py-1.5 text-xs text-brand-muted bg-brand-card/50 backdrop-blur">
@@ -280,9 +289,7 @@ export default function Home() {
             <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-brand-purple/10 blur-3xl pointer-events-none" />
             <div className="relative">
               <Link to="/" className="inline-block mb-6 group">
-                <span className="font-extrabold text-3xl tracking-tight gradient-text group-hover:opacity-80 transition-opacity">
-                  imprsn<span style={{ color: "#eab308" }}>8</span>
-                </span>
+                <WordMark variant="rings" size={36} textSize="text-3xl" className="group-hover:opacity-80 transition-opacity" />
               </Link>
               <h2 className="text-4xl font-extrabold gradient-text mb-4">Your identity deserves a guardian.</h2>
               <p className="text-brand-muted max-w-md mx-auto mb-8">
