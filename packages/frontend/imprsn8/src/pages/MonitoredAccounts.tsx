@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Plus, RefreshCw, Trash2, ExternalLink, Eye } from "lucide-react";
 import { accounts, influencers as influencersApi } from "../lib/api";
 import { Ring } from "../components/ui/Ring";
-import { PlatformIcon } from "../components/ui/PlatformIcon";
+import { PlatformIcon, PlatformFilterBar, PLATFORM_CONFIG } from "../components/ui/PlatformIcon";
 import { RiskBadge } from "../components/ui/SeverityBadge";
 import type { MonitoredAccount, InfluencerProfile, User, Platform, HandleVariant } from "../lib/types";
 
 interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; influencerList: InfluencerProfile[]; }
 
-const PLATFORMS: Platform[] = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads"];
+const ALL_PLATFORMS = Object.keys(PLATFORM_CONFIG) as Platform[];
 
 function fmtFollowers(n: number | null): string {
   if (n === null) return "—";
@@ -98,6 +98,19 @@ export default function MonitoredAccounts() {
 
   useEffect(() => { load(); }, [selectedInfluencer, filterPlatform, filterRisk]);
 
+  // Per-platform counts for the filter bar badge
+  const platformCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: list.length };
+    for (const a of list) counts[a.platform] = (counts[a.platform] ?? 0) + 1;
+    return counts;
+  }, [list]);
+
+  // Only show platforms that have at least 1 account (or "all")
+  const activePlatforms = useMemo(
+    () => ALL_PLATFORMS.filter((p) => (platformCounts[p] ?? 0) > 0),
+    [platformCounts]
+  );
+
   // Group by influencer
   const grouped = list.reduce<Record<string, { name: string; handle: string; accounts: MonitoredAccount[] }>>((acc, a) => {
     const key = a.influencer_id;
@@ -158,20 +171,30 @@ export default function MonitoredAccounts() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="flex gap-1">
-          {["all", ...PLATFORMS.slice(0, 6)].map((p) => (
-            <button key={p} onClick={() => setFilterPlatform(p)}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${filterPlatform === p ? "bg-gold text-soc-bg" : "bg-soc-border/30 text-slate-400 hover:bg-soc-border/60"}`}>
-              {p === "all" ? "ALL" : p.slice(0, 2).toUpperCase()}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {["all", "legitimate", "suspicious", "imposter"].map((r) => (
-            <button key={r} onClick={() => setFilterRisk(r)}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-all capitalize ${filterRisk === r ? "bg-purple text-white" : "bg-soc-border/30 text-slate-400 hover:bg-soc-border/60"}`}>
-              {r}
+      <div className="space-y-2">
+        <PlatformFilterBar
+          selected={filterPlatform}
+          onChange={setFilterPlatform}
+          platforms={activePlatforms.length > 0 ? activePlatforms : undefined}
+          showCount={platformCounts}
+        />
+        <div className="flex gap-1.5 flex-wrap">
+          {(["all", "legitimate", "suspicious", "imposter"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setFilterRisk(r)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all border ${
+                filterRisk === r
+                  ? "bg-purple border-purple text-white"
+                  : "bg-soc-border/20 border-soc-border/40 text-slate-400 hover:border-soc-border-bright hover:text-slate-200"
+              }`}
+            >
+              {r === "all" ? "All Risk Levels" : r}
+              {r !== "all" && list.filter((a) => a.risk_category === r).length > 0 && (
+                <span className="ml-1 opacity-60 font-normal">
+                  ({list.filter((a) => a.risk_category === r).length})
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -209,7 +232,9 @@ export default function MonitoredAccounts() {
               <label className="text-xs text-slate-500 block mb-1">Platform</label>
               <select className="soc-select" value={addForm.platform}
                 onChange={(e) => setAddForm((f) => ({ ...f, platform: e.target.value as Platform }))}>
-                {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {ALL_PLATFORMS.map((p) => (
+                  <option key={p} value={p}>{PLATFORM_CONFIG[p]?.name ?? p}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -260,7 +285,9 @@ export default function MonitoredAccounts() {
                 <label className="text-[10px] text-slate-500 block mb-1 uppercase tracking-wider">Platform</label>
                 <select className="soc-select !py-1.5 !text-xs" value={variantForm.platform}
                   onChange={(e) => setVariantForm((f) => ({ ...f, platform: e.target.value }))}>
-                  {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  {ALL_PLATFORMS.map((p) => (
+                    <option key={p} value={p}>{PLATFORM_CONFIG[p]?.name ?? p}</option>
+                  ))}
                 </select>
               </div>
               <div>
