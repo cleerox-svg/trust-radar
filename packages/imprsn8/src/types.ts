@@ -69,7 +69,8 @@ export interface InfluencerProfile {
 // ─── Monitored Accounts ────────────────────────────────────────────────────
 export type Platform =
   | "tiktok" | "instagram" | "x" | "youtube" | "facebook"
-  | "linkedin" | "twitch" | "threads" | "snapchat" | "pinterest";
+  | "linkedin" | "twitch" | "threads" | "snapchat" | "pinterest"
+  | "bluesky" | "reddit" | "github" | "mastodon";
 
 export type RiskCategory = "legitimate" | "suspicious" | "imposter" | "unscored";
 
@@ -236,9 +237,9 @@ export interface OverviewStats {
 
 // ─── Data Feeds ────────────────────────────────────────────────────────────
 export const FEED_PLATFORMS = [
-  // Free
+  // Free — no credentials required
   "youtube", "twitch", "reddit", "tiktok", "bluesky",
-  "mastodon", "rss", "facebook", "pinterest", "threads",
+  "mastodon", "rss", "github", "facebook", "pinterest", "threads",
   // Low-cost
   "x_basic", "instagram_graph", "apify", "dataforseo",
   // Paid

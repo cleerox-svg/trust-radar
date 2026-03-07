@@ -24,19 +24,24 @@ export async function handleSystemHealth(
   let sqliteVersion = "unknown";
   let journalMode = "unknown";
 
+  // Use a simple query for the liveness check — sqlite_version() is not supported in D1.
   try {
-    const ver = await env.DB.prepare("SELECT sqlite_version() AS v").first<{ v: string }>();
-    sqliteVersion = ver?.v ?? "unknown";
+    await env.DB.prepare("SELECT 1").first();
     dbOk = true;
   } catch {
     dbOk = false;
   }
 
   if (dbOk) {
+    // These are best-effort; D1 may return null/unknown for both.
+    try {
+      const ver = await env.DB.prepare("SELECT sqlite_version() AS v").first<{ v: string }>();
+      sqliteVersion = ver?.v ?? "unknown";
+    } catch { /* D1 does not expose sqlite_version() */ }
     try {
       const jm = await env.DB.prepare("PRAGMA journal_mode").first<{ journal_mode: string }>();
       journalMode = jm?.journal_mode ?? "unknown";
-    } catch { /* ignore */ }
+    } catch { /* D1 WAL is managed by Cloudflare */ }
   }
 
   const dbResponseMs = Date.now() - t0;
@@ -67,7 +72,7 @@ export async function handleSystemHealth(
   // ── Last migration ────────────────────────────────────────────────────────
   // Inferred from the highest migration file we've applied.
   // Update this constant when new migrations are added.
-  const LAST_MIGRATION = "0012_invite_tokens";
+  const LAST_MIGRATION = "0015_expand_platform_constraint";
 
   // ── Overall status ────────────────────────────────────────────────────────
   const allOk = dbOk && kvOk;

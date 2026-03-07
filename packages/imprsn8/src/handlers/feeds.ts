@@ -5,15 +5,15 @@ import type { Env, DataFeed } from "../types";
 
 const ALL_PLATFORMS = [
   "youtube", "twitch", "reddit", "tiktok", "bluesky",
-  "mastodon", "rss", "facebook", "pinterest", "threads",
+  "mastodon", "rss", "github", "facebook", "pinterest", "threads",
   "x_basic", "instagram_graph", "apify", "dataforseo",
   "x_pro", "brandwatch", "meltwater", "proxycurl", "mention",
 ] as const;
 
 const TIER_MAP: Record<string, string> = {
   youtube: "free", twitch: "free", reddit: "free", tiktok: "free",
-  bluesky: "free", mastodon: "free", rss: "free", facebook: "free",
-  pinterest: "free", threads: "free",
+  bluesky: "free", mastodon: "free", rss: "free", github: "free",
+  facebook: "free", pinterest: "free", threads: "free",
   x_basic: "low_cost", instagram_graph: "low_cost", apify: "low_cost", dataforseo: "low_cost",
   x_pro: "paid", brandwatch: "paid", meltwater: "paid", proxycurl: "paid", mention: "paid",
 };
