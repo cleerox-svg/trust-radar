@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth, invites, type InviteValidation } from "../lib/api";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -47,6 +48,10 @@ export default function Register() {
 
   const pageShell = (children: ReactNode) => (
     <div className="relative min-h-screen bg-brand-bg flex flex-col items-center justify-center px-4 overflow-hidden">
+      {/* Floating theme toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-brand-purple/10 blur-[120px]" />
         <div className="absolute bottom-0 -right-40 w-[400px] h-[400px] rounded-full bg-brand-pink/8 blur-[100px]" />

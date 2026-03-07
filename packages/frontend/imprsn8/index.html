@@ -11,6 +11,15 @@
     <title>imprsn8 — Your Digital Impression Score</title>
   </head>
   <body>
+    <!-- Prevent flash of unstyled content: apply theme class before React hydrates -->
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.classList.add(theme);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

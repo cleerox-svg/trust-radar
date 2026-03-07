@@ -6,6 +6,7 @@ import {
   Users, Lock, TrendingUp,
 } from "lucide-react";
 import { Pulse } from "./ui/Pulse";
+import { ThemeToggle } from "./ui/ThemeToggle";
 import { auth, influencers, ApiError } from "../lib/api";
 import type { User, InfluencerProfile } from "../lib/types";
 
@@ -197,7 +198,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
         ))}
       </nav>
 
-      {/* Settings */}
+      {/* Settings + theme + logout */}
       <div className="px-2 pb-2 border-t border-soc-border pt-2">
         <NavLink
           to="/settings"
@@ -211,6 +212,13 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
           <Settings size={15} />
           <span>Settings</span>
         </NavLink>
+
+        {/* Theme toggle */}
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-xs text-slate-500">Theme</span>
+          <ThemeToggle />
+        </div>
+
         <button
           onClick={logout}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600
