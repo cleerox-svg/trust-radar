@@ -69,7 +69,8 @@ export interface InfluencerProfile {
 // ─── Monitored Accounts ────────────────────────────────────────────────────
 export type Platform =
   | "tiktok" | "instagram" | "x" | "youtube" | "facebook"
-  | "linkedin" | "twitch" | "threads" | "snapchat" | "pinterest";
+  | "linkedin" | "twitch" | "threads" | "snapchat" | "pinterest"
+  | "bluesky" | "reddit" | "github" | "mastodon";
 
 export type RiskCategory = "legitimate" | "suspicious" | "imposter" | "unscored";
 
