@@ -158,6 +158,29 @@ export async function handleOverviewStats(
   }
 }
 
+export async function handlePublicStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const [influencers, threats, takedowns, accounts] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) as cnt FROM influencer_profiles WHERE active = 1").first<{ cnt: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as cnt FROM impersonation_reports").first<{ cnt: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as cnt FROM takedown_requests").first<{ cnt: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as cnt FROM monitored_accounts").first<{ cnt: number }>(),
+    ]);
+    return json({ success: true, data: {
+      influencers_protected: influencers?.cnt ?? 0,
+      threats_detected: threats?.cnt ?? 0,
+      takedowns_filed: takedowns?.cnt ?? 0,
+      accounts_monitored: accounts?.cnt ?? 0,
+    } }, 200, origin);
+  } catch {
+    return json({ success: true, data: {
+      influencers_protected: 0, threats_detected: 0,
+      takedowns_filed: 0, accounts_monitored: 0,
+    } }, 200, origin);
+  }
+}
+
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
