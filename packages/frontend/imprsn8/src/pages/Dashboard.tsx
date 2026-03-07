@@ -16,16 +16,18 @@ function ScoreCard({ score, label, color }: { score: number; label: string; colo
   const offset = circ - (score / 100) * circ;
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg className="-rotate-90" width="72" height="72" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="#1e1b4b" strokeWidth="7" />
-        <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
-          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1s ease" }} />
-      </svg>
-      <div className="text-center -mt-1">
-        <div className="font-bold text-lg" style={{ color }}>{score}</div>
-        <div className="text-xs text-brand-muted capitalize">{label}</div>
+      <div className="relative w-[72px] h-[72px]">
+        <svg className="-rotate-90 w-full h-full" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r={r} fill="none" stroke="#1e1b4b" strokeWidth="7" />
+          <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
+            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 1s ease" }} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="font-bold text-lg leading-none" style={{ color }}>{score}</span>
+        </div>
       </div>
+      <div className="text-xs text-brand-muted capitalize">{label}</div>
     </div>
   );
 }
