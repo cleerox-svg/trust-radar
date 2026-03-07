@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
-  RefreshCw, ChevronLeft, Play, Lock, Activity, AlertTriangle,
+  RefreshCw, ChevronLeft, Play, Lock, Activity,
   Eye, Hammer, BarChart2, Search, Database, Zap,
+  ShieldAlert, Radar, CheckCircle, GitMerge, Scale, Mic, Bot,
 } from "lucide-react";
 import { agents } from "../lib/api";
 import { Pulse } from "../components/ui/Pulse";
@@ -46,6 +47,18 @@ const TYPE_BG: Record<AgentName, string> = {
   WATCHDOG: "bg-status-live/10 border-status-live/25",
   PHANTOM:  "bg-slate-500/10 border-slate-500/25",
   manual:   "bg-slate-500/10 border-slate-500/25",
+};
+
+/** Unique icon per agent that reflects its function */
+const AGENT_ICON: Record<AgentName, React.ReactNode> = {
+  SENTINEL: <Eye size={16} />,           // watching / monitoring identities
+  RECON:    <Search size={16} />,        // scanning / discovering threats
+  VERITAS:  <CheckCircle size={16} />,   // verifying / scoring likeness
+  NEXUS:    <GitMerge size={16} />,      // correlating / attributing actors
+  ARBITER:  <Scale size={16} />,         // judging / authorising takedowns
+  WATCHDOG: <ShieldAlert size={16} />,   // protecting / compliance gating
+  PHANTOM:  <Mic size={16} />,           // voice clone / audio detection
+  manual:   <Play size={16} />,          // manual trigger
 };
 
 // Category section display config (matching screenshot style)
@@ -121,7 +134,7 @@ function AgentCard({
 
       {/* Icon */}
       <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${bgClass}`}>
-        <span className={colorClass}><Activity size={16} /></span>
+        <span className={colorClass}>{AGENT_ICON[agent.name] ?? <Activity size={16} />}</span>
       </div>
 
       {/* Body */}
@@ -216,7 +229,7 @@ function AgentDetail({
           <ChevronLeft size={14} /> Back
         </button>
         <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${bgClass}`}>
-          <span className={colorClass}><Activity size={16} /></span>
+          <span className={colorClass}>{AGENT_ICON[agent.name] ?? <Activity size={16} />}</span>
         </div>
         <h1 className="text-xl font-bold text-slate-100">{agent.codename}</h1>
         <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
@@ -363,14 +376,31 @@ function RecentRunsView({ runs, loading }: { runs: AgentRun[]; loading: boolean 
 // ─── Main AgentsPanel ─────────────────────────────────────────────────────────
 export default function AgentsPanel() {
   const { user, selectedInfluencer } = useOutletContext<Ctx>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [agentList, setAgentList] = useState<AgentDefinition[]>([]);
   const [allRuns, setAllRuns] = useState<AgentRun[]>([]);
   const [runMap, setRunMap] = useState<Record<string, AgentRun[]>>({});
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<AgentDefinition | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
-  const [tab, setTab] = useState<PanelTab>("intelligence");
   const canTrigger = user.role === "soc" || user.role === "admin";
+
+  // Derive tab + selected agent from URL — creates browser history entries so
+  // mobile swipe-back navigates within the page rather than leaving it.
+  const tab = (searchParams.get("tab") as PanelTab) ?? "intelligence";
+  const selectedAgentId = searchParams.get("agent");
+  const selected = selectedAgentId
+    ? (agentList.find((a) => a.id === selectedAgentId) ?? null)
+    : null;
+
+  function setTab(id: PanelTab) {
+    setSearchParams({ tab: id }, { replace: false });
+  }
+  function selectAgent(agent: AgentDefinition) {
+    setSearchParams({ tab: "intelligence", agent: agent.id }, { replace: false });
+  }
+  function clearSelected() {
+    setSearchParams({ tab: "intelligence" }, { replace: false });
+  }
 
   async function load() {
     setLoading(true);
@@ -411,14 +441,14 @@ export default function AgentsPanel() {
 
   const arbiterPending = agentList.some((a) => a.name === "ARBITER");
 
-  // Detail view
+  // Detail view — rendered when ?agent=<id> is in URL
   if (selected) {
     return (
       <AgentDetail
         agent={selected}
         recentRuns={runMap[selected.id] ?? []}
         canTrigger={canTrigger}
-        onBack={() => setSelected(null)}
+        onBack={clearSelected}
         onTrigger={handleTrigger}
       />
     );
@@ -499,7 +529,7 @@ export default function AgentsPanel() {
                         lastRun={runMap[agent.id]?.[0]}
                         canTrigger={canTrigger}
                         triggering={triggering}
-                        onSelect={() => setSelected(agent)}
+                        onSelect={() => selectAgent(agent)}
                         onTrigger={(e) => { e.stopPropagation(); handleTrigger(agent.id); }}
                       />
                     ))}
@@ -524,7 +554,7 @@ export default function AgentsPanel() {
               <div className="soc-card flex items-start gap-4 opacity-50 cursor-not-allowed border-dashed">
                 <div className="mt-0.5 w-5 h-5 flex items-center justify-center rounded border border-slate-700" />
                 <div className="w-10 h-10 rounded-xl border border-slate-600 flex items-center justify-center shrink-0 bg-slate-700/20">
-                  <Activity size={16} className="text-slate-500" />
+                  <Mic size={16} className="text-slate-500" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
