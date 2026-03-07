@@ -2,7 +2,7 @@ import { z } from "zod";
 import { json } from "../lib/cors";
 import type { Env, MonitoredAccount, Platform, RiskCategory } from "../types";
 
-const PLATFORMS = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads", "snapchat", "pinterest"] as const;
+const PLATFORMS = ["tiktok", "instagram", "x", "youtube", "facebook", "linkedin", "twitch", "threads", "snapchat", "pinterest", "bluesky", "reddit", "github", "mastodon"] as const;
 const RISK_CATEGORIES = ["legitimate", "suspicious", "imposter", "unscored"] as const;
 
 const AddAccountSchema = z.object({
