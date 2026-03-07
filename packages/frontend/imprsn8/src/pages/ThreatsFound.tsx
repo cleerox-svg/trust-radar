@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ChevronLeft, Flag, Shield, Copy, X, AlertTriangle, Lock, Plus } from "lucide-react";
-import { threats } from "../lib/api";
+import { RefreshCw, ChevronLeft, Flag, Shield, Copy, X, AlertTriangle, Lock, Plus, Eye, CheckCircle } from "lucide-react";
+import { threats, accounts as accountsApi } from "../lib/api";
 import { SeverityBadge, ThreatStatusBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
 import { Ring } from "../components/ui/Ring";
 import { CreateTakedownModal } from "../components/CreateTakedownModal";
-import type { ImpersonationReport, InfluencerProfile, User, ThreatSeverity, ThreatStatus } from "../lib/types";
+import type { ImpersonationReport, InfluencerProfile, User, ThreatSeverity, ThreatStatus, Platform } from "../lib/types";
 
 interface Ctx {
   user: User;
@@ -55,6 +55,11 @@ function ThreatDetail({
   const [note, setNote] = useState(threat.soc_note ?? "");
   const [saving, setSaving] = useState(false);
   const [showTakedown, setShowTakedown] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  // Platforms supported in monitored_accounts (mirrors backend PLATFORMS enum)
+  const MONITORABLE: Platform[] = ["tiktok","instagram","x","youtube","facebook","linkedin","twitch","threads","snapchat","pinterest","bluesky","reddit","github","mastodon"];
+  const canMonitor = MONITORABLE.includes(threat.platform as Platform);
 
   async function handleStatusChange(status: ThreatStatus) {
     setSaving(true);
@@ -63,6 +68,47 @@ function ThreatDetail({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleMonitor() {
+    setSaving(true);
+    setActionMsg(null);
+    try {
+      await accountsApi.add({
+        influencer_id: threat.influencer_id,
+        platform: threat.platform as Platform,
+        handle: threat.suspect_handle,
+        profile_url: threat.suspect_url ?? undefined,
+        follower_count: threat.suspect_followers ?? undefined,
+      });
+      setActionMsg("Account added to monitoring.");
+      await onUpdate(threat.id, { status: "investigating", soc_note: note || undefined });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setActionMsg(msg.toLowerCase().includes("unique") ? "Account already monitored." : "Failed to add account.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleMarkSafe() {
+    setSaving(true);
+    setActionMsg(null);
+    try {
+      const acc = await accountsApi.add({
+        influencer_id: threat.influencer_id,
+        platform: threat.platform as Platform,
+        handle: threat.suspect_handle,
+        profile_url: threat.suspect_url ?? undefined,
+        follower_count: threat.suspect_followers ?? undefined,
+      });
+      await accountsApi.update(acc.id, { risk_category: "legitimate", risk_score: 95 });
+      setActionMsg("Account marked safe and added to monitored accounts.");
+    } catch {
+      setActionMsg("Account already exists — updating status only.");
+    }
+    await onUpdate(threat.id, { status: "dismissed", soc_note: note || "Marked safe — confirmed legitimate account." });
+    setSaving(false);
   }
 
   return (
@@ -173,6 +219,11 @@ function ThreatDetail({
           placeholder="Add your assessment or findings..."
           className="soc-input w-full min-h-[80px] resize-y mb-4"
         />
+        {actionMsg && (
+          <div className="text-xs text-status-live bg-status-live/10 border border-status-live/20 rounded px-3 py-2 mb-3">
+            {actionMsg}
+          </div>
+        )}
         {showTakedown && (
           <CreateTakedownModal
             influencerList={influencerList}
@@ -189,32 +240,54 @@ function ThreatDetail({
             onClose={() => setShowTakedown(false)}
           />
         )}
-        <div className="flex flex-wrap gap-2">
+        {/* Primary actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <button
             disabled={saving}
             onClick={() => setShowTakedown(true)}
-            className="btn-gold flex items-center gap-1.5"
+            className="btn-gold flex items-center justify-center gap-1.5 w-full"
           >
             <Flag size={13} /> Initiate Takedown
           </button>
+          {canMonitor && (
+            <button
+              disabled={saving}
+              onClick={handleMonitor}
+              className="btn-ghost flex items-center justify-center gap-1.5 w-full text-blue-400 border-blue-400/30 hover:border-blue-400/60"
+            >
+              <Eye size={13} /> Monitor Account
+            </button>
+          )}
+        </div>
+        {/* Secondary actions */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             disabled={saving}
             onClick={() => handleStatusChange("investigating")}
-            className="btn-ghost flex items-center gap-1.5"
+            className="btn-ghost flex items-center justify-center gap-1.5"
           >
-            <Shield size={13} /> Mark Investigating
+            <Shield size={13} /> Investigating
           </button>
+          {canMonitor && (
+            <button
+              disabled={saving}
+              onClick={handleMarkSafe}
+              className="btn-ghost flex items-center justify-center gap-1.5 text-status-live border-status-live/30 hover:border-status-live/60"
+            >
+              <CheckCircle size={13} /> Mark Safe
+            </button>
+          )}
           <button
             disabled={saving}
             onClick={() => { navigator.clipboard.writeText(`${threat.suspect_handle} — ${threat.platform} — severity: ${threat.severity}`); }}
-            className="btn-ghost flex items-center gap-1.5"
+            className="btn-ghost flex items-center justify-center gap-1.5"
           >
-            <Copy size={13} /> Copy Evidence
+            <Copy size={13} /> Copy
           </button>
           <button
             disabled={saving}
             onClick={() => handleStatusChange("dismissed")}
-            className="btn-ghost flex items-center gap-1.5 text-slate-500"
+            className="btn-ghost flex items-center justify-center gap-1.5 text-slate-500"
           >
             <X size={13} /> Dismiss
           </button>
@@ -486,23 +559,25 @@ export default function ThreatsFound() {
             <div
               key={threat.id}
               onClick={() => setSelected(threat)}
-              className="soc-card flex items-center gap-4 flex-wrap cursor-pointer hover:border-soc-border-bright transition-all"
+              className="soc-card flex items-center gap-3 cursor-pointer hover:border-soc-border-bright transition-all min-w-0"
             >
               {threat.similarity_score !== null && (
-                <Ring score={threat.similarity_score} size={52} strokeWidth={5} />
+                <div className="shrink-0">
+                  <Ring score={threat.similarity_score} size={52} strokeWidth={5} />
+                </div>
               )}
-              <div className="flex-1 min-w-[180px]">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-bold text-slate-100 font-mono">@{threat.suspect_handle}</span>
+                  <span className="font-bold text-slate-100 font-mono truncate">@{threat.suspect_handle}</span>
                   <PlatformIcon platform={threat.platform} size="sm" />
                   <SeverityBadge severity={threat.severity} />
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 truncate">
                   {threat.threat_type.replace(/_/g, " ")} · {timeAgo(threat.detected_at)}
                   {threat.influencer_name && ` · ${threat.influencer_name}`}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="shrink-0 flex items-center gap-1.5">
                 <ThreatStatusBadge status={threat.status} />
                 {(threat.status === "new" || threat.status === "investigating") && (
                   <AlertTriangle size={14} className="text-threat-critical" />
