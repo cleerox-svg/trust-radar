@@ -42,17 +42,19 @@ function MiniRing({ score, color, label }: { score: number; color: string; label
   const offset = circ - (score / 100) * circ;
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <svg className="-rotate-90" width="56" height="56" viewBox="0 0 56 56">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="rgba(139,92,246,0.1)" strokeWidth="6" />
-        <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="6"
-          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1.5s ease", filter: `drop-shadow(0 0 6px ${color}80)` }}
-        />
-      </svg>
-      <div className="text-center -mt-1">
-        <div className="font-bold text-base" style={{ color }}>{score}</div>
-        <div className="text-[10px] text-brand-muted">{label}</div>
+      <div className="relative w-14 h-14">
+        <svg className="-rotate-90 w-full h-full" viewBox="0 0 56 56">
+          <circle cx="28" cy="28" r={r} fill="none" stroke="rgba(139,92,246,0.1)" strokeWidth="6" />
+          <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="6"
+            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 1.5s ease", filter: `drop-shadow(0 0 6px ${color}80)` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-bold text-sm leading-none" style={{ color }}>{score}</span>
+        </div>
       </div>
+      <div className="text-[10px] text-brand-muted">{label}</div>
     </div>
   );
 }
