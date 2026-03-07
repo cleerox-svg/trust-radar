@@ -3,10 +3,11 @@
  * Extracted from AdminPage so it can live in the Intelligence tab.
  */
 import { useState, useEffect } from "react";
-import { Plus, Database, Play, RefreshCw, Zap, Trash2 } from "lucide-react";
+import { Plus, Database, Play, RefreshCw, Zap, Trash2, Pencil } from "lucide-react";
 import { feeds as feedsApi } from "../lib/api";
 import type { DataFeed } from "../lib/types";
 import { AddFeedModal } from "./AddFeedModal";
+import { EditFeedModal } from "./EditFeedModal";
 import { FEED_CATALOG_MAP, TIER_LABELS, type FeedTier } from "../lib/feedCatalog";
 
 // ─── Tier styles ──────────────────────────────────────────────────────────────
@@ -29,11 +30,13 @@ export function FeedCard({
   onTrigger,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   feed: DataFeed;
   onTrigger: (id: string) => void;
   onToggle: (id: string, active: boolean) => void;
   onDelete: (id: string) => void;
+  onEdit: (feed: DataFeed) => void;
 }) {
   const catalog = FEED_CATALOG_MAP[feed.platform as keyof typeof FEED_CATALOG_MAP];
   const tier = (feed.tier ?? "free") as FeedTier;
@@ -106,6 +109,13 @@ export function FeedCard({
             : <><Play size={11} /> Run</>}
         </button>
         <button
+          onClick={() => onEdit(feed)}
+          title="Edit configuration"
+          className="btn-ghost !px-2 !py-1.5 !text-xs"
+        >
+          <Pencil size={11} className="text-slate-400" />
+        </button>
+        <button
           onClick={() => onToggle(feed.id, !feed.is_active)}
           title={feed.is_active ? "Pause feed" : "Resume feed"}
           className="btn-ghost !px-2 !py-1.5 !text-xs"
@@ -130,14 +140,23 @@ export function FeedsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [editFeed, setEditFeed] = useState<DataFeed | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
 
-  useEffect(() => {
-    feedsApi.list()
-      .then(setFeedList)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load feeds"))
-      .finally(() => setLoading(false));
-  }, []);
+  async function loadFeeds() {
+    setLoading(true);
+    try {
+      const data = await feedsApi.list();
+      setFeedList(data);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load feeds");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadFeeds(); }, []);
 
   async function handleTrigger(id: string) {
     if (triggering) return;
@@ -171,6 +190,16 @@ export function FeedsView() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
     }
+  }
+
+  function handleUpdated(updated: DataFeed) {
+    setFeedList((prev) => prev.map((f) => f.id === updated.id ? updated : f));
+    setEditFeed(null);
+  }
+
+  function handleCreated(feed: DataFeed) {
+    setFeedList((prev) => [...prev, feed]);
+    setShowAdd(false);
   }
 
   const tiers: FeedTier[] = ["free", "low_cost", "paid"];
@@ -234,6 +263,7 @@ export function FeedsView() {
                   onTrigger={handleTrigger}
                   onToggle={handleToggle}
                   onDelete={handleDelete}
+                  onEdit={setEditFeed}
                 />
               ))}
             </div>
@@ -243,8 +273,15 @@ export function FeedsView() {
 
       {showAdd && (
         <AddFeedModal
-          onCreated={(feed) => { setFeedList((prev) => [...prev, feed]); setShowAdd(false); }}
+          onCreated={handleCreated}
           onClose={() => setShowAdd(false)}
+        />
+      )}
+      {editFeed && (
+        <EditFeedModal
+          feed={editFeed}
+          onUpdated={handleUpdated}
+          onClose={() => setEditFeed(null)}
         />
       )}
     </div>
