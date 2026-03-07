@@ -212,6 +212,13 @@ export interface HandleVariant {
   created_at: string;
 }
 
+export interface PublicStats {
+  influencers_protected: number;
+  threats_detected: number;
+  takedowns_filed: number;
+  accounts_monitored: number;
+}
+
 export interface AdminStats {
   users: number;
   influencers: number;

@@ -11,7 +11,7 @@ import { handleListAgents, handleGetAgentRuns, handleTriggerAgent } from "./hand
 import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./handlers/analysis";
 import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
 import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns";
-import { handleOverviewStats, handleAdminStats } from "./handlers/stats";
+import { handleOverviewStats, handleAdminStats, handlePublicStats } from "./handlers/stats";
 import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
 import { handleSystemHealth } from "./handlers/health";
@@ -29,6 +29,9 @@ router.options("*", (request: Request) => handleOptions(request));
 router.get("/health", () =>
   Response.json({ status: "ok", service: "imprsn8", ts: Date.now() })
 );
+
+// ─── Public ───────────────────────────────────────────────────
+router.get("/api/public/stats", (request: Request, env: Env) => handlePublicStats(request, env));
 
 // ─── Auth ─────────────────────────────────────────────────────
 router.post("/api/auth/register", (request: Request, env: Env) => handleRegister(request, env));

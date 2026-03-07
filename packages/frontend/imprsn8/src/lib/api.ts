@@ -3,7 +3,7 @@ import type {
   TakedownRequest, AgentDefinition, AgentRun, OverviewStats,
   ThreatStatus, ThreatSeverity, TakedownStatus, Platform,
   Analysis, AnalysisType, SocialProfile, ScorePoint, Campaign, AdminStats,
-  HandleVariant, DataFeed,
+  HandleVariant, DataFeed, PublicStats,
 } from "./types";
 
 export type { User, Analysis, SocialProfile, ScorePoint, Campaign, HandleVariant, DataFeed };
@@ -158,6 +158,10 @@ export const admin = {
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   health: () => api<any>("/admin/health"),
+};
+
+export const publicApi = {
+  stats: () => api<PublicStats>("/public/stats"),
 };
 
 // ─── Invite types ─────────────────────────────────────────────
