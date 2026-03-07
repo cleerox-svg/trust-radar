@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth, invites, type InviteValidation } from "../lib/api";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
+import { WordMark } from "../components/LogoMark";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -57,11 +58,8 @@ export default function Register() {
         <div className="absolute bottom-0 -right-40 w-[400px] h-[400px] rounded-full bg-brand-pink/8 blur-[100px]" />
       </div>
       <div className="relative w-full max-w-md space-y-6">
-        <div className="text-center mb-2">
-          <span className="text-2xl font-extrabold tracking-tight gradient-text"
-            style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.5))" }}>
-            imprsn8
-          </span>
+        <div className="flex justify-center mb-2">
+          <WordMark variant="shield" size={32} textSize="text-2xl" />
         </div>
         {children}
       </div>

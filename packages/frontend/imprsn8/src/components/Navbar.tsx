@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
+import { WordMark } from "./LogoMark";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -22,8 +23,8 @@ export default function Navbar() {
   return (
     <nav className="border-b border-brand-border bg-brand-card/60 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="font-bold text-xl gradient-text tracking-tight" onClick={() => setOpen(false)}>
-          imprsn8
+        <Link to="/" onClick={() => setOpen(false)} className="group-hover:opacity-80 transition-opacity">
+          <WordMark variant="shield" size={26} textSize="text-xl" />
         </Link>
 
         {/* Desktop nav */}

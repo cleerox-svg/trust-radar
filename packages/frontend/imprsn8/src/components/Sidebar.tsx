@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
+import { WordMark } from "./LogoMark";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
@@ -71,9 +72,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
       {/* Logo */}
       <div className="px-5 py-5 border-b border-soc-border">
         <Link to="/" className="block group">
-          <div className="syne text-xl font-extrabold tracking-tight text-slate-100 group-hover:opacity-80 transition-opacity">
-            imprsn<span className="text-gold">8</span>
-          </div>
+          <WordMark variant="shield" size={28} textSize="text-xl" className="group-hover:opacity-80 transition-opacity" />
           <div className="text-[10px] text-slate-600 mt-0.5 font-mono uppercase tracking-widest">
             Identity Protection
           </div>

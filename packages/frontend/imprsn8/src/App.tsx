@@ -5,6 +5,7 @@ import { Sidebar, useSidebarData } from "./components/Sidebar";
 import type { InfluencerProfile } from "./lib/types";
 import { ThemeProvider } from "./lib/theme";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
+import { WordMark } from "./components/LogoMark";
 
 // Pages
 import Home from "./pages/Home";
@@ -90,9 +91,7 @@ function AppShell() {
           >
             <Menu size={18} />
           </button>
-          <div className="text-base font-extrabold tracking-tight text-slate-100 flex-1">
-            imprsn<span className="text-gold">8</span>
-          </div>
+          <WordMark variant="shield" size={22} textSize="text-base" className="flex-1" />
           <ThemeToggle />
         </div>
 

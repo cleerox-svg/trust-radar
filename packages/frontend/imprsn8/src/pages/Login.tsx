@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
+import { WordMark } from "../components/LogoMark";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -40,11 +41,8 @@ export default function Login() {
 
       <div className="relative w-full max-w-md space-y-6">
         {/* Brand mark */}
-        <div className="text-center mb-2">
-          <span className="text-2xl font-extrabold tracking-tight gradient-text"
-            style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.5))" }}>
-            imprsn8
-          </span>
+        <div className="flex justify-center mb-2">
+          <WordMark variant="shield" size={32} textSize="text-2xl" />
         </div>
 
         <div className="card w-full space-y-6" style={{ boxShadow: "0 0 60px rgba(139,92,246,0.12)" }}>
