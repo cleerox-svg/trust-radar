@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2,
   AlertTriangle, Flag, Database, RefreshCw, Mail, UserPlus,
@@ -773,7 +774,11 @@ function HealthTab() {
 
 // ─── Root AdminPage ───────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const [tab, setTab] = useState<Tab>("influencers");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get("tab") as Tab) ?? "influencers";
+  function setTab(id: Tab) {
+    setSearchParams({ tab: id }, { replace: false });
+  }
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [influencerList, setInfluencerList] = useState<InfluencerProfile[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);

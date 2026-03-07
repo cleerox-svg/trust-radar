@@ -142,6 +142,9 @@ function AgentCard({
         {/* Name + schedule */}
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span className="font-semibold text-slate-100 text-sm">{agent.codename}</span>
+          <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${colorClass} bg-current/5 border-current/20 opacity-70`}>
+            {agent.name}
+          </span>
           <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
             agent.schedule_mins === null
               ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
@@ -335,40 +338,50 @@ function RecentRunsView({ runs, loading }: { runs: AgentRun[]; loading: boolean 
 
   return (
     <div className="space-y-2">
-      {runs.map((run) => (
-        <div key={run.id} className="soc-card flex items-start gap-4">
-          {/* Status icon */}
-          <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${
-            run.status === "completed" ? "bg-status-live/10 border border-status-live/25" :
-            run.status === "failed"    ? "bg-threat-critical/10 border border-threat-critical/25" :
-            run.status === "running"   ? "bg-gold/10 border border-gold/25" :
-            "bg-slate-700/30 border border-soc-border"
-          }`}>
-            <StatusDot status={run.status} />
-          </div>
+      {runs.map((run) => {
+        const agentName = (run.agent_name ?? "") as AgentName;
+        const colorClass = TYPE_COLOR[agentName] ?? "text-slate-400";
+        const bgClass    = TYPE_BG[agentName]    ?? "bg-slate-500/10 border-slate-500/25";
+        const icon       = AGENT_ICON[agentName] ?? <Activity size={15} />;
 
-          {/* Name + meta */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-200 text-sm">{run.codename ?? run.agent_name ?? "Agent"}</span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
-                run.status === "completed" ? "bg-status-live/10 text-status-live border border-status-live/25" :
-                run.status === "failed"    ? "bg-threat-critical/10 text-threat-critical border border-threat-critical/25" :
-                "bg-slate-700 text-slate-400 border border-soc-border"
-              }`}>{run.status}</span>
-              <span className="text-[9px] bg-soc-bg border border-soc-border text-slate-500 px-1.5 py-0.5 rounded">
-                manual
-              </span>
+        return (
+          <div key={run.id} className="soc-card flex items-start gap-3">
+            {/* Agent icon */}
+            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${bgClass}`}>
+              <span className={colorClass}>{icon}</span>
             </div>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {timeAgo(run.started_at)}
-              {run.items_scanned > 0  && <span className="ml-2">· {run.items_scanned} processed</span>}
-              {run.threats_found > 0  && <span className="ml-2 text-threat-critical font-bold">· {run.threats_found} flagged</span>}
-              {run.influencer_name    && <span className="ml-2">· {run.influencer_name}</span>}
+
+            {/* Name + meta */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-slate-200 text-sm">{run.codename ?? run.agent_name ?? "Agent"}</span>
+                {agentName && (
+                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${colorClass} opacity-70`}>
+                    {agentName}
+                  </span>
+                )}
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
+                  run.status === "completed" ? "bg-status-live/10 text-status-live border border-status-live/25" :
+                  run.status === "failed"    ? "bg-threat-critical/10 text-threat-critical border border-threat-critical/25" :
+                  run.status === "running"   ? "bg-gold/10 text-gold border border-gold/25" :
+                  "bg-slate-700 text-slate-400 border border-soc-border"
+                }`}>{run.status}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">
+                {timeAgo(run.started_at)}
+                {run.items_scanned > 0  && <span className="ml-2">· {run.items_scanned} processed</span>}
+                {run.threats_found > 0  && <span className="ml-2 text-threat-critical font-bold">· {run.threats_found} flagged</span>}
+                {run.influencer_name    && <span className="ml-2">· {run.influencer_name}</span>}
+              </div>
+            </div>
+
+            {/* Status dot */}
+            <div className="shrink-0 mt-1">
+              <StatusDot status={run.status} />
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

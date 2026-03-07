@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Plus, Key, Shield, Users, Eye, UserCircle, Check } from "lucide-react";
 import { admin, profile as profileApi } from "../lib/api";
 import type { User } from "../lib/types";
@@ -34,7 +34,11 @@ type TabId = "profile" | "access" | "knowledge";
 export default function Settings() {
   const { user } = useOutletContext<Ctx>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabId>("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get("tab") as TabId) ?? "profile";
+  function setTab(id: TabId) {
+    setSearchParams({ tab: id }, { replace: false });
+  }
 
   // Access management state
   const [users, setUsers] = useState<User[]>([]);
@@ -182,11 +186,11 @@ export default function Settings() {
             </div>
             {isAdmin && (
               <button
-                onClick={() => navigate("/admin")}
+                onClick={() => navigate("/admin?tab=influencers")}
                 className="btn-gold flex items-center gap-2"
                 title="Go to Admin console to invite or create users"
               >
-                <Plus size={13} /> Invite User
+                <Plus size={13} /> Manage Users
               </button>
             )}
           </div>

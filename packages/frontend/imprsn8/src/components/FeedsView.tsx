@@ -2,8 +2,8 @@
  * FeedsView — shared Data Sources panel used in Intelligence page and Admin.
  * Extracted from AdminPage so it can live in the Intelligence tab.
  */
-import { useState, useEffect } from "react";
-import { Plus, Database, Play, RefreshCw, Zap, Trash2, Pencil } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, Database, Play, RefreshCw, Zap, Trash2, Pencil, CheckCircle2 } from "lucide-react";
 import { feeds as feedsApi } from "../lib/api";
 import type { DataFeed } from "../lib/types";
 import { AddFeedModal } from "./AddFeedModal";
@@ -111,23 +111,23 @@ export function FeedCard({
         <button
           onClick={() => onEdit(feed)}
           title="Edit configuration"
-          className="btn-ghost !px-2 !py-1.5 !text-xs"
+          className="btn-ghost !px-2 !py-1.5 !text-xs flex items-center gap-1 text-slate-300 hover:text-gold hover:border-gold/40"
         >
-          <Pencil size={11} className="text-slate-400" />
+          <Pencil size={12} /> Edit
         </button>
         <button
           onClick={() => onToggle(feed.id, !feed.is_active)}
           title={feed.is_active ? "Pause feed" : "Resume feed"}
           className="btn-ghost !px-2 !py-1.5 !text-xs"
         >
-          {feed.is_active ? <Zap size={11} className="text-status-live" /> : <Zap size={11} className="text-slate-500" />}
+          {feed.is_active ? <Zap size={12} className="text-status-live" /> : <Zap size={12} className="text-slate-500" />}
         </button>
         <button
           onClick={() => onDelete(feed.id)}
           title="Delete feed"
           className="btn-icon !p-1.5 hover:text-threat-critical"
         >
-          <Trash2 size={11} />
+          <Trash2 size={12} />
         </button>
       </div>
     </div>
@@ -142,6 +142,12 @@ export function FeedsView() {
   const [showAdd, setShowAdd] = useState(false);
   const [editFeed, setEditFeed] = useState<DataFeed | null>(null);
   const [triggering, setTriggering] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   async function loadFeeds() {
     setLoading(true);
@@ -195,11 +201,13 @@ export function FeedsView() {
   function handleUpdated(updated: DataFeed) {
     setFeedList((prev) => prev.map((f) => f.id === updated.id ? updated : f));
     setEditFeed(null);
+    showToast(`"${updated.name}" configuration saved`);
   }
 
   function handleCreated(feed: DataFeed) {
     setFeedList((prev) => [...prev, feed]);
     setShowAdd(false);
+    showToast(`"${feed.name}" added successfully`);
   }
 
   const tiers: FeedTier[] = ["free", "low_cost", "paid"];
@@ -215,6 +223,13 @@ export function FeedsView() {
 
   return (
     <div className="space-y-6">
+      {/* Success toast */}
+      {toast && (
+        <div className="flex items-center gap-2 text-sm text-status-live bg-status-live/10 border border-status-live/25 rounded-lg px-4 py-3 animate-fade-in">
+          <CheckCircle2 size={15} />
+          {toast}
+        </div>
+      )}
       {error && <div className="soc-card border-red-500/30 text-red-400 text-sm">{error}</div>}
 
       {/* Toolbar */}
