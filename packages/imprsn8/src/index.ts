@@ -11,7 +11,7 @@ import { handleListAgents, handleGetAgentRuns, handleTriggerAgent } from "./hand
 import { handleAnalyze, handleAnalysisHistory, handleScoreHistory } from "./handlers/analysis";
 import { handleListSocials, handleAddSocial, handleDeleteSocial } from "./handlers/social";
 import { handleListCampaigns, handleCreateCampaign } from "./handlers/campaigns";
-import { handleOverviewStats, handleAdminStats, handlePublicStats } from "./handlers/stats";
+import { handleOverviewStats, handleAdminStats, handlePublicStats, handleBrandHealthScore } from "./handlers/stats";
 import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
 import { handleSystemHealth } from "./handlers/health";
@@ -53,6 +53,14 @@ router.get("/api/overview", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
   return handleOverviewStats(request, env, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
+});
+
+// ─── Brand Health Score ────────────────────────────────────────
+router.get("/api/brand-health-score", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const user = await env.DB.prepare("SELECT role, assigned_influencer_id FROM users WHERE id = ?").bind(ctx.userId).first<{ role: string; assigned_influencer_id: string | null }>();
+  return handleBrandHealthScore(request, env, user?.role ?? "influencer", user?.assigned_influencer_id ?? null);
 });
 
 // ─── Influencer Profiles ──────────────────────────────────────

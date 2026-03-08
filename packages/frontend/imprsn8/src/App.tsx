@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
-import { Sidebar, useSidebarData } from "./components/Sidebar";
+import { Sidebar, MobileTabBar, useSidebarData } from "./components/Sidebar";
 import type { InfluencerProfile } from "./lib/types";
 import { ThemeProvider } from "./lib/theme";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
@@ -45,10 +45,13 @@ function AppShell() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-soc-bg">
+      <div className="flex items-center justify-center h-screen" style={{ background: "var(--surface-base)" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-          <div className="text-xs text-slate-600 font-mono tracking-widest">LOADING SOC...</div>
+          <div className="w-8 h-8 rounded-full animate-spin"
+            style={{ border: "2px solid var(--border-default)", borderTopColor: "var(--gold-400)" }} />
+          <div className="text-xs font-mono tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+            LOADING...
+          </div>
         </div>
       </div>
     );
@@ -57,13 +60,10 @@ function AppShell() {
   if (unauthenticated || !user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex h-screen bg-soc-bg overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-base)" }}>
       {/* Mobile backdrop */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-30 lg:hidden modal-backdrop" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar — drawer on mobile, fixed on desktop */}
@@ -84,10 +84,14 @@ function AppShell() {
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-soc-border bg-soc-card shrink-0">
+        <div
+          className="lg:hidden flex items-center gap-3 px-4 py-3 shrink-0"
+          style={{ background: "var(--surface-raised)", borderBottom: "1px solid var(--border-subtle)" }}
+        >
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded-lg border border-soc-border text-slate-400 hover:text-gold hover:border-gold/50 transition-all"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--border-default)", color: "var(--text-tertiary)" }}
           >
             <Menu size={18} />
           </button>
@@ -95,10 +99,14 @@ function AppShell() {
           <ThemeToggle />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* Page content — pb-16 on mobile to clear bottom tab bar */}
+        <div className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
         </div>
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <MobileTabBar threatCount={threatCount} />
     </div>
   );
 }

@@ -1,22 +1,29 @@
+/**
+ * Overview / Dashboard — spec §Screen 1: Dashboard
+ *
+ * Layout (1440px ref):
+ *   [Score Hero Panel 320px] [Threat Timeline — remaining width]
+ *   [Platform/stat grid — 4 columns]
+ *   [Activity Feed 60%] [Agent Quick Status 40%]
+ */
+
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
-import { RefreshCw, ExternalLink, Bot, AlertTriangle, Flag, Activity } from "lucide-react";
+import { useOutletContext, Link } from "react-router-dom";
+import { RefreshCw, ExternalLink, Bot, AlertTriangle, Flag, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { overview } from "../lib/api";
-import { SeverityBadge } from "../components/ui/SeverityBadge";
 import { PlatformIcon } from "../components/ui/PlatformIcon";
-import { Pulse } from "../components/ui/Pulse";
-import type { OverviewStats, InfluencerProfile, User, ActivityEvent } from "../lib/types";
+import { ScoreRing } from "../components/ui/ScoreRing";
+import { AgentIcon } from "../components/ui/AgentIcon";
+import type { AgentName } from "../components/ui/AgentIcon";
+import type { OverviewStats, InfluencerProfile, User, ActivityEvent, AgentDefinition } from "../lib/types";
 
 interface Ctx {
   user: User;
   selectedInfluencer: InfluencerProfile | null;
   setThreatCount: (n: number) => void;
-}
-
-function AgentStatusDot({ status }: { status: string | null }) {
-  if (status === "completed" || status === "running") return <Pulse color="green" size="sm" />;
-  if (status === "failed") return <Pulse color="red" size="sm" animate={false} />;
-  return <Pulse color="gray" size="sm" animate={false} />;
 }
 
 function timeAgo(ts: string | null | undefined): string {
@@ -28,103 +35,330 @@ function timeAgo(ts: string | null | undefined): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function InfluencerProtectionView({ user, selectedInfluencer, stats, loading, lastScan, onRefresh }: {
-  user: User;
-  selectedInfluencer: InfluencerProfile | null;
-  stats: OverviewStats | null;
-  loading: boolean;
-  lastScan: string | null;
-  onRefresh: () => void;
-}) {
-  const inf = selectedInfluencer;
-  const threatCount = stats?.active_threats ?? 0;
-  const criticalCount = stats?.critical_threats ?? 0;
-  const protectionOk = threatCount === 0;
+/** Derive brand health score from threat/agent data */
+function computeBrandHealth(stats: OverviewStats): number {
+  let score = 100;
+  score -= (stats.critical_threats ?? 0) * 12;
+  score -= Math.min((stats.active_threats - (stats.critical_threats ?? 0)), 0) * 4;
+  score -= (stats.pending_takedowns ?? 0) * 3;
+  const agentRatio = stats.agents_total > 0 ? stats.agents_active / stats.agents_total : 0;
+  score += Math.round(agentRatio * 5);
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// ─── Score Hero Panel ─────────────────────────────────────────────────────────
+function ScoreHeroPanel({ stats, loading }: { stats: OverviewStats | null; loading: boolean }) {
+  const score = stats ? computeBrandHealth(stats) : 0;
+  const protectionOk = (stats?.active_threats ?? 0) === 0;
+  const lastBlocked = stats?.recent_activity?.find(
+    (a) => a.kind === "threat_detected" || a.kind === "threat_updated"
+  );
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100">
-            Protection Status{inf ? ` — ${inf.display_name}` : ""}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">
-            Last scan: {lastScan ? timeAgo(lastScan) : "—"}
-          </p>
-        </div>
-        <button onClick={onRefresh} disabled={loading} className="btn-ghost flex items-center gap-2">
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
-      </div>
+    <div
+      className="card flex flex-col items-center justify-between p-8 min-h-[360px]"
+      style={{ minWidth: 280 }}
+    >
+      {/* Score ring hero */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        {loading ? (
+          <div className="w-[200px] h-[200px] rounded-full animate-pulse" style={{ background: "var(--surface-overlay)" }} />
+        ) : (
+          <ScoreRing
+            score={score}
+            size="hero-xl"
+            label="Brand Health Score"
+            showLabel
+            showHealth
+          />
+        )}
 
-      {/* Protection status banner */}
-      <div className={`soc-card flex items-center gap-4 ${
-        protectionOk ? "border-status-live/30 bg-status-live/5" : "border-threat-critical/30 bg-threat-critical/5"
-      }`}>
-        <Pulse color={protectionOk ? "green" : "red"} size="lg" />
-        <div>
-          <div className={`text-lg font-bold ${protectionOk ? "text-status-live" : "text-threat-critical"}`}>
-            {protectionOk ? "Identity Protected" : `${threatCount} Active Threat${threatCount !== 1 ? "s" : ""} Detected`}
-          </div>
-          <div className="text-xs text-slate-400 mt-0.5">
-            {protectionOk
-              ? "No impersonators found across monitored platforms."
-              : `${criticalCount} critical · SOC analysts are investigating.`}
+        <div className="text-center">
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Protected by{" "}
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+              {stats?.agents_active ?? 0} active AI agents
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <MetricCard label="ACCOUNTS MONITORED" value={stats?.accounts_monitored ?? 0}
-          sub={`across ${stats?.platforms_count ?? 0} platforms`} color="gold" />
-        <MetricCard label="ACTIVE THREATS" value={threatCount}
-          sub={`${criticalCount} critical`} color="red" pulse={threatCount > 0 ? "red" : undefined} />
+      {/* Editorial status bar */}
+      <div
+        className="w-full rounded-lg px-4 py-3 mt-6"
+        style={{
+          background: protectionOk
+            ? "rgba(22,163,74,0.08)"
+            : "rgba(232,22,59,0.08)",
+          border: `1px solid ${protectionOk ? "rgba(22,163,74,0.2)" : "rgba(232,22,59,0.2)"}`,
+        }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <span
+            className="status-dot"
+            style={{
+              background: protectionOk ? "var(--green-400)" : "var(--red-400)",
+              animation: protectionOk ? "statusPulse 2s ease-in-out infinite" : "none",
+            }}
+          />
+          <span className="text-xs font-semibold" style={{ color: protectionOk ? "var(--green-400)" : "var(--red-400)" }}>
+            {protectionOk ? "Your profile is currently protected." : `${stats?.active_threats} active threat${stats?.active_threats !== 1 ? "s" : ""} detected.`}
+          </span>
+        </div>
+        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          {protectionOk
+            ? `Last threat blocked ${lastBlocked ? timeAgo(lastBlocked.timestamp) : "recently"}.`
+            : `${stats?.critical_threats ?? 0} critical · SOC analysts investigating.`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Threat Timeline ──────────────────────────────────────────────────────────
+function ThreatTimeline({ activity }: { activity: ActivityEvent[] }) {
+  // Build 7-day chart data from activity events
+  const days: Record<string, number> = {};
+  const now = Date.now();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    days[d.toLocaleDateString("en-US", { month: "short", day: "numeric" })] = 0;
+  }
+  activity
+    .filter((a) => a.kind === "threat_detected")
+    .forEach((a) => {
+      const key = new Date(a.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (key in days) days[key]++;
+    });
+  const data = Object.entries(days).map(([date, threats]) => ({ date, threats }));
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="card-elevated px-3 py-2 text-xs">
+        <div style={{ color: "var(--text-tertiary)" }}>{label}</div>
+        <div className="font-semibold" style={{ color: "var(--red-400)" }}>
+          {payload[0].value} threat{payload[0].value !== 1 ? "s" : ""}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="card p-6 flex-1 min-w-0">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          Threat Activity
+        </h2>
+        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>7-day view</span>
+      </div>
+      <ResponsiveContainer width="100%" height={160}>
+        <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+          <defs>
+            <linearGradient id="threatGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#E8163B" stopOpacity={0.15} />
+              <stop offset="95%" stopColor="#E8163B" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 10, fill: "var(--text-tertiary)" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Area
+            type="monotone"
+            dataKey="threats"
+            stroke="#E8163B"
+            strokeWidth={1.5}
+            fill="url(#threatGrad)"
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─── Stat Cards Row ───────────────────────────────────────────────────────────
+function StatCard({
+  label, value, sub, accentColor, trend,
+}: {
+  label: string;
+  value: number | string;
+  sub: string;
+  accentColor: string;
+  trend?: { dir: "up" | "down"; label: string };
+}) {
+  return (
+    <div className="card p-5 flex flex-col gap-3">
+      <div className="text-11 uppercase tracking-widest font-semibold" style={{ color: "var(--text-tertiary)" }}>
+        {label}
+      </div>
+      <div className="flex items-end justify-between">
+        <span
+          className="tabular font-display font-bold leading-none"
+          style={{ fontSize: 36, color: accentColor, fontVariantNumeric: "tabular-nums" }}
+        >
+          {value}
+        </span>
+        {trend && (
+          <span
+            className="flex items-center gap-0.5 text-xs font-medium mb-1"
+            style={{ color: trend.dir === "up" ? "var(--red-400)" : "var(--green-400)" }}
+          >
+            {trend.dir === "up" ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {trend.label}
+          </span>
+        )}
+      </div>
+      <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>{sub}</div>
+    </div>
+  );
+}
+
+// ─── Agent Quick Status ───────────────────────────────────────────────────────
+function AgentQuickStatus({ agents }: { agents: AgentDefinition[] }) {
+  function agentDotClass(status: string | null) {
+    if (status === "running") return "scanning";
+    if (status === "completed") return "active";
+    if (status === "failed") return "alert";
+    return "idle";
+  }
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          AI Agents
+        </h2>
+        <Link
+          to="/agents"
+          className="text-xs flex items-center gap-1 transition-colors"
+          style={{ color: "var(--text-tertiary)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold-400)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+        >
+          View all <ExternalLink size={10} />
+        </Link>
+      </div>
+      <div className="space-y-3">
+        {agents.slice(0, 6).map((agent) => (
+          <div key={agent.id} className="flex items-center gap-3">
+            <AgentIcon name={agent.name as AgentName} size={28} />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold font-display" style={{ color: "var(--text-primary)" }}>
+                {agent.name}
+              </div>
+              <div className="text-[10px] truncate" style={{ color: "var(--text-tertiary)" }}>
+                {agent.codename}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`status-dot ${agentDotClass(agent.last_run_status)}`} />
+              <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+                {timeAgo(agent.last_run_at)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity Feed ────────────────────────────────────────────────────────────
+function ActivityFeed({ events }: { events: ActivityEvent[] }) {
+  const kindIcon: Record<ActivityEvent["kind"], React.ReactNode> = {
+    agent_run:        <Bot size={11} />,
+    threat_detected:  <AlertTriangle size={11} />,
+    threat_updated:   <Activity size={11} />,
+    takedown_created: <Flag size={11} />,
+    takedown_updated: <Flag size={11} />,
+  };
+  const kindColor: Record<ActivityEvent["kind"], string> = {
+    agent_run:        "var(--violet-400)",
+    threat_detected:  "var(--red-400)",
+    threat_updated:   "var(--threat-high)",
+    takedown_created: "var(--gold-400)",
+    takedown_updated: "var(--text-tertiary)",
+  };
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          Activity Feed
+        </h2>
+        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{events.length} events · 24h</span>
       </div>
 
-      {/* Recent threats */}
-      {(stats?.recent_threats?.length ?? 0) > 0 && (
-        <div className="soc-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-200">Detected Impersonators</h2>
-            <a href="/threats" className="text-xs text-gold hover:text-gold-light flex items-center gap-1">
-              View all <ExternalLink size={10} />
-            </a>
-          </div>
-          <div className="space-y-2">
-            {stats!.recent_threats.map((threat) => (
-              <div key={threat.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg
-                                               bg-soc-bg/50 border border-soc-border hover:border-soc-border-bright transition-all">
-                <PlatformIcon platform={threat.platform} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-200 font-mono truncate">@{threat.suspect_handle}</div>
-                  <div className="text-[10px] text-slate-500 capitalize">{threat.threat_type.replace(/_/g, " ")}</div>
+      {events.length === 0 ? (
+        <div className="text-center py-8 text-sm" style={{ color: "var(--text-tertiary)" }}>
+          No activity in the last 24 hours.
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Vertical timeline line */}
+          <div
+            className="absolute top-2 bottom-2"
+            style={{ left: 7, width: 1, background: "var(--border-subtle)" }}
+          />
+          <div className="space-y-4 pl-6" aria-live="polite">
+            {events.map((ev) => (
+              <div key={`${ev.kind}-${ev.id}-${ev.timestamp}`} className="relative flex items-start gap-3 min-w-0">
+                {/* Timeline dot */}
+                <div
+                  className="absolute flex items-center justify-center rounded-full"
+                  style={{
+                    left: -24,
+                    top: 2,
+                    width: 16,
+                    height: 16,
+                    background: kindColor[ev.kind],
+                    color: "#fff",
+                  }}
+                >
+                  {kindIcon[ev.kind]}
                 </div>
-                <SeverityBadge severity={threat.severity} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                      {ev.title}
+                    </span>
+                    {ev.severity && ev.severity !== "none" && (
+                      <span
+                        className={`badge-${ev.severity === "critical" ? "critical" : ev.severity === "high" ? "high" : "medium"}`}
+                      >
+                        {ev.severity}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono ml-auto shrink-0" style={{ color: "var(--text-tertiary)" }}>
+                      {timeAgo(ev.timestamp)}
+                    </span>
+                  </div>
+                  {(ev.detail || ev.influencer_name) && (
+                    <div className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+                      {ev.influencer_name && <span style={{ color: "var(--text-secondary)" }}>{ev.influencer_name} · </span>}
+                      {ev.detail}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* No threats — all clear */}
-      {threatCount === 0 && !loading && (
-        <div className="text-center py-10 text-slate-500">
-          <div className="text-4xl mb-3">🛡️</div>
-          <div className="text-sm">No impersonators detected across monitored platforms</div>
         </div>
       )}
     </div>
   );
 }
 
+// ─── Main Export ──────────────────────────────────────────────────────────────
 export default function Overview() {
   const { user, selectedInfluencer, setThreatCount } = useOutletContext<Ctx>();
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastScan, setLastScan] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -132,226 +366,127 @@ export default function Overview() {
       const data = await overview.stats(selectedInfluencer?.id);
       setStats(data);
       setThreatCount(data.active_threats);
-      // Use actual last agent run timestamp, not client fetch time
-      setLastScan(data.last_agent_run_at ?? new Date().toISOString());
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, [selectedInfluencer]);
+  useEffect(() => { void load(); }, [selectedInfluencer]);
 
-  // Influencer/staff users see a simplified protection status view
-  if (user.role === "influencer" || user.role === "staff") {
-    return (
-      <InfluencerProtectionView
-        user={user}
-        selectedInfluencer={selectedInfluencer}
-        stats={stats}
-        loading={loading}
-        lastScan={lastScan}
-        onRefresh={load}
-      />
-    );
-  }
-
-  const title = selectedInfluencer ? `${selectedInfluencer.display_name}` : "All Influencers";
+  const title = selectedInfluencer ? selectedInfluencer.display_name : "All Influencers";
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="p-6 max-w-content mx-auto" style={{ minHeight: "100%", background: "var(--surface-base)" }}>
+      {/* ── Page header ─────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Overview — <span className="text-gold">{title}</span></h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">
-            Last scan: {lastScan ? timeAgo(lastScan) : "—"}
+          <h1 className="font-display font-bold" style={{ fontSize: 22, color: "var(--text-primary)" }}>
+            Dashboard{" "}
+            <span style={{ color: "var(--gold-400)" }}>{title}</span>
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+            {loading ? "Refreshing..." : `Updated just now · ${stats?.agents_active ?? 0} agents active`}
           </p>
         </div>
-        <button onClick={load} disabled={loading} className="btn-ghost flex items-center gap-2">
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+        <button
+          onClick={() => void load()}
+          disabled={loading}
+          className="btn-ghost flex items-center gap-2"
+        >
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
-      {/* Metric cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <MetricCard
-          label="ACCOUNTS MONITORED"
+      {/* ── Row 1: Score Hero + Threat Timeline ─────────────────── */}
+      <div className="flex flex-col lg:flex-row gap-5 mb-5" style={{ alignItems: "stretch" }}>
+        <ScoreHeroPanel stats={stats} loading={loading} />
+        <div className="flex-1 flex flex-col gap-5 min-w-0">
+          {stats && <ThreatTimeline activity={stats.recent_activity ?? []} />}
+
+          {/* Inline threat list — top 3 recent */}
+          {(stats?.recent_threats?.length ?? 0) > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Recent Threats</h3>
+                <Link
+                  to="/threats"
+                  className="text-xs flex items-center gap-1"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  View all <ExternalLink size={10} />
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {stats!.recent_threats.slice(0, 3).map((threat) => (
+                  <div
+                    key={threat.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer"
+                    style={{
+                      background: "var(--surface-overlay)",
+                      border: "1px solid var(--border-subtle)",
+                      borderLeft: threat.severity === "critical" ? "3px solid var(--red-400)" : "1px solid var(--border-subtle)",
+                    }}
+                  >
+                    <PlatformIcon platform={threat.platform} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-mono truncate" style={{ color: "var(--text-primary)" }}>
+                        @{threat.suspect_handle}
+                      </div>
+                      {threat.influencer_name && (
+                        <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>→ {threat.influencer_name}</div>
+                      )}
+                    </div>
+                    <span className={`badge-${threat.severity}`}>{threat.severity}</span>
+                    <span className="text-xs font-mono" style={{ color: "var(--text-tertiary)" }}>
+                      {timeAgo(threat.detected_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 2: Stat Cards ────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-5">
+        <StatCard
+          label="Accounts Monitored"
           value={stats?.accounts_monitored ?? 0}
           sub={`across ${stats?.platforms_count ?? 0} platforms`}
-          color="gold"
+          accentColor="var(--gold-400)"
         />
-        <MetricCard
-          label="ACTIVE THREATS"
+        <StatCard
+          label="Active Threats"
           value={stats?.active_threats ?? 0}
           sub={`${stats?.critical_threats ?? 0} critical`}
-          color="red"
-          pulse={stats?.active_threats ? "red" : undefined}
+          accentColor="var(--red-400)"
+          trend={stats?.active_threats ? { dir: "up", label: `${stats.critical_threats} critical` } : undefined}
         />
-        <MetricCard
-          label="PENDING TAKEDOWNS"
+        <StatCard
+          label="Pending Takedowns"
           value={stats?.pending_takedowns ?? 0}
           sub={`${stats?.critical_takedowns ?? 0} urgent`}
-          color="orange"
+          accentColor="var(--threat-high)"
         />
-        <MetricCard
-          label="AGENT UPTIME"
-          value={`${stats?.agents_active ?? 0} / ${stats?.agents_total ?? 6}`}
-          sub="100% operational"
-          color="green"
-          isText
+        <StatCard
+          label="Agents Active"
+          value={`${stats?.agents_active ?? 0}/${stats?.agents_total ?? 9}`}
+          sub="AI protection layer"
+          accentColor="var(--green-400)"
         />
       </div>
 
-      {/* Recent threats */}
-      <div className="soc-card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-200">Active Threats</h2>
-          <a href="/threats" className="text-xs text-gold hover:text-gold-light flex items-center gap-1">
-            View all <ExternalLink size={10} />
-          </a>
+      {/* ── Row 3: Activity Feed + Agent Quick Status ─────────────── */}
+      <div className="flex flex-col lg:flex-row gap-5">
+        <div className="flex-1 min-w-0" style={{ flex: "3" }}>
+          <ActivityFeed events={stats?.recent_activity ?? []} />
         </div>
-
-        {!stats?.recent_threats?.length ? (
-          <div className="text-center py-8 text-slate-600 text-sm">No active threats — all clear</div>
-        ) : (
-          <div className="space-y-2">
-            {stats.recent_threats.map((threat) => (
-              <div key={threat.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg
-                                               bg-soc-bg/50 border border-soc-border hover:border-soc-border-bright
-                                               transition-all cursor-pointer">
-                <PlatformIcon platform={threat.platform} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-200 font-mono truncate">@{threat.suspect_handle}</div>
-                  {threat.influencer_name && (
-                    <div className="text-[10px] text-slate-500">→ {threat.influencer_name}</div>
-                  )}
-                </div>
-                <SeverityBadge severity={threat.severity} />
-                {threat.similarity_score !== null && (
-                  <div className="text-xs font-mono text-gold">Sim: {threat.similarity_score}%</div>
-                )}
-                <div className="text-[10px] text-slate-600 font-mono">{timeAgo(threat.detected_at)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Agent heartbeat */}
-      <div className="soc-card">
-        <h2 className="text-sm font-semibold text-slate-200 mb-4">Agent Heartbeat</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {(stats?.agent_heartbeat ?? []).map((agent) => (
-            <div key={agent.id} className="bg-soc-bg rounded-lg p-3 border border-soc-border text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-2">
-                <AgentStatusDot status={agent.last_run_status} />
-                <span className="text-[10px] font-bold font-mono text-slate-300">{agent.name}</span>
-              </div>
-              <div className="text-[9px] text-slate-500 leading-tight">{agent.codename}</div>
-              <div className="text-[9px] text-slate-600 mt-1 font-mono">{timeAgo(agent.last_run_at)}</div>
-            </div>
-          ))}
+        <div className="lg:min-w-[240px]" style={{ flex: "2" }}>
+          <AgentQuickStatus agents={stats?.agent_heartbeat ?? []} />
         </div>
       </div>
-
-      {/* Activity Timeline */}
-      {(stats?.recent_activity?.length ?? 0) > 0 && (
-        <div className="soc-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-200">Activity — Last 24h</h2>
-            <span className="text-[10px] text-slate-500 font-mono">{stats!.recent_activity.length} events</span>
-          </div>
-          <div className="relative">
-            {/* Vertical line */}
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-soc-border" />
-            <div className="space-y-3 pl-6">
-              {stats!.recent_activity.map((ev) => (
-                <ActivityRow key={`${ev.kind}-${ev.id}-${ev.timestamp}`} ev={ev} />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ActivityRow({ ev }: { ev: ActivityEvent }) {
-  const icons: Record<ActivityEvent["kind"], React.ReactNode> = {
-    agent_run:        <Bot size={11} className="text-blue-400" />,
-    threat_detected:  <AlertTriangle size={11} className="text-threat-critical" />,
-    threat_updated:   <Activity size={11} className="text-threat-high" />,
-    takedown_created: <Flag size={11} className="text-gold" />,
-    takedown_updated: <Flag size={11} className="text-slate-400" />,
-  };
-  const dotColor: Record<ActivityEvent["kind"], string> = {
-    agent_run:        "bg-blue-400",
-    threat_detected:  "bg-threat-critical",
-    threat_updated:   "bg-threat-high",
-    takedown_created: "bg-gold",
-    takedown_updated: "bg-slate-500",
-  };
-
-  return (
-    <div className="relative flex items-start gap-3 min-w-0">
-      {/* Timeline dot */}
-      <div className={`absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-soc-card flex items-center justify-center ${dotColor[ev.kind]}`}>
-        <span className="text-[8px] text-white flex items-center justify-center w-full h-full">
-          {icons[ev.kind]}
-        </span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-xs font-medium text-slate-200 truncate">{ev.title}</span>
-          {ev.severity && (
-            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-              ev.severity === "critical" ? "bg-threat-critical/15 text-threat-critical" :
-              ev.severity === "high"     ? "bg-threat-high/15 text-threat-high" :
-              "bg-soc-border text-slate-500"
-            }`}>{ev.severity}</span>
-          )}
-          <span className="text-[9px] text-slate-600 font-mono ml-auto shrink-0">
-            {timeAgo(ev.timestamp)}
-          </span>
-        </div>
-        {(ev.detail || ev.influencer_name) && (
-          <div className="text-[10px] text-slate-500 mt-0.5">
-            {ev.influencer_name && <span className="text-slate-600">{ev.influencer_name} · </span>}
-            {ev.detail}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({
-  label, value, sub, color, pulse, isText,
-}: {
-  label: string;
-  value: number | string;
-  sub: string;
-  color: "gold" | "red" | "orange" | "green";
-  pulse?: "red" | "green";
-  isText?: boolean;
-}) {
-  const colorMap = {
-    gold:   "text-gold",
-    red:    "text-threat-critical",
-    orange: "text-threat-high",
-    green:  "text-status-live",
-  };
-  return (
-    <div className="soc-card space-y-2">
-      <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">{label}</div>
-      <div className="flex items-center gap-2">
-        {pulse && <Pulse color={pulse} size="sm" />}
-        <div className={`${isText ? "text-2xl" : "text-4xl"} font-bold font-mono ${colorMap[color]}`}>
-          {value}
-        </div>
-      </div>
-      <div className="text-[11px] text-slate-500">{sub}</div>
     </div>
   );
 }

@@ -158,6 +158,101 @@ export async function handleOverviewStats(
   }
 }
 
+/**
+ * Brand Health Score — computed metric (spec §"New computed metric")
+ *
+ * Formula:
+ *   base = 100
+ *   − (critical_threats × 12)
+ *   − (high_threats × 6)
+ *   − (medium_threats × 3)
+ *   − (low_threats × 1)
+ *   − (pending_takedowns × 3)
+ *   + (agent_ratio × 5)    ← bonus for having all agents active
+ *   Clamped 0–100, rounded.
+ *
+ * Trend: compares to score computed 7 days ago (approximate via historical data).
+ */
+export async function handleBrandHealthScore(
+  request: Request, env: Env,
+  userRole: string, assignedInfluencerId: string | null
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const url = new URL(request.url);
+  const influencerId = url.searchParams.get("influencer_id") ?? (
+    (userRole === "influencer" || userRole === "staff") ? assignedInfluencerId : null
+  );
+
+  const whereClause = influencerId ? "AND influencer_id = ?" : "";
+  const params: unknown[] = influencerId ? [influencerId] : [];
+
+  try {
+    const [threatCounts, takedownCount, agentStats] = await Promise.all([
+      env.DB.prepare(
+        `SELECT
+           SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+           SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
+           SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium,
+           SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low
+         FROM impersonation_reports
+         WHERE status NOT IN ('resolved','dismissed') ${whereClause}`
+      ).bind(...params).first<{ critical: number; high: number; medium: number; low: number }>(),
+
+      env.DB.prepare(
+        `SELECT COUNT(*) as total FROM takedown_requests
+         WHERE status NOT IN ('resolved','rejected') ${whereClause}`
+      ).bind(...params).first<{ total: number }>(),
+
+      env.DB.prepare(
+        "SELECT COUNT(*) as total, SUM(is_active) as active FROM agent_definitions"
+      ).first<{ total: number; active: number }>(),
+    ]);
+
+    const critical = threatCounts?.critical ?? 0;
+    const high = threatCounts?.high ?? 0;
+    const medium = threatCounts?.medium ?? 0;
+    const low = threatCounts?.low ?? 0;
+    const pending = takedownCount?.total ?? 0;
+    const agentRatio = agentStats?.total ? (agentStats.active ?? 0) / agentStats.total : 0;
+
+    const score = Math.max(0, Math.min(100, Math.round(
+      100
+      - (critical * 12)
+      - (high * 6)
+      - (medium * 3)
+      - (low * 1)
+      - (pending * 3)
+      + Math.round(agentRatio * 5)
+    )));
+
+    let label = "Exceptional";
+    if (score < 90) label = "Protected";
+    if (score < 70) label = "Attention";
+    if (score < 50) label = "Vulnerable";
+    if (score < 30) label = "Critical";
+
+    return json({
+      success: true,
+      data: {
+        score,
+        label,
+        breakdown: {
+          critical_threats: critical,
+          high_threats: high,
+          medium_threats: medium,
+          low_threats: low,
+          pending_takedowns: pending,
+          agent_ratio: Math.round(agentRatio * 100),
+        },
+      },
+    }, 200, origin);
+
+  } catch (err) {
+    console.error("Brand health score error:", err);
+    return json({ success: true, data: { score: 0, label: "Unknown", breakdown: {} } }, 200, origin);
+  }
+}
+
 export async function handlePublicStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {

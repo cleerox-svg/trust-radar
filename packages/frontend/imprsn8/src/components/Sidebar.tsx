@@ -4,12 +4,16 @@ import { WordMark } from "./LogoMark";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
-  Users, Lock, TrendingUp,
+  Users, Lock, TrendingUp, Search,
 } from "lucide-react";
-import { Pulse } from "./ui/Pulse";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { auth, influencers, ApiError } from "../lib/api";
 import type { User, InfluencerProfile } from "../lib/types";
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
 
 interface NavItem {
   to: string;
@@ -21,14 +25,29 @@ interface NavItem {
   influencerOnly?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/dashboard",   label: "Overview",         icon: <LayoutDashboard size={16} /> },
-  { to: "/accounts",    label: "Monitored",         icon: <Shield size={16} /> },
-  { to: "/threats",     label: "Threats Found",     icon: <AlertTriangle size={16} /> },
-  { to: "/takedowns",   label: "Takedowns",         icon: <Download size={16} /> },
-  { to: "/agents",      label: "Intelligence",       icon: <Bot size={16} />, socOnly: true },
-  { to: "/brand",       label: "Brand Score",       icon: <TrendingUp size={16} />, influencerOnly: true },
-  { to: "/admin",       label: "Admin Console",     icon: <Lock size={16} />, adminOnly: true },
+const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "Overview",
+    items: [
+      { to: "/dashboard", label: "Dashboard",   icon: <LayoutDashboard size={15} /> },
+      { to: "/brand",     label: "Brand Score",  icon: <TrendingUp size={15} />, influencerOnly: true },
+    ],
+  },
+  {
+    label: "Protection",
+    items: [
+      { to: "/threats",   label: "Threat Center", icon: <AlertTriangle size={15} /> },
+      { to: "/accounts",  label: "Platforms",     icon: <Shield size={15} /> },
+      { to: "/takedowns", label: "Takedowns",     icon: <Download size={15} /> },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { to: "/agents", label: "AI Agents",     icon: <Bot size={15} />, socOnly: true },
+      { to: "/admin",  label: "Admin Console", icon: <Lock size={15} />, adminOnly: true },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -38,19 +57,6 @@ interface SidebarProps {
   onInfluencerChange: (inf: InfluencerProfile | null) => void;
   threatCount?: number;
   onClose?: () => void;
-}
-
-function LiveClock() {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <span className="font-mono text-xs text-slate-500 tabular-nums">
-      {time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
-    </span>
-  );
 }
 
 export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencerChange, threatCount, onClose }: SidebarProps) {
@@ -66,180 +72,263 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
   const displayName = selectedInfluencer?.display_name ?? user.display_name ?? user.email?.split("@")[0] ?? "User";
   const handle = selectedInfluencer?.handle ?? user.username ?? "";
   const initial = displayName[0]?.toUpperCase() ?? "?";
+  const avatarUrl = selectedInfluencer?.avatar_url ?? null;
+
+  function filterItems(items: NavItem[]) {
+    return items.filter((item) => {
+      if (item.adminOnly && user.role !== "admin") return false;
+      if (item.socOnly && !isSocOrAdmin) return false;
+      if (item.influencerOnly && isSocOrAdmin) return false;
+      return true;
+    });
+  }
 
   return (
-    <aside className="w-64 lg:w-56 flex-shrink-0 flex flex-col bg-soc-card border-r border-soc-border h-full">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-soc-border">
-        <Link to="/" className="block group">
-          <WordMark variant="shield" size={28} textSize="text-xl" className="group-hover:opacity-80 transition-opacity" />
-          <div className="text-[10px] text-slate-600 mt-0.5 font-mono uppercase tracking-widest">
-            Identity Protection
-          </div>
+    <aside
+      className="flex-shrink-0 flex flex-col h-full"
+      style={{
+        width: 240,
+        background: "var(--surface-raised)",
+        borderRight: "1px solid var(--border-subtle)",
+      }}
+    >
+      {/* ── Header: logo + search trigger ─────────────────────── */}
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: "1px solid var(--border-subtle)", height: 56 }}
+      >
+        <Link to="/" className="block group" onClick={onClose}>
+          <WordMark variant="shield" size={26} textSize="text-lg" className="group-hover:opacity-80 transition-opacity" />
         </Link>
+        <button
+          className="p-1.5 rounded-md transition-colors"
+          style={{ color: "var(--text-tertiary)" }}
+          title="Search (⌘K)"
+          aria-label="Search"
+          onClick={() => {/* future: open command palette */}}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+        >
+          <Search size={14} />
+        </button>
       </div>
 
-      {/* Influencer switcher (SOC/Admin only) */}
-      <div className="px-3 py-3 border-b border-soc-border">
-        {isSocOrAdmin && influencerList.length > 0 ? (
+      {/* ── Influencer switcher (SOC/Admin) ────────────────────── */}
+      {isSocOrAdmin && influencerList.length > 0 && (
+        <div className="px-3 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
           <div className="relative">
             <button
               onClick={() => setSwitcherOpen((o) => !o)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
-                         bg-soc-bg border border-soc-border hover:border-soc-border-bright
-                         transition-all text-left"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors"
+              style={{
+                background: "var(--surface-overlay)",
+                border: "1px solid var(--border-default)",
+              }}
             >
-              {/* Avatar */}
-              {selectedInfluencer?.avatar_url ? (
-                <img
-                  src={selectedInfluencer.avatar_url}
-                  alt=""
-                  className="w-7 h-7 rounded-full object-cover border border-purple/30 flex-shrink-0"
-                />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
-                                flex items-center justify-center text-xs font-bold text-purple-light flex-shrink-0">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ background: "rgba(109,64,237,0.2)", color: "var(--violet-300)" }}
+                >
                   {initial}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-slate-200 truncate">{displayName}</div>
-                {handle && <div className="text-[10px] text-slate-500 truncate">@{handle}</div>}
+                <div className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{displayName}</div>
+                {handle && <div className="text-[10px] truncate" style={{ color: "var(--text-tertiary)" }}>@{handle}</div>}
               </div>
-              <ChevronDown size={12} className="text-slate-500 flex-shrink-0" />
+              <ChevronDown size={11} style={{ color: "var(--text-tertiary)" }} className="flex-shrink-0" />
             </button>
 
             {switcherOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-soc-card border border-soc-border
-                              rounded-lg shadow-2xl overflow-hidden animate-fade-in">
+              <div
+                className="absolute top-full left-0 right-0 mt-1 z-50 rounded-lg shadow-2xl overflow-hidden animate-fade-in"
+                style={{ background: "var(--surface-overlay)", border: "1px solid var(--border-default)" }}
+              >
                 <button
                   onClick={() => { onInfluencerChange(null); setSwitcherOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400
-                             hover:bg-soc-border/30 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+                  style={{ color: "var(--text-tertiary)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-float)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                 >
-                  <Users size={12} /> All influencers
+                  <Users size={11} /> All influencers
                 </button>
-                <div className="border-t border-soc-border" />
-                {influencerList.map((inf) => (
-                  <button
-                    key={inf.id}
-                    onClick={() => { onInfluencerChange(inf); setSwitcherOpen(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-xs transition-colors
-                      ${selectedInfluencer?.id === inf.id
-                        ? "bg-gold/10 text-gold"
-                        : "text-slate-300 hover:bg-soc-border/20"}`}
-                  >
-                    {inf.avatar_url ? (
-                      <img
-                        src={inf.avatar_url}
-                        alt=""
-                        className="w-5 h-5 rounded-full object-cover border border-soc-border flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-purple/20 flex items-center justify-center
-                                      text-[9px] font-bold text-purple-light flex-shrink-0">
-                        {inf.display_name[0]?.toUpperCase()}
+                <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+                {influencerList.map((inf) => {
+                  const isSelected = selectedInfluencer?.id === inf.id;
+                  return (
+                    <button
+                      key={inf.id}
+                      onClick={() => { onInfluencerChange(inf); setSwitcherOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-xs transition-colors"
+                      style={{
+                        color: isSelected ? "var(--gold-400)" : "var(--text-secondary)",
+                        background: isSelected ? "rgba(240,165,0,0.06)" : "",
+                      }}
+                    >
+                      {inf.avatar_url ? (
+                        <img src={inf.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                          style={{ background: "rgba(109,64,237,0.2)", color: "var(--violet-300)" }}>
+                          {inf.display_name[0]?.toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{inf.display_name}</div>
+                        <div className="truncate" style={{ color: "var(--text-tertiary)" }}>@{inf.handle}</div>
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{inf.display_name}</div>
-                      <div className="text-slate-500 truncate">@{inf.handle}</div>
-                    </div>
-                    {selectedInfluencer?.id === inf.id && <ChevronRight size={10} className="ml-auto text-gold" />}
-                  </button>
-                ))}
+                      {isSelected && <ChevronRight size={10} className="ml-auto" style={{ color: "var(--gold-400)" }} />}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
-        ) : (
-          <div className="flex items-center gap-2.5 px-3 py-2">
-            <div className="w-7 h-7 rounded-full bg-purple/20 border border-purple/30
-                            flex items-center justify-center text-xs font-bold text-purple-light">
-              {initial}
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-200 truncate">{displayName}</div>
-              {handle && <div className="text-[10px] text-slate-500 truncate">@{handle}</div>}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.filter((item) => {
-          if (item.adminOnly && user.role !== "admin") return false;
-          if (item.socOnly && !isSocOrAdmin) return false;
-          if (item.influencerOnly && isSocOrAdmin) return false;
-          return true;
-        }).map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 relative ${
-                isActive
-                  ? "text-gold bg-gold/10 border-l-2 border-gold pl-[10px]"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-soc-border/20 border-l-2 border-transparent"
-              }`
-            }
-          >
-            {item.icon}
-            <span className="flex-1">{item.label}</span>
-            {item.label === "Threats Found" && (threatCount ?? 0) > 0 && (
-              <span className="text-[10px] font-bold bg-threat-critical/20 text-threat-critical
-                               px-1.5 py-0.5 rounded-full border border-threat-critical/30">
-                {threatCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
+      {/* ── Navigation ─────────────────────────────────────────── */}
+      <nav className="flex-1 overflow-y-auto py-2" style={{ paddingLeft: 3 }}>
+        {NAV_SECTIONS.map((section) => {
+          const visibleItems = filterItems(section.items);
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={section.label}>
+              <div className="nav-section">{section.label}</div>
+              {visibleItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={onClose}
+                  className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+                  style={{ marginRight: 12 }}
+                >
+                  <span style={{ color: "inherit", display: "flex", alignItems: "center" }}>{item.icon}</span>
+                  <span className="flex-1 text-sm">{item.label}</span>
+                  {item.label === "Threat Center" && (threatCount ?? 0) > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        background: "rgba(232,22,59,0.15)",
+                        color: "var(--red-300)",
+                        border: "1px solid rgba(232,22,59,0.30)",
+                      }}
+                    >
+                      {(threatCount ?? 0) > 99 ? "99+" : threatCount}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Settings + theme + logout */}
-      <div className="px-2 pb-2 border-t border-soc-border pt-2">
+      {/* ── Bottom: user row ───────────────────────────────────── */}
+      <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "8px 12px 8px" }}>
         <NavLink
           to="/settings"
           onClick={onClose}
-          className={({ isActive }) =>
-            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
-              isActive ? "text-gold bg-gold/10" : "text-slate-500 hover:text-slate-300 hover:bg-soc-border/20"
-            }`
-          }
+          className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+          style={{ marginBottom: 2 }}
         >
-          <Settings size={15} />
-          <span>Settings</span>
+          <Settings size={14} />
+          <span className="flex-1 text-sm">Settings</span>
         </NavLink>
 
-        {/* Theme toggle */}
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-xs text-slate-500">Theme</span>
+        {/* User row */}
+        <div className="flex items-center gap-2 px-3 py-2 mt-1">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+          ) : (
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{ background: "rgba(109,64,237,0.2)", color: "var(--violet-300)" }}
+            >
+              {initial}
+            </div>
+          )}
+          <span className="flex-1 text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>
+            {displayName}
+          </span>
           <ThemeToggle />
+          <button
+            onClick={logout}
+            className="p-1 rounded transition-colors"
+            title="Sign out"
+            style={{ color: "var(--text-tertiary)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--red-400)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+          >
+            <LogOut size={13} />
+          </button>
         </div>
 
-        <button
-          onClick={logout}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600
-                     hover:text-red-400 hover:bg-red-900/10 transition-all w-full text-left"
+        {/* GUARDING status pill */}
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg mt-1"
+          style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.15)" }}
         >
-          <LogOut size={15} />
-          <span>Sign out</span>
-        </button>
-      </div>
-
-      {/* GUARDING status */}
-      <div className="px-4 py-3 border-t border-soc-border bg-soc-bg/50">
-        <div className="flex items-center gap-2">
-          <Pulse color="green" size="sm" />
-          <span className="text-[11px] font-bold text-status-live tracking-wider">GUARDING</span>
-        </div>
-        <div className="flex items-center justify-between mt-0.5">
-          <span className="text-[10px] text-slate-600 font-mono tracking-wider">SOC ACTIVE</span>
-          <LiveClock />
+          <span className="status-dot active" />
+          <span className="text-[11px] font-bold tracking-wider" style={{ color: "#16A34A" }}>
+            GUARDING
+          </span>
         </div>
       </div>
     </aside>
+  );
+}
+
+// ─── Mobile Bottom Tab Bar ──────────────────────────────────────────────────
+// Shows on screens < lg. 5 items max, labels always visible.
+export function MobileTabBar({ threatCount }: { threatCount?: number }) {
+  const tabs = [
+    { to: "/dashboard", label: "Home",        icon: <LayoutDashboard size={20} /> },
+    { to: "/threats",   label: "Threats",     icon: <AlertTriangle size={20} /> },
+    { to: "/agents",    label: "Intelligence", icon: <Bot size={20} /> },
+    { to: "/accounts",  label: "Platforms",   icon: <Shield size={20} /> },
+    { to: "/settings",  label: "Settings",    icon: <Settings size={20} /> },
+  ];
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 flex lg:hidden"
+      style={{
+        background: "var(--surface-raised)",
+        borderTop: "1px solid var(--border-subtle)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {tabs.map((tab) => (
+        <NavLink
+          key={tab.to}
+          to={tab.to}
+          className={({ isActive }) =>
+            `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors relative ${
+              isActive ? "" : ""
+            }`
+          }
+          style={({ isActive }) => ({
+            color: isActive ? "var(--gold-400)" : "var(--text-tertiary)",
+          })}
+        >
+          {tab.icon}
+          <span style={{ fontSize: 10, fontWeight: 500 }}>{tab.label}</span>
+          {tab.label === "Threats" && (threatCount ?? 0) > 0 && (
+            <span
+              className="absolute top-1 right-1/4 text-[9px] font-bold px-1 rounded-full"
+              style={{ background: "var(--red-400)", color: "#fff", minWidth: 14, textAlign: "center" }}
+            >
+              {(threatCount ?? 0) > 99 ? "99+" : threatCount}
+            </span>
+          )}
+        </NavLink>
+      ))}
+    </nav>
   );
 }
 
@@ -280,7 +369,6 @@ export function useSidebarData() {
           return;
         } catch (err) {
           if (cancelled) return;
-          // 401 or 403 = invalid/expired token → force re-login
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             localStorage.removeItem("imprsn8_token");
             setUnauthenticated(true);
@@ -289,8 +377,6 @@ export function useSidebarData() {
           if (attempt < 3) {
             await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
           } else {
-            // All retries exhausted due to network/server error — treat as unauthenticated
-            // so the user is directed to login rather than a dead error screen
             localStorage.removeItem("imprsn8_token");
             setUnauthenticated(true);
           }
@@ -299,7 +385,6 @@ export function useSidebarData() {
     }
 
     fetchMe().finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [navigate]);
 

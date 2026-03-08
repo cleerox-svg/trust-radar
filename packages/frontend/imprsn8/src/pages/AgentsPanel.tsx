@@ -1,87 +1,24 @@
+/**
+ * Intelligence Tab — spec §Screen 2: Intelligence Tab
+ *
+ * Layout:
+ *   Header: "Intelligence Command" + agent count + last coordination time
+ *   4-col agent grid (desktop) with bespoke SVG icons + slide-in detail (480px)
+ *   Network View: SVG force layout sub-panel
+ */
+
 import { useState, useEffect } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
-import {
-  RefreshCw, ChevronLeft, Play, Lock, Activity,
-  Eye, Hammer, BarChart2, Search, Database, Zap,
-  ShieldAlert, Radar, CheckCircle, GitMerge, Scale, Mic, Bot,
-} from "lucide-react";
-import { agents } from "../lib/api";
-import { Pulse } from "../components/ui/Pulse";
+import { useOutletContext } from "react-router-dom";
+import { RefreshCw, X, Play, GitBranch, Clock, Zap, BarChart3 } from "lucide-react";
+import { agents as agentsApi } from "../lib/api";
+import { AgentIcon, AGENT_COLORS, AGENT_DESCRIPTIONS } from "../components/ui/AgentIcon";
+import type { AgentName } from "../components/ui/AgentIcon";
 import { FeedsView } from "../components/FeedsView";
 import type { AgentDefinition, AgentRun, User, InfluencerProfile } from "../lib/types";
 
 interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; }
+type PanelTab = "intelligence" | "sources" | "network";
 
-type AgentName = AgentDefinition["name"];
-type PanelTab = "intelligence" | "sources" | "runs";
-
-// ─── Agent metadata ───────────────────────────────────────────────────────────
-const AGENT_TOOLS: Partial<Record<AgentName, string[]>> = {
-  SENTINEL: ["Firecrawl", "Lovable AI"],
-  RECON:    ["Firecrawl Search", "Lovable AI"],
-  VERITAS:  ["Lovable AI"],
-  NEXUS:    ["Firecrawl", "Radar Intel"],
-  ARBITER:  ["Lovable AI"],
-  WATCHDOG: ["Firecrawl", "Lovable AI"],
-  PHANTOM:  ["Lovable AI"],
-  manual:   [],
-};
-
-const TYPE_COLOR: Record<AgentName, string> = {
-  SENTINEL: "text-blue-400",
-  RECON:    "text-purple-400",
-  VERITAS:  "text-gold",
-  NEXUS:    "text-orange-400",
-  ARBITER:  "text-threat-critical",
-  WATCHDOG: "text-status-live",
-  PHANTOM:  "text-slate-400",
-  manual:   "text-slate-400",
-};
-
-const TYPE_BG: Record<AgentName, string> = {
-  SENTINEL: "bg-blue-500/10 border-blue-500/25",
-  RECON:    "bg-purple/10 border-purple/25",
-  VERITAS:  "bg-gold/10 border-gold/25",
-  NEXUS:    "bg-orange-500/10 border-orange-500/25",
-  ARBITER:  "bg-threat-critical/10 border-threat-critical/25",
-  WATCHDOG: "bg-status-live/10 border-status-live/25",
-  PHANTOM:  "bg-slate-500/10 border-slate-500/25",
-  manual:   "bg-slate-500/10 border-slate-500/25",
-};
-
-/** Unique icon per agent that reflects its function */
-const AGENT_ICON: Record<AgentName, React.ReactNode> = {
-  SENTINEL: <Eye size={16} />,           // watching / monitoring identities
-  RECON:    <Search size={16} />,        // scanning / discovering threats
-  VERITAS:  <CheckCircle size={16} />,   // verifying / scoring likeness
-  NEXUS:    <GitMerge size={16} />,      // correlating / attributing actors
-  ARBITER:  <Scale size={16} />,         // judging / authorising takedowns
-  WATCHDOG: <ShieldAlert size={16} />,   // protecting / compliance gating
-  PHANTOM:  <Mic size={16} />,           // voice clone / audio detection
-  manual:   <Play size={16} />,          // manual trigger
-};
-
-// Category section display config (matching screenshot style)
-const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  detect:  { label: "DETECT",  icon: <Search size={13} />,       color: "text-blue-400" },
-  monitor: { label: "MONITOR", icon: <Eye size={13} />,          color: "text-status-live" },
-  respond: { label: "RESPOND", icon: <Hammer size={13} />,       color: "text-threat-critical" },
-  analyze: { label: "ANALYZE", icon: <BarChart2 size={13} />,    color: "text-gold" },
-};
-
-const CATEGORY_ORDER = ["detect", "monitor", "respond", "analyze"];
-
-// ─── Schedule badge ───────────────────────────────────────────────────────────
-function formatSchedule(mins: number | null): string {
-  if (!mins) return "Realtime (on-demand)";
-  if (mins < 60) return `Every ${mins} minutes`;
-  if (mins === 60) return "Every 1 hour";
-  if (mins % 60 === 0 && mins < 1440) return `Every ${mins / 60} hours`;
-  if (mins === 1440) return "Every 24 hours";
-  return `Every ${Math.round(mins / 1440)} days`;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(ts: string | null | undefined): string {
   if (!ts) return "never";
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -91,134 +28,111 @@ function timeAgo(ts: string | null | undefined): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function StatusDot({ status }: { status: string | null | number }) {
-  if (status === "running" || status === 1) return <Pulse color="green" size="sm" />;
-  if (status === "failed")  return <Pulse color="red"   size="sm" animate={false} />;
-  if (status === 0)         return <Pulse color="gray"  size="sm" animate={false} />;
-  return <Pulse color="gray" size="sm" animate={false} />;
+function agentDotClass(status: string | null) {
+  if (status === "running") return "scanning";
+  if (status === "completed") return "active";
+  if (status === "failed") return "alert";
+  return "idle";
 }
 
-// ─── Agent Card (screenshot style) ───────────────────────────────────────────
+const CATEGORY_ORDER = ["detect", "monitor", "respond", "analyze"];
+const CATEGORY_LABELS: Record<string, string> = {
+  detect: "DETECT", monitor: "MONITOR", respond: "RESPOND", analyze: "ANALYZE",
+};
+
+// ─── Agent Card ───────────────────────────────────────────────────────────────
 function AgentCard({
-  agent,
-  lastRun,
-  canTrigger,
-  triggering,
-  onSelect,
-  onTrigger,
+  agent, runs, onClick, isSelected, style,
 }: {
   agent: AgentDefinition;
-  lastRun: AgentRun | undefined;
-  canTrigger: boolean;
-  triggering: string | null;
-  onSelect: () => void;
-  onTrigger: (e: React.MouseEvent) => void;
+  runs: AgentRun[];
+  onClick: () => void;
+  isSelected: boolean;
+  style?: React.CSSProperties;
 }) {
-  const colorClass = TYPE_COLOR[agent.name] ?? "text-slate-400";
-  const bgClass    = TYPE_BG[agent.name]    ?? "bg-slate-500/10 border-slate-500/25";
-  const tools      = AGENT_TOOLS[agent.name] ?? [];
-  const schedule   = formatSchedule(agent.schedule_mins ?? null);
-  const isRunning  = triggering === agent.id;
+  const name = agent.name as AgentName;
+  const color = AGENT_COLORS[name] ?? "#6B5F82";
+  const desc = AGENT_DESCRIPTIONS[name] ?? agent.codename;
+  const dotClass = agentDotClass(agent.last_run_status);
+  const active = agent.is_active === 1;
 
   return (
-    <div
-      onClick={onSelect}
-      className={`soc-card flex items-start gap-4 cursor-pointer hover:border-soc-border-bright transition-all group ${!agent.is_active ? "opacity-60" : ""}`}
+    <button
+      onClick={onClick}
+      className="agent-card card p-5 text-left w-full"
+      style={{
+        ...style,
+        borderColor: isSelected ? color : undefined,
+        opacity: active ? 1 : 0.6,
+        background: isSelected ? `${color}0A` : undefined,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
-      {/* Status checkbox */}
-      <div className="mt-0.5 shrink-0 flex items-center justify-center w-5 h-5 rounded border border-soc-border bg-soc-bg/50">
-        {agent.is_active
-          ? <div className="w-3 h-3 rounded-sm bg-status-live" />
-          : <div className="w-3 h-3 rounded-sm bg-slate-600" />}
-      </div>
-
-      {/* Icon */}
-      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${bgClass}`}>
-        <span className={colorClass}>{AGENT_ICON[agent.name] ?? <Activity size={16} />}</span>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 min-w-0">
-        {/* Name + schedule */}
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="font-semibold text-slate-100 text-sm">{agent.codename}</span>
-          <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${colorClass} bg-current/5 border-current/20 opacity-70`}>
-            {agent.name}
+      {/* Top row: icon + status */}
+      <div className="flex items-start justify-between mb-4">
+        <AgentIcon name={name} size={44} />
+        <div className="flex items-center gap-2">
+          <span className={`status-dot ${dotClass}`} aria-label={active ? (agent.last_run_status ?? "idle") : "offline"} />
+          <span className="text-11 uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+            {active ? (agent.last_run_status ?? "idle") : "offline"}
           </span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
-            agent.schedule_mins === null
-              ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-              : "bg-gold/10 border-gold/30 text-gold"
-          }`}>
-            {schedule}
-          </span>
-          {agent.name === "ARBITER" && (
-            <span className="text-[9px] font-bold bg-threat-critical/10 text-threat-critical border border-threat-critical/30 px-1.5 py-0.5 rounded-full">
-              HITL
-            </span>
-          )}
-        </div>
-
-        {/* Description */}
-        <p className="text-xs text-slate-400 leading-relaxed mb-2">{agent.description}</p>
-
-        {/* Tech stack + last run */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex flex-wrap gap-1">
-            {tools.map((t) => (
-              <span key={t} className="text-[9px] bg-soc-bg border border-soc-border text-slate-500 px-1.5 py-0.5 rounded-full">
-                {t}
-              </span>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 text-[10px] text-slate-600 shrink-0">
-            {agent.last_run_at && (
-              <span>Last run {timeAgo(agent.last_run_at)}</span>
-            )}
-            {(agent.threats_found_today ?? 0) > 0 && (
-              <span className="text-threat-critical font-bold">· {agent.threats_found_today} flagged</span>
-            )}
-            {(agent.runs_today ?? 0) > 0 && (
-              <span>· {agent.runs_today} processed</span>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Trigger button */}
-      <div className="shrink-0 flex items-center" onClick={(e) => { e.stopPropagation(); if (canTrigger && agent.is_active && !isRunning) onTrigger(e); }}>
-        {isRunning ? (
-          <div className="w-7 h-7 border border-gold border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <button
-            disabled={!canTrigger || !agent.is_active || triggering !== null}
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-soc-border
-                       hover:border-gold/50 hover:text-gold text-slate-500 transition-all
-                       disabled:opacity-30 disabled:cursor-not-allowed"
-            title={`Run ${agent.codename}`}
-          >
-            <Play size={12} className="ml-0.5" />
-          </button>
-        )}
+      {/* Name + specialty */}
+      <div className="mb-4">
+        <h3 className="font-display font-bold text-base mb-0.5" style={{ color, letterSpacing: "-0.01em" }}>
+          {agent.name}
+        </h3>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{desc}</p>
       </div>
-    </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: "1px solid var(--border-subtle)", marginBottom: 12 }} />
+
+      {/* Stats */}
+      <div className="space-y-1 flex-1">
+        <div className="flex items-center justify-between text-xs">
+          <span style={{ color: "var(--text-tertiary)" }}>Threats today</span>
+          <span className="font-mono font-semibold tabular" style={{ color: "var(--text-primary)" }}>
+            {agent.threats_found_today}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span style={{ color: "var(--text-tertiary)" }}>Last action</span>
+          <span className="font-mono" style={{ color: "var(--text-secondary)" }}>
+            {timeAgo(agent.last_run_at)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span style={{ color: "var(--text-tertiary)" }}>Runs today</span>
+          <span className="font-mono tabular" style={{ color: "var(--text-secondary)" }}>{agent.runs_today}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 text-xs font-medium flex items-center gap-1" style={{ color }}>
+        View Log <span aria-hidden>→</span>
+      </div>
+    </button>
   );
 }
 
-// ─── Agent Detail ─────────────────────────────────────────────────────────────
-function AgentDetail({
-  agent, recentRuns, canTrigger, onBack, onTrigger,
+// ─── Agent Detail Panel ───────────────────────────────────────────────────────
+function AgentDetailPanel({
+  agent, runs, onClose, onTrigger,
 }: {
   agent: AgentDefinition;
-  recentRuns: AgentRun[];
-  canTrigger: boolean;
-  onBack: () => void;
+  runs: AgentRun[];
+  onClose: () => void;
   onTrigger: (agentId: string) => Promise<void>;
 }) {
+  const name = agent.name as AgentName;
+  const color = AGENT_COLORS[name] ?? "#6B5F82";
+  const desc = AGENT_DESCRIPTIONS[name] ?? agent.codename;
   const [triggering, setTriggering] = useState(false);
-  const colorClass = TYPE_COLOR[agent.name] ?? "text-slate-400";
-  const bgClass    = TYPE_BG[agent.name]    ?? "bg-slate-500/10 border-slate-500/25";
-  const tools      = AGENT_TOOLS[agent.name] ?? [];
+  const agentRuns = runs.filter((r) => r.agent_id === agent.id).slice(0, 10);
 
   async function handleTrigger() {
     setTriggering(true);
@@ -226,369 +140,296 @@ function AgentDetail({
   }
 
   return (
-    <div className="p-6 space-y-5 animate-fade-in">
-      <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={onBack} className="btn-ghost flex items-center gap-1.5">
-          <ChevronLeft size={14} /> Back
+    <div
+      className="flex flex-col h-full slide-in-right"
+      style={{ width: "min(480px, 100vw)", background: "var(--surface-raised)", borderLeft: "1px solid var(--border-subtle)", flexShrink: 0 }}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between p-6 pb-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        <div className="flex items-center gap-4">
+          <AgentIcon name={name} size={44} />
+          <div>
+            <h2 className="font-display font-bold text-lg" style={{ color }}>{agent.name}</h2>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{desc}</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg"
+          style={{ color: "var(--text-tertiary)" }}
+          aria-label="Close"
+        >
+          <X size={16} />
         </button>
-        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${bgClass}`}>
-          <span className={colorClass}>{AGENT_ICON[agent.name] ?? <Activity size={16} />}</span>
-        </div>
-        <h1 className="text-xl font-bold text-slate-100">{agent.codename}</h1>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
-          agent.schedule_mins === null
-            ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-            : "bg-gold/10 border-gold/30 text-gold"
-        }`}>
-          {formatSchedule(agent.schedule_mins ?? null)}
-        </span>
-        <StatusDot status={agent.is_active} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="soc-card text-center">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Runs Today</div>
-          <div className="text-3xl font-bold font-mono text-purple-light">{agent.runs_today ?? 0}</div>
-        </div>
-        <div className="soc-card text-center">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Threats Found</div>
-          <div className="text-3xl font-bold font-mono text-gold">{agent.threats_found_today ?? 0}</div>
-        </div>
-        <div className="soc-card text-center">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Schedule</div>
-          <div className="text-sm font-bold font-mono text-slate-200">{formatSchedule(agent.schedule_mins ?? null)}</div>
-        </div>
-        <div className="soc-card text-center">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Last Run</div>
-          <div className="text-sm font-mono text-slate-300">{timeAgo(agent.last_run_at)}</div>
-        </div>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 px-6 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        {[
+          { label: "Threats Today", value: agent.threats_found_today, icon: <Zap size={12} /> },
+          { label: "Runs Today", value: agent.runs_today, icon: <BarChart3 size={12} /> },
+          { label: "Schedule", value: agent.schedule_mins ? `${agent.schedule_mins}m` : "On-demand", icon: <Clock size={12} /> },
+        ].map(({ label, value, icon }) => (
+          <div key={label} className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1" style={{ color: "var(--text-tertiary)" }}>
+              {icon}
+              <span className="text-11 uppercase tracking-widest">{label}</span>
+            </div>
+            <div className="font-display font-bold text-lg tabular" style={{ color: "var(--text-primary)" }}>
+              {String(value)}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="soc-card space-y-3">
-        <div className="text-[10px] font-bold text-slate-500 tracking-widest">AGENT DESCRIPTION</div>
-        <p className="text-sm text-slate-300 leading-relaxed">{agent.description}</p>
-        {tools.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {tools.map((t) => (
-              <span key={t} className="text-[10px] bg-soc-bg border border-soc-border text-slate-400 px-2 py-0.5 rounded-full">
-                {t}
-              </span>
+      {/* Run now */}
+      <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        <button
+          onClick={() => void handleTrigger()}
+          disabled={triggering || agent.is_active !== 1}
+          className="btn-violet flex items-center gap-2 w-full justify-center"
+        >
+          <Play size={13} className={triggering ? "animate-pulse" : ""} />
+          {triggering ? "Running…" : "Run Now"}
+        </button>
+      </div>
+
+      {/* Activity log */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <h3 className="text-11 uppercase tracking-widest mb-4" style={{ color: "var(--text-tertiary)" }}>
+          Activity Log
+        </h3>
+        {agentRuns.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>No recent runs.</p>
+        ) : (
+          <div className="space-y-2">
+            {agentRuns.map((run) => (
+              <div
+                key={run.id}
+                className="px-3 py-2.5 rounded-lg font-mono text-xs"
+                style={{ background: "var(--surface-overlay)", border: "1px solid var(--border-subtle)" }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span
+                    className="font-semibold"
+                    style={{
+                      color:
+                        run.status === "completed" ? "var(--green-400)" :
+                        run.status === "running"   ? "var(--violet-400)" :
+                        run.status === "failed"    ? "var(--red-400)" :
+                        "var(--text-tertiary)",
+                    }}
+                  >
+                    {run.status.toUpperCase()}
+                  </span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{timeAgo(run.started_at)}</span>
+                </div>
+                <div className="flex gap-4 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                  <span>Scanned: <span style={{ color: "var(--text-secondary)" }}>{run.items_scanned}</span></span>
+                  <span style={{ color: run.threats_found > 0 ? "var(--red-400)" : "var(--text-secondary)" }}>
+                    Threats: {run.threats_found}
+                  </span>
+                </div>
+                {run.error_msg && (
+                  <div className="mt-1 text-[10px]" style={{ color: "#FDA4AE" }}>{run.error_msg}</div>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
-
-      {agent.name === "ARBITER" && (
-        <div className="soc-card border-threat-critical/30 bg-threat-critical/5 flex gap-3">
-          <Lock size={20} className="text-threat-critical shrink-0 mt-0.5" />
-          <div>
-            <div className="text-sm font-bold text-threat-critical mb-1">HUMAN-IN-THE-LOOP — PERMANENTLY ENFORCED</div>
-            <div className="text-xs text-slate-400 leading-relaxed">
-              ARBITER cannot submit any takedown request without explicit authorisation from a credentialled SOC Analyst.
-              All pending requests queue in the Takedown Queue module. This restriction cannot be overridden by any agent,
-              process, or API call. Every action is audit-logged and attributed to the authorising analyst.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {canTrigger && (
-        <button onClick={handleTrigger} disabled={triggering || !agent.is_active} className="btn-gold flex items-center gap-2">
-          <Play size={13} />
-          {triggering ? "Triggering…" : `Run ${agent.codename} Now`}
-        </button>
-      )}
-
-      {recentRuns.length > 0 && (
-        <div className="soc-card">
-          <div className="text-[10px] font-bold text-slate-500 tracking-widest mb-3">RECENT RUNS</div>
-          <div className="space-y-2">
-            {recentRuns.map((run) => (
-              <div key={run.id} className="flex items-center gap-3 text-xs py-2 border-b border-soc-border last:border-0">
-                <StatusDot status={run.status} />
-                <span className="text-slate-400 font-mono flex-1">{timeAgo(run.started_at)}</span>
-                <span className="text-slate-300">{run.items_scanned} processed</span>
-                <span className={run.threats_found > 0 ? "text-threat-critical font-semibold" : "text-slate-500"}>
-                  {run.threats_found} flagged
-                </span>
-                <span className={`capitalize px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                  run.status === "completed" ? "bg-status-live/10 text-status-live" :
-                  run.status === "failed"    ? "bg-threat-critical/10 text-threat-critical" :
-                  "bg-slate-700 text-slate-400"
-                }`}>{run.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Recent Runs tab (global) ────────────────────────────────────────────────
-function RecentRunsView({ runs, loading }: { runs: AgentRun[]; loading: boolean }) {
-  if (loading) return (
-    <div className="flex justify-center py-16">
-      <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-  if (runs.length === 0) return (
-    <div className="text-center py-16 text-slate-500 text-sm">No recent runs recorded.</div>
-  );
+// ─── Agent Network SVG ────────────────────────────────────────────────────────
+function AgentNetworkView({ agents }: { agents: AgentDefinition[] }) {
+  const cx = 300, cy = 240, r = 160;
+  const activeAgents = agents.filter((a) => a.is_active);
 
   return (
-    <div className="space-y-2">
-      {runs.map((run) => {
-        const agentName = (run.agent_name ?? "") as AgentName;
-        const colorClass = TYPE_COLOR[agentName] ?? "text-slate-400";
-        const bgClass    = TYPE_BG[agentName]    ?? "bg-slate-500/10 border-slate-500/25";
-        const icon       = AGENT_ICON[agentName] ?? <Activity size={15} />;
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          Agent Network
+        </h3>
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+          <GitBranch size={12} />
+          {activeAgents.length} active nodes
+        </div>
+      </div>
+      <svg viewBox="0 0 600 480" className="w-full" style={{ maxHeight: 360 }} role="img" aria-label="Agent network diagram">
+        {/* Connection lines */}
+        {activeAgents.map((a, i) => {
+          const angle = (2 * Math.PI * i) / activeAgents.length - Math.PI / 2;
+          const ax = cx + r * Math.cos(angle);
+          const ay = cy + r * Math.sin(angle);
+          return activeAgents.map((b, j) => {
+            if (j <= i) return null;
+            const angleB = (2 * Math.PI * j) / activeAgents.length - Math.PI / 2;
+            const bx = cx + r * Math.cos(angleB);
+            const by = cy + r * Math.sin(angleB);
+            return (
+              <line key={`${a.id}-${b.id}`} x1={ax} y1={ay} x2={bx} y2={by}
+                stroke="var(--border-subtle)" strokeWidth={0.5} />
+            );
+          });
+        })}
 
-        return (
-          <div key={run.id} className="soc-card flex items-start gap-3">
-            {/* Agent icon */}
-            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${bgClass}`}>
-              <span className={colorClass}>{icon}</span>
-            </div>
+        {/* Nodes */}
+        {activeAgents.map((agent, i) => {
+          const angle = (2 * Math.PI * i) / activeAgents.length - Math.PI / 2;
+          const nx = cx + r * Math.cos(angle);
+          const ny = cy + r * Math.sin(angle);
+          const name = agent.name as AgentName;
+          const color = AGENT_COLORS[name] ?? "#6B5F82";
+          const isRunning = agent.last_run_status === "running";
+          return (
+            <g key={agent.id} transform={`translate(${nx},${ny})`}>
+              {isRunning && (
+                <circle r={28} fill="none" stroke={color} strokeWidth={1} opacity={0.3}>
+                  <animate attributeName="r" values="22;36;22" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <circle r={22} fill={`${color}18`} stroke={color} strokeWidth={2} />
+              <text textAnchor="middle" dy={34} style={{ fontSize: 9, fill: color, fontFamily: "Inter", fontWeight: 600 }}>
+                {agent.name}
+              </text>
+            </g>
+          );
+        })}
 
-            {/* Name + meta */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-slate-200 text-sm">{run.codename ?? run.agent_name ?? "Agent"}</span>
-                {agentName && (
-                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${colorClass} opacity-70`}>
-                    {agentName}
-                  </span>
-                )}
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
-                  run.status === "completed" ? "bg-status-live/10 text-status-live border border-status-live/25" :
-                  run.status === "failed"    ? "bg-threat-critical/10 text-threat-critical border border-threat-critical/25" :
-                  run.status === "running"   ? "bg-gold/10 text-gold border border-gold/25" :
-                  "bg-slate-700 text-slate-400 border border-soc-border"
-                }`}>{run.status}</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">
-                {timeAgo(run.started_at)}
-                {run.items_scanned > 0  && <span className="ml-2">· {run.items_scanned} processed</span>}
-                {run.threats_found > 0  && <span className="ml-2 text-threat-critical font-bold">· {run.threats_found} flagged</span>}
-                {run.influencer_name    && <span className="ml-2">· {run.influencer_name}</span>}
-              </div>
-            </div>
-
-            {/* Status dot */}
-            <div className="shrink-0 mt-1">
-              <StatusDot status={run.status} />
-            </div>
-          </div>
-        );
-      })}
+        {/* Center hub */}
+        <circle cx={cx} cy={cy} r={24} fill="var(--surface-overlay)" stroke="var(--border-gold)" strokeWidth={1.5} />
+        <text textAnchor="middle" x={cx} y={cy + 4}
+          style={{ fontSize: 9, fill: "var(--gold-400)", fontFamily: "Syne", fontWeight: 700 }}>
+          imprsn8
+        </text>
+      </svg>
     </div>
   );
 }
 
-// ─── Main AgentsPanel ─────────────────────────────────────────────────────────
+// ─── Main Export ──────────────────────────────────────────────────────────────
 export default function AgentsPanel() {
   const { user, selectedInfluencer } = useOutletContext<Ctx>();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [agentList, setAgentList] = useState<AgentDefinition[]>([]);
-  const [allRuns, setAllRuns] = useState<AgentRun[]>([]);
-  const [runMap, setRunMap] = useState<Record<string, AgentRun[]>>({});
+  const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [triggering, setTriggering] = useState<string | null>(null);
-  const canTrigger = user.role === "soc" || user.role === "admin";
-
-  // Derive tab + selected agent from URL — creates browser history entries so
-  // mobile swipe-back navigates within the page rather than leaving it.
-  const tab = (searchParams.get("tab") as PanelTab) ?? "intelligence";
-  const selectedAgentId = searchParams.get("agent");
-  const selected = selectedAgentId
-    ? (agentList.find((a) => a.id === selectedAgentId) ?? null)
-    : null;
-
-  function setTab(id: PanelTab) {
-    setSearchParams({ tab: id }, { replace: false });
-  }
-  function selectAgent(agent: AgentDefinition) {
-    setSearchParams({ tab: "intelligence", agent: agent.id }, { replace: false });
-  }
-  function clearSelected() {
-    setSearchParams({ tab: "intelligence" }, { replace: false });
-  }
+  const [selectedAgent, setSelectedAgent] = useState<AgentDefinition | null>(null);
+  const [activeTab, setActiveTab] = useState<PanelTab>("intelligence");
+  const [lastCoord, setLastCoord] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const [agentsData, runsData] = await Promise.all([
-        agents.list(),
-        agents.runs({ limit: 50 }),
+      const [al, rl] = await Promise.all([
+        agentsApi.list(),
+        agentsApi.runs({ influencer_id: selectedInfluencer?.id, limit: 50 }),
       ]);
-      setAgentList(agentsData);
-      setAllRuns(runsData);
-      const map: Record<string, AgentRun[]> = {};
-      for (const run of runsData) {
-        if (!map[run.agent_id]) map[run.agent_id] = [];
-        map[run.agent_id]!.push(run);
-      }
-      setRunMap(map);
+      setAgentList(al);
+      setRuns(rl);
+      setLastCoord(rl[0]?.started_at ?? null);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, [selectedInfluencer]);
 
   async function handleTrigger(agentId: string) {
-    setTriggering(agentId);
-    try {
-      await agents.trigger(agentId, selectedInfluencer?.id);
-      await load();
-    } finally {
-      setTriggering(null);
-    }
+    await agentsApi.trigger(agentId, selectedInfluencer?.id);
+    await load();
   }
 
-  // Group agents by category in defined order
-  const grouped = CATEGORY_ORDER
-    .map((cat) => ({ cat, list: agentList.filter((a) => a.category === cat) }))
-    .filter((g) => g.list.length > 0);
+  const grouped = CATEGORY_ORDER.reduce<Record<string, AgentDefinition[]>>((acc, cat) => {
+    acc[cat] = agentList.filter((a) => a.category === cat);
+    return acc;
+  }, {});
 
-  const arbiterPending = agentList.some((a) => a.name === "ARBITER");
-
-  // Detail view — rendered when ?agent=<id> is in URL
-  if (selected) {
-    return (
-      <AgentDetail
-        agent={selected}
-        recentRuns={runMap[selected.id] ?? []}
-        canTrigger={canTrigger}
-        onBack={clearSelected}
-        onTrigger={handleTrigger}
-      />
-    );
-  }
-
-  const TABS: { id: PanelTab; label: string; icon: React.ReactNode }[] = [
-    { id: "intelligence", label: "Intelligence",  icon: <Activity size={13} /> },
-    { id: "sources",      label: "Data Sources",  icon: <Database size={13} /> },
-    { id: "runs",         label: "Recent Runs",   icon: <Zap size={13} /> },
-  ];
+  const activeCount = agentList.filter((a) => a.is_active).length;
 
   return (
-    <div className="p-6 space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100">Intelligence</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Agents · Data Sources · Recent Runs</p>
-        </div>
-        <button onClick={load} disabled={loading} className="btn-icon" title="Refresh">
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-        </button>
-      </div>
-
-      {/* ARBITER HITL notice */}
-      {arbiterPending && (
-        <div className="soc-card border-threat-critical/30 bg-threat-critical/5 flex items-center gap-3">
-          <Lock size={18} className="text-threat-critical shrink-0" />
-          <div className="flex-1">
-            <div className="text-sm font-bold text-threat-critical">ARBITER — Standby · HITL Gate Active</div>
-            <div className="text-xs text-slate-400 mt-0.5">No submission until SOC Analyst sign-off</div>
+    <div className="flex h-full overflow-hidden" style={{ background: "var(--surface-base)" }}>
+      {/* ── Main panel ─────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+          <div>
+            <h1 className="font-display font-bold" style={{ fontSize: 28, color: "var(--text-primary)" }}>
+              Intelligence Command
+            </h1>
+            <p className="text-14 mt-1" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold" style={{ color: "var(--green-400)" }}>{activeCount} agents active</span>
+              {lastCoord && <> · Last coordination: {timeAgo(lastCoord)}</>}
+            </p>
           </div>
-          <span className="badge-critical">HITL ENFORCED</span>
-        </div>
-      )}
-
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-soc-border">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
-              tab === t.id
-                ? "text-gold border-gold"
-                : "text-slate-500 border-transparent hover:text-slate-300"
-            }`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Intelligence tab ── */}
-      {tab === "intelligence" && (
-        loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center gap-2 flex-wrap">
+            {[
+              { id: "intelligence" as PanelTab, label: "Agents" },
+              { id: "network" as PanelTab, label: "Network" },
+              { id: "sources" as PanelTab, label: "Data Sources" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="filter-pill"
+                style={{
+                  background: activeTab === tab.id ? "var(--surface-overlay)" : "",
+                  borderColor: activeTab === tab.id ? "var(--border-strong)" : "",
+                  color: activeTab === tab.id ? "var(--text-primary)" : "",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+            <button onClick={() => void load()} disabled={loading} className="btn-icon">
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            </button>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {grouped.map(({ cat, list }) => {
-              const meta = CATEGORY_META[cat];
+        </div>
+
+        {/* ── Intelligence tab ─────────────────────────────────── */}
+        {activeTab === "intelligence" && (
+          <div className="flex-1 overflow-y-auto space-y-8">
+            {CATEGORY_ORDER.map((cat) => {
+              const catAgents = grouped[cat];
+              if (!catAgents?.length) return null;
               return (
                 <div key={cat}>
-                  {/* Category section header */}
-                  <div className={`flex items-center gap-2 mb-3 ${meta?.color ?? "text-slate-400"}`}>
-                    {meta?.icon}
-                    <span className="text-[11px] font-bold uppercase tracking-widest">{meta?.label ?? cat}</span>
-                    <span className="text-[10px] text-slate-600">({list.length})</span>
-                  </div>
-                  <div className="space-y-2.5">
-                    {list.map((agent) => (
-                      <AgentCard
-                        key={agent.id}
-                        agent={agent}
-                        lastRun={runMap[agent.id]?.[0]}
-                        canTrigger={canTrigger}
-                        triggering={triggering}
-                        onSelect={() => selectAgent(agent)}
-                        onTrigger={(e) => { e.stopPropagation(); handleTrigger(agent.id); }}
-                      />
+                  <div className="nav-section mb-3">{CATEGORY_LABELS[cat]}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {catAgents.map((agent, idx) => (
+                      <div key={agent.id} className="card-enter" style={{ "--card-index": idx } as React.CSSProperties}>
+                        <AgentCard
+                          agent={agent}
+                          runs={runs}
+                          onClick={() => setSelectedAgent(selectedAgent?.id === agent.id ? null : agent)}
+                          isSelected={selectedAgent?.id === agent.id}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>
               );
             })}
-
-            {agentList.length === 0 && (
-              <div className="text-center py-16 text-slate-500">
-                <div className="text-4xl mb-3">🤖</div>
-                <div>No agents registered</div>
-              </div>
-            )}
-
-            {/* PHANTOM — coming soon */}
-            <div>
-              <div className="flex items-center gap-2 mb-3 text-slate-600">
-                <Search size={13} />
-                <span className="text-[11px] font-bold uppercase tracking-widest">DETECT</span>
-              </div>
-              <div className="soc-card flex items-start gap-4 opacity-50 cursor-not-allowed border-dashed">
-                <div className="mt-0.5 w-5 h-5 flex items-center justify-center rounded border border-slate-700" />
-                <div className="w-10 h-10 rounded-xl border border-slate-600 flex items-center justify-center shrink-0 bg-slate-700/20">
-                  <Mic size={16} className="text-slate-500" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-slate-400 text-sm">Voice Clone Detector</span>
-                    <span className="text-[9px] bg-slate-700/40 text-slate-500 border border-slate-600 px-2 py-0.5 rounded-full font-mono">
-                      Coming Soon
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">AI voice clone detection across audio &amp; video content</p>
-                </div>
-              </div>
-            </div>
           </div>
-        )
+        )}
+
+        {activeTab === "network" && <AgentNetworkView agents={agentList} />}
+        {activeTab === "sources" && <FeedsView user={user} />}
+      </div>
+
+      {/* ── Detail slide-in ─────────────────────────────────────── */}
+      {selectedAgent && (
+        <AgentDetailPanel
+          agent={selectedAgent}
+          runs={runs}
+          onClose={() => setSelectedAgent(null)}
+          onTrigger={handleTrigger}
+        />
       )}
-
-      {/* ── Data Sources tab ── */}
-      {tab === "sources" && <FeedsView />}
-
-      {/* ── Recent Runs tab ── */}
-      {tab === "runs" && <RecentRunsView runs={allRuns} loading={loading} />}
     </div>
   );
 }
