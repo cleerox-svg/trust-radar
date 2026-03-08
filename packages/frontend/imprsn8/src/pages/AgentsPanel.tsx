@@ -418,7 +418,7 @@ export default function AgentsPanel() {
         )}
 
         {activeTab === "network" && <AgentNetworkView agents={agentList} />}
-        {activeTab === "sources" && <FeedsView user={user} />}
+        {activeTab === "sources" && <FeedsView />}
       </div>
 
       {/* ── Detail slide-in ─────────────────────────────────────── */}
