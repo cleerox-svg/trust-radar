@@ -164,6 +164,25 @@ export const publicApi = {
   stats: () => api<PublicStats>("/public/stats"),
 };
 
+// ─── Brand Health Score ────────────────────────────────────────
+export interface BrandHealthScore {
+  score: number;
+  label: string;
+  breakdown: {
+    critical_threats: number;
+    high_threats: number;
+    medium_threats: number;
+    low_threats: number;
+    pending_takedowns: number;
+    agent_ratio: number;
+  };
+}
+
+export const brandHealth = {
+  score: (influencerId?: string) =>
+    api<BrandHealthScore>(`/brand-health-score${influencerId ? `?influencer_id=${influencerId}` : ""}`),
+};
+
 // ─── Invite types ─────────────────────────────────────────────
 export interface InviteToken {
   id: string;
