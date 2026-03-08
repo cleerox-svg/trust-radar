@@ -22,6 +22,7 @@ import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { WordMark } from "../components/LogoMark";
 import { AgentIcon, AGENT_COLORS, AGENT_DESCRIPTIONS } from "../components/ui/AgentIcon";
 import type { AgentName } from "../components/ui/AgentIcon";
+import { RiveStory } from "../components/RiveStory";
 
 // ─── Animated counter ─────────────────────────────────────────────────────────
 function useCountUp(target: number, duration = 1800) {
@@ -429,10 +430,6 @@ function WarRoomSim() {
     gold:   "var(--gold-400)",
   };
 
-  // Agent nodes arranged in circle
-  const allAgents: AgentName[] = ["SENTINEL", "RECON", "VERITAS", "NEXUS", "ARBITER", "WATCHDOG", "PHANTOM", "CIPHER", "ECHO"];
-  const cx = 160, cy = 130, r = 100;
-
   return (
     <section id="simulation" className="py-24" style={{ background: "var(--surface-raised)" }}>
       <div className="max-w-content mx-auto px-6">
@@ -472,61 +469,9 @@ function WarRoomSim() {
           style={{ border: "1px solid var(--border-default)", background: "var(--surface-overlay)" }}
         >
           <div className="flex flex-col lg:flex-row" style={{ minHeight: 400 }}>
-            {/* Left: Agent network */}
-            <div className="flex-1 p-6 flex items-center justify-center" style={{ borderRight: "1px solid var(--border-subtle)" }}>
-              <svg viewBox="0 0 320 260" className="w-full" style={{ maxWidth: 320 }}>
-                {/* Connection lines */}
-                {allAgents.map((a, i) => {
-                  const angle = (2 * Math.PI * i) / allAgents.length - Math.PI / 2;
-                  const ax = cx + r * Math.cos(angle);
-                  const ay = cy + r * Math.sin(angle);
-                  return allAgents.map((b, j) => {
-                    if (j <= i) return null;
-                    const angleB = (2 * Math.PI * j) / allAgents.length - Math.PI / 2;
-                    const bx = cx + r * Math.cos(angleB);
-                    const by = cy + r * Math.sin(angleB);
-                    const isActive = visibleSteps.some((s) => s.agentName === a || s.agentName === b);
-                    return (
-                      <line key={`${a}-${b}`} x1={ax} y1={ay} x2={bx} y2={by}
-                        stroke={isActive ? "rgba(240,165,0,0.2)" : "var(--border-subtle)"}
-                        strokeWidth={isActive ? 1 : 0.5} />
-                    );
-                  });
-                })}
-                {/* Agent nodes */}
-                {allAgents.map((name, i) => {
-                  const angle = (2 * Math.PI * i) / allAgents.length - Math.PI / 2;
-                  const nx = cx + r * Math.cos(angle);
-                  const ny = cy + r * Math.sin(angle);
-                  const color = AGENT_COLORS[name] ?? "#6B5F82";
-                  const isActive = visibleSteps.some((s) => s.agentName === name);
-                  const isDone = visibleSteps.length > 0 && visibleSteps[visibleSteps.length - 1]?.agentName === name;
-                  return (
-                    <g key={name} transform={`translate(${nx},${ny})`}>
-                      {isActive && (
-                        <circle r={20} fill="none" stroke={color} strokeWidth={1} opacity={0.3}>
-                          <animate attributeName="r" values="14;22;14" dur="1.5s" repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite" />
-                        </circle>
-                      )}
-                      <circle r={14} fill={isActive ? `${color}25` : "var(--surface-raised)"}
-                        stroke={isActive ? color : "var(--border-subtle)"}
-                        strokeWidth={isActive ? 2 : 1} />
-                      {isDone && (
-                        <text textAnchor="middle" dy="4" style={{ fontSize: 10, fill: color }}>✓</text>
-                      )}
-                      <text textAnchor="middle" dy={20} style={{ fontSize: 8, fill: isActive ? color : "var(--text-tertiary)", fontFamily: "Inter" }}>
-                        {name}
-                      </text>
-                    </g>
-                  );
-                })}
-                {/* Center */}
-                <circle cx={cx} cy={cy} r={20} fill="var(--surface-float)" stroke="var(--border-gold)" strokeWidth={1.5} />
-                <text textAnchor="middle" x={cx} y={cy + 4} style={{ fontSize: 7, fill: "var(--gold-400)", fontFamily: "Syne", fontWeight: 700 }}>
-                  imprsn8
-                </text>
-              </svg>
+            {/* Left: Rive story animation */}
+            <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: "1px solid var(--border-subtle)", minWidth: 0 }}>
+              <RiveStory step={step} playing={playing} scenario={scenario} />
             </div>
 
             {/* Right: live log */}
