@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS threat_news (
   severity      TEXT NOT NULL DEFAULT 'medium',
   cvss_score    REAL,
   affected      TEXT DEFAULT '[]',                      -- JSON array of affected products
-  references    TEXT DEFAULT '[]',                      -- JSON array of URLs
+  "references"  TEXT DEFAULT '[]',                      -- JSON array of URLs
   source        TEXT NOT NULL DEFAULT 'cisa_kev',
   source_ref    TEXT,
   published_at  TEXT,
