@@ -19,6 +19,7 @@ import History from "./pages/History";
 import AdminPage from "./pages/AdminPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import { FeedAnalyticsPage } from "./pages/FeedAnalyticsPage";
 import {
   ThreatMapPage,
   BrandExposurePage,
@@ -27,7 +28,6 @@ import {
   TakedownsPage,
   AgentHubPage,
   TrustBotPage,
-  FeedAnalyticsPage,
   SocialIntelPage,
   DarkWebPage,
   ATOPage,

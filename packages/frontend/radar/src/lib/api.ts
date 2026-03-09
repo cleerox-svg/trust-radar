@@ -77,3 +77,37 @@ export const admin = {
   updateUser: (id: string, data: { plan?: string; scans_limit?: number; is_admin?: boolean }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
+
+// ─── Feed types ─────────────────────────────────────────────
+export interface FeedSchedule {
+  id: string; feed_name: string; display_name: string; tier: number;
+  category: string; url: string; interval_mins: number; enabled: number;
+  requires_key: number; parser: string; last_run_at: string | null;
+  last_success_at: string | null; last_error: string | null;
+  consecutive_failures: number; circuit_open: number;
+  total_runs: number; total_items: number; created_at: string;
+}
+export interface FeedIngestion {
+  id: string; feed_name?: string; status: string; items_fetched: number;
+  items_new: number; items_duplicate: number; items_error: number;
+  threats_created: number; error: string | null; duration_ms: number;
+  started_at: string; completed_at: string | null;
+}
+export interface FeedStatsData {
+  summary: { total_feeds: number; enabled_feeds: number; circuit_open: number; total_runs: number; total_items: number };
+  recentIngestions: FeedIngestion[];
+  byTier: Array<{ tier: number; count: number; items: number; runs: number }>;
+}
+
+export const feeds = {
+  list: () => api<FeedSchedule[]>("/feeds"),
+  get: (id: string) => api<{ feed: FeedSchedule; ingestions: FeedIngestion[] }>(`/feeds/${id}`),
+  update: (id: string, data: { enabled?: boolean; interval_mins?: number }) =>
+    api<void>(`/feeds/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  stats: () => api<FeedStatsData>("/feeds/stats"),
+  jobs: (limit = 20) => api<FeedIngestion[]>(`/feeds/jobs?limit=${limit}`),
+  trigger: (id: string) => api<unknown>(`/feeds/${id}/trigger`, { method: "POST" }),
+  triggerAll: () => api<unknown>("/feeds/trigger-all", { method: "POST" }),
+  triggerTier: (tier: number) => api<unknown>(`/feeds/trigger-tier/${tier}`, { method: "POST" }),
+  resetCircuit: (id: string) => api<void>(`/feeds/${id}/reset`, { method: "POST" }),
+};

@@ -5,6 +5,11 @@ import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import {
+  handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
+  handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
+  handleResetCircuit,
+} from "./handlers/feeds";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -97,6 +102,53 @@ router.patch("/api/admin/users/:id", async (request: Request & { params: Record<
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
+});
+
+// ─── Feeds ──────────────────────────────────────────────────
+router.get("/api/feeds", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListFeeds(request, env);
+});
+router.get("/api/feeds/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleFeedStats(request, env);
+});
+router.get("/api/feeds/jobs", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleIngestionJobs(request, env);
+});
+router.get("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetFeed(request, env, request.params["id"] ?? "");
+});
+router.patch("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateFeed(request, env, request.params["id"] ?? "");
+});
+router.post("/api/feeds/:id/trigger", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerFeed(request, env, request.params["id"] ?? "");
+});
+router.post("/api/feeds/:id/reset", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleResetCircuit(request, env, request.params["id"] ?? "");
+});
+router.post("/api/feeds/trigger-all", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerAll(request, env);
+});
+router.post("/api/feeds/trigger-tier/:tier", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerTier(request, env, request.params["tier"] ?? "");
 });
 
 // ─── Static assets fallback (SPA) ────────────────────────────
