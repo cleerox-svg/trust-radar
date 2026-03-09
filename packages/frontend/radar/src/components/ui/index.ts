@@ -15,3 +15,6 @@ export { ScoreRing } from "./ScoreRing";
 export { StatusDot } from "./StatusDot";
 export { ThreatBadge } from "./ThreatBadge";
 export { AgentCard } from "./AgentCard";
+export { Sheet, SheetHeader, SheetTitle } from "./Sheet";
+export { Pulse } from "./Pulse";
+export { ThemeToggle } from "./ThemeToggle";

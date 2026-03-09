@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-route
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
 import { TooltipProvider } from "./components/ui/Tooltip";
+import { Pulse } from "./components/ui/Pulse";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import SignalsPage from "./pages/SignalsPage";
@@ -165,7 +166,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-20 md:hidden modal-backdrop"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -197,8 +198,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <span className="hidden sm:inline text-sm font-display font-semibold text-[--text-primary]">
-              Trust Intelligence Platform
+            {/* Desktop status */}
+            <span className="hidden sm:flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <Pulse color="green" size="sm" />
+              <span className="font-display font-semibold" style={{ color: "var(--text-primary)" }}>Trust Intelligence Platform</span>
             </span>
           </div>
 
@@ -212,7 +215,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
             <button
               onClick={() => window.location.reload()}
-              className="p-1.5 rounded text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--border-subtle] transition-colors"
+              className="btn-icon p-1.5"
               aria-label="Refresh"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
