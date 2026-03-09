@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
+import { TooltipProvider } from "./components/ui/Tooltip";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import SignalsPage from "./pages/SignalsPage";
@@ -15,7 +18,32 @@ import History from "./pages/History";
 import AdminPage from "./pages/AdminPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import {
+  ThreatMapPage,
+  BrandExposurePage,
+  DailyBriefingPage,
+  InvestigationsPage,
+  TakedownsPage,
+  AgentHubPage,
+  TrustBotPage,
+  FeedAnalyticsPage,
+  SocialIntelPage,
+  DarkWebPage,
+  ATOPage,
+  EmailAuthPage,
+  CloudStatusPage,
+} from "./pages/PlaceholderPage";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
+
+// ─── Query Client ─────────────────────────────────────────────
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 // ─── Auth Context ──────────────────────────────────────────────
 interface AuthCtx {
@@ -55,7 +83,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     if (alertInterval.current) clearInterval(alertInterval.current);
   };
 
-  // Register 401 handler
   useEffect(() => {
     onUnauthorized(() => {
       setUser(null);
@@ -64,7 +91,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [navigate]);
 
-  // Bootstrap from stored token
   useEffect(() => {
     if (!getToken()) { setAuthLoading(false); return; }
     auth.me()
@@ -104,25 +130,26 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── Loading Spinner ──────────────────────────────────────────
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-base)" }}>
+      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 // ─── Protected route ───────────────────────────────────────────
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, authLoading } = useAuth();
-  if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-radar-bg">
-      <div className="w-6 h-6 border-2 border-radar-cyan border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (authLoading) return <LoadingSpinner />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, authLoading } = useAuth();
-  if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-radar-bg">
-      <div className="w-6 h-6 border-2 border-radar-cyan border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (authLoading) return <LoadingSpinner />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_admin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
@@ -134,11 +161,11 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-radar-bg">
+    <div className="flex min-h-screen" style={{ background: "var(--surface-base)" }}>
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -155,11 +182,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-12 border-b border-radar-border bg-radar-sidebar flex items-center justify-between px-4 shrink-0 sticky top-0 z-10">
+        <header
+          className="h-12 flex items-center justify-between px-4 shrink-0 sticky top-0 z-10"
+          style={{ background: "var(--surface-void)", borderBottom: "1px solid var(--border-subtle)" }}
+        >
           <div className="flex items-center gap-3">
             {/* Mobile hamburger */}
             <button
-              className="md:hidden p-1.5 rounded text-radar-muted hover:text-radar-text transition-colors"
+              className="md:hidden p-1.5 rounded text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
             >
@@ -167,23 +197,22 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Desktop status */}
-            <span className="hidden sm:flex items-center gap-1.5 text-xs text-radar-muted">
-              <span className="w-1.5 h-1.5 rounded-full bg-radar-green animate-pulse-slow" />
-              Connected · lrxradar.com
+            <span className="hidden sm:inline text-sm font-display font-semibold text-[--text-primary]">
+              Trust Intelligence Platform
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             {user && (
-              <div className="hidden sm:flex items-center gap-2 text-xs text-radar-muted border-r border-radar-border pr-2 mr-1">
+              <div className="hidden sm:flex items-center gap-2 text-xs text-[--text-secondary] border-r border-[--border-subtle] pr-3 mr-1">
                 <span className="font-mono truncate max-w-[140px]">{user.email}</span>
-                <span className="bg-radar-cyan/15 text-radar-cyan px-1.5 py-0.5 rounded font-mono">{user.plan}</span>
+                <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
               </div>
             )}
+            <ThemeToggle />
             <button
               onClick={() => window.location.reload()}
-              className="p-1.5 rounded text-radar-muted hover:text-radar-text transition-colors"
+              className="p-1.5 rounded text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--border-subtle] transition-colors"
               aria-label="Refresh"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -192,14 +221,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </button>
             <button
               onClick={logout}
-              className="text-xs border border-radar-border text-radar-muted rounded px-2.5 py-1 hover:border-radar-red hover:text-radar-red transition-colors"
+              className="text-xs border border-[--border-default] text-[--text-secondary] rounded px-2.5 py-1 hover:border-threat-critical hover:text-threat-critical transition-colors"
             >
               Sign out
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 sm:p-5">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           {children}
         </main>
       </div>
@@ -210,37 +239,70 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 // ─── App ──────────────────────────────────────────────────────
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login"    element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/*"
-            element={
-              <RequireAuth>
-                <MainLayout>
-                  <Routes>
-                    <Route path="/dashboard"      element={<Dashboard />} />
-                    <Route path="/scan"           element={<Home />} />
-                    <Route path="/history"        element={<History />} />
-                    <Route path="/signals"        element={<SignalsPage />} />
-                    <Route path="/alerts"         element={<AlertsPage />} />
-                    <Route path="/entities"       element={<EntitiesPage />} />
-                    <Route path="/trends"         element={<TrendsPage />} />
-                    <Route path="/send-signals"   element={<SendSignals />} />
-                    <Route path="/geo-map"        element={<GeoMapPage />} />
-                    <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
-                    <Route path="/ai-advisor"     element={<AIAdvisorPage />} />
-                    <Route path="/admin"          element={<RequireAdmin><AdminPage /></RequireAdmin>} />
-                    <Route path="*"               element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </MainLayout>
-              </RequireAuth>
-            }
-          />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="dark">
+        <TooltipProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/login"    element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/*"
+                  element={
+                    <RequireAuth>
+                      <MainLayout>
+                        <Routes>
+                          {/* Mission Control */}
+                          <Route path="/dashboard"      element={<Dashboard />} />
+                          <Route path="/threat-map"     element={<ThreatMapPage />} />
+                          <Route path="/brand-exposure" element={<BrandExposurePage />} />
+                          <Route path="/alerts"         element={<AlertsPage />} />
+                          <Route path="/briefing"       element={<DailyBriefingPage />} />
+
+                          {/* Investigate */}
+                          <Route path="/scan"           element={<Home />} />
+                          <Route path="/history"        element={<History />} />
+                          <Route path="/signals"        element={<SignalsPage />} />
+                          <Route path="/investigations" element={<InvestigationsPage />} />
+                          <Route path="/takedowns"      element={<TakedownsPage />} />
+                          <Route path="/entities"       element={<EntitiesPage />} />
+
+                          {/* Agents & Automation */}
+                          <Route path="/agent-hub"      element={<AgentHubPage />} />
+                          <Route path="/trustbot"       element={<TrustBotPage />} />
+
+                          {/* Intelligence Feeds */}
+                          <Route path="/feed-analytics" element={<FeedAnalyticsPage />} />
+                          <Route path="/social-intel"   element={<SocialIntelPage />} />
+                          <Route path="/dark-web"       element={<DarkWebPage />} />
+                          <Route path="/ato"            element={<ATOPage />} />
+                          <Route path="/email-auth"     element={<EmailAuthPage />} />
+                          <Route path="/cloud-status"   element={<CloudStatusPage />} />
+
+                          {/* Platform */}
+                          <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+                          <Route path="/ai-advisor"     element={<AIAdvisorPage />} />
+                          <Route path="/send-signals"   element={<SendSignals />} />
+
+                          {/* Legacy routes */}
+                          <Route path="/trends"         element={<TrendsPage />} />
+                          <Route path="/geo-map"        element={<GeoMapPage />} />
+
+                          {/* Admin */}
+                          <Route path="/admin"          element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+
+                          <Route path="*"               element={<Navigate to="/dashboard" replace />} />
+                        </Routes>
+                      </MainLayout>
+                    </RequireAuth>
+                  }
+                />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
