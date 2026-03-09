@@ -39,7 +39,7 @@ export const mastodon_ioc: FeedModule = {
         const iocs: Array<{ type: string; value: string }> = [];
         for (const [type, pattern] of Object.entries(iocPatterns)) {
           for (const match of text.matchAll(pattern)) {
-            iocs.push({ type, value: match[1].replace(/\[.\]/g, ".") });
+            if (match[1]) iocs.push({ type, value: match[1].replace(/\[.\]/g, ".") });
           }
         }
 
