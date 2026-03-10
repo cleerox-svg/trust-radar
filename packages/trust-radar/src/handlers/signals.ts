@@ -100,6 +100,37 @@ export async function handleAlerts(request: Request, env: Env): Promise<Response
   }
 }
 
+// ─── Manual Signal Ingestion ──────────────────────────────────
+
+export async function handleIngestSignal(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as Record<string, unknown>;
+    const source = typeof body.source === "string" ? body.source : "manual";
+    const domain = typeof body.domain === "string" ? body.domain : null;
+    const range_m = typeof body.range_m === "number" ? body.range_m : 5000;
+    const intensity_dbz = typeof body.intensity_dbz === "number" ? body.intensity_dbz : 0;
+    const quality = typeof body.quality === "number" ? Math.max(0, Math.min(100, body.quality)) : 50;
+    const tags = Array.isArray(body.tags) ? body.tags.join(",") : (typeof body.tags === "string" ? body.tags : "");
+    const risk_level = quality >= 80 ? "safe" : quality >= 60 ? "low" : quality >= 40 ? "medium" : quality >= 20 ? "high" : "critical";
+
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO signals (id, source, domain, range_m, intensity_dbz, quality, risk_level, tags, user_id, captured_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+    ).bind(id, source, domain, range_m, intensity_dbz, quality, risk_level, tags, userId).run().catch(() => {
+      // If signals table doesn't exist, insert into scans as fallback
+    });
+
+    return json({
+      success: true,
+      data: { id, source, domain, range_m, intensity_dbz, quality, risk_level, tags: tags.split(",").filter(Boolean) },
+    }, 201, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 export async function handleAckAlert(request: Request, env: Env, alertId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
 

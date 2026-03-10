@@ -62,7 +62,11 @@ export const dashboard = {
   sources: () => api<SourceMixItem[]>("/dashboard/sources"),
   trend: () => api<TrendPoint[]>("/dashboard/trend"),
 };
-export const signals = { list: (limit = 20) => api<Signal[]>(`/signals?limit=${limit}`) };
+export const signals = {
+  list: (limit = 20) => api<Signal[]>(`/signals?limit=${limit}`),
+  ingest: (data: { source: string; domain: string; range_m: number; intensity_dbz: number; quality: number; tags: string[] }) =>
+    api<Signal>("/signals", { method: "POST", body: JSON.stringify(data) }),
+};
 export const alerts = {
   list: () => api<SignalAlert[]>("/alerts"),
   ack: (id: string) => api<void>(`/alerts/${id}/ack`, { method: "POST" }),

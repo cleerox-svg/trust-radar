@@ -1,78 +1,79 @@
 import { useState } from "react";
-import { scans, ScanResult } from "../lib/api";
+import { useMutation } from "@tanstack/react-query";
+import { scans, signals, type ScanResult } from "../lib/api";
+import { Card, CardContent, Badge, Button, ScoreRing } from "../components/ui";
 
 type Mode = "url-scan" | "manual";
-
-function RiskBadge({ level }: { level: ScanResult["risk_level"] }) {
-  const map: Record<string, string> = {
-    safe:     "bg-radar-green/15 text-radar-green border-radar-green/30",
-    low:      "bg-radar-blue/15 text-radar-blue border-radar-blue/30",
-    medium:   "bg-radar-yellow/15 text-radar-yellow border-radar-yellow/30",
-    high:     "bg-radar-orange/15 text-radar-orange border-radar-orange/30",
-    critical: "bg-radar-red/15 text-radar-red border-radar-red/30",
-  };
-  return (
-    <span className={`text-xs font-mono px-2 py-0.5 rounded border ${map[level]}`}>
-      {level}
-    </span>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value?: string | boolean | null }) {
-  if (value === undefined || value === null) return null;
-  return (
-    <div className="flex items-start gap-3 py-1.5 border-b border-radar-border/50 last:border-0">
-      <span className="text-xs text-radar-muted w-32 shrink-0">{label}</span>
-      <span className="text-xs font-mono text-radar-text break-all">
-        {typeof value === "boolean" ? (value ? "✓ yes" : "✗ no") : value}
-      </span>
-    </div>
-  );
-}
 
 export default function SendSignals() {
   const [mode, setMode] = useState<Mode>("url-scan");
   const [url, setUrl] = useState("");
-  const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleScan = async (e: React.FormEvent) => {
+  // Manual entry state
+  const [mSource, setMSource] = useState("station-alpha");
+  const [mDomain, setMDomain] = useState("");
+  const [mRange, setMRange] = useState(5000);
+  const [mIntensity, setMIntensity] = useState(-45);
+  const [mQuality, setMQuality] = useState(85);
+  const [mTags, setMTags] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const scanMut = useMutation({
+    mutationFn: (scanUrl: string) => scans.scan(scanUrl),
+    onSuccess: setResult,
+  });
+
+  const ingestMut = useMutation({
+    mutationFn: () => signals.ingest({
+      source: mSource,
+      domain: mDomain,
+      range_m: mRange,
+      intensity_dbz: mIntensity,
+      quality: mQuality,
+      tags: mTags.split(",").map((t) => t.trim()).filter(Boolean),
+    }),
+    onSuccess: () => {
+      setSubmitSuccess(true);
+      setMDomain("");
+      setMTags("");
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    },
+  });
+
+  const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
-    setScanning(true);
     setResult(null);
-    setError(null);
-    try {
-      const r = await scans.scan(url.trim());
-      setResult(r);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setScanning(false);
-    }
+    scanMut.mutate(url.trim());
+  };
+
+  const handleIngest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mDomain.trim()) return;
+    ingestMut.mutate();
   };
 
   return (
-    <div className="space-y-5 animate-fade-in max-w-3xl">
+    <div className="animate-fade-in space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-lg font-semibold text-radar-text">Send Signals</h1>
-        <p className="text-xs text-radar-muted mt-0.5">Ingest new signals into the radar pipeline</p>
+        <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1">Send Signals</h1>
+        <p className="text-sm text-[--text-secondary]">Ingest new signals into the radar pipeline</p>
       </div>
 
       {/* Mode tabs */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {([
-          { key: "url-scan", label: "URL Scan" },
-          { key: "manual", label: "Manual Entry" },
-        ] as { key: Mode; label: string }[]).map((m) => (
+          { key: "url-scan" as Mode, label: "URL Scan" },
+          { key: "manual" as Mode, label: "Manual Entry" },
+        ]).map((m) => (
           <button
             key={m.key}
-            onClick={() => { setMode(m.key); setResult(null); setError(null); }}
-            className={`text-xs font-mono px-3 py-1.5 rounded-lg border transition-colors ${
+            onClick={() => { setMode(m.key); setResult(null); }}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               mode === m.key
-                ? "bg-radar-cyan/10 border-radar-cyan text-radar-cyan"
-                : "border-radar-border text-radar-muted hover:text-radar-text"
+                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >
             {m.label}
@@ -82,201 +83,168 @@ export default function SendSignals() {
 
       {/* URL Scan mode */}
       {mode === "url-scan" && (
-        <div className="card space-y-4">
-          <div>
-            <div className="text-sm font-semibold text-radar-text">URL Trust Analysis</div>
-            <div className="text-xs text-radar-muted mt-0.5">
-              Scan a URL to ingest its trust signal into the radar
-            </div>
-          </div>
-          <form onSubmit={handleScan} className="flex gap-2">
-            <input
-              className="input flex-1"
-              type="url"
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={scanning}
-            />
-            <button className="btn-primary whitespace-nowrap" type="submit" disabled={scanning || !url.trim()}>
-              {scanning ? (
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Scanning…
-                </span>
-              ) : "Scan URL"}
-            </button>
-          </form>
+        <Card>
+          <CardContent>
+            <h3 className="text-sm font-semibold text-[--text-primary] mb-0.5">URL Trust Analysis</h3>
+            <p className="text-xs text-[--text-secondary] mb-4">Scan a URL to ingest its trust signal into the radar</p>
+            <form onSubmit={handleScan} className="flex gap-2">
+              <input
+                className="flex-1 text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-500 focus:outline-none font-mono"
+                type="url"
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={scanMut.isPending}
+              />
+              <Button type="submit" disabled={scanMut.isPending || !url.trim()}>
+                {scanMut.isPending ? "Scanning..." : "Scan URL"}
+              </Button>
+            </form>
 
-          {error && (
-            <div className="text-xs text-radar-red bg-radar-red/10 border border-radar-red/30 rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
+            {scanMut.isError && (
+              <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mt-3">
+                {(scanMut.error as Error).message}
+              </div>
+            )}
 
-          {result && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="border-t border-radar-border pt-4 flex items-center gap-4">
-                {/* Score ring */}
-                <div className="relative w-20 h-20 shrink-0">
-                  <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-                    <circle cx="40" cy="40" r="32" fill="none" stroke="#1a2744" strokeWidth="6" />
-                    <circle
-                      cx="40" cy="40" r="32" fill="none"
-                      stroke={result.trust_score >= 80 ? "#00ff88" : result.trust_score >= 50 ? "#f59e0b" : "#ff4444"}
-                      strokeWidth="6"
-                      strokeDasharray={`${(result.trust_score / 100) * (2 * Math.PI * 32)} ${2 * Math.PI * 32}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-xl font-bold font-mono ${
-                      result.trust_score >= 80 ? "text-radar-green" :
-                      result.trust_score >= 50 ? "text-radar-yellow" : "text-radar-red"
-                    }`}>{result.trust_score}</span>
-                    <span className="text-[9px] text-radar-muted">/ 100</span>
+            {result && (
+              <div className="mt-4 pt-4 border-t border-[--border-subtle] animate-fade-in space-y-4">
+                <div className="flex items-center gap-4">
+                  <ScoreRing score={result.trust_score} size="md" />
+                  <div>
+                    <div className="font-mono font-semibold text-[--text-primary]">{result.domain}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant={result.risk_level as "critical" | "high" | "medium" | "low"}>{result.risk_level}</Badge>
+                      {result.cached && <span className="text-[10px] text-[--text-tertiary] border border-[--border-subtle] rounded px-1.5 py-0.5 font-mono">cached</span>}
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="font-mono font-semibold text-radar-text">{result.domain}</div>
-                  <div className="flex items-center gap-2">
-                    <RiskBadge level={result.risk_level} />
-                    {result.cached && (
-                      <span className="text-[10px] text-radar-muted border border-radar-border rounded px-1.5 py-0.5 font-mono">
-                        cached
-                      </span>
-                    )}
+                {result.flags.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold text-[--text-primary] mb-2">Risk Flags</div>
+                    <div className="space-y-1.5">
+                      {result.flags.map((f, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs rounded-lg px-3 py-2 bg-[--surface-base] border border-[--border-subtle]">
+                          <Badge variant={f.severity as "critical" | "high" | "medium" | "low"}>{f.severity}</Badge>
+                          <span className="text-[--text-secondary]">{f.detail}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-xs text-radar-muted truncate max-w-xs">{result.url}</div>
+                )}
+
+                {result.metadata.ai_insight && (
+                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-cyan-400 mb-1">AI Analysis</div>
+                    <p className="text-xs text-[--text-secondary] leading-relaxed">{result.metadata.ai_insight.summary}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                  {[
+                    { label: "IP", value: result.metadata.ip },
+                    { label: "Country", value: result.metadata.country },
+                    { label: "SSL", value: result.metadata.ssl_valid === undefined ? undefined : result.metadata.ssl_valid ? "Valid" : "Invalid" },
+                    { label: "Registrar", value: result.metadata.registrar },
+                    result.metadata.virustotal ? { label: "VT", value: `${result.metadata.virustotal.malicious}m / ${result.metadata.virustotal.harmless}h` } : null,
+                  ].filter((m): m is { label: string; value: string | undefined } => m !== null && m.value !== undefined).map((m) => (
+                    <div key={m.label}>
+                      <div className="text-[--text-tertiary]">{m.label}</div>
+                      <div className="font-mono text-[--text-primary]">{m.value}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* Flags */}
-              {result.flags.length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-radar-text mb-2">Risk Flags</div>
-                  <div className="space-y-1.5">
-                    {result.flags.map((f, i) => (
-                      <div key={i} className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 ${
-                        f.severity === "high" || f.severity === "critical"
-                          ? "bg-radar-red/10 border border-radar-red/20"
-                          : f.severity === "medium"
-                          ? "bg-radar-yellow/10 border border-radar-yellow/20"
-                          : "bg-radar-border/30 border border-radar-border"
-                      }`}>
-                        <span className={`font-mono shrink-0 ${
-                          f.severity === "high" || f.severity === "critical" ? "text-radar-red" :
-                          f.severity === "medium" ? "text-radar-yellow" : "text-radar-muted"
-                        }`}>[{f.severity}]</span>
-                        <span className="text-radar-text">{f.detail}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* AI Insight */}
-              {result.metadata.ai_insight && (
-                <div className="animate-fade-in">
-                  <div className="text-xs font-semibold text-radar-text mb-2 flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-radar-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    AI Analysis
-                  </div>
-                  <div className="card bg-radar-cyan/5 border-radar-cyan/20 space-y-3">
-                    <p className="text-xs text-radar-text font-medium leading-relaxed">
-                      {result.metadata.ai_insight.summary}
-                    </p>
-                    <p className="text-xs text-radar-muted leading-relaxed">
-                      {result.metadata.ai_insight.explanation}
-                    </p>
-                    {result.metadata.ai_insight.recommendations.length > 0 && (
-                      <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-widest text-radar-muted mb-1.5">Recommendations</div>
-                        <ul className="space-y-1">
-                          {result.metadata.ai_insight.recommendations.map((r, i) => (
-                            <li key={i} className="flex items-start gap-1.5 text-xs text-radar-text">
-                              <span className="text-radar-cyan mt-0.5 shrink-0">→</span>
-                              {r}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Metadata */}
-              <div>
-                <div className="text-xs font-semibold text-radar-text mb-2">Metadata</div>
-                <div className="card !py-1">
-                  <MetaRow label="IP Address" value={result.metadata.ip} />
-                  <MetaRow label="Country" value={result.metadata.country} />
-                  <MetaRow label="Registrar" value={result.metadata.registrar} />
-                  <MetaRow label="Registered" value={result.metadata.registered_at} />
-                  <MetaRow label="SSL Valid" value={result.metadata.ssl_valid} />
-                  <MetaRow label="SSL Expiry" value={result.metadata.ssl_expiry} />
-                  {result.metadata.virustotal && (
-                    <MetaRow
-                      label="VirusTotal"
-                      value={`${result.metadata.virustotal.malicious} malicious · ${result.metadata.virustotal.suspicious} suspicious · ${result.metadata.virustotal.harmless} harmless`}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Manual entry mode */}
       {mode === "manual" && (
-        <div className="card space-y-4">
-          <div>
-            <div className="text-sm font-semibold text-radar-text">Manual Signal Entry</div>
-            <div className="text-xs text-radar-muted mt-0.5">
-              Directly submit a signal with custom metadata
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Source</label>
-              <input className="input" placeholder="alpha-node-01" />
-            </div>
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Domain</label>
-              <input className="input" placeholder="example.com" />
-            </div>
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Range (m)</label>
-              <input className="input" type="number" placeholder="5000" />
-            </div>
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Intensity (dBZ)</label>
-              <input className="input" type="number" placeholder="-45" />
-            </div>
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Quality (%)</label>
-              <input className="input" type="number" min="0" max="100" placeholder="85" />
-            </div>
-            <div>
-              <label className="block text-xs text-radar-muted mb-1">Tags (comma separated)</label>
-              <input className="input" placeholder="web, ssl, suspicious" />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <button className="btn-primary" disabled>
-              Submit Signal
-            </button>
-            <span className="text-xs text-radar-muted">Manual ingestion coming soon</span>
-          </div>
-        </div>
+        <Card>
+          <CardContent>
+            <h3 className="text-sm font-semibold text-[--text-primary] mb-0.5">Manual Signal Entry</h3>
+            <p className="text-xs text-[--text-secondary] mb-4">Directly submit a signal with custom metadata</p>
+            <form onSubmit={handleIngest} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Source</label>
+                  <select
+                    value={mSource}
+                    onChange={(e) => setMSource(e.target.value)}
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] focus:border-cyan-500 focus:outline-none"
+                  >
+                    <option value="station-alpha">Station Alpha (Web)</option>
+                    <option value="station-beta">Station Beta (API)</option>
+                    <option value="station-gamma">Station Gamma (Extension)</option>
+                    <option value="manual">Manual Entry</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Domain *</label>
+                  <input
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-500 focus:outline-none font-mono"
+                    placeholder="example.com"
+                    value={mDomain}
+                    onChange={(e) => setMDomain(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Range (m)</label>
+                  <input
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] focus:border-cyan-500 focus:outline-none"
+                    type="number"
+                    value={mRange}
+                    onChange={(e) => setMRange(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Intensity (dBZ)</label>
+                  <input
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] focus:border-cyan-500 focus:outline-none"
+                    type="number"
+                    value={mIntensity}
+                    onChange={(e) => setMIntensity(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Quality (%)</label>
+                  <input
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] focus:border-cyan-500 focus:outline-none"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={mQuality}
+                    onChange={(e) => setMQuality(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[--text-tertiary] mb-1">Tags (comma separated)</label>
+                  <input
+                    className="w-full text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-500 focus:outline-none"
+                    placeholder="web, ssl, suspicious"
+                    value={mTags}
+                    onChange={(e) => setMTags(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <Button type="submit" disabled={ingestMut.isPending || !mDomain.trim()}>
+                  {ingestMut.isPending ? "Submitting..." : "Submit Signal"}
+                </Button>
+                {submitSuccess && (
+                  <span className="text-xs text-green-400">Signal ingested successfully</span>
+                )}
+                {ingestMut.isError && (
+                  <span className="text-xs text-red-400">{(ingestMut.error as Error).message}</span>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
