@@ -72,7 +72,7 @@ export async function handleSystemHealth(
   // ── Last migration ────────────────────────────────────────────────────────
   // Inferred from the highest migration file we've applied.
   // Update this constant when new migrations are added.
-  const LAST_MIGRATION = "0016_seed_default_feeds";
+  const LAST_MIGRATION = "0017_cipher_echo_agents";
 
   // ── Overall status ────────────────────────────────────────────────────────
   const allOk = dbOk && kvOk;

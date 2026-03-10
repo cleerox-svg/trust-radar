@@ -44,13 +44,18 @@ type Tab = "influencers" | "users" | "breakdown" | "health";
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon?: React.ReactNode }) {
   return (
-    <div className="soc-card space-y-1.5">
-      <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-wider">
+    <div className="card p-4 space-y-1.5">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
         {icon}
         {label}
       </div>
-      <div className="font-bold text-2xl text-gold font-mono">{value}</div>
-      {sub && <div className="text-xs text-slate-500">{sub}</div>}
+      <div
+        className="font-bold text-2xl font-mono tabular"
+        style={{ color: "var(--gold-400)", fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </div>
+      {sub && <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>{sub}</div>}
     </div>
   );
 }
@@ -173,9 +178,9 @@ function UsersTab({ influencerList }: { influencerList: InfluencerProfile[] }) {
         <InviteInfluencerModal influencer={inviteTarget} onClose={() => setInviteTarget(null)} />
       )}
 
-      <div className="soc-card p-0 overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-soc-border flex items-center justify-between">
-          <h2 className="font-semibold text-slate-200 text-sm">Users ({total})</h2>
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+          <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Users ({total})</h2>
           <button
             onClick={() => setInviteTarget("picker")}
             className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs"
@@ -186,15 +191,21 @@ function UsersTab({ influencerList }: { influencerList: InfluencerProfile[] }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-soc-border">
+              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 {["Email / Handle", "Plan", "Role", "Assigned Influencer", "Score", "Admin", "Joined"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-medium whitespace-nowrap" style={{ color: "var(--text-tertiary)" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-soc-border last:border-0 hover:bg-soc-border/10 transition-colors">
+                <tr
+                  key={u.id}
+                  className="transition-colors"
+                  style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-overlay)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
                   <td className="px-4 py-3 max-w-[160px]">
                     <div className="font-mono text-xs text-slate-300 truncate">{u.email}</div>
                     {u.username && <div className="text-[10px] text-slate-500">@{u.username}</div>}
@@ -233,7 +244,7 @@ function UsersTab({ influencerList }: { influencerList: InfluencerProfile[] }) {
                       <span className="text-[10px] text-slate-600">N/A</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-bold text-gold font-mono text-xs">{u.impression_score}</td>
+                  <td className="px-4 py-3 font-bold font-mono text-xs tabular" style={{ color: "var(--gold-400)", fontVariantNumeric: "tabular-nums" }}>{u.impression_score}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => updateUser(u.id, { is_admin: !u.is_admin })}
@@ -293,7 +304,7 @@ function CreateInfluencerForm({
   }
 
   return (
-    <div className="soc-card border-gold/20">
+    <div className="card p-5" style={{ borderColor: "var(--border-gold)" }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-slate-200">New Influencer Profile</h3>
         <button onClick={onCancel} className="btn-icon !p-1.5"><X size={14} /></button>

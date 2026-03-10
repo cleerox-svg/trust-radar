@@ -7,7 +7,7 @@
  *   [Activity Feed 60%] [Agent Quick Status 40%]
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext, Link } from "react-router-dom";
 import { RefreshCw, ExternalLink, Bot, AlertTriangle, Flag, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
@@ -218,7 +218,7 @@ function StatCard({
   );
 }
 
-// ─── Agent Quick Status ───────────────────────────────────────────────────────
+// ─── Agent Quick Status — Heartbeat Grid ─────────────────────────────────────
 function AgentQuickStatus({ agents }: { agents: AgentDefinition[] }) {
   function agentDotClass(status: string | null) {
     if (status === "running") return "scanning";
@@ -227,12 +227,20 @@ function AgentQuickStatus({ agents }: { agents: AgentDefinition[] }) {
     return "idle";
   }
 
+  const activeCount = agents.filter((a) => a.is_active).length;
+
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-          AI Agents
-        </h2>
+        <div>
+          <h2 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            AI Agents
+          </h2>
+          <p className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+            <span style={{ color: "var(--green-400)" }}>{activeCount} active</span>
+            {" "}· {agents.length} deployed
+          </p>
+        </div>
         <Link
           to="/agents"
           className="text-xs flex items-center gap-1 transition-colors"
@@ -243,23 +251,29 @@ function AgentQuickStatus({ agents }: { agents: AgentDefinition[] }) {
           View all <ExternalLink size={10} />
         </Link>
       </div>
-      <div className="space-y-3">
-        {agents.slice(0, 6).map((agent) => (
-          <div key={agent.id} className="flex items-center gap-3">
-            <AgentIcon name={agent.name as AgentName} size={28} />
+      {/* Heartbeat grid — 2 columns */}
+      <div className="grid grid-cols-2 gap-2.5">
+        {agents.slice(0, 6).map((agent, idx) => (
+          <div
+            key={agent.id}
+            className="card-enter flex items-center gap-2 px-3 py-2.5 rounded-xl"
+            style={{
+              "--card-index": idx,
+              background: "var(--surface-overlay)",
+              border: "1px solid var(--border-subtle)",
+            } as React.CSSProperties}
+          >
+            <AgentIcon name={agent.name as AgentName} size={24} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold font-display" style={{ color: "var(--text-primary)" }}>
+              <div className="text-[11px] font-semibold font-display truncate" style={{ color: "var(--text-primary)" }}>
                 {agent.name}
               </div>
-              <div className="text-[10px] truncate" style={{ color: "var(--text-tertiary)" }}>
-                {agent.codename}
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className={`status-dot ${agentDotClass(agent.last_run_status)}`} style={{ width: 6, height: 6 }} />
+                <span className="text-[9px] font-mono truncate" style={{ color: "var(--text-tertiary)" }}>
+                  {agent.last_run_status ?? "idle"}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`status-dot ${agentDotClass(agent.last_run_status)}`} />
-              <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>
-                {timeAgo(agent.last_run_at)}
-              </span>
             </div>
           </div>
         ))}
