@@ -15,6 +15,7 @@ import { handleOverviewStats, handleAdminStats, handlePublicStats, handleBrandHe
 import { handleListFeeds, handleCreateFeed, handleUpdateFeed, handleDeleteFeed, handleTriggerFeed } from "./handlers/feeds";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite, handleValidateInvite, handleDirectCreate } from "./handlers/invites";
 import { handleSystemHealth } from "./handlers/health";
+import { handleListComplianceAudit, handleResolveComplianceItem } from "./handlers/compliance";
 import { runDueFeeds } from "./lib/feedRunner";
 import { runDueAgents } from "./handlers/agents";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
@@ -279,6 +280,18 @@ router.get("/api/admin/health", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleSystemHealth(request, env);
+});
+
+// ─── Compliance Audit Log ────────────────────────────────────
+router.get("/api/compliance", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListComplianceAudit(request, env);
+});
+router.patch("/api/compliance/:id/resolve", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleResolveComplianceItem(request, env, request.params["id"] ?? "");
 });
 
 // ─── Data Feeds ───────────────────────────────────────────────

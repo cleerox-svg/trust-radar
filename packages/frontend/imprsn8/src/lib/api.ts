@@ -259,6 +259,26 @@ export const invites = {
   }) => api<DirectCreateResult>("/admin/users/direct-create", { method: "POST", body: JSON.stringify(data) }),
 };
 
+// ─── Compliance Audit ─────────────────────────────────────────
+export interface ComplianceAuditEntry {
+  id: string;
+  audit_type: "stale_threat" | "stale_takedown" | "agent_overdue" | "hitl_gap";
+  entity_type: "impersonation_report" | "takedown_request" | "agent_definition";
+  entity_id: string;
+  severity: string;
+  description: string;
+  resolved_at: string | null;
+  created_at: string;
+  agent_run_id: string | null;
+}
+
+export const compliance = {
+  list: (showResolved = false) =>
+    api<ComplianceAuditEntry[]>(`/compliance${showResolved ? "?resolved=true" : ""}`),
+  resolve: (id: string) =>
+    api<{ message: string }>(`/compliance/${id}/resolve`, { method: "PATCH" }),
+};
+
 export const feeds = {
   list: () => api<DataFeed[]>("/feeds"),
   create: (data: {

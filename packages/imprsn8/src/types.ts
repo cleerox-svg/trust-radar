@@ -128,8 +128,24 @@ export interface ImpersonationReport {
   detected_by: AgentName;
   detected_at: string;
   updated_at: string;
+  cluster_id: string | null;
   influencer_name?: string;
   influencer_handle?: string;
+}
+
+// ─── Compliance Audit ──────────────────────────────────────────────────────
+export type ComplianceAuditType = "stale_threat" | "stale_takedown" | "agent_overdue" | "hitl_gap";
+
+export interface ComplianceAuditEntry {
+  id: string;
+  audit_type: ComplianceAuditType;
+  entity_type: "impersonation_report" | "takedown_request" | "agent_definition";
+  entity_id: string;
+  severity: ThreatSeverity;
+  description: string;
+  resolved_at: string | null;
+  created_at: string;
+  agent_run_id: string | null;
 }
 
 // ─── Takedown Requests ─────────────────────────────────────────────────────
