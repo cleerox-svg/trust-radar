@@ -1,0 +1,18 @@
+{
+  "name": "Trust Radar — LRX",
+  "short_name": "Trust Radar",
+  "description": "Real-time threat intelligence and URL trust scoring platform",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#22d3ee",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

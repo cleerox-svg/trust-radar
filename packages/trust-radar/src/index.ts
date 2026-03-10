@@ -27,6 +27,9 @@ import {
   handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
 } from "./handlers/intel";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
+import { rateLimit } from "./middleware/rateLimit";
+import { applySecurityHeaders } from "./middleware/security";
+import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
 import type { Env } from "./types";
 
 const router = Router();
@@ -50,12 +53,16 @@ router.get("/health", (_request: Request, env: Env) =>
 );
 
 // ─── Auth ─────────────────────────────────────────────────────
-router.post("/api/auth/register", (request: Request, env: Env) =>
-  handleRegister(request, env)
-);
-router.post("/api/auth/login", (request: Request, env: Env) =>
-  handleLogin(request, env)
-);
+router.post("/api/auth/register", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "auth");
+  if (limited) return limited;
+  return handleRegister(request, env);
+});
+router.post("/api/auth/login", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "auth");
+  if (limited) return limited;
+  return handleLogin(request, env);
+});
 router.get("/api/auth/me", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -64,6 +71,8 @@ router.get("/api/auth/me", async (request: Request, env: Env) => {
 
 // ─── Scans ────────────────────────────────────────────────────
 router.post("/api/scan", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "scan");
+  if (limited) return limited;
   const authHeader = request.headers.get("Authorization");
   let userId: string | undefined;
   if (authHeader?.startsWith("Bearer ")) {
@@ -342,6 +351,23 @@ router.post("/api/trustbot/chat", async (request: Request, env: Env) => {
   return handleTrustBotChat(request, env, ctx.userId);
 });
 
+// ─── Data Export ─────────────────────────────────────────────
+router.get("/api/export/scans", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleExportScans(request, env, ctx.userId);
+});
+router.get("/api/export/signals", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleExportSignals(request, env);
+});
+router.get("/api/export/alerts", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleExportAlerts(request, env);
+});
+
 // ─── Static assets fallback (SPA) ────────────────────────────
 router.all("*", (request: Request, env: Env) => {
   const url = new URL(request.url);
@@ -353,7 +379,7 @@ router.all("*", (request: Request, env: Env) => {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return router
+    const response = await router
       .fetch(request, env, ctx)
       .catch((err: unknown) => {
         console.error("Unhandled error:", err);
@@ -361,5 +387,8 @@ export default {
         const message = err instanceof Error ? err.message : String(err);
         return json({ success: false, error: "Internal server error", detail: message }, 500, origin);
       });
+
+    // Apply security headers to all responses
+    return applySecurityHeaders(response);
   },
 };

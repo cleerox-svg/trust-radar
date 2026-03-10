@@ -5,6 +5,7 @@ import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
 import { TooltipProvider } from "./components/ui/Tooltip";
 import { Pulse } from "./components/ui/Pulse";
 import Sidebar from "./components/Sidebar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
@@ -163,6 +164,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--surface-base)" }}>
+      {/* Skip to content — a11y */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded focus:bg-cyan-500 focus:text-white focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -231,7 +240,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 sm:p-6">
+        <main id="main-content" className="flex-1 overflow-auto p-4 sm:p-6" role="main">
           {children}
         </main>
       </div>
@@ -251,6 +260,7 @@ function PageFallback() {
 // ─── App ──────────────────────────────────────────────────────
 export default function App() {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
@@ -320,5 +330,6 @@ export default function App() {
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

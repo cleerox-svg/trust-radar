@@ -303,3 +303,22 @@ export const cloudIncidents = {
 export const trustScores = {
   list: (domain?: string) => api<Array<{ id: string; domain: string; score: number; previous_score: number; delta: number; risk_level: string; measured_at: string }>>(`/trust-scores${domain ? `?domain=${encodeURIComponent(domain)}` : ""}`),
 };
+
+// ─── Data Export ──────────────────────────────────────────────
+async function downloadCSV(path: string, filename: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Export failed");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export const dataExport = {
+  scans: (limit = 500) => downloadCSV(`/export/scans?limit=${limit}`, `scans-${Date.now()}.csv`),
+  signals: (limit = 500) => downloadCSV(`/export/signals?limit=${limit}`, `signals-${Date.now()}.csv`),
+  alerts: () => downloadCSV("/export/alerts", `alerts-${Date.now()}.csv`),
+};
