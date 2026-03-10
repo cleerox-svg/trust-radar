@@ -74,6 +74,13 @@ function Nav() {
               {item}
             </a>
           ))}
+          <a href="/shield" className="transition-colors hover:text-white flex items-center gap-1.5" style={{ color: "inherit" }}>
+            Shield
+            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+              style={{ background: "rgba(109,64,237,0.18)", color: "var(--violet-300)", border: "1px solid rgba(109,64,237,0.3)" }}>
+              Enterprise
+            </span>
+          </a>
         </nav>
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -115,28 +122,49 @@ function Hero({ stats }: { stats: PublicStats | null }) {
             AI-Powered Creator Protection
           </div>
 
+          {/* Dual-service pills */}
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: "rgba(240,165,0,0.12)", border: "1px solid rgba(240,165,0,0.3)", color: "var(--gold-400)" }}
+            >
+              <span className="status-dot active" style={{ width: 5, height: 5 }} />
+              Guard — Creator Protection
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: "rgba(109,64,237,0.12)", border: "1px solid rgba(109,64,237,0.3)", color: "var(--violet-300)" }}
+            >
+              <span className="status-dot" style={{ width: 5, height: 5, background: "var(--violet-400)" }} />
+              Shield — Brand Protection
+            </span>
+          </div>
+
           <h1
             className="font-display font-bold mb-6"
             style={{ fontSize: "clamp(42px, 6vw, 72px)", lineHeight: 1.05, color: "var(--text-primary)", letterSpacing: "-0.02em" }}
           >
-            Your reputation<br />
-            runs 24/7.<br />
-            <span style={{ color: "var(--gold-400)" }}>Your protection</span><br />
-            should too.
+            Protect what<br />
+            your brand<br />
+            <span style={{ color: "var(--gold-400)" }}>stands for.</span>
           </h1>
 
           <p className="mb-8 text-lg" style={{ color: "var(--text-secondary)", maxWidth: 480, lineHeight: 1.6 }}>
-            imprsn8 deploys 9 specialized AI agents to detect impersonation,
-            fake accounts, phishing scams, and brand threats before they
-            reach your audience.
+            <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>Guard</strong> watches over individual creators.&nbsp;
+            <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>Shield</strong> protects enterprise brands.
+            Both powered by 9 specialized AI agents running 24/7.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-10">
             <Link to="/register" className="btn-gold text-base px-6 py-3 text-center">
-              Get Protected Free →
+              Protect my identity →
             </Link>
-            <a href="#simulation" className="btn-ghost text-base px-6 py-3 text-center flex items-center justify-center gap-2">
-              <Play size={14} /> Watch 2-min demo
+            <a href="/shield" className="btn-ghost text-base px-6 py-3 text-center flex items-center justify-center gap-2"
+              style={{ borderColor: "rgba(109,64,237,0.35)", color: "var(--violet-300)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.6)"; e.currentTarget.style.background = "rgba(109,64,237,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.35)"; e.currentTarget.style.background = ""; }}
+            >
+              Protect my brand →
             </a>
           </div>
 
@@ -231,14 +259,14 @@ function Hero({ stats }: { stats: PublicStats | null }) {
 // ─── PROOF TICKER ─────────────────────────────────────────────────────────────
 function ProofTicker({ stats }: { stats: PublicStats | null }) {
   const items = [
-    `⚡ ${(stats?.influencers_protected ?? 1247).toLocaleString()} creators protected`,
-    `🛡 ${(stats?.threats_detected ?? 48).toLocaleString()} threats blocked`,
+    `⚡ ${(stats?.influencers_protected ?? 1247).toLocaleString()} creators protected — Guard`,
+    `🛡 ${(stats?.threats_detected ?? 48).toLocaleString()} threats blocked today`,
     `🤖 9 AI agents running`,
     `⚠ ${(stats?.takedowns_filed ?? 3).toLocaleString()} fake accounts removed today`,
     `📊 ${(stats?.accounts_monitored ?? 8400).toLocaleString()} accounts monitored`,
+    `🏢 Enterprise brand monitoring — Shield`,
     `⚡ Response time under 5 minutes`,
     `🛡 24/7 real-time detection`,
-    `🤖 9 AI agents running`,
   ];
   const doubled = [...items, ...items];
 
@@ -702,6 +730,90 @@ function SocialProof() {
   );
 }
 
+// ─── SHIELD TEASER ────────────────────────────────────────────────────────────
+function ShieldTeaser() {
+  const features = [
+    { icon: "🏢", title: "Enterprise-grade monitoring", desc: "Multi-brand roster management with dedicated SOC analysts and SLA-backed response." },
+    { icon: "🔍", title: "Domain & trademark protection", desc: "Monitor web, dark web, and social channels for unauthorised use of your brand assets." },
+    { icon: "📊", title: "Brand intelligence reports", desc: "Automated weekly reports with trend analysis, threat attribution, and executive summaries." },
+    { icon: "⚡", title: "API & integrations", desc: "Connect to your existing SIEM, Slack, or Jira. White-label reports for agency clients." },
+  ];
+
+  return (
+    <section
+      className="py-24"
+      style={{
+        background: "radial-gradient(ellipse at 70% 50%, rgba(109,64,237,0.08) 0%, var(--surface-base) 60%)",
+        borderTop: "1px solid var(--border-subtle)",
+      }}
+    >
+      <div className="max-w-content mx-auto px-6">
+        <div className="flex flex-col lg:flex-row gap-16 items-center">
+
+          {/* Left — copy */}
+          <div style={{ flex: "0 0 460px", maxWidth: 460 }}>
+            <div
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6"
+              style={{ background: "rgba(109,64,237,0.12)", border: "1px solid rgba(109,64,237,0.3)", color: "var(--violet-300)" }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--violet-400)", display: "inline-block" }} />
+              Shield — Enterprise Brand Protection
+            </div>
+
+            <h2
+              className="font-display font-bold mb-5"
+              style={{ fontSize: "clamp(30px, 4vw, 44px)", lineHeight: 1.1, color: "var(--text-primary)", letterSpacing: "-0.02em" }}
+            >
+              Brand protection<br />
+              <span style={{ color: "var(--violet-300)" }}>at enterprise scale.</span>
+            </h2>
+
+            <p className="mb-8 text-base" style={{ color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 420 }}>
+              While Guard protects individual creators, Shield is built for marketing teams,
+              agencies, and enterprise brands managing reputation across dozens of channels —
+              with dedicated analysts, custom AI tuning, and full API access.
+            </p>
+
+            <a
+              href="/shield"
+              className="btn-ghost inline-flex items-center gap-2 text-base px-6 py-3"
+              style={{ borderColor: "rgba(109,64,237,0.4)", color: "var(--violet-300)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.7)"; e.currentTarget.style.background = "rgba(109,64,237,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.4)"; e.currentTarget.style.background = ""; }}
+            >
+              Explore Shield →
+            </a>
+
+            <p className="mt-3 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Custom pricing · Demo available · Team onboarding included
+            </p>
+          </div>
+
+          {/* Right — feature grid */}
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {features.map((f, i) => (
+              <div
+                key={i}
+                className="card-enter p-5"
+                style={{
+                  "--card-index": i,
+                  background: "var(--surface-raised)",
+                  border: "1px solid rgba(109,64,237,0.15)",
+                  borderRadius: 12,
+                } as React.CSSProperties}
+              >
+                <div className="text-3xl mb-3">{f.icon}</div>
+                <h4 className="font-semibold text-sm mb-2" style={{ color: "var(--text-primary)" }}>{f.title}</h4>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── PRICING ──────────────────────────────────────────────────────────────────
 const PLANS = [
   {
@@ -820,12 +932,23 @@ function CtaFooter() {
             className="font-display font-bold mb-6"
             style={{ fontSize: "clamp(36px, 5vw, 54px)", color: "var(--text-primary)", lineHeight: 1.1 }}
           >
-            Your audience trusts you.<br />
-            <span style={{ color: "var(--gold-400)" }}>Protect that trust.</span>
+            Your identity<br />
+            <span style={{ color: "var(--gold-400)" }}>deserves a guardian.</span>
           </h2>
-          <Link to="/register" className="btn-gold inline-block text-base px-8 py-4 mb-4">
-            Create Free Account →
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+            <Link to="/register" className="btn-gold inline-block text-base px-8 py-4">
+              Start Free with Guard →
+            </Link>
+            <a
+              href="/shield"
+              className="btn-ghost inline-block text-base px-8 py-4 text-center"
+              style={{ borderColor: "rgba(109,64,237,0.4)", color: "var(--violet-300)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.7)"; e.currentTarget.style.background = "rgba(109,64,237,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(109,64,237,0.4)"; e.currentTarget.style.background = ""; }}
+            >
+              Enterprise? Explore Shield →
+            </a>
+          </div>
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
             No credit card required · 2-minute setup · Cancel anytime
           </p>
@@ -842,8 +965,12 @@ function CtaFooter() {
             <div className="flex-1">
               <WordMark variant="shield" size={24} textSize="text-lg" className="mb-3" />
               <p className="text-xs" style={{ color: "var(--text-tertiary)", maxWidth: 240, lineHeight: 1.7 }}>
-                AI-powered creator identity protection. 9 specialized agents. Real-time defense.
+                Guard protects creators. Shield protects brands. 9 AI agents. 24/7 defense.
               </p>
+              <div className="flex items-center gap-3 mt-3">
+                <a href="/register" className="text-xs" style={{ color: "var(--gold-400)" }}>Guard ↗</a>
+                <a href="/shield" className="text-xs" style={{ color: "var(--violet-300)" }}>Shield ↗</a>
+              </div>
             </div>
             {[
               { label: "Product", links: ["Features", "Pricing", "Changelog", "Roadmap"] },
@@ -896,6 +1023,7 @@ export default function Home() {
       <WarRoomSim />
       <AgentDirectory />
       <SocialProof />
+      <ShieldTeaser />
       <Pricing />
       <CtaFooter />
     </div>
