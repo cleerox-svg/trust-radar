@@ -40,26 +40,27 @@ export function TrustBotWidget() {
   return (
     <>
       {/* Floating button */}
+      {/* Floating button — sits above the bottom nav bar (which is ~56px tall) */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 hover:bg-cyan-600 transition-all hover:scale-105 flex items-center justify-center"
+        className="fixed bottom-[72px] right-4 z-50 w-11 h-11 rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 hover:bg-cyan-600 transition-all hover:scale-105 flex items-center justify-center"
         aria-label={open ? "Close TrustBot" : "Open TrustBot"}
       >
         {open ? (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         )}
       </button>
 
-      {/* Chat panel */}
+      {/* Chat panel — anchored above the floating button */}
       {open && (
         <div
-          className="fixed bottom-20 right-5 z-50 w-[380px] max-h-[520px] rounded-xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col"
+          className="fixed bottom-[132px] right-4 z-50 w-[min(380px,calc(100vw-2rem))] max-h-[520px] rounded-xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col"
           style={{ background: "var(--surface-raised)", border: "1px solid var(--border-default)" }}
         >
           {/* Header */}

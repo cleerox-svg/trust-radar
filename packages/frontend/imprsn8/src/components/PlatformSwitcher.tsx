@@ -16,8 +16,8 @@ const platforms = [
     name: "Trust Radar",
     description: "URL threat intelligence",
     color: "#22d3ee",
-    baseUrl: "https://lrx-radar.com",
-    adminUrl: "https://lrx-radar.com/admin",
+    baseUrl: "https://lrxradar.com",
+    adminUrl: "https://lrxradar.com/admin",
   },
 ];
 

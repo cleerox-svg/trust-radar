@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getToken } from "../lib/api";
 import { WordMark } from "../components/LogoMark";
 
@@ -78,13 +78,8 @@ const PRICING = [
 
 /* ── Landing Page ────────────────────────────────────────────── */
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const isLoggedIn = !!getToken();
   const [scrolled, setScrolled] = useState(false);
-
-  // If already logged in, redirect to dashboard
-  useEffect(() => {
-    if (getToken()) navigate("/dashboard", { replace: true });
-  }, [navigate]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -109,14 +104,26 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <a href="#features" className="hidden sm:inline text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Features</a>
           <a href="#pricing" className="hidden sm:inline text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Pricing</a>
-          <Link to="/login" className="text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Sign In</Link>
-          <Link
-            to="/register"
-            className="text-sm font-semibold px-4 py-2 rounded-lg transition-all"
-            style={{ background: "var(--cyan-400)", color: "#0A0E1A" }}
-          >
-            Get Started
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              to="/dashboard"
+              className="text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+              style={{ background: "var(--cyan-400)", color: "#0A0E1A" }}
+            >
+              Go to Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Sign In</Link>
+              <Link
+                to="/register"
+                className="text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+                style={{ background: "var(--cyan-400)", color: "#0A0E1A" }}
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
