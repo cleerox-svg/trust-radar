@@ -163,5 +163,12 @@ export async function handleMe(request: Request, env: Env, userId: string): Prom
     return json({ success: false, error: "User not found" }, 404, origin);
   }
 
-  return json({ success: true, data: { ...user, is_admin: !!user.is_admin } }, 200, origin);
+  // Fetch role from profiles table (default to "customer")
+  const profile = await env.DB.prepare("SELECT role FROM profiles WHERE user_id = ?")
+    .bind(userId)
+    .first<{ role: string }>();
+
+  const role = profile?.role ?? (user.is_admin ? "admin" : "customer");
+
+  return json({ success: true, data: { ...user, is_admin: !!user.is_admin, role } }, 200, origin);
 }

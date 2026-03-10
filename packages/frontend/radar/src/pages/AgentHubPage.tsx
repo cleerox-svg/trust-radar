@@ -9,6 +9,7 @@ import {
 } from "../components/ui";
 import { AgentCard } from "../components/ui/AgentCard";
 import { StatusDot } from "../components/ui/StatusDot";
+import { AgentNetworkGraph } from "../components/ui/AgentNetworkGraph";
 
 function timeAgo(date: string | null | undefined): string {
   if (!date) return "Never";
@@ -83,6 +84,7 @@ export function AgentHubPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="runs">Run History</TabsTrigger>
+          <TabsTrigger value="network">Network</TabsTrigger>
         </TabsList>
 
         <TabsContent value="agents">
@@ -112,6 +114,16 @@ export function AgentHubPage() {
 
         <TabsContent value="runs">
           <RunHistory />
+        </TabsContent>
+
+        <TabsContent value="network">
+          <Card>
+            <CardContent>
+              <h3 className="text-sm font-semibold text-[--text-primary] mb-2">Agent Network Topology</h3>
+              <p className="text-xs text-[--text-tertiary] mb-4">Visualizes data flow and dependencies between the 10 Shield Guardian agents</p>
+              <AgentNetworkGraph activeAgent={selectedAgent ?? undefined} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

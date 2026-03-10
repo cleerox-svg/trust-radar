@@ -18,3 +18,6 @@ export { AgentCard } from "./AgentCard";
 export { Sheet, SheetHeader, SheetTitle } from "./Sheet";
 export { Pulse } from "./Pulse";
 export { ThemeToggle } from "./ThemeToggle";
+export { AgentNetworkGraph } from "./AgentNetworkGraph";
+export { AreaSparkline } from "./AreaSparkline";
+export { CorrelationMatrix } from "./CorrelationMatrix";

@@ -1,4 +1,4 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, Link } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
@@ -10,7 +10,8 @@ import { PlatformSwitcher } from "./components/PlatformSwitcher";
 import { BottomBar } from "./components/BottomBar";
 import { SectionNav } from "./components/SectionNav";
 import { WordMark } from "./components/LogoMark";
-import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
+import { IdleTimeoutDialog } from "./components/IdleTimeoutDialog";
+import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User, type UserRole } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -41,6 +42,7 @@ const ATOPage = lazy(() => import("./pages/ATOPage").then(m => ({ default: m.ATO
 const EmailAuthPage = lazy(() => import("./pages/EmailAuthPage").then(m => ({ default: m.EmailAuthPage })));
 const CloudStatusPage = lazy(() => import("./pages/CloudStatusPage").then(m => ({ default: m.CloudStatusPage })));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
+const PublicScanner = lazy(() => import("./pages/PublicScanner"));
 
 // ─── Query Client ─────────────────────────────────────────────
 const queryClient = new QueryClient({
@@ -58,7 +60,7 @@ interface AuthCtx {
   alertCount: number;
   authLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, inviteToken?: string) => Promise<void>;
   logout: () => void;
   refreshAlerts: () => void;
 }
@@ -115,8 +117,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate("/dashboard");
   };
 
-  const register = async (email: string, password: string) => {
-    const { token, user: u } = await auth.register(email, password);
+  const register = async (email: string, password: string, inviteToken?: string) => {
+    const { token, user: u } = await auth.register(email, password, inviteToken);
     setToken(token);
     setUser(u);
     startAlertPolling();
@@ -162,12 +164,29 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireRole({ children, roles }: { children: React.ReactNode; roles: UserRole[] }) {
+  const { user, authLoading } = useAuth();
+  if (authLoading) return <LoadingSpinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 // ─── Main layout with bottom bar + section sub-tabs ──────────
 function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleIdleLogout = useCallback(() => {
+    clearToken();
+    navigate("/login", { replace: true });
+  }, [navigate]);
 
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "var(--surface-base)" }}>
+      {/* Idle timeout dialog */}
+      <IdleTimeoutDialog onLogout={handleIdleLogout} />
+
       {/* Skip to content — a11y */}
       <a
         href="#main-content"
@@ -202,6 +221,9 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             <div className="hidden sm:flex items-center gap-2 text-xs text-[--text-secondary] border-r border-[--border-subtle] pr-3 mr-1">
               <span className="font-mono truncate max-w-[140px]">{user.email}</span>
               <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
+              {user.role !== "customer" && (
+                <span className="bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.role}</span>
+              )}
             </div>
           )}
           {user?.is_admin && (
@@ -261,6 +283,7 @@ export default function App() {
               <Routes>
                 {/* Public routes */}
                 <Route path="/"         element={<LandingPage />} />
+                <Route path="/scanner"  element={<PublicScanner />} />
                 <Route path="/login"    element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
@@ -282,19 +305,19 @@ export default function App() {
                           {/* Investigate */}
                           <Route path="/scan"           element={<Home />} />
                           <Route path="/history"        element={<History />} />
-                          <Route path="/signals"        element={<SignalsPage />} />
-                          <Route path="/investigations" element={<InvestigationsPage />} />
-                          <Route path="/takedowns"      element={<TakedownsPage />} />
-                          <Route path="/entities"       element={<EntitiesPage />} />
+                          <Route path="/signals"        element={<RequireRole roles={["admin","analyst"]}><SignalsPage /></RequireRole>} />
+                          <Route path="/investigations" element={<RequireRole roles={["admin","analyst"]}><InvestigationsPage /></RequireRole>} />
+                          <Route path="/takedowns"      element={<RequireRole roles={["admin","analyst"]}><TakedownsPage /></RequireRole>} />
+                          <Route path="/entities"       element={<RequireRole roles={["admin","analyst"]}><EntitiesPage /></RequireRole>} />
 
                           {/* Agents & Automation */}
-                          <Route path="/agent-hub"      element={<AgentHubPage />} />
+                          <Route path="/agent-hub"      element={<RequireRole roles={["admin","analyst"]}><AgentHubPage /></RequireRole>} />
                           <Route path="/trustbot"       element={<TrustBotPage />} />
 
                           {/* Intelligence Feeds */}
                           <Route path="/feed-analytics" element={<FeedAnalyticsPage />} />
                           <Route path="/social-intel"   element={<SocialIntelPage />} />
-                          <Route path="/dark-web"       element={<DarkWebPage />} />
+                          <Route path="/dark-web"       element={<RequireRole roles={["admin","analyst"]}><DarkWebPage /></RequireRole>} />
                           <Route path="/ato"            element={<ATOPage />} />
                           <Route path="/email-auth"     element={<EmailAuthPage />} />
                           <Route path="/cloud-status"   element={<CloudStatusPage />} />

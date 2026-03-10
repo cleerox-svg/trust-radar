@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { dashboard, threats, agents } from "../lib/api";
 import { Card, CardContent, ScoreRing } from "../components/ui";
+import { CorrelationMatrix } from "../components/ui/CorrelationMatrix";
 import { StatusDot } from "../components/ui/StatusDot";
 import { Pulse } from "../components/ui/Pulse";
 import { Link } from "react-router-dom";
@@ -181,7 +182,6 @@ export default function Dashboard() {
                       <stop offset="95%" stopColor="#00ff88" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
                   <XAxis dataKey="time" tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} />
                   <YAxis tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <Tooltip content={<ChartTooltip />} />
@@ -203,8 +203,7 @@ export default function Dashboard() {
               <>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={sources} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                    <XAxis dataKey="name" tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} />
+                      <XAxis dataKey="name" tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} />
                     <YAxis tick={{ fill: "var(--text-tertiary)", fontSize: 10 }} tickLine={false} axisLine={false} />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" name="count" fill="#00d4d4" radius={[3, 3, 0, 0]} />
@@ -246,6 +245,25 @@ export default function Dashboard() {
               </Link>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Threat Correlation Matrix */}
+      <Card>
+        <CardContent>
+          <h3 className="text-sm font-semibold text-[--text-primary] mb-1">Threat Correlation Matrix</h3>
+          <p className="text-xs text-[--text-tertiary] mb-4">Cross-feed signal correlation strength between threat categories</p>
+          <CorrelationMatrix
+            labels={["Phishing", "Malware", "Impersonation", "ATO", "Dark Web", "DNS"]}
+            matrix={[
+              [1.0,  0.72, 0.85, 0.31, 0.45, 0.62],
+              [0.72, 1.0,  0.41, 0.55, 0.68, 0.38],
+              [0.85, 0.41, 1.0,  0.22, 0.33, 0.71],
+              [0.31, 0.55, 0.22, 1.0,  0.78, 0.15],
+              [0.45, 0.68, 0.33, 0.78, 1.0,  0.29],
+              [0.62, 0.38, 0.71, 0.15, 0.29, 1.0],
+            ]}
+          />
         </CardContent>
       </Card>
     </div>
