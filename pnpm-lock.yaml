@@ -120,6 +120,9 @@ importers:
 
   packages/imprsn8:
     dependencies:
+      '@lrx/frontend':
+        specifier: workspace:*
+        version: link:../frontend
       itty-router:
         specifier: ^5.0.18
         version: 5.0.23
@@ -148,6 +151,9 @@ importers:
 
   packages/trust-radar:
     dependencies:
+      '@lrx/frontend':
+        specifier: workspace:*
+        version: link:../frontend
       itty-router:
         specifier: ^5.0.18
         version: 5.0.23
