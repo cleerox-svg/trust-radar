@@ -49,7 +49,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const auth = {
-  register: (email: string, password: string) => api<{ token: string; user: User }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (email: string, password: string, invite_token?: string) =>
+    api<{ token: string; user: User }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, ...(invite_token ? { invite_token } : {}) }),
+    }),
   login: (email: string, password: string) => api<{ token: string; user: User }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => api<User>("/auth/me"),
 };
@@ -92,12 +96,36 @@ export interface AdminHealthData {
   compliance: { data_residency: string; audit_logging: string; hitl_enforced: string };
 }
 
+export interface InviteToken {
+  id: string; token: string; role: string; group_id: string | null;
+  email_hint: string | null; notes: string | null; created_by: string;
+  created_by_email?: string; expires_at: string; used_at: string | null;
+  used_by_user_id: string | null; email_sent_at: string | null; created_at: string;
+}
+
 export const admin = {
   stats: () => api<AdminStats>("/admin/stats"),
   users: (limit = 50, offset = 0) => api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: { plan?: string; scans_limit?: number; is_admin?: boolean }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   health: () => api<AdminHealthData>("/admin/health"),
+  sessionEvents: (params?: { user_id?: string; event_type?: string; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.user_id) sp.set("user_id", params.user_id);
+    if (params?.event_type) sp.set("event_type", params.event_type);
+    if (params?.limit) sp.set("limit", String(params.limit));
+    return api<unknown[]>(`/admin/sessions?${sp}`);
+  },
+  forceLogout: (userId: string) =>
+    api<{ message: string }>(`/admin/users/${userId}/force-logout`, { method: "POST" }),
+};
+
+export const invites = {
+  validate: (token: string) => api<{ token: string; role: string; group_id: string | null; email_hint: string | null; expires_at: string }>(`/invites/${token}`),
+  create: (data: { role?: string; group_id?: string; email_hint?: string; notes?: string; expires_days?: number }) =>
+    api<InviteToken>("/admin/invites", { method: "POST", body: JSON.stringify(data) }),
+  list: () => api<InviteToken[]>("/admin/invites"),
+  revoke: (id: string) => api<{ message: string }>(`/admin/invites/${id}`, { method: "DELETE" }),
 };
 
 // ─── Feed types ─────────────────────────────────────────────
@@ -266,6 +294,8 @@ export const tickets = {
   get: (id: string) => api<{ ticket: InvestigationTicket; evidence: unknown[]; erasures: ErasureAction[] }>(`/tickets/${id}`),
   create: (data: Record<string, unknown>) => api<{ id: string; ticketId: string }>("/tickets", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Record<string, unknown>) => api<void>(`/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  addEvidence: (ticketId: string, data: { capture_type: string; target_url?: string; content_hash?: string; storage_path?: string; metadata?: Record<string, unknown> }) =>
+    api<{ id: string }>(`/tickets/${ticketId}/evidence`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 export const erasures = {

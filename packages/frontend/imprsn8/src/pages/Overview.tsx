@@ -7,8 +7,9 @@
  *   [Activity Feed 60%] [Agent Quick Status 40%]
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useOutletContext, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, ExternalLink, Bot, AlertTriangle, Flag, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
@@ -371,21 +372,17 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function Overview() {
   const { user, selectedInfluencer, setThreatCount } = useOutletContext<Ctx>();
-  const [stats, setStats] = useState<OverviewStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await overview.stats(selectedInfluencer?.id);
-      setStats(data);
-      setThreatCount(data.active_threats);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: stats = null, isLoading: loading, refetch } = useQuery({
+    queryKey: ["overview-stats", selectedInfluencer?.id ?? "all"],
+    queryFn: () => overview.stats(selectedInfluencer?.id),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => { void load(); }, [selectedInfluencer]);
+  useEffect(() => {
+    if (stats) setThreatCount(stats.active_threats);
+  }, [stats]);
 
   const title = selectedInfluencer ? selectedInfluencer.display_name : "All Influencers";
 
@@ -403,7 +400,7 @@ export default function Overview() {
           </p>
         </div>
         <button
-          onClick={() => void load()}
+          onClick={() => void refetch()}
           disabled={loading}
           className="btn-ghost flex items-center gap-2"
         >
@@ -464,7 +461,7 @@ export default function Overview() {
       </div>
 
       {/* ── Row 2: Stat Cards ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mb-5">
         <StatCard
           label="Accounts Monitored"
           value={stats?.accounts_monitored ?? 0}

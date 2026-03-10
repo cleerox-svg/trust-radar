@@ -22,6 +22,7 @@ import {
 } from "./handlers/threats";
 import {
   handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
+  handleAddEvidence,
   handleListErasures, handleCreateErasure, handleUpdateErasure, handleListCampaigns,
 } from "./handlers/investigations";
 import {
@@ -33,6 +34,7 @@ import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
+import { handleCreateInvite, handleListInvites, handleValidateInvite, handleRevokeInvite } from "./handlers/invites";
 import type { Env } from "./types";
 
 const router = Router();
@@ -155,6 +157,26 @@ router.post("/api/admin/users/:id/force-logout", async (request: Request & { par
   return handleForceLogout(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
+// ─── Invites ────────────────────────────────────────────────
+router.get("/api/invites/:token", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  return handleValidateInvite(request, env, request.params["token"] ?? "");
+});
+router.post("/api/admin/invites", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateInvite(request, env, ctx.userId);
+});
+router.get("/api/admin/invites", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListInvites(request, env);
+});
+router.delete("/api/admin/invites/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRevokeInvite(request, env, request.params["id"] ?? "");
+});
+
 // ─── Feeds ──────────────────────────────────────────────────
 router.get("/api/feeds", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
@@ -263,6 +285,13 @@ router.patch("/api/tickets/:id", async (request: Request & { params: Record<stri
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleUpdateTicket(request, env, request.params["id"] ?? "");
+});
+
+// ─── Evidence Attachment ────────────────────────────────────
+router.post("/api/tickets/:id/evidence", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAddEvidence(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Erasure Actions (Takedowns) ───────────────────────────
