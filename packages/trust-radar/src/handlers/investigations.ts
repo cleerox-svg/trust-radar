@@ -118,6 +118,37 @@ export async function handleUpdateTicket(request: Request, env: Env, id: string)
   }
 }
 
+// ─── Evidence Attachment ─────────────────────────────────────────
+
+export async function handleAddEvidence(request: Request, env: Env, ticketId: string, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const ticket = await env.DB.prepare("SELECT id FROM investigation_tickets WHERE id = ?").bind(ticketId).first();
+    if (!ticket) return json({ success: false, error: "Ticket not found" }, 404, origin);
+
+    const body = await request.json() as Record<string, unknown>;
+    const id = crypto.randomUUID();
+
+    await env.DB.prepare(
+      `INSERT INTO evidence_captures (id, ticket_id, capture_type, target_url, content_hash, storage_path, metadata_json, captured_by, captured_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    ).bind(
+      id,
+      ticketId,
+      body.capture_type ?? "screenshot",
+      body.target_url ?? null,
+      body.content_hash ?? null,
+      body.storage_path ?? null,
+      JSON.stringify(body.metadata ?? {}),
+      userId,
+    ).run();
+
+    return json({ success: true, data: { id } }, 201, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Erasure Actions (Takedowns) ────────────────────────────────
 
 export async function handleListErasures(request: Request, env: Env): Promise<Response> {

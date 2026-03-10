@@ -11,6 +11,7 @@ import { SectionNav } from "./components/SectionNav";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { ToastProvider } from "./components/ui/Toast";
 import { IdleTimeoutDialog } from "./components/IdleTimeoutDialog";
+import { QueryProvider } from "./lib/queryClient";
 
 // ─── Lazy-loaded pages (code splitting) ──────────────────────────────────
 const Home              = lazy(() => import("./pages/Home"));
@@ -212,6 +213,7 @@ function AppShell() {
 export default function App() {
   return (
     <ThemeProvider>
+    <QueryProvider>
     <ToastProvider>
     <BrowserRouter>
       <Routes>
@@ -238,6 +240,7 @@ export default function App() {
       </Routes>
     </BrowserRouter>
     </ToastProvider>
+    </QueryProvider>
     </ThemeProvider>
   );
 }
