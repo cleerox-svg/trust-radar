@@ -1,38 +1,40 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
 import { TooltipProvider } from "./components/ui/Tooltip";
 import { Pulse } from "./components/ui/Pulse";
 import Sidebar from "./components/Sidebar";
-import Dashboard from "./pages/Dashboard";
-import SignalsPage from "./pages/SignalsPage";
-import AlertsPage from "./pages/AlertsPage";
-import EntitiesPage from "./pages/EntitiesPage";
-import TrendsPage from "./pages/TrendsPage";
-import SendSignals from "./pages/SendSignals";
-import GeoMapPage from "./pages/GeoMapPage";
-import KnowledgeBasePage from "./pages/KnowledgeBasePage";
-import AIAdvisorPage from "./pages/AIAdvisorPage";
-import Home from "./pages/Home";
-import History from "./pages/History";
-import AdminPage from "./pages/AdminPage";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import { FeedAnalyticsPage } from "./pages/FeedAnalyticsPage";
-import { AgentHubPage } from "./pages/AgentHubPage";
-import { TrustBotPage } from "./pages/TrustBotPage";
-import { ThreatMapPage } from "./pages/ThreatMapPage";
-import { BrandExposurePage } from "./pages/BrandExposurePage";
-import { DailyBriefingPage } from "./pages/DailyBriefingPage";
-import { InvestigationsPage } from "./pages/InvestigationsPage";
-import { TakedownsPage } from "./pages/TakedownsPage";
-import { SocialIntelPage } from "./pages/SocialIntelPage";
-import { DarkWebPage } from "./pages/DarkWebPage";
-import { ATOPage } from "./pages/ATOPage";
-import { EmailAuthPage } from "./pages/EmailAuthPage";
-import { CloudStatusPage } from "./pages/CloudStatusPage";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
+
+// ─── Lazy-loaded pages (code splitting) ───────────────────────
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const SignalsPage = lazy(() => import("./pages/SignalsPage"));
+const AlertsPage = lazy(() => import("./pages/AlertsPage"));
+const EntitiesPage = lazy(() => import("./pages/EntitiesPage"));
+const TrendsPage = lazy(() => import("./pages/TrendsPage"));
+const SendSignals = lazy(() => import("./pages/SendSignals"));
+const GeoMapPage = lazy(() => import("./pages/GeoMapPage"));
+const KnowledgeBasePage = lazy(() => import("./pages/KnowledgeBasePage"));
+const AIAdvisorPage = lazy(() => import("./pages/AIAdvisorPage"));
+const Home = lazy(() => import("./pages/Home"));
+const History = lazy(() => import("./pages/History"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const FeedAnalyticsPage = lazy(() => import("./pages/FeedAnalyticsPage").then(m => ({ default: m.FeedAnalyticsPage })));
+const AgentHubPage = lazy(() => import("./pages/AgentHubPage").then(m => ({ default: m.AgentHubPage })));
+const TrustBotPage = lazy(() => import("./pages/TrustBotPage").then(m => ({ default: m.TrustBotPage })));
+const ThreatMapPage = lazy(() => import("./pages/ThreatMapPage").then(m => ({ default: m.ThreatMapPage })));
+const BrandExposurePage = lazy(() => import("./pages/BrandExposurePage").then(m => ({ default: m.BrandExposurePage })));
+const DailyBriefingPage = lazy(() => import("./pages/DailyBriefingPage").then(m => ({ default: m.DailyBriefingPage })));
+const InvestigationsPage = lazy(() => import("./pages/InvestigationsPage").then(m => ({ default: m.InvestigationsPage })));
+const TakedownsPage = lazy(() => import("./pages/TakedownsPage").then(m => ({ default: m.TakedownsPage })));
+const SocialIntelPage = lazy(() => import("./pages/SocialIntelPage").then(m => ({ default: m.SocialIntelPage })));
+const DarkWebPage = lazy(() => import("./pages/DarkWebPage").then(m => ({ default: m.DarkWebPage })));
+const ATOPage = lazy(() => import("./pages/ATOPage").then(m => ({ default: m.ATOPage })));
+const EmailAuthPage = lazy(() => import("./pages/EmailAuthPage").then(m => ({ default: m.EmailAuthPage })));
+const CloudStatusPage = lazy(() => import("./pages/CloudStatusPage").then(m => ({ default: m.CloudStatusPage })));
 
 // ─── Query Client ─────────────────────────────────────────────
 const queryClient = new QueryClient({
@@ -237,6 +239,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── Page suspense fallback ──────────────────────────────────
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -245,6 +256,7 @@ export default function App() {
         <TooltipProvider>
           <BrowserRouter>
             <AuthProvider>
+              <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/login"    element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -253,6 +265,7 @@ export default function App() {
                   element={
                     <RequireAuth>
                       <MainLayout>
+                        <Suspense fallback={<PageFallback />}>
                         <Routes>
                           {/* Mission Control */}
                           <Route path="/dashboard"      element={<Dashboard />} />
@@ -295,11 +308,13 @@ export default function App() {
 
                           <Route path="*"               element={<Navigate to="/dashboard" replace />} />
                         </Routes>
+                        </Suspense>
                       </MainLayout>
                     </RequireAuth>
                   }
                 />
               </Routes>
+              </Suspense>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

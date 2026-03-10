@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply radar-db --local",
     "db:migrate:prod": "wrangler d1 migrations apply radar-db --remote",
-    "db:create": "wrangler d1 create radar-db"
+    "db:create": "wrangler d1 create radar-db",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "itty-router": "^5.0.18",
@@ -23,6 +25,7 @@
     "@typescript-eslint/parser": "^8.20.0",
     "eslint": "^9.18.0",
     "typescript": "^5.7.2",
+    "vitest": "^4.0.18",
     "wrangler": "^4.0.0"
   }
 }

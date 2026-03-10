@@ -55,7 +55,7 @@ export const auth = {
 };
 export const scans = {
   scan: (url: string) => api<ScanResult>("/scan", { method: "POST", body: JSON.stringify({ url }) }),
-  history: (limit = 20) => api<ScanResult[]>(`/scan/history?limit=${limit}`),
+  history: (limit = 20, offset = 0) => api<ScanResult[]>(`/scan/history?limit=${limit}&offset=${offset}`),
 };
 export const dashboard = {
   stats: () => api<DashboardStats>("/dashboard/stats"),
@@ -63,7 +63,7 @@ export const dashboard = {
   trend: () => api<TrendPoint[]>("/dashboard/trend"),
 };
 export const signals = {
-  list: (limit = 20) => api<Signal[]>(`/signals?limit=${limit}`),
+  list: (limit = 20, offset = 0) => api<Signal[]>(`/signals?limit=${limit}&offset=${offset}`),
   ingest: (data: { source: string; domain: string; range_m: number; intensity_dbz: number; quality: number; tags: string[] }) =>
     api<Signal>("/signals", { method: "POST", body: JSON.stringify(data) }),
 };
