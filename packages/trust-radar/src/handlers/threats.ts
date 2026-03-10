@@ -137,7 +137,7 @@ export async function handleListBriefings(request: Request, env: Env): Promise<R
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(
-      `SELECT id, title, summary, severity, category, status, generated_by, published_at, created_at
+      `SELECT id, title, summary, body, severity, category, status, generated_by, published_at, created_at
        FROM threat_briefings ORDER BY created_at DESC LIMIT 20`
     ).all();
     return json({ success: true, data: rows.results }, 200, origin);
