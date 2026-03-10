@@ -1,0 +1,234 @@
+import { json } from "../lib/cors";
+import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRunner";
+import { agentModules } from "../agents";
+import type { Env } from "../types";
+
+// ─── List all agent definitions + their latest run ──────────────
+export async function handleListAgents(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Get latest run per agent
+    const latestRuns = await env.DB.prepare(
+      `SELECT agent_name, id, status, items_processed, items_created, items_updated,
+              duration_ms, tokens_used, error, started_at, completed_at, created_at
+       FROM radar_agent_runs
+       WHERE id IN (
+         SELECT id FROM radar_agent_runs r2
+         WHERE r2.agent_name = radar_agent_runs.agent_name
+         ORDER BY r2.created_at DESC LIMIT 1
+       )`
+    ).all();
+
+    const runMap = new Map(latestRuns.results.map((r) => [(r as Record<string, unknown>).agent_name, r]));
+
+    // Get run counts for today
+    const todayRuns = await env.DB.prepare(
+      `SELECT agent_name, COUNT(*) as runs_today
+       FROM radar_agent_runs
+       WHERE created_at >= datetime('now', 'start of day')
+       GROUP BY agent_name`
+    ).all<{ agent_name: string; runs_today: number }>();
+
+    const todayMap = new Map(todayRuns.results.map((r) => [r.agent_name, r.runs_today]));
+
+    const agents = AGENT_DEFINITIONS.map((def) => ({
+      ...def,
+      latestRun: runMap.get(def.name) ?? null,
+      runsToday: todayMap.get(def.name) ?? 0,
+    }));
+
+    return json({ success: true, data: agents }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Get agent detail with run history ──────────────────────────
+export async function handleGetAgent(request: Request, env: Env, agentName: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const def = AGENT_DEFINITIONS.find((d) => d.name === agentName);
+    if (!def) return json({ success: false, error: "Agent not found" }, 404, origin);
+
+    const runs = await env.DB.prepare(
+      `SELECT id, status, trigger_type, triggered_by, items_processed, items_created,
+              items_updated, duration_ms, model, tokens_used, error, output, started_at,
+              completed_at, created_at
+       FROM radar_agent_runs WHERE agent_name = ?
+       ORDER BY created_at DESC LIMIT 50`
+    ).bind(agentName).all();
+
+    const stats = await env.DB.prepare(
+      `SELECT
+         COUNT(*) as total_runs,
+         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
+         SUM(items_processed) as total_processed,
+         SUM(items_created) as total_created,
+         AVG(duration_ms) as avg_duration_ms,
+         SUM(tokens_used) as total_tokens
+       FROM radar_agent_runs WHERE agent_name = ?`
+    ).bind(agentName).first();
+
+    return json({
+      success: true,
+      data: { agent: def, runs: runs.results, stats },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Trigger an agent manually ──────────────────────────────────
+export async function handleTriggerAgent(
+  request: Request, env: Env, agentName: string, userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const mod = agentModules[agentName];
+    if (!mod) return json({ success: false, error: "Agent not found" }, 404, origin);
+
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const result = await executeAgent(env, mod, body.input as Record<string, unknown> ?? {}, userId, "manual");
+
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Get run history across all agents ──────────────────────────
+export async function handleAgentRuns(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const agentFilter = url.searchParams.get("agent");
+
+    let query = `SELECT id, agent_name, status, trigger_type, triggered_by, items_processed,
+                        items_created, items_updated, duration_ms, tokens_used, error,
+                        started_at, completed_at, created_at
+                 FROM radar_agent_runs`;
+
+    if (agentFilter) {
+      query += ` WHERE agent_name = ?`;
+      const rows = await env.DB.prepare(query + " ORDER BY created_at DESC LIMIT ?")
+        .bind(agentFilter, limit).all();
+      return json({ success: true, data: rows.results }, 200, origin);
+    }
+
+    const rows = await env.DB.prepare(query + " ORDER BY created_at DESC LIMIT ?")
+      .bind(limit).all();
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── HITL Approval Queue ────────────────────────────────────────
+export async function handleListApprovals(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") ?? "pending";
+
+    const rows = await env.DB.prepare(
+      `SELECT id, run_id, agent_name, action_type, description, details, status,
+              decided_by, decision_note, expires_at, decided_at, created_at
+       FROM radar_agent_approvals
+       WHERE status = ?
+       ORDER BY created_at DESC LIMIT 50`
+    ).bind(status).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+export async function handleResolveApproval(
+  request: Request, env: Env, approvalId: string, userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { decision: "approved" | "rejected"; note?: string };
+    if (!body.decision || !["approved", "rejected"].includes(body.decision)) {
+      return json({ success: false, error: "Decision must be 'approved' or 'rejected'" }, 400, origin);
+    }
+
+    await resolveApproval(env, approvalId, body.decision, userId, body.note);
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── TrustBot chat endpoint ─────────────────────────────────────
+export async function handleTrustBotChat(
+  request: Request, env: Env, userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { query: string };
+    if (!body.query?.trim()) {
+      return json({ success: false, error: "Query is required" }, 400, origin);
+    }
+
+    const mod = agentModules["trustbot"];
+    if (!mod) return json({ success: false, error: "TrustBot agent not found" }, 500, origin);
+
+    const result = await executeAgent(env, mod, { query: body.query }, userId, "manual");
+
+    return json({
+      success: true,
+      data: {
+        response: (result.result?.output as Record<string, unknown>)?.response ?? "No response generated.",
+        context: (result.result?.output as Record<string, unknown>)?.context ?? {},
+        runId: result.runId,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Agent overview stats ───────────────────────────────────────
+export async function handleAgentStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const summary = await env.DB.prepare(
+      `SELECT
+         COUNT(*) as total_runs,
+         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
+         SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
+         SUM(CASE WHEN status = 'awaiting_approval' THEN 1 ELSE 0 END) as awaiting_approval,
+         SUM(items_processed) as total_processed,
+         SUM(items_created) as total_created,
+         SUM(tokens_used) as total_tokens,
+         AVG(duration_ms) as avg_duration_ms
+       FROM radar_agent_runs`
+    ).first();
+
+    const pendingApprovals = await env.DB.prepare(
+      "SELECT COUNT(*) as cnt FROM radar_agent_approvals WHERE status = 'pending'"
+    ).first<{ cnt: number }>();
+
+    const todayRuns = await env.DB.prepare(
+      `SELECT agent_name, COUNT(*) as runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes
+       FROM radar_agent_runs WHERE created_at >= datetime('now', 'start of day')
+       GROUP BY agent_name`
+    ).all();
+
+    return json({
+      success: true,
+      data: {
+        summary,
+        pendingApprovals: pendingApprovals?.cnt ?? 0,
+        todayByAgent: todayRuns.results,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}

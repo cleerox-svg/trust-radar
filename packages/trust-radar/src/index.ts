@@ -10,6 +10,10 @@ import {
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
   handleResetCircuit,
 } from "./handlers/feeds";
+import {
+  handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
+  handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
+} from "./handlers/agents";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -149,6 +153,48 @@ router.post("/api/feeds/trigger-tier/:tier", async (request: Request & { params:
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTriggerTier(request, env, request.params["tier"] ?? "");
+});
+
+// ─── Agents ────────────────────────────────────────────────
+router.get("/api/agents", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListAgents(request, env);
+});
+router.get("/api/agents/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentStats(request, env);
+});
+router.get("/api/agents/runs", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentRuns(request, env);
+});
+router.get("/api/agents/approvals", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListApprovals(request, env);
+});
+router.get("/api/agents/:name", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetAgent(request, env, request.params["name"] ?? "");
+});
+router.post("/api/agents/:name/trigger", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerAgent(request, env, request.params["name"] ?? "", ctx.userId);
+});
+router.post("/api/agents/approvals/:id/resolve", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleResolveApproval(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/trustbot/chat", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrustBotChat(request, env, ctx.userId);
 });
 
 // ─── Static assets fallback (SPA) ────────────────────────────

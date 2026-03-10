@@ -20,14 +20,14 @@ import AdminPage from "./pages/AdminPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { FeedAnalyticsPage } from "./pages/FeedAnalyticsPage";
+import { AgentHubPage } from "./pages/AgentHubPage";
+import { TrustBotPage } from "./pages/TrustBotPage";
 import {
   ThreatMapPage,
   BrandExposurePage,
   DailyBriefingPage,
   InvestigationsPage,
   TakedownsPage,
-  AgentHubPage,
-  TrustBotPage,
   SocialIntelPage,
   DarkWebPage,
   ATOPage,
