@@ -111,3 +111,56 @@ export const feeds = {
   triggerTier: (tier: number) => api<unknown>(`/feeds/trigger-tier/${tier}`, { method: "POST" }),
   resetCircuit: (id: string) => api<void>(`/feeds/${id}/reset`, { method: "POST" }),
 };
+
+// ─── Agent types ───────────────────────────────────────────
+export interface AgentDefinition {
+  name: string; displayName: string; description: string;
+  color: string; trigger: string; requiresApproval: boolean;
+  latestRun: AgentRun | null; runsToday: number;
+}
+export interface AgentRun {
+  id: string; agent_name: string; status: string; trigger_type: string;
+  triggered_by: string | null; items_processed: number; items_created: number;
+  items_updated: number; duration_ms: number | null; model: string | null;
+  tokens_used: number; error: string | null; output?: string;
+  started_at: string | null; completed_at: string | null; created_at: string;
+}
+export interface AgentApproval {
+  id: string; run_id: string; agent_name: string; action_type: string;
+  description: string; details: string; status: string;
+  decided_by: string | null; decision_note: string | null;
+  expires_at: string | null; decided_at: string | null; created_at: string;
+}
+export interface AgentStatsData {
+  summary: {
+    total_runs: number; successes: number; failures: number; running: number;
+    awaiting_approval: number; total_processed: number; total_created: number;
+    total_tokens: number; avg_duration_ms: number;
+  };
+  pendingApprovals: number;
+  todayByAgent: Array<{ agent_name: string; runs: number; successes: number }>;
+}
+export interface AgentDetail {
+  agent: { name: string; displayName: string; description: string; color: string; trigger: string; requiresApproval: boolean };
+  runs: AgentRun[];
+  stats: {
+    total_runs: number; successes: number; failures: number;
+    total_processed: number; total_created: number; avg_duration_ms: number; total_tokens: number;
+  };
+}
+
+export const agents = {
+  list: () => api<AgentDefinition[]>("/agents"),
+  get: (name: string) => api<AgentDetail>(`/agents/${name}`),
+  stats: () => api<AgentStatsData>("/agents/stats"),
+  runs: (limit = 50, agent?: string) => api<AgentRun[]>(`/agents/runs?limit=${limit}${agent ? `&agent=${agent}` : ""}`),
+  trigger: (name: string, input?: Record<string, unknown>) =>
+    api<{ runId: string; status: string; result: unknown; error?: string }>(`/agents/${name}/trigger`, { method: "POST", body: JSON.stringify({ input }) }),
+  approvals: (status = "pending") => api<AgentApproval[]>(`/agents/approvals?status=${status}`),
+  resolveApproval: (id: string, decision: "approved" | "rejected", note?: string) =>
+    api<void>(`/agents/approvals/${id}/resolve`, { method: "POST", body: JSON.stringify({ decision, note }) }),
+};
+
+export const trustbot = {
+  chat: (query: string) => api<{ response: string; context: Record<string, unknown>; runId: string }>("/trustbot/chat", { method: "POST", body: JSON.stringify({ query }) }),
+};
