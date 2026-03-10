@@ -1,16 +1,21 @@
 /**
- * ThreatMapWidget — Interactive SVG world heatmap using react-simple-maps.
+ * ThreatMapWidget — Premium interactive threat intelligence world map.
  *
- * Aggregates threat data from the /threats/stats endpoint by country code,
- * renders a geographically accurate choropleth world map with severity-coded fills,
- * and supports zoom, pan, fullscreen, and dual view mode (targets vs origins).
- *
- * Adapted from radar-watch-guard's ThreatMapWidget for the trust-radar
- * Cloudflare Worker + D1 architecture.
+ * Features:
+ *   - Choropleth heatmap with radial glow fills per severity
+ *   - Animated attack arc lines from APT origins to target nations
+ *   - Pulsing threat hotspots with radiating rings
+ *   - Continent-level aggregation toggle
+ *   - Real-time threat flow particle animations
+ *   - SVG filter-based glow effects
+ *   - Zoom, pan, fullscreen, dual view (targets / origins)
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Flame, Target, Crosshair, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Flame, Target, Crosshair, ZoomIn, ZoomOut, Maximize2, Minimize2,
+  Globe2, Map as MapIcon, Activity,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { threats, type ThreatStats } from "../lib/api";
 import { cn } from "../lib/cn";
@@ -21,11 +26,12 @@ import {
   Sphere,
   Graticule,
   Marker,
+  Line,
 } from "react-simple-maps";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// ─── ISO 3166-1 numeric → display name for labelling ──────────────
+// ─── ISO mappings ─────────────────────────────────────────────
 const COUNTRY_NAMES: Record<string, string> = {
   "840": "USA", "124": "Canada", "484": "Mexico", "076": "Brazil", "032": "Argentina",
   "170": "Colombia", "604": "Peru", "152": "Chile", "862": "Venezuela",
@@ -45,17 +51,16 @@ const COUNTRY_NAMES: Record<string, string> = {
   "050": "Bangladesh",
 };
 
-/** Centroid overrides for country label placement */
 const LABEL_COORDS: Record<string, [number, number]> = {
   "840": [-98, 39], "124": [-106, 56], "076": [-53, -10], "643": [90, 62],
   "156": [104, 35], "356": [79, 22], "036": [134, -25], "566": [8, 10],
   "710": [25, -29], "276": [10, 51], "250": [2, 46], "826": [-2, 54],
   "392": [138, 36], "484": [-102, 24], "032": [-64, -34], "170": [-73, 4],
   "818": [30, 27], "364": [53, 32], "682": [45, 24], "804": [32, 49],
-  "792": [35, 39],
+  "792": [35, 39], "380": [12, 42], "724": [-4, 40], "410": [128, 36],
+  "528": [5, 52], "752": [16, 62], "616": [20, 52],
 };
 
-/** ISO alpha-2 (from DB) → ISO 3166-1 numeric (for map geo IDs) */
 const ALPHA2_TO_NUMERIC: Record<string, string> = {
   US: "840", CA: "124", MX: "484", BR: "076", AR: "032", CO: "170", PE: "604",
   CL: "152", VE: "862", EC: "218",
@@ -71,7 +76,57 @@ const ALPHA2_TO_NUMERIC: Record<string, string> = {
   AU: "036", NZ: "554",
 };
 
+// ─── Continent grouping ────────────────────────────────────────
+const CONTINENT_MAP: Record<string, string> = {
+  US: "North America", CA: "North America", MX: "North America",
+  BR: "South America", AR: "South America", CO: "South America", PE: "South America",
+  CL: "South America", VE: "South America", EC: "South America",
+  GB: "Europe", FR: "Europe", DE: "Europe", IT: "Europe", ES: "Europe",
+  PL: "Europe", UA: "Europe", NO: "Europe", SE: "Europe", NL: "Europe",
+  FI: "Europe", RO: "Europe", CZ: "Europe", CH: "Europe", BE: "Europe",
+  PT: "Europe", DK: "Europe", IE: "Europe", TR: "Europe",
+  RU: "Eurasia", CN: "Asia", IN: "Asia", JP: "Asia", KR: "Asia", KP: "Asia",
+  PK: "Asia", BD: "Asia", TH: "Asia", VN: "Asia", MY: "Asia", SG: "Asia",
+  ID: "Asia", PH: "Asia", TW: "Asia", HK: "Asia",
+  IR: "Middle East", SA: "Middle East", IQ: "Middle East", IL: "Middle East", AE: "Middle East",
+  EG: "Africa", NG: "Africa", ZA: "Africa", KE: "Africa", CD: "Africa",
+  DZ: "Africa", ET: "Africa", GH: "Africa", TZ: "Africa",
+  AU: "Oceania", NZ: "Oceania",
+};
+
+const CONTINENT_CENTERS: Record<string, [number, number]> = {
+  "North America": [-100, 40],
+  "South America": [-58, -15],
+  "Europe": [15, 50],
+  "Eurasia": [60, 55],
+  "Asia": [105, 30],
+  "Middle East": [48, 28],
+  "Africa": [20, 5],
+  "Oceania": [140, -25],
+};
+
+// ─── APT origin nations (for attack arcs) ──────────────────────
+const APT_ORIGINS: Record<string, { coords: [number, number]; type: string; severity: string }> = {
+  "643": { coords: [37, 55], type: "APT / Infrastructure", severity: "critical" },
+  "156": { coords: [116, 39], type: "State-Sponsored", severity: "critical" },
+  "408": { coords: [125, 39], type: "Financial / Crypto", severity: "high" },
+  "364": { coords: [51, 35], type: "Critical Infrastructure", severity: "high" },
+  "566": { coords: [7, 9], type: "BEC / Social Engineering", severity: "medium" },
+  "076": { coords: [-47, -15], type: "Banking Trojans", severity: "medium" },
+};
+
+// Target coordinates for attack arcs
+const TARGET_COORDS: [number, number][] = [
+  [-98, 39],   // USA
+  [-2, 54],    // UK
+  [10, 51],    // Germany
+  [139, 36],   // Japan
+  [134, -25],  // Australia
+  [2, 46],     // France
+];
+
 type ViewMode = "targets" | "origins";
+type AggMode = "country" | "continent";
 
 const SEV_COLORS: Record<string, string> = {
   critical: "#EF4444",
@@ -81,21 +136,35 @@ const SEV_COLORS: Record<string, string> = {
   info:     "#3B82F6",
 };
 
+const SEV_GLOW: Record<string, string> = {
+  critical: "rgba(239, 68, 68, 0.6)",
+  high:     "rgba(249, 115, 22, 0.5)",
+  medium:   "rgba(234, 179, 8, 0.4)",
+  low:      "rgba(34, 197, 94, 0.3)",
+};
+
 export function ThreatMapWidget() {
   const { data: stats } = useQuery({ queryKey: ["threat-stats"], queryFn: threats.stats });
   const [viewMode, setViewMode] = useState<ViewMode>("targets");
+  const [aggMode, setAggMode] = useState<AggMode>("country");
   const [tooltipContent, setTooltipContent] = useState("");
+  const [tooltipSeverity, setTooltipSeverity] = useState("");
   const [zoom, setZoom] = useState(1.25);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [center, setCenter] = useState<[number, number]>([10, 20]);
+  const [showArcs, setShowArcs] = useState(true);
+  const [animTick, setAnimTick] = useState(0);
 
-  // Mouse-drag panning
   const isDragging = useRef(false);
   const dragStart = useRef<{ x: number; y: number; center: [number, number] } | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
-
-  // Pinch-to-zoom
   const lastPinchDist = useRef<number | null>(null);
+
+  // Animation tick for pulsing effects
+  useEffect(() => {
+    const interval = setInterval(() => setAnimTick((t) => (t + 1) % 360), 50);
+    return () => clearInterval(interval);
+  }, []);
 
   // Escape to exit fullscreen
   useEffect(() => {
@@ -124,7 +193,7 @@ export function ThreatMapWidget() {
     return () => el.removeEventListener("wheel", handleWheel);
   }, []);
 
-  // Pinch-to-zoom for mobile
+  // Pinch-to-zoom
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -171,21 +240,19 @@ export function ThreatMapWidget() {
     dragStart.current = null;
   }, []);
 
-  // ─── Aggregate by-country stats into numeric ISO map ──────────
+  // ─── Aggregate by-country stats ─────────────────────────────
   const countryData = useMemo(() => {
-    const map = new Map<string, { count: number; maxSeverity: string }>();
+    const map = new Map<string, { count: number; maxSeverity: string; countryCode: string }>();
     if (!stats) return map;
 
     stats.byCountry.forEach((c) => {
       const numericId = ALPHA2_TO_NUMERIC[c.country_code];
       if (!numericId) return;
-      map.set(numericId, { count: c.count, maxSeverity: "medium" });
+      map.set(numericId, { count: c.count, maxSeverity: "medium", countryCode: c.country_code });
     });
 
-    // Derive max severity from the bySeverity distribution relative to count
-    // Countries with more threats get upgraded severity for visual weighting
     const maxCount = Math.max(...stats.byCountry.map((c) => c.count), 1);
-    map.forEach((data, _key) => {
+    map.forEach((data) => {
       const ratio = data.count / maxCount;
       if (ratio > 0.7) data.maxSeverity = "critical";
       else if (ratio > 0.4) data.maxSeverity = "high";
@@ -196,7 +263,32 @@ export function ThreatMapWidget() {
     return map;
   }, [stats]);
 
-  // ─── Origin mode — known APT origin nations ──────────────────
+  // ─── Continent aggregation ──────────────────────────────────
+  const continentData = useMemo(() => {
+    const map = new Map<string, { count: number; maxSeverity: string; countries: number }>();
+    if (!stats) return map;
+
+    stats.byCountry.forEach((c) => {
+      const continent = CONTINENT_MAP[c.country_code] ?? "Other";
+      const existing = map.get(continent) ?? { count: 0, maxSeverity: "low", countries: 0 };
+      existing.count += c.count;
+      existing.countries++;
+      map.set(continent, existing);
+    });
+
+    const maxCount = Math.max(...Array.from(map.values()).map((d) => d.count), 1);
+    map.forEach((data) => {
+      const ratio = data.count / maxCount;
+      if (ratio > 0.7) data.maxSeverity = "critical";
+      else if (ratio > 0.4) data.maxSeverity = "high";
+      else if (ratio > 0.15) data.maxSeverity = "medium";
+      else data.maxSeverity = "low";
+    });
+
+    return map;
+  }, [stats]);
+
+  // ─── Origin mode — known APT origin nations ─────────────────
   const originData = useMemo(() => {
     const origins: Record<string, { count: number; type: string; severity: string }> = {
       "643": { count: 0, type: "APT / Infrastructure", severity: "critical" },
@@ -206,35 +298,86 @@ export function ThreatMapWidget() {
       "566": { count: 0, type: "BEC / Social Engineering", severity: "medium" },
       "076": { count: 0, type: "Banking Trojans", severity: "medium" },
     };
-    // Overlay dynamic counts from stats
     stats?.byCountry.forEach((c) => {
       const numericId = ALPHA2_TO_NUMERIC[c.country_code];
       if (numericId && origins[numericId]) {
         origins[numericId].count += c.count;
       }
     });
-    // Ensure minimum values for visual presence
     Object.values(origins).forEach((o) => { if (o.count < 50) o.count += 50; });
     return origins;
   }, [stats]);
 
+  // ─── Attack arcs (origin → top targets) ─────────────────────
+  const attackArcs = useMemo(() => {
+    if (viewMode !== "origins" || !showArcs) return [];
+    const arcs: Array<{ from: [number, number]; to: [number, number]; severity: string; id: string }> = [];
+    Object.entries(APT_ORIGINS).forEach(([_id, origin]) => {
+      TARGET_COORDS.forEach((target, ti) => {
+        arcs.push({
+          from: origin.coords,
+          to: target,
+          severity: origin.severity,
+          id: `arc-${_id}-${ti}`,
+        });
+      });
+    });
+    return arcs;
+  }, [viewMode, showArcs]);
+
+  // ─── Hotspot markers (top threat countries) ──────────────────
+  const hotspots = useMemo(() => {
+    const spots: Array<{
+      coords: [number, number]; count: number; severity: string;
+      name: string; id: string;
+    }> = [];
+
+    if (aggMode === "continent") {
+      continentData.forEach((data, continent) => {
+        const coords = CONTINENT_CENTERS[continent];
+        if (!coords) return;
+        spots.push({
+          coords,
+          count: data.count,
+          severity: data.maxSeverity,
+          name: `${continent} (${data.countries} countries)`,
+          id: `continent-${continent}`,
+        });
+      });
+    } else {
+      countryData.forEach((data, numericId) => {
+        const coords = LABEL_COORDS[numericId];
+        if (!coords || data.count < 2) return;
+        spots.push({
+          coords,
+          count: data.count,
+          severity: data.maxSeverity,
+          name: COUNTRY_NAMES[numericId] ?? "",
+          id: `hotspot-${numericId}`,
+        });
+      });
+    }
+
+    return spots.sort((a, b) => b.count - a.count).slice(0, 20);
+  }, [countryData, continentData, aggMode]);
+
   const getCountryFill = useCallback((geoId: string): string => {
     if (viewMode === "origins") {
       const origin = originData[geoId];
-      if (!origin) return "rgba(148, 163, 184, 0.08)";
+      if (!origin) return "rgba(148, 163, 184, 0.04)";
       const intensity = Math.min(origin.count / 300, 1);
-      return `rgba(239, 68, 68, ${0.15 + intensity * 0.45})`;
+      return `rgba(239, 68, 68, ${0.12 + intensity * 0.48})`;
     }
 
     const data = countryData.get(geoId);
-    if (!data) return "rgba(148, 163, 184, 0.08)";
+    if (!data) return "rgba(148, 163, 184, 0.04)";
 
     const intensity = Math.min(data.count / 50, 1);
     const colors: Record<string, string> = {
-      critical: `rgba(239, 68, 68, ${0.2 + intensity * 0.5})`,
-      high:     `rgba(249, 115, 22, ${0.15 + intensity * 0.45})`,
-      medium:   `rgba(234, 179, 8, ${0.1 + intensity * 0.4})`,
-      low:      `rgba(34, 197, 94, ${0.08 + intensity * 0.3})`,
+      critical: `rgba(239, 68, 68, ${0.15 + intensity * 0.55})`,
+      high:     `rgba(249, 115, 22, ${0.12 + intensity * 0.48})`,
+      medium:   `rgba(234, 179, 8, ${0.08 + intensity * 0.42})`,
+      low:      `rgba(34, 197, 94, ${0.06 + intensity * 0.34})`,
     };
     return colors[data.maxSeverity] || colors.low;
   }, [viewMode, countryData, originData]);
@@ -249,11 +392,14 @@ export function ThreatMapWidget() {
   const zoomOut = () => setZoom((z) => Math.max(z - 0.5, 1));
   const resetView = () => { setZoom(1.25); setCenter([10, 20]); };
 
+  // Pulse value for animations (0-1 cycle)
+  const pulse = Math.sin(animTick * 0.05) * 0.5 + 0.5;
+
   return (
     <div
       ref={mapRef}
       className={cn(
-        "rounded-lg border border-[--border-subtle] bg-surface-raised relative overflow-hidden shadow-card-raised select-none transition-all duration-300",
+        "rounded-lg border border-[--border-subtle] bg-surface-raised relative overflow-hidden select-none transition-all duration-300",
         isFullscreen
           ? "fixed inset-0 z-50 h-screen w-screen rounded-none border-none"
           : "h-[400px] sm:h-[500px] lg:h-[650px]",
@@ -268,9 +414,16 @@ export function ThreatMapWidget() {
       onTouchEnd={handleTouchEnd}
       style={{ touchAction: "none" }}
     >
-      {/* ─── Title + view toggle ─── */}
+      {/* ─── Ambient glow overlays ─── */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/[0.03] via-transparent to-red-500/[0.02]" />
+        <div className="absolute top-0 left-1/4 w-1/2 h-1/3 bg-cyan-400/[0.04] blur-[80px] rounded-full" />
+        <div className="absolute bottom-0 right-1/4 w-1/3 h-1/4 bg-red-500/[0.03] blur-[60px] rounded-full" />
+      </div>
+
+      {/* ─── Title + view controls ─── */}
       <div className="absolute top-3 left-3 lg:top-4 lg:left-4 z-10 flex flex-col gap-2">
-        <div className="bg-[--surface-base]/80 p-2 lg:p-3 rounded-md border border-[--border-subtle] backdrop-blur-sm">
+        <div className="bg-[--surface-base]/90 p-2 lg:p-3 rounded-md border border-[--border-subtle] backdrop-blur-md shadow-lg">
           <h3 className="text-[--text-primary] font-bold tracking-wider flex items-center text-xs lg:text-sm">
             <Flame className="w-3 h-3 lg:w-4 lg:h-4 text-threat-critical mr-1.5 lg:mr-2" />
             <span className="hidden sm:inline">
@@ -281,13 +434,15 @@ export function ThreatMapWidget() {
             </span>
           </h3>
         </div>
+
+        {/* View mode toggle */}
         <div className="flex gap-1">
           <button
             onClick={() => setViewMode("targets")}
             className={cn(
-              "text-2xs px-2 py-1 rounded-md border backdrop-blur-sm transition-colors font-mono",
+              "text-2xs px-2 py-1 rounded-md border backdrop-blur-md transition-all font-mono",
               viewMode === "targets"
-                ? "bg-cyan-400/20 text-cyan-400 border-cyan-400/40"
+                ? "bg-cyan-400/20 text-cyan-400 border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
                 : "bg-[--surface-base]/60 text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
             )}
           >
@@ -296,20 +451,61 @@ export function ThreatMapWidget() {
           <button
             onClick={() => setViewMode("origins")}
             className={cn(
-              "text-2xs px-2 py-1 rounded-md border backdrop-blur-sm transition-colors font-mono",
+              "text-2xs px-2 py-1 rounded-md border backdrop-blur-md transition-all font-mono",
               viewMode === "origins"
-                ? "bg-threat-critical/20 text-threat-critical border-threat-critical/40"
+                ? "bg-threat-critical/20 text-threat-critical border-threat-critical/40 shadow-[0_0_12px_rgba(239,68,68,0.15)]"
                 : "bg-[--surface-base]/60 text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
             )}
           >
             <Crosshair className="w-3 h-3 inline mr-1" />Origins
           </button>
         </div>
+
+        {/* Aggregation mode toggle */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => setAggMode("country")}
+            className={cn(
+              "text-2xs px-2 py-1 rounded-md border backdrop-blur-md transition-all font-mono",
+              aggMode === "country"
+                ? "bg-cyan-400/15 text-cyan-300 border-cyan-400/30"
+                : "bg-[--surface-base]/60 text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+            )}
+          >
+            <MapIcon className="w-3 h-3 inline mr-1" />Country
+          </button>
+          <button
+            onClick={() => setAggMode("continent")}
+            className={cn(
+              "text-2xs px-2 py-1 rounded-md border backdrop-blur-md transition-all font-mono",
+              aggMode === "continent"
+                ? "bg-cyan-400/15 text-cyan-300 border-cyan-400/30"
+                : "bg-[--surface-base]/60 text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+            )}
+          >
+            <Globe2 className="w-3 h-3 inline mr-1" />Continent
+          </button>
+        </div>
+
+        {/* Attack arcs toggle (origins mode) */}
+        {viewMode === "origins" && (
+          <button
+            onClick={() => setShowArcs(!showArcs)}
+            className={cn(
+              "text-2xs px-2 py-1 rounded-md border backdrop-blur-md transition-all font-mono",
+              showArcs
+                ? "bg-purple-400/15 text-purple-300 border-purple-400/30"
+                : "bg-[--surface-base]/60 text-[--text-tertiary] border-[--border-subtle]"
+            )}
+          >
+            <Activity className="w-3 h-3 inline mr-1" />Arcs
+          </button>
+        )}
       </div>
 
-      {/* ─── Zoom controls ─── */}
+      {/* ─── Right: Zoom + Legend ─── */}
       <div className="absolute top-3 right-3 lg:top-4 lg:right-4 z-10 flex flex-col gap-1">
-        <div className="bg-[--surface-base]/80 rounded-md border border-[--border-subtle] backdrop-blur-sm flex flex-col">
+        <div className="bg-[--surface-base]/90 rounded-md border border-[--border-subtle] backdrop-blur-md shadow-lg flex flex-col">
           <button onClick={zoomIn} className="p-1.5 hover:bg-surface-overlay/50 rounded-t-md transition-colors text-[--text-tertiary] hover:text-[--text-primary]" title="Zoom in">
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
@@ -328,17 +524,23 @@ export function ThreatMapWidget() {
         </div>
 
         {/* Legend */}
-        <div className="bg-[--surface-base]/80 p-1.5 rounded-md border border-[--border-subtle] backdrop-blur-sm hidden sm:block mt-1">
-          <div className="space-y-0.5">
+        <div className="bg-[--surface-base]/90 p-2 rounded-md border border-[--border-subtle] backdrop-blur-md shadow-lg hidden sm:block mt-1">
+          <div className="space-y-1">
             {[
-              { label: "Critical", color: SEV_COLORS.critical },
-              { label: "High", color: SEV_COLORS.high },
-              { label: "Medium", color: SEV_COLORS.medium },
-              { label: "Low", color: SEV_COLORS.low },
+              { label: "Critical", color: SEV_COLORS.critical, glow: SEV_GLOW.critical },
+              { label: "High", color: SEV_COLORS.high, glow: SEV_GLOW.high },
+              { label: "Medium", color: SEV_COLORS.medium, glow: SEV_GLOW.medium },
+              { label: "Low", color: SEV_COLORS.low, glow: SEV_GLOW.low },
             ].map((l) => (
               <div key={l.label} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: l.color }} />
-                <span className="text-[8px] font-mono text-[--text-tertiary]">{l.label}</span>
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{
+                    backgroundColor: l.color,
+                    boxShadow: `0 0 6px ${l.glow}, 0 0 12px ${l.glow}`,
+                  }}
+                />
+                <span className="text-[9px] font-mono text-[--text-tertiary]">{l.label}</span>
               </div>
             ))}
           </div>
@@ -347,20 +549,110 @@ export function ThreatMapWidget() {
 
       {/* ─── Tooltip ─── */}
       {tooltipContent && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-[--surface-base]/95 border border-[--border-default] rounded-md px-3 py-2 text-xs font-mono text-[--text-primary] pointer-events-none backdrop-blur-sm shadow-lg">
-          {tooltipContent}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 px-4 py-2.5 text-xs font-mono pointer-events-none backdrop-blur-md shadow-2xl rounded-lg border"
+          style={{
+            background: "rgba(10, 14, 26, 0.95)",
+            borderColor: tooltipSeverity ? (SEV_COLORS[tooltipSeverity] ?? "var(--border-default)") + "40" : "var(--border-default)",
+            boxShadow: tooltipSeverity
+              ? `0 0 20px ${SEV_GLOW[tooltipSeverity] ?? "transparent"}, 0 4px 24px rgba(0,0,0,0.5)`
+              : "0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <span
+            className="text-sm font-bold"
+            style={{ color: tooltipSeverity ? SEV_COLORS[tooltipSeverity] : "var(--text-primary)" }}
+          >
+            {tooltipContent}
+          </span>
         </div>
       )}
 
-      {/* ─── Map ─── */}
+      {/* ─── SVG Map ─── */}
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{ scale: 120 * zoom, center }}
         style={{ width: "100%", height: "100%" }}
       >
-        <Sphere id="sphere-bg" fill="var(--surface-void, #060A12)" stroke="#22C55E" strokeWidth={0.3} strokeOpacity={0.15} />
-        <Graticule stroke="#22D3EE" strokeWidth={0.3} strokeOpacity={0.06} />
+        {/* SVG Definitions for glow filters */}
+        <defs>
+          <filter id="glow-critical" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feFlood floodColor="#EF4444" floodOpacity="0.6" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-high" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feFlood floodColor="#F97316" floodOpacity="0.5" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-medium" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feFlood floodColor="#EAB308" floodOpacity="0.4" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-low" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feFlood floodColor="#22C55E" floodOpacity="0.3" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-arc" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" />
+          </filter>
+          <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feFlood floodColor="#22D3EE" floodOpacity="0.4" />
+            <feComposite in2="blur" operator="in" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          {/* Radial gradient for hotspot halos */}
+          <radialGradient id="halo-critical">
+            <stop offset="0%" stopColor="#EF4444" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#EF4444" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="halo-high">
+            <stop offset="0%" stopColor="#F97316" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="halo-medium">
+            <stop offset="0%" stopColor="#EAB308" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#EAB308" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="halo-low">
+            <stop offset="0%" stopColor="#22C55E" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
+          </radialGradient>
+        </defs>
 
+        <Sphere
+          id="sphere-bg"
+          fill="var(--surface-void, #060A12)"
+          stroke="#22D3EE"
+          strokeWidth={0.3}
+          strokeOpacity={0.12}
+        />
+        <Graticule stroke="#22D3EE" strokeWidth={0.25} strokeOpacity={0.05} />
+
+        {/* Country geometries */}
         <Geographies geography={GEO_URL}>
           {({ geographies }) =>
             geographies.map((geo) => {
@@ -368,21 +660,25 @@ export function ThreatMapWidget() {
               const name = COUNTRY_NAMES[geoId] || geo.properties?.name || "";
               const data = viewMode === "targets" ? countryData.get(geoId) : null;
               const originInfo = viewMode === "origins" ? originData[geoId] : null;
+              const hasData = !!(data || originInfo);
 
               return (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
                   fill={getCountryFill(geoId)}
-                  stroke="#22D3EE"
-                  strokeWidth={0.4}
-                  strokeOpacity={0.2}
+                  stroke={hasData ? "#22D3EE" : "#1E293B"}
+                  strokeWidth={hasData ? 0.6 : 0.3}
+                  strokeOpacity={hasData ? 0.4 : 0.15}
                   style={{
                     default: { outline: "none" },
                     hover: {
-                      fill: data || originInfo
-                        ? "rgba(34, 211, 238, 0.35)"
-                        : "rgba(148, 163, 184, 0.15)",
+                      fill: hasData
+                        ? "rgba(34, 211, 238, 0.3)"
+                        : "rgba(148, 163, 184, 0.1)",
+                      stroke: "#22D3EE",
+                      strokeWidth: 0.8,
+                      strokeOpacity: 0.6,
                       outline: "none",
                       cursor: "pointer",
                     },
@@ -390,81 +686,201 @@ export function ThreatMapWidget() {
                   }}
                   onMouseEnter={() => {
                     if (data) {
-                      setTooltipContent(`${name}: ${data.count} threats · ${data.maxSeverity.toUpperCase()}`);
+                      setTooltipContent(`${name}: ${data.count} threats \u00b7 ${data.maxSeverity.toUpperCase()}`);
+                      setTooltipSeverity(data.maxSeverity);
                     } else if (originInfo) {
-                      setTooltipContent(`${name}: ${originInfo.count} attacks · ${originInfo.type}`);
+                      setTooltipContent(`${name}: ${originInfo.count} attacks \u00b7 ${originInfo.type}`);
+                      setTooltipSeverity(originInfo.severity);
                     } else {
                       setTooltipContent(name);
+                      setTooltipSeverity("");
                     }
                   }}
-                  onMouseLeave={() => setTooltipContent("")}
+                  onMouseLeave={() => { setTooltipContent(""); setTooltipSeverity(""); }}
                 />
               );
             })
           }
         </Geographies>
 
-        {/* Country name labels */}
-        {Object.entries(LABEL_COORDS).map(([iso, coords]) => {
-          const name = COUNTRY_NAMES[iso] || "";
-          const data = countryData.get(iso);
-          const hasData = data && data.count > 0;
+        {/* ─── Attack arc lines (origins mode) ─── */}
+        {attackArcs.map((arc) => (
+          <g key={arc.id}>
+            {/* Glow layer */}
+            <Line
+              from={arc.from}
+              to={arc.to}
+              stroke={SEV_COLORS[arc.severity] ?? "#EF4444"}
+              strokeWidth={2}
+              strokeOpacity={0.15}
+              strokeLinecap="round"
+              filter="url(#glow-arc)"
+            />
+            {/* Main arc */}
+            <Line
+              from={arc.from}
+              to={arc.to}
+              stroke={SEV_COLORS[arc.severity] ?? "#EF4444"}
+              strokeWidth={1}
+              strokeOpacity={0.3 + pulse * 0.3}
+              strokeLinecap="round"
+              strokeDasharray="4 3"
+            />
+          </g>
+        ))}
+
+        {/* ─── Pulsing hotspot markers ─── */}
+        {hotspots.map((spot) => {
+          const maxCount = Math.max(...hotspots.map((s) => s.count), 1);
+          const normalizedSize = Math.max(3, Math.min(20, (spot.count / maxCount) * 18 + 3));
+          const color = SEV_COLORS[spot.severity] ?? "#22C55E";
+          const isContinent = aggMode === "continent";
+
           return (
-            <Marker key={`label-${iso}`} coordinates={coords}>
+            <Marker key={spot.id} coordinates={spot.coords}>
+              {/* Outer radiating halo */}
+              <circle
+                r={normalizedSize * (isContinent ? 3 : 2.2) + pulse * (isContinent ? 8 : 5)}
+                fill={`url(#halo-${spot.severity})`}
+                opacity={0.4 + pulse * 0.3}
+              />
+
+              {/* Pulsing ring 1 */}
+              <circle
+                r={normalizedSize * 1.8 + pulse * 4}
+                fill="none"
+                stroke={color}
+                strokeWidth={0.5}
+                opacity={0.3 - pulse * 0.2}
+              />
+
+              {/* Pulsing ring 2 */}
+              <circle
+                r={normalizedSize * 1.2 + pulse * 2}
+                fill="none"
+                stroke={color}
+                strokeWidth={0.6}
+                opacity={0.4 - pulse * 0.15}
+              />
+
+              {/* Core dot */}
+              <circle
+                r={normalizedSize * 0.6}
+                fill={color}
+                opacity={0.85}
+                filter={`url(#glow-${spot.severity})`}
+              />
+
+              {/* Inner bright core */}
+              <circle
+                r={normalizedSize * 0.25}
+                fill="white"
+                opacity={0.7 + pulse * 0.3}
+              />
+
+              {/* Label */}
               <text
                 textAnchor="middle"
-                y={2}
+                y={-normalizedSize * (isContinent ? 1.8 : 1.3) - 4}
                 style={{
-                  fontSize: hasData ? 6 : 4.5,
+                  fontSize: isContinent ? 7 : 5.5,
                   fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                  textShadow: "0 0 3px rgba(0,0,0,0.8)",
-                  fill: hasData
-                    ? SEV_COLORS[data!.maxSeverity] || "#94A3B8"
-                    : "#64748B",
-                  fontWeight: hasData ? "bold" : "normal",
+                  textShadow: `0 0 8px rgba(0,0,0,0.9), 0 0 4px ${color}40`,
+                  fill: color,
+                  fontWeight: "bold",
                   pointerEvents: "none",
                 }}
               >
-                {name}
+                {spot.name}
               </text>
-              {hasData && (
-                <text
-                  textAnchor="middle"
-                  y={8}
-                  style={{
-                    fontSize: 4.5,
-                    fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                    fill: SEV_COLORS[data!.maxSeverity] || "#64748B",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {data!.count}
-                </text>
-              )}
+
+              {/* Count label */}
+              <text
+                textAnchor="middle"
+                y={normalizedSize * (isContinent ? 1.8 : 1.3) + 6}
+                style={{
+                  fontSize: isContinent ? 6 : 4.5,
+                  fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+                  textShadow: "0 0 6px rgba(0,0,0,0.9)",
+                  fill: "rgba(241, 245, 249, 0.8)",
+                  fontWeight: "bold",
+                  pointerEvents: "none",
+                }}
+              >
+                {spot.count.toLocaleString()}
+              </text>
             </Marker>
           );
         })}
+
+        {/* Country labels (for countries not in hotspots, in country mode) */}
+        {aggMode === "country" &&
+          Object.entries(LABEL_COORDS).map(([iso, coords]) => {
+            const name = COUNTRY_NAMES[iso] || "";
+            const data = countryData.get(iso);
+            const isHotspot = hotspots.some((s) => s.id === `hotspot-${iso}`);
+            if (isHotspot) return null; // Already rendered as hotspot marker
+            if (!data || data.count === 0) {
+              // Render faint label for non-data countries
+              return (
+                <Marker key={`label-${iso}`} coordinates={coords}>
+                  <text
+                    textAnchor="middle"
+                    y={2}
+                    style={{
+                      fontSize: 4,
+                      fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+                      textShadow: "0 0 3px rgba(0,0,0,0.8)",
+                      fill: "#334155",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {name}
+                  </text>
+                </Marker>
+              );
+            }
+            return null;
+          })}
       </ComposableMap>
 
       {/* ─── Scan-line animation ─── */}
-      <div
-        className="absolute inset-x-0 h-[20px] pointer-events-none"
+      <div className="threat-map-scanline absolute inset-x-0 h-[2px] pointer-events-none z-[5]" />
+
+      {/* ─── Edge vignette ─── */}
+      <div className="absolute inset-0 pointer-events-none z-[4]"
         style={{
-          background: "linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.05), transparent)",
-          animation: "scanLine 4s linear infinite",
+          background: "radial-gradient(ellipse at center, transparent 50%, rgba(6,10,18,0.6) 100%)",
+        }}
+      />
+
+      {/* ─── Grid overlay ─── */}
+      <div className="absolute inset-0 pointer-events-none z-[3] opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(34,211,238,1) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(34,211,238,1) 1px, transparent 1px)`,
+          backgroundSize: "40px 40px",
         }}
       />
 
       {/* ─── Stats bar ─── */}
-      <div className="absolute bottom-3 left-3 right-3 lg:bottom-4 lg:left-4 lg:right-4 z-10 bg-[--surface-base]/80 backdrop-blur-sm rounded-md border border-[--border-subtle] px-3 py-1.5 flex items-center justify-between">
-        <span className="text-[9px] lg:text-2xs font-mono text-[--text-tertiary]">
-          {countryData.size} REGIONS · {viewMode === "targets" ? "TARGET" : "ORIGIN"} VIEW
-        </span>
+      <div className="absolute bottom-3 left-3 right-3 lg:bottom-4 lg:left-4 lg:right-4 z-10 bg-[--surface-base]/90 backdrop-blur-md rounded-md border border-[--border-subtle] px-3 py-2 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-[9px] lg:text-2xs font-mono text-cyan-400 font-semibold">LIVE</span>
+          </div>
+          <span className="text-[9px] lg:text-2xs font-mono text-[--text-tertiary]">
+            {countryData.size} REGIONS \u00b7 {aggMode.toUpperCase()} \u00b7 {viewMode === "targets" ? "TARGET" : "ORIGIN"} VIEW
+          </span>
+        </div>
         <div className="flex items-center gap-3">
           {zoom > 1.3 && (
-            <span className="text-[9px] font-mono text-cyan-400">{zoom.toFixed(1)}×</span>
+            <span className="text-[9px] font-mono text-cyan-400/70">{zoom.toFixed(1)}\u00d7</span>
           )}
-          <span className="text-[9px] lg:text-2xs font-mono text-cyan-400">
+          <span className="text-[9px] lg:text-2xs font-mono font-bold" style={{
+            color: totalThreats > 0 ? "#EF4444" : "#22D3EE",
+          }}>
             {totalThreats.toLocaleString()} TOTAL
           </span>
         </div>

@@ -11,7 +11,7 @@
  * Inspired by radar-watch-guard's ThreatHeatmap composition.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { threats, type Threat, type ThreatStats } from "../lib/api";
 import {
   Card, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
@@ -23,7 +23,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Crosshair, Search, Shield, Globe2, BarChart3, Copy, Database,
-  ShieldAlert, Target, TrendingUp, AlertCircle,
+  ShieldAlert, Target, TrendingUp, AlertCircle, MapPin, RefreshCw,
 } from "lucide-react";
 
 const severityColors: Record<string, string> = {
@@ -60,6 +60,7 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 export function ThreatMapPage() {
+  const queryClient = useQueryClient();
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ["threat-stats"], queryFn: threats.stats });
   const { data: threatList, isLoading: threatsLoading } = useQuery({
     queryKey: ["threats-list"],
@@ -69,6 +70,8 @@ export function ThreatMapPage() {
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<string | null>(null);
 
   // ─── Source breakdown from stats ──────────────────────────────
   const sourceBreakdown = useMemo(() => {
@@ -182,7 +185,7 @@ export function ThreatMapPage() {
           { label: "Critical", value: stats.summary.critical ?? 0, icon: ShieldAlert, color: "text-threat-critical" },
           { label: "High", value: stats.summary.high ?? 0, icon: AlertCircle, color: "text-threat-high" },
           { label: "Sources", value: stats.bySource.length, icon: TrendingUp, color: "text-cyan-400" },
-          { label: "Last 24h", value: stats.last24h.total ?? 0, icon: Target, color: "text-cyan-400" },
+          { label: "Countries", value: geoCount, icon: Globe2, color: geoCount > 0 ? "text-cyan-400" : "text-[--text-disabled]" },
         ].map((kpi, i) => (
           <motion.div
             key={kpi.label}
@@ -250,23 +253,55 @@ export function ThreatMapPage() {
             </div>
             <div className="p-3 lg:p-4 space-y-2 max-h-[200px] overflow-y-auto">
               {regionBreakdown.length > 0 ? (
-                regionBreakdown.map((r) => (
-                  <div key={r.region} className="p-2 rounded-md bg-[--surface-base] border border-[--border-subtle]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-[--text-primary] truncate">{r.region}</span>
-                      <span className="text-xs font-bold text-cyan-400 tabular-nums">{r.threats}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-[--surface-void] rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${r.pct}%` }} />
+                regionBreakdown.map((r) => {
+                  const regionColor = r.pct >= 40 ? severityColors.critical
+                    : r.pct >= 25 ? severityColors.high
+                    : r.pct >= 10 ? severityColors.medium
+                    : "var(--cyan-400)";
+                  return (
+                    <div key={r.region} className="p-2 rounded-md bg-[--surface-base] border border-[--border-subtle] hover:border-[--border-default] transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-[--text-primary] truncate">{r.region}</span>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: regionColor }}>{r.threats}</span>
                       </div>
-                      <span className="text-[9px] text-[--text-tertiary] tabular-nums w-8 text-right">{r.pct}%</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-[--surface-void] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: regionColor }} />
+                        </div>
+                        <span className="text-[9px] text-[--text-tertiary] tabular-nums w-8 text-right">{r.pct}%</span>
+                      </div>
+                      <div className="text-[9px] text-[--text-tertiary] mt-1">{r.countries} countries</div>
                     </div>
-                    <div className="text-[9px] text-[--text-tertiary] mt-1">{r.countries} countries</div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
-                <div className="py-3 text-xs text-[--text-tertiary] text-center">No geographic data yet</div>
+                <div className="py-4 flex flex-col items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[--text-disabled]" />
+                  <p className="text-xs text-[--text-tertiary]">No geographic data yet</p>
+                  <button
+                    onClick={async () => {
+                      setEnriching(true);
+                      setEnrichResult(null);
+                      try {
+                        const result = await threats.enrichGeo();
+                        setEnrichResult(`Enriched ${result.enriched} of ${result.total} threats`);
+                        queryClient.invalidateQueries({ queryKey: ["threat-stats"] });
+                      } catch (err) {
+                        setEnrichResult("Enrichment failed — admin access required");
+                      } finally {
+                        setEnriching(false);
+                      }
+                    }}
+                    disabled={enriching}
+                    className="text-2xs px-3 py-1.5 rounded-md border border-cyan-400/30 text-cyan-400 hover:bg-cyan-400/10 transition-colors font-mono flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", enriching && "animate-spin")} />
+                    {enriching ? "Enriching..." : "Enrich Geo Data"}
+                  </button>
+                  {enrichResult && (
+                    <p className="text-[10px] text-cyan-400/80 font-mono">{enrichResult}</p>
+                  )}
+                </div>
               )}
             </div>
           </Card>
@@ -442,21 +477,63 @@ export function ThreatMapPage() {
             </div>
             <div className="max-h-[500px] overflow-y-auto">
               {byCountry.length === 0 ? (
-                <div className="px-4 py-8 text-center text-[--text-tertiary] text-sm">No geographic data available</div>
+                <div className="px-4 py-10 flex flex-col items-center gap-3">
+                  <Globe2 className="w-8 h-8 text-[--text-disabled]" />
+                  <p className="text-sm text-[--text-tertiary]">No geographic data available</p>
+                  <p className="text-xs text-[--text-disabled] max-w-sm text-center">
+                    Threat feeds with IP addresses need GeoIP enrichment to populate country data. Click below to resolve IP addresses to countries.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setEnriching(true);
+                      setEnrichResult(null);
+                      try {
+                        const result = await threats.enrichGeo();
+                        setEnrichResult(`Enriched ${result.enriched} of ${result.total} threats with country codes`);
+                        queryClient.invalidateQueries({ queryKey: ["threat-stats"] });
+                      } catch (err) {
+                        setEnrichResult("Enrichment failed — admin access required");
+                      } finally {
+                        setEnriching(false);
+                      }
+                    }}
+                    disabled={enriching}
+                    className="text-xs px-4 py-2 rounded-md border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 transition-colors font-mono flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn("w-3.5 h-3.5", enriching && "animate-spin")} />
+                    {enriching ? "Enriching IP addresses..." : "Run GeoIP Enrichment"}
+                  </button>
+                  {enrichResult && (
+                    <p className="text-xs text-cyan-400/80 font-mono mt-1">{enrichResult}</p>
+                  )}
+                </div>
               ) : (
-                <div className="p-4 space-y-2">
-                  {byCountry.map((c) => {
+                <div className="p-4 space-y-1.5">
+                  {byCountry.map((c, i) => {
                     const pct = maxCount > 0 ? Math.round((c.count / maxCount) * 100) : 0;
                     const name = countryNames[c.country_code] ?? c.country_code;
+                    const color = barColor(c.count);
+                    const sevColor = pct >= 70 ? severityColors.critical
+                      : pct >= 40 ? severityColors.high
+                      : pct >= 15 ? severityColors.medium
+                      : severityColors.low;
                     return (
-                      <div key={c.country_code} className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-[--text-tertiary] w-8">{c.country_code}</span>
-                        <span className="text-xs text-[--text-primary] w-32 truncate">{name}</span>
-                        <div className="flex-1 h-3 bg-[--surface-base] rounded overflow-hidden">
-                          <div className={`h-full ${barColor(c.count)} rounded transition-all`} style={{ width: `${pct}%` }} />
+                      <motion.div
+                        key={c.country_code}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03, duration: 0.25 }}
+                        className="flex items-center gap-3 py-1 px-2 rounded hover:bg-surface-overlay/20 transition-colors"
+                      >
+                        <span className="text-[10px] font-mono text-[--text-tertiary] w-7 shrink-0">{i + 1}.</span>
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sevColor, boxShadow: `0 0 6px ${sevColor}40` }} />
+                        <span className="text-xs font-mono text-[--text-tertiary] w-7 shrink-0">{c.country_code}</span>
+                        <span className="text-xs text-[--text-primary] w-28 truncate shrink-0">{name}</span>
+                        <div className="flex-1 h-2.5 bg-[--surface-base] rounded overflow-hidden">
+                          <div className={`h-full ${color} rounded transition-all`} style={{ width: `${pct}%` }} />
                         </div>
                         <span className={`text-xs font-bold tabular-nums w-12 text-right ${riskColor(c.count)}`}>{c.count}</span>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>

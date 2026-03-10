@@ -1,4 +1,5 @@
 import { json } from "../lib/cors";
+import { enrichThreatsGeo } from "../lib/geoip";
 import type { Env } from "../types";
 
 // ─── List threats with filtering ────────────────────────────────
@@ -184,6 +185,17 @@ export async function handleListSocialIOCs(request: Request, env: Env): Promise<
     `).first();
 
     return json({ success: true, data: { iocs: rows.results, stats } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── GeoIP Enrichment ─────────────────────────────────────────
+export async function handleEnrichGeo(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const result = await enrichThreatsGeo(env.DB);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
