@@ -19,6 +19,7 @@ import {
 } from "../components/ui";
 import { ThreatMapWidget } from "../components/ThreatMapWidget";
 import { ThreatDetailDialog } from "../components/ThreatDetailDialog";
+import { cn } from "../lib/cn";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
