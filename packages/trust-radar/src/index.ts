@@ -18,7 +18,7 @@ import {
 } from "./handlers/agents";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
-  handleListBriefings, handleGetBriefing, handleListSocialIOCs,
+  handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
 } from "./handlers/threats";
 import {
   handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
@@ -251,6 +251,13 @@ router.patch("/api/threats/:id", async (request: Request & { params: Record<stri
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleUpdateThreat(request, env, request.params["id"] ?? "");
+});
+
+// ─── GeoIP Enrichment ─────────────────────────────────────
+router.post("/api/threats/enrich-geo", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleEnrichGeo(request, env);
 });
 
 // ─── Briefings ─────────────────────────────────────────────

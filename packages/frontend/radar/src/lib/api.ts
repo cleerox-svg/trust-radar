@@ -255,6 +255,7 @@ export const threats = {
   stats: () => api<ThreatStats>("/threats/stats"),
   get: (id: string) => api<Threat>(`/threats/${id}`),
   update: (id: string, data: Record<string, unknown>) => api<void>(`/threats/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  enrichGeo: () => api<{ enriched: number; total: number }>("/threats/enrich-geo", { method: "POST" }),
 };
 
 export const briefings = {

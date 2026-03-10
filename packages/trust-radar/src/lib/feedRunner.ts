@@ -11,6 +11,7 @@
 
 import type { Env } from "../types";
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "../feeds/types";
+import { enrichThreatsGeo } from "./geoip";
 
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_RESET_MS = 30 * 60 * 1000; // 30 minutes
@@ -249,6 +250,16 @@ export async function runAllFeeds(env: Env, feedModules: Record<string, FeedModu
     feedsRun++;
     totalNew += result.itemsNew;
     if (result.error) feedsFailed++;
+  }
+
+  // Post-ingestion: enrich threats missing country_code via GeoIP
+  if (totalNew > 0) {
+    try {
+      const geo = await enrichThreatsGeo(env.DB);
+      console.log(`[geoip] enriched ${geo.enriched}/${geo.total} threats with country codes`);
+    } catch (err) {
+      console.error("[geoip] post-ingestion enrichment failed:", err);
+    }
   }
 
   // Update job
