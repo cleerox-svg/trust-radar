@@ -1,13 +1,29 @@
-import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useState, useEffect, type FormEvent } from "react";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../App";
+import { invites } from "../lib/api";
 
 export default function Register() {
   const { register, user, authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite") ?? "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<{ role: string; email_hint: string | null } | null>(null);
+  const [inviteError, setInviteError] = useState("");
+
+  // Validate invite token on mount
+  useEffect(() => {
+    if (!inviteToken) return;
+    invites.validate(inviteToken)
+      .then((info) => {
+        setInviteInfo({ role: info.role, email_hint: info.email_hint });
+        if (info.email_hint) setEmail(info.email_hint);
+      })
+      .catch(() => setInviteError("Invalid or expired invite link"));
+  }, [inviteToken]);
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-base)" }}>
@@ -21,7 +37,7 @@ export default function Register() {
     setLoading(true);
     setError("");
     try {
-      await register(email, password);
+      await register(email, password, inviteToken || undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -46,6 +62,18 @@ export default function Register() {
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Create account</h1>
             <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>Start scanning URLs and tracking signals</p>
           </div>
+
+          {/* Invite banner */}
+          {inviteInfo && (
+            <div className="text-xs rounded-lg px-3 py-2 font-mono" style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)", color: "var(--cyan-400)" }}>
+              You&apos;ve been invited as <span className="font-bold">{inviteInfo.role}</span>
+            </div>
+          )}
+          {inviteError && (
+            <div className="text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 font-mono" style={{ color: "var(--threat-critical)" }}>
+              {inviteError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">

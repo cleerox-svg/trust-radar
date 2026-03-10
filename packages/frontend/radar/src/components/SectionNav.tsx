@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
-import { NAV_SECTIONS, getActiveSection } from "./BottomBar";
+import { NAV_SECTIONS, getActiveSection, hasRoleAccess, type RoleLevel } from "./BottomBar";
 
 /**
  * Horizontal sub-tabs rendered at the top of the content area.
@@ -14,9 +14,11 @@ export function SectionNav() {
 
   if (!section) return null;
 
-  // Filter admin-only items
+  // Filter by admin-only and role-based access
+  const userRole = (user?.role ?? "customer") as RoleLevel;
   const items = section.items.filter((item) => {
     if (item.adminOnly && !user?.is_admin) return false;
+    if (!hasRoleAccess(userRole, item.minRole)) return false;
     return true;
   });
 
@@ -38,7 +40,7 @@ export function SectionNav() {
           <NavLink
             key={item.path}
             to={item.path}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 min-h-[36px]"
             style={{
               color: isActive ? "var(--cyan-400)" : "var(--text-secondary)",
               background: isActive ? "rgba(34, 211, 238, 0.1)" : "transparent",

@@ -74,6 +74,13 @@ router.get("/api/auth/me", async (request: Request, env: Env) => {
   return handleMe(request, env, ctx.userId);
 });
 
+// ─── Public Scan (unauthenticated, rate-limited) ─────────────
+router.post("/api/scan/public", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "scan");
+  if (limited) return limited;
+  return handleScan(request, env);
+});
+
 // ─── Scans ────────────────────────────────────────────────────
 router.post("/api/scan", async (request: Request, env: Env) => {
   const limited = await rateLimit(request, env, "scan");
