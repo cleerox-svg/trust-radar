@@ -3,7 +3,7 @@ import { handleOptions, json } from "./lib/cors";
 import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
-import { handleSignals, handleAlerts, handleAckAlert } from "./handlers/signals";
+import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
@@ -94,6 +94,12 @@ router.get("/api/dashboard/trend", (request: Request, env: Env) =>
 router.get("/api/signals", (request: Request, env: Env) =>
   handleSignals(request, env)
 );
+
+router.post("/api/signals", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleIngestSignal(request, env, ctx.userId);
+});
 
 // ─── Alerts ───────────────────────────────────────────────────
 router.get("/api/alerts", (request: Request, env: Env) =>

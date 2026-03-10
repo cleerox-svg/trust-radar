@@ -1,148 +1,122 @@
-import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { admin, type AdminUser, type AdminStats } from "../lib/api";
+import { Card, CardContent, Badge, Button } from "../components/ui";
 
 const PLANS = ["free", "pro", "enterprise"] as const;
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="card space-y-1">
-      <div className="text-xs text-radar-muted uppercase tracking-wider">{label}</div>
-      <div className="font-mono font-bold text-2xl text-radar-cyan">{value}</div>
-      {sub && <div className="text-xs text-radar-muted">{sub}</div>}
-    </div>
-  );
-}
-
 export default function AdminPage() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const qc = useQueryClient();
+  const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: admin.stats });
+  const { data: usersData, isLoading } = useQuery({ queryKey: ["admin-users"], queryFn: () => admin.users(50) });
 
-  useEffect(() => {
-    Promise.all([admin.stats(), admin.users()])
-      .then(([s, u]) => {
-        setStats(s);
-        setUsers(u.users);
-        setTotal(u.total);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { plan?: string; scans_limit?: number; is_admin?: boolean } }) =>
+      admin.updateUser(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
 
-  async function updateUser(id: string, data: { plan?: string; scans_limit?: number; is_admin?: boolean }) {
-    setSaving(id);
-    try {
-      const updated = await admin.updateUser(id, data);
-      setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-2 border-radar-cyan border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const users = usersData?.users ?? [];
+  const total = usersData?.total ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Admin Panel</h1>
-          <p className="text-xs text-radar-muted mt-0.5">Platform management · Trust Radar</p>
+          <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1">Admin Panel</h1>
+          <p className="text-sm text-[--text-secondary]">Platform management</p>
         </div>
-        <span className="text-xs bg-radar-red/15 text-radar-red px-2 py-1 rounded-full font-mono border border-radar-red/30">
-          ADMIN
-        </span>
+        <Badge variant="critical">ADMIN</Badge>
       </div>
-
-      {error && (
-        <div className="card border-radar-red/40 text-radar-red text-sm">{error}</div>
-      )}
 
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard label="Total Users" value={stats.users.total} sub={`${stats.users.pro} pro · ${stats.users.enterprise} enterprise`} />
-          <StatCard label="Total Scans" value={stats.scans.total} />
-          <StatCard label="High Risk Scans" value={stats.scans.high_risk} sub={`avg trust ${stats.scans.avg_trust}`} />
-          <StatCard label="Open Alerts" value={stats.alerts.open} sub={`${stats.alerts.total} total`} />
+          {[
+            { label: "Total Users", value: stats.users.total, sub: `${stats.users.pro} pro, ${stats.users.enterprise} enterprise`, color: "text-cyan-400" },
+            { label: "Total Scans", value: stats.scans.total },
+            { label: "High Risk Scans", value: stats.scans.high_risk, sub: `avg trust ${stats.scans.avg_trust}`, color: "text-threat-high" },
+            { label: "Open Alerts", value: stats.alerts.open, sub: `${stats.alerts.total} total`, color: stats.alerts.open > 0 ? "text-threat-critical" : "text-green-400" },
+          ].map((c) => (
+            <Card key={c.label}>
+              <CardContent>
+                <div className="text-xs text-[--text-tertiary]">{c.label}</div>
+                <div className={`text-2xl font-bold tabular-nums ${c.color ?? "text-[--text-primary]"}`}>{c.value}</div>
+                {c.sub && <div className="text-xs text-[--text-secondary] mt-1">{c.sub}</div>}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
       {/* Users table */}
-      <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b border-radar-border flex items-center justify-between">
-          <h2 className="font-semibold text-slate-200 text-sm">Users ({total})</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-radar-border">
-                {["Email", "Plan", "Scans", "Limit", "Admin", "Joined"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs text-radar-muted uppercase tracking-wider font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-radar-border last:border-0 hover:bg-radar-border/20 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-300 max-w-[200px] truncate">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <select
-                      className="bg-radar-bg border border-radar-border text-xs text-slate-300 rounded px-2 py-1 focus:border-radar-cyan focus:outline-none"
-                      value={u.plan}
-                      disabled={saving === u.id}
-                      onChange={(e) => updateUser(u.id, { plan: e.target.value })}
-                    >
-                      {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-radar-muted">{u.scans_used}</td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      className="bg-radar-bg border border-radar-border text-xs text-slate-300 rounded px-2 py-1 w-20 focus:border-radar-cyan focus:outline-none"
-                      defaultValue={u.scans_limit}
-                      min={0}
-                      max={100000}
-                      disabled={saving === u.id}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val) && val !== u.scans_limit) updateUser(u.id, { scans_limit: val });
-                      }}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => updateUser(u.id, { is_admin: !u.is_admin })}
-                      disabled={saving === u.id}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
-                        u.is_admin
-                          ? "bg-radar-red/15 text-radar-red border-radar-red/30 hover:bg-radar-red/25"
-                          : "bg-radar-border text-radar-muted border-radar-border hover:border-radar-cyan hover:text-radar-cyan"
-                      }`}
-                    >
-                      {u.is_admin ? "admin" : "user"}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-radar-muted font-mono">
-                    {new Date(u.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="!p-0">
+          <div className="px-4 py-3 border-b border-[--border-subtle] flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[--text-primary]">Users ({total})</h2>
+          </div>
+          {isLoading ? (
+            <div className="text-sm text-[--text-tertiary] py-12 text-center">Loading users...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[--border-subtle]">
+                    {["Email", "Plan", "Scans", "Limit", "Admin", "Joined"].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left text-xs text-[--text-tertiary] font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-b border-[--border-subtle] last:border-0 hover:bg-[--surface-raised] transition-colors">
+                      <td className="px-4 py-3 font-mono text-xs text-[--text-primary] max-w-[200px] truncate">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          className="text-xs px-2 py-1 rounded bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] focus:border-cyan-500 focus:outline-none"
+                          value={u.plan}
+                          disabled={updateMut.isPending}
+                          onChange={(e) => updateMut.mutate({ id: u.id, data: { plan: e.target.value } })}
+                        >
+                          {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-[--text-tertiary]">{u.scans_used}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          className="text-xs px-2 py-1 rounded bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] w-20 focus:border-cyan-500 focus:outline-none"
+                          defaultValue={u.scans_limit}
+                          min={0}
+                          max={100000}
+                          disabled={updateMut.isPending}
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val) && val !== u.scans_limit) updateMut.mutate({ id: u.id, data: { scans_limit: val } });
+                          }}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => updateMut.mutate({ id: u.id, data: { is_admin: !u.is_admin } })}
+                          disabled={updateMut.isPending}
+                          className={`text-xs px-2 py-1 rounded border transition-colors ${
+                            u.is_admin
+                              ? "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
+                              : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:border-cyan-500 hover:text-cyan-400"
+                          }`}
+                        >
+                          {u.is_admin ? "admin" : "user"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[--text-tertiary] font-mono">{new Date(u.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
