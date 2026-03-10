@@ -474,3 +474,9 @@ html.light {
 .animate-scroll-x {
   animation: scroll-x 30s linear infinite;
 }
+
+/* ── Threat map scan line effect ──────────────────────────────── */
+@keyframes scanLine {
+  0%   { top: 0; }
+  100% { top: calc(100% - 20px); }
+}

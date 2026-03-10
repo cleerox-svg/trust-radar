@@ -20,7 +20,7 @@ const AlertsPage = lazy(() => import("./pages/AlertsPage"));
 const EntitiesPage = lazy(() => import("./pages/EntitiesPage"));
 const TrendsPage = lazy(() => import("./pages/TrendsPage"));
 const SendSignals = lazy(() => import("./pages/SendSignals"));
-const GeoMapPage = lazy(() => import("./pages/GeoMapPage"));
+// GeoMapPage merged into ThreatMapPage — /geo-map now redirects to /threat-map
 const KnowledgeBasePage = lazy(() => import("./pages/KnowledgeBasePage"));
 const AIAdvisorPage = lazy(() => import("./pages/AIAdvisorPage"));
 const Home = lazy(() => import("./pages/Home"));
@@ -329,7 +329,7 @@ export default function App() {
 
                           {/* Legacy routes */}
                           <Route path="/trends"         element={<TrendsPage />} />
-                          <Route path="/geo-map"        element={<GeoMapPage />} />
+                          <Route path="/geo-map"        element={<Navigate to="/threat-map" replace />} />
 
                           {/* Admin */}
                           <Route path="/admin"          element={<RequireAdmin><AdminPage /></RequireAdmin>} />
