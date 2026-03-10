@@ -204,6 +204,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
               <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
             </div>
           )}
+          {user?.is_admin && (
+            <Link
+              to="/admin"
+              className="text-[11px] font-mono px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors hidden sm:inline-flex items-center"
+            >
+              ADM
+            </Link>
+          )}
           <ThemeToggle />
           <button
             onClick={logout}
