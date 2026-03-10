@@ -43,7 +43,18 @@ function TakedownCard({
   return (
     <div
       onClick={onClick}
-      className={`soc-card !p-3 cursor-pointer hover:border-soc-border-bright transition-all space-y-2 ${isDone ? "opacity-60" : ""}`}
+      className={`card !p-3 cursor-pointer transition-all space-y-2 ${isDone ? "opacity-60" : ""}`}
+      style={{ cursor: "pointer" }}
+      onMouseEnter={(e) => {
+        if (!isDone) {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.transform = "translateY(-2px)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "";
+        e.currentTarget.style.transform = "";
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-bold text-slate-100 font-mono text-sm truncate">@{td.suspect_handle}</span>

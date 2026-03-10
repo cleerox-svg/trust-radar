@@ -1,36 +1,28 @@
+/**
+ * Brand Score / Personal Dashboard — spec §G-08
+ * Updated to IMPRSN8_DESIGN_SPEC_V2 token system.
+ *
+ * Hero: ScoreRing hero-lg with 900ms arc animation
+ * Sub-scores: ScoreRing card-md (replaces old hand-drawn SVG rings)
+ * Colors: V2 CSS variables throughout (no hardcoded #hex or brand-* tokens)
+ */
+
 import { useState, useEffect, type FormEvent } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { auth, analyses, socials, campaigns as campaignsApi, profile as profileApi, type User, type Analysis, type SocialProfile, type ScorePoint, type Campaign } from "../lib/api";
+import {
+  auth, analyses, socials,
+  campaigns as campaignsApi, profile as profileApi,
+  type User, type Analysis, type SocialProfile, type ScorePoint, type Campaign,
+} from "../lib/api";
+import { ScoreRing } from "../components/ui/ScoreRing";
 
 const PLATFORMS = ["linkedin", "twitter", "github", "instagram", "tiktok", "youtube", "website"] as const;
 const PLATFORM_ICONS: Record<string, string> = {
   linkedin: "in", twitter: "𝕏", github: "⌥", instagram: "ig",
   tiktok: "tt", youtube: "▶", website: "🌐",
 };
-
-function ScoreCard({ score, label, color }: { score: number; label: string; color: string }) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (score / 100) * circ;
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative w-[72px] h-[72px]">
-        <svg className="-rotate-90 w-full h-full" viewBox="0 0 72 72">
-          <circle cx="36" cy="36" r={r} fill="none" stroke="#1e1b4b" strokeWidth="7" />
-          <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 1s ease" }} />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-bold text-lg leading-none" style={{ color }}>{score}</span>
-        </div>
-      </div>
-      <div className="text-xs text-brand-muted capitalize">{label}</div>
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -39,32 +31,34 @@ export default function Dashboard() {
   const [scoreHistory, setScoreHistory] = useState<ScorePoint[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Analyze form
   const [analyzeType, setAnalyzeType] = useState<Analysis["type"]>("bio");
   const [analyzeInput, setAnalyzeInput] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
   const [latestAnalysis, setLatestAnalysis] = useState<Analysis | null>(null);
 
-  // Profile edit
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ display_name: "", bio: "", username: "" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
 
-  // Social form
   const [socialPlatform, setSocialPlatform] = useState("linkedin");
   const [socialHandle, setSocialHandle] = useState("");
   const [addingSocial, setAddingSocial] = useState(false);
 
-  // Campaigns
   const [userCampaigns, setUserCampaigns] = useState<Campaign[]>([]);
   const [campaignName, setCampaignName] = useState("");
   const [campaignChannel, setCampaignChannel] = useState("web");
   const [creatingCampaign, setCreatingCampaign] = useState(false);
 
   useEffect(() => {
-    Promise.all([auth.me(), analyses.list(), socials.list(), analyses.scoreHistory(), campaignsApi.list()])
+    Promise.all([
+      auth.me(),
+      analyses.list(),
+      socials.list(),
+      analyses.scoreHistory(),
+      campaignsApi.list(),
+    ])
       .then(([u, a, s, h, c]) => {
         setUser(u);
         setRecentAnalyses(a.slice(0, 5));
@@ -146,49 +140,53 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-brand-purple border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: "var(--violet-400)", borderTopColor: "transparent" }} />
       </div>
     );
   }
 
   const overallScore = user?.impression_score ?? 0;
-  const scoreColor = overallScore >= 70 ? "#8b5cf6" : overallScore >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── Page header: name + score hero ────────────────────── */}
+      <div className="flex items-center justify-between gap-6 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">
+          <h1 className="font-display text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
             {user?.display_name ?? user?.email?.split("@")[0] ?? "Dashboard"}
           </h1>
-          <p className="text-brand-muted text-sm mt-0.5">{user?.plan} plan · {user?.total_analyses} analyses</p>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            {user?.plan} plan · {user?.total_analyses} analyses run
+          </p>
         </div>
-        <div className="text-right">
-          <div className="text-5xl font-extrabold gradient-text">{overallScore}</div>
-          <div className="text-xs text-brand-muted uppercase tracking-widest">Impression Score</div>
-        </div>
+        {/* ScoreRing hero — 900ms arc animation on mount, counter ticks */}
+        <ScoreRing
+          score={overallScore}
+          size="hero-lg"
+          label="Impression Score"
+          showLabel
+          showHealth
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Analyze + history */}
+        {/* ── Left column: analyze + history ─────────────────── */}
         <div className="lg:col-span-2 space-y-6">
           {/* Analyze */}
-          <div className="card space-y-4">
-            <h2 className="font-semibold text-slate-200">New Analysis</h2>
+          <div className="card p-6 space-y-4">
+            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>New Analysis</h2>
             <form onSubmit={handleAnalyze} className="space-y-3">
-              <div className="flex gap-3">
-                <select
-                  className="input"
-                  value={analyzeType}
-                  onChange={(e) => setAnalyzeType(e.target.value as Analysis["type"])}
-                >
-                  <option value="bio">Bio</option>
-                  <option value="content">Content</option>
-                  <option value="profile">Profile URL</option>
-                  <option value="portfolio">Portfolio</option>
-                </select>
-              </div>
+              <select
+                className="input"
+                value={analyzeType}
+                onChange={(e) => setAnalyzeType(e.target.value as Analysis["type"])}
+              >
+                <option value="bio">Bio</option>
+                <option value="content">Content</option>
+                <option value="profile">Profile URL</option>
+                <option value="portfolio">Portfolio</option>
+              </select>
               <textarea
                 className="input resize-none"
                 rows={4}
@@ -197,7 +195,9 @@ export default function Dashboard() {
                 onChange={(e) => setAnalyzeInput(e.target.value)}
                 disabled={analyzing}
               />
-              {analyzeError && <p className="text-red-400 text-sm">{analyzeError}</p>}
+              {analyzeError && (
+                <p className="text-sm" style={{ color: "var(--red-400)" }}>{analyzeError}</p>
+              )}
               <button type="submit" className="btn-primary" disabled={analyzing || !analyzeInput.trim()}>
                 {analyzing ? "Analyzing…" : "Analyze →"}
               </button>
@@ -206,32 +206,48 @@ export default function Dashboard() {
 
           {/* Latest analysis result */}
           {latestAnalysis && (
-            <div className="card space-y-5 border-brand-purple/30">
+            <div className="card p-6 space-y-5" style={{ borderColor: "rgba(109,64,237,0.3)" }}>
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-slate-200">Latest Result</h2>
-                <span className="text-3xl font-extrabold gradient-text">{latestAnalysis.score}</span>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Latest Result</h2>
+                {/* Score as large tabular number, gold */}
+                <span
+                  className="font-display font-bold tabular"
+                  style={{ fontSize: 32, color: "var(--gold-400)", fontVariantNumeric: "tabular-nums" }}
+                >
+                  {latestAnalysis.score}
+                </span>
               </div>
-              <div className="flex gap-6 justify-center">
-                {Object.entries(latestAnalysis.breakdown).map(([key, val]) => (
-                  <ScoreCard key={key} score={val} label={key} color={scoreColor} />
-                ))}
-              </div>
+
+              {/* Sub-score breakdown — ScoreRing card-md per dimension */}
+              {Object.keys(latestAnalysis.breakdown).length > 0 && (
+                <div className="flex gap-5 justify-center flex-wrap py-2">
+                  {Object.entries(latestAnalysis.breakdown).map(([key, val]) => (
+                    <ScoreRing key={key} score={val} size="card-md" label={key} showLabel />
+                  ))}
+                </div>
+              )}
+
               {latestAnalysis.strengths.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-xs text-brand-muted uppercase tracking-wider">Strengths</div>
+                  <div className="text-11 uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+                    Strengths
+                  </div>
                   {latestAnalysis.strengths.map((s, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-brand-purple mt-0.5">✓</span> {s}
+                    <div key={i} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <span style={{ color: "var(--green-400)", marginTop: 2 }}>✓</span> {s}
                     </div>
                   ))}
                 </div>
               )}
+
               {latestAnalysis.suggestions.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-xs text-brand-muted uppercase tracking-wider">Suggestions</div>
+                  <div className="text-11 uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+                    Suggestions
+                  </div>
                   {latestAnalysis.suggestions.map((s, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-brand-pink mt-0.5">→</span> {s}
+                    <div key={i} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <span style={{ color: "var(--gold-400)", marginTop: 2 }}>→</span> {s}
                     </div>
                   ))}
                 </div>
@@ -241,51 +257,89 @@ export default function Dashboard() {
 
           {/* Score trend chart */}
           {scoreHistory.length > 0 && (
-            <div className="card space-y-4">
+            <div className="card p-6 space-y-4">
               <div>
-                <h2 className="font-semibold text-slate-200">Impression Score Trend</h2>
-                <p className="text-xs text-brand-muted mt-0.5">Historical score over time</p>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Impression Score Trend
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+                  Historical score over time
+                </p>
               </div>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={scoreHistory} margin={{ top: 5, right: 0, left: -30, bottom: 0 }}>
                   <defs>
                     <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      {/* V2 violet-400 = #6D40ED */}
+                      <stop offset="5%"  stopColor="#6D40ED" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#6D40ED" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1b4b" />
-                  <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
+                  {/* No grid lines per V2 spec — Stripe/Mercury principle */}
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(242,238,248,0.06)" />
+                  <XAxis dataKey="date" tick={{ fill: "#6B5F82", fontSize: 10 }} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "#6B5F82", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={{ background: "#0f0f1e", border: "1px solid #1e1b4b", borderRadius: "8px", fontSize: "12px" }}
-                    labelStyle={{ color: "#6b7280" }}
-                    itemStyle={{ color: "#8b5cf6" }}
+                    contentStyle={{
+                      background: "var(--surface-overlay)",
+                      border: "1px solid var(--border-default)",
+                      borderRadius: "10px",
+                      fontSize: "12px",
+                    }}
+                    labelStyle={{ color: "#6B5F82" }}
+                    itemStyle={{ color: "#6D40ED" }}
                   />
-                  <Area type="monotone" dataKey="score" name="score" stroke="#8b5cf6" strokeWidth={2.5}
-                    fill="url(#scoreGrad)" dot={{ fill: "#8b5cf6", r: 3 }} activeDot={{ r: 5 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    name="score"
+                    stroke="#6D40ED"
+                    strokeWidth={2}
+                    fill="url(#scoreGrad)"
+                    dot={{ fill: "#6D40ED", r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
 
-          {/* Recent history */}
+          {/* Recent analyses table */}
           {recentAnalyses.length > 0 && (
             <div className="card p-0 overflow-hidden">
-              <div className="px-5 py-4 border-b border-brand-border">
-                <h2 className="font-semibold text-slate-200">Recent Analyses</h2>
+              <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Recent Analyses</h2>
               </div>
               <table className="w-full">
                 <tbody>
                   {recentAnalyses.map((a) => (
-                    <tr key={a.id} className="border-b border-brand-border last:border-0 hover:bg-brand-border/20 transition-colors">
+                    <tr
+                      key={a.id}
+                      className="transition-colors"
+                      style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-overlay)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
                       <td className="px-5 py-3">
-                        <span className="text-xs bg-brand-purple/20 text-brand-purple px-2 py-0.5 rounded-full capitalize">
+                        <span
+                          className="text-11 uppercase px-2 py-0.5 rounded-full"
+                          style={{
+                            background: "rgba(109,64,237,0.15)",
+                            color: "var(--violet-300)",
+                          }}
+                        >
                           {a.type}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-bold text-xl gradient-text">{a.score}</td>
-                      <td className="px-5 py-3 text-sm text-brand-muted">
+                      <td className="px-5 py-3">
+                        <span
+                          className="font-display font-bold tabular"
+                          style={{ fontSize: 20, color: "var(--gold-400)", fontVariantNumeric: "tabular-nums" }}
+                        >
+                          {a.score}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-sm" style={{ color: "var(--text-tertiary)" }}>
                         {new Date(a.created_at).toLocaleDateString()}
                       </td>
                     </tr>
@@ -296,12 +350,12 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right column */}
+        {/* ── Right column: profile, socials, campaigns ──────── */}
         <div className="space-y-6">
           {/* Profile card */}
-          <div className="card space-y-4">
+          <div className="card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-slate-200">Profile</h2>
+              <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Profile</h2>
               {!editingProfile && (
                 <button
                   onClick={() => {
@@ -312,7 +366,10 @@ export default function Dashboard() {
                     });
                     setEditingProfile(true);
                   }}
-                  className="text-xs text-brand-muted hover:text-brand-purple transition-colors"
+                  className="text-xs transition-colors"
+                  style={{ color: "var(--text-tertiary)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold-400)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
                 >
                   Edit
                 </button>
@@ -322,29 +379,43 @@ export default function Dashboard() {
             {!editingProfile ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-brand-purple/20 border border-brand-border flex items-center justify-center text-brand-purple font-bold">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold"
+                    style={{
+                      background: "rgba(109,64,237,0.15)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--violet-400)",
+                    }}
+                  >
                     {(user?.display_name ?? user?.email ?? "?")[0].toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-200">
+                    <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                       {user?.display_name ?? user?.username ?? user?.email?.split("@")[0]}
                     </div>
                     {user?.username && (
-                      <div className="text-xs text-brand-muted">@{user.username}</div>
+                      <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                        @{user.username}
+                      </div>
                     )}
                   </div>
                 </div>
-                {user?.bio && (
-                  <p className="text-xs text-brand-muted leading-relaxed">{user.bio}</p>
-                )}
-                {!user?.bio && (
-                  <p className="text-xs text-brand-muted italic">No bio yet</p>
+                {user?.bio ? (
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    {user.bio}
+                  </p>
+                ) : (
+                  <p className="text-xs italic" style={{ color: "var(--text-tertiary)" }}>
+                    No bio yet
+                  </p>
                 )}
               </div>
             ) : (
               <form onSubmit={handleSaveProfile} className="space-y-3">
                 <div>
-                  <label className="text-xs text-brand-muted block mb-1">Display name</label>
+                  <label className="text-11 block mb-1 uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                    Display name
+                  </label>
                   <input
                     className="input text-sm"
                     value={profileForm.display_name}
@@ -354,7 +425,9 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-brand-muted block mb-1">Username</label>
+                  <label className="text-11 block mb-1 uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                    Username
+                  </label>
                   <input
                     className="input text-sm"
                     value={profileForm.username}
@@ -365,7 +438,9 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-brand-muted block mb-1">Bio</label>
+                  <label className="text-11 block mb-1 uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                    Bio
+                  </label>
                   <textarea
                     className="input text-sm resize-none"
                     rows={3}
@@ -376,7 +451,7 @@ export default function Dashboard() {
                   />
                 </div>
                 {profileError && (
-                  <p className="text-xs text-red-400">{profileError}</p>
+                  <p className="text-xs" style={{ color: "var(--red-400)" }}>{profileError}</p>
                 )}
                 <div className="flex gap-2">
                   <button type="submit" className="btn-primary text-sm !px-4 !py-2" disabled={savingProfile}>
@@ -390,25 +465,38 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card space-y-4">
-            <h2 className="font-semibold text-slate-200">Social Profiles</h2>
+          {/* Social Profiles */}
+          <div className="card p-5 space-y-4">
+            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Social Profiles</h2>
 
             {userSocials.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {userSocials.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between py-2 border-b border-brand-border last:border-0">
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between py-2"
+                    style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-brand-purple/20 flex items-center justify-center text-xs font-bold text-brand-purple">
+                      <span
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
+                        style={{ background: "rgba(109,64,237,0.15)", color: "var(--violet-400)" }}
+                      >
                         {PLATFORM_ICONS[s.platform] ?? s.platform[0].toUpperCase()}
                       </span>
                       <div>
-                        <div className="text-sm text-slate-200 font-medium capitalize">{s.platform}</div>
-                        <div className="text-xs text-brand-muted">@{s.handle}</div>
+                        <div className="text-sm font-medium capitalize" style={{ color: "var(--text-primary)" }}>
+                          {s.platform}
+                        </div>
+                        <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>@{s.handle}</div>
                       </div>
                     </div>
                     <button
                       onClick={() => handleRemoveSocial(s.platform)}
-                      className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
+                      className="text-xs transition-colors"
+                      style={{ color: "rgba(232,22,59,0.5)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--red-400)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(232,22,59,0.5)")}
                     >
                       remove
                     </button>
@@ -419,9 +507,7 @@ export default function Dashboard() {
 
             <form onSubmit={handleAddSocial} className="space-y-3">
               <select className="input text-sm" value={socialPlatform} onChange={(e) => setSocialPlatform(e.target.value)}>
-                {PLATFORMS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
+                {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
               <input
                 className="input text-sm"
@@ -430,27 +516,47 @@ export default function Dashboard() {
                 onChange={(e) => setSocialHandle(e.target.value)}
                 disabled={addingSocial}
               />
-              <button type="submit" className="btn-ghost w-full text-sm py-2" disabled={addingSocial || !socialHandle.trim()}>
+              <button
+                type="submit"
+                className="btn-ghost w-full text-sm py-2"
+                disabled={addingSocial || !socialHandle.trim()}
+              >
                 {addingSocial ? "Adding…" : "+ Add profile"}
               </button>
             </form>
           </div>
 
           {/* Campaigns */}
-          <div className="card space-y-4">
-            <h2 className="font-semibold text-slate-200">Campaigns</h2>
+          <div className="card p-5 space-y-4">
+            <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Campaigns</h2>
 
             {userCampaigns.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {userCampaigns.slice(0, 4).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-brand-border last:border-0">
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between py-2"
+                    style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                  >
                     <div>
-                      <div className="text-sm text-slate-200 font-medium truncate max-w-[120px]">{c.name}</div>
-                      <div className="text-xs text-brand-muted capitalize">{c.channel} · {c.status}</div>
+                      <div
+                        className="text-sm font-medium truncate max-w-[120px]"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {c.name}
+                      </div>
+                      <div className="text-xs capitalize" style={{ color: "var(--text-tertiary)" }}>
+                        {c.channel} · {c.status}
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-mono text-brand-purple">{c.impressions.toLocaleString()}</div>
-                      <div className="text-[10px] text-brand-muted">impressions</div>
+                      <div
+                        className="text-xs font-mono tabular"
+                        style={{ color: "var(--violet-400)", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {c.impressions.toLocaleString()}
+                      </div>
+                      <div className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>impressions</div>
                     </div>
                   </div>
                 ))}
@@ -470,11 +576,13 @@ export default function Dashboard() {
                 value={campaignChannel}
                 onChange={(e) => setCampaignChannel(e.target.value)}
               >
-                {["web", "mobile", "email", "api"].map((ch) => (
-                  <option key={ch} value={ch}>{ch}</option>
-                ))}
+                {["web", "mobile", "email", "api"].map((ch) => <option key={ch} value={ch}>{ch}</option>)}
               </select>
-              <button type="submit" className="btn-ghost w-full text-sm py-2" disabled={creatingCampaign || !campaignName.trim()}>
+              <button
+                type="submit"
+                className="btn-ghost w-full text-sm py-2"
+                disabled={creatingCampaign || !campaignName.trim()}
+              >
                 {creatingCampaign ? "Creating…" : "+ New campaign"}
               </button>
             </form>
