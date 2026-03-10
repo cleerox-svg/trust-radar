@@ -1,81 +1,33 @@
-import { useEffect, useState } from "react";
-import { scans, ScanResult } from "../lib/api";
-
-function riskColor(r: ScanResult["risk_level"]) {
-  const map: Record<string, string> = {
-    safe:     "text-radar-green",
-    low:      "text-radar-blue",
-    medium:   "text-radar-yellow",
-    high:     "text-radar-orange",
-    critical: "text-radar-red",
-  };
-  return map[r] ?? "text-radar-muted";
-}
-
-function riskBg(r: ScanResult["risk_level"]) {
-  const map: Record<string, string> = {
-    safe:     "bg-radar-green/10 border-radar-green/30",
-    low:      "bg-radar-blue/10 border-radar-blue/30",
-    medium:   "bg-radar-yellow/10 border-radar-yellow/30",
-    high:     "bg-radar-orange/10 border-radar-orange/30",
-    critical: "bg-radar-red/10 border-radar-red/30",
-  };
-  return map[r] ?? "bg-radar-border/30 border-radar-border";
-}
-
-function ScoreRing({ score }: { score: number }) {
-  const r = 18; const c = 2 * Math.PI * r;
-  const pct = Math.min(100, Math.max(0, score));
-  const dash = (pct / 100) * c;
-  const color = score >= 80 ? "#00ff88" : score >= 50 ? "#f59e0b" : "#ff4444";
-  return (
-    <svg width="44" height="44" className="rotate-[-90deg]">
-      <circle cx="22" cy="22" r={r} fill="none" stroke="#1a2744" strokeWidth="3" />
-      <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="3"
-        strokeDasharray={`${dash} ${c - dash}`} strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s" }} />
-      <text x="22" y="22" textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize="10" fontWeight="700" className="rotate-90 origin-center" style={{ transform: "rotate(90deg)", transformOrigin: "22px 22px" }}>
-        {score}
-      </text>
-    </svg>
-  );
-}
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { scans, type ScanResult } from "../lib/api";
+import { Card, CardContent, Badge, ScoreRing } from "../components/ui";
 
 export default function EntitiesPage() {
-  const [data, setData] = useState<ScanResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const { data, isLoading } = useQuery({ queryKey: ["entities"], queryFn: () => scans.history(100) });
 
-  useEffect(() => {
-    scans.history(100)
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = data.filter((s) => {
-    const matchSearch = !search ||
-      s.domain.toLowerCase().includes(search.toLowerCase()) ||
-      s.url.toLowerCase().includes(search.toLowerCase());
+  const list = data ?? [];
+  const filtered = list.filter((s) => {
+    const matchSearch = !search || s.domain.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase());
     const matchRisk = riskFilter === "all" || s.risk_level === riskFilter;
     return matchSearch && matchRisk;
   });
 
-  const riskCounts = data.reduce<Record<string, number>>((acc, s) => {
+  const riskCounts = list.reduce<Record<string, number>>((acc, s) => {
     acc[s.risk_level] = (acc[s.risk_level] ?? 0) + 1;
     return acc;
   }, {});
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-radar-text">Entities</h1>
-          <p className="text-xs text-radar-muted mt-0.5">Tracked domains and URLs from scan history</p>
+          <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1">Entities</h1>
+          <p className="text-sm text-[--text-secondary]">Tracked domains and URLs from scan history</p>
         </div>
-        <div className="text-xs font-mono text-radar-muted">{filtered.length} entities</div>
+        <span className="text-xs font-mono text-[--text-tertiary]">{filtered.length} entities</span>
       </div>
 
       {/* Risk summary */}
@@ -84,110 +36,97 @@ export default function EntitiesPage() {
           <button
             key={r}
             onClick={() => setRiskFilter(riskFilter === r ? "all" : r)}
-            className={`stat-card text-center cursor-pointer hover:border-radar-border-2 transition-colors ${
-              riskFilter === r ? riskBg(r) : ""
+            className={`p-3 rounded-lg border text-center transition-colors ${
+              riskFilter === r
+                ? "border-cyan-500 bg-cyan-500/10"
+                : "border-[--border-subtle] bg-[--surface-raised] hover:border-[--border-default]"
             }`}
           >
-            <div className={`text-lg font-bold font-mono ${riskColor(r)}`}>
+            <div className={`text-lg font-bold font-mono ${
+              r === "critical" ? "text-threat-critical" : r === "high" ? "text-threat-high" :
+              r === "medium" ? "text-threat-medium" : r === "low" ? "text-cyan-400" : "text-green-400"
+            }`}>
               {riskCounts[r] ?? 0}
             </div>
-            <div className="text-[10px] text-radar-muted capitalize">{r}</div>
+            <div className="text-[10px] text-[--text-tertiary] capitalize">{r}</div>
           </button>
         ))}
       </div>
 
       {/* Search */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 items-center">
         <input
-          className="input max-w-xs"
-          placeholder="Search domain or URL…"
+          type="text"
+          placeholder="Search domain or URL..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-md text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-500 focus:outline-none"
         />
         {riskFilter !== "all" && (
-          <button className="btn-ghost text-xs" onClick={() => setRiskFilter("all")}>
-            Clear filter
-          </button>
+          <button onClick={() => setRiskFilter("all")} className="text-xs text-cyan-400 hover:text-cyan-300">Clear filter</button>
         )}
       </div>
 
-      {error && (
-        <div className="card border-radar-red/30 bg-radar-red/5 text-radar-red text-sm">{error}</div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center h-48 text-radar-muted text-sm animate-pulse">
-          Loading entities…
-        </div>
-      ) : (
-        <div className="card !p-0 overflow-hidden overflow-x-auto">
-          <table className="w-full text-xs min-w-[640px]">
-            <thead>
-              <tr className="border-b border-radar-border bg-radar-sidebar">
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Score</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Domain</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Risk</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Country</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">SSL</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">VirusTotal</th>
-                <th className="text-left px-4 py-2.5 text-radar-muted font-medium">Scanned</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-radar-muted">
-                    No entities found
-                  </td>
-                </tr>
-              )}
-              {filtered.map((s, i) => (
-                <tr
-                  key={s.id}
-                  className={`border-b border-radar-border/50 hover:bg-radar-sidebar/50 transition-colors ${
-                    i % 2 === 0 ? "" : "bg-radar-sidebar/20"
-                  }`}
-                >
-                  <td className="px-4 py-2">
-                    <ScoreRing score={s.trust_score} />
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="font-mono text-radar-text">{s.domain}</div>
-                    <div className="text-radar-muted truncate max-w-[200px]">{s.url}</div>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded border ${riskBg(s.risk_level)} ${riskColor(s.risk_level)}`}>
-                      {s.risk_level}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 font-mono text-radar-muted">{s.metadata.country ?? "—"}</td>
-                  <td className="px-4 py-2">
-                    {s.metadata.ssl_valid === undefined ? (
-                      <span className="text-radar-muted">—</span>
-                    ) : s.metadata.ssl_valid ? (
-                      <span className="text-radar-green font-mono">✓ valid</span>
-                    ) : (
-                      <span className="text-radar-red font-mono">✗ invalid</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 font-mono">
-                    {s.metadata.virustotal ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-radar-red">{s.metadata.virustotal.malicious}m</span>
-                        <span className="text-radar-yellow">{s.metadata.virustotal.suspicious}s</span>
-                        <span className="text-radar-green">{s.metadata.virustotal.harmless}h</span>
-                      </div>
-                    ) : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-radar-muted whitespace-nowrap">
-                    {new Date(s.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Card>
+        <CardContent className="!p-0">
+          {isLoading ? (
+            <div className="text-sm text-[--text-tertiary] py-12 text-center">Loading entities...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-[--border-subtle] text-left text-[--text-tertiary]">
+                    <th className="px-4 py-2.5 font-medium">Score</th>
+                    <th className="px-4 py-2.5 font-medium">Domain</th>
+                    <th className="px-4 py-2.5 font-medium">Risk</th>
+                    <th className="px-4 py-2.5 font-medium">Country</th>
+                    <th className="px-4 py-2.5 font-medium">SSL</th>
+                    <th className="px-4 py-2.5 font-medium">VirusTotal</th>
+                    <th className="px-4 py-2.5 font-medium">Scanned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-[--text-tertiary]">No entities found</td></tr>
+                  )}
+                  {filtered.map((s) => (
+                    <tr key={s.id} className="border-b border-[--border-subtle] last:border-0 hover:bg-[--surface-raised] transition-colors">
+                      <td className="px-4 py-2"><ScoreRing score={s.trust_score} size="sm" /></td>
+                      <td className="px-4 py-2">
+                        <div className="font-mono text-[--text-primary]">{s.domain}</div>
+                        <div className="text-[--text-tertiary] truncate max-w-[200px]">{s.url}</div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge variant={s.risk_level as "critical" | "high" | "medium" | "low"}>{s.risk_level}</Badge>
+                      </td>
+                      <td className="px-4 py-2 font-mono text-[--text-tertiary]">{s.metadata.country ?? "—"}</td>
+                      <td className="px-4 py-2">
+                        {s.metadata.ssl_valid === undefined ? (
+                          <span className="text-[--text-tertiary]">—</span>
+                        ) : s.metadata.ssl_valid ? (
+                          <span className="text-green-400 font-mono">Valid</span>
+                        ) : (
+                          <span className="text-red-400 font-mono">Invalid</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 font-mono">
+                        {s.metadata.virustotal ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-red-400">{s.metadata.virustotal.malicious}m</span>
+                            <span className="text-yellow-400">{s.metadata.virustotal.suspicious}s</span>
+                            <span className="text-green-400">{s.metadata.virustotal.harmless}h</span>
+                          </div>
+                        ) : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-[--text-tertiary] whitespace-nowrap">{new Date(s.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

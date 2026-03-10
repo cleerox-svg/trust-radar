@@ -1,89 +1,88 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { scans, type ScanResult } from "../lib/api";
-
-const RISK_COLOR: Record<string, string> = {
-  safe: "text-radar-green",
-  low: "text-sky-400",
-  medium: "text-radar-yellow",
-  high: "text-orange-400",
-  critical: "text-radar-red",
-};
+import { Card, CardContent, Badge, Button, ScoreRing } from "../components/ui";
 
 export default function History() {
-  const [items, setItems] = useState<ScanResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [riskFilter, setRiskFilter] = useState<string>("all");
+  const { data, isLoading } = useQuery({ queryKey: ["scan-history"], queryFn: () => scans.history(100) });
 
-  useEffect(() => {
-    scans.history()
-      .then(setItems)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load history"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-radar-green border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const list = data ?? [];
+  const filtered = riskFilter === "all" ? list : list.filter((s) => s.risk_level === riskFilter);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-100">Scan History</h1>
-        <Link to="/scan" className="btn-primary text-sm py-2">New scan</Link>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1">Scan History</h1>
+          <p className="text-sm text-[--text-secondary]">Previous URL analysis results</p>
+        </div>
+        <Link to="/scan"><Button variant="default" size="sm">New Scan</Button></Link>
       </div>
 
-      {error && <div className="card border-radar-red/30 text-radar-red text-sm">{error}</div>}
+      {/* Risk filter */}
+      <div className="flex gap-2 flex-wrap">
+        {["all", "safe", "low", "medium", "high", "critical"].map((r) => (
+          <button
+            key={r}
+            onClick={() => setRiskFilter(r)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              riskFilter === r
+                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
+            }`}
+          >
+            {r.charAt(0).toUpperCase() + r.slice(1)}
+            {r !== "all" && <span className="ml-1 opacity-70">{list.filter((s) => s.risk_level === r).length}</span>}
+          </button>
+        ))}
+      </div>
 
-      {items.length === 0 && !error ? (
-        <div className="card text-center space-y-3 py-16">
-          <div className="text-4xl">🔍</div>
-          <p className="text-radar-muted">No scans yet. Run your first analysis.</p>
-          <Link to="/scan" className="btn-primary inline-block text-sm">Start scanning</Link>
-        </div>
+      {isLoading ? (
+        <div className="text-sm text-[--text-tertiary] py-12 text-center">Loading history...</div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <h3 className="text-lg font-semibold text-[--text-primary] mb-2">No Scans Yet</h3>
+              <p className="text-sm text-[--text-tertiary] max-w-md mb-4">Run your first analysis to see results here.</p>
+              <Link to="/scan"><Button>Start Scanning</Button></Link>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-radar-border text-xs text-radar-muted uppercase tracking-wider">
-                <th className="text-left px-5 py-3">Domain</th>
-                <th className="text-left px-5 py-3">Score</th>
-                <th className="text-left px-5 py-3">Risk</th>
-                <th className="text-left px-5 py-3 hidden sm:table-cell">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, i) => (
-                <tr
-                  key={item.id}
-                  className={`border-b border-radar-border last:border-0 hover:bg-radar-border/30 transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}
-                >
-                  <td className="px-5 py-4">
-                    <div className="font-mono text-sm text-slate-200 truncate max-w-[200px]">{item.domain}</div>
-                    <div className="font-mono text-xs text-radar-muted truncate max-w-[200px]">{item.url}</div>
-                  </td>
-                  <td className="px-5 py-4 font-mono font-bold">
-                    <span className={item.trust_score >= 70 ? "score-safe" : item.trust_score >= 40 ? "score-medium" : "score-high"}>
-                      {item.trust_score}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${RISK_COLOR[item.risk_level]}`}>
-                      {item.risk_level}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-sm text-radar-muted hidden sm:table-cell">
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardContent className="!p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[--border-subtle] text-left text-xs text-[--text-tertiary]">
+                    <th className="px-4 py-2.5 font-medium">Score</th>
+                    <th className="px-4 py-2.5 font-medium">Domain</th>
+                    <th className="px-4 py-2.5 font-medium">Risk</th>
+                    <th className="px-4 py-2.5 font-medium hidden sm:table-cell">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => (
+                    <tr key={item.id} className="border-b border-[--border-subtle] last:border-0 hover:bg-[--surface-raised] transition-colors">
+                      <td className="px-4 py-2.5"><ScoreRing score={item.trust_score} size="sm" /></td>
+                      <td className="px-4 py-2.5">
+                        <div className="font-mono text-sm text-[--text-primary] truncate max-w-[200px]">{item.domain}</div>
+                        <div className="font-mono text-xs text-[--text-tertiary] truncate max-w-[200px]">{item.url}</div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={item.risk_level as "critical" | "high" | "medium" | "low"}>{item.risk_level}</Badge>
+                      </td>
+                      <td className="px-4 py-2.5 text-sm text-[--text-tertiary] hidden sm:table-cell">{new Date(item.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
