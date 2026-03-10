@@ -22,18 +22,16 @@ import Register from "./pages/Register";
 import { FeedAnalyticsPage } from "./pages/FeedAnalyticsPage";
 import { AgentHubPage } from "./pages/AgentHubPage";
 import { TrustBotPage } from "./pages/TrustBotPage";
-import {
-  ThreatMapPage,
-  BrandExposurePage,
-  DailyBriefingPage,
-  InvestigationsPage,
-  TakedownsPage,
-  SocialIntelPage,
-  DarkWebPage,
-  ATOPage,
-  EmailAuthPage,
-  CloudStatusPage,
-} from "./pages/PlaceholderPage";
+import { ThreatMapPage } from "./pages/ThreatMapPage";
+import { BrandExposurePage } from "./pages/BrandExposurePage";
+import { DailyBriefingPage } from "./pages/DailyBriefingPage";
+import { InvestigationsPage } from "./pages/InvestigationsPage";
+import { TakedownsPage } from "./pages/TakedownsPage";
+import { SocialIntelPage } from "./pages/SocialIntelPage";
+import { DarkWebPage } from "./pages/DarkWebPage";
+import { ATOPage } from "./pages/ATOPage";
+import { EmailAuthPage } from "./pages/EmailAuthPage";
+import { CloudStatusPage } from "./pages/CloudStatusPage";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
 
 // ─── Query Client ─────────────────────────────────────────────

@@ -164,3 +164,138 @@ export const agents = {
 export const trustbot = {
   chat: (query: string) => api<{ response: string; context: Record<string, unknown>; runId: string }>("/trustbot/chat", { method: "POST", body: JSON.stringify({ query }) }),
 };
+
+// ─── Threat types ──────────────────────────────────────────
+export interface Threat {
+  id: string; type: string; title: string; severity: string; confidence: number;
+  status: string; source: string; ioc_type: string | null; ioc_value: string | null;
+  domain: string | null; ip_address: string | null; country_code: string | null;
+  tags: string; first_seen: string; last_seen: string; created_at: string;
+}
+export interface ThreatStats {
+  summary: Record<string, number>;
+  last24h: Record<string, number>;
+  byType: Array<{ type: string; count: number }>;
+  bySource: Array<{ source: string; count: number }>;
+  bySeverity: Array<{ severity: string; count: number }>;
+  byCountry: Array<{ country_code: string; count: number }>;
+}
+export interface Briefing {
+  id: string; title: string; summary: string | null; body: string | null;
+  severity: string | null; category: string | null; status: string;
+  generated_by: string | null; published_at: string | null; created_at: string;
+}
+export interface SocialIOC {
+  id: string; platform: string; author: string; post_url: string;
+  ioc_type: string; ioc_value: string; confidence: number; context: string | null;
+  tags: string | null; verified: number; captured_at: string; created_at: string;
+}
+
+export const threats = {
+  list: (params?: { limit?: number; severity?: string; type?: string; status?: string; q?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.limit) sp.set("limit", String(params.limit));
+    if (params?.severity) sp.set("severity", params.severity);
+    if (params?.type) sp.set("type", params.type);
+    if (params?.status) sp.set("status", params.status);
+    if (params?.q) sp.set("q", params.q);
+    return api<{ threats: Threat[]; total: number }>(`/threats?${sp}`);
+  },
+  stats: () => api<ThreatStats>("/threats/stats"),
+  get: (id: string) => api<Threat>(`/threats/${id}`),
+  update: (id: string, data: Record<string, unknown>) => api<void>(`/threats/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const briefings = {
+  list: () => api<Briefing[]>("/briefings"),
+  get: (id: string) => api<Briefing>(`/briefings/${id}`),
+};
+
+export const socialIocs = {
+  list: (limit = 50, platform?: string) => api<{ iocs: SocialIOC[]; stats: Record<string, number> }>(`/social-iocs?limit=${limit}${platform ? `&platform=${platform}` : ""}`),
+};
+
+// ─── Investigation types ───────────────────────────────────
+export interface InvestigationTicket {
+  id: string; ticket_id: string; title: string; severity: string; status: string;
+  priority: string; category: string; assignee_id: string | null;
+  tags: string; sla_due_at: string | null; created_by: string;
+  created_at: string; updated_at: string;
+}
+export interface ErasureAction {
+  id: string; ticket_id: string | null; target_type: string; target_value: string;
+  provider: string; provider_email: string | null; method: string; status: string;
+  submitted_at: string | null; acknowledged_at: string | null; resolved_at: string | null;
+  created_by: string; created_at: string;
+}
+export interface CampaignCluster {
+  id: string; name: string; description: string | null; status: string;
+  threat_count: number; confidence: number; first_seen: string;
+  last_seen: string; created_at: string;
+}
+
+export const tickets = {
+  list: (params?: { status?: string; severity?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set("status", params.status);
+    if (params?.severity) sp.set("severity", params.severity);
+    return api<{ tickets: InvestigationTicket[]; stats: Record<string, number> }>(`/tickets?${sp}`);
+  },
+  get: (id: string) => api<{ ticket: InvestigationTicket; evidence: unknown[]; erasures: ErasureAction[] }>(`/tickets/${id}`),
+  create: (data: Record<string, unknown>) => api<{ id: string; ticketId: string }>("/tickets", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) => api<void>(`/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const erasures = {
+  list: (status?: string) => api<{ erasures: ErasureAction[]; stats: Record<string, number> }>(`/erasures${status ? `?status=${status}` : ""}`),
+  create: (data: Record<string, unknown>) => api<{ id: string }>("/erasures", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) => api<void>(`/erasures/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const campaigns = {
+  list: () => api<CampaignCluster[]>("/campaigns"),
+};
+
+// ─── Intel types ───────────────────────────────────────────
+export interface BreachCheck {
+  id: string; check_type: string; target: string; breach_name: string;
+  breach_date: string | null; data_types: string | null; source: string;
+  severity: string; resolved: number; checked_at: string; created_at: string;
+}
+export interface ATOEvent {
+  id: string; email: string; event_type: string; ip_address: string | null;
+  country_code: string | null; user_agent: string | null; risk_score: number;
+  status: string; source: string; detected_at: string; created_at: string;
+}
+export interface EmailAuthReport {
+  id: string; domain: string; report_type: string; result: string;
+  source_ip: string | null; source_domain: string | null; alignment: string | null;
+  details: string | null; report_date: string; created_at: string;
+}
+export interface CloudIncident {
+  id: string; provider: string; service: string; title: string;
+  description: string | null; severity: string; status: string;
+  impact: string | null; source_url: string | null;
+  started_at: string; resolved_at: string | null; created_at: string;
+}
+
+export const breaches = {
+  list: (q?: string) => api<{ breaches: BreachCheck[]; stats: Record<string, number> }>(`/breaches${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+};
+
+export const atoEvents = {
+  list: (status?: string) => api<{ events: ATOEvent[]; stats: Record<string, number> }>(`/ato-events${status ? `?status=${status}` : ""}`),
+  update: (id: string, status: string) => api<void>(`/ato-events/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+};
+
+export const emailAuth = {
+  list: (domain?: string) => api<{ reports: EmailAuthReport[]; stats: Record<string, number>; byType: Array<Record<string, unknown>> }>(`/email-auth${domain ? `?domain=${encodeURIComponent(domain)}` : ""}`),
+};
+
+export const cloudIncidents = {
+  list: (provider?: string, activeOnly = false) => api<{ incidents: CloudIncident[]; stats: Record<string, number>; byProvider: Array<Record<string, unknown>> }>(`/cloud-incidents?${provider ? `provider=${provider}&` : ""}${activeOnly ? "active=true" : ""}`),
+};
+
+export const trustScores = {
+  list: (domain?: string) => api<Array<{ id: string; domain: string; score: number; previous_score: number; delta: number; risk_level: string; measured_at: string }>>(`/trust-scores${domain ? `?domain=${encodeURIComponent(domain)}` : ""}`),
+};
