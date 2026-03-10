@@ -32,6 +32,7 @@ import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
+import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
 import type { Env } from "./types";
 
 const router = Router();
@@ -140,6 +141,18 @@ router.get("/api/admin/health", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleAdminHealth(request, env);
+});
+
+// ─── Session Events (admin) ─────────────────────────────────
+router.get("/api/admin/sessions", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListSessionEvents(request, env);
+});
+router.post("/api/admin/users/:id/force-logout", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleForceLogout(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────
