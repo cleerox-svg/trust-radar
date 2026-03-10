@@ -38,12 +38,13 @@ export async function handleSignals(request: Request, env: Env): Promise<Respons
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
   const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10));
 
   try {
     const rows = await env.DB.prepare(
       `SELECT id, url, domain, trust_score, risk_level, flags, source, cached, created_at
-       FROM scans ORDER BY created_at DESC LIMIT ?`
-    ).bind(limit).all<{ id: string; url: string; domain: string; trust_score: number; risk_level: string; flags: string; source: string; cached: number; created_at: string }>();
+       FROM scans ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    ).bind(limit, offset).all<{ id: string; url: string; domain: string; trust_score: number; risk_level: string; flags: string; source: string; cached: number; created_at: string }>();
 
     const signals = rows.results.map((r) => ({
       id: r.id,
