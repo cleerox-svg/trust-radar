@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getToken } from "../lib/api";
+import { WordMark } from "../components/LogoMark";
 
 /* ── Stat ticker data ────────────────────────────────────────── */
 const STATS = [
@@ -102,12 +103,9 @@ export default function LandingPage() {
           borderBottom: scrolled ? "1px solid var(--border-subtle)" : "1px solid transparent",
         }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full bg-cyan-400" />
-          </div>
-          <span className="font-display font-bold text-lg">Trust Radar</span>
-        </div>
+        <Link to="/">
+          <WordMark size={30} textSize="text-lg" />
+        </Link>
         <div className="flex items-center gap-4">
           <a href="#features" className="hidden sm:inline text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Features</a>
           <a href="#pricing" className="hidden sm:inline text-sm text-[--text-secondary] hover:text-[--text-primary] transition-colors">Pricing</a>

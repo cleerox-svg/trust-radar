@@ -1,6 +1,7 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { StatusDot } from "./ui/StatusDot";
+import { WordMark } from "./LogoMark";
 
 interface NavItem {
   path: string;
@@ -83,13 +84,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
       {/* Brand header */}
       <div className="flex items-center justify-between px-4 h-14 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-            <div className="w-3 h-3 rounded-full bg-cyan-400" />
-          </div>
-          <div className="min-w-0">
-            <div className="font-display font-bold text-[--text-primary] text-sm leading-tight">Trust Radar</div>
-            <div className="text-[10px] text-[--text-tertiary] leading-tight font-mono">v3.0 · intelligence</div>
-          </div>
+          <Link to="/" className="transition-opacity hover:opacity-80 min-w-0">
+            <WordMark size={26} textSize="text-sm" />
+          </Link>
         </div>
         <button
           onClick={onClose}
