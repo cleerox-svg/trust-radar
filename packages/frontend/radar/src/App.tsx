@@ -1,5 +1,5 @@
 import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, Link } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
 import { TooltipProvider } from "./components/ui/Tooltip";
@@ -9,6 +9,7 @@ import { TrustBotWidget } from "./components/TrustBotWidget";
 import { PlatformSwitcher } from "./components/PlatformSwitcher";
 import { BottomBar } from "./components/BottomBar";
 import { SectionNav } from "./components/SectionNav";
+import { WordMark } from "./components/LogoMark";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
@@ -181,13 +182,11 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         style={{ background: "var(--surface-void)", borderBottom: "1px solid var(--border-subtle)" }}
       >
         <div className="flex items-center gap-3">
-          {/* Brand mark */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-            </div>
-            <span className="font-display font-bold text-sm text-[--text-primary] hidden sm:inline">Trust Radar</span>
-          </div>
+          {/* Brand wordmark — links to public landing page */}
+          <Link to="/" className="transition-opacity hover:opacity-80">
+            <WordMark size={22} textSize="text-sm" className="hidden sm:inline-flex" />
+            <WordMark size={22} textSize="text-sm" hideIcon={false} className="sm:hidden" />
+          </Link>
           {/* Platform switcher */}
           <div className="hidden sm:block">
             <PlatformSwitcher />
