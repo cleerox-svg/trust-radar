@@ -9,15 +9,16 @@
 
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { RefreshCw, X, Play, GitBranch, Clock, Zap, BarChart3 } from "lucide-react";
-import { agents as agentsApi } from "../lib/api";
+import { RefreshCw, X, Play, GitBranch, Clock, Zap, BarChart3, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
+import { agents as agentsApi, compliance as complianceApi } from "../lib/api";
+import type { ComplianceAuditEntry } from "../lib/api";
 import { AgentIcon, AGENT_COLORS, AGENT_DESCRIPTIONS } from "../components/ui/AgentIcon";
 import type { AgentName } from "../components/ui/AgentIcon";
 import { FeedsView } from "../components/FeedsView";
 import type { AgentDefinition, AgentRun, User, InfluencerProfile } from "../lib/types";
 
 interface Ctx { user: User; selectedInfluencer: InfluencerProfile | null; }
-type PanelTab = "intelligence" | "sources" | "network";
+type PanelTab = "intelligence" | "sources" | "network" | "compliance";
 
 function timeAgo(ts: string | null | undefined): string {
   if (!ts) return "never";
@@ -311,6 +312,134 @@ function AgentNetworkView({ agents }: { agents: AgentDefinition[] }) {
   );
 }
 
+// ─── Compliance Audit View ─────────────────────────────────────────────────────
+function ComplianceView() {
+  const [items, setItems] = useState<ComplianceAuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showResolved, setShowResolved] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await complianceApi.list(showResolved);
+      setItems(data);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, [showResolved]);
+
+  async function handleResolve(id: string) {
+    await complianceApi.resolve(id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  const AUDIT_TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    stale_threat: { label: "Stale Threat", icon: <AlertTriangle size={14} />, color: "var(--red-400)" },
+    stale_takedown: { label: "Stale Takedown", icon: <ShieldAlert size={14} />, color: "var(--gold-400)" },
+    agent_overdue: { label: "Agent Overdue", icon: <Clock size={14} />, color: "var(--violet-400)" },
+    hitl_gap: { label: "HITL Gap", icon: <ShieldAlert size={14} />, color: "var(--red-400)" },
+  };
+
+  return (
+    <div className="space-y-4 flex-1 overflow-y-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="font-display text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            HITL Compliance Audit
+          </h3>
+          <span className="text-xs font-mono px-2 py-0.5 rounded-full" style={{
+            background: items.length > 0 ? "var(--red-400)" + "18" : "var(--green-400)" + "18",
+            color: items.length > 0 ? "var(--red-400)" : "var(--green-400)",
+            border: `1px solid ${items.length > 0 ? "var(--red-400)" : "var(--green-400)"}30`,
+          }}>
+            {items.length} {showResolved ? "total" : "open"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowResolved(!showResolved)}
+            className="filter-pill"
+            style={{
+              background: showResolved ? "var(--surface-overlay)" : "",
+              borderColor: showResolved ? "var(--border-strong)" : "",
+              color: showResolved ? "var(--text-primary)" : "",
+            }}
+          >
+            {showResolved ? "Show Open Only" : "Show Resolved"}
+          </button>
+          <button onClick={() => void load()} disabled={loading} className="btn-icon">
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="card p-8 text-center">
+          <CheckCircle2 size={32} className="mx-auto mb-3" style={{ color: "var(--green-400)" }} />
+          <div className="font-display font-semibold" style={{ color: "var(--green-400)" }}>All Clear</div>
+          <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+            WATCHDOG found no compliance gaps. All threats reviewed, takedowns processed, agents on schedule.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const meta = AUDIT_TYPE_LABELS[item.audit_type] ?? { label: item.audit_type, icon: <AlertTriangle size={14} />, color: "var(--text-secondary)" };
+            return (
+              <div key={item.id} className="card p-4 flex items-start gap-3">
+                <div className="shrink-0 mt-0.5" style={{ color: meta.color }}>{meta.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: meta.color }}>
+                      {meta.label}
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{
+                      background: item.severity === "critical" ? "var(--red-400)" + "18" : "var(--gold-400)" + "18",
+                      color: item.severity === "critical" ? "var(--red-400)" : "var(--gold-400)",
+                    }}>
+                      {item.severity.toUpperCase()}
+                    </span>
+                    {item.resolved_at && (
+                      <span className="text-[10px] font-mono" style={{ color: "var(--green-400)" }}>RESOLVED</span>
+                    )}
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    {item.description}
+                  </p>
+                  <div className="text-[10px] font-mono mt-1" style={{ color: "var(--text-tertiary)" }}>
+                    {timeAgo(item.created_at)}
+                  </div>
+                </div>
+                {!item.resolved_at && (
+                  <button
+                    onClick={() => void handleResolve(item.id)}
+                    className="shrink-0 text-xs px-2.5 py-1 rounded-lg transition-colors"
+                    style={{
+                      color: "var(--green-400)",
+                      border: "1px solid var(--green-400)" + "30",
+                      background: "var(--green-400)" + "08",
+                    }}
+                  >
+                    Resolve
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function AgentsPanel() {
   const { user, selectedInfluencer } = useOutletContext<Ctx>();
@@ -370,6 +499,7 @@ export default function AgentsPanel() {
               { id: "intelligence" as PanelTab, label: "Agents" },
               { id: "network" as PanelTab, label: "Network" },
               { id: "sources" as PanelTab, label: "Data Sources" },
+              { id: "compliance" as PanelTab, label: "Compliance" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -419,6 +549,7 @@ export default function AgentsPanel() {
 
         {activeTab === "network" && <AgentNetworkView agents={agentList} />}
         {activeTab === "sources" && <FeedsView />}
+        {activeTab === "compliance" && <ComplianceView />}
       </div>
 
       {/* ── Detail slide-in ─────────────────────────────────────── */}

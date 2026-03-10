@@ -119,11 +119,14 @@ async function upsertThreat(
   return true;
 }
 
-// ─── WATCHDOG — Profile Snapshot ─────────────────────────────────────────────
-// Captures current state of every monitored account into account_snapshots.
+// ─── WATCHDOG — Profile Snapshot + Compliance Auditor ────────────────────────
+// Phase 1: Captures current state of every monitored account into account_snapshots.
 // If bio_hash or avatar_hash has changed since the last snapshot, flags the
 // account for ARBITER to rescore and marks changes_detected.
+// Phase 2 (G-22): Audits HITL compliance — identifies stale threats, overdue
+// takedowns, and agents that haven't run on schedule.
 async function runWatchdog(env: Env, influencerId: string | null): Promise<AgentResult> {
+  // ── Phase 1: Profile snapshot and drift detection ─────────────────────────
   const filter = influencerId ? "WHERE influencer_id = ?" : "WHERE 1=1";
   const accounts = await env.DB.prepare(
     `SELECT id, influencer_id, platform, handle, profile_url, follower_count,
@@ -182,7 +185,122 @@ async function runWatchdog(env: Env, influencerId: string | null): Promise<Agent
     ).bind(acc.id).run();
   }
 
-  return { items_scanned: accounts.results.length, threats_found: 0, changes_detected: changes };
+  // ── Phase 2: HITL Compliance Auditing (G-22) ─────────────────────────────
+  let complianceGaps = 0;
+
+  // Auto-resolve previously flagged issues that are no longer stale
+  await env.DB.prepare(
+    `UPDATE compliance_audit_log SET resolved_at = datetime('now')
+     WHERE resolved_at IS NULL
+       AND audit_type = 'stale_threat'
+       AND entity_id NOT IN (
+         SELECT id FROM impersonation_reports
+         WHERE status = 'new' AND detected_at <= datetime('now', '-48 hours')
+       )`
+  ).run().catch(() => { /* table may not exist yet */ });
+
+  await env.DB.prepare(
+    `UPDATE compliance_audit_log SET resolved_at = datetime('now')
+     WHERE resolved_at IS NULL
+       AND audit_type = 'stale_takedown'
+       AND entity_id NOT IN (
+         SELECT id FROM takedown_requests
+         WHERE status = 'draft' AND created_at <= datetime('now', '-24 hours')
+       )`
+  ).run().catch(() => { /* table may not exist yet */ });
+
+  // Check 1: Threats stuck in "new" for >48 hours without analyst review
+  try {
+    const staleThreats = await env.DB.prepare(
+      `SELECT id, suspect_handle, platform, severity, detected_at
+       FROM impersonation_reports
+       WHERE status = 'new' AND detected_at <= datetime('now', '-48 hours')
+       LIMIT 50`
+    ).all<{ id: string; suspect_handle: string; platform: string; severity: string; detected_at: string }>();
+
+    for (const t of staleThreats.results) {
+      const existing = await env.DB.prepare(
+        `SELECT id FROM compliance_audit_log
+         WHERE entity_id = ? AND audit_type = 'stale_threat' AND resolved_at IS NULL LIMIT 1`
+      ).bind(t.id).first<{ id: string }>();
+      if (existing) continue;
+
+      await env.DB.prepare(
+        `INSERT INTO compliance_audit_log (id, audit_type, entity_type, entity_id, severity, description, created_at)
+         VALUES (?, 'stale_threat', 'impersonation_report', ?, ?, ?, datetime('now'))`
+      ).bind(
+        crypto.randomUUID(), t.id,
+        t.severity === "critical" ? "critical" : "high",
+        `WATCHDOG compliance: ${t.severity} threat @${t.suspect_handle} on ${t.platform} has been in "new" status for >48h without analyst review. Detected at ${t.detected_at}.`,
+      ).run();
+      complianceGaps++;
+    }
+  } catch { /* compliance_audit_log may not exist yet */ }
+
+  // Check 2: Takedowns stuck in "draft" for >24 hours
+  try {
+    const staleTakedowns = await env.DB.prepare(
+      `SELECT id, suspect_handle, platform, created_at
+       FROM takedown_requests
+       WHERE status = 'draft' AND created_at <= datetime('now', '-24 hours')
+       LIMIT 50`
+    ).all<{ id: string; suspect_handle: string; platform: string; created_at: string }>();
+
+    for (const td of staleTakedowns.results) {
+      const existing = await env.DB.prepare(
+        `SELECT id FROM compliance_audit_log
+         WHERE entity_id = ? AND audit_type = 'stale_takedown' AND resolved_at IS NULL LIMIT 1`
+      ).bind(td.id).first<{ id: string }>();
+      if (existing) continue;
+
+      await env.DB.prepare(
+        `INSERT INTO compliance_audit_log (id, audit_type, entity_type, entity_id, severity, description, created_at)
+         VALUES (?, 'stale_takedown', 'takedown_request', ?, 'high', ?, datetime('now'))`
+      ).bind(
+        crypto.randomUUID(), td.id,
+        `WATCHDOG compliance: Takedown for @${td.suspect_handle} on ${td.platform} has been in "draft" for >24h without submission. Created at ${td.created_at}.`,
+      ).run();
+      complianceGaps++;
+    }
+  } catch { /* compliance_audit_log may not exist yet */ }
+
+  // Check 3: Agents that haven't run in >2x their scheduled interval
+  try {
+    const overdueAgents = await env.DB.prepare(
+      `SELECT ad.id, ad.name, ad.schedule_mins,
+              (SELECT MAX(started_at) FROM agent_runs WHERE agent_id = ad.id) as last_run
+       FROM agent_definitions ad
+       WHERE ad.is_active = 1 AND ad.schedule_mins IS NOT NULL`
+    ).all<{ id: string; name: string; schedule_mins: number; last_run: string | null }>();
+
+    for (const agent of overdueAgents.results) {
+      if (!agent.last_run) continue;
+      const lastRunTime = new Date(agent.last_run).getTime();
+      const overdueThreshold = agent.schedule_mins * 2 * 60 * 1000;
+      if (Date.now() - lastRunTime <= overdueThreshold) continue;
+
+      const existing = await env.DB.prepare(
+        `SELECT id FROM compliance_audit_log
+         WHERE entity_id = ? AND audit_type = 'agent_overdue' AND resolved_at IS NULL LIMIT 1`
+      ).bind(agent.id).first<{ id: string }>();
+      if (existing) continue;
+
+      await env.DB.prepare(
+        `INSERT INTO compliance_audit_log (id, audit_type, entity_type, entity_id, severity, description, created_at)
+         VALUES (?, 'agent_overdue', 'agent_definition', ?, 'medium', ?, datetime('now'))`
+      ).bind(
+        crypto.randomUUID(), agent.id,
+        `WATCHDOG compliance: Agent ${agent.name} (scheduled every ${agent.schedule_mins}m) last ran at ${agent.last_run} — more than 2x overdue.`,
+      ).run();
+      complianceGaps++;
+    }
+  } catch { /* compliance_audit_log may not exist yet */ }
+
+  return {
+    items_scanned: accounts.results.length,
+    threats_found: 0,
+    changes_detected: changes + complianceGaps,
+  };
 }
 
 // ─── ARBITER — Risk Scorer ────────────────────────────────────────────────────
@@ -470,21 +588,22 @@ async function runRecon(env: Env, influencerId: string | null): Promise<AgentRes
   return { items_scanned: scanned, threats_found: discovered, changes_detected: discovered };
 }
 
-// ─── NEXUS — Scam Link Detector ──────────────────────────────────────────────
-// Reviews open impersonation_reports that have a suspect_url and evaluates it
-// for scam patterns (suspicious TLDs, known phishing keywords, URL shorteners).
-// Updates the ai_analysis field and escalates severity when malicious patterns found.
+// ─── NEXUS — Scam Link Detector + Threat Clustering ─────────────────────────
+// Phase 1: Reviews open impersonation_reports with suspect_url and evaluates for
+// scam patterns (suspicious TLDs, phishing keywords, URL shorteners).
+// Phase 2: If LRX_API_URL configured, checks URLs against external reputation API.
+// Phase 3: Clusters related threats by infrastructure patterns (shared domains,
+// targeting patterns, temporal proximity).
 async function runNexus(env: Env, influencerId: string | null): Promise<AgentResult> {
   const filter = influencerId ? "AND influencer_id = ?" : "";
   const threats = await env.DB.prepare(
-    `SELECT id, suspect_url, suspect_handle, platform, severity, influencer_id
+    `SELECT id, suspect_url, suspect_handle, platform, severity, influencer_id, detected_at
      FROM impersonation_reports
-     WHERE suspect_url IS NOT NULL
-       AND status NOT IN ('resolved','dismissed') ${filter}
-     LIMIT 200`
+     WHERE status NOT IN ('resolved','dismissed') ${filter}
+     LIMIT 500`
   ).bind(...(influencerId ? [influencerId] : [])).all<{
-    id: string; suspect_url: string; suspect_handle: string; platform: string;
-    severity: string; influencer_id: string;
+    id: string; suspect_url: string | null; suspect_handle: string; platform: string;
+    severity: string; influencer_id: string; detected_at: string;
   }>();
 
   // Signals that raise risk
@@ -495,11 +614,14 @@ async function runNexus(env: Env, influencerId: string | null): Promise<AgentRes
   let scanned = 0;
   let escalated = 0;
 
+  // ── Phase 1 + 2: URL reputation analysis ─────────────────────────────────
   for (const threat of threats.results) {
+    if (!threat.suspect_url) continue;
     scanned++;
     let suspicionScore = 0;
     const flags: string[] = [];
 
+    // ── Heuristic URL analysis ──────────────────────────────────────────────
     try {
       const url = new URL(threat.suspect_url);
       const hostname = url.hostname.toLowerCase();
@@ -540,6 +662,26 @@ async function runNexus(env: Env, influencerId: string | null): Promise<AgentRes
       suspicionScore += 20; flags.push("malformed URL");
     }
 
+    // ── LRX API URL reputation check (G-18 enhancement) ────────────────────
+    if (env.LRX_API_URL && env.LRX_API_KEY) {
+      try {
+        const res = await fetch(`${env.LRX_API_URL}/v1/url/reputation`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${env.LRX_API_KEY}`,
+          },
+          body: JSON.stringify({ url: threat.suspect_url }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { risk_score?: number; categories?: string[]; malicious?: boolean };
+          if (data.malicious) { suspicionScore += 50; flags.push("LRX: flagged malicious"); }
+          else if (data.risk_score && data.risk_score > 70) { suspicionScore += 30; flags.push(`LRX risk: ${data.risk_score}/100`); }
+          if (data.categories?.length) flags.push(`LRX categories: ${data.categories.join(", ")}`);
+        }
+      } catch { /* LRX API unavailable — continue with heuristic results */ }
+    }
+
     if (suspicionScore > 0) {
       const analysis = `NEXUS URL analysis: suspicion score ${suspicionScore}/100. Flags: ${flags.join("; ")}.`;
       const newSeverity =
@@ -559,7 +701,59 @@ async function runNexus(env: Env, influencerId: string | null): Promise<AgentRes
     }
   }
 
-  return { items_scanned: scanned, threats_found: escalated, changes_detected: escalated };
+  // ── Phase 3: Threat clustering (G-20) ─────────────────────────────────────
+  // Group related threats by: shared domain patterns, handle prefixes, and
+  // temporal proximity (threats detected within 24h window).
+  const unclustered = threats.results.filter((t) => t.suspect_url || t.suspect_handle);
+  const clusterMap = new Map<string, string[]>(); // cluster_key → threat_ids
+
+  for (const threat of unclustered) {
+    const keys: string[] = [];
+
+    // Domain-based clustering: threats sharing the same suspect domain
+    if (threat.suspect_url) {
+      try {
+        const hostname = new URL(threat.suspect_url).hostname.toLowerCase()
+          .replace(/^www\./, "");
+        keys.push(`domain:${hostname}`);
+      } catch { /* skip malformed */ }
+    }
+
+    // Handle-prefix clustering: group handles sharing first 5+ chars
+    const normalized = threat.suspect_handle.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalized.length >= 5) {
+      keys.push(`prefix:${normalized.slice(0, 5)}`);
+    }
+
+    // Cross-influencer targeting: same handle across different influencer targets
+    keys.push(`handle:${threat.suspect_handle.toLowerCase()}:${threat.platform}`);
+
+    for (const key of keys) {
+      const existing = clusterMap.get(key) ?? [];
+      existing.push(threat.id);
+      clusterMap.set(key, existing);
+    }
+  }
+
+  // Assign cluster IDs to groups of 2+ related threats
+  let clustersCreated = 0;
+  for (const [key, ids] of clusterMap) {
+    if (ids.length < 2) continue;
+    const clusterId = `nexus-${key.replace(/[^a-z0-9_:-]/g, "_")}-${Date.now().toString(36)}`;
+    for (const id of ids) {
+      await env.DB.prepare(
+        `UPDATE impersonation_reports SET cluster_id = ?, updated_at = datetime('now')
+         WHERE id = ? AND cluster_id IS NULL`
+      ).bind(clusterId, id).run();
+    }
+    clustersCreated++;
+  }
+
+  return {
+    items_scanned: scanned + unclustered.length,
+    threats_found: escalated,
+    changes_detected: escalated + clustersCreated,
+  };
 }
 
 // ─── VERITAS — Deepfake Sentinel / Content Similarity ────────────────────────

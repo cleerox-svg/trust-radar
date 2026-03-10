@@ -155,10 +155,10 @@ Guard's cron is `*/30 * * * *` (every 30 min). Feed runner should:
 5. Log to `feed_ingestions`
 
 **Tasks:**
-- [ ] **G-12** Build feed runner infrastructure (coordinator, dedup, logging)
-- [ ] **G-13** Implement social platform search feeds
+- [x] **G-12** Build feed runner infrastructure (coordinator, dedup, logging)
+- [x] **G-13** Implement social platform search feeds
 - [ ] **G-14** Implement DMCA/Trust & Safety status feeds
-- [ ] **G-15** Build Feed Analytics UI — live counts, last pull timestamps, error logs
+- [x] **G-15** Build Feed Analytics UI — live counts, last pull timestamps, error logs
 
 ---
 
@@ -181,13 +181,13 @@ All 8 agents are seeded in migrations but execution logic is scaffolding only.
 | Cipher Echo | CIPHER_ECHO | Scaffolded | (0017 migration — review purpose) |
 
 **Tasks:**
-- [ ] **G-16** Build agent execution framework (runner, logging to agent_runs, status tracking)
-- [ ] **G-17** Activate SENTINEL — handle monitoring + OCI scoring
-- [ ] **G-18** Activate RECON — scam link detection via api.lrx.io
-- [ ] **G-19** Activate VERITAS — avatar + bio similarity
-- [ ] **G-20** Activate NEXUS — threat clustering
-- [ ] **G-21** Activate ARBITER — HITL queue UI + approval flow
-- [ ] **G-22** Activate WATCHDOG — compliance audit logging
+- [x] **G-16** Build agent execution framework (runner, logging to agent_runs, status tracking)
+- [x] **G-17** Activate SENTINEL — handle monitoring + OCI scoring
+- [x] **G-18** Activate RECON — scam link detection via api.lrx.io (+ LRX URL scanning in NEXUS)
+- [x] **G-19** Activate VERITAS — avatar + bio similarity
+- [x] **G-20** Activate NEXUS — threat clustering (domain, handle-prefix, cross-influencer)
+- [x] **G-21** Activate ARBITER — HITL queue UI + approval flow
+- [x] **G-22** Activate WATCHDOG — compliance audit logging (stale threats, stale takedowns, agent overdue)
 
 ---
 
