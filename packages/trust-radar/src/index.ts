@@ -1,5 +1,7 @@
 import { Router } from "itty-router";
 import { handleOptions, json } from "./lib/cors";
+import { runAllFeeds } from "./lib/feedRunner";
+import { feedModules } from "./feeds/index";
 import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
@@ -378,6 +380,14 @@ router.all("*", (request: Request, env: Env) => {
 });
 
 export default {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      runAllFeeds(env, feedModules)
+        .then((r) => console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed`))
+        .catch((err) => console.error("[cron] feed runner error:", err))
+    );
+  },
+
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const response = await router
       .fetch(request, env, ctx)
