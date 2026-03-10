@@ -13,12 +13,23 @@ export async function handleAdminHealth(request: Request, env: Env): Promise<Res
 
   try {
     const dbStart = Date.now();
-    const versionResult = await env.DB.prepare("SELECT sqlite_version() AS v").first<{ v: string }>();
+    await env.DB.prepare("SELECT 1").first();
     dbResponseMs = Date.now() - dbStart;
-    sqliteVersion = versionResult?.v ?? "unknown";
+    dbStatus = "ok";
+  } catch {
+    dbStatus = "error";
+  }
 
-    const journalResult = await env.DB.prepare("PRAGMA journal_mode").first<Record<string, string>>();
-    journalMode = journalResult?.["journal_mode"] ?? "wal";
+  if (dbStatus === "ok") {
+    try {
+      const versionResult = await env.DB.prepare("SELECT sqlite_version() AS v").first<{ v: string }>();
+      sqliteVersion = versionResult?.v ?? "unknown";
+    } catch { /* D1 does not expose sqlite_version() */ }
+
+    try {
+      const journalResult = await env.DB.prepare("PRAGMA journal_mode").first<Record<string, string>>();
+      journalMode = journalResult?.["journal_mode"] ?? "wal";
+    } catch { /* D1 WAL is managed by Cloudflare */ }
 
     const tableNames = ["users", "scans", "signal_alerts", "signals", "feed_schedules", "agent_runs", "threats", "briefings", "investigations"];
     tables = await Promise.all(
@@ -31,8 +42,6 @@ export async function handleAdminHealth(request: Request, env: Env): Promise<Res
         }
       })
     );
-  } catch {
-    dbStatus = "error";
   }
 
   const kvOk = !!env.CACHE;
