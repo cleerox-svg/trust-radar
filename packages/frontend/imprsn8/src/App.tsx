@@ -1,27 +1,46 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { useState, lazy, Suspense, useCallback } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { useSidebarData } from "./components/Sidebar";
-import type { InfluencerProfile } from "./lib/types";
 import { ThemeProvider } from "./lib/theme";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
 import { WordMark } from "./components/LogoMark";
 import { PlatformSwitcher } from "./components/PlatformSwitcher";
 import { BottomBar } from "./components/BottomBar";
 import { SectionNav } from "./components/SectionNav";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { ToastProvider } from "./components/ui/Toast";
+import { IdleTimeoutDialog } from "./components/IdleTimeoutDialog";
 
-// Pages
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Overview from "./pages/Overview";
-import MonitoredAccounts from "./pages/MonitoredAccounts";
-import ThreatsFound from "./pages/ThreatsFound";
-import Takedowns from "./pages/Takedowns";
-import AgentsPanel from "./pages/AgentsPanel";
-import Settings from "./pages/Settings";
-import AdminPage from "./pages/AdminPage";
-import BrandDashboard from "./pages/Dashboard";
+// ─── Lazy-loaded pages (code splitting) ──────────────────────────────────
+const Home              = lazy(() => import("./pages/Home"));
+const Login             = lazy(() => import("./pages/Login"));
+const Register          = lazy(() => import("./pages/Register"));
+const Overview          = lazy(() => import("./pages/Overview"));
+const MonitoredAccounts = lazy(() => import("./pages/MonitoredAccounts"));
+const ThreatsFound      = lazy(() => import("./pages/ThreatsFound"));
+const Takedowns         = lazy(() => import("./pages/Takedowns"));
+const AgentsPanel       = lazy(() => import("./pages/AgentsPanel"));
+const Settings          = lazy(() => import("./pages/Settings"));
+const AdminPage         = lazy(() => import("./pages/AdminPage"));
+const BrandDashboard    = lazy(() => import("./pages/Dashboard"));
+
+// ─── Suspense fallback ────────────────────────────────────────────────────
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className="w-6 h-6 rounded-full animate-spin"
+          style={{ border: "2px solid var(--border-default)", borderTopColor: "var(--gold-400)" }}
+        />
+        <span className="text-[10px] font-mono tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+          LOADING...
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ─── Auth guard ───────────────────────────────────────────────────────────
 function isTokenValid(token: string | null): boolean {
@@ -44,6 +63,12 @@ function AppShell() {
   const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleIdleLogout = useCallback(() => {
+    localStorage.removeItem("imprsn8_token");
+    navigate("/login", { replace: true });
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -68,6 +93,9 @@ function AppShell() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "var(--surface-base)" }}>
+      {/* Idle timeout dialog */}
+      <IdleTimeoutDialog onLogout={handleIdleLogout} />
+
       {/* Top bar */}
       <header
         className="flex items-center justify-between px-4 py-2.5 shrink-0"
@@ -166,9 +194,13 @@ function AppShell() {
       {/* Section sub-tabs */}
       <SectionNav user={user} />
 
-      {/* Page content */}
+      {/* Page content with error boundary */}
       <div className="flex-1 overflow-y-auto pb-16">
-        <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
 
       {/* Bottom navigation bar */}
@@ -180,12 +212,13 @@ function AppShell() {
 export default function App() {
   return (
     <ThemeProvider>
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/" element={<Suspense fallback={<PageLoader />}><ErrorBoundary><Home /></ErrorBoundary></Suspense>} />
+        <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+        <Route path="/register" element={<Suspense fallback={<PageLoader />}><Register /></Suspense>} />
 
         {/* Protected shell */}
         <Route element={<RequireAuth />}>
@@ -204,6 +237,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
     </ThemeProvider>
   );
 }

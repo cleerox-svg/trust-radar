@@ -150,6 +150,18 @@ export const agents = {
     ),
 };
 
+export interface SessionEvent {
+  id: string;
+  user_id: string;
+  email: string;
+  event_type: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  country_code: string | null;
+  metadata: string;
+  created_at: string;
+}
+
 export const admin = {
   stats: () => api<AdminStats>("/admin/stats"),
   users: (limit = 50, offset = 0) =>
@@ -158,6 +170,14 @@ export const admin = {
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   health: () => api<any>("/admin/health"),
+  sessionEvents: (params?: { user_id?: string; event_type?: string; limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    );
+    return api<SessionEvent[]>(`/admin/sessions${qs.toString() ? `?${qs}` : ""}`);
+  },
+  forceLogout: (userId: string) =>
+    api<{ message: string }>(`/admin/users/${userId}/force-logout`, { method: "POST" }),
 };
 
 export const publicApi = {

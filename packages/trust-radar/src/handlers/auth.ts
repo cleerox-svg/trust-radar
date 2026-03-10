@@ -2,6 +2,7 @@ import { z } from "zod";
 import { hashPassword, verifyPassword } from "../lib/hash";
 import { signJWT } from "../lib/jwt";
 import { json } from "../lib/cors";
+import { logSessionEvent } from "./sessions";
 import type { Env } from "../types";
 
 const RegisterSchema = z.object({
@@ -52,6 +53,8 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
   const token = await signJWT({ sub: id, email, plan: "free" }, env.JWT_SECRET);
 
+  await logSessionEvent(env, id, "register", request);
+
   return json({ success: true, data: { token, user: { id, email, plan: "free", is_admin: false } } }, 201, origin);
 }
 
@@ -88,6 +91,8 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
     { sub: user.id, email: user.email, plan: user.plan as "free" | "pro" | "enterprise" },
     env.JWT_SECRET
   );
+
+  await logSessionEvent(env, user.id, "login", request);
 
   return json(
     { success: true, data: { token, user: { id: user.id, email: user.email, plan: user.plan } } },

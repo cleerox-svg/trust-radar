@@ -26,6 +26,12 @@ export async function requireAuth(
     return json({ success: false, error: "Invalid or expired token" }, 401, origin);
   }
 
+  // Check for forced logout (admin-initiated session invalidation)
+  const forcedAt = await env.CACHE.get(`forced_logout:${payload.sub}`);
+  if (forcedAt && payload.iat <= parseInt(forcedAt, 10)) {
+    return json({ success: false, error: "Session invalidated by administrator" }, 401, origin);
+  }
+
   return { userId: payload.sub, email: payload.email, plan: payload.plan };
 }
 
