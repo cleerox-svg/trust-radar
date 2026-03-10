@@ -74,12 +74,30 @@ export const alerts = {
 
 export interface AdminUser { id: string; email: string; plan: string; scans_used: number; scans_limit: number; is_admin: boolean; created_at: string; }
 export interface AdminStats { users: { total: number; pro: number; enterprise: number }; scans: { total: number; high_risk: number; avg_trust: number }; alerts: { total: number; open: number }; }
+export interface AdminHealthData {
+  status: "healthy" | "degraded" | "error";
+  timestamp: string;
+  environment: string;
+  database: {
+    status: "ok" | "error";
+    response_ms: number;
+    sqlite_version: string;
+    journal_mode: string;
+    encryption_at_rest: string;
+    encryption_in_transit: string;
+    last_migration: string;
+    tables: { name: string; rows: number }[];
+  };
+  kv_cache: { status: string; binding: string };
+  compliance: { data_residency: string; audit_logging: string; hitl_enforced: string };
+}
 
 export const admin = {
   stats: () => api<AdminStats>("/admin/stats"),
   users: (limit = 50, offset = 0) => api<{ users: AdminUser[]; total: number }>(`/admin/users?limit=${limit}&offset=${offset}`),
   updateUser: (id: string, data: { plan?: string; scans_limit?: number; is_admin?: boolean }) =>
     api<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  health: () => api<AdminHealthData>("/admin/health"),
 };
 
 // ─── Feed types ─────────────────────────────────────────────

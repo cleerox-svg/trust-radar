@@ -6,7 +6,7 @@ import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
@@ -135,6 +135,11 @@ router.patch("/api/admin/users/:id", async (request: Request & { params: Record<
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
+});
+router.get("/api/admin/health", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminHealth(request, env);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────
