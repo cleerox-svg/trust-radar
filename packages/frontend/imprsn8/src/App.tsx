@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { Menu } from "lucide-react";
-import { Sidebar, MobileTabBar, useSidebarData } from "./components/Sidebar";
+import { ChevronDown } from "lucide-react";
+import { useSidebarData } from "./components/Sidebar";
 import type { InfluencerProfile } from "./lib/types";
 import { ThemeProvider } from "./lib/theme";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
 import { WordMark } from "./components/LogoMark";
+import { PlatformSwitcher } from "./components/PlatformSwitcher";
+import { BottomBar } from "./components/BottomBar";
+import { SectionNav } from "./components/SectionNav";
 
 // Pages
 import Home from "./pages/Home";
@@ -21,7 +24,6 @@ import AdminPage from "./pages/AdminPage";
 import BrandDashboard from "./pages/Dashboard";
 
 // ─── Auth guard ───────────────────────────────────────────────────────────
-// Token must exist AND look like a valid JWT (header.payload.signature)
 function isTokenValid(token: string | null): boolean {
   if (!token) return false;
   const parts = token.split(".");
@@ -37,11 +39,11 @@ function RequireAuth() {
   return <Outlet />;
 }
 
-// ─── Authenticated shell with sidebar ─────────────────────────────────────
+// ─── Authenticated shell with bottom bar ─────────────────────────────────
 function AppShell() {
   const { user, influencerList, selectedInfluencer, setSelectedInfluencer, loading, unauthenticated } = useSidebarData();
   const [threatCount, setThreatCount] = useState(0);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   if (loading) {
     return (
@@ -59,54 +61,118 @@ function AppShell() {
 
   if (unauthenticated || !user) return <Navigate to="/login" replace />;
 
-  return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--surface-base)" }}>
-      {/* Mobile backdrop */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-30 lg:hidden modal-backdrop" onClick={() => setMobileOpen(false)} />
-      )}
+  const isSocOrAdmin = user.role === "soc" || user.role === "admin";
+  const displayName = selectedInfluencer?.display_name ?? user.display_name ?? user.email?.split("@")[0] ?? "User";
+  const avatarUrl = selectedInfluencer?.avatar_url ?? null;
+  const initial = displayName[0]?.toUpperCase() ?? "?";
 
-      {/* Sidebar — drawer on mobile, fixed on desktop */}
-      <div className={`
-        fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
-        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-      `}>
-        <Sidebar
-          user={user}
-          influencerList={influencerList}
-          selectedInfluencer={selectedInfluencer}
-          onInfluencerChange={(inf: InfluencerProfile | null) => { setSelectedInfluencer(inf); setMobileOpen(false); }}
-          threatCount={threatCount}
-          onClose={() => setMobileOpen(false)}
-        />
+  return (
+    <div className="flex flex-col h-screen" style={{ background: "var(--surface-base)" }}>
+      {/* Top bar */}
+      <header
+        className="flex items-center justify-between px-4 py-2.5 shrink-0"
+        style={{ background: "var(--surface-raised)", borderBottom: "1px solid var(--border-subtle)" }}
+      >
+        <div className="flex items-center gap-3">
+          <WordMark variant="shield" size={22} textSize="text-base" />
+          <div className="hidden sm:block">
+            <PlatformSwitcher />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Influencer switcher for SOC/Admin */}
+          {isSocOrAdmin && influencerList.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setSwitcherOpen((o) => !o)}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+                style={{
+                  background: "var(--surface-overlay)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                    style={{ background: "rgba(109,64,237,0.2)", color: "var(--violet-300)" }}
+                  >
+                    {initial}
+                  </div>
+                )}
+                <span className="hidden sm:inline truncate max-w-[100px] font-medium">{displayName}</span>
+                <ChevronDown size={10} style={{ opacity: 0.5 }} />
+              </button>
+
+              {switcherOpen && (
+                <div
+                  className="absolute top-full right-0 mt-1 z-50 rounded-lg shadow-2xl overflow-hidden min-w-[180px]"
+                  style={{ background: "var(--surface-overlay)", border: "1px solid var(--border-default)" }}
+                >
+                  <button
+                    onClick={() => { setSelectedInfluencer(null); setSwitcherOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+                    style={{ color: "var(--text-tertiary)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-float)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                  >
+                    All influencers
+                  </button>
+                  <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+                  {influencerList.map((inf) => {
+                    const isSelected = selectedInfluencer?.id === inf.id;
+                    return (
+                      <button
+                        key={inf.id}
+                        onClick={() => { setSelectedInfluencer(inf); setSwitcherOpen(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+                        style={{
+                          color: isSelected ? "var(--gold-400)" : "var(--text-secondary)",
+                          background: isSelected ? "rgba(240,165,0,0.06)" : "",
+                        }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--surface-float)"; }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = ""; }}
+                      >
+                        {inf.avatar_url ? (
+                          <img src={inf.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
+                            style={{ background: "rgba(109,64,237,0.2)", color: "var(--violet-300)" }}>
+                            {inf.display_name[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="truncate">{inf.display_name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <ThemeToggle />
+
+          {/* Guarding indicator */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ background: "rgba(22,163,74,0.06)" }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-bold tracking-wider" style={{ color: "#16A34A" }}>GUARDING</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Section sub-tabs */}
+      <SectionNav user={user} />
+
+      {/* Page content */}
+      <div className="flex-1 overflow-y-auto pb-16">
+        <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Mobile top bar */}
-        <div
-          className="lg:hidden flex items-center gap-3 px-4 py-3 shrink-0"
-          style={{ background: "var(--surface-raised)", borderBottom: "1px solid var(--border-subtle)" }}
-        >
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ border: "1px solid var(--border-default)", color: "var(--text-tertiary)" }}
-          >
-            <Menu size={18} />
-          </button>
-          <WordMark variant="shield" size={22} textSize="text-base" className="flex-1" />
-          <ThemeToggle />
-        </div>
-
-        {/* Page content — pb-16 on mobile to clear bottom tab bar */}
-        <div className="flex-1 overflow-y-auto pb-16 lg:pb-0">
-          <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
-        </div>
-      </main>
-
-      {/* Mobile bottom tab bar */}
-      <MobileTabBar threatCount={threatCount} />
+      {/* Bottom navigation bar */}
+      <BottomBar user={user} threatCount={threatCount} />
     </div>
   );
 }

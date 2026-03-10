@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, ThemeToggle } from "./components/ThemeProvider";
 import { TooltipProvider } from "./components/ui/Tooltip";
 import { Pulse } from "./components/ui/Pulse";
-import Sidebar from "./components/Sidebar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TrustBotWidget } from "./components/TrustBotWidget";
 import { PlatformSwitcher } from "./components/PlatformSwitcher";
+import { BottomBar } from "./components/BottomBar";
+import { SectionNav } from "./components/SectionNav";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
@@ -38,6 +39,7 @@ const DarkWebPage = lazy(() => import("./pages/DarkWebPage").then(m => ({ defaul
 const ATOPage = lazy(() => import("./pages/ATOPage").then(m => ({ default: m.ATOPage })));
 const EmailAuthPage = lazy(() => import("./pages/EmailAuthPage").then(m => ({ default: m.EmailAuthPage })));
 const CloudStatusPage = lazy(() => import("./pages/CloudStatusPage").then(m => ({ default: m.CloudStatusPage })));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 // ─── Query Client ─────────────────────────────────────────────
 const queryClient = new QueryClient({
@@ -159,13 +161,12 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ─── Main layout with responsive sidebar ──────────────────────
+// ─── Main layout with bottom bar + section sub-tabs ──────────
 function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen" style={{ background: "var(--surface-base)" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--surface-base)" }}>
       {/* Skip to content — a11y */}
       <a
         href="#main-content"
@@ -174,81 +175,58 @@ function MainLayout({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 md:hidden modal-backdrop"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Top bar — compact, no sidebar needed */}
+      <header
+        className="h-12 flex items-center justify-between px-4 shrink-0 sticky top-0 z-10"
+        style={{ background: "var(--surface-void)", borderBottom: "1px solid var(--border-subtle)" }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Brand mark */}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+            </div>
+            <span className="font-display font-bold text-sm text-[--text-primary] hidden sm:inline">Trust Radar</span>
+          </div>
+          {/* Platform switcher */}
+          <div className="hidden sm:block">
+            <PlatformSwitcher />
+          </div>
+          <span className="hidden md:flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+            <Pulse color="green" size="sm" />
+            <span className="font-mono text-[10px]">live</span>
+          </span>
+        </div>
 
-      {/* Sidebar — fixed drawer on mobile, static on desktop */}
-      <div className={`
-        fixed md:static inset-y-0 left-0 z-30
-        transform transition-transform duration-200 ease-in-out
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-      `}>
-        <Sidebar onClose={() => setSidebarOpen(false)} />
-      </div>
+        <div className="flex items-center gap-2">
+          {user && (
+            <div className="hidden sm:flex items-center gap-2 text-xs text-[--text-secondary] border-r border-[--border-subtle] pr-3 mr-1">
+              <span className="font-mono truncate max-w-[140px]">{user.email}</span>
+              <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
+            </div>
+          )}
+          <ThemeToggle />
+          <button
+            onClick={logout}
+            className="text-xs border border-[--border-default] text-[--text-secondary] rounded px-2.5 py-1 hover:border-threat-critical hover:text-threat-critical transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      {/* Section sub-tabs — contextual per active bottom bar section */}
+      <SectionNav />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header
-          className="h-12 flex items-center justify-between px-4 shrink-0 sticky top-0 z-10"
-          style={{ background: "var(--surface-void)", borderBottom: "1px solid var(--border-subtle)" }}
-        >
-          <div className="flex items-center gap-3">
-            {/* Mobile hamburger */}
-            <button
-              className="md:hidden p-1.5 rounded text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            {/* Platform switcher + status */}
-            <div className="hidden sm:flex items-center gap-3">
-              <PlatformSwitcher />
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
-                <Pulse color="green" size="sm" />
-                <span className="font-display font-semibold" style={{ color: "var(--text-primary)" }}>Intelligence Platform</span>
-              </span>
-            </div>
-          </div>
+      <main id="main-content" className="flex-1 overflow-auto p-4 sm:p-6 pb-20" role="main">
+        {children}
+      </main>
 
-          <div className="flex items-center gap-2">
-            {user && (
-              <div className="hidden sm:flex items-center gap-2 text-xs text-[--text-secondary] border-r border-[--border-subtle] pr-3 mr-1">
-                <span className="font-mono truncate max-w-[140px]">{user.email}</span>
-                <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
-              </div>
-            )}
-            <ThemeToggle />
-            <button
-              onClick={() => window.location.reload()}
-              className="btn-icon p-1.5"
-              aria-label="Refresh"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-            <button
-              onClick={logout}
-              className="text-xs border border-[--border-default] text-[--text-secondary] rounded px-2.5 py-1 hover:border-threat-critical hover:text-threat-critical transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        </header>
+      {/* Bottom navigation bar */}
+      <BottomBar />
 
-        <main id="main-content" className="flex-1 overflow-auto p-4 sm:p-6" role="main">
-          {children}
-        </main>
-      </div>
+      {/* Floating TrustBot widget */}
       <TrustBotWidget />
     </div>
   );
@@ -274,8 +252,12 @@ export default function App() {
             <AuthProvider>
               <Suspense fallback={<LoadingSpinner />}>
               <Routes>
+                {/* Public routes */}
+                <Route path="/"         element={<LandingPage />} />
                 <Route path="/login"    element={<Login />} />
                 <Route path="/register" element={<Register />} />
+
+                {/* Protected routes — wrapped in MainLayout */}
                 <Route
                   path="/*"
                   element={

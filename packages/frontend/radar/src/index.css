@@ -460,4 +460,17 @@ html.light {
     border: 1px solid var(--border-default);
     border-radius: 16px;
   }
+
+  /* ── Scrollbar-less horizontal scroll ──────────────────── */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* ── Infinite scroll ticker ────────────────────────────────── */
+@keyframes scroll-x {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-scroll-x {
+  animation: scroll-x 30s linear infinite;
 }
