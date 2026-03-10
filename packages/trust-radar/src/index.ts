@@ -14,6 +14,18 @@ import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
   handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
 } from "./handlers/agents";
+import {
+  handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
+  handleListBriefings, handleGetBriefing, handleListSocialIOCs,
+} from "./handlers/threats";
+import {
+  handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
+  handleListErasures, handleCreateErasure, handleUpdateErasure, handleListCampaigns,
+} from "./handlers/investigations";
+import {
+  handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
+  handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
+} from "./handlers/intel";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import type { Env } from "./types";
 
@@ -153,6 +165,133 @@ router.post("/api/feeds/trigger-tier/:tier", async (request: Request & { params:
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTriggerTier(request, env, request.params["tier"] ?? "");
+});
+
+// ─── Threats ───────────────────────────────────────────────
+router.get("/api/threats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListThreats(request, env);
+});
+router.get("/api/threats/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleThreatStats(request, env);
+});
+router.get("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetThreat(request, env, request.params["id"] ?? "");
+});
+router.patch("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateThreat(request, env, request.params["id"] ?? "");
+});
+
+// ─── Briefings ─────────────────────────────────────────────
+router.get("/api/briefings", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListBriefings(request, env);
+});
+router.get("/api/briefings/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBriefing(request, env, request.params["id"] ?? "");
+});
+
+// ─── Social IOCs ───────────────────────────────────────────
+router.get("/api/social-iocs", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListSocialIOCs(request, env);
+});
+
+// ─── Investigations ────────────────────────────────────────
+router.get("/api/tickets", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListTickets(request, env);
+});
+router.get("/api/tickets/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetTicket(request, env, request.params["id"] ?? "");
+});
+router.post("/api/tickets", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateTicket(request, env, ctx.userId);
+});
+router.patch("/api/tickets/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateTicket(request, env, request.params["id"] ?? "");
+});
+
+// ─── Erasure Actions (Takedowns) ───────────────────────────
+router.get("/api/erasures", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListErasures(request, env);
+});
+router.post("/api/erasures", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateErasure(request, env, ctx.userId);
+});
+router.patch("/api/erasures/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateErasure(request, env, request.params["id"] ?? "");
+});
+
+// ─── Campaign Clusters ─────────────────────────────────────
+router.get("/api/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCampaigns(request, env);
+});
+
+// ─── Intel: Breach Checks ──────────────────────────────────
+router.get("/api/breaches", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListBreaches(request, env);
+});
+
+// ─── Intel: Account Takeover ───────────────────────────────
+router.get("/api/ato-events", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListATOEvents(request, env);
+});
+router.patch("/api/ato-events/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateATOEvent(request, env, request.params["id"] ?? "");
+});
+
+// ─── Intel: Email Auth Reports ─────────────────────────────
+router.get("/api/email-auth", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListEmailAuth(request, env);
+});
+
+// ─── Intel: Cloud Incidents ────────────────────────────────
+router.get("/api/cloud-incidents", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCloudIncidents(request, env);
+});
+
+// ─── Trust Score History ───────────────────────────────────
+router.get("/api/trust-scores", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrustScoreHistory(request, env);
 });
 
 // ─── Agents ────────────────────────────────────────────────
