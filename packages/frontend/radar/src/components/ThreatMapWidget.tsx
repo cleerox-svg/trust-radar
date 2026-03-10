@@ -364,13 +364,13 @@ export function ThreatMapWidget() {
   const getCountryFill = useCallback((geoId: string): string => {
     if (viewMode === "origins") {
       const origin = originData[geoId];
-      if (!origin) return "rgba(148, 163, 184, 0.04)";
+      if (!origin) return "rgba(148, 163, 184, 0.15)";
       const intensity = Math.min(origin.count / 300, 1);
       return `rgba(239, 68, 68, ${0.12 + intensity * 0.48})`;
     }
 
     const data = countryData.get(geoId);
-    if (!data) return "rgba(148, 163, 184, 0.04)";
+    if (!data) return "rgba(148, 163, 184, 0.15)";
 
     const intensity = Math.min(data.count / 50, 1);
     const colors: Record<string, string> = {
@@ -650,7 +650,7 @@ export function ThreatMapWidget() {
           strokeWidth={0.3}
           strokeOpacity={0.12}
         />
-        <Graticule stroke="#22D3EE" strokeWidth={0.25} strokeOpacity={0.05} />
+        <Graticule stroke="#22D3EE" strokeWidth={0.25} strokeOpacity={0.08} />
 
         {/* Country geometries */}
         <Geographies geography={GEO_URL}>
@@ -667,15 +667,15 @@ export function ThreatMapWidget() {
                   key={geo.rsmKey}
                   geography={geo}
                   fill={getCountryFill(geoId)}
-                  stroke={hasData ? "#22D3EE" : "#1E293B"}
-                  strokeWidth={hasData ? 0.6 : 0.3}
-                  strokeOpacity={hasData ? 0.4 : 0.15}
+                  stroke={hasData ? "#22D3EE" : "#475569"}
+                  strokeWidth={hasData ? 0.6 : 0.4}
+                  strokeOpacity={hasData ? 0.4 : 0.35}
                   style={{
                     default: { outline: "none" },
                     hover: {
                       fill: hasData
                         ? "rgba(34, 211, 238, 0.3)"
-                        : "rgba(148, 163, 184, 0.1)",
+                        : "rgba(148, 163, 184, 0.25)",
                       stroke: "#22D3EE",
                       strokeWidth: 0.8,
                       strokeOpacity: 0.6,
@@ -686,10 +686,10 @@ export function ThreatMapWidget() {
                   }}
                   onMouseEnter={() => {
                     if (data) {
-                      setTooltipContent(`${name}: ${data.count} threats \u00b7 ${data.maxSeverity.toUpperCase()}`);
+                      setTooltipContent(`${name}: ${data.count} threats · ${data.maxSeverity.toUpperCase()}`);
                       setTooltipSeverity(data.maxSeverity);
                     } else if (originInfo) {
-                      setTooltipContent(`${name}: ${originInfo.count} attacks \u00b7 ${originInfo.type}`);
+                      setTooltipContent(`${name}: ${originInfo.count} attacks · ${originInfo.type}`);
                       setTooltipSeverity(originInfo.severity);
                     } else {
                       setTooltipContent(name);
@@ -831,7 +831,7 @@ export function ThreatMapWidget() {
                       fontSize: 4,
                       fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
                       textShadow: "0 0 3px rgba(0,0,0,0.8)",
-                      fill: "#334155",
+                      fill: "#64748B",
                       pointerEvents: "none",
                     }}
                   >
@@ -871,12 +871,12 @@ export function ThreatMapWidget() {
             <span className="text-[9px] lg:text-2xs font-mono text-cyan-400 font-semibold">LIVE</span>
           </div>
           <span className="text-[9px] lg:text-2xs font-mono text-[--text-tertiary]">
-            {countryData.size} REGIONS \u00b7 {aggMode.toUpperCase()} \u00b7 {viewMode === "targets" ? "TARGET" : "ORIGIN"} VIEW
+            {countryData.size} REGIONS {"\u00b7"} {aggMode.toUpperCase()} {"\u00b7"} {viewMode === "targets" ? "TARGET" : "ORIGIN"} VIEW
           </span>
         </div>
         <div className="flex items-center gap-3">
           {zoom > 1.3 && (
-            <span className="text-[9px] font-mono text-cyan-400/70">{zoom.toFixed(1)}\u00d7</span>
+            <span className="text-[9px] font-mono text-cyan-400/70">{zoom.toFixed(1)}{"\u00d7"}</span>
           )}
           <span className="text-[9px] lg:text-2xs font-mono font-bold" style={{
             color: totalThreats > 0 ? "#EF4444" : "#22D3EE",
