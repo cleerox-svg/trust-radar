@@ -79,14 +79,14 @@ export const executiveIntelAgent: AgentModule = {
     // Store briefing
     const briefingId = crypto.randomUUID();
     await ctx.env.DB.prepare(
-      `INSERT INTO threat_briefings (id, title, content, period_hours, risk_level, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, 'agent:executive-intel', datetime('now'))`
+      `INSERT INTO threat_briefings (id, title, summary, body, severity, category, generated_by, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'general', 'agent:executive-intel', 'draft', datetime('now'), datetime('now'))`
     ).bind(
       briefingId,
       `Threat Intelligence Briefing — ${briefing.period}`,
+      `${s.total} threats detected (${s.critical} critical, ${s.high} high). Risk level: ${briefing.riskLevel}.`,
       JSON.stringify(briefing),
-      hoursBack,
-      briefing.riskLevel,
+      briefing.riskLevel === "ELEVATED" ? "critical" : briefing.riskLevel === "GUARDED" ? "high" : "medium",
     ).run();
 
     // Request approval to publish
