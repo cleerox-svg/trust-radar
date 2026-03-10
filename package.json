@@ -2,16 +2,18 @@
   "name": "lrx-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "LRX Platform Monorepo — Trust Radar & imprsn8",
+  "description": "imprsn8 Platform Monorepo — Guard (social) & Shield (corporate) brand protection",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "deploy:radar": "turbo run deploy --filter=trust-radar",
-    "deploy:imprsn8": "turbo run deploy --filter=imprsn8",
+    "deploy:guard": "turbo run deploy --filter=imprsn8",
+    "deploy:shield": "turbo run deploy --filter=trust-radar",
     "deploy:api": "turbo run deploy --filter=api",
-    "deploy:all": "turbo run deploy"
+    "deploy:all": "turbo run deploy",
+    "deploy:imprsn8": "turbo run deploy --filter=imprsn8",
+    "deploy:radar": "turbo run deploy --filter=trust-radar"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

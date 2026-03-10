@@ -1,31 +1,73 @@
 # imprsn8 — Platform Design Brief
-### Complete Feature, UX & Design System Reference
-*Version 1.0 — March 2026*
+### Dual-Service Brand Protection Platform — Complete Feature, UX & Design Reference
+*Version 2.0 — March 2026*
+
+> **This document covers both imprsn8 services.** See [PLATFORM_ARCHITECTURE.md](./PLATFORM_ARCHITECTURE.md)
+> for the strategic overview. See [SHIELD_BUILD_PLAN.md](./SHIELD_BUILD_PLAN.md) and
+> [GUARD_BUILD_PLAN.md](./GUARD_BUILD_PLAN.md) for service-specific build roadmaps.
+
+---
+
+## Platform Overview
+
+**imprsn8** is a brand protection platform operating two distinct services under one master brand:
+
+| | imprsn8 Shield | imprsn8 Guard |
+|---|---|---|
+| **Focus** | Corporate brand & threat intelligence | Social media & personal brand protection |
+| **Primary buyer** | Security teams, brand risk officers, IT/SOC | Influencers, talent agencies, publicists |
+| **Domain** | `shield.imprsn8.com` | `imprsn8.com` |
+| **Design identity** | Navy/teal — cyber-intelligence | Deep navy/purple — editorial brand |
+| **Previous name** | Trust Radar | imprsn8 (v1) |
+| **Build status** | Active build — see SHIELD_BUILD_PLAN.md | Production-ready — polish phase |
+
+Both services share: a single auth layer, the `api.lrx.io` FastAPI backend, the same
+Cloudflare Worker + D1 infrastructure pattern, and the same React/Vite/Tailwind frontend
+stack. They differ in design identity, buyer vocabulary, feature surface, and AI agent sets.
 
 ---
 
 ## Table of Contents
 
-1. [What This Platform Does](#1-what-this-platform-does)
-2. [Who Uses It — User Roles](#2-who-uses-it--user-roles)
-3. [Full Page & Feature Inventory](#3-full-page--feature-inventory)
-4. [Design System — Colors](#4-design-system--colors)
-5. [Design System — Typography](#5-design-system--typography)
-6. [Design System — Component Classes](#6-design-system--component-classes)
-7. [Current Visual Style Description](#7-current-visual-style-description)
-8. [Navigation & Layout Architecture](#8-navigation--layout-architecture)
-9. [AI Agents — The Intelligence Layer](#9-ai-agents--the-intelligence-layer)
-10. [Data Feeds — The Input Layer](#10-data-feeds--the-input-layer)
-11. [Key Data Types & Domain Vocabulary](#11-key-data-types--domain-vocabulary)
-12. [Design Improvement Opportunities](#12-design-improvement-opportunities)
+### Part A — imprsn8 Guard (Social / Influencer Service)
+1. [What Guard Does](#1-what-guard-does)
+2. [Guard User Roles](#2-guard-user-roles)
+3. [Guard Page & Feature Inventory](#3-guard-page--feature-inventory)
+4. [Guard Design System — Colors](#4-guard-design-system--colors)
+5. [Guard Design System — Typography](#5-guard-design-system--typography)
+6. [Guard Design System — Component Classes](#6-guard-design-system--component-classes)
+7. [Guard Visual Style](#7-guard-visual-style)
+8. [Guard Navigation & Layout](#8-guard-navigation--layout)
+9. [Guard AI Agents](#9-guard-ai-agents--the-intelligence-layer)
+10. [Guard Data Feeds](#10-guard-data-feeds--the-input-layer)
+11. [Guard Domain Vocabulary](#11-guard-key-data-types--domain-vocabulary)
+12. [Guard Design Improvement Opportunities](#12-guard-design-improvement-opportunities)
+
+### Part B — imprsn8 Shield (Corporate / Threat Intelligence Service)
+13. [What Shield Does](#13-what-shield-does)
+14. [Shield User Roles](#14-shield-user-roles)
+15. [Shield Page & Feature Inventory](#15-shield-page--feature-inventory)
+16. [Shield Design System](#16-shield-design-system)
+17. [Shield AI Agents](#17-shield-ai-agents)
+18. [Shield Data Feeds](#18-shield-intelligence-feeds)
+
+### Part C — Shared Platform
+19. [Shared Component Library](#19-shared-component-library)
+20. [Shared Auth & RBAC](#20-shared-auth--rbac)
 
 ---
 
-## 1. What This Platform Does
+# PART A — imprsn8 Guard
 
-**imprsn8** is a real-time **brand protection and digital identity threat intelligence platform** built for influencers, public figures, and content creators.
+## 1. What Guard Does
 
-The core problem it solves: famous people (YouTubers, TikTokers, athletes, musicians, etc.) are constantly being impersonated online — fake accounts steal their name, avatar, and bio across Instagram, TikTok, X, YouTube, and a dozen other platforms to scam their fans, sell counterfeit merchandise, or damage their reputation. Finding and removing these fakes is a full-time job. imprsn8 automates it.
+**imprsn8 Guard** is a real-time **social media monitoring and personal brand protection
+service** built for influencers, public figures, and content creators.
+
+The core problem it solves: public figures are constantly impersonated online — fake accounts
+steal their name, avatar, and bio across Instagram, TikTok, X, YouTube, and a dozen other
+platforms to scam fans, sell counterfeit merchandise, or damage their reputation. Finding
+and removing these fakes is a full-time job. Guard automates it.
 
 ### Core capabilities (in plain language):
 
@@ -41,9 +83,9 @@ The core problem it solves: famous people (YouTubers, TikTokers, athletes, music
 
 ---
 
-## 2. Who Uses It — User Roles
+## 2. Guard User Roles
 
-The platform has four roles with strictly enforced access boundaries:
+Guard has four roles with strictly enforced access boundaries:
 
 ### `influencer` — The Protected Person
 - Views their own brand score and impression analytics
@@ -72,7 +114,7 @@ The platform has four roles with strictly enforced access boundaries:
 
 ---
 
-## 3. Full Page & Feature Inventory
+## 3. Guard Page & Feature Inventory
 
 ### PUBLIC — Home Page (`/`)
 
@@ -358,7 +400,7 @@ Platform operator view. Admin only. Four tabs (URL-based):
 
 ---
 
-## 4. Design System — Colors
+## 4. Guard Design System — Colors
 
 The color system uses CSS custom properties stored as **RGB channel triplets** (not hex), so Tailwind's opacity modifiers (`/10`, `/20`, `/50`, etc.) work on every color token.
 
@@ -450,7 +492,7 @@ PHANTOM    text-slate-400  / bg-slate-500/10     — Voice Clone Detector (comin
 
 ---
 
-## 5. Design System — Typography
+## 5. Guard Design System — Typography
 
 ### Font Families
 
@@ -805,4 +847,237 @@ This section is meant to seed ideas for a redesign consultation. These are inten
 
 ---
 
-*This document covers 100% of the current platform's implemented features, design tokens, and component system. Use it to brief a designer or AI assistant for redesign proposals.*
+*Part A covers 100% of Guard's implemented features, design tokens, and component system.*
+
+---
+
+---
+
+# PART B — imprsn8 Shield
+
+> **Detailed build plan:** [SHIELD_BUILD_PLAN.md](./SHIELD_BUILD_PLAN.md)
+> **Design spec:** Extends IMPRSN8_DESIGN_SPEC_V2 principles with a distinct cyber-intel identity.
+
+## 13. What Shield Does
+
+**imprsn8 Shield** is a corporate **brand health monitoring and threat intelligence platform**
+for security teams, brand risk officers, and IT/SOC analysts who need to monitor their
+organisation's digital brand surface.
+
+The core problem it solves: corporate brands are impersonated, their domains are spoofed,
+their employees' credentials appear in breaches, their infrastructure is probed — and it
+happens continuously across a threat surface that no human team can monitor manually.
+Shield aggregates 24+ intelligence feeds, applies AI triage, and puts a SOC-quality
+investigation workflow directly in the hands of the brand team.
+
+### Core capabilities
+
+| Capability | What it does |
+|---|---|
+| **URL & domain trust scoring** | 0–100 trust score for any URL or domain, powered by 24+ feeds |
+| **Lookalike domain detection** | Homoglyph, typosquat, and combo-squatting detection in near-real-time |
+| **Threat intelligence feeds** | Aggregates ThreatFox, CISA KEV, PhishTank, VirusTotal, Spamhaus, and 20+ others |
+| **Brand impersonation monitoring** | Corporate identity monitoring across the open web |
+| **Dark web exposure** | Credential breach and data leak monitoring for corporate domains |
+| **Email auth compliance** | SPF, DKIM, and DMARC report aggregation and compliance scoring |
+| **Investigation case management** | Full ticket lifecycle (LRX-XXXXX IDs, evidence, analyst notes, status) |
+| **Takedown orchestration** | HITL-gated abuse notice preparation and submission tracking |
+| **AI Executive Briefings** | Daily AI-generated intelligence briefings, PDF exportable |
+| **AI agent suite** | Triage, Threat Hunt, Campaign Correlator, TrustBot AI chat |
+
+---
+
+## 14. Shield User Roles
+
+| Role | Access |
+|------|--------|
+| `admin` | Full platform access, user management, feed config, session audit |
+| `analyst` | Full investigation tools, HITL takedown authorisation, agent triggers |
+| `customer` | Brand-scoped read access — own organisation's dashboard and reports |
+| `influencer` | (Guard-only role — not applicable to Shield) |
+
+---
+
+## 15. Shield Page & Feature Inventory
+
+### Navigation structure (4 categories)
+
+**Mission Control**
+- Dashboard — 4-metric strip + threat map + critical alerts + agent heartbeat
+- Threat Map — Interactive world map, severity-coded threat markers
+- Brand Exposure — Attack surface overview, brand risk scoring
+- Daily Briefing — AI-generated intel brief, streaming SSE, PDF export
+
+**Investigate**
+- Signal Correlation — Cross-reference panel across all data sources
+- Investigations — Case management (LRX-XXXXX), status workflow
+- Takedown & Response — Erasure orchestrator, provider tracking
+- Dark Web Monitor — Breach and credential exposure
+- Account Takeover — Suspicious login event detection
+- Email Authentication — SPF/DKIM/DMARC compliance
+
+**Agents & Automation**
+- Agent Hub — Command centre, status grid, HITL approval queue
+- TrustBot — AI chat with database context, streaming markdown responses
+- Feed Analytics — Dual-view KPI dashboard
+
+**Intelligence Feeds**
+- Social Intel — Community IOCs with confidence scoring
+- Cloud Status — CSP/SaaS/Social platform outage monitoring
+- Knowledge Base — Searchable documentation
+
+**Platform**
+- Admin Panel — User management, RBAC, feed schedules, session audit
+- Leads Management — Landing page form submissions
+
+---
+
+## 16. Shield Design System
+
+Shield uses a **distinct visual identity** from Guard. Same Tailwind/Radix stack,
+different tokens.
+
+### Color tokens
+
+```css
+:root {
+  /* Surfaces — deep navy with teal undertone */
+  --surface-void:    #060A12;
+  --surface-base:    #0A0E1A;   /* Page background */
+  --surface-raised:  #111827;   /* Cards */
+  --surface-overlay: #1E293B;   /* Modals, dropdowns */
+  --surface-float:   #334155;   /* Tooltips */
+
+  /* Brand accent — cyber teal */
+  --cyan-400:  #22D3EE;   /* Primary accent */
+  --cyan-500:  #06B6D4;   /* Interactive states */
+  --cyan-600:  #0891B2;
+
+  /* Threat severity (shared with Guard) */
+  --threat-critical: #EF4444;
+  --threat-high:     #F97316;
+  --threat-medium:   #EAB308;
+  --threat-low:      #22C55E;
+
+  /* Text */
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-tertiary:  #64748B;
+
+  /* Borders */
+  --border-subtle:  rgba(148, 163, 184, 0.08);
+  --border-default: rgba(148, 163, 184, 0.15);
+  --border-cyan:    rgba(34, 211, 238, 0.25);
+}
+```
+
+### Typography
+
+| Family | Weights | Purpose |
+|--------|---------|---------|
+| **Geist** | 300–700 | Body, UI labels |
+| **Geist Mono** | 400, 500, 700 | Scores, IDs, IOCs, timestamps |
+| **Clash Display** | 600, 700 | Page headlines, hero text |
+
+**Feels:** SOC terminal meets editorial intelligence. Denser information layout than Guard.
+Tabular numbers everywhere. Less emotive, more authoritative.
+
+---
+
+## 17. Shield AI Agents
+
+| Agent | Codename | Function | Trigger |
+|-------|----------|---------|---------|
+| Triage | TRIAGE | Auto-score and prioritise threats | Always On |
+| Threat Hunt | HUNT | Correlate feeds, find campaigns | Every 6h |
+| Impersonation Detector | GHOST | Lookalike domains, homoglyphs | Event-driven |
+| Campaign Correlator | NEXUS | Cluster threats by infrastructure | Every 6h |
+| Trust Score Monitor | PULSE | Brand trust scoring, trend alerts | Continuous |
+| Takedown Orchestrator | ARBITER | Draft abuse notices (HITL-gated) | On demand |
+| Evidence Preservation | VAULT | Forensic snapshots | Auto on critical |
+| Abuse Mailbox | INTAKE | Email report triage | Always On |
+| Executive Intel | BRIEF | Daily briefing generation | Daily 06:00 |
+| TrustBot / Copilot | BOT | Interactive AI chat with DB context | User-initiated |
+
+---
+
+## 18. Shield Intelligence Feeds
+
+**Tier 1 — Core Threat Intel (every 15–30 min)**
+ThreatFox (abuse.ch) · Feodo Tracker · PhishTank
+
+**Tier 2 — Vulnerability & Malware (every 30 min – 6h)**
+CISA KEV · SSL Blocklist · MalBazaar
+
+**Tier 3 — Situational Awareness (hourly – 6h)**
+SANS ISC · Ransomwatch · Tor Exit Nodes · IPsum · Spamhaus DROP · Blocklist.de
+
+**Tier 4 — Social/Community (every 30 min)**
+TweetFeed · Mastodon IOCs
+
+**Tier 5 — API-Gated (rate-limited)**
+AbuseIPDB · VirusTotal · IPQualityScore
+
+**Tier 6 — Infrastructure (15 min – 1h)**
+CertStream · Google Safe Browsing · Cloud Status · Cloudflare Radar · BGPStream · GreyNoise · OTX Pulses
+
+---
+
+---
+
+# PART C — Shared Platform
+
+## 19. Shared Component Library
+
+Components that exist in both Guard and Shield frontends — candidates for extraction
+into `packages/@lrx/ui` in Phase 7:
+
+| Component | Guard | Shield | Notes |
+|-----------|-------|--------|-------|
+| `AgentCard` | ✓ | ✓ | Different color schemes per service |
+| `ScoreRing` | ✓ | ✓ | Same SVG arc, different accent color |
+| `Pulse` | ✓ | ✓ | Identical |
+| `ThemeToggle` | ✓ | ✓ | Identical |
+| `SeverityBadge` / `ThreatBadge` | ✓ | ✓ | Same severity ladder |
+| `StatusDot` | ✓ | ✓ | Identical |
+
+Extraction happens in **Phase 7** (after both services reach production parity).
+Until then, maintain in parallel to avoid cross-product breakage risk.
+
+---
+
+## 20. Shared Auth & RBAC
+
+**Phase 3 target** — currently each service issues its own JWT.
+
+### JWT payload (target)
+```json
+{
+  "userId": "usr_abc123",
+  "email": "user@example.com",
+  "products": ["shield", "guard"],
+  "role": "analyst",
+  "iat": 1234567890,
+  "exp": 1234654290
+}
+```
+
+### Role mapping across services
+
+| Role | Guard access | Shield access |
+|------|-------------|---------------|
+| `admin` | Full platform + admin console | Full platform + admin console |
+| `analyst` / `soc` | Full + HITL takedown auth | Full + HITL takedown auth |
+| `customer` / `influencer` | Own-scoped brand view | Own-org-scoped brand view |
+| `staff` | Read-only own influencer | N/A |
+
+### Auth worker (Phase 3)
+- New `packages/auth/` Cloudflare Worker
+- Issues JWTs at `imprsn8.com/login`
+- Both Shield and Guard workers validate against shared public key
+- Product entitlements gate access to each service
+
+---
+
+*Document version 2.0 — March 2026*
+*See PLATFORM_ARCHITECTURE.md for strategic decisions and phased roadmap.*

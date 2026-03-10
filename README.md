@@ -1,29 +1,47 @@
-# LRX Platform Monorepo
+# imprsn8 Platform — Monorepo
 
-Monorepo for the LRX platform — two products, one shared backend.
+**imprsn8** is a brand protection platform with two services, one shared backend, and a
+single master brand.
 
-| Package | Domain | Runtime | Description |
-|---|---|---|---|
-| `packages/trust-radar` | [lrx-radar.com](https://lrx-radar.com) | Cloudflare Worker + D1 | URL & domain trust scoring |
-| `packages/imprsn8` | [imprsn8.com](https://imprsn8.com) | Cloudflare Worker + D1 | Digital impression & personal brand scoring |
-| `packages/api` | api.lrx.io | FastAPI on Railway | Shared AI/backend services |
+> Strategic overview: [PLATFORM_ARCHITECTURE.md](./PLATFORM_ARCHITECTURE.md)
+> Service build plans: [SHIELD_BUILD_PLAN.md](./SHIELD_BUILD_PLAN.md) · [GUARD_BUILD_PLAN.md](./GUARD_BUILD_PLAN.md)
+> Design system: [PLATFORM_DESIGN_BRIEF.md](./PLATFORM_DESIGN_BRIEF.md) · [IMPRSN8_DESIGN_SPEC_V2.md](./IMPRSN8_DESIGN_SPEC_V2.md)
+
+---
+
+## Services
+
+| Service | Domain | Package | Description |
+|---------|--------|---------|-------------|
+| **imprsn8 Guard** | [imprsn8.com](https://imprsn8.com) | `packages/imprsn8/` | Social media monitoring & personal brand protection for influencers and public figures |
+| **imprsn8 Shield** | [shield.imprsn8.com](https://shield.imprsn8.com) | `packages/trust-radar/` | Corporate brand health monitoring & threat intelligence |
+| **LRX API** | api.lrx.io | `packages/api/` | Shared AI/backend services (internal) |
+
+---
 
 ## Architecture
 
 ```
-                ┌─────────────────┐      ┌──────────────────┐
-User ──HTTPS──▶ │  Trust Radar    │      │    imprsn8        │
-                │ CF Worker + D1  │      │  CF Worker + D1   │
-                └────────┬────────┘      └────────┬──────────┘
-                         │  X-API-Key              │  X-API-Key
-                         └──────────┬──────────────┘
-                                    ▼
-                          ┌─────────────────┐
-                          │   LRX API        │
-                          │ FastAPI/Railway   │
-                          │  PostgreSQL + AI  │
-                          └─────────────────┘
+                   imprsn8.com
+                   (Guard — social/influencer protection)
+                        │
+          ┌─────────────┴──────────────────┐
+          │                                │
+    imprsn8.com                   shield.imprsn8.com
+    Guard SPA                     Shield SPA
+    CF Worker + D1                CF Worker + D1
+    imprsn8-db                    radar-db
+          │                                │
+          │       X-API-Key                │
+          └──────────────┬─────────────────┘
+                         ▼
+                    api.lrx.io
+                    FastAPI / Railway
+                    PostgreSQL + OpenAI
+                    (shared by both services)
 ```
+
+---
 
 ## Quick Start
 
@@ -46,79 +64,78 @@ pnpm install
 # All packages in parallel
 pnpm dev
 
-# Individual packages
-cd packages/trust-radar && pnpm dev
-cd packages/imprsn8    && pnpm dev
+# Individual services
+cd packages/imprsn8    && pnpm dev    # Guard backend
+cd packages/trust-radar && pnpm dev   # Shield backend
 cd packages/api        && uvicorn app.main:app --reload
+
+# Frontend
+pnpm --filter @lrx/frontend dev:imprsn8   # Guard SPA
+pnpm --filter @lrx/frontend dev:radar     # Shield SPA
 ```
 
 ### Database Setup (Cloudflare D1)
 
 ```bash
 # Create databases (one-time)
+cd packages/imprsn8     && pnpm db:create
 cd packages/trust-radar && pnpm db:create
-cd packages/imprsn8    && pnpm db:create
 
 # Apply migrations locally
+cd packages/imprsn8     && pnpm db:migrate:local
 cd packages/trust-radar && pnpm db:migrate:local
-cd packages/imprsn8    && pnpm db:migrate:local
 
 # Apply migrations to production
+cd packages/imprsn8     && pnpm db:migrate:prod
 cd packages/trust-radar && pnpm db:migrate:prod
-cd packages/imprsn8    && pnpm db:migrate:prod
 ```
 
 ### Secrets Setup (Cloudflare Workers)
 
 ```bash
-# Trust Radar
+# Guard (imprsn8)
+cd packages/imprsn8
+wrangler secret put JWT_SECRET
+wrangler secret put LRX_API_KEY
+
+# Shield (trust-radar)
 cd packages/trust-radar
 wrangler secret put JWT_SECRET
 wrangler secret put VIRUSTOTAL_API_KEY
-wrangler secret put LRX_API_KEY
-
-# imprsn8
-cd packages/imprsn8
-wrangler secret put JWT_SECRET
 wrangler secret put LRX_API_KEY
 ```
 
 ### Deploy
 
 ```bash
-pnpm deploy:radar    # Trust Radar only
-pnpm deploy:imprsn8  # imprsn8 only
-pnpm deploy:api      # FastAPI only
+pnpm deploy:guard    # imprsn8 Guard only
+pnpm deploy:shield   # imprsn8 Shield only
+pnpm deploy:api      # LRX API only
 pnpm deploy:all      # Everything
+
+# Legacy aliases (still work)
+pnpm deploy:imprsn8  # → same as deploy:guard
+pnpm deploy:radar    # → same as deploy:shield
 ```
+
+---
 
 ## GitHub Secrets Required
 
-Set these in your repository settings → Secrets and variables → Actions:
-
 | Secret | Used By | Description |
-|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | deploy-radar, deploy-imprsn8 | CF API token with Workers & D1 permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | deploy-radar, deploy-imprsn8 | Your Cloudflare account ID |
+|--------|---------|-------------|
+| `CLOUDFLARE_API_TOKEN` | deploy-guard, deploy-shield | CF API token with Workers & D1 permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | deploy-guard, deploy-shield | Your Cloudflare account ID |
 | `RAILWAY_TOKEN` | deploy-api | Railway project token |
+
+---
 
 ## API Endpoints
 
-### Trust Radar (`lrx-radar.com`)
+### Guard — imprsn8 (`imprsn8.com`)
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | — | Health check |
-| `POST` | `/api/auth/register` | — | Register |
-| `POST` | `/api/auth/login` | — | Login |
-| `GET` | `/api/auth/me` | Bearer | Current user |
-| `POST` | `/api/scan` | Optional | Scan a URL |
-| `GET` | `/api/scan/history` | Bearer | Scan history |
-
-### imprsn8 (`imprsn8.com`)
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
+|--------|------|------|-------------|
 | `GET` | `/health` | — | Health check |
 | `POST` | `/api/auth/register` | — | Register |
 | `POST` | `/api/auth/login` | — | Login |
@@ -130,25 +147,75 @@ Set these in your repository settings → Secrets and variables → Actions:
 | `GET` | `/api/social` | Bearer | List social profiles |
 | `POST` | `/api/social` | Bearer | Add social profile |
 | `DELETE` | `/api/social/:platform` | Bearer | Remove social profile |
+| `GET` | `/api/threats` | Bearer | IOI threat feed |
+| `GET` | `/api/takedowns` | Bearer | Takedown pipeline |
+| `GET` | `/api/agents` | Bearer (soc+) | Agent status |
+| `POST` | `/api/agents/:id/run` | Bearer (soc+) | Trigger agent |
+| `GET` | `/api/admin/users` | Bearer (admin) | User management |
+| `POST` | `/api/invites` | Bearer (admin) | Create invite link |
 
-### LRX API (`api.lrx.io`)
+### Shield — Trust Radar (`shield.imprsn8.com`)
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+|--------|------|------|-------------|
+| `GET` | `/health` | — | Health check |
+| `POST` | `/api/auth/register` | — | Register |
+| `POST` | `/api/auth/login` | — | Login |
+| `GET` | `/api/auth/me` | Bearer | Current user |
+| `POST` | `/api/scan` | Optional | Scan a URL |
+| `GET` | `/api/scan/history` | Bearer | Scan history |
+| `GET` | `/api/threats` | Bearer | Threat intelligence feed |
+| `GET` | `/api/investigations` | Bearer | Case management |
+| `GET` | `/api/feeds` | Bearer (analyst+) | Feed status |
+| `GET` | `/api/agents` | Bearer (analyst+) | Agent status |
+| `GET` | `/api/admin/users` | Bearer (admin) | User management |
+
+### LRX API (`api.lrx.io`) — Internal
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | `GET` | `/health` | — | Health check |
 | `POST` | `/api/ai/enhance-bio` | X-API-Key | AI bio enhancement |
 | `POST` | `/api/ai/scan-insight` | X-API-Key | AI scan explanation |
 | `POST` | `/api/ai/impression-report` | X-API-Key | AI impression report |
 
-## Stack
+---
 
-- **Cloudflare Workers** — edge compute, zero cold starts
-- **Cloudflare D1** — SQLite at the edge, per-product
-- **Cloudflare KV** — session/cache storage
-- **Cloudflare R2** — asset storage (imprsn8 avatars)
-- **FastAPI** — Python async API on Railway
-- **PostgreSQL** — Railway-provisioned database
-- **OpenAI GPT-4o-mini** — AI features
-- **Turborepo** — monorepo build orchestration
-- **pnpm workspaces** — package management
-- **GitHub Actions** — path-filtered auto-deploy
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18 + TypeScript + Vite |
+| **UI** | Radix UI + Tailwind CSS + Framer Motion |
+| **Data** | TanStack Query |
+| **Backend** | Cloudflare Workers (itty-router + Zod) |
+| **Database** | Cloudflare D1 (SQLite, per service) |
+| **Cache/Sessions** | Cloudflare KV |
+| **Assets** | Cloudflare R2 (Guard profile images) |
+| **Shared API** | FastAPI on Railway + PostgreSQL |
+| **AI** | OpenAI GPT-4o-mini |
+| **Build** | Turborepo + pnpm workspaces |
+| **CI/CD** | GitHub Actions (path-filtered auto-deploy) |
+
+---
+
+## Monorepo Structure
+
+```
+packages/
+├── imprsn8/           → Guard backend (Cloudflare Worker)
+├── trust-radar/       → Shield backend (Cloudflare Worker)
+├── frontend/
+│   ├── imprsn8/       → Guard SPA
+│   ├── radar/         → Shield SPA
+│   └── package.json   → Shared frontend dependencies
+└── api/               → LRX API (FastAPI)
+```
+
+> **Package rename note:** `packages/trust-radar` and `packages/frontend/radar` will be
+> renamed to `packages/shield` and `packages/frontend/shield` in a future cleanup pass
+> once all CI/CD references are updated. Both names are equivalent until then.
+
+---
+
+*imprsn8 platform — powered by LRX · March 2026*
