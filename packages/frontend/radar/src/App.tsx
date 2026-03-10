@@ -6,6 +6,8 @@ import { TooltipProvider } from "./components/ui/Tooltip";
 import { Pulse } from "./components/ui/Pulse";
 import Sidebar from "./components/Sidebar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TrustBotWidget } from "./components/TrustBotWidget";
+import { PlatformSwitcher } from "./components/PlatformSwitcher";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
@@ -207,11 +209,14 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Desktop status */}
-            <span className="hidden sm:flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              <Pulse color="green" size="sm" />
-              <span className="font-display font-semibold" style={{ color: "var(--text-primary)" }}>Trust Intelligence Platform</span>
-            </span>
+            {/* Platform switcher + status */}
+            <div className="hidden sm:flex items-center gap-3">
+              <PlatformSwitcher />
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                <Pulse color="green" size="sm" />
+                <span className="font-display font-semibold" style={{ color: "var(--text-primary)" }}>Intelligence Platform</span>
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -244,6 +249,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <TrustBotWidget />
     </div>
   );
 }

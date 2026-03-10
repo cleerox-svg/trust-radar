@@ -15,6 +15,10 @@ routes = [
   { pattern = "www.lrxradar.com", custom_domain = true }
 ]
 
+# ─── Cron Triggers (automated feed ingestion) ────────────────
+[triggers]
+crons = ["*/5 * * * *"]
+
 # ─── D1 Database ─────────────────────────────────────────────
 [[d1_databases]]
 binding = "DB"

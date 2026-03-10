@@ -7,6 +7,7 @@ import {
   Users, Lock, TrendingUp, Search,
 } from "lucide-react";
 import { ThemeToggle } from "./ui/ThemeToggle";
+import { PlatformSwitcher } from "./PlatformSwitcher";
 import { auth, influencers, ApiError } from "../lib/api";
 import type { User, InfluencerProfile } from "../lib/types";
 
@@ -100,17 +101,20 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
         <Link to="/" className="block group" onClick={onClose}>
           <WordMark variant="shield" size={26} textSize="text-lg" className="group-hover:opacity-80 transition-opacity" />
         </Link>
-        <button
-          className="p-1.5 rounded-md transition-colors"
-          style={{ color: "var(--text-tertiary)" }}
-          title="Search (⌘K)"
-          aria-label="Search"
-          onClick={() => {/* future: open command palette */}}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
-        >
-          <Search size={14} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <PlatformSwitcher />
+          <button
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: "var(--text-tertiary)" }}
+            title="Search (⌘K)"
+            aria-label="Search"
+            onClick={() => {/* future: open command palette */}}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+          >
+            <Search size={14} />
+          </button>
+        </div>
       </div>
 
       {/* ── Influencer switcher (SOC/Admin) ────────────────────── */}

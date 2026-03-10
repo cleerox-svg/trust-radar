@@ -10,8 +10,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-radar-bg">
-      <div className="w-6 h-6 border-2 border-radar-cyan border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-base)" }}>
+      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
     </div>
   );
   if (user) return <Navigate to="/dashboard" replace />;
@@ -30,26 +30,26 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-radar-bg flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--surface-base)" }}>
       {/* Top bar */}
-      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-radar-border">
-        <div className="w-7 h-7 rounded-lg bg-radar-cyan/20 border border-radar-cyan/40 flex items-center justify-center">
-          <div className="w-2.5 h-2.5 rounded-full bg-radar-cyan" />
+      <div className="flex items-center gap-2.5 px-5 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
         </div>
-        <span className="font-bold text-radar-text text-sm">Trust Radar</span>
+        <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Trust Radar</span>
       </div>
 
       {/* Form */}
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-radar-text">Create account</h1>
-            <p className="text-xs text-radar-muted mt-1">Start scanning URLs and tracking signals</p>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Create account</h1>
+            <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>Start scanning URLs and tracking signals</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-radar-muted uppercase tracking-wide">Email</label>
+              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Email</label>
               <input
                 type="email"
                 className="input"
@@ -62,7 +62,7 @@ export default function Register() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-radar-muted uppercase tracking-wide">Password</label>
+              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Password</label>
               <input
                 type="password"
                 className="input"
@@ -77,7 +77,7 @@ export default function Register() {
             </div>
 
             {error && (
-              <div className="text-xs text-radar-red bg-radar-red/10 border border-radar-red/20 rounded-lg px-3 py-2 font-mono">
+              <div className="text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 font-mono" style={{ color: "var(--threat-critical)" }}>
                 {error}
               </div>
             )}
@@ -89,15 +89,15 @@ export default function Register() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Creating account…
+                  Creating account...
                 </span>
               ) : "Create account"}
             </button>
           </form>
 
-          <p className="text-center text-xs text-radar-muted">
+          <p className="text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
             Already have an account?{" "}
-            <Link to="/login" className="text-radar-cyan hover:underline font-medium">
+            <Link to="/login" className="text-cyan-400 hover:underline font-medium">
               Sign in
             </Link>
           </p>
