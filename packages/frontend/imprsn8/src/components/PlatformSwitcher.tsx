@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 
 const platforms = [
@@ -7,20 +8,24 @@ const platforms = [
     name: "imprsn8",
     description: "Identity protection",
     color: "#f0a500",
-    url: null, // current
+    baseUrl: null, // current
+    adminUrl: null, // current
   },
   {
     id: "trust-radar",
     name: "Trust Radar",
     description: "URL threat intelligence",
     color: "#22d3ee",
-    url: "https://lrx-radar.com",
+    baseUrl: "https://lrx-radar.com",
+    adminUrl: "https://lrx-radar.com/admin",
   },
 ];
 
 export function PlatformSwitcher() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -58,7 +63,7 @@ export function PlatformSwitcher() {
           style={{
             background: "var(--surface-overlay)",
             border: "1px solid var(--border-default)",
-            minWidth: 200,
+            minWidth: 210,
           }}
         >
           <div
@@ -68,11 +73,12 @@ export function PlatformSwitcher() {
             LRX Platforms
           </div>
           {platforms.map((p) => {
-            const isCurrent = p.url === null;
+            const isCurrent = p.baseUrl === null;
+            const href = isCurrent ? undefined : (isAdmin ? p.adminUrl : p.baseUrl);
             return (
               <a
                 key={p.id}
-                href={isCurrent ? undefined : p.url!}
+                href={href ?? undefined}
                 onClick={(e) => {
                   if (isCurrent) { e.preventDefault(); setOpen(false); }
                 }}
@@ -94,7 +100,17 @@ export function PlatformSwitcher() {
                   style={{ background: p.color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold">{p.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold">{p.name}</span>
+                    {!isCurrent && isAdmin && (
+                      <span
+                        className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                        style={{ background: `${p.color}20`, color: p.color }}
+                      >
+                        admin
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
                     {p.description}
                   </div>

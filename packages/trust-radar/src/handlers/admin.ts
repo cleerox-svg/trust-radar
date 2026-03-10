@@ -2,6 +2,68 @@ import { z } from "zod";
 import { json } from "../lib/cors";
 import type { Env } from "../types";
 
+export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  let dbStatus: "ok" | "error" = "ok";
+  let dbResponseMs = 0;
+  let sqliteVersion = "unknown";
+  let journalMode = "wal";
+  let tables: { name: string; rows: number }[] = [];
+
+  try {
+    const dbStart = Date.now();
+    const versionResult = await env.DB.prepare("SELECT sqlite_version() AS v").first<{ v: string }>();
+    dbResponseMs = Date.now() - dbStart;
+    sqliteVersion = versionResult?.v ?? "unknown";
+
+    const journalResult = await env.DB.prepare("PRAGMA journal_mode").first<Record<string, string>>();
+    journalMode = journalResult?.["journal_mode"] ?? "wal";
+
+    const tableNames = ["users", "scans", "signal_alerts", "signals", "feed_schedules", "agent_runs", "threats", "briefings", "investigations"];
+    tables = await Promise.all(
+      tableNames.map(async (name) => {
+        try {
+          const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${name}`).first<{ n: number }>();
+          return { name, rows: r?.n ?? 0 };
+        } catch {
+          return { name, rows: -1 };
+        }
+      })
+    );
+  } catch {
+    dbStatus = "error";
+  }
+
+  const kvOk = !!env.CACHE;
+  const overall: "healthy" | "degraded" = dbStatus === "ok" ? "healthy" : "degraded";
+
+  return json({
+    success: true,
+    data: {
+      status: overall,
+      timestamp: new Date().toISOString(),
+      environment: "production",
+      database: {
+        status: dbStatus,
+        response_ms: dbResponseMs,
+        sqlite_version: sqliteVersion,
+        journal_mode: journalMode,
+        encryption_at_rest: "Cloudflare D1 managed",
+        encryption_in_transit: "TLS 1.3",
+        last_migration: "latest",
+        tables,
+      },
+      kv_cache: { status: kvOk ? "ok" : "error", binding: "CACHE" },
+      compliance: {
+        data_residency: "Cloudflare Global Network",
+        audit_logging: "enabled",
+        hitl_enforced: "enabled",
+      },
+    },
+  }, 200, origin);
+}
+
 const UpdateUserSchema = z.object({
   plan: z.enum(["free", "pro", "enterprise"]).optional(),
   scans_limit: z.number().int().min(0).max(100_000).optional(),

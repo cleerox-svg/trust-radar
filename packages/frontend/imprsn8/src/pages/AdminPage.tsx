@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2,
   AlertTriangle, Flag, Database, RefreshCw, Mail, UserPlus,
-  Activity, CheckCircle2, XCircle, Lock, Server, HardDrive,
+  Activity, CheckCircle2, XCircle, Lock, Server, HardDrive, ExternalLink,
 } from "lucide-react";
 import { admin, influencers as influencersApi, type AdminUser } from "../lib/api";
 import type { AdminStats, InfluencerProfile } from "../lib/types";
@@ -12,6 +12,32 @@ import { InviteInfluencerModal } from "../components/InviteInfluencerModal";
 const PLANS = ["free", "pro", "enterprise"] as const;
 const ROLES = ["influencer", "staff", "soc", "admin"] as const;
 const TIERS = ["starter", "pro", "enterprise"] as const;
+
+// ─── Platform Admin Link ──────────────────────────────────────────────────────
+function PlatformAdminLink() {
+  return (
+    <a
+      href="https://lrx-radar.com/admin"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"
+      style={{
+        color: "#22D3EE",
+        borderColor: "rgba(34,211,238,0.3)",
+        background: "rgba(34,211,238,0.06)",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.12)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.06)")}
+    >
+      <span
+        className="w-2 h-2 rounded-full flex-shrink-0"
+        style={{ background: "#22D3EE" }}
+      />
+      Trust Radar Admin
+      <ExternalLink size={10} style={{ opacity: 0.7 }} />
+    </a>
+  );
+}
 
 type Tab = "influencers" | "users" | "breakdown" | "health";
 
@@ -799,14 +825,17 @@ export default function AdminPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-slate-100">Admin Console</h1>
           <p className="text-slate-500 text-xs mt-0.5 font-mono">Platform management · imprsn8</p>
         </div>
-        <span className="text-[10px] bg-red-500/15 text-red-400 px-3 py-1 rounded-full font-mono border border-red-500/30 uppercase tracking-widest">
-          Admin
-        </span>
+        <div className="flex items-center gap-3">
+          <PlatformAdminLink />
+          <span className="text-[10px] bg-red-500/15 text-red-400 px-3 py-1 rounded-full font-mono border border-red-500/30 uppercase tracking-widest">
+            Admin
+          </span>
+        </div>
       </div>
 
       {/* Stats bar */}
