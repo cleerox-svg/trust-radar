@@ -45,6 +45,18 @@ export interface FeedType {
   implemented: boolean; // true = live API calls; false = configured but pull stubbed
 }
 
+// ─── Shared auth fields ──────────────────────────────────────────────────────
+
+/** Optional API key auth field for feeds that work without a key but support one. */
+const OPTIONAL_API_KEY: AuthField = {
+  key: "api_key",
+  label: "API Key (optional)",
+  type: "password",
+  required: false,
+  placeholder: "your-api-key",
+  help: "Optional. Some providers offer higher rate limits or additional data with an API key.",
+};
+
 // ─── Shared settings fields used across multiple platforms ────────────────────
 
 const SEARCH_QUERIES_FIELD: SettingsField = {
@@ -108,7 +120,7 @@ const FREE_FEEDS: FeedType[] = [
     tierCost: "Free",
     icon: "🔴",
     description: "Search Reddit usernames via the public JSON API. No credentials required.",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [SEARCH_QUERIES_FIELD],
     defaultIntervalMins: 60,
     minIntervalMins: 30,
@@ -123,7 +135,7 @@ const FREE_FEEDS: FeedType[] = [
     tierCost: "Free",
     icon: "🦋",
     description: "Search Bluesky actors via the public AT Protocol API. No credentials required.",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [SEARCH_QUERIES_FIELD],
     defaultIntervalMins: 30,
     minIntervalMins: 15,
@@ -197,7 +209,7 @@ const FREE_FEEDS: FeedType[] = [
     tierCost: "Free",
     icon: "📡",
     description: "Monitor RSS or Atom feeds for handle mentions. Useful for news sites, platform status feeds, and aggregators.",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "feed_urls", label: "Feed URLs", type: "textarea", required: true,
         placeholder: "https://example.com/feed.xml\nhttps://other.com/rss",

@@ -45,6 +45,7 @@ interface FeedScheduleRow {
   enabled: number;
   requires_key: number;
   api_key_env: string | null;
+  api_key_encrypted: string | null;
   parser: string;
   last_run_at: string | null;
   last_success_at: string | null;
@@ -163,7 +164,9 @@ export async function runFeed(
     method: schedule.method,
     headers: safeParseJSON(schedule.headers, {}),
     parser: schedule.parser,
-    apiKey: schedule.api_key_env ? getApiKey(env, schedule.api_key_env) : undefined,
+    apiKey: schedule.api_key_env
+      ? getApiKey(env, schedule.api_key_env)
+      : (schedule.api_key_encrypted ?? undefined),
   };
 
   const start = Date.now();

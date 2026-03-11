@@ -48,6 +48,18 @@ export interface IntelFeedType {
   implemented: boolean;
 }
 
+// ─── Shared auth fields ─────────────────────────────────────────────────
+
+/** Optional API key auth field for feeds that work without a key but support one. */
+const OPTIONAL_API_KEY: AuthField = {
+  key: "api_key",
+  label: "API Key (optional)",
+  type: "password",
+  required: false,
+  placeholder: "your-api-key",
+  help: "Optional. Some providers offer higher rate limits or additional data with an API key.",
+};
+
 // ─── Shared settings fields ─────────────────────────────────────────────
 
 const CONFIDENCE_THRESHOLD: SettingsField = {
@@ -105,7 +117,7 @@ const TIER1_FEEDS: IntelFeedType[] = [
     icon: "🦊",
     description: "Real-time IOCs from abuse.ch's ThreatFox platform. Covers malware, C2 servers, and botnet infrastructure.",
     providerUrl: "https://threatfox.abuse.ch/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       IOC_TYPES_FILTER,
       CONFIDENCE_THRESHOLD,
@@ -125,7 +137,7 @@ const TIER1_FEEDS: IntelFeedType[] = [
     icon: "🔴",
     description: "Tracks Dridex, Emotet, TrickBot, and QakBot C2 infrastructure. IP-based blocklist with high confidence.",
     providerUrl: "https://feodotracker.abuse.ch/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [MAX_RECORDS],
     defaultIntervalMins: 15,
     minIntervalMins: 5,
@@ -164,7 +176,7 @@ const TIER2_FEEDS: IntelFeedType[] = [
     icon: "🏛️",
     description: "CISA Known Exploited Vulnerabilities catalog. CVE IDs with vendor, product, severity, and remediation deadlines.",
     providerUrl: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "vendor_filter", label: "Vendor Filter", type: "textarea", required: false, placeholder: "Microsoft\nApple\nGoogle", help: "Only ingest KEVs from these vendors. One per line. Leave empty for all." },
       SEVERITY_FILTER,
@@ -183,7 +195,7 @@ const TIER2_FEEDS: IntelFeedType[] = [
     icon: "🔒",
     description: "SSL certificates associated with malware and botnet C2 servers. IP-based blocklist.",
     providerUrl: "https://sslbl.abuse.ch/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [MAX_RECORDS],
     defaultIntervalMins: 30,
     minIntervalMins: 15,
@@ -199,7 +211,7 @@ const TIER2_FEEDS: IntelFeedType[] = [
     icon: "🧬",
     description: "Malware sample repository. Tracks hashes, signatures, and delivery infrastructure for recent malware samples.",
     providerUrl: "https://bazaar.abuse.ch/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       MAX_RECORDS,
       { key: "signature_filter", label: "Signature Filter", type: "textarea", required: false, placeholder: "Emotet\nQakBot\nIcedID", help: "Only ingest samples matching these malware families. One per line." },
@@ -223,7 +235,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "🛡️",
     description: "SANS Internet Storm Center top attacking IPs. Aggregated from DShield honeypot sensors worldwide.",
     providerUrl: "https://isc.sans.edu/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "record_count", label: "Top N IPs", type: "number", required: false, default: 100, help: "Number of top attacking IPs to fetch (10-500)." },
     ],
@@ -241,7 +253,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "💀",
     description: "Tracks ransomware group leak sites and victim posts from dark web. Community maintained.",
     providerUrl: "https://github.com/joshhighet/ransomwatch",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [MAX_RECORDS],
     defaultIntervalMins: 360,
     minIntervalMins: 120,
@@ -257,7 +269,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "🧅",
     description: "Current list of Tor exit node IP addresses from the Tor Project. Useful for access control and threat correlation.",
     providerUrl: "https://check.torproject.org/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [],
     defaultIntervalMins: 60,
     minIntervalMins: 30,
@@ -273,7 +285,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "📋",
     description: "Aggregated IP reputation list from 30+ blocklists. Multi-list overlap scoring for high confidence.",
     providerUrl: "https://github.com/stamparm/ipsum",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "min_lists", label: "Min Blocklist Count", type: "number", required: false, default: 3, help: "Only include IPs appearing on N+ blocklists (1-10). Higher = more confidence." },
     ],
@@ -291,7 +303,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "🚫",
     description: "Don't Route Or Peer list. CIDR ranges hijacked or leased by professional spam/cyber-crime operations.",
     providerUrl: "https://www.spamhaus.org/blocklists/do-not-route-or-peer/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [],
     defaultIntervalMins: 360,
     minIntervalMins: 120,
@@ -307,7 +319,7 @@ const TIER3_FEEDS: IntelFeedType[] = [
     icon: "🛑",
     description: "IP addresses reported for attacks on honeypots, mail servers, and web applications. Large volume.",
     providerUrl: "https://www.blocklist.de/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [MAX_RECORDS],
     defaultIntervalMins: 360,
     minIntervalMins: 120,
@@ -328,7 +340,7 @@ const TIER4_FEEDS: IntelFeedType[] = [
     icon: "🐦",
     description: "IOCs extracted from security researcher tweets. CSV format with URL, IP, domain, and hash indicators.",
     providerUrl: "https://github.com/0xDanielLopez/TweetFeed",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [IOC_TYPES_FILTER, CONFIDENCE_THRESHOLD],
     defaultIntervalMins: 30,
     minIntervalMins: 15,
@@ -441,7 +453,7 @@ const TIER6_FEEDS: IntelFeedType[] = [
     icon: "📜",
     description: "Real-time Certificate Transparency log monitor. Detects suspicious domain registrations and lookalike domains.",
     providerUrl: "https://certstream.calidog.io/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "keyword_filter", label: "Domain Keywords", type: "textarea", required: false, placeholder: "paypal\nchase\namazon", help: "Only alert on certs containing these keywords. One per line." },
     ],
@@ -477,7 +489,7 @@ const TIER6_FEEDS: IntelFeedType[] = [
     icon: "☁️",
     description: "Monitors GCP, AWS, and Azure status pages for incidents affecting cloud infrastructure.",
     providerUrl: "https://status.cloud.google.com/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "providers", label: "Cloud Providers", type: "textarea", required: false, placeholder: "gcp\naws\nazure", help: "One provider per line. Leave empty for all." },
     ],
@@ -513,7 +525,7 @@ const TIER6_FEEDS: IntelFeedType[] = [
     icon: "🔀",
     description: "BGP hijack and route leak detection from Cisco Crosswork. Monitors for suspicious routing changes.",
     providerUrl: "https://bgpstream.crosswork.cisco.com/",
-    authFields: [],
+    authFields: [OPTIONAL_API_KEY],
     settingsFields: [
       { key: "event_types", label: "Event Types", type: "textarea", required: false, placeholder: "Possible Hijack\nRoute Leak", help: "Filter by event type. One per line. Leave empty for all." },
     ],
