@@ -98,6 +98,7 @@ async function recordFailure(db: D1Database, feedId: string, error: string): Pro
        consecutive_failures = consecutive_failures + 1,
        last_run_at = datetime('now'),
        last_error = ?,
+       last_items_new = 0,
        total_runs = total_runs + 1,
        updated_at = datetime('now')
      WHERE id = ?`
@@ -117,11 +118,12 @@ async function recordSuccess(db: D1Database, feedId: string, itemCount: number):
        last_run_at = datetime('now'),
        last_success_at = datetime('now'),
        last_error = NULL,
+       last_items_new = ?,
        total_runs = total_runs + 1,
        total_items = total_items + ?,
        updated_at = datetime('now')
      WHERE id = ?`
-  ).bind(itemCount, feedId).run();
+  ).bind(itemCount, itemCount, feedId).run();
 }
 
 // ─── Threat Insertion ────────────────────────────────────────────
