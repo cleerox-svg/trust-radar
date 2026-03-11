@@ -229,7 +229,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           {user?.is_admin && (
             <Link
               to="/admin"
-              className="text-[11px] font-mono px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors hidden sm:inline-flex items-center"
+              className="text-[11px] font-mono px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors inline-flex items-center"
             >
               ADM
             </Link>
