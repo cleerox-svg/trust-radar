@@ -213,7 +213,7 @@ export async function handleTriggerFeed(request: Request, env: Env, feedId: stri
     const schedule = await env.DB.prepare("SELECT * FROM feed_schedules WHERE id = ?").bind(feedId).first<{
       id: string; feed_name: string; display_name: string; tier: number; url: string; method: string;
       headers: string; interval_mins: number; enabled: number; requires_key: number;
-      api_key_env: string | null; parser: string; last_run_at: string | null; last_success_at: string | null;
+      api_key_env: string | null; api_key_encrypted: string | null; parser: string; last_run_at: string | null; last_success_at: string | null;
       consecutive_failures: number; circuit_open: number; circuit_opened_at: string | null;
     }>();
 
