@@ -137,6 +137,11 @@ export interface FeedSchedule {
   last_success_at: string | null; last_error: string | null;
   consecutive_failures: number; circuit_open: number;
   total_runs: number; total_items: number; created_at: string;
+  // New fields from 0015 migration
+  description: string | null; settings_json: string | null;
+  is_custom: number; created_by: string | null;
+  last_items_new: number; provider_url: string | null;
+  api_key_encrypted: string | null; api_secret_encrypted: string | null;
 }
 export interface FeedIngestion {
   id: string; feed_name?: string; status: string; items_fetched: number;
@@ -153,14 +158,27 @@ export interface FeedStatsData {
 export const feeds = {
   list: () => api<FeedSchedule[]>("/feeds"),
   get: (id: string) => api<{ feed: FeedSchedule; ingestions: FeedIngestion[] }>(`/feeds/${id}`),
-  update: (id: string, data: { enabled?: boolean; interval_mins?: number }) =>
-    api<void>(`/feeds/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) =>
+    api<FeedSchedule>(`/feeds/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) =>
+    api<FeedSchedule>("/feeds", { method: "POST", body: JSON.stringify(data) }),
+  delete: (id: string) => api<void>(`/feeds/${id}`, { method: "DELETE" }),
   stats: () => api<FeedStatsData>("/feeds/stats"),
   jobs: (limit = 20) => api<FeedIngestion[]>(`/feeds/jobs?limit=${limit}`),
   trigger: (id: string) => api<unknown>(`/feeds/${id}/trigger`, { method: "POST" }),
   triggerAll: () => api<unknown>("/feeds/trigger-all", { method: "POST" }),
   triggerTier: (tier: number) => api<unknown>(`/feeds/trigger-tier/${tier}`, { method: "POST" }),
   resetCircuit: (id: string) => api<void>(`/feeds/${id}/reset`, { method: "POST" }),
+};
+
+// ─── Daily Briefing ──────────────────────────────────────────
+export const dailyBriefing = {
+  generate: (hours = 24, cached = false) =>
+    api<{ id: string; title: string; body: string; summary: string; severity: string; created_at: string }>(
+      `/briefings/generate?hours=${hours}${cached ? "&cached=true" : ""}`,
+      { method: "POST" }
+    ),
+  history: (limit = 20) => api<Briefing[]>(`/briefings/history?limit=${limit}`),
 };
 
 // ─── Agent types ───────────────────────────────────────────

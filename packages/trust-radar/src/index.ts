@@ -10,7 +10,7 @@ import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAd
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
-  handleResetCircuit,
+  handleResetCircuit, handleCreateFeed, handleDeleteFeed,
 } from "./handlers/feeds";
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
@@ -20,6 +20,7 @@ import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
 } from "./handlers/threats";
+import { handleGenerateBriefing, handleListBriefingHistory } from "./handlers/briefing";
 import {
   handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
   handleAddEvidence,
@@ -220,6 +221,16 @@ router.post("/api/feeds/:id/reset", async (request: Request & { params: Record<s
   if (!isAuthContext(ctx)) return ctx;
   return handleResetCircuit(request, env, request.params["id"] ?? "");
 });
+router.post("/api/feeds", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateFeed(request, env, ctx.userId);
+});
+router.delete("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteFeed(request, env, request.params["id"] ?? "");
+});
 router.post("/api/feeds/trigger-all", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -261,6 +272,16 @@ router.post("/api/threats/enrich-geo", async (request: Request, env: Env) => {
 });
 
 // ─── Briefings ─────────────────────────────────────────────
+router.post("/api/briefings/generate", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGenerateBriefing(request, env, ctx.userId);
+});
+router.get("/api/briefings/history", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListBriefingHistory(request, env);
+});
 router.get("/api/briefings", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
