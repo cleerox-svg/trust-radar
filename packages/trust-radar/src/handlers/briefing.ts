@@ -160,7 +160,7 @@ function buildBriefing(data: BriefingData, hoursBack: number): GeneratedBriefing
   const now = new Date().toISOString();
 
   // Severity counts
-  const bySeverity: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const bySeverity: { critical: number; high: number; medium: number; low: number; info: number; [key: string]: number } = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   const byType: Record<string, number> = {};
   const bySource: Record<string, number> = {};
   const byDomain: Record<string, { count: number; types: Set<string>; sources: Set<string>; severity: string }> = {};
