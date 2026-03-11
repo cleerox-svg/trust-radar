@@ -102,8 +102,10 @@ export function EditFeedModal({ feed, onUpdated, onClose }: Props) {
         pull_interval_mins: intervalMins,
       };
       // Only send auth fields if the user typed something new (not just a masked placeholder)
-      if (apiKey && !isMasked(apiKey))   patch.api_key    = apiKey;
-      if (apiSecret && !isMasked(apiSecret)) patch.api_secret = apiSecret;
+      if (apiKey === "__CLEAR__") patch.api_key = "";
+      else if (apiKey && !isMasked(apiKey)) patch.api_key = apiKey;
+      if (apiSecret === "__CLEAR__") patch.api_secret = "";
+      else if (apiSecret && !isMasked(apiSecret)) patch.api_secret = apiSecret;
 
       const updated = await feedsApi.update(feed.id, patch);
       setSaved(true);
@@ -166,22 +168,41 @@ export function EditFeedModal({ feed, onUpdated, onClose }: Props) {
             {/* Auth fields — show placeholder hint if masked */}
             {feedType.authFields.map((af) => {
               const existingMasked = af.key === "api_key" ? feed.api_key : feed.api_secret;
-              const currentVal     = af.key === "api_key" ? apiKey : apiSecret;
+              const hasExisting = !!existingMasked;
+              const currentVal = af.key === "api_key" ? apiKey : apiSecret;
+              const setter = af.key === "api_key" ? setApiKey : setApiSecret;
               return (
                 <div key={af.key}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">
                     {af.label} {af.required && <span className="text-slate-600">(leave blank to keep existing)</span>}
                   </label>
-                  <input
-                    className="soc-input w-full font-mono text-xs"
-                    type={af.type}
-                    placeholder={existingMasked ? existingMasked : (af.placeholder ?? "")}
-                    value={currentVal}
-                    onChange={(e) =>
-                      af.key === "api_key" ? setApiKey(e.target.value) : setApiSecret(e.target.value)
-                    }
-                  />
-                  {af.help && <div className="text-[10px] text-slate-600 mt-1">{af.help}</div>}
+                  <div className="flex gap-2">
+                    <input
+                      className="soc-input flex-1 font-mono text-xs"
+                      type={af.type}
+                      placeholder={existingMasked ? existingMasked : (af.placeholder ?? "")}
+                      value={currentVal === "__CLEAR__" ? "" : currentVal}
+                      disabled={currentVal === "__CLEAR__"}
+                      onChange={(e) => setter(e.target.value)}
+                    />
+                    {hasExisting && (
+                      <button
+                        type="button"
+                        onClick={() => setter(currentVal === "__CLEAR__" ? "" : "__CLEAR__")}
+                        className={`px-3 py-2 rounded-md border text-xs font-medium whitespace-nowrap transition-colors ${
+                          currentVal === "__CLEAR__"
+                            ? "border-threat-critical/50 bg-threat-critical/10 text-threat-critical"
+                            : "border-soc-border text-slate-500 hover:text-threat-critical hover:border-threat-critical/30"
+                        }`}
+                      >
+                        {currentVal === "__CLEAR__" ? "Will clear" : "Clear"}
+                      </button>
+                    )}
+                  </div>
+                  {currentVal === "__CLEAR__" && (
+                    <div className="text-[10px] text-threat-critical mt-1">Key will be removed on save. <button type="button" className="underline" onClick={() => setter("")}>Undo</button></div>
+                  )}
+                  {af.help && currentVal !== "__CLEAR__" && <div className="text-[10px] text-slate-600 mt-1">{af.help}</div>}
                 </div>
               );
             })}

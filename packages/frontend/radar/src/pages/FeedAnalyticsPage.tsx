@@ -351,8 +351,10 @@ function EditFeedModal({ feed, onUpdated, onClose }: { feed: FeedSchedule; onUpd
         interval_mins: intervalMins,
         settings_json: buildSettingsJson(),
       };
-      if (apiKey && !/^\*+/.test(apiKey)) patch.api_key = apiKey;
-      if (apiSecret && !/^\*+/.test(apiSecret)) patch.api_secret = apiSecret;
+      if (apiKey === "__CLEAR__") patch.api_key = "";
+      else if (apiKey && !/^\*+/.test(apiKey)) patch.api_key = apiKey;
+      if (apiSecret === "__CLEAR__") patch.api_secret = "";
+      else if (apiSecret && !/^\*+/.test(apiSecret)) patch.api_secret = apiSecret;
 
       const updated = await feeds.update(feed.id, patch);
       setSaved(true);
@@ -404,21 +406,45 @@ function EditFeedModal({ feed, onUpdated, onClose }: { feed: FeedSchedule; onUpd
               <input className="w-full px-3 py-2 rounded-md border border-[--border-subtle] bg-[--surface-base] text-sm text-[--text-primary]" required value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
-            {authFields.map((af) => (
+            {authFields.map((af) => {
+              const hasExisting = af.key === "api_key" ? !!feed.api_key_encrypted : !!feed.api_secret_encrypted;
+              const currentValue = af.key === "api_key" ? apiKey : apiSecret;
+              const setter = af.key === "api_key" ? setApiKey : setApiSecret;
+              return (
               <div key={af.key}>
                 <label className="text-[10px] text-[--text-tertiary] uppercase tracking-wider block mb-1">
                   {af.label} <span className="text-[--text-disabled]">(leave blank to keep existing)</span>
                 </label>
-                <input
-                  className="w-full px-3 py-2 rounded-md border border-[--border-subtle] bg-[--surface-base] text-sm font-mono text-[--text-primary]"
-                  type={af.type}
-                  placeholder={af.key === "api_key" ? (feed.api_key_encrypted ?? af.placeholder ?? "") : (feed.api_secret_encrypted ?? af.placeholder ?? "")}
-                  value={af.key === "api_key" ? apiKey : apiSecret}
-                  onChange={(e) => af.key === "api_key" ? setApiKey(e.target.value) : setApiSecret(e.target.value)}
-                />
-                {af.help && <div className="text-[10px] text-[--text-disabled] mt-1">{af.help}</div>}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 px-3 py-2 rounded-md border border-[--border-subtle] bg-[--surface-base] text-sm font-mono text-[--text-primary]"
+                    type={af.type}
+                    placeholder={af.key === "api_key" ? (feed.api_key_encrypted ?? af.placeholder ?? "") : (feed.api_secret_encrypted ?? af.placeholder ?? "")}
+                    value={currentValue}
+                    onChange={(e) => setter(e.target.value)}
+                  />
+                  {hasExisting && (
+                    <button
+                      type="button"
+                      onClick={() => setter("__CLEAR__")}
+                      className={cn(
+                        "px-3 py-2 rounded-md border text-xs font-medium whitespace-nowrap",
+                        currentValue === "__CLEAR__"
+                          ? "border-red-500/50 bg-red-500/10 text-red-400"
+                          : "border-[--border-subtle] text-[--text-tertiary] hover:text-red-400 hover:border-red-500/30"
+                      )}
+                    >
+                      {currentValue === "__CLEAR__" ? "Will clear" : "Clear"}
+                    </button>
+                  )}
+                </div>
+                {currentValue === "__CLEAR__" && (
+                  <div className="text-[10px] text-red-400 mt-1">Key will be removed on save. <button type="button" className="underline" onClick={() => setter("")}>Undo</button></div>
+                )}
+                {af.help && currentValue !== "__CLEAR__" && <div className="text-[10px] text-[--text-disabled] mt-1">{af.help}</div>}
               </div>
-            ))}
+              );
+            })}
 
             {settingsFields.map((sf) => (
               <div key={sf.key}>

@@ -102,15 +102,24 @@ export async function handleUpdateFeed(request: Request, env: Env, feedId: strin
       updates.push("provider_url = ?");
       values.push(body.provider_url);
     }
-    // Only update credentials if explicitly provided (non-masked)
-    if (typeof body.api_key === "string" && body.api_key && !/^\*+/.test(body.api_key as string)) {
-      updates.push("api_key_encrypted = ?");
-      values.push(body.api_key);
-      updates.push("requires_key = 1");
+    // Update credentials: non-empty non-masked string sets key, empty string clears it
+    if (typeof body.api_key === "string") {
+      if (body.api_key === "") {
+        updates.push("api_key_encrypted = NULL");
+        updates.push("requires_key = 0");
+      } else if (!/^\*+/.test(body.api_key as string)) {
+        updates.push("api_key_encrypted = ?");
+        values.push(body.api_key);
+        updates.push("requires_key = 1");
+      }
     }
-    if (typeof body.api_secret === "string" && body.api_secret && !/^\*+/.test(body.api_secret as string)) {
-      updates.push("api_secret_encrypted = ?");
-      values.push(body.api_secret);
+    if (typeof body.api_secret === "string") {
+      if (body.api_secret === "") {
+        updates.push("api_secret_encrypted = NULL");
+      } else if (!/^\*+/.test(body.api_secret as string)) {
+        updates.push("api_secret_encrypted = ?");
+        values.push(body.api_secret);
+      }
     }
 
     if (updates.length === 0) {
