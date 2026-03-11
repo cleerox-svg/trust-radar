@@ -645,6 +645,11 @@ export function FeedAnalyticsPage() {
                               <StatusDot variant={feed.circuit_open ? "alert" : feed.enabled ? "active" : "offline"} />
                               <FeedStatusBadge feed={feed} />
                             </div>
+                            {feed.last_error && (feed.circuit_open || feed.consecutive_failures > 0) && (
+                              <div className="text-[10px] text-threat-critical mt-1 max-w-[220px] truncate" title={feed.last_error}>
+                                {feed.last_error}
+                              </div>
+                            )}
                           </td>
                           <td className="py-2.5 pr-3">
                             <div className="flex items-center gap-2">
