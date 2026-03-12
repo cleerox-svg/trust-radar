@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
 
     # CORS
-    allowed_origins: str = "https://lrx-radar.com,https://imprsn8.com,http://localhost:3000"
+    allowed_origins: str = "https://lrxradar.com,https://imprsn8.com,http://localhost:3000"
 
     # Sentry
     sentry_dsn: str = ""
