@@ -19,7 +19,8 @@ export type AgentName =
   | "campaign-correlator"
   | "trust-score-monitor"
   | "executive-intel"
-  | "trustbot";
+  | "trustbot"
+  | "hosting-provider-analysis";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "queued" | "running" | "success" | "failed" | "cancelled" | "timeout" | "awaiting_approval";
@@ -115,6 +116,7 @@ export const AGENT_DEFINITIONS: Array<{
   { name: "trust-score-monitor", displayName: "Trust Score Monitor", description: "Continuous brand trust scoring", color: "#2DD4BF", trigger: "scheduled", requiresApproval: false },
   { name: "executive-intel", displayName: "Executive Intel", description: "Generate C-suite threat briefings", color: "#E879F9", trigger: "scheduled", requiresApproval: true },
   { name: "trustbot", displayName: "TrustBot", description: "Interactive AI threat intelligence copilot", color: "#60A5FA", trigger: "manual", requiresApproval: false },
+  { name: "hosting-provider-analysis", displayName: "Hosting Provider Analysis", description: "Track hosting providers used by threat actors, identify worst offenders", color: "#F97316", trigger: "event", requiresApproval: false },
 ];
 
 // ─── Run Execution ──────────────────────────────────────────────

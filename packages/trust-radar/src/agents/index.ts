@@ -13,6 +13,7 @@ import { campaignCorrelatorAgent } from "./campaignCorrelator";
 import { trustScoreMonitorAgent } from "./trustScoreMonitor";
 import { executiveIntelAgent } from "./executiveIntel";
 import { trustbotAgent } from "./trustbot";
+import { hostingProviderAnalysisAgent } from "./hostingProviderAnalysis";
 
 export const agentModules: Record<string, AgentModule> = {
   "triage": triageAgent,
@@ -25,4 +26,5 @@ export const agentModules: Record<string, AgentModule> = {
   "trust-score-monitor": trustScoreMonitorAgent,
   "executive-intel": executiveIntelAgent,
   "trustbot": trustbotAgent,
+  "hosting-provider-analysis": hostingProviderAnalysisAgent,
 };

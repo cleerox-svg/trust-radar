@@ -1,30 +1,30 @@
 /**
- * ThreatMapPage — Production-grade threat intelligence dashboard.
+ * ThreatMapPage — Production threat intelligence dashboard.
  *
- * Composes:
- *   1. Top row: Interactive world map (ThreatMapWidget) + side panels
- *      (Threat Source Breakdown, Regional Distribution)
- *   2. Bottom: Tabbed intelligence lists (Active Threats, Geo Analysis)
- *      with search, severity filtering, and click-to-detail
+ * Layout matches the trust-radar-heatmap.html reference:
+ *   1. Stats Row: Scans Today, Threats Flagged, Countries Active, Trust Score
+ *   2. Map Panel (ThreatMapWidget — untouched, working great)
+ *   3. Bottom Row: Live Threat Feed + Legend/Top Origins + Hosting Providers
+ *   4. Tabbed intelligence lists (Active Threats, Geo Analysis)
  *
- * Data sources: /threats/stats, /threats (list)
- * Inspired by radar-watch-guard's ThreatHeatmap composition.
+ * Data sources: /threats/stats (with dailyStats, recentThreats, topOriginsToday, byProvider)
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { threats, type Threat, type ThreatStats } from "../lib/api";
+import { threats, providers, type Threat, type ThreatStats, type ProviderStat } from "../lib/api";
 import {
   Card, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
-  Input, Separator,
+  Input,
 } from "../components/ui";
 import { ThreatMapWidget } from "../components/ThreatMapWidget";
 import { ThreatDetailDialog } from "../components/ThreatDetailDialog";
 import { cn } from "../lib/cn";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Crosshair, Search, Shield, Globe2, BarChart3, Copy, Database,
-  ShieldAlert, Target, TrendingUp, AlertCircle, MapPin, RefreshCw,
+  ShieldAlert, Target, TrendingUp, TrendingDown, AlertCircle, MapPin,
+  RefreshCw, Activity, Server, ArrowUp, ArrowDown, Minus,
 } from "lucide-react";
 
 const severityColors: Record<string, string> = {
@@ -41,16 +41,20 @@ const countryNames: Record<string, string> = {
   IT: "Italy", ES: "Spain", SE: "Sweden", SG: "Singapore", HK: "Hong Kong",
 };
 
-const regionMap: Record<string, string> = {
-  US: "North America", CA: "North America", MX: "Latin America", BR: "Latin America",
-  GB: "Europe", DE: "Europe", FR: "Europe", NL: "Europe", PL: "Europe", RO: "Europe",
-  IT: "Europe", ES: "Europe", SE: "Europe", UA: "Europe", TR: "Europe",
-  CN: "Asia Pacific", JP: "Asia Pacific", KR: "Asia Pacific", IN: "Asia Pacific",
-  VN: "Asia Pacific", TH: "Asia Pacific", ID: "Asia Pacific", PH: "Asia Pacific",
-  SG: "Asia Pacific", HK: "Asia Pacific", AU: "Asia Pacific", BD: "Asia Pacific", PK: "Asia Pacific",
-  RU: "Eastern Europe/CIS", KP: "Eastern Europe/CIS",
-  NG: "Africa", ZA: "Africa", EG: "Africa",
-  IR: "Middle East", SA: "Middle East",
+const countryFlags: Record<string, string> = {
+  RU: "\u{1F1F7}\u{1F1FA}", CN: "\u{1F1E8}\u{1F1F3}", UA: "\u{1F1FA}\u{1F1E6}",
+  NG: "\u{1F1F3}\u{1F1EC}", IR: "\u{1F1EE}\u{1F1F7}", US: "\u{1F1FA}\u{1F1F8}",
+  IN: "\u{1F1EE}\u{1F1F3}", BR: "\u{1F1E7}\u{1F1F7}", DE: "\u{1F1E9}\u{1F1EA}",
+  GB: "\u{1F1EC}\u{1F1E7}", FR: "\u{1F1EB}\u{1F1F7}", JP: "\u{1F1EF}\u{1F1F5}",
+  KR: "\u{1F1F0}\u{1F1F7}", PH: "\u{1F1F5}\u{1F1ED}", VN: "\u{1F1FB}\u{1F1F3}",
+  RO: "\u{1F1F7}\u{1F1F4}", ID: "\u{1F1EE}\u{1F1E9}", TR: "\u{1F1F9}\u{1F1F7}",
+  NL: "\u{1F1F3}\u{1F1F1}", PK: "\u{1F1F5}\u{1F1F0}",
+};
+
+const threatTypeColors: Record<string, string> = {
+  phishing: "#EF4444", malware: "#F59E0B", scam: "#A78BFA",
+  c2: "#FB923C", ransomware: "#EC4899", impersonation: "#818CF8",
+  reputation: "#6B7280", unknown: "#64748B",
 };
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -60,12 +64,27 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <Badge variant={variant} className="text-2xs">{severity}</Badge>;
 }
 
+function pctChange(current: number, previous: number): { pct: number; direction: "up" | "down" | "stable" } {
+  if (previous === 0) return { pct: 0, direction: "stable" };
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return { pct: Math.abs(pct), direction: pct > 0 ? "up" : pct < 0 ? "down" : "stable" };
+}
+
 export function ThreatMapPage() {
   const queryClient = useQueryClient();
-  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ["threat-stats"], queryFn: threats.stats });
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["threat-stats"],
+    queryFn: threats.stats,
+    refetchInterval: 60000, // Refresh every 60s for live feel
+  });
   const { data: threatList, isLoading: threatsLoading } = useQuery({
     queryKey: ["threats-list"],
     queryFn: () => threats.list({ limit: 100 }),
+  });
+  const [providerPeriod, setProviderPeriod] = useState("today");
+  const { data: providerData } = useQuery({
+    queryKey: ["provider-stats", providerPeriod],
+    queryFn: () => providers.stats(providerPeriod),
   });
 
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
@@ -74,38 +93,25 @@ export function ThreatMapPage() {
   const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState<string | null>(null);
 
-  // ─── Source breakdown from stats ──────────────────────────────
-  const sourceBreakdown = useMemo(() => {
-    if (!stats) return [];
-    const total = stats.bySource.reduce((sum, s) => sum + s.count, 0);
-    return stats.bySource.map((s) => ({
-      source: s.source,
-      count: s.count,
-      pct: total > 0 ? Math.round((s.count / total) * 100) : 0,
-    }));
-  }, [stats]);
+  // ─── Live feed rotation ───────────────────────────────────
+  const [feedOffset, setFeedOffset] = useState(0);
+  const recentThreats = stats?.recentThreats ?? [];
 
-  // ─── Regional breakdown ─────────────────────────────────────
-  const regionBreakdown = useMemo(() => {
-    if (!stats) return [];
-    const regions: Record<string, { countries: number; threats: number }> = {};
-    stats.byCountry.forEach((c) => {
-      const region = regionMap[c.country_code] ?? "Other";
-      if (!regions[region]) regions[region] = { countries: 0, threats: 0 };
-      regions[region].countries++;
-      regions[region].threats += c.count;
-    });
-    const total = Object.values(regions).reduce((s, r) => s + r.threats, 0);
-    return Object.entries(regions)
-      .sort((a, b) => b[1].threats - a[1].threats)
-      .map(([region, data]) => ({
-        region,
-        ...data,
-        pct: total > 0 ? Math.round((data.threats / total) * 100) : 0,
-      }));
-  }, [stats]);
+  useEffect(() => {
+    if (recentThreats.length === 0) return;
+    const timer = setInterval(() => {
+      setFeedOffset(prev => (prev + 1) % Math.max(1, recentThreats.length));
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [recentThreats.length]);
 
-  // ─── Filtered threats for list ────────────────────────────────
+  const visibleFeed = useMemo(() => {
+    if (recentThreats.length === 0) return [];
+    const doubled = [...recentThreats, ...recentThreats];
+    return doubled.slice(feedOffset % recentThreats.length, (feedOffset % recentThreats.length) + 6);
+  }, [recentThreats, feedOffset]);
+
+  // ─── Filtered threats for list ────────────────────────────
   const filteredThreats = useMemo(() => {
     if (!threatList) return [];
     let list = [...threatList.threats];
@@ -125,8 +131,10 @@ export function ThreatMapPage() {
     return list;
   }, [threatList, searchQuery, severityFilter]);
 
-  // ─── Country table data ─────────────────────────────────────
+  // ─── Country data ─────────────────────────────────────────
   const byCountry = stats?.byCountry ?? [];
+  const topOrigins = stats?.topOriginsToday ?? [];
+  const maxOriginCount = topOrigins.length > 0 ? Math.max(...topOrigins.map(c => c.count)) : 0;
   const maxCount = byCountry.length > 0 ? Math.max(...byCountry.map((c) => c.count)) : 0;
 
   const barColor = (count: number) => {
@@ -150,12 +158,18 @@ export function ThreatMapPage() {
   };
 
   const confidence = (t: Threat) => {
-    if (typeof t.confidence !== "number") return "—";
+    if (typeof t.confidence !== "number") return "\u2014";
     return t.confidence <= 1 ? `${Math.round(t.confidence * 100)}%` : `${Math.round(t.confidence)}%`;
   };
 
   const threatCount = threatList?.total ?? 0;
   const geoCount = byCountry.length;
+
+  // ─── Daily stats ──────────────────────────────────────────
+  const daily = stats?.dailyStats ?? { scansToday: 0, scansYesterday: 0, threatsFlagged: 0, threatsYesterday: 0, countriesActive: 0, countriesYesterday: 0 };
+  const scansDelta = pctChange(daily.scansToday, daily.scansYesterday);
+  const threatsDelta = pctChange(daily.threatsFlagged, daily.threatsYesterday);
+  const countriesDelta = { pct: Math.abs(daily.countriesActive - daily.countriesYesterday), direction: daily.countriesActive > daily.countriesYesterday ? "up" as const : daily.countriesActive < daily.countriesYesterday ? "down" as const : "stable" as const };
 
   if (statsLoading) {
     return (
@@ -178,173 +192,283 @@ export function ThreatMapPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      {/* ═══ KPI Summary Row ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-        {[
-          { label: "Total Threats", value: stats.summary.total ?? 0, icon: Database, color: "text-cyan-400" },
-          { label: "Critical", value: stats.summary.critical ?? 0, icon: ShieldAlert, color: "text-threat-critical" },
-          { label: "High", value: stats.summary.high ?? 0, icon: AlertCircle, color: "text-threat-high" },
-          { label: "Sources", value: stats.bySource.length, icon: TrendingUp, color: "text-cyan-400" },
-          { label: "Countries", value: geoCount, icon: Globe2, color: geoCount > 0 ? "text-cyan-400" : "text-[--text-disabled]" },
-        ].map((kpi, i) => (
-          <motion.div
-            key={kpi.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.35 }}
-          >
-            <Card className="relative group overflow-hidden">
-              <CardContent>
-                <p className="text-2xs text-[--text-tertiary] uppercase tracking-wider font-semibold">{kpi.label}</p>
-                <p className={`text-2xl font-bold tabular-nums mt-1 ${kpi.color}`}>{kpi.value}</p>
-                <kpi.icon className="absolute top-3 right-3 w-6 h-6 text-[--border-subtle] group-hover:text-[--text-disabled] transition-colors" />
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-4">
+      {/* ═══ KPI Stats Row (matching HTML reference: Scans Today, Threats Flagged, Countries Active, Trust Score) ═══ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Scans Today */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0, duration: 0.35 }}>
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-cyan-400" />
+            <CardContent>
+              <p className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-1.5">Scans Today</p>
+              <p className="text-2xl font-bold tabular-nums text-[--text-primary] font-mono">
+                {daily.scansToday.toLocaleString()}
+                <span className="text-xs text-[--text-tertiary] ml-1 font-normal">items</span>
+              </p>
+              <p className={cn("text-[11px] mt-1 font-mono", scansDelta.direction === "up" ? "text-threat-critical" : scansDelta.direction === "down" ? "text-green-400" : "text-[--text-tertiary]")}>
+                {scansDelta.direction === "up" ? "\u2191" : scansDelta.direction === "down" ? "\u2193" : "\u2192"} {scansDelta.pct}% vs yesterday
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Threats Flagged */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06, duration: 0.35 }}>
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-threat-critical" />
+            <CardContent>
+              <p className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-1.5">Threats Flagged</p>
+              <p className="text-2xl font-bold tabular-nums text-[--text-primary] font-mono">{daily.threatsFlagged.toLocaleString()}</p>
+              <p className={cn("text-[11px] mt-1 font-mono", threatsDelta.direction === "up" ? "text-threat-critical" : "text-green-400")}>
+                {threatsDelta.direction === "up" ? "\u2191" : "\u2193"} {threatsDelta.pct}% this week
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Countries Active */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.35 }}>
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-amber-500" />
+            <CardContent>
+              <p className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-1.5">Countries Active</p>
+              <p className="text-2xl font-bold tabular-nums text-[--text-primary] font-mono">{daily.countriesActive}</p>
+              <p className={cn("text-[11px] mt-1 font-mono", countriesDelta.direction === "up" ? "text-threat-critical" : "text-green-400")}>
+                {countriesDelta.direction === "down" ? "\u2193" : countriesDelta.direction === "up" ? "\u2191" : "\u2192"} {countriesDelta.pct} from yesterday
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Trust Score (all-time platform stats) */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.35 }}>
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-500" />
+            <CardContent>
+              <p className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-1.5">Total Threats</p>
+              <p className="text-2xl font-bold tabular-nums text-[--text-primary] font-mono">
+                {(stats.summary.total ?? 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] mt-1 font-mono text-[--text-tertiary]">
+                {stats.summary.critical ?? 0} critical \u00B7 {stats.summary.high ?? 0} high
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
-      {/* ═══ Map + Side Panels Row ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-        {/* Map — takes 7/12 cols on desktop */}
-        <div className="lg:col-span-7">
-          <ThreatMapWidget />
+      {/* ═══ Map Panel ═══ */}
+      <Card className="overflow-hidden p-0">
+        <div className="px-4 py-2.5 border-b border-[--border-subtle] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-threat-critical animate-pulse" />
+            <span className="text-[11px] font-mono uppercase tracking-[1.5px] text-[--text-primary]">Global Threat Heatmap \u2014 Live</span>
+          </div>
+          <span className="text-[10px] font-mono text-cyan-400">{daily.threatsFlagged} threats \u00B7 24h</span>
         </div>
+        <ThreatMapWidget />
+      </Card>
 
-        {/* Side panels — takes 5/12 cols on desktop */}
-        <div className="lg:col-span-5 flex flex-col gap-4 lg:gap-6">
-          {/* Threat Source Breakdown */}
-          <Card className="flex flex-col overflow-hidden">
-            <div className="px-4 lg:px-5 py-3 border-b border-[--border-subtle] flex justify-between items-center">
-              <h3 className="font-bold text-[--text-primary] uppercase text-xs lg:text-sm flex items-center">
-                <BarChart3 className="w-4 h-4 mr-2 text-cyan-400 shrink-0" />
-                <span className="hidden sm:inline">Threat Source Breakdown</span>
-                <span className="sm:hidden">Sources</span>
-              </h3>
-              <span className="text-2xs text-cyan-400 font-mono">{sourceBreakdown.length} FEEDS</span>
-            </div>
-            <div className="p-3 lg:p-4 space-y-2 max-h-[180px] overflow-y-auto">
-              {sourceBreakdown.length > 0 ? (
-                sourceBreakdown.map((s) => (
-                  <div key={s.source} className="flex items-center gap-2">
-                    <span className="text-2xs font-mono text-[--text-tertiary] w-24 truncate uppercase">{s.source}</span>
-                    <div className="flex-1 h-2 bg-[--surface-base] rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: `${Math.max(s.pct, 2)}%` }} />
-                    </div>
-                    <span className="text-2xs font-mono text-[--text-primary] w-10 text-right tabular-nums">{s.count}</span>
-                    <span className="text-[9px] font-mono text-[--text-tertiary] w-8 text-right">{s.pct}%</span>
-                  </div>
-                ))
-              ) : (
-                <div className="py-3 text-xs text-[--text-tertiary] text-center">No source data yet</div>
-              )}
-            </div>
-          </Card>
+      {/* ═══ Bottom Row: Live Feed + Legend/Top Origins + Hosting Providers ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Live Threat Feed */}
+        <Card className="overflow-hidden p-0">
+          <div className="px-3.5 py-2.5 border-b border-[--border-subtle] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-threat-critical animate-pulse" />
+            <span className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">Live Threat Feed</span>
+          </div>
+          <div className="max-h-[200px] overflow-hidden">
+            {visibleFeed.length > 0 ? visibleFeed.map((item, i) => (
+              <motion.div
+                key={`${item.id}-${feedOffset}-${i}`}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-2.5 px-3.5 py-2 border-b border-[--border-subtle] text-xs"
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: threatTypeColors[item.type] ?? "#64748B" }} />
+                <span className="font-mono text-[11px] text-[--text-primary] flex-1 truncate">{item.domain || item.ioc_value || item.title}</span>
+                <span className="text-[11px] text-[--text-tertiary] shrink-0">{countryNames[item.country_code ?? ""] ?? item.country_code ?? ""}</span>
+                <span className={cn(
+                  "font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded",
+                  item.severity === "critical" || item.severity === "high"
+                    ? "bg-threat-critical/15 text-threat-critical"
+                    : item.severity === "medium"
+                    ? "bg-amber-500/15 text-amber-500"
+                    : "bg-green-500/15 text-green-500"
+                )}>{item.severity}</span>
+              </motion.div>
+            )) : (
+              <div className="px-4 py-6 text-center text-xs text-[--text-tertiary]">No recent threats</div>
+            )}
+          </div>
+        </Card>
 
-          {/* Regional Distribution */}
-          <Card className="flex flex-col overflow-hidden">
-            <div className="px-4 lg:px-5 py-3 border-b border-[--border-subtle] flex justify-between items-center">
-              <h3 className="font-bold text-[--text-primary] uppercase text-xs lg:text-sm flex items-center">
-                <Globe2 className="w-4 h-4 mr-2 text-cyan-400 shrink-0" />
-                <span className="hidden sm:inline">Regional Distribution</span>
-                <span className="sm:hidden">Regions</span>
-              </h3>
-              <span className="text-2xs text-cyan-400 font-mono">{regionBreakdown.length} REGIONS</span>
+        {/* Legend + Top Origins */}
+        <Card className="overflow-hidden p-0">
+          <div className="p-3.5">
+            <p className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-2.5">Heat Scale</p>
+            <div className="h-2.5 rounded-full mb-1.5" style={{ background: "linear-gradient(to right, #00f5ff, #f59e0b, #ef4444)" }} />
+            <div className="flex justify-between text-[10px] font-mono text-[--text-tertiary] mb-3">
+              <span>Low risk</span><span>Medium</span><span>High risk</span>
             </div>
-            <div className="p-3 lg:p-4 space-y-2 max-h-[200px] overflow-y-auto">
-              {regionBreakdown.length > 0 ? (
-                regionBreakdown.map((r) => {
-                  const regionColor = r.pct >= 40 ? severityColors.critical
-                    : r.pct >= 25 ? severityColors.high
-                    : r.pct >= 10 ? severityColors.medium
-                    : "var(--cyan-400)";
-                  return (
-                    <div key={r.region} className="p-2 rounded-md bg-[--surface-base] border border-[--border-subtle] hover:border-[--border-default] transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-[--text-primary] truncate">{r.region}</span>
-                        <span className="text-xs font-bold tabular-nums" style={{ color: regionColor }}>{r.threats}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-[--surface-void] rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: regionColor }} />
-                        </div>
-                        <span className="text-[9px] text-[--text-tertiary] tabular-nums w-8 text-right">{r.pct}%</span>
-                      </div>
-                      <div className="text-[9px] text-[--text-tertiary] mt-1">{r.countries} countries</div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-4 flex flex-col items-center gap-2">
-                  <MapPin className="w-5 h-5 text-[--text-disabled]" />
-                  <p className="text-xs text-[--text-tertiary]">No geographic data yet</p>
-                  <button
-                    onClick={async () => {
-                      setEnriching(true);
-                      setEnrichResult(null);
-                      try {
-                        const result = await threats.enrichGeo();
-                        setEnrichResult(`Enriched ${result.enriched} of ${result.total} threats`);
-                        queryClient.invalidateQueries({ queryKey: ["threat-stats"] });
-                      } catch (err) {
-                        setEnrichResult("Enrichment failed — admin access required");
-                      } finally {
-                        setEnriching(false);
-                      }
-                    }}
-                    disabled={enriching}
-                    className="text-2xs px-3 py-1.5 rounded-md border border-cyan-400/30 text-cyan-400 hover:bg-cyan-400/10 transition-colors font-mono flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <RefreshCw className={cn("w-3 h-3", enriching && "animate-spin")} />
-                    {enriching ? "Enriching..." : "Enrich Geo Data"}
-                  </button>
-                  {enrichResult && (
-                    <p className="text-[10px] text-cyan-400/80 font-mono">{enrichResult}</p>
-                  )}
+            {/* Threat type legend */}
+            <div className="space-y-1.5 mb-3">
+              {[
+                { label: "Phishing / High Threat", color: "rgba(239,68,68,0.8)" },
+                { label: "Malware / Suspicious", color: "rgba(245,158,11,0.8)" },
+                { label: "Low Risk / Monitored", color: "rgba(0,245,255,0.6)" },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2 text-xs text-[--text-primary]">
+                  <span className="w-7 h-2 rounded shrink-0" style={{ backgroundColor: item.color }} />
+                  {item.label}
                 </div>
+              ))}
+            </div>
+            {/* Top Origins */}
+            <p className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-2">Top Origins</p>
+            <div className="space-y-1.5">
+              {topOrigins.slice(0, 5).map(c => (
+                <div key={c.country_code} className="flex items-center gap-2 text-xs">
+                  <span className="text-sm">{countryFlags[c.country_code] ?? ""}</span>
+                  <span className="text-[--text-primary] flex-1">{countryNames[c.country_code] ?? c.country_code}</span>
+                  <div className="w-16 h-1 bg-[--surface-base] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.round((c.count / maxOriginCount) * 100)}%` }} />
+                  </div>
+                  <span className="font-mono text-[10px] text-[--text-tertiary] w-8 text-right tabular-nums">{c.count}</span>
+                </div>
+              ))}
+              {topOrigins.length === 0 && (
+                <p className="text-[11px] text-[--text-tertiary]">No origin data today</p>
               )}
             </div>
-          </Card>
+          </div>
+        </Card>
 
-          {/* Severity Distribution */}
-          <Card className="flex flex-col overflow-hidden">
-            <div className="px-4 lg:px-5 py-3 border-b border-[--border-subtle]">
-              <h3 className="font-bold text-[--text-primary] uppercase text-xs lg:text-sm flex items-center">
-                <ShieldAlert className="w-4 h-4 mr-2 text-threat-critical shrink-0" />
-                Severity Distribution
-              </h3>
+        {/* Hosting Provider Offenders */}
+        <Card className="overflow-hidden p-0">
+          <div className="px-3.5 py-2.5 border-b border-[--border-subtle] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Server className="w-3.5 h-3.5 text-orange-400" />
+              <span className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">Hosting Offenders</span>
             </div>
-            <div className="p-3 lg:p-4 space-y-2">
-              {stats.bySeverity.map((s) => {
-                const pct = stats.summary.total ? Math.round((s.count / stats.summary.total) * 100) : 0;
+            <div className="flex gap-1">
+              {["today", "7d", "30d"].map(p => (
+                <button
+                  key={p}
+                  onClick={() => setProviderPeriod(p)}
+                  className={cn(
+                    "text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border transition-colors",
+                    providerPeriod === p
+                      ? "bg-cyan-400/10 text-cyan-400 border-cyan-400/40"
+                      : "text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="max-h-[200px] overflow-y-auto p-3">
+            {providerData?.providers && providerData.providers.length > 0 ? (
+              <div className="space-y-2">
+                {providerData.providers.slice(0, 8).map((p: ProviderStat) => (
+                  <div key={p.provider_name} className="flex items-center gap-2 text-xs">
+                    <span className="text-[--text-primary] flex-1 truncate font-medium">{p.provider_name}</span>
+                    <span className="font-mono text-[10px] tabular-nums text-[--text-tertiary]">{p.threat_count}</span>
+                    <span className={cn(
+                      "text-[10px] font-mono",
+                      p.trend_direction === "up" ? "text-threat-critical" : p.trend_direction === "down" ? "text-green-400" : "text-[--text-tertiary]"
+                    )}>
+                      {p.trend_direction === "up" ? "\u2191" : p.trend_direction === "down" ? "\u2193" : "\u2192"}
+                      {Math.abs(p.trend_pct)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-4 text-center">
+                <Server className="w-5 h-5 text-[--text-disabled] mx-auto mb-2" />
+                <p className="text-[11px] text-[--text-tertiary]">Run GeoIP enrichment to populate provider data</p>
+                <button
+                  onClick={async () => {
+                    setEnriching(true);
+                    try {
+                      await threats.enrichGeo();
+                      queryClient.invalidateQueries({ queryKey: ["threat-stats"] });
+                      queryClient.invalidateQueries({ queryKey: ["provider-stats"] });
+                    } catch {}
+                    setEnriching(false);
+                  }}
+                  disabled={enriching}
+                  className="text-[10px] mt-2 px-3 py-1 rounded border border-cyan-400/30 text-cyan-400 hover:bg-cyan-400/10 font-mono disabled:opacity-50"
+                >
+                  {enriching ? "Enriching..." : "Enrich Now"}
+                </button>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* ═══ Threat Type + Source Breakdown Row ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By Threat Type */}
+        <Card>
+          <CardContent>
+            <h3 className="text-sm font-semibold text-[--text-primary] mb-3 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-cyan-400" /> By Threat Type
+            </h3>
+            <div className="space-y-2">
+              {stats.byType.map((t) => {
+                const pct = stats.summary.total ? Math.round((t.count / stats.summary.total) * 100) : 0;
                 return (
-                  <div key={s.severity} className="flex items-center gap-3">
-                    <Badge variant={s.severity as "critical" | "high" | "medium" | "low"} className="w-20 justify-center text-2xs">{s.severity}</Badge>
+                  <div key={t.type} className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: threatTypeColors[t.type] ?? "#64748B" }} />
+                    <span className="text-xs text-[--text-secondary] w-28 truncate capitalize">{t.type}</span>
                     <div className="flex-1 h-2 rounded-full bg-[--surface-base] overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: severityColors[s.severity] ?? "#888" }} />
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: threatTypeColors[t.type] ?? "#64748B", opacity: 0.7 }} />
                     </div>
-                    <span className="text-xs text-[--text-tertiary] tabular-nums w-10 text-right">{s.count}</span>
+                    <span className="text-xs text-[--text-tertiary] tabular-nums w-12 text-right font-mono">{t.count}</span>
                   </div>
                 );
               })}
             </div>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Threat Source Breakdown */}
+        <Card>
+          <CardContent>
+            <h3 className="text-sm font-semibold text-[--text-primary] mb-3 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-cyan-400" /> Intelligence Sources
+              <span className="text-[9px] font-mono text-cyan-400 ml-auto">{stats.bySource.length} FEEDS</span>
+            </h3>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {stats.bySource.map((s) => {
+                const total = stats.bySource.reduce((sum, x) => sum + x.count, 0);
+                const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+                return (
+                  <div key={s.source} className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-[--text-tertiary] w-28 truncate uppercase">{s.source}</span>
+                    <div className="flex-1 h-2 bg-[--surface-base] rounded-full overflow-hidden">
+                      <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: `${Math.max(pct, 2)}%` }} />
+                    </div>
+                    <span className="text-[10px] font-mono text-[--text-primary] w-10 text-right tabular-nums">{s.count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ═══ Tabbed Intelligence Lists ═══ */}
       <Card className="overflow-hidden p-0">
-        {/* Search + severity filter bar */}
         <div className="px-4 lg:px-5 py-3 border-b border-[--border-subtle] flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[--text-tertiary]" />
-            <Input
-              placeholder="Search threats, domains, IOCs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-xs"
-            />
+            <Input placeholder="Search threats, domains, IOCs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-8 text-xs" />
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {["critical", "high", "medium", "low"].map((sev) => (
@@ -364,12 +488,7 @@ export function ThreatMapPage() {
               </button>
             ))}
             {(searchQuery || severityFilter) && (
-              <button
-                onClick={() => { setSearchQuery(""); setSeverityFilter(null); }}
-                className="text-2xs text-cyan-400 hover:text-cyan-300 px-2 py-1"
-              >
-                Clear
-              </button>
+              <button onClick={() => { setSearchQuery(""); setSeverityFilter(null); }} className="text-2xs text-cyan-400 hover:text-cyan-300 px-2 py-1">Clear</button>
             )}
           </div>
         </div>
@@ -397,32 +516,28 @@ export function ThreatMapPage() {
             <div className="px-4 py-2 border-b border-[--border-subtle] bg-[--surface-base]/50 flex items-center justify-between">
               <span className="text-2xs text-[--text-tertiary] font-mono">{filteredThreats.length} RESULTS</span>
             </div>
-
-            {/* Mobile threat cards */}
+            {/* Mobile cards */}
             <div className="sm:hidden divide-y divide-[--border-subtle] max-h-[500px] overflow-y-auto">
               {threatsLoading ? (
                 <div className="px-4 py-8 text-center text-[--text-tertiary] text-sm">Loading...</div>
               ) : filteredThreats.length === 0 ? (
                 <div className="px-4 py-8 text-center text-[--text-tertiary] text-sm">No threats match your filters</div>
-              ) : (
-                filteredThreats.map((t) => (
-                  <div key={t.id} className="p-3 hover:bg-surface-overlay/30 transition-colors cursor-pointer active:bg-surface-overlay/50" onClick={() => setSelectedThreat(t)}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-bold text-[--text-primary] text-sm truncate flex-1">{t.title}</span>
-                      <span className="text-cyan-400 font-mono text-xs ml-2">{confidence(t)}</span>
-                    </div>
-                    {t.domain && <p className="font-mono text-[11px] text-threat-critical mb-1 truncate">{t.domain}</p>}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-2xs px-1.5 py-0.5 rounded bg-surface-overlay text-[--text-secondary] border border-[--border-subtle]">{t.type}</span>
-                      <SeverityBadge severity={t.severity} />
-                      <span className="text-[9px] text-[--text-tertiary] font-mono">{t.source}</span>
-                    </div>
+              ) : filteredThreats.map((t) => (
+                <div key={t.id} className="p-3 hover:bg-surface-overlay/30 transition-colors cursor-pointer" onClick={() => setSelectedThreat(t)}>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-bold text-[--text-primary] text-sm truncate flex-1">{t.title}</span>
+                    <span className="text-cyan-400 font-mono text-xs ml-2">{confidence(t)}</span>
                   </div>
-                ))
-              )}
+                  {t.domain && <p className="font-mono text-[11px] text-threat-critical mb-1 truncate">{t.domain}</p>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-2xs px-1.5 py-0.5 rounded bg-surface-overlay text-[--text-secondary] border border-[--border-subtle]">{t.type}</span>
+                    <SeverityBadge severity={t.severity} />
+                    <span className="text-[9px] text-[--text-tertiary] font-mono">{t.source}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            {/* Desktop threat table */}
+            {/* Desktop table */}
             <div className="hidden sm:block overflow-x-auto max-h-[500px] overflow-y-auto">
               <table className="w-full text-left text-sm text-[--text-secondary]">
                 <thead className="bg-[--surface-base]/50 text-[--text-tertiary] uppercase text-2xs font-bold tracking-wider sticky top-0">
@@ -441,31 +556,23 @@ export function ThreatMapPage() {
                     <tr><td colSpan={7} className="px-4 py-8 text-center text-[--text-tertiary]">Loading...</td></tr>
                   ) : filteredThreats.length === 0 ? (
                     <tr><td colSpan={7} className="px-4 py-8 text-center text-[--text-tertiary]">No threats match your filters</td></tr>
-                  ) : (
-                    filteredThreats.map((t) => (
-                      <tr key={t.id} className="hover:bg-surface-overlay/30 transition-colors cursor-pointer" onClick={() => setSelectedThreat(t)}>
-                        <td className="px-4 py-3 font-bold text-[--text-primary] max-w-[200px] truncate">{t.title}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-threat-critical max-w-[180px] truncate">{t.domain || t.ioc_value || "—"}</td>
-                        <td className="px-4 py-3 text-xs">
-                          <span className="px-1.5 py-0.5 rounded bg-surface-overlay text-[--text-secondary] border border-[--border-subtle]">{t.type}</span>
-                        </td>
-                        <td className="px-4 py-3"><SeverityBadge severity={t.severity} /></td>
-                        <td className="px-4 py-3 text-xs font-mono text-[--text-tertiary]">{t.source}</td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="text-cyan-400 font-mono text-xs">{confidence(t)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); copyToClipboard(t.ioc_value || t.domain || t.title); }}
-                            className="text-[--text-tertiary] hover:text-[--text-primary]"
-                            title="Copy IOC"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ) : filteredThreats.map((t) => (
+                    <tr key={t.id} className="hover:bg-surface-overlay/30 transition-colors cursor-pointer" onClick={() => setSelectedThreat(t)}>
+                      <td className="px-4 py-3 font-bold text-[--text-primary] max-w-[200px] truncate">{t.title}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-threat-critical max-w-[180px] truncate">{t.domain || t.ioc_value || "\u2014"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <span className="px-1.5 py-0.5 rounded bg-surface-overlay text-[--text-secondary] border border-[--border-subtle]">{t.type}</span>
+                      </td>
+                      <td className="px-4 py-3"><SeverityBadge severity={t.severity} /></td>
+                      <td className="px-4 py-3 text-xs font-mono text-[--text-tertiary]">{t.source}</td>
+                      <td className="px-4 py-3 text-right"><span className="text-cyan-400 font-mono text-xs">{confidence(t)}</span></td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={(e) => { e.stopPropagation(); copyToClipboard(t.ioc_value || t.domain || t.title); }} className="text-[--text-tertiary] hover:text-[--text-primary]" title="Copy IOC">
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -473,7 +580,7 @@ export function ThreatMapPage() {
 
           {/* ── Geo Analysis Tab ── */}
           <TabsContent value="geo" className="mt-0">
-            <div className="px-4 py-2 border-b border-[--border-subtle] bg-[--surface-base]/50 flex items-center justify-between">
+            <div className="px-4 py-2 border-b border-[--border-subtle] bg-[--surface-base]/50">
               <span className="text-2xs text-[--text-tertiary] font-mono">{byCountry.length} COUNTRIES</span>
             </div>
             <div className="max-h-[500px] overflow-y-auto">
@@ -481,32 +588,23 @@ export function ThreatMapPage() {
                 <div className="px-4 py-10 flex flex-col items-center gap-3">
                   <Globe2 className="w-8 h-8 text-[--text-disabled]" />
                   <p className="text-sm text-[--text-tertiary]">No geographic data available</p>
-                  <p className="text-xs text-[--text-disabled] max-w-sm text-center">
-                    Threat feeds with IP addresses need GeoIP enrichment to populate country data. Click below to resolve IP addresses to countries.
-                  </p>
                   <button
                     onClick={async () => {
-                      setEnriching(true);
-                      setEnrichResult(null);
+                      setEnriching(true); setEnrichResult(null);
                       try {
                         const result = await threats.enrichGeo();
-                        setEnrichResult(`Enriched ${result.enriched} of ${result.total} threats with country codes`);
+                        setEnrichResult(`Enriched ${result.enriched} of ${result.total} threats`);
                         queryClient.invalidateQueries({ queryKey: ["threat-stats"] });
-                      } catch (err) {
-                        setEnrichResult("Enrichment failed — admin access required");
-                      } finally {
-                        setEnriching(false);
-                      }
+                      } catch { setEnrichResult("Enrichment failed"); }
+                      setEnriching(false);
                     }}
                     disabled={enriching}
-                    className="text-xs px-4 py-2 rounded-md border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 transition-colors font-mono flex items-center gap-2 disabled:opacity-50"
+                    className="text-xs px-4 py-2 rounded-md border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 font-mono flex items-center gap-2 disabled:opacity-50"
                   >
                     <RefreshCw className={cn("w-3.5 h-3.5", enriching && "animate-spin")} />
-                    {enriching ? "Enriching IP addresses..." : "Run GeoIP Enrichment"}
+                    {enriching ? "Enriching..." : "Run GeoIP Enrichment"}
                   </button>
-                  {enrichResult && (
-                    <p className="text-xs text-cyan-400/80 font-mono mt-1">{enrichResult}</p>
-                  )}
+                  {enrichResult && <p className="text-xs text-cyan-400/80 font-mono mt-1">{enrichResult}</p>}
                 </div>
               ) : (
                 <div className="p-4 space-y-1.5">
@@ -514,10 +612,7 @@ export function ThreatMapPage() {
                     const pct = maxCount > 0 ? Math.round((c.count / maxCount) * 100) : 0;
                     const name = countryNames[c.country_code] ?? c.country_code;
                     const color = barColor(c.count);
-                    const sevColor = pct >= 70 ? severityColors.critical
-                      : pct >= 40 ? severityColors.high
-                      : pct >= 15 ? severityColors.medium
-                      : severityColors.low;
+                    const sevColor = pct >= 70 ? severityColors.critical : pct >= 40 ? severityColors.high : pct >= 15 ? severityColors.medium : severityColors.low;
                     return (
                       <motion.div
                         key={c.country_code}
@@ -543,47 +638,6 @@ export function ThreatMapPage() {
           </TabsContent>
         </Tabs>
       </Card>
-
-      {/* ═══ Bottom Row: Type + Sources ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardContent>
-            <h3 className="text-sm font-semibold text-[--text-primary] mb-3 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-cyan-400" /> By Threat Type
-            </h3>
-            <div className="space-y-2">
-              {stats.byType.map((t) => {
-                const pct = stats.summary.total ? Math.round((t.count / stats.summary.total) * 100) : 0;
-                return (
-                  <div key={t.type} className="flex items-center gap-3">
-                    <span className="text-xs text-[--text-secondary] w-28 truncate">{t.type}</span>
-                    <div className="flex-1 h-2 rounded-full bg-[--surface-base] overflow-hidden">
-                      <div className="h-full rounded-full bg-cyan-500/60" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-xs text-[--text-tertiary] tabular-nums w-12 text-right">{t.count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <h3 className="text-sm font-semibold text-[--text-primary] mb-3 flex items-center gap-2">
-              <Database className="w-4 h-4 text-cyan-400" /> Top Intelligence Sources
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {stats.bySource.map((s) => (
-                <div key={s.source} className="p-3 rounded-lg bg-[--surface-base] border border-[--border-subtle]">
-                  <div className="text-xs text-[--text-tertiary] truncate uppercase font-mono">{s.source}</div>
-                  <div className="text-lg font-bold text-[--text-primary] tabular-nums">{s.count}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Detail Dialog */}
       <ThreatDetailDialog

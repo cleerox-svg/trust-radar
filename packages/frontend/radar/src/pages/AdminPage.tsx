@@ -2,19 +2,19 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Users, BarChart2, Activity, Database, Lock, Server,
+  Users, BarChart2, Activity, Database, Lock, Server, Inbox,
   HardDrive, RefreshCw, CheckCircle2, XCircle, ExternalLink,
 } from "lucide-react";
 import {
-  admin, feeds, agents, dataExport,
+  admin, feeds, agents, dataExport, leads as leadsApi,
   type AdminUser, type AdminStats, type FeedSchedule, type FeedStatsData,
-  type AgentStatsData, type AdminHealthData,
+  type AgentStatsData, type AdminHealthData, type Lead,
 } from "../lib/api";
 import { Card, CardContent, Badge, Button } from "../components/ui";
 import { StatusDot } from "../components/ui/StatusDot";
 
 const PLANS = ["free", "pro", "enterprise"] as const;
-type Tab = "users" | "feeds" | "agents" | "health";
+type Tab = "users" | "feeds" | "agents" | "health" | "leads";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
@@ -273,6 +273,7 @@ export default function AdminPage() {
   const { data: feedStats } = useQuery({ queryKey: ["admin-feed-stats"], queryFn: feeds.stats, enabled: tab === "feeds" || tab === "health" });
   const { data: agentList } = useQuery({ queryKey: ["admin-agents"], queryFn: agents.list, enabled: tab === "agents" });
   const { data: agentStats } = useQuery({ queryKey: ["admin-agent-stats"], queryFn: agents.stats, enabled: tab === "agents" });
+  const { data: leadsData, isLoading: leadsLoading } = useQuery({ queryKey: ["admin-leads"], queryFn: () => leadsApi.list(), enabled: tab === "leads" });
 
   const updateUser = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { plan?: string; scans_limit?: number; is_admin?: boolean } }) =>
@@ -300,6 +301,11 @@ export default function AdminPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-agents", "admin-agent-stats"] }),
   });
 
+  const updateLead = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { status?: string; notes?: string } }) => leadsApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-leads"] }),
+  });
+
   const users = usersData?.users ?? [];
   const totalUsers = usersData?.total ?? 0;
 
@@ -308,6 +314,7 @@ export default function AdminPage() {
     { key: "feeds",  label: "Intel Feeds",  icon: <BarChart2 size={14} /> },
     { key: "agents", label: "Agents",       icon: <Activity size={14} /> },
     { key: "health", label: "System Health",icon: <Server size={14} /> },
+    { key: "leads", label: "Leads", icon: <Inbox size={14} /> },
   ];
 
   return (
@@ -589,6 +596,71 @@ export default function AdminPage() {
 
       {/* System Health tab */}
       {tab === "health" && <HealthTab feedStats={feedStats} />}
+
+      {/* Leads tab */}
+      {tab === "leads" && (
+        <div className="space-y-4">
+          {leadsData?.stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <StatCard label="Total Leads" value={leadsData.stats.total ?? 0} color="text-cyan-400" />
+              <StatCard label="New" value={leadsData.stats.new_leads ?? 0} color="text-amber-400" />
+              <StatCard label="Contacted" value={leadsData.stats.contacted ?? 0} />
+              <StatCard label="Qualified" value={leadsData.stats.qualified ?? 0} color="text-cyan-400" />
+              <StatCard label="Converted" value={leadsData.stats.converted ?? 0} color="text-green-400" />
+            </div>
+          )}
+          <Card>
+            <CardContent className="!p-0">
+              <div className="px-4 py-3 border-b border-[--border-subtle] flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[--text-primary]">
+                  Leads ({leadsData?.leads?.length ?? 0})
+                </h2>
+              </div>
+              {leadsLoading ? (
+                <div className="text-sm text-[--text-tertiary] py-12 text-center">Loading leads...</div>
+              ) : !leadsData?.leads?.length ? (
+                <div className="text-sm text-[--text-tertiary] py-12 text-center">No leads yet. Leads appear when users submit the public brand scan form.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[--border-subtle]">
+                        {["Name", "Email", "Domain", "Phone", "Company", "Status", "Date"].map((h) => (
+                          <th key={h} className="px-4 py-2.5 text-left text-xs text-[--text-tertiary] font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leadsData.leads.map((lead: Lead) => (
+                        <tr key={lead.id} className="border-b border-[--border-subtle] last:border-0 hover:bg-[--surface-raised] transition-colors">
+                          <td className="px-4 py-3 text-[--text-primary] font-medium">{lead.name}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-[--text-primary]">{lead.email}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-cyan-400">{lead.domain ?? "\u2014"}</td>
+                          <td className="px-4 py-3 text-xs text-[--text-secondary]">{lead.phone ?? "\u2014"}</td>
+                          <td className="px-4 py-3 text-xs text-[--text-secondary]">{lead.company ?? "\u2014"}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              className="text-xs px-2 py-1 rounded bg-[--surface-base] border border-[--border-subtle] text-[--text-primary]"
+                              value={lead.status}
+                              disabled={updateLead.isPending}
+                              onChange={(e) => updateLead.mutate({ id: lead.id, data: { status: e.target.value } })}
+                            >
+                              {["new", "contacted", "qualified", "converted", "rejected"].map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[--text-tertiary]">{new Date(lead.created_at).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -105,8 +105,8 @@ const CONTINENT_CENTERS: Record<string, [number, number]> = {
   "Oceania": [140, -25],
 };
 
-// ─── APT origin nations (for attack arcs) ──────────────────────
-const APT_ORIGINS: Record<string, { coords: [number, number]; type: string; severity: string }> = {
+// ─── APT origin fallback (used when no live origin data) ────────
+const APT_ORIGIN_FALLBACK: Record<string, { coords: [number, number]; type: string; severity: string }> = {
   "643": { coords: [37, 55], type: "APT / Infrastructure", severity: "critical" },
   "156": { coords: [116, 39], type: "State-Sponsored", severity: "critical" },
   "408": { coords: [125, 39], type: "Financial / Crypto", severity: "high" },
@@ -115,7 +115,20 @@ const APT_ORIGINS: Record<string, { coords: [number, number]; type: string; seve
   "076": { coords: [-47, -15], type: "Banking Trojans", severity: "medium" },
 };
 
-// Target coordinates for attack arcs
+// Coordinate lookup for alpha-2 codes (for dynamic origins)
+const ALPHA2_COORDS: Record<string, [number, number]> = {
+  US: [-98, 39], CA: [-106, 56], MX: [-102, 24], BR: [-53, -10], AR: [-64, -34],
+  GB: [-2, 54], FR: [2, 46], DE: [10, 51], IT: [12, 42], ES: [-4, 40],
+  PL: [20, 52], UA: [32, 49], NL: [5, 52], SE: [16, 62], RO: [25, 46],
+  RU: [37, 55], TR: [35, 39], IR: [53, 32], SA: [45, 24], IQ: [44, 33],
+  EG: [30, 27], NG: [8, 10], ZA: [25, -29], KE: [38, 1],
+  CN: [104, 35], IN: [79, 22], JP: [138, 36], KR: [128, 36], KP: [125, 39],
+  PK: [70, 30], BD: [90, 24], TH: [101, 15], VN: [106, 16], ID: [117, -2],
+  PH: [122, 13], AU: [134, -25], NZ: [172, -41], SG: [104, 1], MY: [102, 4],
+  HK: [114, 22], TW: [121, 24], IL: [35, 31], AE: [54, 24],
+};
+
+// Target coordinates for attack arcs (top target nations)
 const TARGET_COORDS: [number, number][] = [
   [-98, 39],   // USA
   [-2, 54],    // UK
@@ -288,23 +301,41 @@ export function ThreatMapWidget() {
     return map;
   }, [stats]);
 
-  // ─── Origin mode — known APT origin nations ─────────────────
+  // ─── Origin mode — driven by real topOriginsToday data ────────
   const originData = useMemo(() => {
-    const origins: Record<string, { count: number; type: string; severity: string }> = {
-      "643": { count: 0, type: "APT / Infrastructure", severity: "critical" },
-      "156": { count: 0, type: "State-Sponsored", severity: "critical" },
-      "408": { count: 0, type: "Financial / Crypto", severity: "high" },
-      "364": { count: 0, type: "Critical Infrastructure", severity: "high" },
-      "566": { count: 0, type: "BEC / Social Engineering", severity: "medium" },
-      "076": { count: 0, type: "Banking Trojans", severity: "medium" },
-    };
-    stats?.byCountry.forEach((c) => {
-      const numericId = ALPHA2_TO_NUMERIC[c.country_code];
-      if (numericId && origins[numericId]) {
-        origins[numericId].count += c.count;
+    const origins: Record<string, { count: number; type: string; severity: string; coords: [number, number] }> = {};
+    const topOrigins = stats?.topOriginsToday ?? [];
+
+    if (topOrigins.length > 0) {
+      // Use real origin data from today's threat feeds
+      const maxCount = Math.max(...topOrigins.map(o => o.count), 1);
+      topOrigins.forEach((o) => {
+        const numericId = ALPHA2_TO_NUMERIC[o.country_code];
+        if (!numericId) return;
+        const coords = ALPHA2_COORDS[o.country_code] ?? LABEL_COORDS[numericId];
+        if (!coords) return;
+        const ratio = o.count / maxCount;
+        const severity = ratio > 0.7 ? "critical" : ratio > 0.4 ? "high" : ratio > 0.15 ? "medium" : "low";
+        origins[numericId] = {
+          count: o.count,
+          type: "Threat Origin",
+          severity,
+          coords,
+        };
+      });
+    } else {
+      // Fallback to known APT origins when no live data
+      for (const [id, info] of Object.entries(APT_ORIGIN_FALLBACK)) {
+        const countryEntry = stats?.byCountry.find((c) => ALPHA2_TO_NUMERIC[c.country_code] === id);
+        origins[id] = {
+          count: countryEntry?.count ?? 50,
+          type: info.type,
+          severity: info.severity,
+          coords: info.coords,
+        };
       }
-    });
-    Object.values(origins).forEach((o) => { if (o.count < 50) o.count += 50; });
+    }
+
     return origins;
   }, [stats]);
 
@@ -312,18 +343,25 @@ export function ThreatMapWidget() {
   const attackArcs = useMemo(() => {
     if (viewMode !== "origins" || !showArcs) return [];
     const arcs: Array<{ from: [number, number]; to: [number, number]; severity: string; id: string }> = [];
-    Object.entries(APT_ORIGINS).forEach(([_id, origin]) => {
+    // Use top 6 origins (from real data or fallback) for arc lines
+    const topEntries = Object.entries(originData)
+      .sort(([, a], [, b]) => b.count - a.count)
+      .slice(0, 6);
+    topEntries.forEach(([id, origin]) => {
+      // Draw arcs to targets that aren't the origin itself
       TARGET_COORDS.forEach((target, ti) => {
+        const dist = Math.abs(origin.coords[0] - target[0]) + Math.abs(origin.coords[1] - target[1]);
+        if (dist < 5) return; // Skip self-arcs
         arcs.push({
           from: origin.coords,
           to: target,
           severity: origin.severity,
-          id: `arc-${_id}-${ti}`,
+          id: `arc-${id}-${ti}`,
         });
       });
     });
     return arcs;
-  }, [viewMode, showArcs]);
+  }, [viewMode, showArcs, originData]);
 
   // ─── Hotspot markers (top threat countries) ──────────────────
   const hotspots = useMemo(() => {
@@ -361,12 +399,44 @@ export function ThreatMapWidget() {
     return spots.sort((a, b) => b.count - a.count).slice(0, 20);
   }, [countryData, continentData, aggMode]);
 
+  // ─── Recent threat blips (animated incoming threat markers) ────
+  const recentBlips = useMemo(() => {
+    const blips: Array<{
+      coords: [number, number]; severity: string; type: string;
+      label: string; id: string;
+    }> = [];
+    const recent = stats?.recentThreats ?? [];
+    // Show up to 8 most recent threats with known country codes
+    recent.filter(t => t.country_code).slice(0, 8).forEach((t) => {
+      const coords = ALPHA2_COORDS[t.country_code!];
+      if (!coords) return;
+      // Offset slightly so they don't stack exactly on hotspots
+      const jitter: [number, number] = [
+        coords[0] + (Math.sin(t.id.charCodeAt(0)) * 3),
+        coords[1] + (Math.cos(t.id.charCodeAt(1)) * 2),
+      ];
+      blips.push({
+        coords: jitter,
+        severity: t.severity,
+        type: t.type,
+        label: t.domain || t.ioc_value || t.title?.slice(0, 20) || "threat",
+        id: `blip-${t.id}`,
+      });
+    });
+    return blips;
+  }, [stats]);
+
   const getCountryFill = useCallback((geoId: string): string => {
     if (viewMode === "origins") {
       const origin = originData[geoId];
       if (!origin) return "rgba(148, 163, 184, 0.15)";
-      const intensity = Math.min(origin.count / 300, 1);
-      return `rgba(239, 68, 68, ${0.12 + intensity * 0.48})`;
+      const maxOriginCount = Math.max(...Object.values(originData).map(o => o.count), 1);
+      const intensity = Math.min(origin.count / maxOriginCount, 1);
+      return origin.severity === "critical"
+        ? `rgba(239, 68, 68, ${0.12 + intensity * 0.55})`
+        : origin.severity === "high"
+        ? `rgba(249, 115, 22, ${0.12 + intensity * 0.48})`
+        : `rgba(234, 179, 8, ${0.08 + intensity * 0.42})`;
     }
 
     const data = countryData.get(geoId);
@@ -842,6 +912,47 @@ export function ThreatMapWidget() {
             }
             return null;
           })}
+
+        {/* ─── Recent threat blips (animated incoming markers) ─── */}
+        {recentBlips.map((blip) => {
+          const color = SEV_COLORS[blip.severity] ?? "#22D3EE";
+          return (
+            <Marker key={blip.id} coordinates={blip.coords}>
+              {/* Expanding ring animation */}
+              <circle
+                r={6 + pulse * 8}
+                fill="none"
+                stroke={color}
+                strokeWidth={0.8}
+                opacity={0.5 - pulse * 0.4}
+              />
+              {/* Core blip */}
+              <circle
+                r={2.5}
+                fill={color}
+                opacity={0.9}
+                filter={`url(#glow-${blip.severity})`}
+              />
+              {/* Bright center */}
+              <circle r={1} fill="white" opacity={0.6 + pulse * 0.4} />
+              {/* Label */}
+              <text
+                textAnchor="middle"
+                y={-8}
+                style={{
+                  fontSize: 3.5,
+                  fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+                  textShadow: `0 0 4px rgba(0,0,0,0.9)`,
+                  fill: color,
+                  opacity: 0.8,
+                  pointerEvents: "none",
+                }}
+              >
+                {blip.label}
+              </text>
+            </Marker>
+          );
+        })}
       </ComposableMap>
 
       {/* ─── Scan-line animation ─── */}
@@ -877,6 +988,12 @@ export function ThreatMapWidget() {
         <div className="flex items-center gap-3">
           {zoom > 1.3 && (
             <span className="text-[9px] font-mono text-cyan-400/70">{zoom.toFixed(1)}{"\u00d7"}</span>
+          )}
+          {/* Daily threats count (matches KPI bar above) */}
+          {stats?.dailyStats && (
+            <span className="text-[9px] lg:text-2xs font-mono text-amber-400">
+              {stats.dailyStats.threatsFlagged} TODAY
+            </span>
           )}
           <span className="text-[9px] lg:text-2xs font-mono font-bold" style={{
             color: totalThreats > 0 ? "#EF4444" : "#22D3EE",

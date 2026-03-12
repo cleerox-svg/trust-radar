@@ -37,6 +37,11 @@ import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
+import { handleProviderStats, handleProviderDrilldown } from "./handlers/providers";
+import {
+  handleBrandScan, handleBrandScanHistory, handlePublicBrandScan,
+  handleLeadCapture, handleListLeads, handleUpdateLead,
+} from "./handlers/brandScan";
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleValidateInvite, handleRevokeInvite } from "./handlers/invites";
 import type { Env } from "./types";
@@ -404,6 +409,53 @@ router.get("/api/trust-scores", async (request: Request, env: Env) => {
   return handleTrustScoreHistory(request, env);
 });
 
+// ─── Hosting Provider Intelligence ────────────────────────
+router.get("/api/providers/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderStats(request, env);
+});
+router.get("/api/providers/:name/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderDrilldown(request, env, request.params["name"] ?? "");
+});
+
+// ─── Brand Exposure Engine ──────────────────────────────────
+router.post("/api/brand-scan", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandScan(request, env, ctx.userId);
+});
+router.get("/api/brand-scan/history", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandScanHistory(request, env);
+});
+// Public brand scan (no auth, rate-limited)
+router.post("/api/brand-scan/public", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "scan");
+  if (limited) return limited;
+  return handlePublicBrandScan(request, env);
+});
+// Lead capture (no auth, rate-limited)
+router.post("/api/leads", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "auth");
+  if (limited) return limited;
+  return handleLeadCapture(request, env);
+});
+// Admin leads management
+router.get("/api/admin/leads", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListLeads(request, env);
+});
+router.patch("/api/admin/leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateLead(request, env, request.params["id"] ?? "");
+});
+
 // ─── Agents ────────────────────────────────────────────────
 router.get("/api/agents", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
@@ -495,7 +547,7 @@ export default {
             try {
               const { agentModules } = await import("./agents/index");
               const { executeAgent } = await import("./lib/agentRunner");
-              const autoAgents = ["triage", "threat-hunt", "campaign-correlator", "impersonation-detector"] as const;
+              const autoAgents = ["triage", "threat-hunt", "campaign-correlator", "impersonation-detector", "hosting-provider-analysis"] as const;
               for (const name of autoAgents) {
                 const mod = agentModules[name];
                 if (mod) {

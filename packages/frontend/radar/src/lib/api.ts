@@ -255,10 +255,22 @@ export interface Threat {
 export interface ThreatStats {
   summary: Record<string, number>;
   last24h: Record<string, number>;
+  dailyStats: {
+    scansToday: number; scansYesterday: number;
+    threatsFlagged: number; threatsYesterday: number;
+    countriesActive: number; countriesYesterday: number;
+  };
   byType: Array<{ type: string; count: number }>;
   bySource: Array<{ source: string; count: number }>;
   bySeverity: Array<{ severity: string; count: number }>;
   byCountry: Array<{ country_code: string; count: number }>;
+  byProvider: Array<{ hosting_provider: string; count: number; critical: number; high: number }>;
+  recentThreats: Array<{
+    id: string; type: string; title: string; severity: string; source: string;
+    domain: string | null; ioc_value: string | null; ip_address: string | null;
+    country_code: string | null; created_at: string;
+  }>;
+  topOriginsToday: Array<{ country_code: string; count: number }>;
 }
 export interface Briefing {
   id: string; title: string; summary: string | null; body: string | null;
@@ -400,4 +412,86 @@ export const dataExport = {
   scans: (limit = 500) => downloadCSV(`/export/scans?limit=${limit}`, `scans-${Date.now()}.csv`),
   signals: (limit = 500) => downloadCSV(`/export/signals?limit=${limit}`, `signals-${Date.now()}.csv`),
   alerts: () => downloadCSV("/export/alerts", `alerts-${Date.now()}.csv`),
+};
+
+// ─── Hosting Provider Intelligence ──────────────────────────
+export interface ProviderStat {
+  provider_name: string; threat_count: number; critical_count: number;
+  high_count: number; phishing_count: number; malware_count: number;
+  top_countries: string; trend_direction: string; trend_pct: number;
+  computed_at: string;
+}
+
+export const providers = {
+  stats: (period = "today") => api<{
+    providers: ProviderStat[];
+    summary: { total_providers: number; total_threats: number; critical: number; high: number };
+    period: string;
+  }>(`/providers/stats?period=${period}`),
+  drilldown: (name: string, limit = 20) =>
+    api<{ threats: Threat[] }>(`/providers/${encodeURIComponent(name)}/threats?limit=${limit}`),
+};
+
+// ─── Brand Exposure Engine ──────────────────────────────────
+export interface BrandScanResult {
+  id: string; domain: string; trustScore: number;
+  spf: { record: string | null; policy: string | null };
+  dmarc: { record: string | null; policy: string | null };
+  mx: string[];
+  lookalikes: Array<{ domain: string; registered: boolean; ip: string | null }>;
+  lookalikeCount: number;
+  feedMentions: number;
+  feedMatches: Array<{ id: string; type: string; title: string; severity: string; source: string; created_at: string }>;
+  riskFactors: string[];
+  recommendations: string[];
+  durationMs: number;
+}
+
+export interface BrandScanRecord {
+  id: string; domain: string; status: string; trust_score: number;
+  spf_record: string | null; spf_policy: string | null;
+  dmarc_record: string | null; dmarc_policy: string | null;
+  lookalikes_found: number; feed_mentions: number;
+  risk_factors: string; recommendations: string;
+  scan_duration_ms: number; scanned_by: string;
+  created_at: string; updated_at: string;
+}
+
+export const brandScan = {
+  scan: (domain: string) => api<BrandScanResult>("/brand-scan", { method: "POST", body: JSON.stringify({ domain }) }),
+  history: (domain?: string, limit = 20) =>
+    api<{ scans: BrandScanRecord[]; domains: Array<{ domain: string; last_scan: string; scan_count: number }> }>(
+      `/brand-scan/history?limit=${limit}${domain ? `&domain=${encodeURIComponent(domain)}` : ""}`
+    ),
+  publicScan: (domain: string) =>
+    fetch(`${BASE}/brand-scan/public`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain }),
+    }).then(r => r.json()) as Promise<{
+      success: boolean;
+      data?: { domain: string; trustScore: number; riskLevel: string; lookalikesPossible: number; feedMentions: boolean };
+      error?: string;
+    }>,
+};
+
+// ─── Leads ──────────────────────────────────────────────────
+export interface Lead {
+  id: string; email: string; name: string; company: string | null;
+  phone: string | null; domain: string | null; form_type: string;
+  source: string; message: string | null; status: string;
+  notes: string; created_at: string; updated_at: string;
+}
+
+export const leads = {
+  submit: (data: { name: string; email: string; domain?: string; phone?: string; company?: string; message?: string }) =>
+    fetch(`${BASE}/leads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then(r => r.json()) as Promise<{ success: boolean; data?: { id: string; message: string }; error?: string }>,
+  list: (status?: string, limit = 50) =>
+    api<{ leads: Lead[]; stats: Record<string, number> }>(`/admin/leads?limit=${limit}${status ? `&status=${status}` : ""}`),
+  update: (id: string, data: { status?: string; notes?: string }) =>
+    api<void>(`/admin/leads/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
