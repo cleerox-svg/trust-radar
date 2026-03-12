@@ -4,6 +4,7 @@ import { runAllFeeds } from "./lib/feedRunner";
 import { feedModules } from "./feeds/index";
 import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
+import { handleHeatmap } from "./handlers/heatmap";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth } from "./handlers/admin";
@@ -74,6 +75,9 @@ router.get("/api/auth/me", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleMe(request, env, ctx.userId);
 });
+
+// ─── Public Heatmap (unauthenticated) ────────────────────────
+router.get("/api/heatmap", (request: Request, env: Env) => handleHeatmap(request, env));
 
 // ─── Public Scan (unauthenticated, rate-limited) ─────────────
 router.post("/api/scan/public", async (request: Request, env: Env) => {

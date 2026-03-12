@@ -87,6 +87,44 @@ class VTQuotaError extends Error {
   constructor() { super("VTQuotaError"); }
 }
 
+// ─── IP Geolocation (ip-api.com — free, 45 req/min, no key) ──────────────
+
+interface GeoResult {
+  lat: number;
+  lng: number;
+  city: string;
+  country: string;
+  countryCode: string;
+}
+
+async function resolveGeo(ip: string, env: Env): Promise<GeoResult | null> {
+  if (!ip || ip === "127.0.0.1" || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("::")) {
+    return null;
+  }
+
+  // Check D1 cache — reuse geo for IPs we've already looked up
+  try {
+    const cached = await env.DB.prepare(
+      "SELECT lat, lng, geo_city, geo_country, geo_country_code FROM scans WHERE ip_address = ? AND lat IS NOT NULL LIMIT 1"
+    ).bind(ip).first<{ lat: number; lng: number; geo_city: string; geo_country: string; geo_country_code: string }>();
+    if (cached) {
+      return { lat: cached.lat, lng: cached.lng, city: cached.geo_city, country: cached.geo_country, countryCode: cached.geo_country_code };
+    }
+  } catch { /* non-fatal */ }
+
+  try {
+    const res = await fetch(
+      `http://ip-api.com/json/${ip}?fields=lat,lon,city,country,countryCode,status`,
+      { cf: { cacheTtl: 86400 } } as RequestInit
+    );
+    const data = await res.json() as { status: string; lat?: number; lon?: number; city?: string; country?: string; countryCode?: string };
+    if (data.status !== "success" || !data.lat || !data.lon) return null;
+    return { lat: data.lat, lng: data.lon, city: data.city ?? "", country: data.country ?? "", countryCode: data.countryCode ?? "" };
+  } catch {
+    return null;
+  }
+}
+
 async function runScan(url: string, env: Env): Promise<Omit<ScanResult, "id" | "created_at">> {
   const domain = extractDomain(url);
   const flags: ScanFlag[] = [];
@@ -223,10 +261,13 @@ export async function handleScan(
     };
 
     if (userId) {
+      const clientIp = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || "";
+      const geo = await resolveGeo(clientIp, env);
       await env.DB.prepare(
-        "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, cached) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+        "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, cached, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)"
       )
-        .bind(result.id, userId, url, domain, result.trust_score, result.risk_level, cached.flags, cached.metadata)
+        .bind(result.id, userId, url, domain, result.trust_score, result.risk_level, cached.flags, cached.metadata,
+              clientIp || null, geo?.lat ?? null, geo?.lng ?? null, geo?.city ?? null, geo?.country ?? null, geo?.countryCode ?? null)
         .run();
     }
 
@@ -257,12 +298,17 @@ export async function handleScan(
   const metaJson = JSON.stringify(scanData.metadata);
   const now = new Date().toISOString();
 
-  // Store result
-  if (userId) {
+  // Resolve geo for the requesting client IP
+  const clientIp = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || "";
+  const geo = await resolveGeo(clientIp, env);
+
+  // Store result — authenticated users always; anonymous only when geo resolves (feeds the heatmap)
+  if (userId || geo) {
     await env.DB.prepare(
-      "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
-      .bind(id, userId, url, domain, scanData.trust_score, scanData.risk_level, flagsJson, metaJson)
+      .bind(id, userId ?? null, url, domain, scanData.trust_score, scanData.risk_level, flagsJson, metaJson,
+            clientIp || null, geo?.lat ?? null, geo?.lng ?? null, geo?.city ?? null, geo?.country ?? null, geo?.countryCode ?? null)
       .run();
   }
 
