@@ -260,16 +260,15 @@ export async function handleScan(
       created_at: new Date().toISOString(),
     };
 
-    if (userId) {
-      const clientIp = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || "";
-      const geo = await resolveGeo(clientIp, env);
-      await env.DB.prepare(
-        "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, cached, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)"
-      )
-        .bind(result.id, userId, url, domain, result.trust_score, result.risk_level, cached.flags, cached.metadata,
-              clientIp || null, geo?.lat ?? null, geo?.lng ?? null, geo?.city ?? null, geo?.country ?? null, geo?.countryCode ?? null)
-        .run();
-    }
+    // Always store — share link (/scan/:id) must work for all scans
+    const clientIpCached = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || "";
+    const geoCached = await resolveGeo(clientIpCached, env);
+    await env.DB.prepare(
+      "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, cached, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)"
+    )
+      .bind(result.id, userId ?? null, url, domain, result.trust_score, result.risk_level, cached.flags, cached.metadata,
+            clientIpCached || null, geoCached?.lat ?? null, geoCached?.lng ?? null, geoCached?.city ?? null, geoCached?.country ?? null, geoCached?.countryCode ?? null)
+      .run();
 
     return json({ success: true, data: result }, 200, origin);
   }
@@ -302,15 +301,14 @@ export async function handleScan(
   const clientIp = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() || "";
   const geo = await resolveGeo(clientIp, env);
 
-  // Store result — authenticated users always; anonymous only when geo resolves (feeds the heatmap)
-  if (userId || geo) {
-    await env.DB.prepare(
-      "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    )
-      .bind(id, userId ?? null, url, domain, scanData.trust_score, scanData.risk_level, flagsJson, metaJson,
-            clientIp || null, geo?.lat ?? null, geo?.lng ?? null, geo?.city ?? null, geo?.country ?? null, geo?.countryCode ?? null)
-      .run();
-  }
+  // Always store — share link (/scan/:id) must work for all scans;
+  // geo columns populate when available and feed the heatmap
+  await env.DB.prepare(
+    "INSERT INTO scans (id, user_id, url, domain, trust_score, risk_level, flags, metadata, ip_address, lat, lng, geo_city, geo_country, geo_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  )
+    .bind(id, userId ?? null, url, domain, scanData.trust_score, scanData.risk_level, flagsJson, metaJson,
+          clientIp || null, geo?.lat ?? null, geo?.lng ?? null, geo?.city ?? null, geo?.country ?? null, geo?.countryCode ?? null)
+    .run();
 
   // Cache the result for 24 hours — aligns with VT's daily quota window to avoid redundant calls
   const expiresAt = new Date(Date.now() + VT_CACHE_TTL_SEC * 1000).toISOString();

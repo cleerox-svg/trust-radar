@@ -5,6 +5,8 @@ import { feedModules } from "./feeds/index";
 import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleHeatmap } from "./handlers/heatmap";
+import { renderHomepage } from "./templates/homepage";
+import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth } from "./handlers/admin";
@@ -460,6 +462,18 @@ router.get("/api/export/alerts", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleExportAlerts(request, env);
 });
+
+// ─── Public Homepage ──────────────────────────────────────────
+router.get("/", () =>
+  new Response(renderHomepage(), {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
+  })
+);
+
+// ─── Public Scan Result Page ──────────────────────────────────
+router.get("/scan/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
+  handleScanPage(request, env, request.params.id)
+);
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 router.all("*", (request: Request, env: Env) => {
