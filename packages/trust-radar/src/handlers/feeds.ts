@@ -1,5 +1,5 @@
 import { json } from "../lib/cors";
-import { runFeed, runAllFeeds, runTier } from "../lib/feedRunner";
+import { runFeed, runAllFeeds, runTier, getFeedCallsToday } from "../lib/feedRunner";
 import { feedModules } from "../feeds";
 import type { Env } from "../types";
 
@@ -19,7 +19,7 @@ export async function handleListFeeds(request: Request, env: Env): Promise<Respo
               requires_key, parser, last_run_at, last_success_at, last_error,
               consecutive_failures, circuit_open, total_runs, total_items, created_at,
               description, settings_json, is_custom, created_by, last_items_new, provider_url,
-              api_key_encrypted, api_secret_encrypted
+              api_key_encrypted, api_secret_encrypted, daily_limit
        FROM feed_schedules ORDER BY tier ASC, feed_name ASC`
     ).all();
     // Mask credentials in response
@@ -324,6 +324,33 @@ export async function handleResetCircuit(request: Request, env: Env, feedId: str
       `UPDATE feed_schedules SET circuit_open = 0, circuit_opened_at = NULL, consecutive_failures = 0, updated_at = datetime('now') WHERE id = ?`
     ).bind(feedId).run();
     return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Quota usage (today's API call counts per feed) ──────────────
+export async function handleFeedQuota(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Only query feeds that have a known daily_limit
+    const rows = await env.DB.prepare(
+      `SELECT id, feed_name, display_name, daily_limit FROM feed_schedules
+       WHERE daily_limit IS NOT NULL ORDER BY tier ASC, feed_name ASC`
+    ).all<{ id: string; feed_name: string; display_name: string; daily_limit: number }>();
+
+    // Read today's call counts from KV in parallel
+    const quota = await Promise.all(
+      (rows.results ?? []).map(async (row) => ({
+        id: row.id,
+        feed_name: row.feed_name,
+        display_name: row.display_name,
+        daily_limit: row.daily_limit,
+        calls_today: await getFeedCallsToday(env, row.feed_name),
+      }))
+    );
+
+    return json({ success: true, data: quota }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

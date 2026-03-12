@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { feeds, type FeedSchedule, type FeedStatsData } from "../lib/api";
+import { feeds, type FeedSchedule, type FeedStatsData, type FeedQuotaEntry } from "../lib/api";
 import { Card, CardContent, Badge, Button } from "../components/ui";
 import { StatusDot } from "../components/ui/StatusDot";
 import { cn } from "../lib/cn";
@@ -523,6 +523,12 @@ export function FeedAnalyticsPage() {
   const qc = useQueryClient();
   const { data: feedList, isLoading: loadingFeeds } = useQuery({ queryKey: ["feeds"], queryFn: feeds.list });
   const { data: stats } = useQuery({ queryKey: ["feed-stats"], queryFn: feeds.stats });
+  const { data: quotaData } = useQuery({ queryKey: ["feed-quota"], queryFn: feeds.quota, refetchInterval: 60_000 });
+
+  // Build quick lookup: feedName → quota entry
+  const quotaMap: Record<string, FeedQuotaEntry> = Object.fromEntries(
+    (quotaData ?? []).map((q) => [q.feed_name, q])
+  );
 
   const [showAdd, setShowAdd] = useState(false);
   const [editFeed, setEditFeed] = useState<FeedSchedule | null>(null);
@@ -660,6 +666,14 @@ export function FeedAnalyticsPage() {
                                   <span className="font-mono">{feed.feed_name}</span>
                                   {feed.requires_key ? <span className="text-amber-400">(key)</span> : null}
                                   {feed.is_custom ? <Badge variant="info" className="text-2xs">Custom</Badge> : null}
+                                  {(() => {
+                                    const q = quotaMap[feed.feed_name];
+                                    if (!q) return null;
+                                    const pct = Math.round((q.calls_today / q.daily_limit) * 100);
+                                    if (pct >= 100) return <span className="text-threat-critical font-semibold" title={`Quota exhausted: ${q.calls_today}/${q.daily_limit}`}>quota exhausted</span>;
+                                    if (pct >= 80) return <span className="text-amber-400" title={`Quota at ${pct}%: ${q.calls_today}/${q.daily_limit}`}>{pct}% quota</span>;
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                             </div>
@@ -785,6 +799,25 @@ export function FeedAnalyticsPage() {
                                 {feed.last_error}
                               </div>
                             )}
+                            {(() => {
+                              const q = quotaMap[feed.feed_name];
+                              if (!q) return null;
+                              const pct = Math.min(100, Math.round((q.calls_today / q.daily_limit) * 100));
+                              const color = pct >= 100 ? "bg-threat-critical" : pct >= 80 ? "bg-amber-400" : "bg-green-400";
+                              return (
+                                <div className="mt-1.5">
+                                  <div className="flex justify-between text-[9px] mb-0.5">
+                                    <span className={pct >= 100 ? "text-threat-critical" : pct >= 80 ? "text-amber-400" : "text-[--text-tertiary]"}>
+                                      API quota {pct >= 100 ? "exhausted" : `${pct}%`}
+                                    </span>
+                                    <span className="font-mono">{q.calls_today}/{q.daily_limit}</span>
+                                  </div>
+                                  <div className="w-full bg-[--surface-overlay] rounded-full h-1">
+                                    <div className={cn("h-1 rounded-full", color)} style={{ width: `${pct}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <div className="flex gap-1.5">
@@ -811,6 +844,53 @@ export function FeedAnalyticsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* API Quota Usage */}
+      {quotaData && quotaData.length > 0 && (
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm font-semibold text-[--text-primary]">API Quota Usage Today</h3>
+              <span className="text-xs text-[--text-tertiary]">Resets at 00:00 UTC</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {quotaData.map((q) => {
+                const pct = Math.min(100, Math.round((q.calls_today / q.daily_limit) * 100));
+                const isNearLimit = pct >= 80;
+                const isExhausted = q.calls_today >= q.daily_limit;
+                return (
+                  <div key={q.id} className={cn(
+                    "rounded-lg border p-3",
+                    isExhausted ? "border-threat-critical/40 bg-threat-critical/5"
+                      : isNearLimit ? "border-amber-400/40 bg-amber-400/5"
+                      : "border-[--border-subtle] bg-[--surface-base]"
+                  )}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-[--text-primary] truncate">{q.display_name}</span>
+                      {isExhausted
+                        ? <AlertTriangle className="w-3.5 h-3.5 text-threat-critical flex-shrink-0" />
+                        : isNearLimit
+                        ? <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                        : <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                      }
+                    </div>
+                    <div className="w-full bg-[--surface-overlay] rounded-full h-1.5 mb-1">
+                      <div
+                        className={cn("h-1.5 rounded-full transition-all", isExhausted ? "bg-threat-critical" : isNearLimit ? "bg-amber-400" : "bg-green-400")}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-[--text-tertiary] font-mono">
+                      {q.calls_today} / {q.daily_limit} calls ({pct}%)
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Recent Ingestions */}

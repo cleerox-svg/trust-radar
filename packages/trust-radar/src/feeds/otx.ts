@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall } from "../lib/feedRunner";
 
 /** AlienVault OTX — Open Threat Exchange pulse indicators (API key required) */
 export const otx: FeedModule = {
@@ -14,7 +14,10 @@ export const otx: FeedModule = {
         ...ctx.headers,
       },
     });
+    if (res.status === 429) throw new Error("OTX: Rate limit exceeded (HTTP 429). Check usage at otx.alienvault.com.");
+    if (res.status === 401 || res.status === 403) throw new Error("OTX: Invalid or unauthorized API key (HTTP " + res.status + ")");
     if (!res.ok) throw new Error(`OTX HTTP ${res.status}`);
+    await recordFeedApiCall(ctx.env, "otx_pulses");
 
     const body = await res.json() as {
       results?: Array<{
