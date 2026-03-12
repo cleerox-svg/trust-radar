@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trust Radar — Global Threat Map</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<!-- Leaflet.heat via unpkg (not on cdnjs) — inline fallback below -->
+<script>
+/* Inline Leaflet.heat (minified) to avoid CDN permission issues */
+</script>
+
+<!-- JetBrains Mono + Inter -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+  /* ─── TOKENS ─────────────────────────────────────────────────────── */
+  :root {
+    --cyan:    #00F5FF;
+    --amber:   #F59E0B;
+    --red:     #EF4444;
+    --green:   #22C55E;
+    --navy:    #0A0E1A;
+    --navy2:   #0F1628;
+    --navy3:   #1A2340;
+    --border:  rgba(0,245,255,0.12);
+    --text:    #E2E8F0;
+    --subtext: #64748B;
+    --radius:  8px;
+    --map-height: 520px;
+  }
+
+  [data-theme="light"] {
+    --navy:    #F0F4F8;
+    --navy2:   #FFFFFF;
+    --navy3:   #E2E8F0;
+    --border:  rgba(15,30,80,0.12);
+    --text:    #0F1628;
+    --subtext: #475569;
+    --cyan:    #0066CC;
+    --amber:   #D97706;
+    --red:     #DC2626;
+    --green:   #16A34A;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ─── SHELL ─────────────────────────────────────────────────────── */
+  .shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 24px 48px;
+  }
+
+  /* ─── HEADER ─────────────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wordmark-icon {
+    width: 32px; height: 32px;
+    background: var(--cyan);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  [data-theme="light"] .wordmark-icon {
+    background: var(--cyan);
+    color: #fff;
+  }
+
+  .wordmark-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .wordmark-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--subtext);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  /* ─── STATS ROW ──────────────────────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s, border 0.3s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.c { background: var(--navy2); }
+  .stat-card.c::before { background: var(--cyan); }
+  .stat-card.a::before { background: var(--amber); }
+  .stat-card.r::before { background: var(--red); }
+  .stat-card.g::before { background: var(--green); }
+
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--subtext);
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .stat-value .unit {
+    font-size: 12px;
+    color: var(--subtext);
+    margin-left: 3px;
+  }
+
+  .stat-delta {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .stat-delta.up { color: var(--red); }
+  .stat-delta.dn { color: var(--green); }
+
+  /* ─── MAP PANEL ──────────────────────────────────────────────────── */
+  .map-panel {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    transition: background 0.3s, border 0.3s;
+  }
+
+  .map-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .map-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .map-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ─── MODE TOGGLE ────────────────────────────────────────────────── */
+  .mode-toggle {
+    display: flex;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .mode-btn {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--subtext);
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    background: var(--navy2);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  [data-theme="light"] .mode-btn.active {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+
+  /* Filter buttons */
+  .filter-btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--subtext);
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--cyan); }
+  .filter-btn.active { background: rgba(0,245,255,0.08); color: var(--cyan); border-color: var(--cyan); }
+
+  [data-theme="light"] .filter-btn.active {
+    background: rgba(0,102,204,0.08);
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+
+  /* ─── THE MAP — CRITICAL HEIGHT FIX ─────────────────────────────── */
+  /*
+   * ROOT CAUSE OF THE BUG:
+   * Leaflet needs an explicit pixel height on the container div at mount time.
+   * If height is auto, 0, or unset — the canvas renders at 0px and is invisible.
+   * text labels still appear because they're absolutely positioned <div>s,
+   * not canvas-dependent. This is why you saw city names but no map.
+   *
+   * FIX: Always declare an explicit height in px or vh on #map.
+   * Never use height: auto or height: 100% without a sized parent.
+   */
+  #map {
+    height: var(--map-height);   /* ← THE FIX: explicit pixel height */
+    width: 100%;
+    display: block;              /* ← ensures block formatting, no collapse */
+    z-index: 1;
+  }
+
+  /* ─── LIGHT MODE TILE LAYER ADJUSTMENTS ─────────────────────────── */
+  /*
+   * LIGHT MODE BUG: On light mode, if you leave the dark CartoDB tile layer
+   * active, the map looks like a dark island on a light page — jarring.
+   * AND the heat blobs (cyan→amber→red) become nearly invisible against
+   * the dark tiles because they're designed for dark contrast.
+   *
+   * FIX: Switch to CartoDB Positron (light/minimal tiles) in light mode.
+   * Re-tune gradient: use deeper, more saturated hues that read on white.
+   * Reduce heat layer opacity slightly (0.7→0.85) for better contrast.
+   */
+
+  /* Leaflet UI elements — light mode cleanup */
+  [data-theme="light"] .leaflet-control-zoom a {
+    background: #fff;
+    color: #0F1628;
+    border-color: #cbd5e1;
+  }
+  [data-theme="light"] .leaflet-control-zoom a:hover {
+    background: #f1f5f9;
+  }
+  [data-theme="light"] .leaflet-control-attribution {
+    background: rgba(255,255,255,0.85);
+    color: #64748b;
+  }
+
+  /* Dark mode: Leaflet UI */
+  [data-theme="dark"] .leaflet-control-zoom a {
+    background: var(--navy3);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  [data-theme="dark"] .leaflet-control-attribution {
+    background: rgba(10,14,26,0.75);
+    color: var(--subtext);
+  }
+
+  /* ─── FEED + LEGEND ROW ──────────────────────────────────────────── */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+
+  .threat-feed {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: background 0.3s, border 0.3s;
+  }
+
+  .feed-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--subtext);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .feed-list {
+    max-height: 160px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .feed-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    animation: feed-in 0.4s ease;
+    font-size: 12px;
+  }
+
+  @keyframes feed-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .feed-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .feed-dot.phishing { background: var(--red); }
+  .feed-dot.malware  { background: var(--amber); }
+  .feed-dot.scam     { background: #a78bfa; }
+  .feed-dot.safe     { background: var(--green); }
+
+  .feed-domain {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .feed-meta {
+    color: var(--subtext);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .feed-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .feed-score.high  { background: rgba(239,68,68,0.15);  color: var(--red); }
+  .feed-score.med   { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .feed-score.low   { background: rgba(34,197,94,0.15);  color: var(--green); }
+
+  /* ─── LEGEND ─────────────────────────────────────────────────────── */
+  .legend-panel {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    transition: background 0.3s, border 0.3s;
+  }
+
+  .legend-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--subtext);
+    margin-bottom: 12px;
+  }
+
+  .legend-gradient {
+    height: 10px;
+    border-radius: 5px;
+    margin-bottom: 6px;
+  }
+
+  [data-theme="dark"] .legend-gradient {
+    background: linear-gradient(to right, #00f5ff, #f59e0b, #ef4444);
+  }
+  [data-theme="light"] .legend-gradient {
+    background: linear-gradient(to right, #0066cc, #d97706, #dc2626);
+  }
+
+  .legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--subtext);
+    margin-bottom: 14px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .legend-swatch {
+    width: 28px; height: 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .top-countries {
+    margin-top: 14px;
+  }
+
+  .tc-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--subtext);
+    margin-bottom: 10px;
+  }
+
+  .tc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 12px;
+  }
+
+  .tc-flag { font-size: 14px; }
+
+  .tc-name { flex: 1; color: var(--text); }
+
+  .tc-bar-track {
+    width: 70px;
+    height: 4px;
+    background: var(--navy3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .tc-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--cyan);
+    transition: width 1s ease;
+  }
+
+  .tc-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--subtext);
+    width: 32px;
+    text-align: right;
+  }
+
+  /* ─── MAP OVERLAY BADGE ──────────────────────────────────────────── */
+  .map-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 500;
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    transition: background 0.3s;
+  }
+
+  [data-theme="light"] .map-badge {
+    background: rgba(255,255,255,0.9);
+  }
+
+  .map-badge-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--cyan);
+    line-height: 1;
+  }
+
+  .map-badge-label {
+    font-size: 10px;
+    color: var(--subtext);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── TOOLTIP ────────────────────────────────────────────────────── */
+  .leaflet-tooltip-own {
+    background: var(--navy3) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    border-radius: 5px !important;
+    padding: 6px 10px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+  }
+
+  [data-theme="light"] .leaflet-tooltip-own {
+    background: #fff !important;
+    border: 1px solid rgba(15,30,80,0.15) !important;
+    color: #0F1628 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  }
+</style>
+</head>
+
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="wordmark">
+      <div class="wordmark-icon">🛡</div>
+      <div>
+        <div class="wordmark-text">Trust<span style="color:var(--cyan)">Radar</span></div>
+        <div class="wordmark-sub">Global Threat Intelligence</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card c">
+      <div class="stat-label">Scans Today</div>
+      <div class="stat-value" id="stat-scans">3,847<span class="unit">urls</span></div>
+      <div class="stat-delta up" id="stat-scans-d">↑ 12% vs yesterday</div>
+    </div>
+    <div class="stat-card r">
+      <div class="stat-label">Threats Flagged</div>
+      <div class="stat-value" id="stat-threats">284</div>
+      <div class="stat-delta up">↑ 7.4% this week</div>
+    </div>
+    <div class="stat-card a">
+      <div class="stat-label">Countries Active</div>
+      <div class="stat-value">43</div>
+      <div class="stat-delta dn">↓ 2 from yesterday</div>
+    </div>
+    <div class="stat-card g">
+      <div class="stat-label">Avg Trust Score</div>
+      <div class="stat-value">71<span class="unit">/100</span></div>
+      <div class="stat-delta dn">↑ stable</div>
+    </div>
+  </div>
+
+  <!-- MAP PANEL -->
+  <div class="map-panel">
+    <div class="map-toolbar">
+      <div class="map-title">
+        <div class="live-dot"></div>
+        Global Threat Heatmap — Live
+      </div>
+      <div class="map-controls">
+        <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-btn" onclick="setFilter('phishing', this)">Phishing</button>
+        <button class="filter-btn" onclick="setFilter('malware', this)">Malware</button>
+        <!-- DARK/LIGHT MODE TOGGLE FOR THE MAP -->
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btn-dark" onclick="setTheme('dark')">Dark</button>
+          <button class="mode-btn" id="btn-light" onclick="setTheme('light')">Light</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAP CONTAINER — explicit height is THE critical fix -->
+    <div style="position:relative;">
+      <div id="map"></div>
+
+      <!-- Overlay badge (z-index above tiles, below controls) -->
+      <div class="map-badge" id="map-badge">
+        <div class="map-badge-count" id="badge-count">284</div>
+        <div class="map-badge-label">threats · 24h</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-row">
+
+    <!-- LIVE FEED -->
+    <div class="threat-feed">
+      <div class="feed-header">
+        <div class="live-dot"></div>
+        Live Scan Feed
+      </div>
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+
+    <!-- LEGEND + TOP COUNTRIES -->
+    <div class="legend-panel">
+      <div class="legend-title">Heat Scale</div>
+      <div class="legend-gradient"></div>
+      <div class="legend-labels">
+        <span>Low risk</span>
+        <span>Medium</span>
+        <span>High risk</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:rgba(239,68,68,0.8)"></div>
+        Phishing / High Threat
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:rgba(245,158,11,0.8)"></div>
+        Malware / Suspicious
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:rgba(0,245,255,0.6)"></div>
+        Low Risk / Monitored
+      </div>
+
+      <div class="top-countries">
+        <div class="tc-title">Top Origins</div>
+        <div id="tc-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ─── INLINE LEAFLET.HEAT ────────────────────────────────────────
+     Inlined to avoid CDN permission issues. Source: Leaflet/Leaflet.heat
+     MIT License. ──────────────────────────────────────────────── -->
+<script>
+/* Simplified heat layer — canvas-based heatmap using simpleheat algorithm */
+(function(){
+  function simpleheat(canvas) {
+    if (!(this instanceof simpleheat)) return new simpleheat(canvas);
+    this._canvas = canvas = typeof canvas === 'string' ? document.getElementById(canvas) : canvas;
+    this._ctx = canvas.getContext('2d');
+    this._width = canvas.width;
+    this._height = canvas.height;
+    this._max = 1;
+    this._data = [];
+  }
+  simpleheat.prototype = {
+    defaultRadius: 25,
+    defaultGradient: {0.4:'blue',0.65:'lime',1:'red'},
+    data: function(data){ this._data = data; return this; },
+    max: function(max){ this._max = max; return this; },
+    add: function(point){ this._data.push(point); return this; },
+    clear: function(){ this._data = []; return this; },
+    radius: function(r, blur){
+      blur = blur === undefined ? 15 : blur;
+      var circle = this._circle = this._createCanvas(),
+          ctx = circle.getContext('2d'),
+          r2 = this._r = r + blur;
+      circle.width = circle.height = r2 * 2;
+      ctx.shadowOffsetX = ctx.shadowOffsetY = r2 * 2;
+      ctx.shadowBlur = blur;
+      ctx.shadowColor = 'black';
+      ctx.beginPath();
+      ctx.arc(-r2, -r2, r, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.fill();
+      return this;
+    },
+    resize: function(){
+      this._width = this._canvas.width;
+      this._height = this._canvas.height;
+    },
+    gradient: function(grad){
+      var canvas = this._createCanvas(),
+          ctx = canvas.getContext('2d'),
+          gradient = ctx.createLinearGradient(0, 0, 0, 256);
+      canvas.width = 1; canvas.height = 256;
+      for (var i in grad) gradient.addColorStop(+i, grad[i]);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1, 256);
+      this._grad = ctx.getImageData(0, 0, 1, 256).data;
+      return this;
+    },
+    draw: function(minOpacity){
+      if (!this._circle) this.radius(this.defaultRadius);
+      if (!this._grad) this.gradient(this.defaultGradient);
+      var ctx = this._ctx;
+      ctx.clearRect(0, 0, this._width, this._height);
+      for (var i = 0, len = this._data.length, p; i < len; i++) {
+        p = this._data[i];
+        ctx.globalAlpha = Math.min(Math.max(p[2] / this._max, minOpacity === undefined ? 0.05 : minOpacity), 1);
+        ctx.drawImage(this._circle, p[0] - this._r, p[1] - this._r);
+      }
+      var colored = ctx.getImageData(0, 0, this._width, this._height);
+      this._colorize(colored.data, this._grad);
+      ctx.putImageData(colored, 0, 0);
+      return this;
+    },
+    _colorize: function(pixels, gradient){
+      for (var i = 0, len = pixels.length, j; i < len; i += 4) {
+        j = pixels[i + 3] * 4;
+        if (j) {
+          pixels[i]     = gradient[j];
+          pixels[i + 1] = gradient[j + 1];
+          pixels[i + 2] = gradient[j + 2];
+        }
+      }
+    },
+    _createCanvas: function(){
+      if (typeof document !== 'undefined') return document.createElement('canvas');
+      var c = new Canvas();
+      return c;
+    }
+  };
+  window.simpleheat = simpleheat;
+
+  /* Leaflet plugin wrapper */
+  if (typeof L === 'undefined') return;
+  L.HeatLayer = (L.Layer ? L.Layer : L.Class).extend({
+    initialize: function(latlngs, options) {
+      this._latlngs = latlngs;
+      L.setOptions(this, options);
+    },
+    setLatLngs: function(latlngs) {
+      this._latlngs = latlngs;
+      return this.redraw();
+    },
+    addLatLng: function(latlng) {
+      this._latlngs.push(latlng);
+      return this.redraw();
+    },
+    setOptions: function(options) {
+      L.setOptions(this, options);
+      if (this._heat) { this._updateOptions(); }
+      return this.redraw();
+    },
+    redraw: function() {
+      if (this._heat && !this._frame && this._map && !this._map._animating) {
+        this._frame = L.Util.requestAnimFrame(this._redraw, this);
+      }
+      return this;
+    },
+    onAdd: function(map) {
+      this._map = map;
+      if (!this._canvas) { this._initCanvas(); }
+      if (this.options.pane) { this.getPane().appendChild(this._canvas); }
+      else {
+        map._panes.overlayPane.appendChild(this._canvas);
+      }
+      map.on('moveend', this._reset, this);
+      if (map.options.zoomAnimation && L.Browser.any3d) {
+        map.on('zoomanim', this._animateZoom, this);
+      }
+      this._reset();
+    },
+    onRemove: function(map) {
+      if (this.options.pane) { this.getPane().removeChild(this._canvas); }
+      else { map.getPanes().overlayPane.removeChild(this._canvas); }
+      map.off('moveend', this._reset, this);
+      if (map.options.zoomAnimation) {
+        map.off('zoomanim', this._animateZoom, this);
+      }
+    },
+    addTo: function(map) { map.addLayer(this); return this; },
+    _initCanvas: function() {
+      var canvas = this._canvas = L.DomUtil.create('canvas', 'leaflet-heatmap-layer leaflet-layer');
+      var originProp = L.DomUtil.testProp(['transformOrigin', 'WebkitTransformOrigin', 'msTransformOrigin']);
+      canvas.style[originProp] = '50% 50%';
+      var animated = this._map.options.zoomAnimation && L.Browser.any3d;
+      L.DomUtil.addClass(canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'));
+      this._heat = simpleheat(canvas);
+      this._updateOptions();
+    },
+    _updateOptions: function() {
+      this._heat.radius(this.options.radius || this._heat.defaultRadius,
+                        this.options.blur);
+      if (this.options.gradient) { this._heat.gradient(this.options.gradient); }
+      if (this.options.max) { this._heat.max(this.options.max); }
+    },
+    _reset: function() {
+      var topLeft = this._map.containerPointToLayerPoint([0, 0]);
+      L.DomUtil.setPosition(this._canvas, topLeft);
+      var size = this._map.getSize();
+      if (this._heat._width !== size.x) {
+        this._canvas.width = this._heat._width = size.x;
+      }
+      if (this._heat._height !== size.y) {
+        this._canvas.height = this._heat._height = size.y;
+      }
+      this._redraw();
+    },
+    _redraw: function() {
+      this._frame = null;
+      if (!this._map) { return; }
+      var data = [],
+          r = this._heat._r,
+          size = this._map.getSize(),
+          bounds = new L.Bounds(L.point([-r, -r]), size.add([r, r])),
+          max = this.options.max === undefined ? 1 : this.options.max,
+          maxZoom = this.options.maxZoom === undefined ? this._map.getMaxZoom() : this.options.maxZoom,
+          v = 1 / Math.pow(2, Math.max(0, Math.min(maxZoom - this._map.getZoom(), 12))),
+          cellSize = r / 2,
+          grid = [],
+          panePos = this._map._getMapPanePos(),
+          offsetX = panePos.x % cellSize,
+          offsetY = panePos.y % cellSize,
+          i, len, p, cell, x, y, j, len2, k;
+      for (i = 0, len = this._latlngs.length; i < len; i++) {
+        p = this._map.latLngToContainerPoint(this._latlngs[i]);
+        if (bounds.contains(p)) {
+          x = Math.floor((p.x - offsetX) / cellSize) + 2;
+          y = Math.floor((p.y - offsetY) / cellSize) + 2;
+          var alt = this._latlngs[i].alt !== undefined ? this._latlngs[i].alt :
+                    (this._latlngs[i][2] !== undefined ? +this._latlngs[i][2] : 1);
+          k = alt * v;
+          grid[y] = grid[y] || [];
+          cell = grid[y][x];
+          if (!cell) {
+            grid[y][x] = [p.x, p.y, k];
+          } else {
+            cell[0] = (cell[0] * cell[2] + p.x * k) / (cell[2] + k);
+            cell[1] = (cell[1] * cell[2] + p.y * k) / (cell[2] + k);
+            cell[2] += k;
+          }
+        }
+      }
+      for (i = 0, len = grid.length; i < len; i++) {
+        if (grid[i]) {
+          for (j = 0, len2 = grid[i].length; j < len2; j++) {
+            cell = grid[i][j];
+            if (cell) { data.push([Math.round(cell[0]), Math.round(cell[1]), Math.min(cell[2], max)]); }
+          }
+        }
+      }
+      this._heat.data(data).draw(this.options.minOpacity);
+      this._frame = null;
+    },
+    _animateZoom: function(e) {
+      var scale = this._map.getZoomScale(e.zoom),
+          offset = this._map._getCenterOffset(e.center)._multiplyBy(-scale).subtract(this._map._getMapPanePos());
+      if (L.DomUtil.setTransform) {
+        L.DomUtil.setTransform(this._canvas, offset, scale);
+      } else {
+        this._canvas.style[L.DomUtil.TRANSFORM] = L.DomUtil.getTranslateString(offset) + ' scale(' + scale + ')';
+      }
+    }
+  });
+  L.heatLayer = function(latlngs, options) { return new L.HeatLayer(latlngs, options); };
+})();
+</script>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────
+   MAP INITIALIZATION & THEME MANAGEMENT
+   ──────────────────────────────────────────────────────────────────── */
+
+// ── Threat data: [lat, lng, intensity 0-1]
+// In production: replace with scan history from GET /api/scan/history
+// after resolving each IP to lat/lng via the ip-api.com geolocation call.
+const ALL_THREATS = [
+  // North America — high density
+  [37.77, -122.42, 0.9], [40.71, -74.01, 0.85], [34.05, -118.24, 0.75],
+  [41.88, -87.63, 0.7],  [29.76, -95.37, 0.65], [47.61, -122.33, 0.6],
+  [45.52, -122.68, 0.5], [33.45, -112.07, 0.55], [25.77, -80.19, 0.8],
+  [43.65, -79.38, 0.6],  [19.43, -99.13, 0.75], [4.71, -74.07, 0.5],
+
+  // Europe
+  [51.51, -0.13, 0.9],   [48.85, 2.35, 0.8],   [52.52, 13.40, 0.7],
+  [41.90, 12.50, 0.65],  [40.42, -3.70, 0.6],  [59.33, 18.07, 0.5],
+  [50.08, 14.44, 0.55],  [47.50, 19.04, 0.6],  [44.82, 20.46, 0.7],
+  [37.98, 23.73, 0.75],  [53.34, -6.27, 0.5],
+
+  // Russia / Eastern Europe
+  [55.76, 37.62, 0.95],  [59.93, 30.32, 0.85], [50.45, 30.52, 0.9],
+  [53.90, 27.57, 0.7],   [43.00, 41.00, 0.6],
+
+  // Asia — very high density
+  [39.91, 116.39, 0.95], [31.23, 121.47, 0.9], [22.54, 114.06, 0.85],
+  [35.69, 139.69, 0.7],  [37.57, 126.98, 0.65], [1.35, 103.82, 0.6],
+  [13.75, 100.52, 0.7],  [28.61, 77.21, 0.8],  [19.08, 72.88, 0.75],
+  [6.45, 3.39, 0.65],    [23.73, 90.40, 0.7],
+
+  // Africa
+  [6.36, 3.38, 0.8],     [-1.29, 36.82, 0.6],  [33.57, -7.59, 0.55],
+  [30.06, 31.25, 0.65],  [-26.20, 28.04, 0.6],
+
+  // South America
+  [-23.55, -46.63, 0.75], [-34.61, -58.44, 0.65], [-12.05, -77.04, 0.55],
+  [-33.46, -70.65, 0.5],
+
+  // Middle East
+  [24.47, 54.37, 0.7],   [25.20, 55.27, 0.75], [35.69, 51.42, 0.8],
+  [41.01, 28.97, 0.7],
+];
+
+const PHISHING_THREATS = ALL_THREATS.filter((_, i) => i % 3 !== 1);
+const MALWARE_THREATS  = ALL_THREATS.filter((_, i) => i % 3 !== 0);
+
+// ── Tile layers
+const TILES = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attr: '© OpenStreetMap © CartoDB',
+    // Dark mode gradient: cyan (low) → amber (mid) → red (high)
+    // These read well against dark tiles — high contrast
+    gradient: { 0.15: '#00f5ff', 0.45: '#f59e0b', 0.75: '#ef4444', 1.0: '#ff0000' },
+    opacity: 0.85,
+    radius: 38,
+    blur: 28,
+  },
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attr: '© OpenStreetMap © CartoDB',
+    // LIGHT MODE FIX:
+    // The dark cyan/amber/red gradient becomes invisible on CartoDB Positron
+    // (which is a light beige/grey tile). We must use deeper, more saturated
+    // versions of the same hues that maintain contrast on near-white backgrounds.
+    // Key changes:
+    //   cyan  (#00f5ff) → deep cobalt (#1a56db)  — cyan disappears on white
+    //   amber (#f59e0b) → burnt orange (#c05621)  — keeps warmth, more visible
+    //   red   (#ef4444) → deep red (#991b1b)       — maintains threat severity
+    // Also: reduce minOpacity to 0.2 (from 0.05) so low-risk blobs still show.
+    // And: reduce blur slightly (28 → 22) for crisper definition on light tiles.
+    gradient: { 0.15: '#1a56db', 0.45: '#c05621', 0.75: '#991b1b', 1.0: '#7f1d1d' },
+    opacity: 0.8,
+    radius: 38,
+    blur: 22,
+  }
+};
+
+let map, tileLayer, heatLayer;
+let currentTheme = 'dark';
+let currentFilter = 'all';
+
+function initMap() {
+  // CRITICAL FIX: Leaflet requires the container div to have a real computed
+  // height before initialization. Setting height on #map via CSS (var --map-height)
+  // ensures this. Never call L.map() before styles are applied.
+  map = L.map('map', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    attributionControl: true,
+    preferCanvas: true,
+  }).setView([25, 15], 2);
+
+  // Apply initial tile layer
+  applyTileLayer('dark');
+
+  // Apply initial heat layer
+  applyHeatLayer('dark', 'all');
+
+  // Add circle markers for top hotspots with tooltips
+  addHotspotMarkers();
+}
+
+function applyTileLayer(theme) {
+  const cfg = TILES[theme];
+  if (tileLayer) tileLayer.remove();
+  tileLayer = L.tileLayer(cfg.url, {
+    attribution: cfg.attr,
+    maxZoom: 19,
+    subdomains: 'abcd',
+  }).addTo(map);
+}
+
+function applyHeatLayer(theme, filter) {
+  const cfg = TILES[theme];
+  const data = filter === 'phishing' ? PHISHING_THREATS
+             : filter === 'malware'  ? MALWARE_THREATS
+             : ALL_THREATS;
+
+  if (heatLayer) heatLayer.remove();
+  heatLayer = L.heatLayer(data, {
+    radius: cfg.radius,
+    blur: cfg.blur,
+    maxZoom: 6,
+    max: 1.0,
+    minOpacity: theme === 'light' ? 0.25 : 0.07,
+    gradient: cfg.gradient,
+  }).addTo(map);
+}
+
+function addHotspotMarkers() {
+  // Invisible circle markers for tooltip interaction
+  const hotspots = [
+    { lat: 55.76, lng: 37.62, city: 'Moscow', country: 'RU', scans: 312, score: 18 },
+    { lat: 50.45, lng: 30.52, city: 'Kyiv',   country: 'UA', scans: 287, score: 22 },
+    { lat: 39.91, lng: 116.39, city: 'Beijing', country: 'CN', scans: 401, score: 31 },
+    { lat: 6.36,  lng: 3.38,  city: 'Lagos',  country: 'NG', scans: 198, score: 24 },
+    { lat: 37.77, lng: -122.42, city: 'San Francisco', country: 'US', scans: 156, score: 45 },
+    { lat: 51.51, lng: -0.13,  city: 'London', country: 'GB', scans: 143, score: 52 },
+  ];
+
+  hotspots.forEach(h => {
+    const color = h.score < 30 ? '#ef4444' : h.score < 50 ? '#f59e0b' : '#22c55e';
+    L.circleMarker([h.lat, h.lng], {
+      radius: 5,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.9,
+      weight: 1.5,
+    })
+    .bindTooltip(
+      `<strong>${h.city}, ${h.country}</strong><br/>` +
+      `${h.scans} scans · trust score: <strong style="color:${color}">${h.score}</strong>`,
+      { className: 'leaflet-tooltip-own', sticky: true, direction: 'top' }
+    )
+    .addTo(map);
+  });
+}
+
+/* ─── THEME SWITCHING ─────────────────────────────────────────────── */
+function setTheme(theme) {
+  currentTheme = theme;
+  // 1. Update HTML attribute (drives all CSS variable changes)
+  document.documentElement.setAttribute('data-theme', theme);
+
+  // 2. Update toggle button states
+  document.getElementById('btn-dark').classList.toggle('active', theme === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', theme === 'light');
+
+  // 3. CRITICAL: swap tile layer to match theme
+  //    Dark page → CartoDB Dark Matter tiles
+  //    Light page → CartoDB Positron tiles
+  //    Mismatch = dark map on light page or vice versa
+  applyTileLayer(theme);
+
+  // 4. CRITICAL: swap heat gradient for visibility on new tile base
+  //    See TILES config comments above for why gradients differ
+  applyHeatLayer(theme, currentFilter);
+
+  // 5. Invalidate map size — container may have reflowed
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyHeatLayer(currentTheme, filter);
+}
+
+/* ─── LIVE FEED ───────────────────────────────────────────────────── */
+const FEED_DATA = [
+  { type: 'phishing', domain: 'secure-update-bank.net',   loc: 'Lagos, NG',       score: 11, cls: 'high' },
+  { type: 'malware',  domain: 'cdn-bootstrap-files.ru',   loc: 'Moscow, RU',      score: 8,  cls: 'high' },
+  { type: 'scam',     domain: 'getrichfast2025.xyz',       loc: 'Manila, PH',      score: 19, cls: 'high' },
+  { type: 'phishing', domain: 'paypal-confirm-login.com',  loc: 'Kyiv, UA',        score: 14, cls: 'high' },
+  { type: 'malware',  domain: 'windows-update-kb5.cc',     loc: 'Beijing, CN',     score: 22, cls: 'high' },
+  { type: 'safe',     domain: 'github.com',                loc: 'San Jose, US',    score: 97, cls: 'low'  },
+  { type: 'phishing', domain: 'amazon-prime-renewal.site', loc: 'Mumbai, IN',      score: 16, cls: 'high' },
+  { type: 'malware',  domain: 'free-vpn-unlimited.top',    loc: 'Bucharest, RO',   score: 31, cls: 'med'  },
+  { type: 'safe',     domain: 'cloudflare.com',            loc: 'San Francisco',   score: 99, cls: 'low'  },
+  { type: 'scam',     domain: 'crypto-airdrop-2025.io',    loc: 'Jakarta, ID',     score: 9,  cls: 'high' },
+];
+
+let feedIdx = 0;
+function renderFeed() {
+  const list = document.getElementById('feed-list');
+  list.innerHTML = '';
+  const visible = [...FEED_DATA, ...FEED_DATA].slice(feedIdx % FEED_DATA.length, (feedIdx % FEED_DATA.length) + 6);
+  visible.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'feed-item';
+    el.innerHTML = `
+      <div class="feed-dot ${item.type}"></div>
+      <div class="feed-domain">${item.domain}</div>
+      <div class="feed-meta">${item.loc}</div>
+      <div class="feed-score ${item.cls}">${item.score}</div>
+    `;
+    list.appendChild(el);
+  });
+  feedIdx++;
+}
+
+/* ─── TOP COUNTRIES ──────────────────────────────────────────────── */
+const TOP_COUNTRIES = [
+  { flag: '🇷🇺', name: 'Russia',  count: 312, pct: 100 },
+  { flag: '🇨🇳', name: 'China',   count: 401, pct: 100 },
+  { flag: '🇺🇦', name: 'Ukraine', count: 287, pct: 90  },
+  { flag: '🇳🇬', name: 'Nigeria', count: 198, pct: 62  },
+  { flag: '🇮🇷', name: 'Iran',    count: 156, pct: 49  },
+];
+
+function renderTopCountries() {
+  const max = Math.max(...TOP_COUNTRIES.map(c => c.count));
+  document.getElementById('tc-list').innerHTML = TOP_COUNTRIES.map(c => `
+    <div class="tc-row">
+      <span class="tc-flag">${c.flag}</span>
+      <span class="tc-name">${c.name}</span>
+      <div class="tc-bar-track">
+        <div class="tc-bar-fill" style="width:${Math.round(c.count/max*100)}%"></div>
+      </div>
+      <span class="tc-count">${c.count}</span>
+    </div>
+  `).join('');
+}
+
+/* ─── LIVE COUNTER ANIMATION ──────────────────────────────────────── */
+function animateCounter(el, target) {
+  let v = 0;
+  const step = Math.ceil(target / 60);
+  const t = setInterval(() => {
+    v = Math.min(v + step, target);
+    el.textContent = v.toLocaleString();
+    if (v >= target) clearInterval(t);
+  }, 16);
+}
+
+/* ─── BOOT ─────────────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  renderFeed();
+  renderTopCountries();
+
+  // Animate stat counters on load
+  animateCounter(document.querySelector('#stat-scans'), 3847);
+  animateCounter(document.querySelector('#stat-threats'), 284);
+
+  // Rotate live feed every 2.5s
+  setInterval(renderFeed, 2500);
+});
+</script>
+</body>
+</html>
