@@ -52,10 +52,12 @@ export const feedModules: Record<string, FeedModule> = {
   tor_exits,
   ipsum,
   spamhaus,
+  spamhaus_drop: spamhaus,       // DB alias
   blocklist_de,
   // Tier 4
   tweetfeed,
   mastodon_ioc,
+  mastodon_iocs: mastodon_ioc,   // DB alias
   // Tier 5
   abuseipdb,
   virustotal,
@@ -63,9 +65,11 @@ export const feedModules: Record<string, FeedModule> = {
   // Tier 6
   certstream,
   safebrowsing,
+  google_safebrowsing: safebrowsing, // DB alias
   cloud_status,
   cf_radar,
   bgpstream,
   greynoise,
   otx,
+  otx_pulses: otx,               // DB alias
 };
