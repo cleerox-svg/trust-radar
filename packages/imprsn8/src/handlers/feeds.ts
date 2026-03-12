@@ -144,7 +144,6 @@ export async function handleTriggerFeed(request: Request, env: Env, id: string):
   const updated = await env.DB.prepare("SELECT * FROM data_feeds WHERE id = ?").bind(id).first<DataFeed>();
   return json({
     success: true,
-    data: maskFeed(updated!),
-    meta: { threats_found: result.threats_found, error: result.error },
+    data: { data: maskFeed(updated!), meta: { threats_found: result.threats_found, error: result.error } },
   }, 200, origin);
 }

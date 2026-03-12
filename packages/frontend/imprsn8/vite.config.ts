@@ -5,6 +5,14 @@ import { resolve } from "path";
 export default defineConfig({
   root: resolve(__dirname, "."),
   plugins: [react()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:4001",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     outDir: resolve(__dirname, "../../imprsn8/public"),
     emptyOutDir: true,
