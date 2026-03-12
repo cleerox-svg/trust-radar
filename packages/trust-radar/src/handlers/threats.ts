@@ -70,6 +70,40 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       FROM threats WHERE created_at >= datetime('now', '-24 hours')
     `).first();
 
+    // ─── Daily stats (reset at 00:00 UTC) ───────────────────────
+    const today = await env.DB.prepare(`
+      SELECT
+        COUNT(*) as threats_flagged,
+        COUNT(DISTINCT country_code) as countries_active,
+        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical_today,
+        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today,
+        SUM(CASE WHEN status IN ('confirmed', 'new') THEN 1 ELSE 0 END) as confirmed_today
+      FROM threats WHERE created_at >= date('now', 'start of day')
+    `).first<{
+      threats_flagged: number; countries_active: number;
+      critical_today: number; high_today: number; confirmed_today: number;
+    }>();
+
+    const yesterday = await env.DB.prepare(`
+      SELECT
+        COUNT(*) as threats_flagged,
+        COUNT(DISTINCT country_code) as countries_active
+      FROM threats WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')
+    `).first<{ threats_flagged: number; countries_active: number }>();
+
+    const scansToday = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM scans WHERE created_at >= date('now', 'start of day')"
+    ).first<{ count: number }>();
+
+    const scansYesterday = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM scans WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')"
+    ).first<{ count: number }>();
+
+    // Feed ingestion counts for today
+    const feedIngestionsToday = await env.DB.prepare(
+      "SELECT COALESCE(SUM(items_new), 0) as items_today FROM feed_ingestions WHERE started_at >= date('now', 'start of day')"
+    ).first<{ items_today: number }>();
+
     const byType = await env.DB.prepare(
       "SELECT type, COUNT(*) as count FROM threats GROUP BY type ORDER BY count DESC LIMIT 10"
     ).all();
@@ -86,9 +120,53 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       "SELECT country_code, COUNT(*) as count FROM threats WHERE country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 30"
     ).all();
 
+    // ─── Recent threats for live feed ───────────────────────────
+    const recentThreats = await env.DB.prepare(`
+      SELECT id, type, title, severity, source, domain, ioc_value, ip_address, country_code, created_at
+      FROM threats ORDER BY created_at DESC LIMIT 20
+    `).all();
+
+    // ─── Top origin countries (by threat count today) ───────────
+    const topOriginsToday = await env.DB.prepare(`
+      SELECT country_code, COUNT(*) as count
+      FROM threats
+      WHERE country_code IS NOT NULL AND created_at >= date('now', 'start of day')
+      GROUP BY country_code ORDER BY count DESC LIMIT 10
+    `).all();
+
+    // ─── Hosting provider breakdown ─────────────────────────────
+    let byProvider: unknown[] = [];
+    try {
+      const providerRows = await env.DB.prepare(`
+        SELECT hosting_provider, COUNT(*) as count,
+          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
+        FROM threats
+        WHERE hosting_provider IS NOT NULL
+        GROUP BY hosting_provider ORDER BY count DESC LIMIT 20
+      `).all();
+      byProvider = providerRows.results;
+    } catch { /* column may not exist yet */ }
+
+    const dailyStats = {
+      scansToday: (scansToday?.count ?? 0) + (feedIngestionsToday?.items_today ?? 0),
+      scansYesterday: scansYesterday?.count ?? 0,
+      threatsFlagged: today?.threats_flagged ?? 0,
+      threatsYesterday: yesterday?.threats_flagged ?? 0,
+      countriesActive: today?.countries_active ?? 0,
+      countriesYesterday: yesterday?.countries_active ?? 0,
+    };
+
     return json({
       success: true,
-      data: { summary, last24h, byType: byType.results, bySource: bySource.results, bySeverity: bySeverity.results, byCountry: byCountry.results },
+      data: {
+        summary, last24h, dailyStats,
+        byType: byType.results, bySource: bySource.results,
+        bySeverity: bySeverity.results, byCountry: byCountry.results,
+        byProvider,
+        recentThreats: recentThreats.results,
+        topOriginsToday: topOriginsToday.results,
+      },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);

@@ -1,0 +1,545 @@
+/**
+ * Brand Exposure Engine — Domain scan handlers.
+ *
+ * Features:
+ * - DNS/email security checks (SPF, DMARC, DKIM, MX)
+ * - Lookalike/typosquat domain detection
+ * - Feed cross-reference (search all threat data for brand mentions)
+ * - Certificate transparency lookups
+ * - Trust score computation per brand
+ * - History tracking
+ * - Public free scan (score only, no details)
+ * - Leads capture
+ */
+
+import { json } from "../lib/cors";
+import type { Env } from "../types";
+
+// ─── Typosquat / Lookalike Domain Generation ────────────────────
+
+function generateLookalikes(domain: string): string[] {
+  const parts = domain.split(".");
+  if (parts.length < 2) return [];
+  const name = parts[0];
+  const tld = parts.slice(1).join(".");
+  const lookalikes: string[] = [];
+
+  // Character substitution (homoglyphs)
+  const homoglyphs: Record<string, string[]> = {
+    a: ["@", "4", "à", "á", "â", "ã", "ä"],
+    e: ["3", "è", "é", "ê", "ë"],
+    i: ["1", "l", "!", "ì", "í"],
+    o: ["0", "ò", "ó", "ô", "õ", "ö"],
+    l: ["1", "i", "|"],
+    s: ["5", "$"],
+    t: ["7", "+"],
+    g: ["9", "q"],
+    n: ["m"],
+    m: ["n", "rn"],
+  };
+
+  // Transpositions (swap adjacent chars)
+  for (let i = 0; i < name.length - 1; i++) {
+    const swapped = name.slice(0, i) + name[i + 1] + name[i] + name.slice(i + 2);
+    if (swapped !== name) lookalikes.push(`${swapped}.${tld}`);
+  }
+
+  // Missing character
+  for (let i = 0; i < name.length; i++) {
+    const missing = name.slice(0, i) + name.slice(i + 1);
+    if (missing.length >= 2) lookalikes.push(`${missing}.${tld}`);
+  }
+
+  // Extra character (double a letter)
+  for (let i = 0; i < name.length; i++) {
+    const doubled = name.slice(0, i + 1) + name[i] + name.slice(i + 1);
+    lookalikes.push(`${doubled}.${tld}`);
+  }
+
+  // Homoglyph substitution (first occurrence only)
+  for (const [char, subs] of Object.entries(homoglyphs)) {
+    const idx = name.indexOf(char);
+    if (idx >= 0) {
+      for (const sub of subs.slice(0, 2)) {
+        const variant = name.slice(0, idx) + sub + name.slice(idx + 1);
+        lookalikes.push(`${variant}.${tld}`);
+      }
+    }
+  }
+
+  // TLD variations
+  const altTlds = ["com", "net", "org", "info", "xyz", "io", "co", "biz", "site", "online", "app"];
+  for (const alt of altTlds) {
+    if (alt !== tld) lookalikes.push(`${name}.${alt}`);
+  }
+
+  // Hyphen insertion
+  for (let i = 1; i < name.length; i++) {
+    lookalikes.push(`${name.slice(0, i)}-${name.slice(i)}.${tld}`);
+  }
+
+  // Prefix/suffix attacks
+  const prefixes = ["secure-", "login-", "my", "account-", "www-", "mail-", "update-"];
+  const suffixes = ["-secure", "-login", "-verify", "-support", "-online"];
+  for (const p of prefixes) lookalikes.push(`${p}${name}.${tld}`);
+  for (const s of suffixes) lookalikes.push(`${name}${s}.${tld}`);
+
+  return [...new Set(lookalikes)].slice(0, 100);
+}
+
+// ─── DNS Resolution Check ───────────────────────────────────────
+
+async function checkDNS(domain: string): Promise<{
+  spf: { record: string | null; policy: string | null };
+  dmarc: { record: string | null; policy: string | null };
+  mx: string[];
+  resolved: boolean;
+}> {
+  const result = {
+    spf: { record: null as string | null, policy: null as string | null },
+    dmarc: { record: null as string | null, policy: null as string | null },
+    mx: [] as string[],
+    resolved: false,
+  };
+
+  try {
+    // Use Google DNS-over-HTTPS for TXT records (SPF)
+    const txtRes = await fetch(
+      `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=TXT`,
+      { headers: { Accept: "application/dns-json" } }
+    );
+    if (txtRes.ok) {
+      const txtData = await txtRes.json() as { Answer?: Array<{ data: string }> };
+      result.resolved = true;
+      for (const answer of txtData.Answer ?? []) {
+        const data = answer.data?.replace(/"/g, "") ?? "";
+        if (data.startsWith("v=spf1")) {
+          result.spf.record = data;
+          if (data.includes("-all")) result.spf.policy = "hardfail";
+          else if (data.includes("~all")) result.spf.policy = "softfail";
+          else if (data.includes("?all")) result.spf.policy = "neutral";
+          else result.spf.policy = "none";
+        }
+      }
+    }
+
+    // DMARC record
+    const dmarcRes = await fetch(
+      `https://dns.google/resolve?name=_dmarc.${encodeURIComponent(domain)}&type=TXT`,
+      { headers: { Accept: "application/dns-json" } }
+    );
+    if (dmarcRes.ok) {
+      const dmarcData = await dmarcRes.json() as { Answer?: Array<{ data: string }> };
+      for (const answer of dmarcData.Answer ?? []) {
+        const data = answer.data?.replace(/"/g, "") ?? "";
+        if (data.startsWith("v=DMARC1")) {
+          result.dmarc.record = data;
+          const pMatch = data.match(/p=(\w+)/);
+          result.dmarc.policy = pMatch ? pMatch[1] : "none";
+        }
+      }
+    }
+
+    // MX records
+    const mxRes = await fetch(
+      `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`,
+      { headers: { Accept: "application/dns-json" } }
+    );
+    if (mxRes.ok) {
+      const mxData = await mxRes.json() as { Answer?: Array<{ data: string }> };
+      result.mx = (mxData.Answer ?? []).map(a => a.data).filter(Boolean);
+    }
+  } catch (err) {
+    console.error(`[brand-scan] DNS check failed for ${domain}:`, err);
+  }
+
+  return result;
+}
+
+// ─── Check if lookalike domains resolve (registered) ────────────
+
+async function checkLookalikeRegistration(domains: string[]): Promise<Array<{
+  domain: string; registered: boolean; ip: string | null;
+}>> {
+  const results: Array<{ domain: string; registered: boolean; ip: string | null }> = [];
+  // Check in small batches to avoid overwhelming DNS
+  const BATCH = 10;
+  for (let i = 0; i < Math.min(domains.length, 50); i += BATCH) {
+    const batch = domains.slice(i, i + BATCH);
+    const checks = batch.map(async (d) => {
+      try {
+        const res = await fetch(
+          `https://dns.google/resolve?name=${encodeURIComponent(d)}&type=A`,
+          { headers: { Accept: "application/dns-json" } }
+        );
+        if (res.ok) {
+          const data = await res.json() as { Answer?: Array<{ data: string }> };
+          if (data.Answer && data.Answer.length > 0) {
+            return { domain: d, registered: true, ip: data.Answer[0].data };
+          }
+        }
+        return { domain: d, registered: false, ip: null };
+      } catch {
+        return { domain: d, registered: false, ip: null };
+      }
+    });
+    results.push(...(await Promise.all(checks)));
+  }
+  return results;
+}
+
+// ─── Feed Cross-Reference ───────────────────────────────────────
+
+async function crossReferenceFeedData(domain: string, db: D1Database): Promise<{
+  mentions: number;
+  matches: Array<{ id: string; type: string; title: string; severity: string; source: string; created_at: string }>;
+}> {
+  const name = domain.split(".")[0];
+
+  const rows = await db.prepare(`
+    SELECT id, type, title, severity, source, created_at
+    FROM threats
+    WHERE domain LIKE ? OR ioc_value LIKE ? OR title LIKE ?
+    ORDER BY created_at DESC
+    LIMIT 50
+  `).bind(`%${domain}%`, `%${domain}%`, `%${name}%`).all<{
+    id: string; type: string; title: string; severity: string; source: string; created_at: string;
+  }>();
+
+  return { mentions: rows.results.length, matches: rows.results };
+}
+
+// ─── Trust Score Calculation ────────────────────────────────────
+
+function calculateBrandTrustScore(params: {
+  spfPolicy: string | null;
+  dmarcPolicy: string | null;
+  dkimFound: boolean;
+  lookalikeCount: number;
+  feedMentions: number;
+  mxCount: number;
+}): number {
+  let score = 100;
+
+  // SPF scoring (0-25 points)
+  if (!params.spfPolicy || params.spfPolicy === "none") score -= 25;
+  else if (params.spfPolicy === "softfail") score -= 10;
+  else if (params.spfPolicy === "neutral") score -= 15;
+  // hardfail = full marks
+
+  // DMARC scoring (0-25 points)
+  if (!params.dmarcPolicy || params.dmarcPolicy === "none") score -= 25;
+  else if (params.dmarcPolicy === "quarantine") score -= 8;
+  // reject = full marks
+
+  // MX records (0-10 points)
+  if (params.mxCount === 0) score -= 10;
+
+  // Lookalikes (0-20 points)
+  if (params.lookalikeCount > 10) score -= 20;
+  else if (params.lookalikeCount > 5) score -= 15;
+  else if (params.lookalikeCount > 2) score -= 10;
+  else if (params.lookalikeCount > 0) score -= 5;
+
+  // Feed mentions (0-20 points)
+  if (params.feedMentions > 10) score -= 20;
+  else if (params.feedMentions > 5) score -= 15;
+  else if (params.feedMentions > 2) score -= 10;
+  else if (params.feedMentions > 0) score -= 5;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+// ─── Brand Scan Handler (Authenticated) ─────────────────────────
+
+export async function handleBrandScan(request: Request, env: Env, userId?: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { domain?: string };
+    const domain = body.domain?.toLowerCase().trim();
+    if (!domain || !domain.includes(".")) {
+      return json({ success: false, error: "Valid domain required" }, 400, origin);
+    }
+
+    const scanId = crypto.randomUUID();
+    const startTime = Date.now();
+
+    // Create pending scan
+    await env.DB.prepare(
+      `INSERT INTO brand_scans (id, domain, status, scanned_by, created_at, updated_at)
+       VALUES (?, ?, 'running', ?, datetime('now'), datetime('now'))`
+    ).bind(scanId, domain, userId ?? "admin").run();
+
+    // Run checks in parallel
+    const [dnsResult, feedResult] = await Promise.all([
+      checkDNS(domain),
+      crossReferenceFeedData(domain, env.DB),
+    ]);
+
+    // Generate and check lookalikes
+    const lookalikeDomains = generateLookalikes(domain);
+    const lookalikeResults = await checkLookalikeRegistration(lookalikeDomains);
+    const registeredLookalikes = lookalikeResults.filter(l => l.registered);
+
+    // Calculate trust score
+    const trustScore = calculateBrandTrustScore({
+      spfPolicy: dnsResult.spf.policy,
+      dmarcPolicy: dnsResult.dmarc.policy,
+      dkimFound: false, // DKIM requires selector knowledge
+      lookalikeCount: registeredLookalikes.length,
+      feedMentions: feedResult.mentions,
+      mxCount: dnsResult.mx.length,
+    });
+
+    // Build risk factors
+    const riskFactors: string[] = [];
+    if (!dnsResult.spf.record) riskFactors.push("No SPF record configured");
+    else if (dnsResult.spf.policy === "softfail") riskFactors.push("SPF uses ~all (softfail) — should be -all (hardfail)");
+    if (!dnsResult.dmarc.record) riskFactors.push("No DMARC record — emails can be spoofed");
+    else if (dnsResult.dmarc.policy === "none") riskFactors.push("DMARC policy is 'none' — no enforcement");
+    if (dnsResult.mx.length === 0) riskFactors.push("No MX records found");
+    if (registeredLookalikes.length > 0) riskFactors.push(`${registeredLookalikes.length} lookalike domains are registered and active`);
+    if (feedResult.mentions > 0) riskFactors.push(`${feedResult.mentions} mentions found in threat intelligence feeds`);
+
+    const recommendations: string[] = [];
+    if (!dnsResult.spf.record || dnsResult.spf.policy !== "hardfail") recommendations.push("Implement SPF with -all (hardfail) to prevent email spoofing");
+    if (!dnsResult.dmarc.record || dnsResult.dmarc.policy !== "reject") recommendations.push("Set DMARC policy to 'reject' for maximum email protection");
+    if (registeredLookalikes.length > 0) recommendations.push("Monitor and consider takedown requests for registered lookalike domains");
+    if (feedResult.mentions > 0) recommendations.push("Investigate threat feed mentions for active campaigns targeting your brand");
+
+    const durationMs = Date.now() - startTime;
+
+    // Update scan with results
+    await env.DB.prepare(`
+      UPDATE brand_scans SET
+        status = 'completed', trust_score = ?,
+        spf_record = ?, spf_policy = ?,
+        dmarc_record = ?, dmarc_policy = ?,
+        mx_records = ?,
+        lookalikes_found = ?, lookalikes = ?,
+        feed_mentions = ?, feed_matches = ?,
+        risk_factors = ?, recommendations = ?,
+        scan_duration_ms = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(
+      trustScore,
+      dnsResult.spf.record, dnsResult.spf.policy,
+      dnsResult.dmarc.record, dnsResult.dmarc.policy,
+      JSON.stringify(dnsResult.mx),
+      registeredLookalikes.length, JSON.stringify(registeredLookalikes),
+      feedResult.mentions, JSON.stringify(feedResult.matches.slice(0, 20)),
+      JSON.stringify(riskFactors), JSON.stringify(recommendations),
+      durationMs, scanId,
+    ).run();
+
+    // Also record in trust_score_history
+    const prevScore = await env.DB.prepare(
+      "SELECT score FROM trust_score_history WHERE domain = ? ORDER BY measured_at DESC LIMIT 1"
+    ).bind(domain).first<{ score: number }>();
+
+    const delta = prevScore ? trustScore - prevScore.score : 0;
+    const riskLevel = trustScore >= 80 ? "low" : trustScore >= 60 ? "medium" : trustScore >= 40 ? "high" : "critical";
+
+    await env.DB.prepare(`
+      INSERT INTO trust_score_history (id, domain, score, previous_score, delta, threat_count, risk_level, measured_by, measured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'brand-scan', datetime('now'))
+    `).bind(
+      crypto.randomUUID(), domain, trustScore,
+      prevScore?.score ?? null, delta, feedResult.mentions, riskLevel,
+    ).run();
+
+    // Return the full scan result
+    const scanResult = {
+      id: scanId,
+      domain,
+      trustScore,
+      spf: dnsResult.spf,
+      dmarc: dnsResult.dmarc,
+      mx: dnsResult.mx,
+      lookalikes: registeredLookalikes,
+      lookalikeCount: registeredLookalikes.length,
+      feedMentions: feedResult.mentions,
+      feedMatches: feedResult.matches.slice(0, 10),
+      riskFactors,
+      recommendations,
+      durationMs,
+    };
+
+    return json({ success: true, data: scanResult }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Brand Scan History ─────────────────────────────────────────
+
+export async function handleBrandScanHistory(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const domain = url.searchParams.get("domain");
+    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+
+    let query = `SELECT * FROM brand_scans WHERE status = 'completed'`;
+    const params: unknown[] = [];
+    if (domain) {
+      query += " AND domain = ?";
+      params.push(domain);
+    }
+    query += " ORDER BY created_at DESC LIMIT ?";
+    params.push(limit);
+
+    const rows = await env.DB.prepare(query).bind(...params).all();
+
+    // Get unique domains scanned
+    const domains = await env.DB.prepare(
+      "SELECT DISTINCT domain, MAX(created_at) as last_scan, COUNT(*) as scan_count FROM brand_scans WHERE status = 'completed' GROUP BY domain ORDER BY last_scan DESC LIMIT 50"
+    ).all();
+
+    return json({
+      success: true,
+      data: { scans: rows.results, domains: domains.results },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Public Brand Scan (Trust Score Only + Lead Capture) ────────
+
+export async function handlePublicBrandScan(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { domain?: string };
+    const domain = body.domain?.toLowerCase().trim();
+    if (!domain || !domain.includes(".")) {
+      return json({ success: false, error: "Valid domain required" }, 400, origin);
+    }
+
+    // Run a lighter-weight scan (DNS only + feed check, no lookalike resolution)
+    const [dnsResult, feedResult] = await Promise.all([
+      checkDNS(domain),
+      crossReferenceFeedData(domain, env.DB),
+    ]);
+
+    const lookalikeDomains = generateLookalikes(domain);
+
+    const trustScore = calculateBrandTrustScore({
+      spfPolicy: dnsResult.spf.policy,
+      dmarcPolicy: dnsResult.dmarc.policy,
+      dkimFound: false,
+      lookalikeCount: 0, // Don't check registration for public scan
+      feedMentions: feedResult.mentions,
+      mxCount: dnsResult.mx.length,
+    });
+
+    const riskLevel = trustScore >= 80 ? "low" : trustScore >= 60 ? "medium" : trustScore >= 40 ? "high" : "critical";
+
+    // Record in brand_scans
+    await env.DB.prepare(
+      `INSERT INTO brand_scans (id, domain, status, trust_score, spf_policy, dmarc_policy, feed_mentions, scanned_by, created_at, updated_at)
+       VALUES (?, ?, 'completed', ?, ?, ?, ?, 'public', datetime('now'), datetime('now'))`
+    ).bind(crypto.randomUUID(), domain, trustScore, dnsResult.spf.policy, dnsResult.dmarc.policy, feedResult.mentions).run();
+
+    // Return ONLY the score (not details) for the public endpoint
+    return json({
+      success: true,
+      data: {
+        domain,
+        trustScore,
+        riskLevel,
+        lookalikesPossible: lookalikeDomains.length,
+        feedMentions: feedResult.mentions > 0, // boolean only
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Lead Capture ──────────────────────────────────────────────
+
+export async function handleLeadCapture(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as {
+      name?: string; email?: string; domain?: string; phone?: string;
+      company?: string; message?: string;
+    };
+
+    if (!body.email || !body.name) {
+      return json({ success: false, error: "Name and email are required" }, 400, origin);
+    }
+
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO scan_leads (id, email, name, company, phone, domain, form_type, source, message, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'brand_scan', 'public_scan', ?, 'new', datetime('now'), datetime('now'))
+    `).bind(
+      id, body.email, body.name, body.company ?? null,
+      body.phone ?? null, body.domain ?? null, body.message ?? null,
+    ).run();
+
+    return json({ success: true, data: { id, message: "Thank you! Our team will contact you shortly." } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Admin Leads List ──────────────────────────────────────────
+
+export async function handleListLeads(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status");
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+
+    let query = "SELECT * FROM scan_leads";
+    const params: unknown[] = [];
+    if (status) {
+      query += " WHERE status = ?";
+      params.push(status);
+    }
+    query += " ORDER BY created_at DESC LIMIT ?";
+    params.push(limit);
+
+    const rows = await env.DB.prepare(query).bind(...params).all();
+
+    const stats = await env.DB.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_leads,
+        SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted,
+        SUM(CASE WHEN status = 'qualified' THEN 1 ELSE 0 END) as qualified,
+        SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted
+      FROM scan_leads
+    `).first();
+
+    return json({ success: true, data: { leads: rows.results, stats } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+export async function handleUpdateLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { status?: string; notes?: string };
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (body.status) { updates.push("status = ?"); values.push(body.status); }
+    if (body.notes) { updates.push("notes = ?"); values.push(body.notes); }
+    if (updates.length === 0) return json({ success: false, error: "No updates" }, 400, origin);
+
+    updates.push("updated_at = datetime('now')");
+    if (body.status === "converted") updates.push("converted_at = datetime('now')");
+    values.push(id);
+
+    await env.DB.prepare(`UPDATE scan_leads SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}

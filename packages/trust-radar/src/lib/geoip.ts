@@ -83,10 +83,10 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
  * Returns the number of enriched rows.
  */
 export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: number; total: number }> {
-  // Get threats with IP but no country
+  // Get threats with IP but missing geo or hosting data
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL AND country_code IS NULL
+     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider IS NULL)
      LIMIT 500`
   ).all<{ id: string; ip_address: string }>();
 
@@ -98,15 +98,25 @@ export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: numb
 
   let enriched = 0;
 
-  // Batch update in chunks
   for (const row of rows.results) {
     const geo = geoMap.get(row.ip_address);
-    if (!geo?.countryCode) continue;
+    if (!geo) continue;
 
     try {
+      const hostingProvider = normalizeProvider(geo.isp, geo.org);
       await db.prepare(
-        "UPDATE threats SET country_code = ?, updated_at = datetime('now') WHERE id = ? AND country_code IS NULL"
-      ).bind(geo.countryCode, row.id).run();
+        `UPDATE threats SET
+          country_code = COALESCE(country_code, ?),
+          isp_name = COALESCE(isp_name, ?),
+          hosting_provider = COALESCE(hosting_provider, ?),
+          asn = COALESCE(asn, ?),
+          is_datacenter = CASE WHEN ? IS NOT NULL THEN 1 ELSE is_datacenter END,
+          updated_at = datetime('now')
+        WHERE id = ?`
+      ).bind(
+        geo.countryCode, geo.isp, hostingProvider, geo.as,
+        hostingProvider, row.id,
+      ).run();
       enriched++;
     } catch (err) {
       console.error(`[geoip] update failed for ${row.id}:`, err);
@@ -114,4 +124,49 @@ export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: numb
   }
 
   return { enriched, total };
+}
+
+/**
+ * Normalize ISP/Org names to canonical hosting provider names.
+ * Maps common ISP variations to consistent provider names for trending.
+ */
+function normalizeProvider(isp: string | null, org: string | null): string | null {
+  const raw = (isp || org || "").toLowerCase();
+  if (!raw) return null;
+
+  const providerMap: Array<[string[], string]> = [
+    [["cloudflare"], "Cloudflare"],
+    [["amazon", "aws", "ec2"], "Amazon AWS"],
+    [["google cloud", "google llc", "gcp"], "Google Cloud"],
+    [["microsoft", "azure"], "Microsoft Azure"],
+    [["digitalocean"], "DigitalOcean"],
+    [["ovh", "ovhcloud"], "OVHcloud"],
+    [["hetzner"], "Hetzner"],
+    [["linode", "akamai connected"], "Linode/Akamai"],
+    [["godaddy"], "GoDaddy"],
+    [["1&1", "ionos", "1und1"], "1&1 IONOS"],
+    [["hostinger"], "Hostinger"],
+    [["namecheap"], "Namecheap"],
+    [["bluehost"], "Bluehost"],
+    [["vultr"], "Vultr"],
+    [["contabo"], "Contabo"],
+    [["hostgator"], "HostGator"],
+    [["siteground"], "SiteGround"],
+    [["alibaba", "aliyun"], "Alibaba Cloud"],
+    [["tencent"], "Tencent Cloud"],
+    [["oracle cloud"], "Oracle Cloud"],
+    [["leaseweb"], "Leaseweb"],
+    [["choopa", "gameservers"], "Choopa/Vultr"],
+    [["hostwinds"], "Hostwinds"],
+    [["dreamhost"], "DreamHost"],
+    [["fastly"], "Fastly"],
+    [["vercel"], "Vercel"],
+    [["netlify"], "Netlify"],
+  ];
+
+  for (const [keywords, name] of providerMap) {
+    if (keywords.some(k => raw.includes(k))) return name;
+  }
+
+  return org || isp;
 }
