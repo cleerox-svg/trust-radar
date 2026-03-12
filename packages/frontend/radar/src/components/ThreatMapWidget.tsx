@@ -9,15 +9,17 @@
  *   - Real-time threat flow particle animations
  *   - SVG filter-based glow effects
  *   - Zoom, pan, fullscreen, dual view (targets / origins)
+ *   - Mobile-friendly: pinch-to-zoom, two-finger pan
+ *   - Country quick view: click to see top brands, attack types, hosting providers
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Flame, Target, Crosshair, ZoomIn, ZoomOut, Maximize2, Minimize2,
-  Globe2, Map as MapIcon, Activity,
+  Globe2, Map as MapIcon, Activity, X, Shield, Server, Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { threats, type ThreatStats } from "../lib/api";
+import { threats, providers as providersApi, type ThreatStats } from "../lib/api";
 import { cn } from "../lib/cn";
 import {
   ComposableMap,
@@ -156,6 +158,12 @@ const SEV_GLOW: Record<string, string> = {
   low:      "rgba(34, 197, 94, 0.3)",
 };
 
+const ATTACK_TYPE_COLORS: Record<string, string> = {
+  phishing: "#EF4444", malware: "#F59E0B", scam: "#A78BFA",
+  c2: "#FB923C", ransomware: "#EC4899", impersonation: "#818CF8",
+  reputation: "#6B7280", unknown: "#64748B",
+};
+
 export function ThreatMapWidget() {
   const { data: stats } = useQuery({ queryKey: ["threat-stats"], queryFn: threats.stats });
   const [viewMode, setViewMode] = useState<ViewMode>("targets");
@@ -168,10 +176,17 @@ export function ThreatMapWidget() {
   const [showArcs, setShowArcs] = useState(true);
   const [animTick, setAnimTick] = useState(0);
 
+  // Selected country for quick view panel
+  const [selectedCountry, setSelectedCountry] = useState<{
+    numericId: string; alpha2: string; name: string;
+  } | null>(null);
+
   const isDragging = useRef(false);
   const dragStart = useRef<{ x: number; y: number; center: [number, number] } | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const lastPinchDist = useRef<number | null>(null);
+  const lastPinchCenter = useRef<{ x: number; y: number } | null>(null);
+  const touchDragStart = useRef<{ x: number; y: number; center: [number, number] } | null>(null);
 
   // Animation tick for pulsing effects
   useEffect(() => {
@@ -206,29 +221,71 @@ export function ThreatMapWidget() {
     return () => el.removeEventListener("wheel", handleWheel);
   }, []);
 
-  // Pinch-to-zoom
+  // Pinch-to-zoom + two-finger pan
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastPinchDist.current = Math.hypot(dx, dy);
+      // Track midpoint for two-finger panning
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      lastPinchCenter.current = { x: cx, y: cy };
+      touchDragStart.current = { x: cx, y: cy, center: [...center] as [number, number] };
+    } else if (e.touches.length === 1) {
+      // Single finger drag for panning
+      touchDragStart.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        center: [...center] as [number, number],
+      };
     }
-  }, []);
+  }, [center]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && lastPinchDist.current !== null) {
+    if (e.touches.length === 2) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
-      const delta = (dist - lastPinchDist.current) * 0.01;
-      setZoom((z) => Math.min(Math.max(z + delta, 1), 6));
-      lastPinchDist.current = dist;
+
+      // Pinch-to-zoom
+      if (lastPinchDist.current !== null) {
+        const delta = (dist - lastPinchDist.current) * 0.01;
+        setZoom((z) => Math.min(Math.max(z + delta, 1), 6));
+        lastPinchDist.current = dist;
+      }
+
+      // Two-finger pan (midpoint tracking)
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      if (touchDragStart.current && lastPinchCenter.current) {
+        const sensitivity = 0.3 / zoom;
+        const panX = (cx - lastPinchCenter.current.x) * sensitivity;
+        const panY = (cy - lastPinchCenter.current.y) * sensitivity;
+        setCenter((prev) => [
+          prev[0] - panX,
+          Math.max(-60, Math.min(80, prev[1] + panY)),
+        ]);
+        lastPinchCenter.current = { x: cx, y: cy };
+      }
+    } else if (e.touches.length === 1 && touchDragStart.current) {
+      // Single-finger pan
+      e.preventDefault();
+      const sensitivity = 0.3 / zoom;
+      const dx = (e.touches[0].clientX - touchDragStart.current.x) * sensitivity;
+      const dy = (e.touches[0].clientY - touchDragStart.current.y) * sensitivity;
+      setCenter([
+        touchDragStart.current.center[0] - dx,
+        Math.max(-60, Math.min(80, touchDragStart.current.center[1] + dy)),
+      ]);
     }
-  }, []);
+  }, [zoom]);
 
   const handleTouchEnd = useCallback(() => {
     lastPinchDist.current = null;
+    lastPinchCenter.current = null;
+    touchDragStart.current = null;
   }, []);
 
   // Desktop click-drag panning
@@ -458,9 +515,112 @@ export function ThreatMapWidget() {
     return total;
   }, [countryData]);
 
+  // ─── Fetch provider data for origin quick view ──────────
+  const { data: providerData } = useQuery({
+    queryKey: ["provider-stats-map"],
+    queryFn: () => providersApi.stats("30d"),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ─── Quick view data for selected country ────────────────
+  const quickViewData = useMemo(() => {
+    if (!selectedCountry || !stats) return null;
+    const cc = selectedCountry.alpha2;
+    const numId = selectedCountry.numericId;
+    const recent = stats.recentThreats ?? [];
+    const countryThreats = recent.filter((t) => t.country_code === cc);
+
+    if (viewMode === "targets") {
+      // Top 5 attack types for this target country
+      const typeCounts = new Map<string, number>();
+      countryThreats.forEach((t) => {
+        typeCounts.set(t.type, (typeCounts.get(t.type) ?? 0) + 1);
+      });
+      // Also aggregate from byType if this is the main country
+      const countryEntry = stats.byCountry.find((c) => c.country_code === cc);
+      if (countryEntry && countryThreats.length === 0) {
+        // fallback: use global type distribution weighted by country share
+        const ratio = countryEntry.count / Math.max(stats.summary.total ?? 1, 1);
+        stats.byType.forEach((t) => {
+          typeCounts.set(t.type, Math.max(typeCounts.get(t.type) ?? 0, Math.round(t.count * ratio)));
+        });
+      }
+      const attackTypes = Array.from(typeCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([type, count]) => ({ type, count }));
+
+      // Top 5 targeted brands/domains
+      const domainCounts = new Map<string, { count: number; severity: string }>();
+      countryThreats.forEach((t) => {
+        const d = t.domain || t.ioc_value;
+        if (!d) return;
+        const existing = domainCounts.get(d);
+        if (existing) {
+          existing.count++;
+        } else {
+          domainCounts.set(d, { count: 1, severity: t.severity });
+        }
+      });
+      const brands = Array.from(domainCounts.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 5)
+        .map(([domain, data]) => ({ domain, ...data }));
+
+      const totalCount = countryData.get(numId)?.count ?? countryThreats.length;
+      const severity = countryData.get(numId)?.maxSeverity ?? "medium";
+
+      return { mode: "target" as const, attackTypes, brands, totalCount, severity };
+    } else {
+      // Origin mode: top 5 hosting providers for this origin country
+      const providersList = providerData?.providers ?? [];
+      const matchedProviders = providersList
+        .filter((p) => p.top_countries?.includes(cc))
+        .sort((a, b) => b.threat_count - a.threat_count)
+        .slice(0, 5)
+        .map((p) => ({
+          name: p.provider_name,
+          count: p.threat_count,
+          critical: p.critical_count,
+          high: p.high_count,
+          trend: p.trend_direction,
+          trendPct: p.trend_pct,
+        }));
+
+      // If no match, show top global providers as fallback
+      const hostingProviders = matchedProviders.length > 0
+        ? matchedProviders
+        : providersList.slice(0, 5).map((p) => ({
+            name: p.provider_name,
+            count: p.threat_count,
+            critical: p.critical_count,
+            high: p.high_count,
+            trend: p.trend_direction,
+            trendPct: p.trend_pct,
+          }));
+
+      const originInfo = originData[numId];
+      const totalCount = originInfo?.count ?? 0;
+      const severity = originInfo?.severity ?? "medium";
+
+      return { mode: "origin" as const, hostingProviders, totalCount, severity };
+    }
+  }, [selectedCountry, stats, viewMode, countryData, originData, providerData]);
+
+  // ─── Country click handler ──────────────────────────────
+  const handleCountryClick = useCallback((geoId: string, name: string) => {
+    // Find alpha2 from numeric
+    const alpha2 = Object.entries(ALPHA2_TO_NUMERIC).find(([, num]) => num === geoId)?.[0] ?? "";
+    if (selectedCountry?.numericId === geoId) {
+      setSelectedCountry(null); // Toggle off
+    } else {
+      setSelectedCountry({ numericId: geoId, alpha2, name });
+    }
+  }, [selectedCountry]);
+
   const zoomIn = () => setZoom((z) => Math.min(z + 0.5, 6));
   const zoomOut = () => setZoom((z) => Math.max(z - 0.5, 1));
-  const resetView = () => { setZoom(1.25); setCenter([10, 20]); };
+  const resetView = () => { setZoom(1.25); setCenter([10, 20]); setSelectedCountry(null); };
 
   // Pulse value for animations (0-1 cycle)
   const pulse = Math.sin(animTick * 0.05) * 0.5 + 0.5;
@@ -731,29 +891,33 @@ export function ThreatMapWidget() {
               const data = viewMode === "targets" ? countryData.get(geoId) : null;
               const originInfo = viewMode === "origins" ? originData[geoId] : null;
               const hasData = !!(data || originInfo);
+              const isSelected = selectedCountry?.numericId === geoId;
 
               return (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  fill={getCountryFill(geoId)}
-                  stroke={hasData ? "#22D3EE" : "#475569"}
-                  strokeWidth={hasData ? 0.6 : 0.4}
-                  strokeOpacity={hasData ? 0.4 : 0.35}
+                  fill={isSelected ? "rgba(34, 211, 238, 0.35)" : getCountryFill(geoId)}
+                  stroke={isSelected ? "#22D3EE" : hasData ? "#22D3EE" : "#475569"}
+                  strokeWidth={isSelected ? 1.2 : hasData ? 0.6 : 0.4}
+                  strokeOpacity={isSelected ? 0.8 : hasData ? 0.4 : 0.35}
                   style={{
                     default: { outline: "none" },
                     hover: {
-                      fill: hasData
+                      fill: isSelected
+                        ? "rgba(34, 211, 238, 0.45)"
+                        : hasData
                         ? "rgba(34, 211, 238, 0.3)"
                         : "rgba(148, 163, 184, 0.25)",
                       stroke: "#22D3EE",
-                      strokeWidth: 0.8,
+                      strokeWidth: isSelected ? 1.4 : 0.8,
                       strokeOpacity: 0.6,
                       outline: "none",
                       cursor: "pointer",
                     },
                     pressed: { outline: "none" },
                   }}
+                  onClick={() => handleCountryClick(geoId, name)}
                   onMouseEnter={() => {
                     if (data) {
                       setTooltipContent(`${name}: ${data.count} threats · ${data.maxSeverity.toUpperCase()}`);
@@ -973,6 +1137,201 @@ export function ThreatMapWidget() {
           backgroundSize: "40px 40px",
         }}
       />
+
+      {/* ─── Country Quick View Panel ─── */}
+      {selectedCountry && quickViewData && (
+        <div className="absolute bottom-14 right-3 lg:bottom-16 lg:right-4 z-20 w-[280px] sm:w-[320px] threat-quickview-enter">
+          <div
+            className="rounded-xl border overflow-hidden shadow-2xl"
+            style={{
+              background: "linear-gradient(135deg, rgba(10,14,26,0.97) 0%, rgba(17,24,39,0.95) 100%)",
+              borderColor: quickViewData.severity === "critical" ? "rgba(239,68,68,0.4)"
+                : quickViewData.severity === "high" ? "rgba(249,115,22,0.35)"
+                : "rgba(34,211,238,0.25)",
+              boxShadow: quickViewData.severity === "critical"
+                ? "0 0 30px rgba(239,68,68,0.15), 0 8px 32px rgba(0,0,0,0.5)"
+                : quickViewData.severity === "high"
+                ? "0 0 25px rgba(249,115,22,0.12), 0 8px 32px rgba(0,0,0,0.5)"
+                : "0 0 25px rgba(34,211,238,0.1), 0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            {/* Gradient top accent bar */}
+            <div
+              className="h-[2px]"
+              style={{
+                background: quickViewData.severity === "critical"
+                  ? "linear-gradient(90deg, #EF4444, #F97316, #EF4444)"
+                  : quickViewData.severity === "high"
+                  ? "linear-gradient(90deg, #F97316, #EAB308, #F97316)"
+                  : "linear-gradient(90deg, #22D3EE, #06B6D4, #22D3EE)",
+              }}
+            />
+
+            {/* Header */}
+            <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-white/[0.06]">
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className="w-2 h-2 rounded-full shrink-0 animate-pulse"
+                  style={{ backgroundColor: SEV_COLORS[quickViewData.severity] ?? "#22D3EE" }}
+                />
+                <span className="text-xs font-bold text-[--text-primary] truncate">
+                  {selectedCountry.name}
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0" style={{
+                  color: SEV_COLORS[quickViewData.severity] ?? "#22D3EE",
+                  borderColor: (SEV_COLORS[quickViewData.severity] ?? "#22D3EE") + "40",
+                  backgroundColor: (SEV_COLORS[quickViewData.severity] ?? "#22D3EE") + "15",
+                }}>
+                  {quickViewData.totalCount} {viewMode === "targets" ? "threats" : "attacks"}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedCountry(null)}
+                className="p-1 rounded-md hover:bg-white/10 text-[--text-tertiary] hover:text-[--text-primary] transition-colors shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-3.5 py-3 space-y-3">
+              {quickViewData.mode === "target" ? (
+                <>
+                  {/* Attack Types */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Zap className="w-3 h-3 text-amber-400" />
+                      <span className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">
+                        Attack Types
+                      </span>
+                    </div>
+                    {quickViewData.attackTypes.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {quickViewData.attackTypes.map((at, i) => {
+                          const maxC = quickViewData.attackTypes[0]?.count ?? 1;
+                          const pct = Math.round((at.count / maxC) * 100);
+                          const typeColor = ATTACK_TYPE_COLORS[at.type] ?? "#64748B";
+                          return (
+                            <div key={at.type} className="flex items-center gap-2 group">
+                              <span className="text-[9px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: typeColor }} />
+                              <span className="text-[11px] text-[--text-primary] flex-1 capitalize truncate">{at.type}</span>
+                              <div className="w-14 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%`, backgroundColor: typeColor, opacity: 0.8 }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono tabular-nums w-6 text-right" style={{ color: typeColor }}>
+                                {at.count}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-[--text-tertiary] italic">No attack data available</p>
+                    )}
+                  </div>
+
+                  {/* Separator */}
+                  <div className="border-t border-white/[0.06]" />
+
+                  {/* Targeted Brands */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Shield className="w-3 h-3 text-cyan-400" />
+                      <span className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">
+                        Targeted Brands
+                      </span>
+                    </div>
+                    {quickViewData.brands.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {quickViewData.brands.map((b, i) => (
+                          <div key={b.domain} className="flex items-center gap-2">
+                            <span className="text-[9px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                            <div
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: SEV_COLORS[b.severity] ?? "#22D3EE" }}
+                            />
+                            <span className="text-[11px] font-mono text-[--text-primary] flex-1 truncate">{b.domain}</span>
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+                              color: SEV_COLORS[b.severity] ?? "#22D3EE",
+                              backgroundColor: (SEV_COLORS[b.severity] ?? "#22D3EE") + "15",
+                            }}>
+                              {b.severity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-[--text-tertiary] italic">No brand data available</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Origin mode: Hosting Providers */
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Server className="w-3 h-3 text-orange-400" />
+                    <span className="text-[9px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">
+                      Hosting Providers
+                    </span>
+                  </div>
+                  {quickViewData.hostingProviders.length > 0 ? (
+                    <div className="space-y-2">
+                      {quickViewData.hostingProviders.map((hp, i) => {
+                        const maxC = quickViewData.hostingProviders[0]?.count ?? 1;
+                        const pct = Math.round((hp.count / maxC) * 100);
+                        return (
+                          <div key={hp.name} className="group">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[9px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                              <span className="text-[11px] text-[--text-primary] font-medium flex-1 truncate">{hp.name}</span>
+                              <span className="text-[10px] font-mono tabular-nums text-[--text-secondary]">{hp.count}</span>
+                              <span className={cn(
+                                "text-[9px] font-mono",
+                                hp.trend === "up" ? "text-threat-critical" : hp.trend === "down" ? "text-green-400" : "text-[--text-tertiary]"
+                              )}>
+                                {hp.trend === "up" ? "\u2191" : hp.trend === "down" ? "\u2193" : "\u2192"}{Math.abs(hp.trendPct)}%
+                              </span>
+                            </div>
+                            <div className="ml-5 flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="flex gap-1.5">
+                                {hp.critical > 0 && (
+                                  <span className="text-[8px] font-mono text-threat-critical">{hp.critical}C</span>
+                                )}
+                                {hp.high > 0 && (
+                                  <span className="text-[8px] font-mono text-threat-high">{hp.high}H</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-[--text-tertiary] italic">No provider data available</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer hint */}
+            <div className="px-3.5 py-1.5 border-t border-white/[0.06] flex items-center justify-between">
+              <span className="text-[8px] font-mono text-[--text-tertiary] uppercase tracking-wider">
+                {viewMode === "targets" ? "TARGET" : "ORIGIN"} INTEL
+              </span>
+              <span className="text-[8px] font-mono text-[--text-tertiary]">
+                TAP COUNTRY TO DISMISS
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Stats bar ─── */}
       <div className="absolute bottom-3 left-3 right-3 lg:bottom-4 lg:left-4 lg:right-4 z-10 bg-[--surface-base]/90 backdrop-blur-md rounded-md border border-[--border-subtle] px-3 py-2 flex items-center justify-between shadow-lg">
