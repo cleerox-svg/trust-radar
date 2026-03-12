@@ -7,23 +7,43 @@ export const abuseipdb: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     if (!ctx.apiKey) throw new Error("AbuseIPDB requires an API key");
 
-    const res = await fetch(ctx.feedUrl, {
+    // Free tier: confidenceMinimum locked at 100 (default). Add limit param.
+    const url = new URL(ctx.feedUrl);
+    if (!url.searchParams.has("confidenceMinimum")) {
+      url.searchParams.set("confidenceMinimum", "100");
+    }
+    if (!url.searchParams.has("limit")) {
+      url.searchParams.set("limit", "500");
+    }
+
+    const res = await fetch(url.toString(), {
       headers: {
         Key: ctx.apiKey,
         Accept: "application/json",
         ...ctx.headers,
       },
     });
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("AbuseIPDB: Invalid or expired API key (HTTP " + res.status + ")");
+    }
+    if (res.status === 429) {
+      throw new Error("AbuseIPDB: Daily API quota exceeded (HTTP 429)");
+    }
+    if (res.status === 402) {
+      throw new Error("AbuseIPDB: Feature requires paid plan (HTTP 402)");
+    }
     if (!res.ok) throw new Error(`AbuseIPDB HTTP ${res.status}`);
 
     const body = await res.json() as {
       data: Array<{
         ipAddress: string;
         abuseConfidenceScore: number;
+        // Free tier only returns ipAddress, abuseConfidenceScore, lastReportedAt
+        // Paid tier also includes: countryCode, isp, domain, totalReports, usageType
         countryCode?: string;
         isp?: string;
         domain?: string;
-        totalReports: number;
+        totalReports?: number;
         lastReportedAt?: string;
         usageType?: string;
       }>;
@@ -38,12 +58,15 @@ export const abuseipdb: FeedModule = {
 
         const score = entry.abuseConfidenceScore;
         const severity = score >= 90 ? "critical" : score >= 70 ? "high" : score >= 40 ? "medium" : "low";
+        const reports = entry.totalReports ?? 0;
 
         await insertThreat(ctx.env.DB, {
           id: threatId("abuseipdb", "ip", entry.ipAddress),
           type: "reputation",
           title: `AbuseIPDB: ${entry.ipAddress} (${score}% confidence)`,
-          description: `${entry.totalReports} abuse reports. ISP: ${entry.isp ?? "N/A"}. Usage: ${entry.usageType ?? "N/A"}`,
+          description: reports > 0
+            ? `${reports} abuse reports. ISP: ${entry.isp ?? "N/A"}. Usage: ${entry.usageType ?? "N/A"}`
+            : `Abuse confidence: ${score}%. ISP: ${entry.isp ?? "N/A"}`,
           severity,
           confidence: score / 100,
           source: "abuseipdb",
@@ -56,7 +79,7 @@ export const abuseipdb: FeedModule = {
           tags: ["abuseipdb", "reputation", "crowd-sourced"],
           metadata: {
             abuse_confidence: score,
-            total_reports: entry.totalReports,
+            total_reports: reports,
             isp: entry.isp,
             usage_type: entry.usageType,
             last_reported: entry.lastReportedAt,
