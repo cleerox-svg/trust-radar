@@ -54,7 +54,7 @@ INSERT OR IGNORE INTO feed_schedules (id, feed_name, display_name, tier, categor
   ('feed-18', 'certstream',      'CertStream',                 6, 'infrastructure', 'https://crt.sh/',                                            15, 'json', 0, NULL),
   ('feed-19', 'google_safebrowsing', 'Google Safe Browsing',   6, 'threat',         'https://safebrowsing.googleapis.com/v4/threatListUpdates:fetch', 60, 'json', 1, 'GOOGLE_SB_KEY'),
   ('feed-20', 'cloud_status',    'Cloud Status Monitor',       6, 'infrastructure', 'https://status.cloud.google.com/incidents.json',             15, 'json', 0, NULL),
-  ('feed-21', 'cf_radar',        'Cloudflare Radar',           6, 'infrastructure', 'https://api.cloudflare.com/client/v4/radar/attacks/layer3/summary', 60, 'json', 1, 'CF_API_KEY'),
+  ('feed-21', 'cf_radar',        'Cloudflare Radar',           6, 'infrastructure', 'https://api.cloudflare.com/client/v4/radar/attacks/layer3', 60, 'json', 1, 'CF_API_KEY'),
   ('feed-22', 'bgpstream',       'BGPStream',                  6, 'infrastructure', 'https://bgpstream.crosswork.cisco.com/api/events',           60, 'json', 0, NULL),
   ('feed-23', 'greynoise',       'GreyNoise',                  6, 'reputation',     'https://api.greynoise.io/v3/community/',                     360, 'json', 1, 'GREYNOISE_KEY'),
   ('feed-24', 'otx_pulses',      'AlienVault OTX',             6, 'threat',         'https://otx.alienvault.com/api/v1/pulses/subscribed',        60, 'json', 1, 'OTX_KEY');
