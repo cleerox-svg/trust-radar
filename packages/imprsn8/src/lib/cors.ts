@@ -1,8 +1,8 @@
 const ALLOWED_ORIGINS = [
   "https://imprsn8.com",
   "https://www.imprsn8.com",
-  "https://lrx-radar.com",
-  "https://www.lrx-radar.com",
+  "https://lrxradar.com",
+  "https://www.lrxradar.com",
   "http://localhost:3000",
   "http://localhost:5173",
 ];

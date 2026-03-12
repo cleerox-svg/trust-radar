@@ -12,7 +12,7 @@ if settings.sentry_dsn:
 
 app = FastAPI(
     title="LRX API",
-    description="Shared backend for Trust Radar (lrx-radar.com) and imprsn8 (imprsn8.com)",
+    description="Shared backend for Trust Radar (lrxradar.com) and imprsn8 (imprsn8.com)",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

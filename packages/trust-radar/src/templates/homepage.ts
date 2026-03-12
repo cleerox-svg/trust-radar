@@ -163,25 +163,6 @@ export function renderHomepage(): string {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 10px; overflow: hidden;
     }
-    .map-toolbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
-      flex-wrap: wrap; gap: 8px;
-    }
-    .live-indicator {
-      display: flex; align-items: center; gap: 8px;
-      font-family: 'JetBrains Mono', monospace; font-size: 11px;
-      letter-spacing: 1px; text-transform: uppercase; color: var(--text);
-    }
-    .filter-tabs { display: flex; gap: 6px; }
-    .filter-tab {
-      padding: 4px 10px; border-radius: 4px;
-      border: 1px solid var(--border); background: transparent; cursor: pointer;
-      font-family: 'JetBrains Mono', monospace; font-size: 10px;
-      text-transform: uppercase; color: var(--subtext); transition: all 0.2s;
-    }
-    .filter-tab:hover { color: var(--text); border-color: var(--cyan); }
-    .filter-tab.active { background: rgba(0,245,255,0.08); color: var(--cyan); border-color: var(--cyan); }
     .map-mode-toggle {
       display: flex; background: var(--surface); border: 1px solid var(--border);
       border-radius: 6px; padding: 3px; gap: 2px;
@@ -282,19 +263,6 @@ export function renderHomepage(): string {
   <div class="section-label">Live Intelligence</div>
   <div class="section-title">Global Threat Activity</div>
   <div class="map-card">
-    <div class="map-toolbar">
-      <div class="live-indicator">
-        <div class="live-dot"></div>
-        <span id="map-counter">Loading...</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div class="filter-tabs">
-          <button class="filter-tab active" onclick="setMapFilter('all',this)">All</button>
-          <button class="filter-tab" onclick="setMapFilter('phishing',this)">Phishing</button>
-          <button class="filter-tab" onclick="setMapFilter('malware',this)">Malware</button>
-        </div>
-      </div>
-    </div>
     ${HEATMAP_HTML}
   </div>
 </section>
@@ -441,29 +409,6 @@ function setPageTheme(theme) {
   if (typeof window.heatmapSetTheme === 'function') window.heatmapSetTheme(theme);
 }
 
-// ── FILTER ───────────────────────────────────────────────────────────────────
-function setMapFilter(filter, btn) {
-  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  if (typeof window.heatmapSetFilter === 'function') window.heatmapSetFilter(filter);
-}
-
-// ── COUNTER ──────────────────────────────────────────────────────────────────
-async function updateMapCounter() {
-  try {
-    const res = await fetch('/api/heatmap?hours=24');
-    const json = await res.json();
-    const stats = json.data?.stats || json.stats || {};
-    const el = document.getElementById('map-counter');
-    if (el && stats.totalThreats !== undefined) {
-      el.textContent = (stats.totalThreats).toLocaleString()
-        + ' threats across '
-        + (stats.uniqueCountries || 0) + ' countries · last 24h';
-    }
-  } catch {}
-}
-updateMapCounter();
-setInterval(updateMapCounter, 60000);
 </script>
 </body></html>`;
 }
