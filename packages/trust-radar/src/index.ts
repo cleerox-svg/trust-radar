@@ -472,7 +472,7 @@ router.get("/", () =>
 
 // ─── Public Scan Result Page ──────────────────────────────────
 router.get("/scan/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
-  handleScanPage(request, env, request.params.id)
+  handleScanPage(request, env, request.params["id"] ?? "")
 );
 
 // ─── Static assets fallback (SPA) ────────────────────────────
