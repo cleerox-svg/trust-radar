@@ -465,7 +465,26 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       runAllFeeds(env, feedModules)
-        .then((r) => console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed`))
+        .then(async (r) => {
+          console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed`);
+          // Auto-trigger agents when new threat data arrives
+          if (r.totalNew > 0) {
+            try {
+              const { agentModules } = await import("./agents/index");
+              const { executeAgent } = await import("./lib/agentRunner");
+              const autoAgents = ["triage", "threat-hunt", "campaign-correlator", "impersonation-detector"] as const;
+              for (const name of autoAgents) {
+                const mod = agentModules[name];
+                if (mod) {
+                  const result = await executeAgent(env, mod, { newItems: r.totalNew }, "cron", "event");
+                  console.log(`[cron] agent ${name}: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
+                }
+              }
+            } catch (err) {
+              console.error("[cron] agent auto-trigger error:", err);
+            }
+          }
+        })
         .catch((err) => console.error("[cron] feed runner error:", err))
     );
   },

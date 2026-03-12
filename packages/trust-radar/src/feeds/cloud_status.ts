@@ -2,7 +2,7 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
-/** Cloud Provider Status — AWS/GCP/Azure incident feeds */
+/** Cloud Provider Status — Google Cloud incident feed */
 export const cloud_status: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const res = await fetch(ctx.feedUrl, {
@@ -10,50 +10,51 @@ export const cloud_status: FeedModule = {
     });
     if (!res.ok) throw new Error(`Cloud Status HTTP ${res.status}`);
 
-    // AWS status.json format
-    const body = await res.json() as {
-      archive?: Array<{
-        service_name: string;
-        summary: string;
-        date: string;
-        status: number;
-        description: Array<{ date: string; body: string }>;
-      }>;
-      current?: Array<{
-        service_name: string;
-        summary: string;
-        status: number;
-      }>;
-    };
+    // Google Cloud Status returns a flat array of incidents
+    const data = await res.json() as Array<{
+      id?: string;
+      number?: number;
+      begin?: string;
+      end?: string;
+      external_desc?: string;
+      service_name?: string;
+      severity?: string;       // "low", "medium", "high"
+      status_impact?: string;  // "SERVICE_DISRUPTION", "SERVICE_OUTAGE", etc.
+      most_recent_update?: { text?: string; when?: string };
+    }>;
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
+    const items = (Array.isArray(data) ? data : []).slice(0, 100);
 
-    const incidents = [...(body.current ?? []), ...(body.archive ?? []).slice(0, 50)];
-
-    for (const incident of incidents) {
+    for (const incident of items) {
       try {
-        if (incident.status === 0) continue; // healthy = skip
-
-        const key = `${incident.service_name}:${incident.summary}`.slice(0, 200);
+        const key = incident.id ?? `${incident.number ?? ""}:${(incident.external_desc ?? "").slice(0, 180)}`;
+        if (!key) continue;
         if (await isDuplicate(ctx.env, "domain", key)) { itemsDuplicate++; continue; }
 
-        const severity = incident.status >= 2 ? "high" : "medium";
+        const severity = incident.severity === "high" || incident.status_impact === "SERVICE_OUTAGE" ? "high" : "medium";
 
         await insertThreat(ctx.env.DB, {
           id: threatId("cloud_status", "domain", key),
           type: "reputation",
-          title: `Cloud Status: ${incident.service_name} — ${incident.summary.slice(0, 80)}`,
-          description: incident.summary,
+          title: `Cloud Status: ${incident.service_name ?? "GCP"} — ${(incident.external_desc ?? "Incident").slice(0, 80)}`,
+          description: incident.external_desc ?? incident.most_recent_update?.text ?? "Cloud provider incident",
           severity,
           confidence: 0.99,
           source: "cloud_status",
           source_ref: key,
           ioc_type: "domain",
-          ioc_value: incident.service_name,
-          tags: ["cloud", "outage", "availability", incident.service_name.toLowerCase().replace(/\s+/g, "-")],
+          ioc_value: incident.service_name ?? "gcp",
+          tags: [
+            "cloud", "outage", "availability",
+            ...(incident.service_name ? [incident.service_name.toLowerCase().replace(/\s+/g, "-")] : []),
+          ],
           metadata: {
             service: incident.service_name,
-            status_code: incident.status,
+            severity: incident.severity,
+            status_impact: incident.status_impact,
+            begin: incident.begin,
+            end: incident.end,
           },
           created_by: "cloud_status",
         });
@@ -62,6 +63,6 @@ export const cloud_status: FeedModule = {
       } catch { itemsError++; }
     }
 
-    return { itemsFetched: incidents.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
+    return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
   },
 };
