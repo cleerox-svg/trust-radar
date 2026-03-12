@@ -514,3 +514,13 @@ html.light {
   80%  { opacity: 0.3; }
   100% { opacity: 0; transform: translateY(-40px) translateX(20px); }
 }
+
+/* ── Threat map country quick view panel ──────────────────── */
+@keyframes quickviewSlideIn {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.threat-quickview-enter {
+  animation: quickviewSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
