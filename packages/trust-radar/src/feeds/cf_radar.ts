@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall } from "../lib/feedRunner";
 
 const BASE = "https://api.cloudflare.com/client/v4/radar/attacks/layer3";
 
@@ -29,10 +29,12 @@ export const cf_radar: FeedModule = {
     // ── 1. Protocol summary (TCP, UDP, GRE, ICMP distribution) ─────
     try {
       const protoRes = await fetch(`${BASE}/summary/protocol?${dateParam}`, { headers });
+      if (protoRes.status === 429) throw new Error("CF Radar: API rate limit exceeded (HTTP 429)");
       if (protoRes.status === 401 || protoRes.status === 403) {
         throw new Error("CF Radar: Invalid or unauthorized API token (HTTP " + protoRes.status + ")");
       }
       if (!protoRes.ok) throw new Error(`CF Radar /summary/protocol HTTP ${protoRes.status}`);
+      await recordFeedApiCall(ctx.env, "cf_radar");
 
       const protoBody = await protoRes.json() as CFRadarSummaryResponse;
       const protocols = protoBody.result?.summary_0 ?? {};
@@ -71,7 +73,9 @@ export const cf_radar: FeedModule = {
     // ── 2. Attack vector summary (SYN flood, DNS amp, NTP, etc.) ───
     try {
       const vecRes = await fetch(`${BASE}/summary/vector?${dateParam}`, { headers });
+      if (vecRes.status === 429) throw new Error("CF Radar: API rate limit exceeded (HTTP 429)");
       if (vecRes.ok) {
+        await recordFeedApiCall(ctx.env, "cf_radar");
         const vecBody = await vecRes.json() as CFRadarSummaryResponse;
         const vectors = vecBody.result?.summary_0 ?? {};
 
@@ -107,7 +111,9 @@ export const cf_radar: FeedModule = {
     // ── 3. Top origin locations of attacks ──────────────────────────
     try {
       const locRes = await fetch(`${BASE}/top/locations/origin?${dateParam}&limit=10`, { headers });
+      if (locRes.status === 429) throw new Error("CF Radar: API rate limit exceeded (HTTP 429)");
       if (locRes.ok) {
+        await recordFeedApiCall(ctx.env, "cf_radar");
         const locBody = await locRes.json() as CFRadarTopResponse;
         const locations = locBody.result?.top_0 ?? [];
 

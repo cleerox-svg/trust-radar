@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall, markFeedQuotaExhausted } from "../lib/feedRunner";
 
 /** AbuseIPDB — Crowd-sourced IP abuse reports (API key required) */
 export const abuseipdb: FeedModule = {
@@ -27,12 +27,14 @@ export const abuseipdb: FeedModule = {
       throw new Error("AbuseIPDB: Invalid or expired API key (HTTP " + res.status + ")");
     }
     if (res.status === 429) {
-      throw new Error("AbuseIPDB: Daily API quota exceeded (HTTP 429)");
+      await markFeedQuotaExhausted(ctx.env, "abuseipdb", 1000);
+      throw new Error("AbuseIPDB: Daily API quota exceeded (HTTP 429). Free tier: 1,000/day.");
     }
     if (res.status === 402) {
       throw new Error("AbuseIPDB: Feature requires paid plan (HTTP 402)");
     }
     if (!res.ok) throw new Error(`AbuseIPDB HTTP ${res.status}`);
+    await recordFeedApiCall(ctx.env, "abuseipdb");
 
     const body = await res.json() as {
       data: Array<{

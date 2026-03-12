@@ -142,6 +142,8 @@ export interface FeedSchedule {
   is_custom: number; created_by: string | null;
   last_items_new: number; provider_url: string | null;
   api_key_encrypted: string | null; api_secret_encrypted: string | null;
+  // New fields from 0016 migration
+  daily_limit: number | null;
 }
 export interface FeedIngestion {
   id: string; feed_name?: string; status: string; items_fetched: number;
@@ -155,6 +157,14 @@ export interface FeedStatsData {
   byTier: Array<{ tier: number; count: number; items: number; runs: number }>;
 }
 
+export interface FeedQuotaEntry {
+  id: string;
+  feed_name: string;
+  display_name: string;
+  daily_limit: number;
+  calls_today: number;
+}
+
 export const feeds = {
   list: () => api<FeedSchedule[]>("/feeds"),
   get: (id: string) => api<{ feed: FeedSchedule; ingestions: FeedIngestion[] }>(`/feeds/${id}`),
@@ -165,6 +175,7 @@ export const feeds = {
   delete: (id: string) => api<void>(`/feeds/${id}`, { method: "DELETE" }),
   stats: () => api<FeedStatsData>("/feeds/stats"),
   jobs: (limit = 20) => api<FeedIngestion[]>(`/feeds/jobs?limit=${limit}`),
+  quota: () => api<FeedQuotaEntry[]>("/feeds/quota"),
   trigger: (id: string) => api<unknown>(`/feeds/${id}/trigger`, { method: "POST" }),
   triggerAll: () => api<unknown>("/feeds/trigger-all", { method: "POST" }),
   triggerTier: (tier: number) => api<unknown>(`/feeds/trigger-tier/${tier}`, { method: "POST" }),

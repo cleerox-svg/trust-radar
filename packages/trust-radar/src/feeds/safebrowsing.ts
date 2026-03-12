@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall, markFeedQuotaExhausted } from "../lib/feedRunner";
 
 /** Google Safe Browsing — Threat list updates (API key required) */
 export const safebrowsing: FeedModule = {
@@ -20,7 +20,14 @@ export const safebrowsing: FeedModule = {
         ],
       }),
     });
+    if (res.status === 429) {
+      await markFeedQuotaExhausted(ctx.env, "google_safebrowsing", 10000);
+      throw new Error("Safe Browsing: Daily API quota exceeded (HTTP 429). Free tier: 10,000/day.");
+    }
+    if (res.status === 400) throw new Error("Safe Browsing: Bad request — check API key and request format (HTTP 400)");
+    if (res.status === 403) throw new Error("Safe Browsing: Invalid or unauthorized API key (HTTP 403)");
     if (!res.ok) throw new Error(`Safe Browsing HTTP ${res.status}`);
+    await recordFeedApiCall(ctx.env, "google_safebrowsing");
 
     const body = await res.json() as {
       listUpdateResponses?: Array<{

@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall, markFeedQuotaExhausted } from "../lib/feedRunner";
 
 /** GreyNoise — Internet scanner and mass exploitation detection (API key required) */
 export const greynoise: FeedModule = {
@@ -14,7 +14,16 @@ export const greynoise: FeedModule = {
         ...ctx.headers,
       },
     });
+    if (res.status === 429) {
+      // Community tier: 50 req/day
+      await markFeedQuotaExhausted(ctx.env, "greynoise", 50);
+      throw new Error("GreyNoise: Daily API quota exceeded (HTTP 429). Community tier: 50 req/day.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("GreyNoise: Invalid or unauthorized API key (HTTP " + res.status + ")");
+    }
     if (!res.ok) throw new Error(`GreyNoise HTTP ${res.status}`);
+    await recordFeedApiCall(ctx.env, "greynoise");
 
     const body = await res.json() as {
       data?: Array<{

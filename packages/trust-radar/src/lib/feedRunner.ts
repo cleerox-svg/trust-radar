@@ -16,6 +16,43 @@ import { enrichThreatsGeo } from "./geoip";
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_RESET_MS = 30 * 60 * 1000; // 30 minutes
 
+// ─── Feed-level API quota tracking (KV-backed, per UTC day) ─────
+
+function feedQuotaKey(feedName: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return `feed-quota:${feedName}:${today}`;
+}
+
+/** Returns how many API calls a feed has made today. */
+export async function getFeedCallsToday(env: Env, feedName: string): Promise<number> {
+  try {
+    const val = await env.CACHE.get(feedQuotaKey(feedName));
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Increment today's call counter for a feed. */
+export async function recordFeedApiCall(env: Env, feedName: string): Promise<void> {
+  try {
+    const key = feedQuotaKey(feedName);
+    const val = await env.CACHE.get(key);
+    const next = (val ? parseInt(val, 10) : 0) + 1;
+    await env.CACHE.put(key, String(next), { expirationTtl: 25 * 60 * 60 }); // 25h TTL covers full UTC day
+  } catch { /* non-fatal */ }
+}
+
+/**
+ * Pin the counter to the daily_limit so all subsequent feed runs today
+ * can check and short-circuit before making any API calls.
+ */
+export async function markFeedQuotaExhausted(env: Env, feedName: string, dailyLimit: number): Promise<void> {
+  try {
+    await env.CACHE.put(feedQuotaKey(feedName), String(dailyLimit), { expirationTtl: 25 * 60 * 60 });
+  } catch { /* non-fatal */ }
+}
+
 // ─── Deduplication ───────────────────────────────────────────────
 
 /** Check if an IOC was already seen (KV-based, 24h TTL) */

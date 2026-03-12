@@ -1,6 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { isDuplicate, markSeen, insertThreat, recordFeedApiCall, markFeedQuotaExhausted } from "../lib/feedRunner";
 
 /** IP Quality Score — Fraud detection and IP reputation (API key required) */
 export const ipqs: FeedModule = {
@@ -10,7 +10,16 @@ export const ipqs: FeedModule = {
     const res = await fetch(ctx.feedUrl.replace("{key}", ctx.apiKey), {
       headers: { Accept: "application/json", ...ctx.headers },
     });
+    if (res.status === 429) {
+      // Free tier: 5,000/month ≈ 167/day
+      await markFeedQuotaExhausted(ctx.env, "ipqs", 167);
+      throw new Error("IPQS: Daily API quota exceeded (HTTP 429). Free tier: 5,000/month.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("IPQS: Invalid or unauthorized API key (HTTP " + res.status + ")");
+    }
     if (!res.ok) throw new Error(`IPQS HTTP ${res.status}`);
+    await recordFeedApiCall(ctx.env, "ipqs");
 
     const body = await res.json() as {
       success: boolean;

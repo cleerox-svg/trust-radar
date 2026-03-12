@@ -10,7 +10,7 @@ import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAd
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
-  handleResetCircuit, handleCreateFeed, handleDeleteFeed,
+  handleResetCircuit, handleCreateFeed, handleDeleteFeed, handleFeedQuota,
 } from "./handlers/feeds";
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
@@ -200,6 +200,11 @@ router.get("/api/feeds/jobs", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleIngestionJobs(request, env);
+});
+router.get("/api/feeds/quota", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleFeedQuota(request, env);
 });
 router.get("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
