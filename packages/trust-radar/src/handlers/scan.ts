@@ -22,6 +22,34 @@ function scoreToRisk(score: number): RiskLevel {
   return "critical";
 }
 
+// VirusTotal free tier: 500 calls/day. We cap at 450 to leave a buffer.
+const VT_DAILY_LIMIT = 450;
+const VT_CACHE_TTL_SEC = 24 * 60 * 60; // 24 hours — aligns with VT's daily quota window
+
+function vtQuotaKey(): string {
+  // Key resets naturally at UTC midnight via TTL
+  const today = new Date().toISOString().slice(0, 10);
+  return `vt:quota:${today}`;
+}
+
+async function getVtCallsToday(env: Env): Promise<number> {
+  try {
+    const val = await env.CACHE.get(vtQuotaKey());
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementVtCalls(env: Env): Promise<void> {
+  try {
+    const key = vtQuotaKey();
+    const val = await env.CACHE.get(key);
+    const next = (val ? parseInt(val, 10) : 0) + 1;
+    await env.CACHE.put(key, String(next), { expirationTtl: 25 * 60 * 60 }); // 25h TTL covers full UTC day
+  } catch { /* non-fatal */ }
+}
+
 async function checkVirusTotal(
   url: string,
   apiKey: string
@@ -32,6 +60,10 @@ async function checkVirusTotal(
       headers: { "x-apikey": apiKey },
     });
 
+    if (resp.status === 429) {
+      // Quota exhausted — signal upstream to stop making VT calls
+      throw new VTQuotaError();
+    }
     if (!resp.ok) return null;
 
     const data = (await resp.json()) as {
@@ -45,9 +77,14 @@ async function checkVirusTotal(
       harmless: stats["harmless"] ?? 0,
       undetected: stats["undetected"] ?? 0,
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof VTQuotaError) throw err;
     return null;
   }
+}
+
+class VTQuotaError extends Error {
+  constructor() { super("VTQuotaError"); }
 }
 
 async function runScan(url: string, env: Env): Promise<Omit<ScanResult, "id" | "created_at">> {
@@ -64,26 +101,40 @@ async function runScan(url: string, env: Env): Promise<Omit<ScanResult, "id" | "
   }
   metadata.ssl_valid = isHttps;
 
-  // VirusTotal check
-  if (env.VIRUSTOTAL_API_KEY) {
-    const vt = await checkVirusTotal(url, env.VIRUSTOTAL_API_KEY);
-    if (vt) {
-      metadata.virustotal = vt;
-      if (vt.malicious > 0) {
-        score -= Math.min(50, vt.malicious * 10);
-        flags.push({
-          type: "malicious_url",
-          severity: "critical",
-          detail: `Flagged as malicious by ${vt.malicious} security vendors`,
-        });
-      }
-      if (vt.suspicious > 0) {
-        score -= Math.min(20, vt.suspicious * 5);
-        flags.push({
-          type: "suspicious_url",
-          severity: "medium",
-          detail: `Flagged as suspicious by ${vt.suspicious} security vendors`,
-        });
+  // VirusTotal check — only if API key is set and daily quota is not exhausted
+  if (env.VIRUSTOTAL_API_KEY && env.CACHE) {
+    const callsToday = await getVtCallsToday(env);
+    if (callsToday < VT_DAILY_LIMIT) {
+      try {
+        const vt = await checkVirusTotal(url, env.VIRUSTOTAL_API_KEY);
+        await incrementVtCalls(env);
+        if (vt) {
+          metadata.virustotal = vt;
+          if (vt.malicious > 0) {
+            score -= Math.min(50, vt.malicious * 10);
+            flags.push({
+              type: "malicious_url",
+              severity: "critical",
+              detail: `Flagged as malicious by ${vt.malicious} security vendors`,
+            });
+          }
+          if (vt.suspicious > 0) {
+            score -= Math.min(20, vt.suspicious * 5);
+            flags.push({
+              type: "suspicious_url",
+              severity: "medium",
+              detail: `Flagged as suspicious by ${vt.suspicious} security vendors`,
+            });
+          }
+        }
+      } catch (err) {
+        if (err instanceof VTQuotaError) {
+          // Mark quota as exhausted so subsequent requests skip VT immediately
+          try {
+            await env.CACHE.put(vtQuotaKey(), String(VT_DAILY_LIMIT), { expirationTtl: 25 * 60 * 60 });
+          } catch { /* non-fatal */ }
+        }
+        // Any other VT error: proceed without VT data (non-fatal)
       }
     }
   }
@@ -215,8 +266,8 @@ export async function handleScan(
       .run();
   }
 
-  // Cache the result for 1 hour
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  // Cache the result for 24 hours — aligns with VT's daily quota window to avoid redundant calls
+  const expiresAt = new Date(Date.now() + VT_CACHE_TTL_SEC * 1000).toISOString();
   await env.DB.prepare(
     `INSERT INTO domain_cache (domain, trust_score, risk_level, flags, metadata, expires_at)
      VALUES (?, ?, ?, ?, ?, ?)
