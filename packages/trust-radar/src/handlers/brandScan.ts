@@ -20,7 +20,7 @@ import type { Env } from "../types";
 function generateLookalikes(domain: string): string[] {
   const parts = domain.split(".");
   if (parts.length < 2) return [];
-  const name = parts[0];
+  const name = parts[0]!;
   const tld = parts.slice(1).join(".");
   const lookalikes: string[] = [];
 
@@ -135,7 +135,7 @@ async function checkDNS(domain: string): Promise<{
         if (data.startsWith("v=DMARC1")) {
           result.dmarc.record = data;
           const pMatch = data.match(/p=(\w+)/);
-          result.dmarc.policy = pMatch ? pMatch[1] : "none";
+          result.dmarc.policy = pMatch?.[1] ?? "none";
         }
       }
     }
@@ -175,7 +175,7 @@ async function checkLookalikeRegistration(domains: string[]): Promise<Array<{
         if (res.ok) {
           const data = await res.json() as { Answer?: Array<{ data: string }> };
           if (data.Answer && data.Answer.length > 0) {
-            return { domain: d, registered: true, ip: data.Answer[0].data };
+            return { domain: d, registered: true, ip: data.Answer[0]?.data ?? null };
           }
         }
         return { domain: d, registered: false, ip: null };
