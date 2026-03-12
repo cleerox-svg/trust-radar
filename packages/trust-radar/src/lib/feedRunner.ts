@@ -166,9 +166,9 @@ export async function runFeed(
     method: schedule.method,
     headers: safeParseJSON(schedule.headers, {}),
     parser: schedule.parser,
-    apiKey: schedule.api_key_env
-      ? getApiKey(env, schedule.api_key_env)
-      : (schedule.api_key_encrypted ?? undefined),
+    apiKey: (schedule.api_key_env && getApiKey(env, schedule.api_key_env))
+      ?? schedule.api_key_encrypted
+      ?? undefined,
   };
 
   const start = Date.now();
