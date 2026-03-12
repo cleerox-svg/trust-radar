@@ -321,15 +321,6 @@ router.post("/api/feeds/:id/trigger", async (request: Request & { params: Record
   return handleTriggerFeed(request, env, request.params["id"] ?? "");
 });
 
-// ─── SPA fallback ─────────────────────────────────────────────
-router.all("*", (request: Request, env: Env) => {
-  const url = new URL(request.url);
-  if (url.pathname.startsWith("/api/")) {
-    return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
-  }
-  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
-});
-
 // ─── Debug / health ───────────────────────────────────────────────────────
 router.get("/api/debug", async (request: Request, env: Env) => {
   const origin = request.headers.get("Origin");
@@ -376,7 +367,32 @@ router.get("/api/debug", async (request: Request, env: Env) => {
   // 6. JWT_SECRET present
   checks["jwt_secret"] = env.JWT_SECRET ? `set (${env.JWT_SECRET.length} chars)` : "MISSING";
 
+  // 7. Data feeds table
+  try {
+    const feedCount = await env.DB.prepare("SELECT COUNT(*) as cnt FROM data_feeds").first<{ cnt: number }>();
+    checks["data_feeds_table"] = `ok (${feedCount?.cnt ?? 0} feeds)`;
+  } catch (e) {
+    checks["data_feeds_table"] = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 8. Influencer profiles
+  try {
+    const ipCount = await env.DB.prepare("SELECT COUNT(*) as cnt FROM influencer_profiles WHERE active = 1").first<{ cnt: number }>();
+    checks["influencer_profiles"] = `ok (${ipCount?.cnt ?? 0} active)`;
+  } catch (e) {
+    checks["influencer_profiles"] = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
   return json({ success: true, data: checks }, 200, origin);
+});
+
+// ─── SPA fallback (must be last) ──────────────────────────────
+router.all("*", (request: Request, env: Env) => {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/")) {
+    return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
+  }
+  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
 });
 
 export default {

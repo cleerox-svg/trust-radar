@@ -433,7 +433,9 @@ async function runRSS(feed: DataFeed, env: Env, targets: Target[]): Promise<numb
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 export async function runFeed(feed: DataFeed, env: Env): Promise<RunResult> {
   const targets = await loadTargets(env);
-  if (targets.length === 0) return { success: true, threats_found: 0 };
+  if (targets.length === 0) {
+    return { success: false, threats_found: 0, error: "No active influencer profiles. Add an influencer profile first so feeds know what handles to search for." };
+  }
 
   try {
     let threats_found = 0;
