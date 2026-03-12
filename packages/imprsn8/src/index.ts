@@ -19,6 +19,8 @@ import { handleListComplianceAudit, handleResolveComplianceItem } from "./handle
 import { runDueFeeds } from "./lib/feedRunner";
 import { runDueAgents } from "./handlers/agents";
 import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
+import { renderImprsn8Homepage } from "./templates/homepage";
+import { renderImprsn8Dashboard } from "./templates/dashboard";
 import type { Env } from "./types";
 
 const router = Router();
@@ -385,6 +387,20 @@ router.get("/api/debug", async (request: Request, env: Env) => {
 
   return json({ success: true, data: checks }, 200, origin);
 });
+
+// ─── Public Homepage ──────────────────────────────────────────
+router.get("/", () =>
+  new Response(renderImprsn8Homepage(), {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
+  })
+);
+
+// ─── Authenticated Dashboard ──────────────────────────────────
+router.get("/dashboard", () =>
+  new Response(renderImprsn8Dashboard(), {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" },
+  })
+);
 
 // ─── SPA fallback (must be last) ──────────────────────────────
 router.all("*", (request: Request, env: Env) => {
