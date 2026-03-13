@@ -123,7 +123,7 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
 
     // ─── Recent threats for live feed ───────────────────────────
     const recentThreats = await env.DB.prepare(`
-      SELECT id, type, title, severity, source, domain, ioc_value, ip_address, country_code, created_at
+      SELECT id, type, title, severity, source, domain, ioc_value, ip_address, country_code, lat, lng, created_at
       FROM threats ORDER BY created_at DESC LIMIT 20
     `).all();
 
