@@ -30,6 +30,7 @@ migrations_dir = "migrations"
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
 database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
+migrations_dir = "migrations-audit"
 
 # ─── KV Namespace (cache) ────────────────────────────────────
 [[kv_namespaces]]
@@ -80,6 +81,7 @@ migrations_dir = "migrations"
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
 database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
+migrations_dir = "migrations-audit"
 
 # ─── Local dev overrides ─────────────────────────────────────
 [env.dev]
@@ -96,3 +98,4 @@ migrations_dir = "migrations"
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
 database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
+migrations_dir = "migrations-audit"
