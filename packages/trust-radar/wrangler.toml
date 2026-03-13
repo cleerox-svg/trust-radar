@@ -23,13 +23,13 @@ crons = ["*/5 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "trust-radar-v2"
-database_id = "$TRUST_RADAR_V2_D1_ID"
+database_id = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6"
 migrations_dir = "migrations"
 
 [[d1_databases]]
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
-database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"
+database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
 
 # ─── KV Namespace (cache) ────────────────────────────────────
 [[kv_namespaces]]
@@ -73,13 +73,13 @@ vars = { ENVIRONMENT = "staging", LRX_API_URL = "https://api.lrx.io" }
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "trust-radar-v2"
-database_id = "$TRUST_RADAR_V2_D1_ID"
+database_id = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6"
 migrations_dir = "migrations"
 
 [[env.staging.d1_databases]]
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
-database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"
+database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
 
 # ─── Local dev overrides ─────────────────────────────────────
 [env.dev]
@@ -89,10 +89,10 @@ vars = { ENVIRONMENT = "development", LRX_API_URL = "http://localhost:8000" }
 [[env.dev.d1_databases]]
 binding = "DB"
 database_name = "trust-radar-v2"
-database_id = "$TRUST_RADAR_V2_D1_ID"
+database_id = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6"
 migrations_dir = "migrations"
 
 [[env.dev.d1_databases]]
 binding = "AUDIT_DB"
 database_name = "trust-radar-v2-audit"
-database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"
+database_id = "55d58eff-47f3-4533-afa4-e52d494376e0"
