@@ -170,7 +170,9 @@ export function ThreatMapWidget() {
   const [aggMode, setAggMode] = useState<AggMode>("country");
   const [tooltipContent, setTooltipContent] = useState("");
   const [tooltipSeverity, setTooltipSeverity] = useState("");
-  const [zoom, setZoom] = useState(1.25);
+  const [zoom, setZoom] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640 ? 0.8 : 1.25
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [center, setCenter] = useState<[number, number]>([10, 20]);
   const [showArcs, setShowArcs] = useState(true);
@@ -439,10 +441,10 @@ export function ThreatMapWidget() {
           id: `continent-${continent}`,
         });
       });
-    } else {
+    } else if (countryData.size > 0) {
       countryData.forEach((data, numericId) => {
         const coords = LABEL_COORDS[numericId];
-        if (!coords || data.count < 2) return;
+        if (!coords || data.count < 1) return;
         spots.push({
           coords,
           count: data.count,
@@ -451,6 +453,19 @@ export function ThreatMapWidget() {
           id: `hotspot-${numericId}`,
         });
       });
+    } else {
+      // No geo-enriched data yet — show known APT origin hotspots as fallback
+      for (const [numericId, info] of Object.entries(APT_ORIGIN_FALLBACK)) {
+        const coords = LABEL_COORDS[numericId];
+        if (!coords) continue;
+        spots.push({
+          coords,
+          count: info.severity === "critical" ? 80 : 40,
+          severity: info.severity,
+          name: COUNTRY_NAMES[numericId] ?? "",
+          id: `hotspot-${numericId}`,
+        });
+      }
     }
 
     return spots.sort((a, b) => b.count - a.count).slice(0, 20);
@@ -463,17 +478,21 @@ export function ThreatMapWidget() {
       label: string; id: string;
     }> = [];
     const recent = stats?.recentThreats ?? [];
-    // Show up to 8 most recent threats with known country codes
-    recent.filter(t => t.country_code).slice(0, 8).forEach((t) => {
-      const coords = ALPHA2_COORDS[t.country_code!];
+    // Use country_code → lookup, or fall back to direct lat/lng from geo enrichment
+    recent.slice(0, 12).forEach((t) => {
+      let coords: [number, number] | null = null;
+      if (t.country_code && ALPHA2_COORDS[t.country_code]) {
+        const base = ALPHA2_COORDS[t.country_code]!;
+        coords = [
+          base[0] + (Math.sin(t.id.charCodeAt(0)) * 3),
+          base[1] + (Math.cos(t.id.charCodeAt(1)) * 2),
+        ];
+      } else if (t.lat != null && t.lng != null) {
+        coords = [t.lng, t.lat]; // react-simple-maps uses [lng, lat]
+      }
       if (!coords) return;
-      // Offset slightly so they don't stack exactly on hotspots
-      const jitter: [number, number] = [
-        coords[0] + (Math.sin(t.id.charCodeAt(0)) * 3),
-        coords[1] + (Math.cos(t.id.charCodeAt(1)) * 2),
-      ];
       blips.push({
-        coords: jitter,
+        coords,
         severity: t.severity,
         type: t.type,
         label: t.domain || t.ioc_value || t.title?.slice(0, 20) || "threat",
@@ -618,9 +637,10 @@ export function ThreatMapWidget() {
     }
   }, [selectedCountry]);
 
+  const defaultZoom = typeof window !== "undefined" && window.innerWidth < 640 ? 0.8 : 1.25;
   const zoomIn = () => setZoom((z) => Math.min(z + 0.5, 6));
-  const zoomOut = () => setZoom((z) => Math.max(z - 0.5, 1));
-  const resetView = () => { setZoom(1.25); setCenter([10, 20]); setSelectedCountry(null); };
+  const zoomOut = () => setZoom((z) => Math.max(z - 0.5, defaultZoom));
+  const resetView = () => { setZoom(defaultZoom); setCenter([10, 20]); setSelectedCountry(null); };
 
   // Pulse value for animations (0-1 cycle)
   const pulse = Math.sin(animTick * 0.05) * 0.5 + 0.5;

@@ -269,7 +269,7 @@ export interface ThreatStats {
   recentThreats: Array<{
     id: string; type: string; title: string; severity: string; source: string;
     domain: string | null; ioc_value: string | null; ip_address: string | null;
-    country_code: string | null; created_at: string;
+    country_code: string | null; lat: number | null; lng: number | null; created_at: string;
   }>;
   topOriginsToday: Array<{ country_code: string; count: number }>;
 }
