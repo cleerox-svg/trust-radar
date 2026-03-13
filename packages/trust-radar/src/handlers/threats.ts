@@ -29,7 +29,8 @@ export async function handleListThreats(request: Request, env: Env): Promise<Res
 
     const rows = await env.DB.prepare(
       `SELECT id, type, title, severity, confidence, status, source, ioc_type, ioc_value,
-              domain, ip_address, country_code, tags, first_seen, last_seen, created_at
+              domain, ip_address, country_code, tags, first_seen, last_seen, created_at,
+              lat, lng
        FROM threats ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
     ).bind(...params).all();
 
