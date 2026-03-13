@@ -64,7 +64,7 @@ export function ATOPage() {
             onClick={() => setStatusFilter(s === "all" ? undefined : s)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               (s === "all" && !statusFilter) || s === statusFilter
-                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                 : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >

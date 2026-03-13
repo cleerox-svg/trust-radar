@@ -23,7 +23,7 @@ interface Props {
  */
 export function AreaSparkline({
   data,
-  color = "#22D3EE",
+  color = "#3B82F6",
   height = 120,
   showTooltip = true,
   className,

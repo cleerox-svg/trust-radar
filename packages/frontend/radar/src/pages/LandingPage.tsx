@@ -5,7 +5,7 @@ import { WordMark } from "../components/LogoMark";
 
 /* ── 10 Shield Guardian Agent Cards ────────────────────────── */
 const AGENTS = [
-  { name: "Sentinel", role: "Triage & Routing", color: "#22D3EE", desc: "First-response agent that classifies incoming threats, assigns severity, and routes to the right team." },
+  { name: "Sentinel", role: "Triage & Routing", color: "#3B82F6", desc: "First-response agent that classifies incoming threats, assigns severity, and routes to the right team." },
   { name: "Reaper", role: "Takedown Automation", color: "#EF4444", desc: "Automates DMCA notices, registrar abuse reports, and platform takedown requests at scale." },
   { name: "Phantom", role: "Dark Web Monitor", color: "#A855F7", desc: "Crawls .onion sites, paste dumps, and underground forums for leaked credentials and brand mentions." },
   { name: "Prism", role: "Brand Impersonation", color: "#3B82F6", desc: "Detects lookalike domains, phishing kits, and social media impersonation campaigns." },
@@ -254,7 +254,7 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono mb-8"
             style={{ background: "rgba(34, 211, 238, 0.1)", border: "1px solid rgba(34, 211, 238, 0.2)", color: "var(--cyan-400)" }}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             24 feeds active · 10 AI agents online
           </div>
 
@@ -470,7 +470,7 @@ export default function LandingPage() {
             <div className="flex items-center justify-center gap-6 mt-4">
               {[
                 { label: "Active Hotspots", value: "10", color: "#EF4444" },
-                { label: "Feeds Online", value: "24", color: "#22D3EE" },
+                { label: "Feeds Online", value: "24", color: "#3B82F6" },
                 { label: "Agents Active", value: "10", color: "#22C55E" },
               ].map((m) => (
                 <div key={m.label} className="flex items-center gap-2">
@@ -631,7 +631,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-cyan-400" />
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
             </div>
             <span className="font-display font-semibold text-sm">Trust Radar</span>
             <span className="text-xs font-mono" style={{ color: "var(--text-tertiary)" }}>by LRX</span>

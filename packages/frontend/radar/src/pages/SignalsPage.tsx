@@ -64,7 +64,7 @@ export default function SignalsPage() {
                       <td className="px-4 py-2.5"><Badge variant="info">{s.source}</Badge></td>
                       <td className="px-4 py-2.5 font-mono text-[--text-primary]">{s.domain ?? "—"}</td>
                       <td className="px-4 py-2.5 font-mono text-right text-[--text-primary]">{s.range_m.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 font-mono text-right text-cyan-400">{s.intensity_dbz} dBZ</td>
+                      <td className="px-4 py-2.5 font-mono text-right text-blue-500">{s.intensity_dbz} dBZ</td>
                       <td className="px-4 py-2.5">
                         <Badge variant={s.quality >= 80 ? "low" : s.quality >= 50 ? "medium" : "critical"}>{s.quality}%</Badge>
                       </td>

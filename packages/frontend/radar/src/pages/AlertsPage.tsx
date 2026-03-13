@@ -45,7 +45,7 @@ export default function AlertsPage() {
             onClick={() => setFilter(f)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               filter === f
-                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                 : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >
@@ -78,7 +78,7 @@ export default function AlertsPage() {
                       <Badge variant={statusVariant[a.status]}>{a.status}</Badge>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-[--text-tertiary]">
-                      <span>Source: <span className="text-cyan-400 font-mono">{a.source}</span></span>
+                      <span>Source: <span className="text-blue-500 font-mono">{a.source}</span></span>
                       <span>Quality: <Badge variant={a.quality >= 80 ? "low" : a.quality >= 50 ? "medium" : "critical"}>{a.quality}%</Badge></span>
                       <span>{new Date(a.created_at).toLocaleString()}</span>
                     </div>

@@ -35,7 +35,7 @@ const statusColors: Record<string, string> = {
   new:            "text-threat-critical",
   investigating:  "text-threat-high",
   confirmed:      "text-threat-medium",
-  mitigated:      "text-cyan-400",
+  mitigated:      "text-blue-500",
   resolved:       "text-threat-low",
   false_positive: "text-[--text-tertiary]",
 };
@@ -106,7 +106,7 @@ export function ThreatDetailDialog({ threat, open, onOpenChange }: ThreatDetailD
             <Badge className={statusClass}>
               {threat.status.toUpperCase().replace("_", " ")}
             </Badge>
-            <span className="text-cyan-400 font-mono text-sm ml-auto">{confidence}%</span>
+            <span className="text-blue-500 font-mono text-sm ml-auto">{confidence}%</span>
           </div>
           <DialogTitle className="text-lg mt-2">{threat.title}</DialogTitle>
         </DialogHeader>
@@ -161,7 +161,7 @@ export function ThreatDetailDialog({ threat, open, onOpenChange }: ThreatDetailD
             <div className="relative pl-4 border-l-2 border-[--border-default] space-y-3">
               {timelineEvents.map((event) => (
                 <div key={event.label} className="relative">
-                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-surface-raised" />
+                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-surface-raised" />
                   <p className="text-2xs uppercase tracking-widest text-[--text-tertiary]">{event.label}</p>
                   <p className="text-sm text-[--text-primary] font-mono">{formatTime(event.time!)}</p>
                   <p className="text-xs text-[--text-tertiary]">{relativeTime(event.time!)}</p>

@@ -67,7 +67,7 @@ export function TrustBotWidget() {
           <div className="px-4 py-3 flex items-center gap-2 shrink-0" style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-void)" }}>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>TrustBot</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 font-mono">AI</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-blue-500 font-mono">AI</span>
             <div className="flex-1" />
             <button onClick={() => setOpen(false)} className="text-[--text-tertiary] hover:text-[--text-primary] transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -95,9 +95,9 @@ export function TrustBotWidget() {
             {chat.isPending && (
               <div className="flex justify-start">
                 <div className="px-3 py-2 rounded-lg text-xs flex items-center gap-1" style={{ background: "var(--surface-base)", color: "var(--text-tertiary)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               </div>
             )}

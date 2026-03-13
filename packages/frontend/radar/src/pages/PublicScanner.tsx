@@ -86,7 +86,7 @@ export default function PublicScanner() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono mb-6"
             style={{ background: "rgba(34, 211, 238, 0.1)", border: "1px solid rgba(34, 211, 238, 0.2)", color: "var(--cyan-400)" }}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             Free URL scanner — no login required
           </div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold mb-3">

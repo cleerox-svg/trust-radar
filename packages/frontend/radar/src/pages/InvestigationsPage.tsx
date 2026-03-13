@@ -90,7 +90,7 @@ export function InvestigationsPage() {
                     <div key={t.id} className="flex items-center gap-4 p-3 rounded-lg bg-[--surface-base] border border-[--border-subtle]">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono text-cyan-400">{t.ticket_id}</span>
+                          <span className="text-xs font-mono text-blue-500">{t.ticket_id}</span>
                           <Badge variant={t.severity as "critical" | "high" | "medium" | "low"}>{t.severity}</Badge>
                           <Badge variant={statusColors[t.status] ?? "info"}>{t.status.replace("_", " ")}</Badge>
                         </div>

@@ -44,7 +44,7 @@ export default function EntitiesPage() {
           >
             <div className={`text-lg font-bold font-mono ${
               r === "critical" ? "text-threat-critical" : r === "high" ? "text-threat-high" :
-              r === "medium" ? "text-threat-medium" : r === "low" ? "text-cyan-400" : "text-green-400"
+              r === "medium" ? "text-threat-medium" : r === "low" ? "text-blue-500" : "text-green-400"
             }`}>
               {riskCounts[r] ?? 0}
             </div>
@@ -63,7 +63,7 @@ export default function EntitiesPage() {
           className="w-full max-w-md text-sm px-3 py-2 rounded-lg bg-[--surface-base] border border-[--border-subtle] text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-500 focus:outline-none"
         />
         {riskFilter !== "all" && (
-          <button onClick={() => setRiskFilter("all")} className="text-xs text-cyan-400 hover:text-cyan-300">Clear filter</button>
+          <button onClick={() => setRiskFilter("all")} className="text-xs text-blue-500 hover:text-cyan-300">Clear filter</button>
         )}
       </div>
 

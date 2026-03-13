@@ -5,7 +5,7 @@ type PulseSize = "sm" | "md" | "lg";
 
 const colorMap: Record<PulseColor, string> = {
   green:  "bg-green-500",
-  cyan:   "bg-cyan-400",
+  cyan:   "bg-blue-500",
   red:    "bg-red-500",
   blue:   "bg-blue-400",
   gray:   "bg-gray-500",

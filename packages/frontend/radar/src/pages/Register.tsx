@@ -27,7 +27,7 @@ export default function Register() {
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-base)" }}>
-      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
   if (user) return <Navigate to="/dashboard" replace />;
@@ -50,7 +50,7 @@ export default function Register() {
       {/* Top bar */}
       <div className="flex items-center gap-2.5 px-5 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
-          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
         </div>
         <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Trust Radar</span>
       </div>
@@ -125,7 +125,7 @@ export default function Register() {
 
           <p className="text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
             Already have an account?{" "}
-            <Link to="/login" className="text-cyan-400 hover:underline font-medium">
+            <Link to="/login" className="text-blue-500 hover:underline font-medium">
               Sign in
             </Link>
           </p>

@@ -12,7 +12,7 @@ function getScoreHealth(score: number): ScoreHealth {
 }
 
 const healthColors: Record<ScoreHealth, string> = {
-  exceptional: "#22D3EE",  // cyan-400
+  exceptional: "#3B82F6",  // cyan-400
   protected:   "#22C55E",  // green
   attention:   "#EAB308",  // amber
   vulnerable:  "#F97316",  // orange

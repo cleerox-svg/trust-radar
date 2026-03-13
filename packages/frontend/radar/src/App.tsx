@@ -14,7 +14,8 @@ import { IdleTimeoutDialog } from "./components/IdleTimeoutDialog";
 import { auth, alerts, clearToken, getToken, onUnauthorized, setToken, type User, type UserRole } from "./lib/api";
 
 // ─── Lazy-loaded pages (code splitting) ───────────────────────
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CommandCenter = lazy(() => import("./pages/CommandCenter"));
+const Dashboard = lazy(() => import("./pages/Dashboard")); // legacy — kept for reference
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const AlertsPage = lazy(() => import("./pages/AlertsPage"));
 const EntitiesPage = lazy(() => import("./pages/EntitiesPage"));
@@ -143,7 +144,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 function LoadingSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-base)" }}>
-      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -220,7 +221,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           {user && (
             <div className="hidden sm:flex items-center gap-2 text-xs text-[--text-secondary] border-r border-[--border-subtle] pr-3 mr-1">
               <span className="font-mono truncate max-w-[140px]">{user.email}</span>
-              <span className="bg-cyan-500/15 text-cyan-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
+              <span className="bg-cyan-500/15 text-blue-500 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.plan}</span>
               {user.role !== "customer" && (
                 <span className="bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded font-mono text-[11px]">{user.role}</span>
               )}
@@ -265,7 +266,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
-      <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -295,9 +296,10 @@ export default function App() {
                       <MainLayout>
                         <Suspense fallback={<PageFallback />}>
                         <Routes>
-                          {/* Mission Control */}
-                          <Route path="/dashboard"      element={<Dashboard />} />
-                          <Route path="/threat-map"     element={<ThreatMapPage />} />
+                          {/* Mission Control — Command Center HUD */}
+                          <Route path="/dashboard"      element={<CommandCenter />} />
+                          {/* /threat-map redirects to unified Command Center */}
+                          <Route path="/threat-map"     element={<Navigate to="/dashboard" replace />} />
                           <Route path="/brand-exposure" element={<BrandExposurePage />} />
                           <Route path="/alerts"         element={<AlertsPage />} />
                           <Route path="/briefing"       element={<DailyBriefingPage />} />
@@ -329,7 +331,7 @@ export default function App() {
 
                           {/* Legacy routes */}
                           <Route path="/trends"         element={<TrendsPage />} />
-                          <Route path="/geo-map"        element={<Navigate to="/threat-map" replace />} />
+                          <Route path="/geo-map"        element={<Navigate to="/dashboard" replace />} />
 
                           {/* Admin */}
                           <Route path="/admin"          element={<RequireAdmin><AdminPage /></RequireAdmin>} />

@@ -93,9 +93,9 @@ export function TrustBotPage() {
                 {msg.role === "assistant" && (
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
                     </div>
-                    <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider">TrustBot</span>
+                    <span className="text-[10px] font-mono text-blue-500 uppercase tracking-wider">TrustBot</span>
                   </div>
                 )}
                 <div className="text-sm whitespace-pre-wrap leading-relaxed">
@@ -113,7 +113,7 @@ export function TrustBotPage() {
               <div className="bg-[--surface-base] border border-[--border-subtle] rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                   </div>
                   <span className="text-xs text-[--text-tertiary]">Analyzing...</span>
                 </div>
@@ -175,7 +175,7 @@ function MarkdownLite({ content }: { content: string }) {
 
         // List items
         if (line.startsWith("- ")) {
-          return <div key={i} className="pl-3 relative before:content-['·'] before:absolute before:left-0 before:text-cyan-400">{rendered.map((r, idx) => idx === 0 ? <span key={idx}>{String(parts[0]).slice(2)}{parts.length > 1 ? rendered.slice(1) : null}</span> : null)}</div>;
+          return <div key={i} className="pl-3 relative before:content-['·'] before:absolute before:left-0 before:text-blue-500">{rendered.map((r, idx) => idx === 0 ? <span key={idx}>{String(parts[0]).slice(2)}{parts.length > 1 ? rendered.slice(1) : null}</span> : null)}</div>;
         }
 
         // Empty line = paragraph break

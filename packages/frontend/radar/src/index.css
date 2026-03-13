@@ -3,19 +3,27 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   TRUST RADAR DESIGN SYSTEM v2
-   Color System — Cyber-Intelligence Teal/Navy Identity
-   Surface System — 5-level elevation with teal undertone
+   TRUST RADAR DESIGN SYSTEM v3
+   Color System — Command Center Electric Blue Identity
+   Primary:   Electric Blue #3B82F6 (Command Center primary)
+   Secondary: Cyan #22D3EE (health/status indicators)
+   Surface System — 5-level elevation with blue undertone
    Typography — Geist (body) + Geist Mono (data) + Clash Display (headlines)
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand Cyan/Teal ─────────────────────────────────────── */
+  /* ── Primary (Electric Blue) ──────────────────────────────── */
+  --primary:       #3B82F6;   /* PRIMARY ACCENT — Command Center blue */
+  --primary-hover: #2563EB;
+  --primary-dim:   #1D4ED8;
+  --primary-rgb:   59 130 246;
+
+  /* ── Secondary (Cyan — health/status indicators only) ──────── */
   --cyan-50:  #ECFEFF;
   --cyan-100: #CFFAFE;
   --cyan-200: #A5F3FC;
   --cyan-300: #67E8F9;
-  --cyan-400: #22D3EE;    /* PRIMARY ACCENT */
+  --cyan-400: #22D3EE;    /* SECONDARY ACCENT — status/health only */
   --cyan-500: #06B6D4;    /* Interactive states */
   --cyan-600: #0891B2;
 
@@ -66,12 +74,14 @@ html.dark, :root {
   --border-default:     rgba(148, 163, 184, 0.15);
   --border-strong:      rgba(148, 163, 184, 0.25);
   --border-cyan:        rgba(34, 211, 238, 0.25);
+  --border-primary:     rgba(59, 130, 246, 0.30);
   --border-default-hex: #1E293B;
   --border-strong-hex:  #334155;
 
-  --glow-cyan: 0 0 60px rgba(34, 211, 238, 0.12);
-  --glow-blue: 0 0 60px rgba(59, 130, 246, 0.15);
-  --glow-red:  0 0 40px rgba(239, 68, 68, 0.18);
+  --glow-primary: 0 0 60px rgba(59, 130, 246, 0.20);
+  --glow-cyan:    0 0 60px rgba(34, 211, 238, 0.12);
+  --glow-blue:    0 0 60px rgba(59, 130, 246, 0.15);
+  --glow-red:     0 0 40px rgba(239, 68, 68, 0.18);
 }
 
 /* ── Light Mode ─────────────────────────────────────────────── */
@@ -97,6 +107,7 @@ html.light {
   --border-default:     rgba(15, 23, 42, 0.12);
   --border-strong:      rgba(15, 23, 42, 0.20);
   --border-cyan:        rgba(6, 182, 212, 0.25);
+  --border-primary:     rgba(59, 130, 246, 0.30);
   --border-default-hex: #E2E8F0;
   --border-strong-hex:  #CBD5E1;
 }
@@ -126,11 +137,11 @@ html.light {
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--surface-void); }
   ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 9999px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(var(--cyan-rgb), 0.4); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(var(--primary-rgb), 0.4); border-radius: 9999px; }
 
-  /* Focus ring — cyan, visible against all backgrounds */
+  /* Focus ring — blue, visible against all backgrounds */
   :focus-visible {
-    outline: 2px solid var(--cyan-400);
+    outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
 
@@ -164,9 +175,9 @@ html.light {
   }
   .card-featured {
     background: var(--surface-raised);
-    border: 1px solid var(--border-cyan);
+    border: 1px solid var(--border-primary);
     border-radius: 16px;
-    box-shadow: inset 0 1px 0 rgba(var(--cyan-rgb), 0.08);
+    box-shadow: inset 0 1px 0 rgba(var(--primary-rgb), 0.08);
   }
   .card-threat {
     background: var(--surface-raised);
@@ -197,15 +208,15 @@ html.light {
   }
   .input::placeholder { color: var(--text-tertiary); }
   .input:focus {
-    border-color: var(--cyan-400);
-    box-shadow: 0 0 0 3px rgba(var(--cyan-rgb), 0.12);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12);
   }
   .input:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Buttons ────────────────────────────────────────────── */
   .btn-primary {
-    background: var(--cyan-400);
-    color: var(--surface-void);
+    background: var(--primary);
+    color: #ffffff;
     font-weight: 600;
     font-size: 14px;
     padding: 10px 20px;
@@ -214,8 +225,8 @@ html.light {
     cursor: pointer;
     transition: background 150ms ease, opacity 150ms ease;
   }
-  .btn-primary:hover { background: var(--cyan-500); }
-  .btn-primary:active { background: var(--cyan-600); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:active { background: var(--primary-dim); }
   .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .btn-ghost {
@@ -261,13 +272,13 @@ html.light {
     font-family: "Geist Mono", "JetBrains Mono", monospace;
     padding: 2px 8px;
     border-radius: 6px;
-    border: 1px solid rgba(var(--cyan-rgb), 0.4);
-    color: var(--cyan-400);
+    border: 1px solid rgba(var(--primary-rgb), 0.4);
+    color: var(--primary);
     background: transparent;
     cursor: pointer;
     transition: background 150ms ease;
   }
-  .btn-ack:hover { background: rgba(var(--cyan-rgb), 0.1); }
+  .btn-ack:hover { background: rgba(var(--primary-rgb), 0.1); }
 
   /* ── Base Badge ──────────────────────────────────────────── */
   .badge {
@@ -282,9 +293,9 @@ html.light {
     text-transform: uppercase;
   }
   .badge-info {
-    background: rgba(var(--cyan-rgb), 0.10);
-    border: 1px solid rgba(var(--cyan-rgb), 0.25);
-    color: var(--cyan-400);
+    background: rgba(var(--primary-rgb), 0.10);
+    border: 1px solid rgba(var(--primary-rgb), 0.25);
+    color: var(--primary);
   }
 
   /* ── Threat Badges ──────────────────────────────────────── */
@@ -327,7 +338,7 @@ html.light {
   }
 
   /* ── Status Badges ──────────────────────────────────────── */
-  .badge-new       { background: rgba(var(--cyan-rgb), 0.15); border: 1px solid rgba(var(--cyan-rgb), 0.30); color: var(--cyan-200); }
+  .badge-new       { background: rgba(var(--primary-rgb), 0.15); border: 1px solid rgba(var(--primary-rgb), 0.30); color: #93C5FD; }
   .badge-draft     { background: var(--surface-float); border: 1px solid var(--border-subtle); color: var(--text-tertiary); }
   .badge-submitted { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.30); color: #93C5FD; }
   .badge-dismissed { background: var(--surface-float); border: 1px solid var(--border-subtle); color: var(--text-disabled); }
@@ -342,7 +353,7 @@ html.light {
     font-family: "Geist Mono", "JetBrains Mono", monospace;
     font-weight: 500;
   }
-  .badge-alpha  { background: rgba(var(--cyan-rgb), 0.15);   color: var(--cyan-400); }
+  .badge-alpha  { background: rgba(var(--primary-rgb), 0.15); color: var(--primary); }
   .badge-beta   { background: rgba(var(--green-rgb), 0.15);  color: #22C55E; }
   .badge-gamma  { background: rgba(var(--yellow-rgb), 0.15); color: #EAB308; }
   .badge-node   { background: rgba(var(--purple-rgb), 0.15); color: #8B5CF6; }
@@ -372,9 +383,9 @@ html.light {
     padding: 7px 12px;
     border-radius: 8px;
     font-size: 13px;
-    color: var(--cyan-400);
-    background: rgba(var(--cyan-rgb), 0.08);
-    border-left: 3px solid var(--cyan-400);
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.08);
+    border-left: 3px solid var(--primary);
     margin-left: -3px;
     cursor: pointer;
     text-decoration: none;
@@ -412,6 +423,14 @@ html.light {
   /* ── Gradient text ──────────────────────────────────────── */
   .gradient-text-cyan {
     background: linear-gradient(135deg, var(--cyan-300) 0%, var(--cyan-500) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Primary gradient text ──────────────────────────────── */
+  .gradient-text-primary {
+    background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 50%, #2563EB 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -485,15 +504,15 @@ html.light {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(34, 211, 238, 0.0) 10%,
-    rgba(34, 211, 238, 0.15) 30%,
-    rgba(34, 211, 238, 0.25) 50%,
-    rgba(34, 211, 238, 0.15) 70%,
-    rgba(34, 211, 238, 0.0) 90%,
+    rgba(59, 130, 246, 0.0) 10%,
+    rgba(59, 130, 246, 0.15) 30%,
+    rgba(59, 130, 246, 0.25) 50%,
+    rgba(59, 130, 246, 0.15) 70%,
+    rgba(59, 130, 246, 0.0) 90%,
     transparent 100%
   );
   animation: scanLine 6s ease-in-out infinite;
-  box-shadow: 0 0 15px rgba(34, 211, 238, 0.08), 0 0 40px rgba(34, 211, 238, 0.04);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.08), 0 0 40px rgba(59, 130, 246, 0.04);
 }
 
 /* ── Threat map ambient pulse ───────────────────────────────── */

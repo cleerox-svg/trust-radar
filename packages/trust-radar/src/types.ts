@@ -7,6 +7,8 @@ export interface Env {
   LRX_API_URL: string;
   LRX_API_KEY: string;
   ENVIRONMENT: string;
+  /** Durable Object for WebSocket real-time push */
+  THREAT_PUSH_HUB: DurableObjectNamespace;
 }
 
 export type RiskLevel = "safe" | "low" | "medium" | "high" | "critical";

@@ -23,6 +23,7 @@ import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
 } from "./handlers/threats";
+import { handleCorrelations } from "./handlers/correlations";
 import { handleGenerateBriefing, handleListBriefingHistory } from "./handlers/briefing";
 import {
   handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
@@ -45,6 +46,7 @@ import {
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleValidateInvite, handleRevokeInvite } from "./handlers/invites";
 import type { Env } from "./types";
+export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
 const router = Router();
 
@@ -259,6 +261,11 @@ router.post("/api/feeds/trigger-tier/:tier", async (request: Request & { params:
 });
 
 // ─── Threats ───────────────────────────────────────────────
+router.get("/api/threats/correlations", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCorrelations(request, env);
+});
 router.get("/api/threats", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -526,6 +533,15 @@ router.get("/", () =>
 router.get("/scan/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
   handleScanPage(request, env, request.params["id"] ?? "")
 );
+
+// ─── WebSocket — ThreatPushHub Durable Object ─────────────────
+router.get("/ws/threats", async (request: Request, env: Env) => {
+  // Optional: require auth header for WS upgrade
+  // For now, open WebSocket (protected by origin/CORS in production)
+  const id = env.THREAT_PUSH_HUB.idFromName("global");
+  const hub = env.THREAT_PUSH_HUB.get(id);
+  return hub.fetch(request);
+});
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 router.all("*", (request: Request, env: Env) => {

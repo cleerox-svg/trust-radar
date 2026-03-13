@@ -13,13 +13,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* ── Brand Cyan/Teal ──────────────────────── */
+        /* ── Primary (Electric Blue) ──────────────── */
+        primary: {
+          DEFAULT: "#3B82F6",
+          hover:   "#2563EB",
+          dim:     "#1D4ED8",
+          light:   "#60A5FA",
+        },
+        /* ── Secondary Cyan (status/health only) ──── */
         cyan: {
           50:  "#ECFEFF",
           100: "#CFFAFE",
           200: "#A5F3FC",
           300: "#67E8F9",
-          400: "#22D3EE",   // PRIMARY ACCENT
+          400: "#22D3EE",   // SECONDARY — status/health indicators only
           500: "#06B6D4",   // Interactive states
           600: "#0891B2",
           DEFAULT: "#22D3EE",
@@ -68,7 +75,8 @@ export default {
           card:       "var(--surface-raised)",
           border:     "var(--border-default-hex)",
           "border-2": "var(--border-strong-hex)",
-          cyan:       "#22D3EE",
+          primary:    "#3B82F6",  // primary alias (replaces cyan as primary)
+          cyan:       "#22D3EE",  // retained for status/health use
           "cyan-dim": "#06B6D4",
           green:      "#22C55E",
           "green-dim":"#16A34A",
@@ -89,10 +97,11 @@ export default {
       },
 
       boxShadow: {
-        "glow-cyan":  "0 0 60px rgba(34, 211, 238, 0.12)",
-        "glow-blue":  "0 0 60px rgba(59, 130, 246, 0.15)",
-        "glow-red":   "0 0 40px rgba(239, 68, 68, 0.18)",
-        "card-raised": "0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2)",
+        "glow-primary": "0 0 60px rgba(59, 130, 246, 0.20)",
+        "glow-cyan":    "0 0 60px rgba(34, 211, 238, 0.12)",
+        "glow-blue":    "0 0 60px rgba(59, 130, 246, 0.15)",
+        "glow-red":     "0 0 40px rgba(239, 68, 68, 0.18)",
+        "card-raised":  "0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2)",
       },
 
       borderRadius: {
