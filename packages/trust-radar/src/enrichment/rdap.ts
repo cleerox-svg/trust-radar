@@ -35,9 +35,7 @@ export async function enrichRdap(db: D1Database, _env: Env): Promise<EnrichmentR
 
   let enriched = 0, skipped = 0, errors = 0;
 
-  for (let i = 0; i < rows.results.length; i++) {
-    const row = rows.results[i];
-
+  for (const row of rows.results) {
     try {
       const apexDomain = getApexDomain(row.domain);
       const rdapData = await fetchRdap(apexDomain);
@@ -45,6 +43,7 @@ export async function enrichRdap(db: D1Database, _env: Env): Promise<EnrichmentR
       if (!rdapData) {
         await markChecked(db, row.id, row.metadata, { rdap_checked: true });
         skipped++;
+        await sleep(RATE_LIMIT_MS);
         continue;
       }
 
@@ -86,9 +85,7 @@ export async function enrichRdap(db: D1Database, _env: Env): Promise<EnrichmentR
       errors++;
     }
 
-    if (i < rows.results.length - 1) {
-      await sleep(RATE_LIMIT_MS);
-    }
+    await sleep(RATE_LIMIT_MS);
   }
 
   return { enriched, skipped, errors };
@@ -125,9 +122,9 @@ function getApexDomain(domain: string): string {
   const parts = domain.split(".");
   if (parts.length <= 2) return domain;
   // Handle common 2-level TLDs: co.uk, com.au, org.uk, etc.
-  const sld = parts[parts.length - 2];
+  const sld = parts[parts.length - 2] ?? "";
   const knownSlds = new Set(["co", "com", "org", "net", "gov", "edu", "ac", "ltd", "plc"]);
-  if (sld.length <= 3 && knownSlds.has(sld)) {
+  if (sld.length > 0 && sld.length <= 3 && knownSlds.has(sld)) {
     return parts.slice(-3).join(".");
   }
   return parts.slice(-2).join(".");

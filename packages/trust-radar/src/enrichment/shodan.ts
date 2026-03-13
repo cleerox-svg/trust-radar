@@ -37,9 +37,8 @@ export async function enrichShodan(db: D1Database, env: Env): Promise<Enrichment
 
   let enriched = 0, skipped = 0, errors = 0;
 
-  for (let i = 0; i < rows.results.length; i++) {
-    const row = rows.results[i];
-
+  for (const row of rows.results) {
+    let liveFetch = false;
     try {
       const cacheKey = CACHE_PREFIX + row.ip_address;
       let data: ShodanResult | null = null;
@@ -49,23 +48,20 @@ export async function enrichShodan(db: D1Database, env: Env): Promise<Enrichment
       if (cached) {
         data = JSON.parse(cached) as ShodanResult;
       } else {
+        liveFetch = true;
         const res = await fetch(`https://internetdb.shodan.io/${row.ip_address}`);
         if (res.status === 404) {
           // IP not indexed — mark as checked so we don't retry
           await markChecked(db, row.id, row.metadata, { shodan_checked: true, shodan_indexed: false });
           await env.CACHE.put(cacheKey, JSON.stringify(null), { expirationTtl: CACHE_TTL });
           skipped++;
+          await sleep(RATE_LIMIT_MS);
           continue;
         }
-        if (!res.ok) { errors++; continue; }
+        if (!res.ok) { errors++; await sleep(RATE_LIMIT_MS); continue; }
 
         data = await res.json() as ShodanResult;
         await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
-
-        // Rate limit between live requests
-        if (i < rows.results.length - 1) {
-          await sleep(RATE_LIMIT_MS);
-        }
       }
 
       if (!data) { skipped++; continue; }
@@ -104,6 +100,8 @@ export async function enrichShodan(db: D1Database, env: Env): Promise<Enrichment
       console.error(`[shodan] error for ${row.ip_address}:`, err);
       errors++;
     }
+
+    if (liveFetch) await sleep(RATE_LIMIT_MS);
   }
 
   return { enriched, skipped, errors };
