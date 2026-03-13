@@ -293,11 +293,11 @@ export async function runAllFeeds(env: Env, feedModules: Record<string, FeedModu
     const checks = await Promise.all(tierSchedules.map(s => shouldRun(s, now)));
 
     const toRun: Array<{ schedule: FeedScheduleRow; mod: FeedModule }> = [];
-    for (let i = 0; i < tierSchedules.length; i++) {
-      if (!checks[i].run) { feedsSkipped++; continue; }
-      const mod = feedModules[tierSchedules[i].feed_name];
+    for (const [i, schedule] of tierSchedules.entries()) {
+      if (!checks[i]?.run) { feedsSkipped++; continue; }
+      const mod = feedModules[schedule.feed_name];
       if (!mod) { feedsSkipped++; continue; }
-      toRun.push({ schedule: tierSchedules[i], mod });
+      toRun.push({ schedule, mod });
     }
 
     // Run all eligible feeds in this tier concurrently
@@ -353,7 +353,7 @@ export async function runTier(env: Env, tier: number, feedModules: Record<string
 
   const checks = await Promise.all(schedules.results.map(s => shouldRun(s, now)));
   const toRun = schedules.results
-    .filter((_, i) => checks[i].run)
+    .filter((_, i) => checks[i]?.run)
     .flatMap(s => {
       const mod = feedModules[s.feed_name];
       return mod ? [{ schedule: s, mod }] : [];
