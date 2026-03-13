@@ -275,23 +275,44 @@ export async function runAllFeeds(env: Env, feedModules: Record<string, FeedModu
   let feedsFailed = 0;
   let totalNew = 0;
 
-  for (const schedule of schedules.results) {
-    const { run, reason } = await shouldRun(schedule, now);
-    if (!run) {
-      feedsSkipped++;
-      continue;
+  // Group by tier so feeds within each tier run concurrently
+  const byTier = new Map<number, FeedScheduleRow[]>();
+  for (const s of schedules.results) {
+    const arr = byTier.get(s.tier) ?? [];
+    arr.push(s);
+    byTier.set(s.tier, arr);
+  }
+
+  const tiers = [...byTier.keys()].sort((a, b) => a - b);
+
+  for (const tier of tiers) {
+    const tierSchedules = byTier.get(tier)!;
+
+    // Eligibility checks (shouldRun is pure date logic — safe to fan out)
+    const checks = await Promise.all(tierSchedules.map(s => shouldRun(s, now)));
+
+    const toRun: Array<{ schedule: FeedScheduleRow; mod: FeedModule }> = [];
+    for (let i = 0; i < tierSchedules.length; i++) {
+      if (!checks[i].run) { feedsSkipped++; continue; }
+      const mod = feedModules[tierSchedules[i].feed_name];
+      if (!mod) { feedsSkipped++; continue; }
+      toRun.push({ schedule: tierSchedules[i], mod });
     }
 
-    const mod = feedModules[schedule.feed_name];
-    if (!mod) {
-      feedsSkipped++;
-      continue;
-    }
+    // Run all eligible feeds in this tier concurrently
+    const results = await Promise.allSettled(
+      toRun.map(({ schedule, mod }) => runFeed(env, schedule, mod))
+    );
 
-    const result = await runFeed(env, schedule, mod);
-    feedsRun++;
-    totalNew += result.itemsNew;
-    if (result.error) feedsFailed++;
+    for (const r of results) {
+      feedsRun++;
+      if (r.status === "fulfilled") {
+        totalNew += r.value.itemsNew;
+        if (r.value.error) feedsFailed++;
+      } else {
+        feedsFailed++;
+      }
+    }
   }
 
   // Post-ingestion: enrich threats missing country_code via GeoIP
@@ -326,16 +347,21 @@ export async function runTier(env: Env, tier: number, feedModules: Record<string
   let feedsRun = 0;
   let totalNew = 0;
 
-  for (const schedule of schedules.results) {
-    const { run } = await shouldRun(schedule, now);
-    if (!run) continue;
+  const checks = await Promise.all(schedules.results.map(s => shouldRun(s, now)));
+  const toRun = schedules.results
+    .filter((_, i) => checks[i].run)
+    .flatMap(s => {
+      const mod = feedModules[s.feed_name];
+      return mod ? [{ schedule: s, mod }] : [];
+    });
 
-    const mod = feedModules[schedule.feed_name];
-    if (!mod) continue;
+  const results = await Promise.allSettled(
+    toRun.map(({ schedule, mod }) => runFeed(env, schedule, mod))
+  );
 
-    const result = await runFeed(env, schedule, mod);
+  for (const r of results) {
     feedsRun++;
-    totalNew += result.itemsNew;
+    if (r.status === "fulfilled") totalNew += r.value.itemsNew;
   }
 
   return { feedsRun, totalNew };

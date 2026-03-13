@@ -43,7 +43,7 @@ export const otx: FeedModule = {
     };
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const pulses = (body.results ?? []).slice(0, 50);
+    const pulses = (body.results ?? []).slice(0, 100);
 
     const typeMap: Record<string, string> = {
       IPv4: "ip", IPv6: "ip", domain: "domain", hostname: "domain",
@@ -53,7 +53,7 @@ export const otx: FeedModule = {
 
     for (const pulse of pulses) {
       try {
-        const indicators = (pulse.indicators ?? []).slice(0, 20);
+        const indicators = (pulse.indicators ?? []).slice(0, 100);
 
         for (const ioc of indicators) {
           const iocType = typeMap[ioc.type] ?? "domain";

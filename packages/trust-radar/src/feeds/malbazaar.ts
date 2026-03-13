@@ -8,7 +8,7 @@ export const malbazaar: FeedModule = {
     const res = await fetch(ctx.feedUrl, {
       method: ctx.method || "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", ...ctx.headers },
-      body: "query=get_recent&selector=100",
+      body: "query=get_recent&selector=time",
     });
     if (!res.ok) throw new Error(`MalBazaar HTTP ${res.status}`);
 
@@ -33,7 +33,7 @@ export const malbazaar: FeedModule = {
     }
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = body.data.slice(0, 500);
+    const items = body.data.slice(0, 1000);
 
     for (const sample of items) {
       try {

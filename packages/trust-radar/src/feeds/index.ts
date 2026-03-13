@@ -4,11 +4,13 @@ import type { FeedModule } from "./types";
 import { threatfox } from "./threatfox";
 import { feodo } from "./feodo";
 import { phishtank } from "./phishtank";
+import { openphish } from "./openphish";
 
 // Tier 2 — High-priority feeds (15min interval)
 import { cisa_kev } from "./cisa_kev";
 import { sslbl } from "./sslbl";
 import { malbazaar } from "./malbazaar";
+import { urlhaus } from "./urlhaus";
 
 // Tier 3 — Standard feeds (30-60min interval)
 import { sans_isc } from "./sans_isc";
@@ -17,6 +19,7 @@ import { tor_exits } from "./tor_exits";
 import { ipsum } from "./ipsum";
 import { spamhaus } from "./spamhaus";
 import { blocklist_de } from "./blocklist_de";
+import { disposableemails } from "./disposableemails";
 
 // Tier 4 — Social/OSINT feeds (60min interval)
 import { tweetfeed } from "./tweetfeed";
@@ -42,10 +45,12 @@ export const feedModules: Record<string, FeedModule> = {
   threatfox,
   feodo,
   phishtank,
+  openphish,
   // Tier 2
   cisa_kev,
   sslbl,
   malbazaar,
+  urlhaus,
   // Tier 3
   sans_isc,
   ransomwatch,
@@ -54,6 +59,7 @@ export const feedModules: Record<string, FeedModule> = {
   spamhaus,
   spamhaus_drop: spamhaus,       // DB alias
   blocklist_de,
+  disposableemails,
   // Tier 4
   tweetfeed,
   mastodon_ioc,
