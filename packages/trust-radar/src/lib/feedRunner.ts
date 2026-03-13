@@ -12,6 +12,7 @@
 import type { Env } from "../types";
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "../feeds/types";
 import { enrichThreatsGeo } from "./geoip";
+import { runEnrichmentChain } from "../enrichment";
 
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_RESET_MS = 30 * 60 * 1000; // 30 minutes
@@ -275,34 +276,58 @@ export async function runAllFeeds(env: Env, feedModules: Record<string, FeedModu
   let feedsFailed = 0;
   let totalNew = 0;
 
-  for (const schedule of schedules.results) {
-    const { run, reason } = await shouldRun(schedule, now);
-    if (!run) {
-      feedsSkipped++;
-      continue;
-    }
-
-    const mod = feedModules[schedule.feed_name];
-    if (!mod) {
-      feedsSkipped++;
-      continue;
-    }
-
-    const result = await runFeed(env, schedule, mod);
-    feedsRun++;
-    totalNew += result.itemsNew;
-    if (result.error) feedsFailed++;
+  // Group by tier so feeds within each tier run concurrently
+  const byTier = new Map<number, FeedScheduleRow[]>();
+  for (const s of schedules.results) {
+    const arr = byTier.get(s.tier) ?? [];
+    arr.push(s);
+    byTier.set(s.tier, arr);
   }
 
-  // Post-ingestion: enrich threats missing country_code via GeoIP
+  const tiers = [...byTier.keys()].sort((a, b) => a - b);
+
+  for (const tier of tiers) {
+    const tierSchedules = byTier.get(tier)!;
+
+    // Eligibility checks (shouldRun is pure date logic — safe to fan out)
+    const checks = await Promise.all(tierSchedules.map(s => shouldRun(s, now)));
+
+    const toRun: Array<{ schedule: FeedScheduleRow; mod: FeedModule }> = [];
+    for (const [i, schedule] of tierSchedules.entries()) {
+      if (!checks[i]?.run) { feedsSkipped++; continue; }
+      const mod = feedModules[schedule.feed_name];
+      if (!mod) { feedsSkipped++; continue; }
+      toRun.push({ schedule, mod });
+    }
+
+    // Run all eligible feeds in this tier concurrently
+    const results = await Promise.allSettled(
+      toRun.map(({ schedule, mod }) => runFeed(env, schedule, mod))
+    );
+
+    for (const r of results) {
+      feedsRun++;
+      if (r.status === "fulfilled") {
+        totalNew += r.value.itemsNew;
+        if (r.value.error) feedsFailed++;
+      } else {
+        feedsFailed++;
+      }
+    }
+  }
+
+  // Post-ingestion enrichment chain
   if (totalNew > 0) {
     try {
       const geo = await enrichThreatsGeo(env.DB);
-      console.log(`[geoip] enriched ${geo.enriched}/${geo.total} threats with country codes`);
+      console.log(`[geoip] enriched ${geo.enriched}/${geo.total} threats with geo/lat/lng`);
     } catch (err) {
-      console.error("[geoip] post-ingestion enrichment failed:", err);
+      console.error("[geoip] enrichment failed:", err);
     }
   }
+  // Shodan, RDAP, DNS enrichers run every cycle — they use metadata flags to
+  // skip already-enriched threats, so this efficiently catches any backlog too.
+  await runEnrichmentChain(env.DB, env);
 
   // Update job
   const status = feedsFailed === feedsRun ? "failed" : feedsFailed > 0 ? "partial" : "success";
@@ -326,16 +351,21 @@ export async function runTier(env: Env, tier: number, feedModules: Record<string
   let feedsRun = 0;
   let totalNew = 0;
 
-  for (const schedule of schedules.results) {
-    const { run } = await shouldRun(schedule, now);
-    if (!run) continue;
+  const checks = await Promise.all(schedules.results.map(s => shouldRun(s, now)));
+  const toRun = schedules.results
+    .filter((_, i) => checks[i]?.run)
+    .flatMap(s => {
+      const mod = feedModules[s.feed_name];
+      return mod ? [{ schedule: s, mod }] : [];
+    });
 
-    const mod = feedModules[schedule.feed_name];
-    if (!mod) continue;
+  const results = await Promise.allSettled(
+    toRun.map(({ schedule, mod }) => runFeed(env, schedule, mod))
+  );
 
-    const result = await runFeed(env, schedule, mod);
+  for (const r of results) {
     feedsRun++;
-    totalNew += result.itemsNew;
+    if (r.status === "fulfilled") totalNew += r.value.itemsNew;
   }
 
   return { feedsRun, totalNew };

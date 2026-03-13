@@ -21,7 +21,7 @@ export const threatfox: FeedModule = {
     if (data.query_status !== "ok" || !data.data) return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0, threatsCreated: 0 };
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = data.data.slice(0, 500); // Cap per run
+    const items = data.data.slice(0, 1500);
 
     for (const ioc of items) {
       try {

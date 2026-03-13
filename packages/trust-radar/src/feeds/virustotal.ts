@@ -21,7 +21,7 @@ export const virustotal: FeedModule = {
 
     // Try the intelligence search endpoint first (premium)
     const searchUrl = "https://www.virustotal.com/api/v3/intelligence/search?query=" +
-      encodeURIComponent("entity:url p:5+ last_analysis_date:1d+") + "&limit=100";
+      encodeURIComponent("entity:url p:5+ last_analysis_date:1d+") + "&limit=200";
 
     const res = await fetch(searchUrl, { headers });
 
@@ -68,7 +68,7 @@ interface VTSearchResponse {
 
 async function parseUrlResults(ctx: FeedContext, body: VTSearchResponse): Promise<FeedResult> {
   let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-  const items = (body.data ?? []).slice(0, 200);
+  const items = (body.data ?? []).slice(0, 500);
 
   for (const entry of items) {
     try {

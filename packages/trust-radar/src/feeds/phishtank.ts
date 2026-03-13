@@ -14,7 +14,7 @@ export const phishtank: FeedModule = {
     }>;
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = data.slice(0, 500);
+    const items = data.slice(0, 2000);
 
     for (const entry of items) {
       try {

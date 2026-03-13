@@ -13,7 +13,7 @@ export const abuseipdb: FeedModule = {
       url.searchParams.set("confidenceMinimum", "100");
     }
     if (!url.searchParams.has("limit")) {
-      url.searchParams.set("limit", "500");
+      url.searchParams.set("limit", "1000");
     }
 
     const res = await fetch(url.toString(), {
@@ -52,7 +52,7 @@ export const abuseipdb: FeedModule = {
     };
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = (body.data ?? []).slice(0, 500);
+    const items = (body.data ?? []).slice(0, 1000);
 
     for (const entry of items) {
       try {

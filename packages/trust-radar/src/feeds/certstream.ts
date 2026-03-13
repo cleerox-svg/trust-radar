@@ -30,7 +30,7 @@ export const certstream: FeedModule = {
     }>;
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = (Array.isArray(data) ? data : []).slice(0, 200);
+    const items = (Array.isArray(data) ? data : []).slice(0, 500);
 
     // Additional filter: skip wildcard-only and legitimate results
     const suspiciousPatterns = /(?:paypal|apple|google|microsoft|amazon|netflix|bank|login|secure|verify|account|update|signin|support)/i;
