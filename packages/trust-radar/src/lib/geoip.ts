@@ -12,6 +12,8 @@ export interface GeoIPResult {
   isp: string | null;
   org: string | null;
   as: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 interface IpApiBatchResponse {
@@ -22,6 +24,8 @@ interface IpApiBatchResponse {
   isp?: string;
   org?: string;
   as?: string;
+  lat?: number;
+  lon?: number;
 }
 
 /**
@@ -40,7 +44,7 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
     const chunk = uniqueIps.slice(i, i + CHUNK_SIZE);
 
     try {
-      const res = await fetch("http://ip-api.com/batch?fields=status,query,countryCode,country,isp,org,as", {
+      const res = await fetch("http://ip-api.com/batch?fields=status,query,countryCode,country,isp,org,as,lat,lon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(chunk),
@@ -62,6 +66,8 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
             isp: entry.isp ?? null,
             org: entry.org ?? null,
             as: entry.as ?? null,
+            lat: entry.lat ?? null,
+            lng: entry.lon ?? null,
           });
         }
       }
@@ -111,11 +117,13 @@ export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: numb
           hosting_provider = COALESCE(hosting_provider, ?),
           asn = COALESCE(asn, ?),
           is_datacenter = CASE WHEN ? IS NOT NULL THEN 1 ELSE is_datacenter END,
+          lat = COALESCE(lat, ?),
+          lng = COALESCE(lng, ?),
           updated_at = datetime('now')
         WHERE id = ?`
       ).bind(
         geo.countryCode, geo.isp, hostingProvider, geo.as,
-        hostingProvider, row.id,
+        hostingProvider, geo.lat, geo.lng, row.id,
       ).run();
       enriched++;
     } catch (err) {

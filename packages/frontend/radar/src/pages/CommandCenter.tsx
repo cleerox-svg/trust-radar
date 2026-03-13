@@ -337,8 +337,7 @@ export default function CommandCenter() {
     const list = threatList?.threats ?? [];
     return list
       .filter((t): t is Threat & { lat: number; lng: number } =>
-        typeof (t as Threat & { lat?: number }).lat === "number" &&
-        typeof (t as Threat & { lng?: number }).lng === "number"
+        typeof t.lat === "number" && typeof t.lng === "number"
       )
       .map((t) => ({
         id: t.id,
@@ -346,8 +345,8 @@ export default function CommandCenter() {
         severity: (t.severity as ThreatPoint["severity"]) ?? "low",
         title: t.title ?? t.domain ?? t.ioc_value ?? "Unknown",
         country_code: t.country_code ?? undefined,
-        lat: (t as Threat & { lat: number }).lat,
-        lng: (t as Threat & { lng: number }).lng,
+        lat: t.lat,
+        lng: t.lng,
         source: t.source ?? undefined,
       }));
   }, [threatList]);
@@ -381,8 +380,48 @@ export default function CommandCenter() {
         </div>
       </div>
 
-      {/* ── Main area: map + docks ────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── Mobile layout: widgets above, map below ──────────── */}
+      <div className="flex flex-col flex-1 overflow-hidden md:hidden">
+        {/* Mobile panel tabs */}
+        <div
+          className="flex border-b shrink-0"
+          style={{ borderColor: "var(--border-subtle)", background: "var(--surface-elevated)" }}
+        >
+          <button
+            onClick={() => { setLeftOpen(true); setRightOpen(false); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-mono transition-colors"
+            style={{ color: leftOpen ? "var(--primary)" : "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", borderBottom: leftOpen ? "2px solid var(--primary)" : "2px solid transparent" }}
+          >
+            <Activity className="w-3 h-3" />
+            LIVE FEED
+          </button>
+          <button
+            onClick={() => { setRightOpen(true); setLeftOpen(false); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-mono transition-colors"
+            style={{ color: rightOpen ? "var(--primary)" : "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", borderBottom: rightOpen ? "2px solid var(--primary)" : "2px solid transparent" }}
+          >
+            <Layers className="w-3 h-3" />
+            MATRIX
+          </button>
+        </div>
+
+        {/* Mobile widget panel */}
+        <div
+          className="overflow-y-auto shrink-0"
+          style={{ maxHeight: "40vh", background: "var(--surface-elevated)" }}
+        >
+          {leftOpen && <LiveFeedPanel recentThreats={recentThreats} />}
+          {rightOpen && <CorrelationMatrix live />}
+        </div>
+
+        {/* Map at the bottom on mobile */}
+        <div className="flex-1 relative min-h-0">
+          <ThreatMapGL threats={threatPoints} className="absolute inset-0" />
+        </div>
+      </div>
+
+      {/* ── Desktop layout: side docks + map ──────────────────── */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         {/* Left dock */}
         <div className="flex z-10" style={{ pointerEvents: "all" }}>
           <DockPanel

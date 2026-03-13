@@ -251,6 +251,7 @@ export interface Threat {
   status: string; source: string; ioc_type: string | null; ioc_value: string | null;
   domain: string | null; ip_address: string | null; country_code: string | null;
   tags: string; first_seen: string; last_seen: string; created_at: string;
+  lat: number | null; lng: number | null;
 }
 export interface ThreatStats {
   summary: Record<string, number>;
