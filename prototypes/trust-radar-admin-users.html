@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Admin: Users & Roles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--blue-glow:rgba(0,212,255,.08);--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--purple:#b388ff;--purple-dim:rgba(138,43,226,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}
+.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}.logo span{color:var(--blue-primary)}
+.admin-badge{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--threat-medium);padding:3px 9px;border:1px solid rgba(255,182,39,.3);border-radius:3px;background:rgba(255,182,39,.08)}
+.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}.np.active{background:var(--bg-elevated);color:var(--threat-medium)}.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}.back-link{font-family:var(--font-body);font-size:11px;color:var(--blue-primary);border:none;background:none;cursor:pointer}.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+.main{overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+
+/* TABS */
+.page-tabs{display:flex;gap:0;border-bottom:1px solid var(--blue-border);margin-bottom:20px}
+.ptab{font-family:var(--font-display);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);padding:10px 20px 8px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}.ptab.active{color:var(--threat-medium);border-bottom-color:var(--threat-medium)}.ptab:hover:not(.active){color:var(--text-secondary)}
+.ptab-c{display:none}.ptab-c.visible{display:block}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.search{font-family:var(--font-body);font-size:12px;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);outline:none;width:240px}.search:focus{border-color:var(--blue-border-bright)}.search::placeholder{color:var(--text-tertiary)}
+.sel{font-family:var(--font-body);font-size:11px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;outline:none}
+.btn{font-family:var(--font-display);font-size:10px;font-weight:600;padding:7px 16px;border-radius:var(--radius);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+.btn-primary{border:1px solid var(--threat-medium);background:rgba(255,182,39,.08);color:var(--threat-medium)}.btn-primary:hover{background:rgba(255,182,39,.15)}
+
+/* TABLE */
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:10px 16px;border-bottom:1px solid var(--blue-border);white-space:nowrap}
+tbody tr{border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s;cursor:pointer}tbody tr:hover{background:var(--bg-hover)}
+td{padding:10px 16px;font-size:12px;vertical-align:middle}
+
+.user-cell{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;flex-shrink:0}
+.user-name{font-weight:500}.user-email{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}
+.role-pill{font-family:var(--font-mono);font-size:8px;font-weight:500;padding:2px 8px;border-radius:3px;letter-spacing:.3px}
+.role-pill.super_admin{background:rgba(255,182,39,.1);color:var(--threat-medium)}.role-pill.admin{background:var(--purple-dim);color:var(--purple)}.role-pill.analyst{background:var(--blue-glow);color:var(--blue-primary)}
+.status-pill{font-family:var(--font-mono);font-size:8px;padding:2px 8px;border-radius:3px}
+.status-pill.active{background:var(--positive-muted);color:var(--positive)}.status-pill.suspended{background:var(--negative-muted);color:var(--negative)}
+.action-btn{font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s}.action-btn:hover{border-color:var(--blue-border-bright);color:var(--text-primary)}
+
+/* INVITATION ROWS */
+.inv-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-surface);margin-bottom:6px}
+.inv-email{font-family:var(--font-mono);font-size:12px;flex:1}.inv-role{min-width:80px}.inv-sent{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);min-width:100px}
+.inv-status{min-width:80px}
+.inv-status .pending{background:rgba(255,182,39,.1);color:var(--threat-medium)}.inv-status .expired{background:var(--bg-elevated);color:var(--text-tertiary)}.inv-status .accepted{background:var(--positive-muted);color:var(--positive)}
+
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(4,8,16,.8);backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center}.modal-ov.vis{display:flex}
+.modal{background:var(--bg-surface);border:1px solid var(--blue-border-bright);border-radius:var(--radius-lg);padding:24px;width:440px}
+.modal-t{font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px}.modal-s{font-size:12px;color:var(--text-secondary);margin-bottom:20px}
+.fg{margin-bottom:14px}.fl{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:5px;display:block}
+.fi{font-family:var(--font-body);font-size:13px;padding:9px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;outline:none}.fi:focus{border-color:var(--blue-border-bright)}.fi::placeholder{color:var(--text-tertiary)}
+.fsel{font-family:var(--font-body);font-size:13px;padding:9px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;cursor:pointer;outline:none}
+.macts{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-c{font-family:var(--font-body);font-size:12px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer}
+.btn-s{font-family:var(--font-display);font-size:12px;font-weight:600;padding:8px 20px;border-radius:var(--radius);border:1px solid var(--threat-medium);background:rgba(255,182,39,.12);color:var(--threat-medium);cursor:pointer}
+
+/* DETAIL SLIDE-OUT */
+.slideout{position:fixed;top:52px;right:0;bottom:0;width:420px;background:var(--bg-surface);border-left:1px solid var(--blue-border-bright);z-index:150;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+.slideout.open{transform:translateX(0)}
+.so-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer}
+.so-header{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--blue-border)}
+.so-avatar{width:48px;height:48px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:18px;font-weight:700;flex-shrink:0}
+.so-name{font-family:var(--font-display);font-size:16px;font-weight:700}.so-email{font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary)}
+.so-section{margin-bottom:16px}.so-sect-title{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px}
+.so-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px}.so-row-l{color:var(--text-secondary)}.so-row-v{font-family:var(--font-mono);font-size:11px}
+.session-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,212,255,.05)}
+.sess-device{font-size:11px;flex:1}.sess-ip{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}.sess-active{font-family:var(--font-mono);font-size:9px;color:var(--positive)}
+.revoke-btn{font-family:var(--font-mono);font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid rgba(255,59,92,.2);background:rgba(255,59,92,.05);color:var(--negative);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <span class="admin-badge">Admin</span>
+      <nav class="nav-pills"><button class="np">Dashboard</button><button class="np active">Users</button><button class="np">Feeds</button><button class="np">Leads</button><button class="np">API Keys</button><button class="np">Agent Config</button><button class="np">Audit Log</button></nav>
+    </div>
+    <div class="topbar-right"><button class="back-link">← Back to Observatory</button><div class="ua">SA</div></div>
+  </header>
+  <main class="main">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Users & Roles</div>
+      <button class="btn btn-primary" id="inviteBtn"><span style="font-size:14px">+</span> Invite User</button>
+    </div>
+
+    <div class="page-tabs">
+      <div class="ptab active" data-tab="users">Active Users<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)">8</span></div>
+      <div class="ptab" data-tab="invites">Pending Invitations<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)">2</span></div>
+    </div>
+
+    <div class="ptab-c visible" id="tab-users">
+      <div class="controls">
+        <input class="search" placeholder="Search by name or email...">
+        <select class="sel"><option value="">All Roles</option><option>Super Admin</option><option>Admin</option><option>Analyst</option></select>
+        <select class="sel"><option value="">All Status</option><option>Active</option><option>Suspended</option></select>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Last Active</th><th>Actions</th></tr></thead>
+          <tbody id="user-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="ptab-c" id="tab-invites">
+      <div id="inv-list"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal-ov" id="invModal">
+  <div class="modal">
+    <div class="modal-t">Invite User</div>
+    <div class="modal-s">Send an invitation email with a secure token link. The recipient must authenticate with the matching Google account.</div>
+    <div class="fg"><label class="fl">Email Address</label><input class="fi" placeholder="user@company.com" id="invEmail"></div>
+    <div class="fg"><label class="fl">Role</label><select class="fsel" id="invRole"><option>Analyst</option><option>Admin</option></select></div>
+    <div class="macts"><button class="btn-c" id="invCancel">Cancel</button><button class="btn-s" id="invSend">Send Invitation</button></div>
+  </div>
+</div>
+
+<!-- User Detail Slide-out -->
+<div class="slideout" id="slideout">
+  <button class="so-close" id="soClose">×</button>
+  <div id="so-content"></div>
+</div>
+
+<script>
+const USERS=[
+  {id:'u1',name:'You (Owner)',email:'owner@lrxradar.com',role:'super_admin',status:'active',last_login:'2m ago',last_active:'Just now',created:'2026-01-10',login_count:342,color:'var(--threat-medium)',sessions:[{device:'Chrome / macOS',ip:'72.134.22.18',active:'Just now'},{device:'Claude Mobile App',ip:'72.134.22.20',active:'1h ago'}]},
+  {id:'u2',name:'Sarah Chen',email:'sarah@lrxradar.com',role:'admin',status:'active',last_login:'1h ago',last_active:'45m ago',created:'2026-01-15',login_count:218,color:'var(--purple)',sessions:[{device:'Firefox / Windows',ip:'98.42.115.7',active:'45m ago'}]},
+  {id:'u3',name:'James Rodriguez',email:'james@lrxradar.com',role:'admin',status:'active',last_login:'3h ago',last_active:'2h ago',created:'2026-02-01',login_count:156,color:'var(--purple)',sessions:[{device:'Chrome / Linux',ip:'104.28.33.12',active:'2h ago'}]},
+  {id:'u4',name:'Aisha Patel',email:'aisha@lrxradar.com',role:'analyst',status:'active',last_login:'30m ago',last_active:'15m ago',created:'2026-02-10',login_count:89,color:'var(--blue-primary)',sessions:[{device:'Safari / macOS',ip:'192.168.1.45',active:'15m ago'}]},
+  {id:'u5',name:'Mike Thompson',email:'mike@lrxradar.com',role:'analyst',status:'active',last_login:'4h ago',last_active:'3h ago',created:'2026-02-15',login_count:67,color:'var(--blue-primary)',sessions:[]},
+  {id:'u6',name:'Li Wei',email:'liwei@lrxradar.com',role:'analyst',status:'active',last_login:'1d ago',last_active:'22h ago',created:'2026-03-01',login_count:23,color:'var(--blue-primary)',sessions:[]},
+  {id:'u7',name:'Emma Davis',email:'emma@lrxradar.com',role:'analyst',status:'active',last_login:'6h ago',last_active:'5h ago',created:'2026-03-05',login_count:12,color:'var(--blue-primary)',sessions:[{device:'Chrome / Windows',ip:'82.13.44.91',active:'5h ago'}]},
+  {id:'u8',name:'Carlos Martinez',email:'carlos@lrxradar.com',role:'analyst',status:'suspended',last_login:'2w ago',last_active:'2w ago',created:'2026-02-20',login_count:34,color:'var(--text-tertiary)',sessions:[]},
+];
+
+const INVITES=[
+  {email:'jsmith@partnerco.com',role:'analyst',sent:'2h ago',expires:'in 70h',status:'pending'},
+  {email:'newanalyst@lrxradar.com',role:'analyst',sent:'1d ago',expires:'in 48h',status:'pending'},
+];
+
+function ini(n){return n.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+
+// Users table
+document.getElementById('user-tbody').innerHTML=USERS.map(u=>`
+  <tr data-id="${u.id}">
+    <td><div class="user-cell"><div class="avatar" style="color:${u.color}">${ini(u.name)}</div><div><div class="user-name">${u.name}</div><div class="user-email">${u.email}</div></div></div></td>
+    <td><span class="role-pill ${u.role}">${u.role.replace('_',' ')}</span></td>
+    <td><span class="status-pill ${u.status}">${u.status}</span></td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_login}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_active}</td>
+    <td><button class="action-btn" onclick="event.stopPropagation();openSlideout('${u.id}')">Details</button></td>
+  </tr>`).join('');
+
+document.querySelectorAll('#user-tbody tr').forEach(tr=>tr.addEventListener('click',()=>openSlideout(tr.dataset.id)));
+
+// Invitations
+document.getElementById('inv-list').innerHTML=INVITES.map(inv=>`
+  <div class="inv-row">
+    <div class="inv-email">${inv.email}</div>
+    <div class="inv-role"><span class="role-pill analyst">${inv.role}</span></div>
+    <div class="inv-sent">Sent ${inv.sent}</div>
+    <div class="inv-sent">Expires ${inv.expires}</div>
+    <div class="inv-status"><span class="status-pill ${inv.status==='pending'?'':'expired'}" style="background:${inv.status==='pending'?'rgba(255,182,39,.1)':'var(--bg-elevated)'};color:${inv.status==='pending'?'var(--threat-medium)':'var(--text-tertiary)'}">${inv.status}</span></div>
+    <div style="display:flex;gap:4px">
+      <button class="action-btn">Resend</button>
+      <button class="action-btn" style="border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke</button>
+    </div>
+  </div>`).join('');
+
+// Slideout
+function openSlideout(userId){
+  const u=USERS.find(x=>x.id===userId);if(!u)return;
+  document.getElementById('so-content').innerHTML=`
+    <div class="so-header">
+      <div class="so-avatar" style="color:${u.color}">${ini(u.name)}</div>
+      <div><div class="so-name">${u.name}</div><div class="so-email">${u.email}</div></div>
+    </div>
+    <div class="so-section"><div class="so-sect-title">Account</div>
+      <div class="so-row"><span class="so-row-l">Role</span><span class="so-row-v"><span class="role-pill ${u.role}">${u.role.replace('_',' ')}</span></span></div>
+      <div class="so-row"><span class="so-row-l">Status</span><span class="so-row-v"><span class="status-pill ${u.status}">${u.status}</span></span></div>
+      <div class="so-row"><span class="so-row-l">Created</span><span class="so-row-v">${u.created}</span></div>
+      <div class="so-row"><span class="so-row-l">Total logins</span><span class="so-row-v">${u.login_count}</span></div>
+      <div class="so-row"><span class="so-row-l">Last login</span><span class="so-row-v">${u.last_login}</span></div>
+    </div>
+    <div class="so-section"><div class="so-sect-title">Active Sessions (${u.sessions.length})</div>
+      ${u.sessions.length?u.sessions.map(s=>`<div class="session-row"><div style="width:6px;height:6px;border-radius:50%;background:var(--positive);flex-shrink:0"></div><div class="sess-device">${s.device}<br><span class="sess-ip">${s.ip}</span></div><div class="sess-active">${s.active}</div><button class="revoke-btn">Revoke</button></div>`).join(''):'<div style="font-size:11px;color:var(--text-tertiary);padding:8px 0">No active sessions</div>'}
+      ${u.sessions.length>0?'<button class="action-btn" style="margin-top:8px;width:100%;justify-content:center;display:flex;border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke All Sessions</button>':''}
+    </div>
+    <div class="so-section"><div class="so-sect-title">Actions</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="action-btn">Change Role</button>
+        <button class="action-btn" style="border-color:${u.status==='active'?'rgba(255,59,92,.2)':'rgba(0,229,160,.2)'};color:${u.status==='active'?'var(--negative)':'var(--positive)'}">${u.status==='active'?'Suspend':'Reactivate'}</button>
+        <button class="action-btn">View Audit Trail</button>
+      </div>
+    </div>`;
+  document.getElementById('slideout').classList.add('open');
+}
+
+document.getElementById('soClose').addEventListener('click',()=>document.getElementById('slideout').classList.remove('open'));
+
+// Tabs
+document.querySelectorAll('.ptab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  document.querySelectorAll('.ptab-c').forEach(c=>c.classList.remove('visible'));
+  document.getElementById('tab-'+t.dataset.tab).classList.add('visible');
+}));
+
+// Modal
+document.getElementById('inviteBtn').addEventListener('click',()=>document.getElementById('invModal').classList.add('vis'));
+document.getElementById('invCancel').addEventListener('click',()=>document.getElementById('invModal').classList.remove('vis'));
+document.getElementById('invSend').addEventListener('click',()=>document.getElementById('invModal').classList.remove('vis'));
+document.getElementById('invModal').addEventListener('click',e=>{if(e.target.id==='invModal')e.target.classList.remove('vis')});
+</script>
+</body>
+</html>

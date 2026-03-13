@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Admin: Feed Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--blue-glow:rgba(0,212,255,.08);--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}.logo span{color:var(--blue-primary)}
+.admin-badge{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--threat-medium);padding:3px 9px;border:1px solid rgba(255,182,39,.3);border-radius:3px;background:rgba(255,182,39,.08)}
+.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}.np.active{background:var(--bg-elevated);color:var(--threat-medium)}.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}.back-link{font-family:var(--font-body);font-size:11px;color:var(--blue-primary);border:none;background:none;cursor:pointer}.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+.main{overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+
+/* Aggregate */
+.agg{display:flex;gap:12px;margin-bottom:20px}.ac{flex:1;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:14px 16px}
+.ac-v{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1}.ac-l{font-size:10px;color:var(--text-tertiary);margin-top:4px}.ac-s{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:2px}
+
+#list-view,#detail-view{display:none}#list-view.visible,#detail-view.visible{display:block}
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}thead th{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:10px 16px;border-bottom:1px solid var(--blue-border);white-space:nowrap}
+tbody tr{border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s;cursor:pointer}tbody tr:hover{background:var(--bg-hover)}td{padding:12px 16px;font-size:12px;vertical-align:middle}
+
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.feed-dot.healthy{background:var(--positive)}.feed-dot.degraded{background:var(--threat-medium);animation:pc 1.5s ease-in-out infinite}.feed-dot.down{background:var(--negative);animation:pc 1s ease-in-out infinite}.feed-dot.disabled{background:var(--text-tertiary)}
+.feed-name-cell{display:flex;align-items:center;gap:10px;font-weight:500}
+.schedule-pill{font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:3px;background:var(--bg-elevated);color:var(--text-secondary)}
+.action-btn{font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s;margin-right:4px}.action-btn:hover{border-color:var(--blue-border-bright);color:var(--text-primary)}
+.action-btn.trigger{border-color:rgba(255,182,39,.2);color:var(--threat-medium)}
+
+/* Detail */
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);cursor:pointer;padding:4px 0;margin-bottom:16px;border:none;background:none;transition:color .15s}.back-btn:hover{color:var(--text-accent)}
+.detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--blue-border)}
+.dh-left{display:flex;align-items:center;gap:16px}
+.dh-dot{width:12px;height:12px;border-radius:50%}
+.dh-name{font-family:var(--font-display);font-size:20px;font-weight:700}
+.dh-meta{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);margin-top:2px}
+.dh-right{display:flex;gap:8px}
+.toggle-btn{font-family:var(--font-display);font-size:10px;font-weight:600;padding:6px 14px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.toggle-btn.enabled{border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--positive)}
+.toggle-btn.disabled{border:1px solid rgba(255,59,92,.3);background:rgba(255,59,92,.08);color:var(--negative)}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--blue-border)}
+.ptitle{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}.ptitle::before{content:'';width:3px;height:11px;background:var(--threat-medium);border-radius:2px}
+.pbadge{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.08);color:var(--threat-medium);border:1px solid rgba(255,182,39,.15)}
+.padded{padding:16px 18px}
+.chart-wrap{position:relative;height:200px;padding:16px}
+.config-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(0,212,255,.05)}.config-row:last-child{border-bottom:none}
+.cfg-label{font-size:11px;color:var(--text-secondary)}.cfg-val{font-family:var(--font-mono);font-size:11px;color:var(--text-primary)}
+.cfg-val.masked{color:var(--text-tertiary)}
+.pull-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid rgba(0,212,255,.05);font-size:11px}
+.pull-time{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);min-width:130px}
+.pull-dur{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);min-width:50px}
+.pull-count{font-family:var(--font-mono);font-size:10px;min-width:80px}
+.pull-status{font-family:var(--font-mono);font-size:8px;padding:2px 6px;border-radius:3px}
+.pull-status.success{background:var(--positive-muted);color:var(--positive)}.pull-status.failed{background:var(--negative-muted);color:var(--negative)}.pull-status.partial{background:rgba(255,182,39,.1);color:var(--threat-medium)}
+.error-row{padding:10px 16px;border-bottom:1px solid rgba(0,212,255,.05);font-size:11px;cursor:pointer;transition:background .1s}.error-row:hover{background:var(--bg-hover)}
+.err-time{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}.err-msg{color:var(--negative);margin-top:2px;font-family:var(--font-mono);font-size:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <span class="admin-badge">Admin</span>
+      <nav class="nav-pills"><button class="np">Dashboard</button><button class="np">Users</button><button class="np active">Feeds</button><button class="np">Leads</button><button class="np">API Keys</button><button class="np">Agent Config</button><button class="np">Audit Log</button></nav>
+    </div>
+    <div class="topbar-right"><button class="back-link">← Back to Observatory</button><div class="ua">SA</div></div>
+  </header>
+  <main class="main">
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Feed Management</div>
+    <div class="agg" id="agg-stats"></div>
+
+    <div id="list-view" class="visible">
+      <div class="panel"><table><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody id="feed-tbody"></tbody></table></div>
+    </div>
+
+    <div id="detail-view">
+      <button class="back-btn" id="backBtn">← Back to Feeds</button>
+      <div id="detail-content"></div>
+    </div>
+  </main>
+</div>
+<script>
+const FEEDS=[
+  {id:'ct',name:'Certificate Transparency Logs',source:'Google CT API / crt.sh',status:'healthy',last_pull:'3m ago',last_fail:'—',today:4212,avg_dur:'1.2s',schedule:'*/5 * * * *',schedule_label:'Every 5 min',enabled:true,api_key:true,rate_limit:60,batch_size:500,retries:3,errors:[]},
+  {id:'pt',name:'PhishTank',source:'phishtank.org API',status:'healthy',last_pull:'12m ago',last_fail:'2d ago',today:847,avg_dur:'3.8s',schedule:'0 * * * *',schedule_label:'Hourly',enabled:true,api_key:true,rate_limit:30,batch_size:200,retries:3,errors:[{time:'2d ago',msg:'HTTP 429 Too Many Requests — rate limit exceeded. Backed off 60s and retried.'}]},
+  {id:'uh',name:'URLhaus (abuse.ch)',source:'urlhaus-api.abuse.ch',status:'healthy',last_pull:'4m ago',last_fail:'4h ago',today:1834,avg_dur:'2.1s',schedule:'*/5 * * * *',schedule_label:'Every 5 min',enabled:true,api_key:false,rate_limit:120,batch_size:1000,retries:5,errors:[{time:'4h ago',msg:'Connection timeout after 30s. Server unresponsive. Retry 1/5 succeeded.'}]},
+  {id:'op',name:'OpenPhish',source:'openphish.com community feed',status:'healthy',last_pull:'2h ago',last_fail:'—',today:156,avg_dur:'0.8s',schedule:'0 */12 * * *',schedule_label:'Every 12 hours',enabled:true,api_key:false,rate_limit:10,batch_size:100,retries:3,errors:[]},
+];
+
+// Aggregate
+const totalToday=FEEDS.reduce((a,f)=>a+f.today,0);
+const healthyCount=FEEDS.filter(f=>f.status==='healthy').length;
+document.getElementById('agg-stats').innerHTML=`
+  <div class="ac"><div class="ac-v" style="color:var(--positive)">${healthyCount}/${FEEDS.length}</div><div class="ac-l">Feeds healthy</div></div>
+  <div class="ac"><div class="ac-v" style="color:var(--blue-primary)">${totalToday.toLocaleString()}</div><div class="ac-l">Records today</div></div>
+  <div class="ac"><div class="ac-v" style="color:var(--positive)">0.2%</div><div class="ac-l">Error rate (24h)</div></div>
+  <div class="ac"><div class="ac-v" style="color:var(--text-primary)">2.0s</div><div class="ac-l">Avg pull latency</div></div>`;
+
+// Feed table
+document.getElementById('feed-tbody').innerHTML=FEEDS.map(f=>`
+  <tr data-id="${f.id}">
+    <td><div class="feed-name-cell"><div class="feed-dot ${f.status}"></div>${f.name}</div></td>
+    <td><span style="font-family:var(--font-mono);font-size:10px;color:${f.status==='healthy'?'var(--positive)':f.status==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${f.status}</span></td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_pull}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:${f.last_fail==='—'?'var(--text-tertiary)':'var(--negative)'}">${f.last_fail}</td>
+    <td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${f.today.toLocaleString()}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_dur}</td>
+    <td><span class="schedule-pill">${f.schedule_label}</span></td>
+    <td><button class="action-btn trigger" onclick="event.stopPropagation()">Trigger Now</button><button class="action-btn" onclick="event.stopPropagation();showDetail('${f.id}')">Configure</button></td>
+  </tr>`).join('');
+
+document.querySelectorAll('#feed-tbody tr').forEach(tr=>tr.addEventListener('click',()=>showDetail(tr.dataset.id)));
+
+let detailChart=null;
+function showDetail(feedId){
+  const f=FEEDS.find(x=>x.id===feedId);if(!f)return;
+  document.getElementById('list-view').classList.remove('visible');
+  document.getElementById('detail-view').classList.add('visible');
+
+  // Generate pull history
+  const pulls=Array.from({length:20},(_,i)=>{
+    const mins=i*Math.round(parseInt(f.schedule_label)*1.1||30);
+    const status=Math.random()>.05?'success':Math.random()>.5?'partial':'failed';
+    return{time:new Date(Date.now()-mins*60000).toISOString().substring(0,16).replace('T',' '),dur:(parseFloat(f.avg_dur)*(0.7+Math.random()*0.6)).toFixed(1)+'s',records:status==='failed'?0:Math.floor(f.today/24*(0.5+Math.random())),rejected:Math.floor(Math.random()*5),status};
+  });
+
+  document.getElementById('detail-content').innerHTML=`
+    <div class="detail-header">
+      <div class="dh-left"><div class="dh-dot" style="background:${f.status==='healthy'?'var(--positive)':'var(--negative)'}"></div><div><div class="dh-name">${f.name}</div><div class="dh-meta">${f.source} — ${f.schedule_label}</div></div></div>
+      <div class="dh-right"><button class="action-btn trigger" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="toggle-btn ${f.enabled?'enabled':'disabled'}">${f.enabled?'Enabled':'Disabled'}</button></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="phead"><div class="ptitle">Ingestion (7d)</div></div><div class="chart-wrap"><canvas id="feed-chart"></canvas></div></div>
+      <div class="panel"><div class="phead"><div class="ptitle">Configuration</div><button class="action-btn" style="font-size:9px">Edit</button></div><div class="padded">
+        <div class="config-row"><span class="cfg-label">Schedule (cron)</span><span class="cfg-val">${f.schedule}</span></div>
+        <div class="config-row"><span class="cfg-label">Source URL</span><span class="cfg-val" style="font-size:9px">${f.source}</span></div>
+        <div class="config-row"><span class="cfg-label">API Key</span><span class="cfg-val ${f.api_key?'':'masked'}">${f.api_key?'Configured ✓':'Not required'}</span></div>
+        <div class="config-row"><span class="cfg-label">Rate Limit</span><span class="cfg-val">${f.rate_limit} req/min</span></div>
+        <div class="config-row"><span class="cfg-label">Batch Size</span><span class="cfg-val">${f.batch_size} records</span></div>
+        <div class="config-row"><span class="cfg-label">Retries</span><span class="cfg-val">${f.retries} attempts</span></div>
+      </div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="phead"><div class="ptitle">Pull History</div><div class="pbadge">Last 20</div></div>
+        <div style="max-height:300px;overflow-y:auto">${pulls.map(p=>`<div class="pull-row"><span class="pull-time">${p.time}</span><span class="pull-dur">${p.dur}</span><span class="pull-count">${p.records} ingested</span><span class="pull-count" style="color:var(--text-tertiary)">${p.rejected} rejected</span><span class="pull-status ${p.status}">${p.status}</span></div>`).join('')}</div>
+      </div>
+      <div class="panel"><div class="phead"><div class="ptitle">Recent Errors</div><div class="pbadge">${f.errors.length}</div></div>
+        <div class="padded">${f.errors.length?f.errors.map(e=>`<div class="error-row"><div class="err-time">${e.time}</div><div class="err-msg">${e.msg}</div></div>`).join(''):'<div style="text-align:center;padding:24px;color:var(--positive);font-size:12px">No errors recorded</div>'}</div>
+      </div>
+    </div>`;
+
+  // Chart
+  setTimeout(()=>{
+    if(detailChart)detailChart.destroy();
+    const labels=Array.from({length:7},(_,i)=>{const d=new Date(Date.now()-(6-i)*86400000);return `${d.getMonth()+1}/${d.getDate()}`});
+    const data=labels.map(()=>Math.floor(f.today*(0.6+Math.random()*0.8)));
+    detailChart=new Chart(document.getElementById('feed-chart'),{
+      type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(255,182,39,0.3)',borderColor:'#ffb627',borderWidth:1,borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,16,32,0.95)',borderColor:'rgba(255,182,39,.3)',borderWidth:1,titleFont:{family:"'Chakra Petch'",size:10},bodyFont:{family:"'IBM Plex Mono'",size:10},titleColor:'#e8edf5',bodyColor:'#7a8ba8',padding:8,cornerRadius:6}},
+      scales:{x:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9}},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false}},y:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9}},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},beginAtZero:true}}}
+    });
+  },50);
+}
+
+document.getElementById('backBtn').addEventListener('click',()=>{document.getElementById('detail-view').classList.remove('visible');document.getElementById('list-view').classList.add('visible')});
+</script>
+</body>
+</html>

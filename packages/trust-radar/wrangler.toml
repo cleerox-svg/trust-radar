@@ -19,17 +19,27 @@ routes = [
 [triggers]
 crons = ["*/5 * * * *"]
 
-# ─── D1 Database ─────────────────────────────────────────────
+# ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
 binding = "DB"
-database_name = "radar-db"
-database_id = "$RADAR_D1_DATABASE_ID"
+database_name = "trust-radar-v2"
+database_id = "$TRUST_RADAR_V2_D1_ID"
 migrations_dir = "migrations"
+
+[[d1_databases]]
+binding = "AUDIT_DB"
+database_name = "trust-radar-v2-audit"
+database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"
 
 # ─── KV Namespace (cache) ────────────────────────────────────
 [[kv_namespaces]]
 binding = "CACHE"
 id = "$RADAR_KV_NAMESPACE_ID"
+
+# ─── R2 Storage (evidence archives, feed snapshots) ──────────
+# [[r2_buckets]]
+# binding = "EVIDENCE"
+# bucket_name = "trust-radar-evidence"
 
 # ─── Durable Objects (WebSocket push hub) ────────────────────
 [[durable_objects.bindings]]
@@ -49,6 +59,27 @@ LRX_API_URL = "https://api.lrx.io"
 # JWT_SECRET
 # VIRUSTOTAL_API_KEY
 # LRX_API_KEY
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
+
+# ─── Staging environment ─────────────────────────────────────
+[env.staging]
+name = "trust-radar-staging"
+routes = [
+  { pattern = "staging.lrxradar.com", custom_domain = true }
+]
+vars = { ENVIRONMENT = "staging", LRX_API_URL = "https://api.lrx.io" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "trust-radar-v2"
+database_id = "$TRUST_RADAR_V2_D1_ID"
+migrations_dir = "migrations"
+
+[[env.staging.d1_databases]]
+binding = "AUDIT_DB"
+database_name = "trust-radar-v2-audit"
+database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"
 
 # ─── Local dev overrides ─────────────────────────────────────
 [env.dev]
@@ -57,6 +88,11 @@ vars = { ENVIRONMENT = "development", LRX_API_URL = "http://localhost:8000" }
 
 [[env.dev.d1_databases]]
 binding = "DB"
-database_name = "radar-db"
-database_id = "$RADAR_D1_DATABASE_ID"
+database_name = "trust-radar-v2"
+database_id = "$TRUST_RADAR_V2_D1_ID"
 migrations_dir = "migrations"
+
+[[env.dev.d1_databases]]
+binding = "AUDIT_DB"
+database_name = "trust-radar-v2-audit"
+database_id = "$TRUST_RADAR_V2_AUDIT_D1_ID"

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Brands</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--threat-low:#00d4ff;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}
+.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}
+.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}
+.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}
+@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}
+.logo span{color:var(--blue-primary)}
+.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}
+.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}
+.np.active{background:var(--bg-elevated);color:var(--text-accent)}
+.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.feed-st{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--positive)}
+.fd{width:5px;height:5px;border-radius:50%;background:var(--positive);animation:pc 2s ease-in-out infinite}
+.live-tag{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--blue-primary);padding:3px 9px;border:1px solid var(--blue-border-bright);border-radius:3px}
+.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+
+/* MAIN */
+.main{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+.main::-webkit-scrollbar{width:5px}.main::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:3px}
+
+/* VIEWS */
+#hub-view,#detail-view{display:none}
+#hub-view.visible,#detail-view.visible{display:block}
+
+/* HUB: STATS */
+.agg-stats{display:flex;gap:12px;padding:0 24px 16px}
+.agg-card{flex:1;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:14px 16px}
+.agg-val{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1}
+.agg-lbl{font-size:10px;color:var(--text-tertiary);margin-top:4px}.agg-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:2px}
+
+/* SUB-TABS */
+.sub-tabs{display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--blue-border)}
+.stab{font-family:var(--font-display);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);padding:12px 20px 10px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.stab:hover{color:var(--text-secondary)}.stab.active{color:var(--text-accent);border-bottom-color:var(--blue-primary)}
+.tc{font-family:var(--font-mono);font-size:9px;background:var(--bg-elevated);color:var(--text-secondary);padding:1px 6px;border-radius:3px;margin-left:6px}
+.stab.active .tc{background:var(--blue-glow);color:var(--blue-primary)}
+.sact{margin-left:auto;display:flex;gap:8px;align-items:center;padding-bottom:4px}
+.pp{font-family:var(--font-mono);font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.pp.active{background:var(--bg-elevated);color:var(--text-accent);border-color:var(--blue-border-bright)}
+.pp:hover:not(.active){color:var(--text-primary)}
+.btn-add{font-family:var(--font-display);font-size:10px;font-weight:600;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--blue-border-bright);background:var(--blue-glow);color:var(--blue-primary);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+.btn-add:hover{background:rgba(0,212,255,.15)}
+
+.tab-c{display:none;padding:20px 24px}.tab-c.visible{display:block}
+
+/* BRAND CARDS */
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.bcard{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.bcard:hover{border-color:var(--blue-border-bright);background:var(--bg-panel);transform:translateY(-1px)}
+.bcard-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.brank{font-family:var(--font-display);font-weight:700;font-size:14px;width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.r1{background:rgba(255,215,0,.15);color:#ffd700;border:1px solid rgba(255,215,0,.3)}.r2{background:rgba(192,192,192,.12);color:#c0c0c0;border:1px solid rgba(192,192,192,.25)}.r3{background:rgba(205,127,50,.12);color:#cd7f32;border:1px solid rgba(205,127,50,.25)}.rn{background:var(--bg-elevated);color:var(--text-tertiary);border:1px solid var(--blue-border)}
+.bico{width:36px;height:36px;border-radius:var(--radius);background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;font-weight:700;flex-shrink:0}
+.binf{flex:1;min-width:0}.bnam{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bsec{font-size:10px;color:var(--text-tertiary);margin-top:1px}
+.rising{position:absolute;top:12px;right:12px;font-family:var(--font-mono);font-size:8px;font-weight:500;padding:2px 7px;border-radius:3px;background:var(--negative-muted);color:var(--negative);letter-spacing:.5px;text-transform:uppercase;animation:rp 2s ease-in-out infinite}
+@keyframes rp{0%,100%{opacity:1}50%{opacity:.6}}
+.bstats{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.bt-v{font-family:var(--font-display);font-weight:700;font-size:28px;line-height:1}.bt-l{font-size:9px;color:var(--text-tertiary);margin-top:2px}
+.btrend{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.tpct{font-family:var(--font-mono);font-size:12px;font-weight:500}.tpct.up{color:var(--negative)}.tpct.down{color:var(--positive)}
+.bfoot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,212,255,.06)}
+.tpill{font-family:var(--font-mono);font-size:8px;font-weight:500;padding:2px 7px;border-radius:3px;letter-spacing:.3px}
+.tpill.phishing{background:var(--negative-muted);color:var(--negative)}.tpill.typosquat{background:rgba(255,182,39,.12);color:var(--threat-medium)}.tpill.impersonation{background:rgba(255,107,53,.12);color:var(--threat-high)}.tpill.credential{background:rgba(138,43,226,.12);color:#b388ff}
+.bdom{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}
+
+/* MONITORED ROWS */
+.mrow{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-surface);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.mrow:hover{border-color:var(--blue-border-bright);background:var(--bg-panel)}
+.mico{width:34px;height:34px;border-radius:var(--radius);background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:12px;font-weight:700;flex-shrink:0}
+.minf{flex:1;min-width:0}.mnam{font-size:13px;font-weight:500}.mdom{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)}
+.msec{font-size:10px;color:var(--text-secondary);min-width:100px}
+.mthr{font-family:var(--font-display);font-weight:700;font-size:16px;min-width:50px;text-align:right}
+.sbadge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9px;font-weight:500;padding:3px 8px;border-radius:3px}
+.sbadge.at{background:var(--negative-muted);color:var(--negative)}.sbadge.at::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--negative);animation:pc 2s ease-in-out infinite}
+.sbadge.clean{background:var(--positive-muted);color:var(--positive)}.sbadge.new{background:var(--blue-glow);color:var(--blue-primary)}
+.mmeta{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);min-width:80px;text-align:right}
+
+/* ALL TABLE */
+.atbl{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:10px 14px;border-bottom:1px solid var(--blue-border);cursor:pointer;white-space:nowrap}
+thead th:hover{color:var(--text-secondary)}
+tbody tr{border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s;cursor:pointer}
+tbody tr:hover{background:var(--bg-hover)}
+td{padding:10px 14px;font-size:12px;vertical-align:middle}
+.star{font-size:16px;cursor:pointer;transition:all .15s}.star.on{color:var(--threat-medium)}.star.off{color:var(--text-tertiary)}.star:hover{transform:scale(1.2)}
+.tbr{display:flex;align-items:center;gap:10px}
+.tbi{width:28px;height:28px;border-radius:var(--radius);background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:10px;font-weight:700;color:var(--blue-primary);flex-shrink:0}
+.search-in{font-family:var(--font-body);font-size:12px;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);outline:none;transition:border-color .15s}
+.search-in:focus{border-color:var(--blue-border-bright)}.search-in::placeholder{color:var(--text-tertiary)}
+.sel{font-family:var(--font-body);font-size:11px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;outline:none}
+
+/* ── DETAIL VIEW ── */
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);cursor:pointer;padding:4px 0;margin-bottom:16px;border:none;background:none;transition:color .15s}
+.back-btn:hover{color:var(--text-accent)}
+.brand-header{display:flex;align-items:flex-start;gap:20px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--blue-border)}
+.bh-logo{width:56px;height:56px;border-radius:var(--radius-lg);background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:20px;font-weight:700;flex-shrink:0}
+.bh-meta{flex:1}
+.bh-title{font-family:var(--font-display);font-size:24px;font-weight:700;display:flex;align-items:center;gap:12px}
+.sec-pill{font-family:var(--font-body);font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:var(--blue-glow);color:var(--blue-primary);border:1px solid var(--blue-border)}
+.bh-sub{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-top:4px}
+.bh-stats{display:flex;gap:24px;margin-top:12px}
+.bs{display:flex;flex-direction:column}.bs-v{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1}.bs-l{font-size:10px;color:var(--text-tertiary);margin-top:3px}
+.ts-ring{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.ts-val{font-family:var(--font-display);font-weight:700;font-size:22px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+.ts-grade{font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--threat-medium);margin-top:4px;letter-spacing:1px}
+.cgrid{display:grid;grid-template-columns:1fr 360px;gap:20px;margin-bottom:24px}
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--blue-border)}
+.pt{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.pt::before{content:'';width:3px;height:11px;background:var(--blue-primary);border-radius:2px}
+.pb{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:var(--blue-glow);color:var(--blue-primary);border:1px solid var(--blue-border)}
+.tcontrols{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(0,212,255,.08)}
+.tfilter{display:flex;gap:6px}
+.fp{font-family:var(--font-body);font-size:10px;font-weight:500;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.fp.active{background:var(--bg-elevated);color:var(--text-accent);border-color:var(--blue-border-bright)}
+.fp:hover:not(.active){color:var(--text-primary)}
+.td-url{font-family:var(--font-mono);font-size:11px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prov-c{font-size:11px;color:var(--text-secondary)}.prov-c .asn{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}
+.date-c{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);white-space:nowrap}
+.stbadge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9px;font-weight:500;padding:2px 8px;border-radius:3px}
+.stbadge.active{background:var(--negative-muted);color:var(--negative)}.stbadge.active::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--negative);animation:pc 2s ease-in-out infinite}
+.stbadge.down{background:var(--positive-muted);color:var(--positive)}.stbadge.monitoring{background:var(--blue-glow);color:var(--blue-primary)}
+.ev-ico{width:24px;height:24px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-secondary)}.ev-ico.cap{color:var(--positive);border-color:rgba(0,229,160,.3)}
+.pgn{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--blue-border)}
+.pgn-info{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)}
+.pgn-btns{display:flex;gap:4px}
+.pgn-b{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.pgn-b:hover{color:var(--text-primary);border-color:var(--blue-border-bright)}.pgn-b.act{background:var(--bg-elevated);color:var(--text-accent)}.pgn-b.dis{opacity:.3;cursor:default}
+.rcol{display:flex;flex-direction:column;gap:16px}
+#brand-map{height:200px}.leaflet-container{background:var(--bg-void)!important}.leaflet-control-zoom{display:none}
+.leaflet-popup-content-wrapper{background:rgba(10,16,32,.95)!important;border:1px solid var(--blue-border-bright)!important;border-radius:var(--radius-lg)!important;color:var(--text-primary)!important;font-family:var(--font-body)!important;box-shadow:0 8px 32px rgba(0,0,0,.5)!important}
+.leaflet-popup-content{margin:10px 14px!important;font-size:11px!important}.leaflet-popup-tip{background:rgba(10,16,32,.95)!important}
+.pbar-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+.pbar-lbl{font-size:11px;color:var(--text-secondary);width:120px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar-trk{flex:1;height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden}
+.pbar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.pbar-ct{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);width:36px;text-align:right;flex-shrink:0}
+.ccard{padding:10px 14px;border:1px solid var(--blue-border);border-radius:var(--radius);background:var(--bg-panel);margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s}
+.ccard:hover{border-color:var(--blue-border-bright);background:var(--bg-elevated)}
+.ccname{font-family:var(--font-display);font-size:12px;font-weight:600;margin-bottom:4px}
+.ccmeta{font-size:10px;color:var(--text-secondary);display:flex;gap:12px}
+.ccmeta span{display:flex;align-items:center;gap:4px}
+.tl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.tl-title{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.tl-title::before{content:'';width:3px;height:11px;background:var(--blue-primary);border-radius:2px}
+.chart-wrap{position:relative;height:220px;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:16px}
+.padded{padding:16px 18px}
+.empty-state{text-align:center;padding:32px;color:var(--text-tertiary);font-size:13px}
+
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(4,8,16,.8);backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-ov.vis{display:flex}
+.modal{background:var(--bg-surface);border:1px solid var(--blue-border-bright);border-radius:var(--radius-lg);padding:24px;width:440px;max-width:90vw}
+.modal-t{font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px}
+.modal-s{font-size:12px;color:var(--text-secondary);margin-bottom:20px}
+.fg{margin-bottom:14px}
+.fl{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:5px;display:block}
+.fi{font-family:var(--font-body);font-size:13px;padding:9px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;outline:none;transition:border-color .15s}
+.fi:focus{border-color:var(--blue-border-bright)}.fi::placeholder{color:var(--text-tertiary)}
+.fsel{font-family:var(--font-body);font-size:13px;padding:9px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;cursor:pointer;outline:none}
+.macts{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-c{font-family:var(--font-body);font-size:12px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer}
+.btn-s{font-family:var(--font-display);font-size:12px;font-weight:600;padding:8px 20px;border-radius:var(--radius);border:1px solid var(--blue-primary);background:rgba(0,212,255,.12);color:var(--blue-primary);cursor:pointer;transition:all .15s}
+.btn-s:hover{background:rgba(0,212,255,.2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <nav class="nav-pills">
+        <button class="np">Observatory</button>
+        <button class="np active">Brands</button>
+        <button class="np">Providers</button>
+        <button class="np">Campaigns</button>
+        <button class="np">Trends</button>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <div class="feed-st"><span class="fd"></span>6 feeds active</div>
+      <span class="live-tag">Live</span>
+      <div class="ua">SA</div>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- ══════ HUB VIEW ══════ -->
+    <div id="hub-view" class="visible">
+      <div style="padding:20px 24px 0">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Brands Intelligence</div>
+      </div>
+      <div class="agg-stats" id="agg-stats"></div>
+      <div class="sub-tabs">
+        <div class="stab active" data-tab="top">Top Targeted<span class="tc" id="tc-top">20</span></div>
+        <div class="stab" data-tab="mon">Monitored<span class="tc" id="tc-mon">7</span></div>
+        <div class="stab" data-tab="all">All Brands<span class="tc" id="tc-all">186</span></div>
+        <div class="sact">
+          <button class="pp active" data-p="24h">24h</button>
+          <button class="pp" data-p="7d">7d</button>
+          <button class="pp" data-p="30d">30d</button>
+          <button class="btn-add" id="addBtn"><span style="font-size:14px">+</span> Monitor Brand</button>
+        </div>
+      </div>
+      <div class="tab-c visible" id="tab-top"></div>
+      <div class="tab-c" id="tab-mon"></div>
+      <div class="tab-c" id="tab-all"></div>
+    </div>
+
+    <!-- ══════ DETAIL VIEW ══════ -->
+    <div id="detail-view" style="padding:20px 24px">
+      <button class="back-btn" id="backBtn">← Back to Brands</button>
+      <div id="detail-header"></div>
+      <div class="cgrid">
+        <div class="panel" id="detail-threats-panel"></div>
+        <div class="rcol">
+          <div class="panel"><div class="ph"><div class="pt">Threat Locations</div><div class="pb" id="loc-count">—</div></div><div id="brand-map" style="height:200px"></div></div>
+          <div class="panel"><div class="ph"><div class="pt">Hosting Providers</div></div><div class="padded" id="prov-bars"></div></div>
+          <div class="panel"><div class="ph"><div class="pt">Active Campaigns</div><div class="pb" id="camp-count">—</div></div><div class="padded" id="camp-list"></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="tl-head">
+          <div class="tl-title">Threat Timeline</div>
+          <div style="display:flex;gap:4px" id="period-pills"></div>
+        </div>
+        <div class="chart-wrap"><canvas id="tl-chart"></canvas></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="addModal">
+  <div class="modal">
+    <div class="modal-t">Monitor a Brand</div>
+    <div class="modal-s">Add a domain for proactive monitoring. We'll scan it immediately and begin watching for threats.</div>
+    <div class="fg"><label class="fl">Domain</label><input class="fi" placeholder="e.g. acmecorp.com" id="mDomain"></div>
+    <div class="fg"><label class="fl">Brand Name (optional)</label><input class="fi" placeholder="Auto-detected if left blank" id="mName"></div>
+    <div style="display:flex;gap:12px">
+      <div class="fg" style="flex:1"><label class="fl">Sector</label><select class="fsel" id="mSector"><option value="">Auto-detect</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Government</option><option>Social Media</option></select></div>
+      <div class="fg" style="flex:1"><label class="fl">Reason</label><select class="fsel"><option>Prospect</option><option>Competitor</option><option>Client request</option><option>Threat research</option></select></div>
+    </div>
+    <div class="fg"><label class="fl">Notes</label><input class="fi" placeholder="Internal notes..." id="mNotes"></div>
+    <div class="macts"><button class="btn-c" id="cancelM">Cancel</button><button class="btn-s" id="submitM">Begin Monitoring</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SIMULATED API DATA — matches plan Section 6.3/6.4 response shapes
+// In production: replaced with fetch() calls to API Worker
+// ═══════════════════════════════════════════════════════════════
+
+function generateThreats(brandDomain, count) {
+  const types = ['phishing','typosquat','impersonation','credential'];
+  const providers = [
+    {name:'Namecheap Hosting',asn:'AS22612'},{name:'OVH SAS',asn:'AS16276'},
+    {name:'Hetzner Online',asn:'AS24940'},{name:'DigitalOcean',asn:'AS14061'},
+    {name:'Cloudflare',asn:'AS13335'},{name:'Amazon AWS',asn:'AS16509'}
+  ];
+  const statuses = ['active','active','active','active','down','monitoring'];
+  const tlds = ['.xyz','.top','.shop','.net','.com','.io'];
+  const base = brandDomain.replace(/\..+/,'');
+  return Array.from({length:count},(_,i)=>{
+    const type = types[Math.floor(Math.random()*types.length)];
+    const prov = providers[Math.floor(Math.random()*providers.length)];
+    const tld = tlds[Math.floor(Math.random()*tlds.length)];
+    const d = new Date(Date.now() - i * 3600000 * (2+Math.random()*6));
+    const prefixes = [base+'-secure',base+'-login',base+'-verify',base+'-update',base+'-account',base.replace(/a/g,'4').replace(/e/g,'3'),base+'-support',base+'-auth'];
+    return {
+      url: prefixes[i%prefixes.length]+tld+'/'+['verify','auth','login','secure','update'][i%5],
+      type, provider:prov.name, asn:prov.asn,
+      first_seen:d.toISOString(), status:statuses[Math.floor(Math.random()*statuses.length)],
+      evidence:Math.random()>.25
+    };
+  });
+}
+
+function generateLocations(count) {
+  const locs = [
+    {lat:37.09,lng:-95.71,country:'US'},{lat:51.17,lng:10.45,country:'DE'},
+    {lat:55.75,lng:37.62,country:'RU'},{lat:52.13,lng:5.29,country:'NL'},
+    {lat:35.86,lng:104.2,country:'CN'},{lat:50.5,lng:30.52,country:'UA'},
+    {lat:9.08,lng:8.68,country:'NG'},{lat:-14.24,lng:-51.93,country:'BR'},
+    {lat:55.38,lng:-3.44,country:'UK'},{lat:36.2,lng:138.25,country:'JP'}
+  ];
+  return locs.slice(0,Math.min(count,locs.length)).map((l,i)=>({
+    ...l, count: Math.max(5,Math.floor(count*(1-i*.12)*(0.5+Math.random()*0.5)))
+  }));
+}
+
+function generateProviders(threats) {
+  const counts = {};
+  threats.forEach(t=>{counts[t.provider]=(counts[t.provider]||0)+1});
+  const total = threats.length;
+  const colors = ['#ff3b5c','#ff6b35','#ffb627','#00d4ff','#0091b3','#4a5a73'];
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([name,count],i)=>({
+    name, count, pct:Math.round(count/total*1000)/10, color:colors[i]||colors[5]
+  }));
+}
+
+function generateTimeline(days) {
+  const vals = [];
+  let v = 5+Math.random()*10;
+  for(let i=0;i<days;i++){v=Math.max(1,v+Math.floor(Math.random()*10-3));vals.push(v)}
+  const labels = Array.from({length:days},(_,i)=>{const d=new Date(Date.now()-(days-1-i)*86400000);return `${d.getMonth()+1}/${d.getDate()}`});
+  return {labels,values:vals};
+}
+
+function generateCampaigns(brandName) {
+  const names = ['Credential Harvester Cluster','Bulk TLD Registration','Social Engineering Kit','Lookalike Domain Network','Payment Portal Phish Farm'];
+  const n = 1+Math.floor(Math.random()*3);
+  return Array.from({length:n},(_,i)=>({
+    id:'camp-'+i, name:names[i%names.length],
+    threat_count:5+Math.floor(Math.random()*40), brand_count:1+Math.floor(Math.random()*5),
+    first_seen: new Date(Date.now()-i*7*86400000).toISOString().split('T')[0], status:'active'
+  }));
+}
+
+// All brand data — single source of truth
+const BRANDS = [
+  {id:'b1',name:'PayPal',sector:'Financial Services',domain:'paypal.com',threats:312,trend:18.4,rising:false,type:'phishing',spark:[8,12,15,22,19,28,31],score:60,grade:'D'},
+  {id:'b2',name:'Amazon',sector:'E-commerce',domain:'amazon.com',threats:287,trend:12.1,rising:false,type:'phishing',spark:[14,18,16,22,24,20,28],score:68,grade:'D'},
+  {id:'b3',name:'Microsoft',sector:'Technology',domain:'microsoft.com',threats:234,trend:8.7,rising:false,type:'credential',spark:[12,14,16,18,15,20,22],score:72,grade:'C'},
+  {id:'b4',name:'Coinbase',sector:'Cryptocurrency',domain:'coinbase.com',threats:198,trend:340,rising:true,type:'impersonation',spark:[2,4,6,12,28,62,198],score:45,grade:'F'},
+  {id:'b5',name:'Apple',sector:'Technology',domain:'apple.com',threats:176,trend:5.2,rising:false,type:'typosquat',spark:[18,16,20,19,22,17,21],score:82,grade:'B'},
+  {id:'b6',name:'Chase Bank',sector:'Financial Services',domain:'chase.com',threats:156,trend:22.3,rising:false,type:'phishing',spark:[8,10,14,18,16,22,24],score:58,grade:'D'},
+  {id:'b7',name:'Binance',sector:'Cryptocurrency',domain:'binance.com',threats:143,trend:280,rising:true,type:'phishing',spark:[3,4,8,16,34,58,143],score:42,grade:'F'},
+  {id:'b8',name:'Netflix',sector:'Technology',domain:'netflix.com',threats:128,trend:-4.2,rising:false,type:'credential',spark:[20,18,22,16,14,15,12],score:75,grade:'C'},
+  {id:'b9',name:'Wells Fargo',sector:'Financial Services',domain:'wellsfargo.com',threats:112,trend:14.8,rising:false,type:'phishing',spark:[6,8,10,12,10,14,16],score:62,grade:'D'},
+  {id:'b10',name:'MetaMask',sector:'Cryptocurrency',domain:'metamask.io',threats:98,trend:45,rising:true,type:'impersonation',spark:[4,8,12,18,28,42,98],score:38,grade:'F'},
+  {id:'b11',name:'Bank of America',sector:'Financial Services',domain:'bankofamerica.com',threats:87,trend:6.1,rising:false,type:'phishing',spark:[10,8,12,10,14,11,13],score:70,grade:'C'},
+  {id:'b12',name:'DHL',sector:'Logistics',domain:'dhl.com',threats:82,trend:-8.3,rising:false,type:'impersonation',spark:[16,14,12,10,9,8,7],score:78,grade:'C'},
+  {id:'b13',name:'Dropbox',sector:'Technology',domain:'dropbox.com',threats:74,trend:3.1,rising:false,type:'credential',spark:[8,10,8,12,10,11,12],score:80,grade:'B'},
+  {id:'b14',name:'LinkedIn',sector:'Social Media',domain:'linkedin.com',threats:68,trend:11.2,rising:false,type:'phishing',spark:[4,6,8,6,10,8,12],score:76,grade:'C'},
+  {id:'b15',name:'Stripe',sector:'Financial Services',domain:'stripe.com',threats:61,trend:28,rising:false,type:'phishing',spark:[2,4,4,6,8,10,14],score:74,grade:'C'},
+  {id:'b16',name:'Shopify',sector:'E-commerce',domain:'shopify.com',threats:54,trend:7.4,rising:false,type:'typosquat',spark:[4,6,5,8,6,8,10],score:81,grade:'B'},
+  {id:'b17',name:'Zoom',sector:'Technology',domain:'zoom.us',threats:48,trend:-12,rising:false,type:'phishing',spark:[12,10,8,6,5,4,3],score:85,grade:'B'},
+  {id:'b18',name:'Revolut',sector:'Financial Services',domain:'revolut.com',threats:42,trend:18,rising:false,type:'impersonation',spark:[2,3,4,6,5,8,10],score:71,grade:'C'},
+  {id:'b19',name:'Kraken',sector:'Cryptocurrency',domain:'kraken.com',threats:38,trend:52,rising:true,type:'phishing',spark:[1,2,3,6,10,18,38],score:55,grade:'D'},
+  {id:'b20',name:'Adobe',sector:'Technology',domain:'adobe.com',threats:34,trend:2.8,rising:false,type:'credential',spark:[4,4,6,5,4,6,5],score:88,grade:'B'},
+];
+
+const MONITORED = [
+  {id:'b1',since:'2026-01-14',by:'Admin',notes:''},
+  {id:'b4',since:'2026-01-20',by:'Admin',notes:''},
+  {id:'b7',since:'2026-02-01',by:'Admin',notes:''},
+  {id:'m1',since:'2026-03-10',by:'Admin',notes:'Prospect'},
+  {id:'m2',since:'2026-03-08',by:'Admin',notes:'Competitor'},
+  {id:'m3',since:'2026-03-12',by:'Admin',notes:'Client request'},
+  {id:'m4',since:'2026-03-13',by:'Admin',notes:'Prospect'},
+];
+
+// Proactively monitored brands not yet in feeds
+const EXTRA_BRANDS = [
+  {id:'m1',name:'Acme Corp',sector:'Technology',domain:'acmecorp.com',threats:0,trend:0,type:'',spark:[0,0,0,0,0,0,0],score:92,grade:'A'},
+  {id:'m2',name:'GlobalPay',sector:'Financial Services',domain:'globalpay.com',threats:3,trend:0,type:'phishing',spark:[0,0,0,0,1,1,1],score:84,grade:'B'},
+  {id:'m3',name:'NovaTech',sector:'Technology',domain:'novatech.io',threats:0,trend:0,type:'',spark:[0,0,0,0,0,0,0],score:91,grade:'A'},
+  {id:'m4',name:'BrightWallet',sector:'Cryptocurrency',domain:'brightwallet.app',threats:0,trend:0,type:'',spark:[0,0,0,0,0,0,0],score:null,grade:null},
+];
+
+const ALL_BRANDS = [...BRANDS,...EXTRA_BRANDS];
+
+// ═══════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════
+
+function getBrand(id) { return ALL_BRANDS.find(b=>b.id===id); }
+function ini(n) { return n.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase(); }
+function tColor(t) { return t>=200?'var(--threat-critical)':t>=100?'var(--threat-high)':t>=50?'var(--threat-medium)':'var(--blue-primary)'; }
+function scoreColor(s) { return s>=90?'var(--positive)':s>=80?'var(--blue-primary)':s>=70?'var(--threat-medium)':s>=50?'var(--threat-high)':'var(--threat-critical)'; }
+
+function sparkSVG(data,color) {
+  if(!data||data.every(v=>v===0)) return '<svg width="80" height="28" viewBox="0 0 80 28"><line x1="2" y1="14" x2="78" y2="14" stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="4 4"/></svg>';
+  const max=Math.max(...data),min=Math.min(...data),range=max-min||1;
+  const pts=data.map((v,i)=>`${2+i/(data.length-1)*76},${26-((v-min)/range)*24}`);
+  const last=pts[pts.length-1].split(',');
+  return `<svg width="80" height="28" viewBox="0 0 80 28"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${color}"/></svg>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HUB RENDERING
+// ═══════════════════════════════════════════════════════════
+
+function renderAgg() {
+  const rising = BRANDS.reduce((a,b)=>b.trend>a.trend?b:a,BRANDS[0]);
+  document.getElementById('agg-stats').innerHTML = `
+    <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${ALL_BRANDS.length}</div><div class="agg-lbl">Brands tracked</div><div class="agg-sub">Across all feeds</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--positive)">+12</div><div class="agg-lbl">New this week</div><div class="agg-sub">First seen in feeds</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${rising.name}</div><div class="agg-lbl">Fastest rising</div><div class="agg-sub">+${rising.trend}% in 24h</div></div>
+    <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">Phishing</div><div class="agg-lbl">Top threat type</div><div class="agg-sub">61% of all threats</div></div>`;
+}
+
+function renderTop() {
+  let h='<div class="bgrid">';
+  BRANDS.forEach((b,i)=>{
+    const c=tColor(b.threats);
+    const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const tc=b.trend>=0?'up':'down';
+    const ts=b.trend>=0?'+':'';
+    h+=`<div class="bcard" data-id="${b.id}">${b.rising?'<div class="rising">Rising</div>':''}
+      <div class="bcard-top"><div class="brank ${rc}">${i+1}</div><div class="bico" style="color:${c}">${ini(b.name)}</div><div class="binf"><div class="bnam">${b.name}</div><div class="bsec">${b.sector}</div></div></div>
+      <div class="bstats"><div><div class="bt-v" style="color:${c}">${b.threats}</div><div class="bt-l">active threats</div></div><div class="btrend"><div class="tpct ${tc}">${ts}${Math.abs(b.trend)}%</div>${sparkSVG(b.spark,c)}</div></div>
+      <div class="bfoot"><span class="tpill ${b.type}">${b.type}</span><span class="bdom">${b.domain}</span></div></div>`;
+  });
+  h+='</div>';
+  document.getElementById('tab-top').innerHTML=h;
+  document.querySelectorAll('#tab-top .bcard').forEach(c=>c.addEventListener('click',()=>showDetail(c.dataset.id)));
+}
+
+function renderMon() {
+  let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><input class="search-in" placeholder="Search monitored brands..." style="width:240px"><div style="display:flex;gap:4px"><button class="pp active">All</button><button class="pp">Active Threats</button><button class="pp">Clean</button><button class="pp">New</button></div></div>';
+  MONITORED.forEach(m=>{
+    const b=getBrand(m.id); if(!b) return;
+    const c=b.threats>0?tColor(b.threats):'var(--positive)';
+    const st=b.threats>0?'at':b.score===null?'new':'clean';
+    const stLabel=st==='at'?'Active Threats':st==='clean'?'Clean':'New';
+    h+=`<div class="mrow" data-id="${b.id}"><div class="mico" style="color:${c}">${ini(b.name)}</div><div class="minf"><div class="mnam">${b.name}</div><div class="mdom">${b.domain}</div></div><div class="msec">${b.sector}</div><div class="mthr" style="color:${c}">${b.threats}</div><div><span class="sbadge ${st}">${stLabel}</span></div><div class="mmeta">Since ${m.since}</div></div>`;
+  });
+  document.getElementById('tab-mon').innerHTML=h;
+  document.querySelectorAll('#tab-mon .mrow').forEach(r=>r.addEventListener('click',()=>showDetail(r.dataset.id)));
+}
+
+function renderAll() {
+  const sorted=[...ALL_BRANDS].sort((a,b)=>(b.threats||0)-(a.threats||0));
+  const monIds=new Set(MONITORED.map(m=>m.id));
+  let h=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><input class="search-in" placeholder="Search by name or domain..." style="width:280px"><select class="sel"><option value="">All Sectors</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Social Media</option><option>Logistics</option></select></div><div class="atbl"><table><thead><tr><th style="width:32px">★</th><th>Brand</th><th>Sector</th><th>Threats</th><th>Trend</th><th>Type</th></tr></thead><tbody>`;
+  sorted.forEach(b=>{
+    const mon=monIds.has(b.id);const c=tColor(b.threats||0);const t=b.trend||0;const tc=t>=0?'up':'down';const ts=t>=0?'+':'';
+    h+=`<tr data-id="${b.id}"><td><span class="star ${mon?'on':'off'}">${mon?'★':'☆'}</span></td><td><div class="tbr"><div class="tbi" style="color:${c}">${ini(b.name)}</div><div><div style="font-weight:500">${b.name}</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${b.domain}</div></div></div></td><td style="font-size:11px;color:var(--text-secondary)">${b.sector}</td><td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${c}">${b.threats||0}</span></td><td><span class="tpct ${tc}" style="font-size:11px">${ts}${Math.abs(t)}%</span></td><td>${b.type?`<span class="tpill ${b.type}">${b.type}</span>`:'-'}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  document.getElementById('tab-all').innerHTML=h;
+  document.querySelectorAll('#tab-all .star').forEach(s=>s.addEventListener('click',e=>{e.stopPropagation();s.classList.toggle('on');s.classList.toggle('off');s.textContent=s.classList.contains('on')?'★':'☆'}));
+  document.querySelectorAll('#tab-all tbody tr').forEach(r=>r.addEventListener('click',()=>showDetail(r.dataset.id)));
+}
+
+// ═══════════════════════════════════════════════════════════
+// DETAIL VIEW
+// ═══════════════════════════════════════════════════════════
+
+let miniMap=null,tlChart=null;
+
+function showDetail(brandId) {
+  const b=getBrand(brandId); if(!b) return;
+
+  // Generate all detail data from brand (simulates API calls)
+  const threats=generateThreats(b.domain, Math.min(b.threats,15));
+  const locations=generateLocations(Math.min(8,Math.max(1,Math.ceil(b.threats/30))));
+  const providers=generateProviders(threats);
+  const campaigns=b.threats>10?generateCampaigns(b.name):[];
+  const timeline=generateTimeline(30);
+  const sc=b.score!==null?scoreColor(b.score):'var(--text-tertiary)';
+
+  // Switch views
+  document.getElementById('hub-view').classList.remove('visible');
+  document.getElementById('detail-view').classList.add('visible');
+
+  // Header
+  document.getElementById('detail-header').innerHTML=`
+    <div class="brand-header">
+      <div class="bh-logo" style="color:${tColor(b.threats)}">${ini(b.name)}</div>
+      <div class="bh-meta">
+        <div class="bh-title">${b.name}<span class="sec-pill">${b.sector}</span></div>
+        <div class="bh-sub">${b.domain} — First tracked: 2026-01-14</div>
+        <div class="bh-stats">
+          <div class="bs"><div class="bs-v" style="color:var(--threat-critical)">${b.threats}</div><div class="bs-l">Active threats</div></div>
+          <div class="bs"><div class="bs-v" style="color:${b.trend>=0?'var(--threat-medium)':'var(--positive)'}">${b.trend>=0?'+':''}${b.trend}%</div><div class="bs-l">7-day trend</div></div>
+          <div class="bs"><div class="bs-v" style="color:var(--blue-primary)">${providers.length}</div><div class="bs-l">Hosting providers</div></div>
+          <div class="bs"><div class="bs-v" style="color:var(--blue-primary)">${campaigns.length}</div><div class="bs-l">Active campaigns</div></div>
+        </div>
+      </div>
+      ${b.score!==null?`<div class="ts-ring"><div style="width:72px;height:72px;position:relative"><svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5*(1-b.score/100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg><div class="ts-val">${b.score}</div></div><div class="ts-grade">Grade: ${b.grade}</div></div>`:''}
+    </div>`;
+
+  // Threats table
+  let th=`<div class="ph"><div class="pt">Active Threats</div><div class="pb">${b.threats} total</div></div>`;
+  if(threats.length===0){
+    th+=`<div class="empty-state">No active threats detected for this brand.</div>`;
+  } else {
+    th+=`<div class="tcontrols"><div class="tfilter"><button class="fp active">All</button><button class="fp">Phishing</button><button class="fp">Typosquat</button><button class="fp">Impersonation</button><button class="fp">Credential</button></div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">1–${threats.length} of ${b.threats}</span></div>`;
+    th+=`<table><thead><tr><th>Malicious URL</th><th>Type</th><th>Provider</th><th>First Seen</th><th>Status</th><th>Ev</th></tr></thead><tbody>`;
+    threats.forEach(t=>{
+      const d=new Date(t.first_seen);
+      th+=`<tr><td><div class="td-url">${t.url}</div></td><td><span class="tpill ${t.type}">${t.type}</span></td><td><div class="prov-c">${t.provider}<br><span class="asn">${t.asn}</span></div></td><td><span class="date-c">${d.toISOString().substring(0,16).replace('T',' ')}</span></td><td><span class="stbadge ${t.status}">${t.status}</span></td><td><span class="ev-ico ${t.evidence?'cap':''}">${t.evidence?'◉':'○'}</span></td></tr>`;
+    });
+    th+=`</tbody></table><div class="pgn"><span class="pgn-info">Page 1 of ${Math.ceil(b.threats/15)}</span><div class="pgn-btns"><button class="pgn-b dis">‹</button><button class="pgn-b act">1</button><button class="pgn-b">2</button><button class="pgn-b">›</button></div></div>`;
+  }
+  document.getElementById('detail-threats-panel').innerHTML=th;
+  document.querySelectorAll('#detail-threats-panel .fp').forEach(p=>p.addEventListener('click',()=>{p.parentElement.querySelectorAll('.fp').forEach(x=>x.classList.remove('active'));p.classList.add('active')}));
+
+  // Mini map
+  document.getElementById('loc-count').textContent=locations.length+' countries';
+  if(miniMap){miniMap.remove();miniMap=null}
+  setTimeout(()=>{
+    miniMap=L.map('brand-map',{zoomControl:false,attributionControl:false});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(miniMap);
+    if(locations.length===0){miniMap.setView([20,0],2);return}
+    const maxC=Math.max(...locations.map(l=>l.count));
+    locations.forEach(l=>{
+      const int=l.count/maxC;const col=int>=.7?'#ff3b5c':int>=.4?'#ff6b35':int>=.2?'#ffb627':'#00d4ff';
+      L.circleMarker([l.lat,l.lng],{radius:Math.max(4,int*16),fillColor:col,fillOpacity:.3,color:col,weight:.5,opacity:.6}).addTo(miniMap);
+      L.circleMarker([l.lat,l.lng],{radius:Math.max(2,int*6),fillColor:col,fillOpacity:.9,color:col,weight:0}).bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${l.country}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${l.count}</span></div>`).addTo(miniMap);
+    });
+    const bounds=L.latLngBounds(locations.map(l=>[l.lat,l.lng]));
+    miniMap.fitBounds(bounds,{padding:[20,20],maxZoom:5});
+  },50);
+
+  // Provider bars
+  const pb=document.getElementById('prov-bars');
+  if(providers.length===0){pb.innerHTML='<div class="empty-state">No provider data</div>'} else {
+    pb.innerHTML=providers.map(p=>`<div class="pbar-row"><span class="pbar-lbl">${p.name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${p.pct}%;background:${p.color}"></div></div><span class="pbar-ct">${p.count}</span></div>`).join('');
+  }
+
+  // Campaigns
+  document.getElementById('camp-count').textContent=campaigns.length;
+  const cl=document.getElementById('camp-list');
+  if(campaigns.length===0){cl.innerHTML='<div class="empty-state">No campaigns associated</div>'} else {
+    cl.innerHTML=campaigns.map(c=>`<div class="ccard"><div class="ccname">${c.name}</div><div class="ccmeta"><span><span style="color:var(--threat-critical)">${c.threat_count}</span> threats</span><span><span style="color:var(--blue-primary)">${c.brand_count}</span> brands</span><span style="color:var(--text-tertiary)">Since ${c.first_seen}</span></div></div>`).join('');
+  }
+
+  // Timeline
+  const periods=['7d','30d','90d','1y'];
+  document.getElementById('period-pills').innerHTML=periods.map(p=>`<button class="fp${p==='30d'?' active':''}">${p}</button>`).join('');
+  document.querySelectorAll('#period-pills .fp').forEach(p=>p.addEventListener('click',()=>{p.parentElement.querySelectorAll('.fp').forEach(x=>x.classList.remove('active'));p.classList.add('active')}));
+
+  if(tlChart){tlChart.destroy();tlChart=null}
+  const ctx=document.getElementById('tl-chart').getContext('2d');
+  tlChart=new Chart(ctx,{
+    type:'line',
+    data:{labels:timeline.labels,datasets:[{label:'Threats',data:timeline.values,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.06)',fill:true,tension:.35,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#00d4ff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,16,32,0.95)',borderColor:'rgba(0,212,255,0.35)',borderWidth:1,titleFont:{family:"'Chakra Petch'",size:11,weight:'600'},bodyFont:{family:"'IBM Plex Mono'",size:11},titleColor:'#e8edf5',bodyColor:'#7a8ba8',padding:10,cornerRadius:6,displayColors:false,callbacks:{title:i=>i[0].label,label:i=>i.parsed.y+' new threats'}}},scales:{x:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false}},y:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},padding:8},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},beginAtZero:true}}}
+  });
+
+  window.scrollTo(0,0);
+  document.querySelector('.main').scrollTop=0;
+}
+
+function hideDetail() {
+  document.getElementById('detail-view').classList.remove('visible');
+  document.getElementById('hub-view').classList.add('visible');
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT & EVENT WIRING
+// ═══════════════════════════════════════════════════════════
+
+renderAgg(); renderTop(); renderMon(); renderAll();
+
+document.getElementById('tc-top').textContent=BRANDS.length;
+document.getElementById('tc-mon').textContent=MONITORED.length;
+document.getElementById('tc-all').textContent=ALL_BRANDS.length;
+
+document.querySelectorAll('.stab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  document.querySelectorAll('.tab-c').forEach(c=>c.classList.remove('visible'));
+  document.getElementById('tab-'+t.dataset.tab).classList.add('visible');
+}));
+
+document.querySelectorAll('.sact .pp').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('.sact .pp').forEach(x=>x.classList.remove('active'));p.classList.add('active');
+}));
+
+document.getElementById('backBtn').addEventListener('click',hideDetail);
+document.getElementById('addBtn').addEventListener('click',()=>document.getElementById('addModal').classList.add('vis'));
+document.getElementById('cancelM').addEventListener('click',()=>document.getElementById('addModal').classList.remove('vis'));
+document.getElementById('submitM').addEventListener('click',()=>{
+  const d=document.getElementById('mDomain').value.trim();
+  if(!d){document.getElementById('mDomain').style.borderColor='var(--threat-critical)';return}
+  document.getElementById('addModal').classList.remove('vis');
+  document.getElementById('mDomain').value='';document.getElementById('mName').value='';document.getElementById('mNotes').value='';
+});
+document.getElementById('addModal').addEventListener('click',e=>{if(e.target.id==='addModal')e.target.classList.remove('vis')});
+</script>
+</body>
+</html>

@@ -1,11 +1,44 @@
-# imprsn8 Platform — Monorepo
+# Trust Radar v2
 
-**imprsn8** is a brand protection platform with two services, one shared backend, and a
-single master brand.
+**Threat Intelligence Observatory — Outside-In Brand Protection**
 
-> Strategic overview: [PLATFORM_ARCHITECTURE.md](./PLATFORM_ARCHITECTURE.md)
-> Service build plans: [SHIELD_BUILD_PLAN.md](./SHIELD_BUILD_PLAN.md) · [GUARD_BUILD_PLAN.md](./GUARD_BUILD_PLAN.md)
-> Design system: [PLATFORM_DESIGN_BRIEF.md](./PLATFORM_DESIGN_BRIEF.md) · [IMPRSN8_DESIGN_SPEC_V2.md](./IMPRSN8_DESIGN_SPEC_V2.md)
+Trust Radar is an outside-in threat intelligence observatory. It watches the internet's attack surface continuously, ingests free and open data feeds, correlates signals with AI, and surfaces what matters — which brands are being hit, how, from where, and how that landscape is shifting over time.
+
+> Full platform plan: [trust-radar-v2-plan.md](./trust-radar-v2-plan.md)
+> UI prototypes: [prototypes/](./prototypes/)
+
+---
+
+## Status
+
+v2 development in progress. See `trust-radar-v2-plan.md` for the full platform plan.
+
+### v1 Archive
+
+The previous version is preserved on `archive/v1-trust-radar` branch (when created) and tagged `v1.0-final`.
+
+---
+
+## Architecture
+
+```
+                    lrxradar.com
+                    (Trust Radar v2 — Threat Intelligence Observatory)
+                         │
+           ┌─────────────┴──────────────────┐
+           │                                │
+     lrxradar.com                    api.lrx.io
+     Trust Radar SPA                 FastAPI / Railway
+     CF Worker + D1                  AI Orchestration
+     trust-radar-v2                  Claude Haiku
+           │                                │
+           │       X-API-Key               │
+           └──────────────┬────────────────┘
+                          ▼
+                   Cloudflare D1
+                   trust-radar-v2 (primary)
+                   trust-radar-v2-audit (audit log)
+```
 
 ---
 
@@ -13,44 +46,40 @@ single master brand.
 
 | Service | Domain | Package | Description |
 |---------|--------|---------|-------------|
-| **imprsn8 Guard** | [imprsn8.com](https://imprsn8.com) | `packages/imprsn8/` | Social media monitoring & personal brand protection for influencers and public figures |
-| **imprsn8 Shield** | [shield.imprsn8.com](https://shield.imprsn8.com) | `packages/trust-radar/` | Corporate brand health monitoring & threat intelligence |
-| **LRX API** | api.lrx.io | `packages/api/` | Shared AI/backend services (internal) |
+| **Trust Radar** | [lrxradar.com](https://lrxradar.com) | `packages/trust-radar/` | Threat intelligence observatory — feeds, enrichment, API |
+| **Trust Radar UI** | [lrxradar.com](https://lrxradar.com) | `packages/frontend/radar/` | React SPA — Observatory HUD, Brands, Providers, Campaigns, Trends, Admin |
+| **LRX API** | api.lrx.io | `packages/api/` | Shared AI/backend services (Claude Haiku orchestration) |
+| **imprsn8 Guard** | [imprsn8.com](https://imprsn8.com) | `packages/imprsn8/` | Social media monitoring & personal brand protection (separate platform) |
 
 ---
 
-## Architecture
+## Prototype Files
 
-```
-                   imprsn8.com
-                   (Guard — social/influencer protection)
-                        │
-          ┌─────────────┴──────────────────┐
-          │                                │
-    imprsn8.com                   shield.imprsn8.com
-    Guard SPA                     Shield SPA
-    CF Worker + D1                CF Worker + D1
-    imprsn8-db                    radar-db
-          │                                │
-          │       X-API-Key                │
-          └──────────────┬─────────────────┘
-                         ▼
-                    api.lrx.io
-                    FastAPI / Railway
-                    PostgreSQL + OpenAI
-                    (shared by both services)
-```
+These HTML files are the visual specification for each v2 view. Open and render each prototype to understand the exact layout, component structure, CSS class names, colors, typography, and interaction patterns.
+
+| Prototype File | Covers |
+|---------------|--------|
+| `trust-radar-hud-v2.html` | Observatory HUD — main dashboard |
+| `trust-radar-brands-tab.html` | Brands Hub + Brand Detail |
+| `trust-radar-providers-tab.html` | Providers Hub + Provider Detail |
+| `trust-radar-campaigns-tab.html` | Campaigns Hub + Campaign Detail |
+| `trust-radar-trends-tab.html` | Trend Explorer |
+| `trust-radar-agents-tab.html` | AI Agents View |
+| `trust-radar-admin-dashboard.html` | Admin Dashboard |
+| `trust-radar-admin-users.html` | Admin Users & Roles |
+| `trust-radar-admin-feeds.html` | Admin Feed Management |
+| `trust-radar-admin-leads.html` | Admin Lead Management |
+| `trust-radar-login.html` | Login / Auth Screen |
+| `trust-radar-public-site.html` | Public Website + Brand Assessment |
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- [pnpm](https://pnpm.io) ≥ 9
-- [Node.js](https://nodejs.org) ≥ 20
-- [Python](https://python.org) ≥ 3.12
+- [pnpm](https://pnpm.io) >= 9
+- [Node.js](https://nodejs.org) >= 20
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) — `pnpm install -g wrangler`
-- [Railway CLI](https://docs.railway.app/develop/cli) — `npm install -g @railway/cli`
 
 ### Install
 
@@ -65,119 +94,59 @@ pnpm install
 pnpm dev
 
 # Individual services
-cd packages/imprsn8    && pnpm dev    # Guard backend
-cd packages/trust-radar && pnpm dev   # Shield backend
+cd packages/trust-radar && pnpm dev   # Trust Radar backend
 cd packages/api        && uvicorn app.main:app --reload
 
 # Frontend
-pnpm --filter @lrx/frontend dev:imprsn8   # Guard SPA
-pnpm --filter @lrx/frontend dev:radar     # Shield SPA
+pnpm --filter @lrx/frontend dev:radar     # Trust Radar SPA
 ```
 
 ### Database Setup (Cloudflare D1)
 
 ```bash
-# Create databases (one-time)
-cd packages/imprsn8     && pnpm db:create
-cd packages/trust-radar && pnpm db:create
+# Create v2 databases (one-time)
+wrangler d1 create trust-radar-v2
+wrangler d1 create trust-radar-v2-audit
 
 # Apply migrations locally
-cd packages/imprsn8     && pnpm db:migrate:local
 cd packages/trust-radar && pnpm db:migrate:local
 
 # Apply migrations to production
-cd packages/imprsn8     && pnpm db:migrate:prod
 cd packages/trust-radar && pnpm db:migrate:prod
 ```
 
-### Secrets Setup (Cloudflare Workers)
+### Secrets Setup
 
 ```bash
-# Guard (imprsn8)
-cd packages/imprsn8
-wrangler secret put JWT_SECRET
-wrangler secret put LRX_API_KEY
-
-# Shield (trust-radar)
 cd packages/trust-radar
 wrangler secret put JWT_SECRET
 wrangler secret put VIRUSTOTAL_API_KEY
 wrangler secret put LRX_API_KEY
 ```
 
-### Deploy
-
-```bash
-pnpm deploy:guard    # imprsn8 Guard only
-pnpm deploy:shield   # imprsn8 Shield only
-pnpm deploy:api      # LRX API only
-pnpm deploy:all      # Everything
-
-# Legacy aliases (still work)
-pnpm deploy:imprsn8  # → same as deploy:guard
-pnpm deploy:radar    # → same as deploy:shield
-```
-
 ---
 
-## GitHub Secrets Required
+## Build Sequence
 
-| Secret | Used By | Description |
-|--------|---------|-------------|
-| `CLOUDFLARE_API_TOKEN` | deploy-guard, deploy-shield | CF API token with Workers & D1 permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | deploy-guard, deploy-shield | Your Cloudflare account ID |
-| `RAILWAY_TOKEN` | deploy-api | Railway project token |
+See `trust-radar-v2-plan.md` Section 13 for the full ordered build sequence:
 
----
-
-## API Endpoints
-
-### Guard — imprsn8 (`imprsn8.com`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | — | Health check |
-| `POST` | `/api/auth/register` | — | Register |
-| `POST` | `/api/auth/login` | — | Login |
-| `GET` | `/api/auth/me` | Bearer | Current user |
-| `PATCH` | `/api/profile` | Bearer | Update profile |
-| `POST` | `/api/analyze` | Bearer | Analyze bio/content/profile |
-| `GET` | `/api/analyses` | Bearer | Analysis history |
-| `GET` | `/api/score/history` | Bearer | Score trend data |
-| `GET` | `/api/social` | Bearer | List social profiles |
-| `POST` | `/api/social` | Bearer | Add social profile |
-| `DELETE` | `/api/social/:platform` | Bearer | Remove social profile |
-| `GET` | `/api/threats` | Bearer | IOI threat feed |
-| `GET` | `/api/takedowns` | Bearer | Takedown pipeline |
-| `GET` | `/api/agents` | Bearer (soc+) | Agent status |
-| `POST` | `/api/agents/:id/run` | Bearer (soc+) | Trigger agent |
-| `GET` | `/api/admin/users` | Bearer (admin) | User management |
-| `POST` | `/api/invites` | Bearer (admin) | Create invite link |
-
-### Shield — Trust Radar (`shield.imprsn8.com`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | — | Health check |
-| `POST` | `/api/auth/register` | — | Register |
-| `POST` | `/api/auth/login` | — | Login |
-| `GET` | `/api/auth/me` | Bearer | Current user |
-| `POST` | `/api/scan` | Optional | Scan a URL |
-| `GET` | `/api/scan/history` | Bearer | Scan history |
-| `GET` | `/api/threats` | Bearer | Threat intelligence feed |
-| `GET` | `/api/investigations` | Bearer | Case management |
-| `GET` | `/api/feeds` | Bearer (analyst+) | Feed status |
-| `GET` | `/api/agents` | Bearer (analyst+) | Agent status |
-| `GET` | `/api/admin/users` | Bearer (admin) | User management |
-
-### LRX API (`api.lrx.io`) — Internal
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | — | Health check |
-| `POST` | `/api/ai/enhance-bio` | X-API-Key | AI bio enhancement |
-| `POST` | `/api/ai/scan-insight` | X-API-Key | AI scan explanation |
-| `POST` | `/api/ai/impression-report` | X-API-Key | AI impression report |
+0. **Decommission v1 & Upload Prototypes** ← current
+1. Database Schema
+2. Feed Ingestion
+3. Enrichment Pipeline
+4. AI Analysis Integration
+5. Authentication & Authorization
+6. API Endpoints
+7. UI Shell & Shared Components
+8. Observatory HUD
+9. Brands Tab
+10. Providers Tab
+11. Campaigns Tab
+12. Trends Tab
+13. AI Agents Tab
+14-18. Admin views
+19. Public Website & Brand Assessment
+20. Hardening & Testing
 
 ---
 
@@ -186,36 +155,45 @@ pnpm deploy:radar    # → same as deploy:shield
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18 + TypeScript + Vite |
-| **UI** | Radix UI + Tailwind CSS + Framer Motion |
+| **UI** | Tailwind CSS + Radix UI |
 | **Data** | TanStack Query |
-| **Backend** | Cloudflare Workers (itty-router + Zod) |
-| **Database** | Cloudflare D1 (SQLite, per service) |
-| **Cache/Sessions** | Cloudflare KV |
-| **Assets** | Cloudflare R2 (Guard profile images) |
-| **Shared API** | FastAPI on Railway + PostgreSQL |
-| **AI** | OpenAI GPT-4o-mini |
+| **Backend** | Cloudflare Workers |
+| **Database** | Cloudflare D1 (SQLite) |
+| **Cache** | Cloudflare KV |
+| **Storage** | Cloudflare R2 |
+| **Real-time** | Cloudflare Durable Objects (WebSocket) |
+| **AI** | Claude Haiku (via Railway FastAPI) |
+| **DNS/CDN** | Cloudflare |
 | **Build** | Turborepo + pnpm workspaces |
-| **CI/CD** | GitHub Actions (path-filtered auto-deploy) |
+| **CI/CD** | GitHub Actions |
 
 ---
 
 ## Monorepo Structure
 
 ```
-packages/
-├── imprsn8/           → Guard backend (Cloudflare Worker)
-├── trust-radar/       → Shield backend (Cloudflare Worker)
-├── frontend/
-│   ├── imprsn8/       → Guard SPA
-│   ├── radar/         → Shield SPA
-│   └── package.json   → Shared frontend dependencies
-└── api/               → LRX API (FastAPI)
+trust-radar/
+├── trust-radar-v2-plan.md    → Single source of truth for v2
+├── prototypes/               → HTML visual specifications (12 files)
+├── packages/
+│   ├── trust-radar/          → Trust Radar backend (Cloudflare Worker)
+│   │   ├── src/
+│   │   │   ├── handlers/     → API route handlers
+│   │   │   ├── feeds/        → Feed ingestion modules
+│   │   │   ├── enrichment/   → Enrichment pipeline
+│   │   │   ├── agents/       → AI agent runners
+│   │   │   ├── durableObjects/ → WebSocket push hub
+│   │   │   ├── lib/          → Shared utilities
+│   │   │   └── index.ts      → Worker entry point + router
+│   │   ├── migrations/       → D1 migration files
+│   │   └── wrangler.toml     → Cloudflare config
+│   ├── frontend/
+│   │   ├── radar/            → Trust Radar SPA (React)
+│   │   └── imprsn8/          → imprsn8 Guard SPA (separate)
+│   ├── imprsn8/              → imprsn8 Guard backend (separate)
+│   └── api/                  → LRX shared API (FastAPI)
 ```
-
-> **Package rename note:** `packages/trust-radar` and `packages/frontend/radar` will be
-> renamed to `packages/shield` and `packages/frontend/shield` in a future cleanup pass
-> once all CI/CD references are updated. Both names are equivalent until then.
 
 ---
 
-*imprsn8 platform — powered by LRX · March 2026*
+*Trust Radar v2 — powered by LRX · March 2026*

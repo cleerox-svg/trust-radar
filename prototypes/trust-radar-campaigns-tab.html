@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Campaigns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--threat-low:#00d4ff;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--purple:#b388ff;--purple-dim:rgba(138,43,226,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}
+.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}
+.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}
+.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}
+@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}
+.logo span{color:var(--blue-primary)}.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}
+.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}
+.np.active{background:var(--bg-elevated);color:var(--text-accent)}.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}.feed-st{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--positive)}.fd{width:5px;height:5px;border-radius:50%;background:var(--positive);animation:pc 2s ease-in-out infinite}
+.live-tag{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--blue-primary);padding:3px 9px;border:1px solid var(--blue-border-bright);border-radius:3px}
+.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+.main{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}.main::-webkit-scrollbar{width:5px}.main::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:3px}
+#hub-view,#detail-view{display:none}#hub-view.visible,#detail-view.visible{display:block}
+
+.agg{display:flex;gap:12px;padding:0 24px 16px}.ac{flex:1;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:14px 16px}
+.ac-v{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1}.ac-l{font-size:10px;color:var(--text-tertiary);margin-top:4px}.ac-s{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:2px}
+.sub-tabs{display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--blue-border)}
+.stab{font-family:var(--font-display);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);padding:12px 20px 10px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.stab:hover{color:var(--text-secondary)}.stab.active{color:var(--text-accent);border-bottom-color:var(--blue-primary)}
+.tc{font-family:var(--font-mono);font-size:9px;background:var(--bg-elevated);color:var(--text-secondary);padding:1px 6px;border-radius:3px;margin-left:6px}.stab.active .tc{background:var(--blue-glow);color:var(--blue-primary)}
+.tab-c{display:none;padding:20px 24px}.tab-c.visible{display:block}
+
+/* CAMPAIGN CARDS */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.ccard{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:18px;cursor:pointer;transition:all .2s;position:relative}
+.ccard:hover{border-color:var(--blue-border-bright);background:var(--bg-panel);transform:translateY(-1px)}
+.ccard-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.ccard-name{font-family:var(--font-display);font-size:15px;font-weight:700;flex:1;margin-right:12px}
+.sev{font-family:var(--font-mono);font-size:8px;font-weight:500;padding:3px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase}
+.sev.critical{background:var(--negative-muted);color:var(--negative)}.sev.high{background:rgba(255,107,53,.12);color:var(--threat-high)}.sev.medium{background:rgba(255,182,39,.12);color:var(--threat-medium)}
+.status-b{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9px;font-weight:500;padding:3px 8px;border-radius:3px}
+.status-b.active-s{background:var(--negative-muted);color:var(--negative)}.status-b.active-s::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--negative);animation:pc 2s ease-in-out infinite}
+.status-b.dormant{background:rgba(255,182,39,.1);color:var(--threat-medium)}.status-b.disrupted{background:var(--positive-muted);color:var(--positive)}
+.ccard-desc{font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ccard-metrics{display:flex;gap:16px;margin-bottom:12px}
+.cm{text-align:center}.cm-v{font-family:var(--font-display);font-weight:700;font-size:18px;line-height:1}.cm-l{font-size:9px;color:var(--text-tertiary);margin-top:2px}
+.ccard-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(0,212,255,.06)}
+.brand-icons{display:flex;gap:-6px}.brand-ico{width:24px;height:24px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:8px;font-weight:700;color:var(--blue-primary);margin-left:-4px}.brand-ico:first-child{margin-left:0}
+.ccard-dates{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}
+.ccard-spark{position:absolute;bottom:18px;right:18px;opacity:.6}
+
+/* DETAIL */
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);cursor:pointer;padding:4px 0;margin-bottom:16px;border:none;background:none;transition:color .15s}.back-btn:hover{color:var(--text-accent)}
+.camp-header{margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--blue-border)}
+.camp-title{font-family:var(--font-display);font-size:24px;font-weight:700;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.camp-sub{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:12px}
+.camp-stats{display:flex;gap:24px}
+.cs{display:flex;flex-direction:column}.cs-v{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1}.cs-l{font-size:10px;color:var(--text-tertiary);margin-top:3px}
+
+/* AI Assessment */
+.ai-panel{background:var(--purple-dim);border:1px solid rgba(138,43,226,.2);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:20px}
+.ai-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ai-agent{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--purple)}
+.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--purple)}
+.ai-body{font-size:13px;line-height:1.7;color:var(--text-secondary)}.ai-body strong{color:var(--text-primary);font-weight:500}
+.ai-tags{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.ai-tag{font-family:var(--font-mono);font-size:9px;padding:3px 10px;border-radius:4px;background:rgba(138,43,226,.08);color:var(--purple);border:1px solid rgba(138,43,226,.15)}
+
+/* Infrastructure graph */
+.infra-panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px}
+.infra-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--blue-border)}
+.infra-title{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.infra-title::before{content:'';width:3px;height:11px;background:var(--blue-primary);border-radius:2px}
+.infra-body{padding:20px;min-height:280px;position:relative}
+.infra-canvas{width:100%;height:280px}
+
+/* Infra node */
+.inode{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .15s}
+.inode:hover{transform:scale(1.08)}
+.inode-box{padding:4px 10px;border-radius:4px;font-family:var(--font-mono);font-size:9px;font-weight:500;white-space:nowrap;border:1px solid}
+.inode-box.domain{background:var(--negative-muted);color:var(--negative);border-color:rgba(255,59,92,.2)}
+.inode-box.ip{background:var(--blue-glow);color:var(--blue-primary);border-color:var(--blue-border)}
+.inode-box.provider{background:rgba(255,182,39,.08);color:var(--threat-medium);border-color:rgba(255,182,39,.2)}
+.inode-box.registrar{background:var(--purple-dim);color:var(--purple);border-color:rgba(138,43,226,.2)}
+.inode-label{font-size:7px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px}
+
+/* Two-column detail grid */
+.dgrid{display:grid;grid-template-columns:1fr 360px;gap:20px;margin-bottom:20px}
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--blue-border)}
+.ptitle{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.ptitle::before{content:'';width:3px;height:11px;background:var(--blue-primary);border-radius:2px}
+.pbadge{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:var(--blue-glow);color:var(--blue-primary);border:1px solid var(--blue-border)}
+.padded{padding:16px 18px}
+table{width:100%;border-collapse:collapse}thead th{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:10px 18px;border-bottom:1px solid var(--blue-border);white-space:nowrap}
+tbody tr{border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s;cursor:pointer}tbody tr:hover{background:var(--bg-hover)}td{padding:10px 18px;font-size:12px;vertical-align:middle}
+.td-url{font-family:var(--font-mono);font-size:11px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpill{font-family:var(--font-mono);font-size:8px;font-weight:500;padding:2px 7px;border-radius:3px}.tpill.phishing{background:var(--negative-muted);color:var(--negative)}.tpill.typosquat{background:rgba(255,182,39,.12);color:var(--threat-medium)}.tpill.impersonation{background:rgba(255,107,53,.12);color:var(--threat-high)}.tpill.credential{background:rgba(138,43,226,.12);color:#b388ff}
+.stbadge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9px;font-weight:500;padding:2px 8px;border-radius:3px}.stbadge.active{background:var(--negative-muted);color:var(--negative)}.stbadge.active::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--negative);animation:pc 2s ease-in-out infinite}.stbadge.down{background:var(--positive-muted);color:var(--positive)}
+
+.bar-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+.bar-lbl{font-size:11px;color:var(--text-secondary);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-trk{flex:1;height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.bar-ct{font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);width:36px;text-align:right;flex-shrink:0}
+
+.infra-stat{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,212,255,.05)}
+.infra-stat:last-child{border-bottom:none}
+.is-label{font-size:11px;color:var(--text-secondary)}.is-val{font-family:var(--font-mono);font-size:11px;font-weight:500}
+
+.chart-wrap{position:relative;height:220px;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:16px}
+.tl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.tl-title{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.tl-title::before{content:'';width:3px;height:11px;background:var(--blue-primary);border-radius:2px}
+.fp{font-family:var(--font-body);font-size:10px;font-weight:500;padding:4px 10px;border-radius:4px;border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}.fp.active{background:var(--bg-elevated);color:var(--text-accent);border-color:var(--blue-border-bright)}
+.empty{text-align:center;padding:32px;color:var(--text-tertiary);font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <nav class="nav-pills"><button class="np">Observatory</button><button class="np">Brands</button><button class="np">Providers</button><button class="np active">Campaigns</button><button class="np">Trends</button></nav>
+    </div>
+    <div class="topbar-right"><div class="feed-st"><span class="fd"></span>6 feeds active</div><span class="live-tag">Live</span><div class="ua">SA</div></div>
+  </header>
+  <main class="main">
+    <!-- HUB -->
+    <div id="hub-view" class="visible">
+      <div style="padding:20px 24px 0"><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Campaign Intelligence</div></div>
+      <div class="agg" id="agg-stats"></div>
+      <div class="sub-tabs">
+        <div class="stab active" data-tab="active">Active<span class="tc" id="tc-act"></span></div>
+        <div class="stab" data-tab="dormant">Dormant<span class="tc" id="tc-dor"></span></div>
+        <div class="stab" data-tab="disrupted">Disrupted<span class="tc" id="tc-dis"></span></div>
+      </div>
+      <div class="tab-c visible" id="tab-active"></div>
+      <div class="tab-c" id="tab-dormant"></div>
+      <div class="tab-c" id="tab-disrupted"></div>
+    </div>
+    <!-- DETAIL -->
+    <div id="detail-view" style="padding:20px 24px">
+      <button class="back-btn" id="backBtn">← Back to Campaigns</button>
+      <div id="detail-content"></div>
+    </div>
+  </main>
+</div>
+<script>
+// ═══ DATA ═══
+function ini(n){return n.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+function spark(data,color){const max=Math.max(...data),min=Math.min(...data),range=max-min||1;const pts=data.map((v,i)=>`${2+i/(data.length-1)*70},${24-((v-min)/range)*20}`);return `<svg width="74" height="26" viewBox="0 0 74 26"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/></svg>`}
+function sevColor(s){return s==='critical'?'var(--threat-critical)':s==='high'?'var(--threat-high)':'var(--threat-medium)'}
+
+const CAMPAIGNS=[
+  {id:'c1',name:'Crypto Exchange Credential Harvester',status:'active',severity:'critical',desc:'Coordinated campaign targeting major cryptocurrency exchanges using a shared phishing kit. 47 domains registered in a 6-hour burst, all hosted on Namecheap infrastructure.',threats:47,brands:3,providers:2,domains:47,ips:12,registrars:1,first_seen:'2026-03-11',last_seen:'2026-03-13',brand_names:['Coinbase','Binance','Kraken'],provider_names:['Namecheap Hosting','Hostinger'],tld_dist:{'.xyz':28,'.top':12,'.shop':7},spark:[0,0,2,8,18,34,47],sophistication:'Semi-automated',methodology:'Bulk domain registration with templated phishing kit. Shared CSS/JS fingerprint across 39 of 47 domains. Rotating subdomains every 4 hours to evade blocklists.',actor_profile:'Organized group with automation capabilities. Likely Eastern European based on registration timing patterns (UTC+2/+3 working hours).'},
+  {id:'c2',name:'Financial Auth Portal Mimicry',status:'active',severity:'high',desc:'Long-running campaign impersonating banking login portals. Uses legitimate-looking SSL certificates and pixel-perfect clones of target bank login pages.',threats:23,brands:5,providers:4,domains:23,ips:18,registrars:3,first_seen:'2026-02-28',last_seen:'2026-03-13',brand_names:['PayPal','Chase Bank','Wells Fargo','Bank of America','Revolut'],provider_names:['OVH SAS','Hetzner Online','DigitalOcean','Contabo'],tld_dist:{'.com':8,'.net':7,'.xyz':5,'.top':3},spark:[2,4,3,5,4,6,5],sophistication:'Manual',methodology:'Hand-crafted phishing pages with real-time credential relay to attacker-controlled server. Each domain uses a unique Let\'s Encrypt certificate. No shared hosting fingerprint — each site on a different IP.',actor_profile:'Sophisticated actor with web development skills. Likely single operator or small team. Pages show attention to detail unusual for automated campaigns.'},
+  {id:'c3',name:'.xyz TLD Bulk Registration Wave',status:'active',severity:'medium',desc:'Mass registration of typosquatting domains on the .xyz TLD targeting technology brands. Lower sophistication but high volume.',threats:34,brands:4,providers:3,domains:34,ips:8,registrars:1,first_seen:'2026-03-08',last_seen:'2026-03-12',brand_names:['Apple','Microsoft','Netflix','Adobe'],provider_names:['Namecheap Hosting','BuyVM','Vultr'],tld_dist:{'.xyz':34},spark:[0,4,8,12,18,26,34],sophistication:'Automated',methodology:'Automated domain generation algorithm producing brand-name variants on .xyz TLD. Domains parked with generic phishing templates. Low conversion rate but high volume.',actor_profile:'Bot-operated. Registration patterns suggest automated tooling. No human-quality content on landing pages.'},
+  {id:'c4',name:'PayPal Invoice Scam Network',status:'active',severity:'high',desc:'Phishing campaign using fake PayPal invoice notifications. Domains mimic PayPal dispute and invoice URLs with convincing email templates.',threats:18,brands:1,providers:2,domains:18,ips:6,registrars:2,first_seen:'2026-03-05',last_seen:'2026-03-13',brand_names:['PayPal'],provider_names:['OVH SAS','Hetzner Online'],tld_dist:{'.com':6,'.net':4,'.shop':4,'.top':4},spark:[1,2,3,3,4,4,5],sophistication:'Semi-automated',methodology:'Email-first campaign. Phishing emails contain PayPal-branded invoice links. Landing pages request login credentials and payment card details. Domain names follow invoice/dispute/refund patterns.',actor_profile:'Experienced phishing operator. Email templates bypass common spam filters. Likely using compromised SMTP servers for delivery.'},
+];
+
+const DORMANT=[
+  {id:'c5',name:'DHL Delivery Notification Cluster',status:'dormant',severity:'medium',desc:'SMS and email phishing targeting DHL package tracking. No new domains registered in 10 days.',threats:28,brands:1,providers:2,domains:28,ips:10,registrars:2,first_seen:'2026-02-15',last_seen:'2026-03-03',brand_names:['DHL'],provider_names:['Hostinger','Contabo'],tld_dist:{'.com':12,'.top':10,'.xyz':6},spark:[6,8,10,8,6,2,0],sophistication:'Automated',methodology:'SMS-first with shortened URLs. Landing pages mimic DHL tracking interface.',actor_profile:'Automated campaign, likely paused due to domain takedowns.'},
+];
+
+const DISRUPTED=[
+  {id:'c6',name:'LinkedIn Recruiter Impersonation',status:'disrupted',severity:'high',desc:'All 15 domains taken down. Campaign used fake LinkedIn recruiter profiles to distribute credential harvesting links.',threats:15,brands:1,providers:1,domains:15,ips:4,registrars:1,first_seen:'2026-01-20',last_seen:'2026-02-14',brand_names:['LinkedIn'],provider_names:['DigitalOcean'],tld_dist:{'.com':8,'.net':7},spark:[4,6,8,6,4,2,0],sophistication:'Manual',methodology:'Social engineering via fake recruiter profiles. Links led to credential harvesting pages.',actor_profile:'Small group. All infrastructure remediated.'},
+];
+
+const ALL_CAMPAIGNS=[...CAMPAIGNS,...DORMANT,...DISRUPTED];
+
+// ═══ HUB ═══
+function renderAgg(){
+  const total=ALL_CAMPAIGNS.reduce((a,c)=>a+c.threats,0);
+  const brands=new Set(ALL_CAMPAIGNS.flatMap(c=>c.brand_names)).size;
+  document.getElementById('agg-stats').innerHTML=`
+    <div class="ac"><div class="ac-v" style="color:var(--negative)">${CAMPAIGNS.length}</div><div class="ac-l">Active campaigns</div><div class="ac-s">${CAMPAIGNS.reduce((a,c)=>a+c.threats,0)} associated threats</div></div>
+    <div class="ac"><div class="ac-v" style="color:var(--threat-medium)">${DORMANT.length}</div><div class="ac-l">Dormant</div><div class="ac-s">No activity 7+ days</div></div>
+    <div class="ac"><div class="ac-v" style="color:var(--positive)">${DISRUPTED.length}</div><div class="ac-l">Disrupted</div><div class="ac-s">All threats remediated</div></div>
+    <div class="ac"><div class="ac-v" style="color:var(--blue-primary)">${brands}</div><div class="ac-l">Brands affected</div><div class="ac-s">Across all campaigns</div></div>`;
+}
+
+function renderCards(list,containerId){
+  const el=document.getElementById(containerId);
+  if(!list.length){el.innerHTML='<div class="empty">No campaigns in this category</div>';return}
+  el.innerHTML='<div class="cgrid">'+list.map(c=>{
+    const sc=sevColor(c.severity);
+    const stClass=c.status==='active'?'active-s':c.status;
+    const stLabel=c.status.charAt(0).toUpperCase()+c.status.slice(1);
+    return`<div class="ccard" data-id="${c.id}">
+      <div class="ccard-top"><div class="ccard-name">${c.name}</div><span class="sev ${c.severity}">${c.severity}</span></div>
+      <div style="margin-bottom:8px"><span class="status-b ${stClass}">${stLabel}</span></div>
+      <div class="ccard-desc">${c.desc}</div>
+      <div class="ccard-metrics">
+        <div class="cm"><div class="cm-v" style="color:${sc}">${c.threats}</div><div class="cm-l">Threats</div></div>
+        <div class="cm"><div class="cm-v" style="color:var(--blue-primary)">${c.brands}</div><div class="cm-l">Brands</div></div>
+        <div class="cm"><div class="cm-v" style="color:var(--threat-medium)">${c.providers}</div><div class="cm-l">Providers</div></div>
+        <div class="cm"><div class="cm-v" style="color:var(--text-secondary)">${c.domains}</div><div class="cm-l">Domains</div></div>
+      </div>
+      <div class="ccard-footer">
+        <div class="brand-icons">${c.brand_names.slice(0,3).map(b=>`<div class="brand-ico">${ini(b)}</div>`).join('')}${c.brands>3?`<div class="brand-ico" style="color:var(--text-tertiary)">+${c.brands-3}</div>`:''}</div>
+        <div class="ccard-dates">${c.first_seen} → ${c.last_seen}</div>
+      </div>
+      <div class="ccard-spark">${spark(c.spark,sc)}</div>
+    </div>`}).join('')+'</div>';
+  el.querySelectorAll('.ccard').forEach(c=>c.addEventListener('click',()=>showDetail(c.dataset.id)));
+}
+
+// ═══ DETAIL ═══
+let tlChart=null;
+function showDetail(id){
+  const c=ALL_CAMPAIGNS.find(x=>x.id===id);if(!c)return;
+  const sc=sevColor(c.severity);
+  const stClass=c.status==='active'?'active-s':c.status;
+  const stLabel=c.status.charAt(0).toUpperCase()+c.status.slice(1);
+  document.getElementById('hub-view').classList.remove('visible');
+  document.getElementById('detail-view').classList.add('visible');
+
+  // Generate threats
+  const types=['phishing','typosquat','impersonation','credential'];
+  const statuses=c.status==='disrupted'?['down','down','down']:['active','active','active','down'];
+  const threats=Array.from({length:Math.min(c.threats,12)},(_,i)=>{
+    const brand=c.brand_names[i%c.brand_names.length];const base=brand.toLowerCase().replace(/\s+/g,'');
+    const tlds=Object.keys(c.tld_dist);
+    return{url:base+['-secure','-login','-verify','-auth'][i%4]+tlds[i%tlds.length]+'/auth',type:types[i%types.length],brand,provider:c.provider_names[i%c.provider_names.length],status:statuses[i%statuses.length],first_seen:new Date(Date.now()-i*7200000).toISOString()}
+  });
+  const brandBreak=c.brand_names.map((b,i)=>{const ct=Math.max(1,Math.floor(c.threats*(1-i*.25)/(c.brands)));return{name:b,count:ct,pct:Math.round(ct/c.threats*100)}});
+  const colors=['#ff3b5c','#ff6b35','#ffb627','#00d4ff','#0091b3'];
+  const timeline={labels:Array.from({length:14},(_,i)=>{const d=new Date(Date.now()-(13-i)*86400000);return`${d.getMonth()+1}/${d.getDate()}`}),values:c.spark.length>=14?c.spark.slice(-14):Array.from({length:14},(_,i)=>Math.round(c.threats*Math.min(1,(i+1)/14)*(0.5+Math.random()*0.5)))};
+
+  // Infrastructure nodes
+  const domainSample=threats.slice(0,6).map(t=>t.url.split('/')[0]);
+  const ipSample=Array.from({length:c.ips>6?6:c.ips},(_,i)=>`185.${120+i}.${40+Math.floor(Math.random()*20)}.${Math.floor(Math.random()*254)}`);
+
+  let html=`
+  <div class="camp-header">
+    <div class="camp-title">${c.name}<span class="sev ${c.severity}">${c.severity}</span><span class="status-b ${stClass}">${stLabel}</span></div>
+    <div class="camp-sub">First seen: ${c.first_seen} — Last activity: ${c.last_seen}</div>
+    <div class="camp-stats">
+      <div class="cs"><div class="cs-v" style="color:${sc}">${c.threats}</div><div class="cs-l">Total threats</div></div>
+      <div class="cs"><div class="cs-v" style="color:var(--blue-primary)">${c.brands}</div><div class="cs-l">Brands targeted</div></div>
+      <div class="cs"><div class="cs-v" style="color:var(--threat-medium)">${c.providers}</div><div class="cs-l">Hosting providers</div></div>
+      <div class="cs"><div class="cs-v" style="color:var(--text-secondary)">${c.domains}</div><div class="cs-l">Domains</div></div>
+      <div class="cs"><div class="cs-v" style="color:var(--text-secondary)">${c.ips}</div><div class="cs-l">Unique IPs</div></div>
+      <div class="cs"><div class="cs-v" style="color:var(--text-secondary)">${c.registrars}</div><div class="cs-l">Registrars</div></div>
+    </div>
+  </div>
+
+  <div class="ai-panel">
+    <div class="ai-head"><div class="ai-dot"></div><div class="ai-agent">Strategist — Campaign Assessment</div></div>
+    <div class="ai-body">${c.desc}<br><br><strong>Methodology:</strong> ${c.methodology}<br><br><strong>Actor Profile:</strong> ${c.actor_profile}</div>
+    <div class="ai-tags">
+      <div class="ai-tag">Sophistication: ${c.sophistication}</div>
+      <div class="ai-tag">${c.domains} domains</div>
+      <div class="ai-tag">${c.ips} IPs</div>
+      ${Object.entries(c.tld_dist).map(([tld,ct])=>`<div class="ai-tag">${tld}: ${ct}</div>`).join('')}
+    </div>
+  </div>
+
+  <div class="infra-panel">
+    <div class="infra-head"><div class="infra-title">Infrastructure Map</div><div class="pbadge">${c.domains} domains → ${c.ips} IPs → ${c.providers} providers</div></div>
+    <div class="infra-body" style="height:280px">
+      <canvas id="infra-canvas" class="infra-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="dgrid">
+    <div class="panel">
+      <div class="phead"><div class="ptitle">Associated Threats</div><div class="pbadge">${c.threats}</div></div>
+      <table><thead><tr><th>URL</th><th>Type</th><th>Target</th><th>Provider</th><th>Status</th></tr></thead><tbody>`;
+  threats.forEach(t=>{
+    html+=`<tr><td><div class="td-url">${t.url}</div></td><td><span class="tpill ${t.type}">${t.type}</span></td><td style="font-size:11px;color:var(--text-secondary)">${t.brand}</td><td style="font-size:11px;color:var(--text-tertiary)">${t.provider}</td><td><span class="stbadge ${t.status}">${t.status}</span></td></tr>`;
+  });
+  html+=`</tbody></table></div>
+    <div class="rcol" style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel"><div class="phead"><div class="ptitle">Targeted Brands</div></div><div class="padded">${brandBreak.map((b,i)=>`<div class="bar-row"><span class="bar-lbl">${b.name}</span><div class="bar-trk"><div class="bar-fill" style="width:${b.pct}%;background:${colors[i]||colors[4]}"></div></div><span class="bar-ct">${b.count}</span></div>`).join('')}</div></div>
+      <div class="panel"><div class="phead"><div class="ptitle">Infrastructure Stats</div></div><div class="padded">
+        <div class="infra-stat"><span class="is-label">TLD Distribution</span><span class="is-val">${Object.entries(c.tld_dist).map(([t,v])=>`${t}: ${v}`).join(', ')}</span></div>
+        <div class="infra-stat"><span class="is-label">Providers</span><span class="is-val">${c.provider_names.join(', ')}</span></div>
+        <div class="infra-stat"><span class="is-label">Registrars</span><span class="is-val">${c.registrars} unique</span></div>
+        <div class="infra-stat"><span class="is-label">IP Ranges</span><span class="is-val">${c.ips} unique addresses</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="tl-head"><div class="tl-title">Campaign Activity Timeline</div></div>
+  <div class="chart-wrap"><canvas id="tl-chart"></canvas></div>`;
+
+  document.getElementById('detail-content').innerHTML=html;
+
+  // Draw infrastructure graph on canvas
+  setTimeout(()=>{
+    const canvas=document.getElementById('infra-canvas');
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    canvas.width=canvas.parentElement.clientWidth;canvas.height=280;
+    const w=canvas.width,h=canvas.height;
+    ctx.clearRect(0,0,w,h);
+
+    // Layout: Domains (left) → IPs (center) → Providers (right)
+    const colD=w*0.15,colI=w*0.5,colP=w*0.85;
+    const domY=domainSample.map((_,i)=>40+i*(h-60)/Math.max(domainSample.length-1,1));
+    const ipY=ipSample.map((_,i)=>50+i*(h-80)/Math.max(ipSample.length-1,1));
+    const provY=c.provider_names.map((_,i)=>60+i*(h-100)/Math.max(c.provider_names.length-1,1));
+
+    // Draw connections: domains → IPs
+    domainSample.forEach((_,di)=>{
+      const targets=ipSample.slice(0,Math.min(2,ipSample.length));
+      targets.forEach((_2,ti)=>{
+        const tIdx=(di+ti)%ipSample.length;
+        ctx.beginPath();ctx.moveTo(colD+60,domY[di]);
+        ctx.quadraticCurveTo((colD+colI)/2,domY[di]*0.6+ipY[tIdx]*0.4,colI-40,ipY[tIdx]);
+        ctx.strokeStyle='rgba(255,59,92,0.12)';ctx.lineWidth=1;ctx.stroke();
+      });
+    });
+    // IPs → Providers
+    ipSample.forEach((_,ii)=>{
+      const pIdx=ii%c.provider_names.length;
+      ctx.beginPath();ctx.moveTo(colI+40,ipY[ii]);
+      ctx.quadraticCurveTo((colI+colP)/2,ipY[ii]*0.5+provY[pIdx]*0.5,colP-60,provY[pIdx]);
+      ctx.strokeStyle='rgba(0,212,255,0.12)';ctx.lineWidth=1;ctx.stroke();
+    });
+
+    // Draw nodes
+    function drawNode(x,y,label,type){
+      const colors={domain:['rgba(255,59,92,0.15)','#ff3b5c'],ip:['rgba(0,212,255,0.1)','#00d4ff'],provider:['rgba(255,182,39,0.1)','#ffb627']};
+      const[bg,fg]=colors[type];
+      ctx.font='500 9px "IBM Plex Mono"';const tw=ctx.measureText(label).width;const pw=tw+16;
+      const rx=x-pw/2,ry=y-10;
+      ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(rx,ry,pw,20,4);ctx.fill();
+      ctx.strokeStyle=fg+'40';ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y);
+      // Category label
+      ctx.font='500 7px "Chakra Petch"';ctx.fillStyle='#4a5a73';ctx.fillText(type.toUpperCase(),x,y+16);
+    }
+    domainSample.forEach((d,i)=>drawNode(colD,domY[i],d.substring(0,18),('domain')));
+    ipSample.forEach((ip,i)=>drawNode(colI,ipY[i],ip,'ip'));
+    c.provider_names.forEach((p,i)=>drawNode(colP,provY[i],p,'provider'));
+  },100);
+
+  // Timeline chart
+  if(tlChart){tlChart.destroy();tlChart=null}
+  setTimeout(()=>{
+    const ctx2=document.getElementById('tl-chart');if(!ctx2)return;
+    tlChart=new Chart(ctx2,{
+      type:'line',data:{labels:timeline.labels,datasets:[{label:'Threats',data:timeline.values,borderColor:sc,backgroundColor:sc.replace(')',',0.06)').replace('var(','rgba(').replace('--threat-critical','255,59,92').replace('--threat-high','255,107,53').replace('--threat-medium','255,182,39'),fill:true,tension:.35,pointRadius:0,pointHoverRadius:5,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,16,32,0.95)',borderColor:'rgba(0,212,255,0.35)',borderWidth:1,titleFont:{family:"'Chakra Petch'",size:11},bodyFont:{family:"'IBM Plex Mono'",size:11},titleColor:'#e8edf5',bodyColor:'#7a8ba8',padding:10,cornerRadius:6,displayColors:false}},scales:{x:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false}},y:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},padding:8},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},beginAtZero:true}}}
+    });
+  },150);
+  document.querySelector('.main').scrollTop=0;
+}
+
+// ═══ INIT ═══
+renderAgg();renderCards(CAMPAIGNS,'tab-active');renderCards(DORMANT,'tab-dormant');renderCards(DISRUPTED,'tab-disrupted');
+document.getElementById('tc-act').textContent=CAMPAIGNS.length;
+document.getElementById('tc-dor').textContent=DORMANT.length;
+document.getElementById('tc-dis').textContent=DISRUPTED.length;
+document.querySelectorAll('.stab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelectorAll('.tab-c').forEach(c=>c.classList.remove('visible'));document.getElementById('tab-'+t.dataset.tab).classList.add('visible')}));
+document.getElementById('backBtn').addEventListener('click',()=>{document.getElementById('detail-view').classList.remove('visible');document.getElementById('hub-view').classList.add('visible')});
+</script>
+</body>
+</html>

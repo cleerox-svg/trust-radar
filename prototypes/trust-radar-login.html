@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--positive:#00e5a0;--negative:#ff3b5c;--threat-medium:#ffb627;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.login-page{display:flex;height:100vh}
+
+/* LEFT — animated background */
+.left{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.grid-bg{position:absolute;inset:0;opacity:.06}
+.grid-bg canvas{width:100%;height:100%}
+.left-content{position:relative;z-index:2;max-width:460px;padding:40px}
+.left-logo{font-family:var(--font-display);font-weight:700;font-size:32px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:14px}
+.left-logo span{color:var(--blue-primary)}
+.logo-ring{width:48px;height:48px;border-radius:50%;border:3px solid var(--blue-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-ring::after{content:'';width:12px;height:12px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}
+@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.5)}}
+.left-sub{font-size:16px;color:var(--text-secondary);line-height:1.6;margin-bottom:32px}
+.left-stats{display:flex;gap:24px}
+.ls{text-align:center}.ls-v{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--blue-primary)}.ls-l{font-size:10px;color:var(--text-tertiary);margin-top:2px}
+
+/* Floating orbs */
+.orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.08;animation:float 20s ease-in-out infinite}
+.orb-1{width:400px;height:400px;background:var(--blue-primary);top:-100px;left:-100px;animation-delay:0s}
+.orb-2{width:300px;height:300px;background:#ff3b5c;bottom:-80px;right:20%;animation-delay:-7s}
+.orb-3{width:250px;height:250px;background:#b388ff;top:30%;right:-50px;animation-delay:-14s}
+@keyframes float{0%,100%{transform:translate(0,0)}25%{transform:translate(30px,-20px)}50%{transform:translate(-10px,30px)}75%{transform:translate(20px,10px)}}
+
+/* Scan lines */
+.scan{position:absolute;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.01) 2px,rgba(0,212,255,.01) 4px)}
+
+/* RIGHT — auth card */
+.right{width:480px;background:var(--bg-surface);border-left:1px solid var(--blue-border);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px}
+
+.auth-card{width:100%;max-width:340px}
+.auth-title{font-family:var(--font-display);font-size:22px;font-weight:700;text-align:center;margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:32px}
+
+/* Google button */
+.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:12px 20px;border-radius:var(--radius-lg);border:1px solid var(--blue-border-bright);background:var(--bg-panel);cursor:pointer;transition:all .2s;margin-bottom:16px}
+.google-btn:hover{background:var(--bg-elevated);border-color:var(--blue-primary);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,212,255,.1)}
+.google-btn:active{transform:translateY(0)}
+.g-logo{width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.g-logo svg{width:20px;height:20px}
+.g-text{font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--text-primary)}
+
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+.divider-line{flex:1;height:1px;background:var(--blue-border)}
+.divider-text{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);letter-spacing:1px}
+
+/* Invitation flow */
+.inv-section{margin-top:4px}
+.inv-label{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px;display:block}
+.inv-input{font-family:var(--font-mono);font-size:13px;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;outline:none;letter-spacing:1px;text-align:center}
+.inv-input:focus{border-color:var(--blue-border-bright)}
+.inv-input::placeholder{color:var(--text-tertiary);letter-spacing:0;font-size:12px}
+.inv-hint{font-size:10px;color:var(--text-tertiary);text-align:center;margin-top:8px}
+
+/* Security note */
+.security{display:flex;align-items:center;gap:8px;margin-top:32px;padding:12px;border-radius:var(--radius);background:var(--bg-panel);border:1px solid var(--blue-border)}
+.sec-icon{width:20px;height:20px;border-radius:50%;background:rgba(0,229,160,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--positive)}
+.sec-text{font-size:10px;color:var(--text-tertiary);line-height:1.4}
+
+/* Footer */
+.auth-footer{margin-top:auto;padding-top:24px;text-align:center}
+.auth-footer-text{font-size:10px;color:var(--text-tertiary)}
+.auth-footer-link{color:var(--blue-muted);text-decoration:none}
+
+/* Error/success states */
+.msg{padding:10px 14px;border-radius:var(--radius);font-size:11px;text-align:center;margin-bottom:16px;display:none}
+.msg.error{display:block;background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.2);color:var(--negative)}
+.msg.success{display:block;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);color:var(--positive)}
+</style>
+</head>
+<body>
+<div class="login-page">
+  <div class="left">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="scan"></div>
+    <canvas id="grid-canvas" style="position:absolute;inset:0;opacity:.04"></canvas>
+    <div class="left-content">
+      <div class="left-logo"><div class="logo-ring"></div>TRUST <span>RADAR</span></div>
+      <div class="left-sub">Outside-in threat intelligence. We already know who's being attacked — before they do.</div>
+      <div class="left-stats">
+        <div class="ls"><div class="ls-v">7,049</div><div class="ls-l">Threats tracked</div></div>
+        <div class="ls"><div class="ls-v">142</div><div class="ls-l">Brands monitored</div></div>
+        <div class="ls"><div class="ls-v">5</div><div class="ls-l">AI agents</div></div>
+        <div class="ls"><div class="ls-v">99.97%</div><div class="ls-l">Uptime</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="auth-card">
+      <div class="auth-title">Sign in</div>
+      <div class="auth-sub">Access requires an invitation from a Trust Radar administrator</div>
+
+      <div id="msg" class="msg"></div>
+
+      <button class="google-btn" id="googleBtn">
+        <div class="g-logo"><svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg></div>
+        <span class="g-text">Continue with Google</span>
+      </button>
+
+      <div class="divider"><div class="divider-line"></div><div class="divider-text">Invitation</div><div class="divider-line"></div></div>
+
+      <div class="inv-section">
+        <label class="inv-label">Invitation Token</label>
+        <input class="inv-input" id="tokenInput" placeholder="Paste your invitation token">
+        <div class="inv-hint">Received an invitation email? Paste the token above, then sign in with the matching Google account.</div>
+      </div>
+
+      <div class="security">
+        <div class="sec-icon">✓</div>
+        <div class="sec-text">Passwordless authentication via Google OAuth 2.0. No passwords stored. Sessions secured with rotating JWT tokens.</div>
+      </div>
+    </div>
+
+    <div class="auth-footer">
+      <div class="auth-footer-text">Trust Radar by LRX · <a href="https://lrxradar.com" class="auth-footer-link">lrxradar.com</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Animated grid background
+const canvas = document.getElementById('grid-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = canvas.parentElement.clientWidth;
+canvas.height = canvas.parentElement.clientHeight;
+
+function drawGrid() {
+  const w = canvas.width, h = canvas.height;
+  const spacing = 40;
+  const t = Date.now() / 4000;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#00d4ff';
+
+  for (let x = 0; x < w; x += spacing) {
+    for (let y = 0; y < h; y += spacing) {
+      const dist = Math.sqrt(Math.pow(x - w/2, 2) + Math.pow(y - h/2, 2));
+      const wave = Math.sin(dist / 80 - t) * 0.5 + 0.5;
+      ctx.globalAlpha = wave * 0.15;
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // Horizontal scan line
+  const scanY = (t * 100) % h;
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#00d4ff';
+  ctx.fillRect(0, scanY, w, 1);
+  ctx.globalAlpha = 0.03;
+  ctx.fillRect(0, scanY - 20, w, 40);
+
+  requestAnimationFrame(drawGrid);
+}
+ctx.fillStyle = '#00d4ff';
+drawGrid();
+
+// Button interaction
+document.getElementById('googleBtn').addEventListener('click', () => {
+  const token = document.getElementById('tokenInput').value.trim();
+  const msg = document.getElementById('msg');
+  if (token) {
+    msg.className = 'msg success';
+    msg.textContent = 'Token validated. Redirecting to Google sign-in...';
+    msg.style.display = 'block';
+  } else {
+    // Direct Google OAuth (for existing users)
+    msg.className = 'msg';
+    msg.textContent = '';
+    msg.style.display = 'none';
+    // In production: window.location.href = '/auth/google'
+    const msg2 = document.getElementById('msg');
+    msg2.className = 'msg success';
+    msg2.textContent = 'Redirecting to Google sign-in...';
+    msg2.style.display = 'block';
+  }
+});
+</script>
+</body>
+</html>
