@@ -297,6 +297,15 @@ export const threats = {
   get: (id: string) => api<Threat>(`/threats/${id}`),
   update: (id: string, data: Record<string, unknown>) => api<void>(`/threats/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   enrichGeo: () => api<{ enriched: number; total: number }>("/threats/enrich-geo", { method: "POST" }),
+  correlations: (view: "type" | "source" | "country" = "type", window: "7d" | "30d" | "90d" = "30d") =>
+    api<{
+      view: string;
+      window: string;
+      labels: string[];
+      matrix: number[][];
+      rowLabels?: string[];
+      cached: boolean;
+    }>(`/threats/correlations?view=${view}&window=${window}`),
 };
 
 export const briefings = {

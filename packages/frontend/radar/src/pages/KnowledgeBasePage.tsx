@@ -62,7 +62,7 @@ export default function KnowledgeBasePage() {
               onClick={() => setCategory(c)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 category === c
-                  ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                  ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                   : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
               }`}
             >
@@ -87,8 +87,8 @@ export default function KnowledgeBasePage() {
           <Card key={a.title} className="hover:border-[--border-default] transition-colors group">
             <CardContent>
               <div className="flex items-start justify-between gap-2 mb-2">
-                <h3 className="text-sm font-semibold text-[--text-primary] group-hover:text-cyan-400 transition-colors">{a.title}</h3>
-                <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded shrink-0">{a.category}</span>
+                <h3 className="text-sm font-semibold text-[--text-primary] group-hover:text-blue-500 transition-colors">{a.title}</h3>
+                <span className="text-[10px] font-mono bg-cyan-500/10 text-blue-500 px-1.5 py-0.5 rounded shrink-0">{a.category}</span>
               </div>
               <p className="text-xs text-[--text-tertiary] leading-relaxed">{a.summary}</p>
               <div className="flex flex-wrap gap-1 mt-3">

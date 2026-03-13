@@ -78,7 +78,7 @@ export default function AIAdvisorPage() {
   return (
     <div className="animate-fade-in space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-sm font-bold">AI</div>
+        <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-blue-500 text-sm font-bold">AI</div>
         <div>
           <h1 className="font-display text-2xl font-bold text-[--text-primary]">AI Advisor</h1>
           <p className="text-xs text-[--text-secondary]">Ask questions, scan URLs, get instant AI-powered analysis</p>
@@ -108,7 +108,7 @@ export default function AIAdvisorPage() {
           <button
             key={s}
             onClick={() => setInput(s)}
-            className="text-xs border border-[--border-subtle] text-[--text-tertiary] rounded-full px-3 py-1.5 hover:border-cyan-500 hover:text-cyan-400 transition-colors"
+            className="text-xs border border-[--border-subtle] text-[--text-tertiary] rounded-full px-3 py-1.5 hover:border-cyan-500 hover:text-blue-500 transition-colors"
           >
             {s}
           </button>
@@ -138,9 +138,9 @@ export default function AIAdvisorPage() {
               <div className="flex justify-start">
                 <div className="bg-[--surface-raised] border border-[--border-subtle] rounded-xl px-4 py-3 text-sm text-[--text-tertiary]">
                   <span className="inline-flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </span>
                 </div>
               </div>

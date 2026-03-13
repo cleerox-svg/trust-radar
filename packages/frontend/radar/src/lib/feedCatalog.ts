@@ -659,7 +659,7 @@ export const TIER_LABELS: Record<FeedTier, string> = {
 export const TIER_COLORS: Record<FeedTier | "custom", { badge: string; dot: string; border: string }> = {
   1:      { badge: "bg-threat-critical/10 border-threat-critical/30 text-threat-critical", dot: "bg-threat-critical", border: "border-threat-critical/30" },
   2:      { badge: "bg-threat-high/10 border-threat-high/30 text-threat-high",             dot: "bg-threat-high",     border: "border-threat-high/30" },
-  3:      { badge: "bg-cyan-400/10 border-cyan-400/30 text-cyan-400",                      dot: "bg-cyan-400",        border: "border-cyan-400/30" },
+  3:      { badge: "bg-blue-500/10 border-blue-500/30 text-blue-500",                      dot: "bg-blue-500",        border: "border-blue-500/30" },
   4:      { badge: "bg-violet-400/10 border-violet-400/30 text-violet-400",                dot: "bg-violet-400",      border: "border-violet-400/30" },
   5:      { badge: "bg-amber-400/10 border-amber-400/30 text-amber-400",                   dot: "bg-amber-400",       border: "border-amber-400/30" },
   6:      { badge: "bg-blue-400/10 border-blue-400/30 text-blue-400",                      dot: "bg-blue-400",        border: "border-blue-400/30" },

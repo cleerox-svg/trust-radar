@@ -31,6 +31,15 @@ migrations_dir = "migrations"
 binding = "CACHE"
 id = "$RADAR_KV_NAMESPACE_ID"
 
+# ─── Durable Objects (WebSocket push hub) ────────────────────
+[[durable_objects.bindings]]
+name = "THREAT_PUSH_HUB"
+class_name = "ThreatPushHub"
+
+[[migrations]]
+tag = "v1-threat-push-hub"
+new_classes = ["ThreatPushHub"]
+
 # ─── Environment variables ────────────────────────────────────
 [vars]
 ENVIRONMENT = "production"

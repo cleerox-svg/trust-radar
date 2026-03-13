@@ -119,7 +119,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 const PRIORITY_CONFIG: Record<string, { color: string; bg: string; icon: typeof AlertTriangle }> = {
   immediate:    { color: "text-threat-critical", bg: "bg-threat-critical/10", icon: AlertTriangle },
   "short-term": { color: "text-threat-high", bg: "bg-threat-high/10", icon: AlertCircle },
-  monitor:      { color: "text-cyan-400", bg: "bg-cyan-400/10", icon: Eye },
+  monitor:      { color: "text-blue-500", bg: "bg-blue-500/10", icon: Eye },
 };
 
 const PLAYBOOK_ICONS: Record<string, typeof Crosshair> = {
@@ -151,12 +151,12 @@ function ExecutiveSummary({ summary, riskLevel }: { summary: BriefingSummary; ri
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
         {[
-          { label: "Total", value: summary.totalThreats, icon: Database, color: "text-cyan-400" },
+          { label: "Total", value: summary.totalThreats, icon: Database, color: "text-blue-500" },
           { label: "Critical", value: summary.bySeverity?.critical ?? 0, icon: ShieldAlert, color: "text-threat-critical" },
           { label: "High", value: summary.bySeverity?.high ?? 0, icon: AlertCircle, color: "text-threat-high" },
           { label: "Medium", value: summary.bySeverity?.medium ?? 0, icon: TrendingUp, color: "text-threat-medium" },
           { label: "Resolved", value: summary.resolved ?? 0, icon: CheckCircle2, color: "text-threat-low" },
-          { label: "Sources", value: summary.activeSources ?? 0, icon: Globe2, color: "text-cyan-400" },
+          { label: "Sources", value: summary.activeSources ?? 0, icon: Globe2, color: "text-blue-500" },
         ].map((c) => (
           <div key={c.label} className="p-2.5 rounded-md bg-[--surface-base] border border-[--border-subtle]">
             <div className="flex items-center gap-1.5 mb-1">
@@ -180,14 +180,14 @@ function TopBrandsSection({ brands }: { brands: TopBrand[] }) {
   return (
     <div>
       <h3 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-        <Target className="w-3.5 h-3.5 text-cyan-400" /> Top 5 Impacted Brands
+        <Target className="w-3.5 h-3.5 text-blue-500" /> Top 5 Impacted Brands
       </h3>
       <div className="space-y-2">
         {brands.map((brand) => (
           <div key={brand.brand} className="rounded-lg border border-[--border-subtle] overflow-hidden">
             <button onClick={() => setExpandedBrand(expandedBrand === brand.brand ? null : brand.brand)} className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-[--surface-overlay]/30 transition-colors">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={cn("w-2 h-2 rounded-full shrink-0", brand.severity === "critical" ? "bg-threat-critical" : brand.severity === "high" ? "bg-threat-high" : "bg-cyan-400")} />
+                <div className={cn("w-2 h-2 rounded-full shrink-0", brand.severity === "critical" ? "bg-threat-critical" : brand.severity === "high" ? "bg-threat-high" : "bg-blue-500")} />
                 <div className="min-w-0">
                   <span className="text-sm font-medium text-[--text-primary]">{brand.brand}</span>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -310,7 +310,7 @@ function TopRisksSection({ risks }: { risks: TopRisk[] }) {
               </div>
               <p className="text-xs text-[--text-secondary] mb-2 ml-6">{risk.description}</p>
               {risk.evidence.length > 0 && <div className="ml-6 mb-2"><div className="text-[10px] text-[--text-tertiary] uppercase tracking-wider mb-1 font-semibold">Evidence</div>{risk.evidence.map((e, i) => <div key={i} className="text-xs text-[--text-secondary] flex items-start gap-1.5"><span className="text-[--text-disabled]">{"\u2022"}</span> {e}</div>)}</div>}
-              {risk.actions.length > 0 && <div className="ml-6"><div className="text-[10px] text-[--text-tertiary] uppercase tracking-wider mb-1 font-semibold">Actions</div>{risk.actions.map((a, i) => <div key={i} className="text-xs text-cyan-400/80 flex items-start gap-1.5"><ChevronRight className="w-3 h-3 mt-0.5 shrink-0" /> {a}</div>)}</div>}
+              {risk.actions.length > 0 && <div className="ml-6"><div className="text-[10px] text-[--text-tertiary] uppercase tracking-wider mb-1 font-semibold">Actions</div>{risk.actions.map((a, i) => <div key={i} className="text-xs text-blue-500/80 flex items-start gap-1.5"><ChevronRight className="w-3 h-3 mt-0.5 shrink-0" /> {a}</div>)}</div>}
             </div>
           );
         })}
@@ -336,25 +336,25 @@ function PlaybookSection({ actions }: { actions: PlaybookAction[] }) {
   return (
     <div>
       <h3 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-        <ClipboardList className="w-3.5 h-3.5 text-cyan-400" /> Action Playbook ({actions.length})
+        <ClipboardList className="w-3.5 h-3.5 text-blue-500" /> Action Playbook ({actions.length})
       </h3>
       <div className="space-y-4">
         {Object.entries(byCategory).map(([cat, items]) => {
           const CatIcon = PLAYBOOK_ICONS[cat] ?? Zap;
           return (
             <div key={cat}>
-              <div className="flex items-center gap-1.5 mb-2"><CatIcon className="w-3.5 h-3.5 text-cyan-400" /><span className="text-[10px] font-bold text-[--text-secondary] uppercase tracking-wider">{cat}</span><span className="text-[10px] text-[--text-tertiary]">({items.length})</span></div>
+              <div className="flex items-center gap-1.5 mb-2"><CatIcon className="w-3.5 h-3.5 text-blue-500" /><span className="text-[10px] font-bold text-[--text-secondary] uppercase tracking-wider">{cat}</span><span className="text-[10px] text-[--text-tertiary]">({items.length})</span></div>
               <div className="space-y-1.5">
                 {items.map((action, i) => {
                   const gIdx = actions.indexOf(action);
                   return (
                     <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-md bg-[--surface-base] border border-[--border-subtle] group">
-                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", action.priority === "high" ? "bg-threat-critical" : action.priority === "medium" ? "bg-threat-medium" : "bg-cyan-400")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", action.priority === "high" ? "bg-threat-critical" : action.priority === "medium" ? "bg-threat-medium" : "bg-blue-500")} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-[--text-primary]"><span className="font-medium">{action.action}</span>: <span className="font-mono text-cyan-400">{action.target}</span></div>
+                        <div className="text-xs text-[--text-primary]"><span className="font-medium">{action.action}</span>: <span className="font-mono text-blue-500">{action.target}</span></div>
                         <div className="text-[10px] text-[--text-tertiary]">{action.context}</div>
                       </div>
-                      <button onClick={() => handleCreateTicket(action, gIdx)} disabled={creating === gIdx} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 text-[10px] rounded border border-[--border-subtle] text-[--text-tertiary] hover:text-cyan-400 hover:border-cyan-400/40 disabled:opacity-50" title="Create ticket">
+                      <button onClick={() => handleCreateTicket(action, gIdx)} disabled={creating === gIdx} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 text-[10px] rounded border border-[--border-subtle] text-[--text-tertiary] hover:text-blue-500 hover:border-blue-500/40 disabled:opacity-50" title="Create ticket">
                         {creating === gIdx ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Ticket className="w-3 h-3" />}
                       </button>
                     </div>
@@ -465,7 +465,7 @@ function FullBriefingCard({ briefing, isExpanded, onToggle }: { briefing: Briefi
                 ]).map((tab) => (
                   <button key={tab.id} onClick={(e) => { e.stopPropagation(); setActiveTab(tab.id); }}
                     className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-[1px]",
-                      activeTab === tab.id ? "border-cyan-400 text-cyan-400" : "border-transparent text-[--text-tertiary] hover:text-[--text-secondary]"
+                      activeTab === tab.id ? "border-blue-500 text-blue-500" : "border-transparent text-[--text-tertiary] hover:text-[--text-secondary]"
                     )}
                   ><tab.icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{tab.label}</span></button>
                 ))}
@@ -476,7 +476,7 @@ function FullBriefingCard({ briefing, isExpanded, onToggle }: { briefing: Briefi
                 <div className="space-y-5">
                   {content.topThreatTypes && content.topThreatTypes.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> Top Threat Types</h4>
+                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5 text-blue-500" /> Top Threat Types</h4>
                       <div className="space-y-1.5">
                         {content.topThreatTypes.map((t) => {
                           const maxCnt = Math.max(...content!.topThreatTypes.map((x) => x.cnt), 1);
@@ -493,7 +493,7 @@ function FullBriefingCard({ briefing, isExpanded, onToggle }: { briefing: Briefi
                   )}
                   {content.topSources && content.topSources.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><Database className="w-3.5 h-3.5 text-cyan-400" /> Sources</h4>
+                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><Database className="w-3.5 h-3.5 text-blue-500" /> Sources</h4>
                       <div className="flex flex-wrap gap-2">{content.topSources.map((s) => <div key={s.source} className="px-2.5 py-1.5 rounded-md bg-[--surface-base] border border-[--border-subtle]"><span className="text-[10px] text-[--text-tertiary] font-mono uppercase">{s.source}</span><div className="text-sm font-bold text-[--text-primary] tabular-nums">{s.cnt}</div></div>)}</div>
                     </div>
                   )}
@@ -507,10 +507,10 @@ function FullBriefingCard({ briefing, isExpanded, onToggle }: { briefing: Briefi
                   )}
                   {content.trends && content.trends.length > 0 && (
                     <div>
-                      <h3 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-3 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-cyan-400" /> Trends</h3>
+                      <h3 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-3 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-blue-500" /> Trends</h3>
                       <div className="space-y-2">{content.trends.map((t, i) => {
                         const TIcon = TREND_ICONS[t.direction] ?? Minus;
-                        return <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-[--surface-base] border border-[--border-subtle]"><TIcon className={cn("w-4 h-4 mt-0.5 shrink-0", t.direction === "increasing" ? "text-threat-high" : t.direction === "decreasing" ? "text-threat-low" : "text-cyan-400")} /><div><div className="text-xs text-[--text-primary] font-medium">{t.observation}</div><div className="text-[10px] text-[--text-tertiary]">{t.significance}</div></div></div>;
+                        return <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-[--surface-base] border border-[--border-subtle]"><TIcon className={cn("w-4 h-4 mt-0.5 shrink-0", t.direction === "increasing" ? "text-threat-high" : t.direction === "decreasing" ? "text-threat-low" : "text-blue-500")} /><div><div className="text-xs text-[--text-primary] font-medium">{t.observation}</div><div className="text-[10px] text-[--text-tertiary]">{t.significance}</div></div></div>;
                       })}</div>
                     </div>
                   )}
@@ -529,8 +529,8 @@ function FullBriefingCard({ briefing, isExpanded, onToggle }: { briefing: Briefi
                   )}
                   {content.recommendations && content.recommendations.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-cyan-400" /> Recommendations</h4>
-                      <div className="space-y-1.5">{content.recommendations.map((r, i) => <div key={i} className="flex items-start gap-2 text-xs text-[--text-secondary]"><ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-cyan-400" /> {r}</div>)}</div>
+                      <h4 className="text-xs font-bold text-[--text-secondary] uppercase tracking-wider mb-2 flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> Recommendations</h4>
+                      <div className="space-y-1.5">{content.recommendations.map((r, i) => <div key={i} className="flex items-start gap-2 text-xs text-[--text-secondary]"><ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-blue-500" /> {r}</div>)}</div>
                     </div>
                   )}
                 </div>
@@ -613,18 +613,18 @@ export function DailyBriefingPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1 flex items-center gap-2"><FileText className="w-6 h-6 text-cyan-400" /> Daily Briefing</h1>
+          <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1 flex items-center gap-2"><FileText className="w-6 h-6 text-blue-500" /> Daily Briefing</h1>
           <p className="text-sm text-[--text-secondary]">Threat intelligence briefings synthesized from 9 data sources across the platform</p>
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
           <div className="flex items-center gap-1 bg-[--surface-base] rounded-md border border-[--border-subtle] p-0.5">
             {TIME_RANGES.map((r) => (
-              <button key={r.hours} onClick={() => setSelectedRange(r.hours)} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", selectedRange === r.hours ? "bg-cyan-400/15 text-cyan-400 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>{r.label}</button>
+              <button key={r.hours} onClick={() => setSelectedRange(r.hours)} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", selectedRange === r.hours ? "bg-blue-500/15 text-blue-500 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>{r.label}</button>
             ))}
           </div>
           <div className="flex items-center gap-1.5">
             <button onClick={handleLoadCached} disabled={generating} className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[--border-subtle] text-xs text-[--text-secondary] hover:text-[--text-primary] transition-colors disabled:opacity-50" title="Load cached (12h TTL)"><History className="w-3.5 h-3.5" /> Cached</button>
-            <button onClick={handleGenerate} disabled={generating} className={cn("flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-all", generating ? "bg-cyan-400/10 text-cyan-400/60 border-cyan-400/20 cursor-wait" : "bg-cyan-400/15 text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/25 hover:shadow-[0_0_16px_rgba(34,211,238,0.1)]")}>
+            <button onClick={handleGenerate} disabled={generating} className={cn("flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-all", generating ? "bg-blue-500/10 text-blue-500/60 border-blue-500/20 cursor-wait" : "bg-blue-500/15 text-blue-500 border-blue-500/30 hover:bg-blue-500/25 hover:shadow-[0_0_16px_rgba(34,211,238,0.1)]")}>
               {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
               {generating ? "Generating..." : "Generate Briefing"}
             </button>
@@ -646,7 +646,7 @@ export function DailyBriefingPage() {
       {/* Filters */}
       {(briefingList ?? []).length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => setStatusFilter(null)} className={cn("text-2xs px-2.5 py-1 rounded-md border font-mono transition-colors", !statusFilter ? "bg-cyan-400/15 text-cyan-400 border-cyan-400/30" : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]")}>All ({(briefingList ?? []).length})</button>
+          <button onClick={() => setStatusFilter(null)} className={cn("text-2xs px-2.5 py-1 rounded-md border font-mono transition-colors", !statusFilter ? "bg-blue-500/15 text-blue-500 border-blue-500/30" : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]")}>All ({(briefingList ?? []).length})</button>
           {Object.entries(statusCounts).map(([status, count]) => (
             <button key={status} onClick={() => setStatusFilter(statusFilter === status ? null : status)} className={cn("text-2xs px-2.5 py-1 rounded-md border font-mono transition-colors capitalize", statusFilter === status ? status === "published" ? "bg-threat-low/15 text-threat-low border-threat-low/30" : "bg-blue-400/15 text-blue-400 border-blue-400/30" : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]")}>{status} ({count})</button>
           ))}
@@ -655,7 +655,7 @@ export function DailyBriefingPage() {
 
       {/* List */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3"><RefreshCw className="w-6 h-6 text-cyan-400 animate-spin" /><p className="text-sm text-[--text-tertiary]">Loading briefings...</p></div>
+        <div className="flex flex-col items-center justify-center py-12 gap-3"><RefreshCw className="w-6 h-6 text-blue-500 animate-spin" /><p className="text-sm text-[--text-tertiary]">Loading briefings...</p></div>
       ) : filteredBriefings.length === 0 ? (
         <Card><CardContent>
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -664,9 +664,9 @@ export function DailyBriefingPage() {
             <p className="text-sm text-[--text-tertiary] max-w-md mb-6">{statusFilter ? "Try removing the filter or generate a new briefing." : "Generate your first briefing. The system analyzes threats, IOCs, ATO events, breaches, Tor nodes, erasure actions, and feed health in parallel."}</p>
             {!statusFilter && (
               <div className="grid grid-cols-3 gap-4 text-xs text-[--text-tertiary]">
-                <span className="flex items-center gap-1"><Target className="w-3 h-3 text-cyan-400" /> Brand analysis</span>
+                <span className="flex items-center gap-1"><Target className="w-3 h-3 text-blue-500" /> Brand analysis</span>
                 <span className="flex items-center gap-1"><Bug className="w-3 h-3 text-violet-400" /> Campaign detection</span>
-                <span className="flex items-center gap-1"><ClipboardList className="w-3 h-3 text-cyan-400" /> Action playbook</span>
+                <span className="flex items-center gap-1"><ClipboardList className="w-3 h-3 text-blue-500" /> Action playbook</span>
               </div>
             )}
           </div>

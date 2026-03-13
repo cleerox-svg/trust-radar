@@ -89,13 +89,13 @@ export function BrandExposurePage() {
                 value={domainInput}
                 onChange={(e) => setDomainInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                className="w-full pl-10 pr-4 py-2.5 bg-[--surface-base] border border-[--border-subtle] rounded-lg text-sm text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-cyan-400 focus:outline-none font-mono"
+                className="w-full pl-10 pr-4 py-2.5 bg-[--surface-base] border border-[--border-subtle] rounded-lg text-sm text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-blue-500 focus:outline-none font-mono"
               />
             </div>
             <button
               onClick={handleScan}
               disabled={scanMutation.isPending || !domainInput.trim()}
-              className="px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-white font-bold text-sm rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2.5 bg-cyan-500 hover:bg-blue-500 text-white font-bold text-sm rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {scanMutation.isPending ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Scanning...</>
@@ -122,7 +122,7 @@ export function BrandExposurePage() {
                   <h2 className="text-lg font-display font-bold text-[--text-primary] mb-1">
                     {currentResult.domain}
                   </h2>
-                  <p className="text-2xl font-bold font-mono text-cyan-400 mb-2">
+                  <p className="text-2xl font-bold font-mono text-blue-500 mb-2">
                     Trust Score: {currentResult.trustScore}/100
                   </p>
                   <p className="text-sm text-[--text-secondary] mb-3">
@@ -151,7 +151,7 @@ export function BrandExposurePage() {
               <CardContent>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-[--text-primary] flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-cyan-400" /> SPF Record
+                    <Mail className="w-4 h-4 text-blue-500" /> SPF Record
                   </h3>
                   <PolicyBadge policy={currentResult.spf.policy} type="spf" />
                 </div>
@@ -169,7 +169,7 @@ export function BrandExposurePage() {
               <CardContent>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-[--text-primary] flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" /> DMARC
+                    <ShieldCheck className="w-4 h-4 text-blue-500" /> DMARC
                   </h3>
                   <PolicyBadge policy={currentResult.dmarc.policy} type="dmarc" />
                 </div>
@@ -186,7 +186,7 @@ export function BrandExposurePage() {
             <Card>
               <CardContent>
                 <h3 className="text-sm font-semibold text-[--text-primary] flex items-center gap-2 mb-3">
-                  <Globe2 className="w-4 h-4 text-cyan-400" /> MX Records
+                  <Globe2 className="w-4 h-4 text-blue-500" /> MX Records
                 </h3>
                 {currentResult.mx.length > 0 ? (
                   <div className="space-y-1">
@@ -274,13 +274,13 @@ export function BrandExposurePage() {
 
             <Card>
               <CardContent>
-                <h3 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-blue-500 mb-3 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Recommendations
                 </h3>
                 <div className="space-y-2">
                   {currentResult.recommendations.map((r, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs text-[--text-secondary]">
-                      <ChevronRight className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+                      <ChevronRight className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                       {r}
                     </div>
                   ))}
@@ -301,7 +301,7 @@ export function BrandExposurePage() {
             onClick={() => setShowHistory(!showHistory)}
             className="flex items-center gap-2 text-sm font-semibold text-[--text-primary] w-full text-left"
           >
-            <History className="w-4 h-4 text-cyan-400" />
+            <History className="w-4 h-4 text-blue-500" />
             Scan History
             <ChevronDown className={cn("w-4 h-4 text-[--text-tertiary] ml-auto transition-transform", showHistory && "rotate-180")} />
           </button>
@@ -315,7 +315,7 @@ export function BrandExposurePage() {
                     onClick={() => setSelectedDomain(null)}
                     className={cn(
                       "text-xs px-3 py-1 rounded-full border font-mono transition-colors",
-                      !selectedDomain ? "bg-cyan-400/10 text-cyan-400 border-cyan-400/40" : "text-[--text-tertiary] border-[--border-subtle]"
+                      !selectedDomain ? "bg-blue-500/10 text-blue-500 border-blue-500/40" : "text-[--text-tertiary] border-[--border-subtle]"
                     )}
                   >
                     All
@@ -326,7 +326,7 @@ export function BrandExposurePage() {
                       onClick={() => setSelectedDomain(d.domain)}
                       className={cn(
                         "text-xs px-3 py-1 rounded-full border font-mono transition-colors",
-                        selectedDomain === d.domain ? "bg-cyan-400/10 text-cyan-400 border-cyan-400/40" : "text-[--text-tertiary] border-[--border-subtle]"
+                        selectedDomain === d.domain ? "bg-blue-500/10 text-blue-500 border-blue-500/40" : "text-[--text-tertiary] border-[--border-subtle]"
                       )}
                     >
                       {d.domain} ({d.scan_count})

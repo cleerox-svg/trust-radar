@@ -8,7 +8,7 @@ const PLATFORMS = [
     key: "trust-radar",
     name: "Trust Radar",
     description: "Threat intelligence & URL trust scoring",
-    color: "#22D3EE",
+    color: "#3B82F6",
     baseUrl: "/",
     adminUrl: "/admin",
     active: true,
@@ -89,7 +89,7 @@ export function PlatformSwitcher() {
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</span>
                       {p.active && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 font-mono">current</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-blue-500 font-mono">current</span>
                       )}
                       {!p.active && isAdmin && (
                         <span

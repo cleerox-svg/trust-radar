@@ -21,7 +21,7 @@ export function AgentCard({
   status,
   lastRun,
   runsToday,
-  color = "#22D3EE",
+  color = "#3B82F6",
   icon,
   className,
   onClick,

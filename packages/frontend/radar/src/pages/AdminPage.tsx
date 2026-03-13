@@ -98,7 +98,7 @@ function HealthTab({ feedStats }: { feedStats?: FeedStatsData }) {
 
   if (loading) return (
     <div className="flex justify-center py-16">
-      <div className="w-7 h-7 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -151,7 +151,7 @@ function HealthTab({ feedStats }: { feedStats?: FeedStatsData }) {
         <Card>
           <CardContent>
             <div className="flex items-center gap-2 mb-3">
-              <Database size={14} className="text-cyan-400" />
+              <Database size={14} className="text-blue-500" />
               <span className="font-semibold text-[--text-primary] text-sm">Database (Cloudflare D1)</span>
               <StatusBadge ok={dbOk} label={dbOk ? "OK" : "Error"} />
             </div>
@@ -184,7 +184,7 @@ function HealthTab({ feedStats }: { feedStats?: FeedStatsData }) {
         <Card>
           <CardContent>
             <div className="flex items-center gap-2 mb-3">
-              <Lock size={14} className="text-cyan-400" />
+              <Lock size={14} className="text-blue-500" />
               <span className="font-semibold text-[--text-primary] text-sm">Compliance &amp; Controls</span>
             </div>
             <HealthRow label="Data residency" value={data.compliance.data_residency} />
@@ -214,7 +214,7 @@ function HealthTab({ feedStats }: { feedStats?: FeedStatsData }) {
         <Card className="md:col-span-2">
           <CardContent>
             <div className="flex items-center gap-2 mb-3">
-              <Server size={14} className="text-cyan-400" />
+              <Server size={14} className="text-blue-500" />
               <span className="font-semibold text-[--text-primary] text-sm">Table Row Counts</span>
               <span className="text-[10px] text-[--text-tertiary]">Live counts — admin only</span>
             </div>
@@ -235,7 +235,7 @@ function HealthTab({ feedStats }: { feedStats?: FeedStatsData }) {
         <Card className="md:col-span-2">
           <CardContent>
             <div className="flex items-center gap-2 mb-3">
-              <HardDrive size={14} className="text-cyan-400" />
+              <HardDrive size={14} className="text-blue-500" />
               <span className="font-semibold text-[--text-primary] text-sm">Data Export</span>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -338,7 +338,7 @@ export default function AdminPage() {
             label="Total Users"
             value={stats.users.total}
             sub={`${stats.users.pro} pro · ${stats.users.enterprise} ent`}
-            color="text-cyan-400"
+            color="text-blue-500"
           />
           <StatCard label="Total Scans" value={stats.scans.total} />
           <StatCard
@@ -364,7 +364,7 @@ export default function AdminPage() {
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-all border-b-2 -mb-px ${
               tab === t.key
-                ? "border-cyan-400 text-cyan-400"
+                ? "border-blue-500 text-blue-500"
                 : "border-transparent text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >
@@ -459,7 +459,7 @@ export default function AdminPage() {
                 { label: "Enabled",        value: feedStats.summary.enabled_feeds, color: "text-green-400" },
                 { label: "Circuit Open",   value: feedStats.summary.circuit_open, color: feedStats.summary.circuit_open > 0 ? "text-threat-critical" : "text-green-400" },
                 { label: "Total Runs",     value: feedStats.summary.total_runs },
-                { label: "Items Ingested", value: feedStats.summary.total_items, color: "text-cyan-400" },
+                { label: "Items Ingested", value: feedStats.summary.total_items, color: "text-blue-500" },
               ].map((c) => <StatCard key={c.label} {...c} />)}
             </div>
           )}
@@ -517,7 +517,7 @@ export default function AdminPage() {
                             <button
                               onClick={() => triggerFeed.mutate(f.id)}
                               disabled={triggerFeed.isPending}
-                              className="text-[10px] px-2 py-1 rounded border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                              className="text-[10px] px-2 py-1 rounded border border-cyan-500/30 text-blue-500 hover:bg-cyan-500/10 transition-colors"
                             >
                               Run
                             </button>
@@ -551,7 +551,7 @@ export default function AdminPage() {
                 { label: "Successes",        value: (agentStats as AgentStatsData).summary.successes,  color: "text-green-400" },
                 { label: "Failures",         value: (agentStats as AgentStatsData).summary.failures,   color: (agentStats as AgentStatsData).summary.failures > 0 ? "text-threat-critical" : "text-green-400" },
                 { label: "Awaiting Approval",value: (agentStats as AgentStatsData).summary.awaiting_approval, color: (agentStats as AgentStatsData).summary.awaiting_approval > 0 ? "text-amber-400" : undefined },
-                { label: "Items Processed",  value: (agentStats as AgentStatsData).summary.total_processed, color: "text-cyan-400" },
+                { label: "Items Processed",  value: (agentStats as AgentStatsData).summary.total_processed, color: "text-blue-500" },
               ].map((c) => <StatCard key={c.label} {...c} />)}
             </div>
           )}
@@ -602,10 +602,10 @@ export default function AdminPage() {
         <div className="space-y-4">
           {leadsData?.stats && (
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <StatCard label="Total Leads" value={leadsData.stats.total ?? 0} color="text-cyan-400" />
+              <StatCard label="Total Leads" value={leadsData.stats.total ?? 0} color="text-blue-500" />
               <StatCard label="New" value={leadsData.stats.new_leads ?? 0} color="text-amber-400" />
               <StatCard label="Contacted" value={leadsData.stats.contacted ?? 0} />
-              <StatCard label="Qualified" value={leadsData.stats.qualified ?? 0} color="text-cyan-400" />
+              <StatCard label="Qualified" value={leadsData.stats.qualified ?? 0} color="text-blue-500" />
               <StatCard label="Converted" value={leadsData.stats.converted ?? 0} color="text-green-400" />
             </div>
           )}
@@ -635,7 +635,7 @@ export default function AdminPage() {
                         <tr key={lead.id} className="border-b border-[--border-subtle] last:border-0 hover:bg-[--surface-raised] transition-colors">
                           <td className="px-4 py-3 text-[--text-primary] font-medium">{lead.name}</td>
                           <td className="px-4 py-3 font-mono text-xs text-[--text-primary]">{lead.email}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-cyan-400">{lead.domain ?? "\u2014"}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-blue-500">{lead.domain ?? "\u2014"}</td>
                           <td className="px-4 py-3 text-xs text-[--text-secondary]">{lead.phone ?? "\u2014"}</td>
                           <td className="px-4 py-3 text-xs text-[--text-secondary]">{lead.company ?? "\u2014"}</td>
                           <td className="px-4 py-3">

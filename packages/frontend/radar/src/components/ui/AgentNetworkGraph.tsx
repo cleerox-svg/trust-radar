@@ -11,7 +11,7 @@ interface AgentNode {
 }
 
 const AGENTS: AgentNode[] = [
-  { id: "sentinel", label: "Sentinel", color: "#22D3EE", x: 50, y: 20, radius: 18, connections: ["nexus", "herald", "arbiter"] },
+  { id: "sentinel", label: "Sentinel", color: "#3B82F6", x: 50, y: 20, radius: 18, connections: ["nexus", "herald", "arbiter"] },
   { id: "reaper", label: "Reaper", color: "#EF4444", x: 85, y: 35, radius: 14, connections: ["arbiter", "sentinel"] },
   { id: "phantom", label: "Phantom", color: "#A855F7", x: 20, y: 40, radius: 14, connections: ["nexus", "prism"] },
   { id: "prism", label: "Prism", color: "#3B82F6", x: 35, y: 65, radius: 14, connections: ["sentinel", "reaper"] },

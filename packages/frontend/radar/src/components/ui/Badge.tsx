@@ -12,7 +12,7 @@ const badgeVariants = cva(
         high:     "border-threat-high/25 bg-threat-high/10 text-threat-high",
         medium:   "border-threat-medium/25 bg-threat-medium/10 text-threat-medium",
         low:      "border-threat-low/25 bg-threat-low/10 text-threat-low",
-        info:     "border-cyan-500/25 bg-cyan-500/10 text-cyan-400",
+        info:     "border-cyan-500/25 bg-cyan-500/10 text-blue-500",
         none:     "border-threat-none/25 bg-threat-none/10 text-threat-none",
       },
     },

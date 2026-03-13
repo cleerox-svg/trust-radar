@@ -40,7 +40,7 @@ export default function TrendsPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Signals", value: totalSignals.toLocaleString(), color: "text-cyan-400" },
+          { label: "Total Signals", value: totalSignals.toLocaleString(), color: "text-blue-500" },
           { label: "Avg Quality", value: `${avgQuality}%`, color: "text-green-400" },
           { label: "Peak Day", value: peakDay.time, sub: `${peakDay.count} signals` },
         ].map((c) => (

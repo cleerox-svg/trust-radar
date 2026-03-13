@@ -37,7 +37,7 @@ export function EmailAuthPage() {
           { label: "Pass Rate", value: `${passRate}%`, color: passRate >= 80 ? "text-green-400" : "text-threat-medium" },
           { label: "Failures", value: stats.fail_count ?? 0, color: "text-threat-critical" },
           { label: "Soft Fails", value: stats.softfail_count ?? 0, color: "text-threat-medium" },
-          { label: "Domains", value: stats.domains ?? 0, color: "text-cyan-400" },
+          { label: "Domains", value: stats.domains ?? 0, color: "text-blue-500" },
         ].map((c) => (
           <Card key={c.label}>
             <CardContent>

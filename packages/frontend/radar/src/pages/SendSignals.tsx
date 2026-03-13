@@ -72,7 +72,7 @@ export default function SendSignals() {
             onClick={() => { setMode(m.key); setResult(null); }}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               mode === m.key
-                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                 : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >
@@ -136,7 +136,7 @@ export default function SendSignals() {
 
                 {result.metadata.ai_insight && (
                   <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-cyan-400 mb-1">AI Analysis</div>
+                    <div className="text-xs font-semibold text-blue-500 mb-1">AI Analysis</div>
                     <p className="text-xs text-[--text-secondary] leading-relaxed">{result.metadata.ai_insight.summary}</p>
                   </div>
                 )}

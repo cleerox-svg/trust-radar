@@ -69,7 +69,7 @@ export default function Dashboard() {
 
         {/* Threat KPIs */}
         {[
-          { label: "Total Threats", value: ts.total ?? 0, sub: "All tracked", color: "text-cyan-400", link: "/threat-map" },
+          { label: "Total Threats", value: ts.total ?? 0, sub: "All tracked", color: "text-blue-500", link: "/threat-map" },
           { label: "Critical Threats", value: ts.critical ?? 0, sub: "Immediate action", color: (ts.critical ?? 0) > 0 ? "text-threat-critical" : "text-green-400", link: "/threat-map" },
           { label: "Active Alerts", value: s.active_alerts, sub: "Needs attention", color: s.active_alerts > 0 ? "text-threat-high" : "text-green-400", link: "/alerts" },
         ].map((c) => (
@@ -106,7 +106,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-[--text-primary]">Agent Status</h3>
-              <Link to="/agent-hub" className="text-xs text-cyan-400 hover:text-cyan-300">View Hub</Link>
+              <Link to="/agent-hub" className="text-xs text-blue-500 hover:text-cyan-300">View Hub</Link>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -131,7 +131,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-[--text-primary]">Threat Severity</h3>
-              <Link to="/brand-exposure" className="text-xs text-cyan-400 hover:text-cyan-300">Exposure</Link>
+              <Link to="/brand-exposure" className="text-xs text-blue-500 hover:text-cyan-300">Exposure</Link>
             </div>
             <div className="space-y-2">
               {(threatStats?.bySeverity ?? []).map((sv) => {
@@ -165,7 +165,7 @@ export default function Dashboard() {
                 <h3 className="text-sm font-semibold text-[--text-primary]">Signal Volume & Quality</h3>
                 <div className="text-xs text-[--text-tertiary]">Last 30 days</div>
               </div>
-              <Link to="/trends" className="text-xs text-cyan-400 hover:text-cyan-300">Trends</Link>
+              <Link to="/trends" className="text-xs text-blue-500 hover:text-cyan-300">Trends</Link>
             </div>
             {!trend || trend.length === 0 ? (
               <div className="h-40 flex items-center justify-center text-[--text-tertiary] text-xs">No trend data</div>
@@ -214,7 +214,7 @@ export default function Dashboard() {
                     <div key={src.name} className="flex items-center gap-2 text-xs">
                       <div className="w-16 text-[--text-tertiary] font-mono truncate">{src.name}</div>
                       <div className="flex-1 rounded-full h-1.5 overflow-hidden" style={{ background: "var(--surface-base)" }}>
-                        <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${src.percentage}%` }} />
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${src.percentage}%` }} />
                       </div>
                       <div className="w-8 text-right text-[--text-tertiary] font-mono">{src.percentage}%</div>
                     </div>
@@ -238,7 +238,7 @@ export default function Dashboard() {
               { label: "Investigations", path: "/investigations", desc: "Case management" },
             ].map((a) => (
               <Link key={a.path} to={a.path} className="block">
-                <div className="p-3 rounded-lg border border-[--border-subtle] bg-[--surface-base] hover:border-cyan-500/50 transition-colors">
+                <div className="p-3 rounded-lg border border-[--border-subtle] bg-[--surface-base] hover:border-blue-500/50 transition-colors">
                   <div className="text-sm font-medium text-[--text-primary]">{a.label}</div>
                   <div className="text-xs text-[--text-tertiary] mt-0.5">{a.desc}</div>
                 </div>
@@ -248,22 +248,12 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Threat Correlation Matrix */}
+      {/* Threat Correlation Matrix — live data */}
       <Card>
         <CardContent>
           <h3 className="text-sm font-semibold text-[--text-primary] mb-1">Threat Correlation Matrix</h3>
-          <p className="text-xs text-[--text-tertiary] mb-4">Cross-feed signal correlation strength between threat categories</p>
-          <CorrelationMatrix
-            labels={["Phishing", "Malware", "Impersonation", "ATO", "Dark Web", "DNS"]}
-            matrix={[
-              [1.0,  0.72, 0.85, 0.31, 0.45, 0.62],
-              [0.72, 1.0,  0.41, 0.55, 0.68, 0.38],
-              [0.85, 0.41, 1.0,  0.22, 0.33, 0.71],
-              [0.31, 0.55, 0.22, 1.0,  0.78, 0.15],
-              [0.45, 0.68, 0.33, 0.78, 1.0,  0.29],
-              [0.62, 0.38, 0.71, 0.15, 0.29, 1.0],
-            ]}
-          />
+          <p className="text-xs text-[--text-tertiary] mb-4">Cross-feed signal correlation strength — live from threat intelligence</p>
+          <CorrelationMatrix live />
         </CardContent>
       </Card>
     </div>

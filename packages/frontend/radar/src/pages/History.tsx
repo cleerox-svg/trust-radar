@@ -29,7 +29,7 @@ export default function History() {
             onClick={() => setRiskFilter(r)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               riskFilter === r
-                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                 : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >

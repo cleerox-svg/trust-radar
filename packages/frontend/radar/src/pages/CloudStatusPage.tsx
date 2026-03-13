@@ -45,7 +45,7 @@ export function CloudStatusPage() {
           { label: "Total Incidents", value: stats.total ?? 0 },
           { label: "Active", value: stats.active ?? 0, color: "text-threat-critical" },
           { label: "Critical", value: stats.critical ?? 0, color: "text-threat-high" },
-          { label: "Providers", value: stats.providers ?? 0, color: "text-cyan-400" },
+          { label: "Providers", value: stats.providers ?? 0, color: "text-blue-500" },
         ].map((c) => (
           <Card key={c.label}>
             <CardContent>
@@ -101,7 +101,7 @@ export function CloudStatusPage() {
         {provider && (
           <button
             onClick={() => setProvider(undefined)}
-            className="text-xs text-cyan-400 hover:text-cyan-300"
+            className="text-xs text-blue-500 hover:text-cyan-300"
           >
             Clear filter
           </button>
@@ -123,7 +123,7 @@ export function CloudStatusPage() {
                   <StatusDot variant={statusVariant[inc.status] ?? "idle"} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-xs font-bold text-cyan-400">{inc.provider}</span>
+                      <span className="text-xs font-bold text-blue-500">{inc.provider}</span>
                       <span className="text-xs text-[--text-tertiary]">{inc.service}</span>
                       <Badge variant={severityBadge[inc.severity] ?? "info"}>{inc.severity}</Badge>
                       <Badge variant={inc.status === "resolved" ? "low" : "medium"}>{inc.status}</Badge>

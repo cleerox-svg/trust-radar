@@ -80,7 +80,7 @@ export function TakedownsPage() {
                       </div>
                       <div className="text-xs text-[--text-tertiary]">
                         Provider: {e.provider || "—"} · Method: {e.method} · {timeAgo(e.created_at)}
-                        {e.ticket_id && <span className="ml-2 text-cyan-400 font-mono">{e.ticket_id}</span>}
+                        {e.ticket_id && <span className="ml-2 text-blue-500 font-mono">{e.ticket_id}</span>}
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">

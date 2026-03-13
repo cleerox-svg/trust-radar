@@ -68,10 +68,10 @@ export default function GeoMapPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Countries", value: totalCountries, color: "text-cyan-400" },
+          { label: "Countries", value: totalCountries, color: "text-blue-500" },
           { label: "Total Threats", value: totalThreats },
           { label: "Top Origin", value: topCountry ? (countryNames[topCountry.country_code] ?? topCountry.country_code) : "—", isText: true },
-          { label: "Regions", value: Object.keys(regions).length, color: "text-cyan-400" },
+          { label: "Regions", value: Object.keys(regions).length, color: "text-blue-500" },
         ].map((c) => (
           <Card key={c.label}>
             <CardContent>
@@ -93,7 +93,7 @@ export default function GeoMapPage() {
                 return (
                   <div key={region} className="p-3 rounded-lg bg-[--surface-base] border border-[--border-subtle]">
                     <div className="text-xs font-medium text-[--text-primary] mb-1 truncate">{region}</div>
-                    <div className="text-lg font-bold text-cyan-400 tabular-nums">{data.threats}</div>
+                    <div className="text-lg font-bold text-blue-500 tabular-nums">{data.threats}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-[--surface-void] rounded-full overflow-hidden">
                         <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${pct}%` }} />

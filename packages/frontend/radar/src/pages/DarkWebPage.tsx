@@ -24,7 +24,7 @@ export function DarkWebPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total Breaches", value: stats.total ?? 0 },
-          { label: "Unique Targets", value: stats.unique_targets ?? 0, color: "text-cyan-400" },
+          { label: "Unique Targets", value: stats.unique_targets ?? 0, color: "text-blue-500" },
           { label: "Critical", value: stats.critical ?? 0, color: "text-threat-critical" },
           { label: "High", value: stats.high ?? 0, color: "text-threat-high" },
           { label: "Unresolved", value: stats.unresolved ?? 0, color: "text-threat-medium" },

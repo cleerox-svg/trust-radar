@@ -12,7 +12,7 @@ function timeAgo(d: string): string {
 }
 
 const platformColors: Record<string, string> = {
-  twitter: "text-cyan-400",
+  twitter: "text-blue-500",
   reddit: "text-orange-400",
   telegram: "text-blue-400",
   mastodon: "text-purple-400",
@@ -41,7 +41,7 @@ export function SocialIntelPage() {
         {[
           { label: "Total IOCs", value: stats.total ?? 0 },
           { label: "Verified", value: stats.verified ?? 0, color: "text-green-400" },
-          { label: "Avg Confidence", value: `${Math.round(stats.avg_confidence ?? 0)}%`, color: "text-cyan-400" },
+          { label: "Avg Confidence", value: `${Math.round(stats.avg_confidence ?? 0)}%`, color: "text-blue-500" },
           { label: "Platforms", value: stats.platforms ?? 0 },
         ].map((c) => (
           <Card key={c.label}>
@@ -61,7 +61,7 @@ export function SocialIntelPage() {
             onClick={() => setPlatform(p === "all" ? undefined : p)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               (p === "all" && !platform) || p === platform
-                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400"
+                ? "border-cyan-500 bg-cyan-500/15 text-blue-500"
                 : "border-[--border-subtle] text-[--text-tertiary] hover:text-[--text-secondary]"
             }`}
           >

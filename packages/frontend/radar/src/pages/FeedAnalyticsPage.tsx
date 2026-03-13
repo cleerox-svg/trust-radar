@@ -1,13 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { feeds, type FeedSchedule, type FeedStatsData, type FeedQuotaEntry } from "../lib/api";
+import { feeds, dashboard, threats, type FeedSchedule, type FeedStatsData, type FeedQuotaEntry } from "../lib/api";
 import { Card, CardContent, Badge, Button } from "../components/ui";
+import { ScoreRing } from "../components/ui";
 import { StatusDot } from "../components/ui/StatusDot";
 import { cn } from "../lib/cn";
 import { useState } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import {
   Plus, Pencil, Trash2, Play, RotateCcw, Power, PowerOff,
   ExternalLink, Database, Activity, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, X, Check, Save, ChevronLeft, Settings2,
+  Shield, AlertCircle, Bell,
 } from "lucide-react";
 import {
   INTEL_FEED_CATALOG, INTEL_FEED_MAP, TIER_LABELS, TIER_COLORS, TIER_GROUPS,
@@ -112,7 +115,7 @@ function FeedPlatformPicker({ search, setSearch, onSelect }: { search: string; s
                   <button
                     key={ft.feedName}
                     onClick={() => onSelect(ft)}
-                    className="p-3 rounded-lg text-left border border-[--border-subtle] bg-[--surface-base] hover:border-cyan-400/40 transition-all"
+                    className="p-3 rounded-lg text-left border border-[--border-subtle] bg-[--surface-base] hover:border-blue-500/40 transition-all"
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <span className="text-xl leading-none">{ft.icon}</span>
@@ -203,7 +206,7 @@ function FeedConfigForm({ feedType, onBack, onCreated }: { feedType: IntelFeedTy
           </span>
         </div>
         {feedType.providerUrl && (
-          <a href={feedType.providerUrl} target="_blank" rel="noopener noreferrer" className="ml-auto text-[--text-tertiary] hover:text-cyan-400">
+          <a href={feedType.providerUrl} target="_blank" rel="noopener noreferrer" className="ml-auto text-[--text-tertiary] hover:text-blue-500">
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         )}
@@ -296,7 +299,7 @@ function FeedConfigForm({ feedType, onBack, onCreated }: { feedType: IntelFeedTy
       {error && <div className="text-xs text-threat-critical bg-threat-critical/10 border border-threat-critical/20 rounded px-3 py-2">{error}</div>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={saving} className="flex items-center justify-center gap-2 flex-1 px-4 py-2 rounded-md bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/25 text-sm font-medium disabled:opacity-50">
+        <button type="submit" disabled={saving} className="flex items-center justify-center gap-2 flex-1 px-4 py-2 rounded-md bg-blue-500/15 text-blue-500 border border-blue-500/30 hover:bg-blue-500/25 text-sm font-medium disabled:opacity-50">
           {saving ? "Saving\u2026" : <><Check className="w-3.5 h-3.5" /> Add Feed</>}
         </button>
         <button type="button" onClick={onBack} disabled={saving} className="px-4 py-2 rounded-md border border-[--border-subtle] text-sm text-[--text-secondary] hover:bg-[--surface-overlay]">Cancel</button>
@@ -387,7 +390,7 @@ function EditFeedModal({ feed, onUpdated, onClose }: { feed: FeedSchedule; onUpd
               </span>
             </div>
             {(catalogEntry?.providerUrl || feed.provider_url) && (
-              <a href={catalogEntry?.providerUrl ?? feed.provider_url ?? ""} target="_blank" rel="noopener noreferrer" className="ml-auto text-[--text-tertiary] hover:text-cyan-400">
+              <a href={catalogEntry?.providerUrl ?? feed.provider_url ?? ""} target="_blank" rel="noopener noreferrer" className="ml-auto text-[--text-tertiary] hover:text-blue-500">
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
@@ -504,7 +507,7 @@ function EditFeedModal({ feed, onUpdated, onClose }: { feed: FeedSchedule; onUpd
                 "flex items-center justify-center gap-2 flex-1 px-4 py-2 rounded-md border text-sm font-medium disabled:opacity-50",
                 saved
                   ? "bg-green-500/10 text-green-400 border-green-400/30"
-                  : "bg-cyan-400/15 text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/25"
+                  : "bg-blue-500/15 text-blue-500 border-blue-500/30 hover:bg-blue-500/25"
               )}
             >
               {saved ? <><Check className="w-3.5 h-3.5" /> Saved</> : saving ? "Saving\u2026" : <><Save className="w-3.5 h-3.5" /> Save Changes</>}
@@ -513,6 +516,95 @@ function EditFeedModal({ feed, onUpdated, onClose }: { feed: FeedSchedule; onUpd
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/* ═══ Platform KPI Hero (Trust Score + Threat Summary + Signal Volume) ═══ */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function SignalTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg px-3 py-2 text-xs border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+      <div className="text-[--text-tertiary] mb-1">{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.name} style={{ color: p.color }} className="font-mono">
+          {p.name}: {typeof p.value === "number" ? p.value.toFixed(p.name === "quality" ? 1 : 0) : p.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlatformKPISection() {
+  const { data: stats } = useQuery({ queryKey: ["dashboard-stats"], queryFn: dashboard.stats });
+  const { data: trend } = useQuery({ queryKey: ["dashboard-trend"], queryFn: dashboard.trend });
+  const { data: threatStats } = useQuery({ queryKey: ["threat-stats"], queryFn: threats.stats });
+
+  const s = stats ?? { total_signals: 0, processed: 0, avg_trust: 0, active_alerts: 0, queue_depth: 0, dead_letters: 0 };
+  const ts = threatStats?.summary ?? {} as Record<string, number>;
+  const trustScore = s.avg_trust || 0;
+  const trendData = trend ?? [];
+
+  return (
+    <div className="space-y-4 mb-6 pb-6" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+      <div className="text-xs font-mono font-semibold" style={{ color: "var(--text-tertiary)" }}>
+        PLATFORM OVERVIEW
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Trust Score */}
+        <Card className="md:row-span-2 flex items-center justify-center">
+          <CardContent>
+            <div className="flex flex-col items-center py-2">
+              <ScoreRing score={trustScore} size="md" label="Trust Score" />
+              <div className="mt-2 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
+                {trustScore >= 80 ? "Healthy posture" : trustScore >= 50 ? "Moderate risk" : "Elevated risk"}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Threat KPIs */}
+        {[
+          { label: "Total Threats", value: ts.total ?? 0, icon: Shield, color: "text-blue-500" },
+          { label: "Critical", value: ts.critical ?? 0, icon: AlertCircle, color: (ts.critical ?? 0) > 0 ? "text-threat-critical" : "text-green-400" },
+          { label: "Active Alerts", value: s.active_alerts, icon: Bell, color: s.active_alerts > 0 ? "text-threat-high" : "text-green-400" },
+        ].map((c) => (
+          <Card key={c.label}>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-1">
+                <c.icon className="w-3.5 h-3.5" style={{ color: "var(--text-tertiary)" }} />
+                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{c.label}</span>
+              </div>
+              <div className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Signal volume trend */}
+      {trendData.length > 0 && (
+        <Card>
+          <CardContent>
+            <div className="text-xs font-mono mb-3" style={{ color: "var(--text-secondary)" }}>SIGNAL VOLUME — 30 DAY</div>
+            <ResponsiveContainer width="100%" height={80}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="signalGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" hide />
+                <YAxis hide />
+                <Tooltip content={<SignalTooltip />} />
+                <Area type="monotone" dataKey="signals" stroke="#3B82F6" strokeWidth={1.5} fill="url(#signalGrad)" dot={false} name="signals" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -572,24 +664,27 @@ export function FeedAnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-[--text-primary] mb-1 flex items-center gap-2">
-            <Database className="w-6 h-6 text-cyan-400" />
+            <Database className="w-6 h-6 text-blue-500" />
             Intelligence Feeds
           </h1>
           <p className="text-sm text-[--text-secondary]">Manage feed providers, credentials, schedules, and monitor ingestion health</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-[--surface-base] rounded-md border border-[--border-subtle] p-0.5">
-            <button onClick={() => setViewMode("table")} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", viewMode === "table" ? "bg-cyan-400/15 text-cyan-400 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>Table</button>
-            <button onClick={() => setViewMode("cards")} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", viewMode === "cards" ? "bg-cyan-400/15 text-cyan-400 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>Cards</button>
+            <button onClick={() => setViewMode("table")} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", viewMode === "table" ? "bg-blue-500/15 text-blue-500 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>Table</button>
+            <button onClick={() => setViewMode("cards")} className={cn("text-2xs px-2.5 py-1 rounded font-mono transition-colors", viewMode === "cards" ? "bg-blue-500/15 text-blue-500 font-semibold" : "text-[--text-tertiary] hover:text-[--text-secondary]")}>Cards</button>
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/25 text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-blue-500/15 text-blue-500 border border-blue-500/30 hover:bg-blue-500/25 text-sm font-medium"
           >
             <Plus className="w-4 h-4" /> Add Feed
           </button>
         </div>
       </div>
+
+      {/* Platform KPI Hero */}
+      <PlatformKPISection />
 
       {/* Summary Cards */}
       {stats && <SummaryCards stats={stats} />}
@@ -599,7 +694,7 @@ export function FeedAnalyticsPage() {
         <button
           onClick={() => setTierFilter(null)}
           className={cn("text-2xs px-2.5 py-1 rounded-md border font-mono transition-colors",
-            tierFilter === null ? "bg-cyan-400/15 text-cyan-400 border-cyan-400/30" : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+            tierFilter === null ? "bg-blue-500/15 text-blue-500 border-blue-500/30" : "bg-[--surface-base] text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
           )}
         >All ({feedList?.length ?? 0})</button>
         {[1, 2, 3, 4, 5, 6].map((t) => {
@@ -686,7 +781,7 @@ export function FeedAnalyticsPage() {
                           <td className="py-2.5 pr-3 text-[--text-secondary] font-mono text-xs">{feed.interval_mins}m</td>
                           <td className="py-2.5 pr-3 text-[--text-secondary] text-xs">{timeAgo(feed.last_run_at)}</td>
                           <td className="py-2.5 pr-3">
-                            <span className={cn("font-mono text-xs font-bold", (feed.last_items_new ?? 0) > 0 ? "text-cyan-400" : "text-[--text-tertiary]")}>
+                            <span className={cn("font-mono text-xs font-bold", (feed.last_items_new ?? 0) > 0 ? "text-blue-500" : "text-[--text-tertiary]")}>
                               {feed.last_items_new ?? 0}
                             </span>
                           </td>
@@ -697,7 +792,7 @@ export function FeedAnalyticsPage() {
                               <button
                                 onClick={() => setEditFeed(feed)}
                                 title="Edit configuration"
-                                className="p-1.5 rounded hover:bg-[--surface-overlay] text-[--text-tertiary] hover:text-cyan-400"
+                                className="p-1.5 rounded hover:bg-[--surface-overlay] text-[--text-tertiary] hover:text-blue-500"
                               >
                                 <Settings2 className="w-3.5 h-3.5" />
                               </button>
@@ -777,7 +872,7 @@ export function FeedAnalyticsPage() {
 
                           <div className="grid grid-cols-3 gap-2 mb-2 text-center">
                             <div className="bg-[--surface-base] rounded p-1.5">
-                              <div className={cn("text-xs font-bold font-mono", (feed.last_items_new ?? 0) > 0 ? "text-cyan-400" : "text-[--text-secondary]")}>
+                              <div className={cn("text-xs font-bold font-mono", (feed.last_items_new ?? 0) > 0 ? "text-blue-500" : "text-[--text-secondary]")}>
                                 {feed.last_items_new ?? 0}
                               </div>
                               <div className="text-[9px] text-[--text-tertiary]">New (Last)</div>
@@ -824,11 +919,11 @@ export function FeedAnalyticsPage() {
                             <button
                               onClick={() => triggerMut.mutate(feed.id)}
                               disabled={triggerMut.isPending || !!feed.circuit_open}
-                              className="flex items-center gap-1 flex-1 justify-center px-2 py-1.5 text-xs rounded-md bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/25 disabled:opacity-50"
+                              className="flex items-center gap-1 flex-1 justify-center px-2 py-1.5 text-xs rounded-md bg-blue-500/15 text-blue-500 border border-blue-500/30 hover:bg-blue-500/25 disabled:opacity-50"
                             >
                               <Play className="w-3 h-3" /> Run
                             </button>
-                            <button onClick={() => setEditFeed(feed)} title="Edit" className="px-2 py-1.5 rounded-md border border-[--border-subtle] text-[--text-tertiary] hover:text-cyan-400 hover:border-cyan-400/40">
+                            <button onClick={() => setEditFeed(feed)} title="Edit" className="px-2 py-1.5 rounded-md border border-[--border-subtle] text-[--text-tertiary] hover:text-blue-500 hover:border-blue-500/40">
                               <Pencil className="w-3 h-3" />
                             </button>
                             <button onClick={() => toggleMut.mutate({ id: feed.id, enabled: !feed.enabled })} title={feed.enabled ? "Disable" : "Enable"} className="px-2 py-1.5 rounded-md border border-[--border-subtle] text-[--text-tertiary] hover:text-amber-400">
@@ -940,7 +1035,7 @@ export function FeedAnalyticsPage() {
 function SummaryCards({ stats }: { stats: FeedStatsData }) {
   const s = stats.summary;
   const cards = [
-    { label: "Total Feeds", value: s.total_feeds, sub: `${s.enabled_feeds} enabled`, color: "text-cyan-400" },
+    { label: "Total Feeds", value: s.total_feeds, sub: `${s.enabled_feeds} enabled`, color: "text-blue-500" },
     { label: "Circuit Breakers", value: s.circuit_open, sub: s.circuit_open > 0 ? "Needs attention" : "All healthy", color: s.circuit_open > 0 ? "text-threat-critical" : "text-green-400" },
     { label: "Lifetime Runs", value: s.total_runs, sub: "Total pull cycles", color: "text-[--text-primary]" },
     { label: "Lifetime Items", value: s.total_items, sub: "Total IOCs ingested", color: "text-[--text-primary]" },
