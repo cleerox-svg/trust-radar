@@ -12,6 +12,7 @@
 import type { Env } from "../types";
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "../feeds/types";
 import { enrichThreatsGeo } from "./geoip";
+import { runEnrichmentChain } from "../enrichment";
 
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_RESET_MS = 30 * 60 * 1000; // 30 minutes
@@ -315,15 +316,18 @@ export async function runAllFeeds(env: Env, feedModules: Record<string, FeedModu
     }
   }
 
-  // Post-ingestion: enrich threats missing country_code via GeoIP
+  // Post-ingestion enrichment chain
   if (totalNew > 0) {
     try {
       const geo = await enrichThreatsGeo(env.DB);
-      console.log(`[geoip] enriched ${geo.enriched}/${geo.total} threats with country codes`);
+      console.log(`[geoip] enriched ${geo.enriched}/${geo.total} threats with geo/lat/lng`);
     } catch (err) {
-      console.error("[geoip] post-ingestion enrichment failed:", err);
+      console.error("[geoip] enrichment failed:", err);
     }
   }
+  // Shodan, RDAP, DNS enrichers run every cycle — they use metadata flags to
+  // skip already-enriched threats, so this efficiently catches any backlog too.
+  await runEnrichmentChain(env.DB, env);
 
   // Update job
   const status = feedsFailed === feedsRun ? "failed" : feedsFailed > 0 ? "partial" : "success";
