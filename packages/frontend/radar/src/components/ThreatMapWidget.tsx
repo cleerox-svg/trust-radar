@@ -1015,11 +1015,11 @@ export function ThreatMapWidget() {
               {/* Label */}
               <text
                 textAnchor="middle"
-                y={-normalizedSize * (isContinent ? 1.8 : 1.3) - 4}
+                y={-normalizedSize * (isContinent ? 1.8 : 1.3) - 6}
                 style={{
-                  fontSize: isContinent ? 7 : 5.5,
+                  fontSize: isContinent ? 14 : 11,
                   fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                  textShadow: `0 0 8px rgba(0,0,0,0.9), 0 0 4px ${color}40`,
+                  textShadow: `0 0 10px rgba(0,0,0,0.95), 0 0 6px ${color}40`,
                   fill: color,
                   fontWeight: "bold",
                   pointerEvents: "none",
@@ -1031,11 +1031,11 @@ export function ThreatMapWidget() {
               {/* Count label */}
               <text
                 textAnchor="middle"
-                y={normalizedSize * (isContinent ? 1.8 : 1.3) + 6}
+                y={normalizedSize * (isContinent ? 1.8 : 1.3) + 10}
                 style={{
-                  fontSize: isContinent ? 6 : 4.5,
+                  fontSize: isContinent ? 12 : 9,
                   fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                  textShadow: "0 0 6px rgba(0,0,0,0.9)",
+                  textShadow: "0 0 8px rgba(0,0,0,0.95)",
                   fill: "rgba(241, 245, 249, 0.8)",
                   fontWeight: "bold",
                   pointerEvents: "none",
@@ -1062,9 +1062,9 @@ export function ThreatMapWidget() {
                     textAnchor="middle"
                     y={2}
                     style={{
-                      fontSize: 4,
+                      fontSize: 8,
                       fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                      textShadow: "0 0 3px rgba(0,0,0,0.8)",
+                      textShadow: "0 0 5px rgba(0,0,0,0.9)",
                       fill: "#64748B",
                       pointerEvents: "none",
                     }}
@@ -1102,11 +1102,11 @@ export function ThreatMapWidget() {
               {/* Label */}
               <text
                 textAnchor="middle"
-                y={-8}
+                y={-10}
                 style={{
-                  fontSize: 3.5,
+                  fontSize: 7,
                   fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
-                  textShadow: `0 0 4px rgba(0,0,0,0.9)`,
+                  textShadow: `0 0 6px rgba(0,0,0,0.95)`,
                   fill: color,
                   opacity: 0.8,
                   pointerEvents: "none",

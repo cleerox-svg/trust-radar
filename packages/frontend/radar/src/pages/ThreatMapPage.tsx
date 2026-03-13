@@ -24,7 +24,8 @@ import { motion } from "framer-motion";
 import {
   Crosshair, Search, Shield, Globe2, BarChart3, Copy, Database,
   ShieldAlert, Target, TrendingUp, TrendingDown, AlertCircle, MapPin,
-  RefreshCw, Activity, Server, ArrowUp, ArrowDown, Minus,
+  RefreshCw, Activity, Server, ArrowUp, ArrowDown, Minus, X, Zap,
+  ChevronRight,
 } from "lucide-react";
 
 const severityColors: Record<string, string> = {
@@ -68,6 +69,298 @@ function pctChange(current: number, previous: number): { pct: number; direction:
   if (previous === 0) return { pct: 0, direction: "stable" };
   const pct = Math.round(((current - previous) / previous) * 100);
   return { pct: Math.abs(pct), direction: pct > 0 ? "up" : pct < 0 ? "down" : "stable" };
+}
+
+// ─── Country Intel Widget (Origins + Targets with pop-out details) ─────
+function CountryIntelWidget({ stats, providerData }: {
+  stats: ThreatStats | undefined;
+  providerData: { providers: ProviderStat[]; summary: { total_providers: number; total_threats: number; critical: number; high: number }; period: string } | undefined;
+}) {
+  const [tab, setTab] = useState<"origins" | "targets">("origins");
+  const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
+
+  const topOrigins = stats?.topOriginsToday ?? [];
+  const byCountry = stats?.byCountry ?? [];
+  const recentThreats = stats?.recentThreats ?? [];
+  const maxOriginCount = topOrigins.length > 0 ? Math.max(...topOrigins.map(c => c.count)) : 0;
+  const maxTargetCount = byCountry.length > 0 ? Math.max(...byCountry.map(c => c.count)) : 0;
+
+  // Compute quick view data for a given country
+  const getOriginDetails = useCallback((cc: string) => {
+    const providersList = providerData?.providers ?? [];
+    const matched = providersList
+      .filter((p) => p.top_countries?.includes(cc))
+      .sort((a, b) => b.threat_count - a.threat_count)
+      .slice(0, 5);
+    return matched.length > 0 ? matched : providersList.slice(0, 5);
+  }, [providerData]);
+
+  const getTargetDetails = useCallback((cc: string) => {
+    const countryThreats = recentThreats.filter((t) => t.country_code === cc);
+
+    // Attack types
+    const typeCounts = new Map<string, number>();
+    countryThreats.forEach((t) => {
+      typeCounts.set(t.type, (typeCounts.get(t.type) ?? 0) + 1);
+    });
+    if (countryThreats.length === 0 && stats) {
+      const entry = byCountry.find((c) => c.country_code === cc);
+      if (entry) {
+        const ratio = entry.count / Math.max(stats.summary.total ?? 1, 1);
+        stats.byType.forEach((t) => {
+          typeCounts.set(t.type, Math.max(typeCounts.get(t.type) ?? 0, Math.round(t.count * ratio)));
+        });
+      }
+    }
+    const attackTypes = Array.from(typeCounts.entries())
+      .sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    // Brands
+    const domainCounts = new Map<string, { count: number; severity: string }>();
+    countryThreats.forEach((t) => {
+      const d = t.domain || t.ioc_value;
+      if (!d) return;
+      const existing = domainCounts.get(d);
+      if (existing) existing.count++;
+      else domainCounts.set(d, { count: 1, severity: t.severity });
+    });
+    const brands = Array.from(domainCounts.entries())
+      .sort((a, b) => b[1].count - a[1].count).slice(0, 5)
+      .map(([domain, data]) => ({ domain, ...data }));
+
+    return { attackTypes, brands };
+  }, [recentThreats, byCountry, stats]);
+
+  const toggleExpand = (cc: string) => {
+    setExpandedCountry(expandedCountry === cc ? null : cc);
+  };
+
+  return (
+    <Card className="overflow-hidden p-0">
+      {/* Tab header */}
+      <div className="px-3.5 py-2 border-b border-[--border-subtle] flex items-center gap-2">
+        <button
+          onClick={() => { setTab("origins"); setExpandedCountry(null); }}
+          className={cn(
+            "text-[9px] font-mono uppercase px-2 py-1 rounded border transition-all",
+            tab === "origins"
+              ? "bg-threat-critical/15 text-threat-critical border-threat-critical/30"
+              : "text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+          )}
+        >
+          <Crosshair className="w-3 h-3 inline mr-1" />Origins
+        </button>
+        <button
+          onClick={() => { setTab("targets"); setExpandedCountry(null); }}
+          className={cn(
+            "text-[9px] font-mono uppercase px-2 py-1 rounded border transition-all",
+            tab === "targets"
+              ? "bg-cyan-400/15 text-cyan-400 border-cyan-400/30"
+              : "text-[--text-tertiary] border-[--border-subtle] hover:text-[--text-secondary]"
+          )}
+        >
+          <Target className="w-3 h-3 inline mr-1" />Targets
+        </button>
+        <span className="text-[8px] font-mono text-[--text-tertiary] ml-auto uppercase">
+          {tab === "origins" ? `${topOrigins.length} sources` : `${byCountry.length} regions`}
+        </span>
+      </div>
+
+      <div className="max-h-[340px] overflow-y-auto">
+        {tab === "origins" ? (
+          /* ── Origins Tab ── */
+          <div className="p-3 space-y-1">
+            {topOrigins.length === 0 && (
+              <p className="text-[11px] text-[--text-tertiary] text-center py-3">No origin data today</p>
+            )}
+            {topOrigins.slice(0, 5).map((c) => {
+              const isExpanded = expandedCountry === c.country_code;
+              const pct = maxOriginCount > 0 ? Math.round((c.count / maxOriginCount) * 100) : 0;
+              const sevColor = pct >= 70 ? severityColors.critical : pct >= 40 ? severityColors.high : pct >= 15 ? severityColors.medium : "#22D3EE";
+
+              return (
+                <div key={c.country_code}>
+                  <button
+                    onClick={() => toggleExpand(c.country_code)}
+                    className="w-full flex items-center gap-2 text-xs py-1.5 px-1.5 rounded hover:bg-surface-overlay/20 transition-colors"
+                  >
+                    <ChevronRight className={cn("w-3 h-3 text-[--text-tertiary] transition-transform shrink-0", isExpanded && "rotate-90")} />
+                    <span className="text-sm shrink-0">{countryFlags[c.country_code] ?? ""}</span>
+                    <span className="text-[--text-primary] flex-1 text-left truncate">{countryNames[c.country_code] ?? c.country_code}</span>
+                    <div className="w-14 h-1.5 bg-[--surface-base] rounded-full overflow-hidden shrink-0">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: sevColor }} />
+                    </div>
+                    <span className="font-mono text-[10px] w-8 text-right tabular-nums" style={{ color: sevColor }}>{c.count}</span>
+                  </button>
+
+                  {/* Expanded pop-out: hosting providers */}
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="ml-5 mr-1 mb-2 mt-1 rounded-lg border overflow-hidden"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(10,14,26,0.97), rgba(17,24,39,0.95))",
+                        borderColor: "rgba(249,115,22,0.25)",
+                      }}
+                    >
+                      <div className="h-[1.5px] bg-gradient-to-r from-orange-500 via-red-500 to-orange-500" />
+                      <div className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Server className="w-3 h-3 text-orange-400" />
+                          <span className="text-[8px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">Hosting Providers</span>
+                        </div>
+                        {(() => {
+                          const provs = getOriginDetails(c.country_code);
+                          if (provs.length === 0) return <p className="text-[10px] text-[--text-tertiary] italic">No provider data</p>;
+                          const maxP = provs[0]?.threat_count ?? 1;
+                          return (
+                            <div className="space-y-1.5">
+                              {provs.map((p, i) => (
+                                <div key={p.provider_name}>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[8px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                                    <span className="text-[10px] text-[--text-primary] flex-1 truncate">{p.provider_name}</span>
+                                    <span className="text-[9px] font-mono tabular-nums text-[--text-secondary]">{p.threat_count}</span>
+                                    <span className={cn(
+                                      "text-[8px] font-mono",
+                                      p.trend_direction === "up" ? "text-threat-critical" : p.trend_direction === "down" ? "text-green-400" : "text-[--text-tertiary]"
+                                    )}>
+                                      {p.trend_direction === "up" ? "\u2191" : p.trend_direction === "down" ? "\u2193" : "\u2192"}{Math.abs(p.trend_pct)}%
+                                    </span>
+                                  </div>
+                                  <div className="ml-4 mt-0.5 flex items-center gap-1.5">
+                                    <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500" style={{ width: `${Math.round((p.threat_count / maxP) * 100)}%` }} />
+                                    </div>
+                                    {p.critical_count > 0 && <span className="text-[7px] font-mono text-threat-critical">{p.critical_count}C</span>}
+                                    {p.high_count > 0 && <span className="text-[7px] font-mono text-threat-high">{p.high_count}H</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Targets Tab ── */
+          <div className="p-3 space-y-1">
+            {byCountry.length === 0 && (
+              <p className="text-[11px] text-[--text-tertiary] text-center py-3">No target data available</p>
+            )}
+            {byCountry.slice(0, 5).map((c) => {
+              const isExpanded = expandedCountry === c.country_code;
+              const pct = maxTargetCount > 0 ? Math.round((c.count / maxTargetCount) * 100) : 0;
+              const sevColor = pct >= 70 ? severityColors.critical : pct >= 40 ? severityColors.high : pct >= 15 ? severityColors.medium : "#22D3EE";
+
+              return (
+                <div key={c.country_code}>
+                  <button
+                    onClick={() => toggleExpand(c.country_code)}
+                    className="w-full flex items-center gap-2 text-xs py-1.5 px-1.5 rounded hover:bg-surface-overlay/20 transition-colors"
+                  >
+                    <ChevronRight className={cn("w-3 h-3 text-[--text-tertiary] transition-transform shrink-0", isExpanded && "rotate-90")} />
+                    <span className="text-sm shrink-0">{countryFlags[c.country_code] ?? ""}</span>
+                    <span className="text-[--text-primary] flex-1 text-left truncate">{countryNames[c.country_code] ?? c.country_code}</span>
+                    <div className="w-14 h-1.5 bg-[--surface-base] rounded-full overflow-hidden shrink-0">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: sevColor }} />
+                    </div>
+                    <span className="font-mono text-[10px] w-8 text-right tabular-nums" style={{ color: sevColor }}>{c.count}</span>
+                  </button>
+
+                  {/* Expanded pop-out: attack types + brands */}
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="ml-5 mr-1 mb-2 mt-1 rounded-lg border overflow-hidden"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(10,14,26,0.97), rgba(17,24,39,0.95))",
+                        borderColor: "rgba(34,211,238,0.25)",
+                      }}
+                    >
+                      <div className="h-[1.5px] bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-400" />
+                      <div className="px-3 py-2.5 space-y-2.5">
+                        {(() => {
+                          const details = getTargetDetails(c.country_code);
+                          return (
+                            <>
+                              {/* Attack Types */}
+                              <div>
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Zap className="w-3 h-3 text-amber-400" />
+                                  <span className="text-[8px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">Attack Types</span>
+                                </div>
+                                {details.attackTypes.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {details.attackTypes.map((at, i) => {
+                                      const maxC = details.attackTypes[0]?.count ?? 1;
+                                      const barPct = Math.round((at.count / maxC) * 100);
+                                      const typeColor = threatTypeColors[at.type] ?? "#64748B";
+                                      return (
+                                        <div key={at.type} className="flex items-center gap-1.5">
+                                          <span className="text-[8px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: typeColor }} />
+                                          <span className="text-[10px] text-[--text-primary] flex-1 capitalize truncate">{at.type}</span>
+                                          <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: typeColor, opacity: 0.8 }} />
+                                          </div>
+                                          <span className="text-[9px] font-mono tabular-nums w-5 text-right" style={{ color: typeColor }}>{at.count}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-[9px] text-[--text-tertiary] italic">No attack data</p>
+                                )}
+                              </div>
+
+                              {/* Brands */}
+                              {details.brands.length > 0 && (
+                                <div>
+                                  <div className="border-t border-white/[0.06] mb-1.5" />
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Shield className="w-3 h-3 text-cyan-400" />
+                                    <span className="text-[8px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary]">Targeted Brands</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {details.brands.map((b, i) => (
+                                      <div key={b.domain} className="flex items-center gap-1.5">
+                                        <span className="text-[8px] font-mono text-[--text-tertiary] w-3">{i + 1}</span>
+                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: severityColors[b.severity] ?? "#22D3EE" }} />
+                                        <span className="text-[10px] font-mono text-[--text-primary] flex-1 truncate">{b.domain}</span>
+                                        <span className="text-[8px] font-mono px-1 py-0.5 rounded" style={{
+                                          color: severityColors[b.severity] ?? "#22D3EE",
+                                          backgroundColor: (severityColors[b.severity] ?? "#22D3EE") + "15",
+                                        }}>{b.severity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
 }
 
 export function ThreatMapPage() {
@@ -304,46 +597,8 @@ export function ThreatMapPage() {
           </div>
         </Card>
 
-        {/* Legend + Top Origins */}
-        <Card className="overflow-hidden p-0">
-          <div className="p-3.5">
-            <p className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-2.5">Heat Scale</p>
-            <div className="h-2.5 rounded-full mb-1.5" style={{ background: "linear-gradient(to right, #00f5ff, #f59e0b, #ef4444)" }} />
-            <div className="flex justify-between text-[10px] font-mono text-[--text-tertiary] mb-3">
-              <span>Low risk</span><span>Medium</span><span>High risk</span>
-            </div>
-            {/* Threat type legend */}
-            <div className="space-y-1.5 mb-3">
-              {[
-                { label: "Phishing / High Threat", color: "rgba(239,68,68,0.8)" },
-                { label: "Malware / Suspicious", color: "rgba(245,158,11,0.8)" },
-                { label: "Low Risk / Monitored", color: "rgba(0,245,255,0.6)" },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2 text-xs text-[--text-primary]">
-                  <span className="w-7 h-2 rounded shrink-0" style={{ backgroundColor: item.color }} />
-                  {item.label}
-                </div>
-              ))}
-            </div>
-            {/* Top Origins */}
-            <p className="text-[10px] font-mono uppercase tracking-[1.5px] text-[--text-tertiary] mb-2">Top Origins</p>
-            <div className="space-y-1.5">
-              {topOrigins.slice(0, 5).map(c => (
-                <div key={c.country_code} className="flex items-center gap-2 text-xs">
-                  <span className="text-sm">{countryFlags[c.country_code] ?? ""}</span>
-                  <span className="text-[--text-primary] flex-1">{countryNames[c.country_code] ?? c.country_code}</span>
-                  <div className="w-16 h-1 bg-[--surface-base] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.round((c.count / maxOriginCount) * 100)}%` }} />
-                  </div>
-                  <span className="font-mono text-[10px] text-[--text-tertiary] w-8 text-right tabular-nums">{c.count}</span>
-                </div>
-              ))}
-              {topOrigins.length === 0 && (
-                <p className="text-[11px] text-[--text-tertiary]">No origin data today</p>
-              )}
-            </div>
-          </div>
-        </Card>
+        {/* Top Origins + Top Targets with pop-out details */}
+        <CountryIntelWidget stats={stats} providerData={providerData} />
 
         {/* Hosting Provider Offenders */}
         <Card className="overflow-hidden p-0">
