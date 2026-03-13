@@ -148,7 +148,7 @@ function LiveCorrelationMatrix({ className }: { className?: string }) {
     staleTime: 5 * 60 * 1000, // 5 min — backend caches for 1h
   });
 
-  const result = data?.data;
+  const result = data;
 
   return (
     <div className={className}>

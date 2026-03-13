@@ -184,7 +184,7 @@ export function ThreatMapGL({ threats, heatmapData, onCountryClick, className }:
         initialViewState={INITIAL_VIEW_STATE}
         controller={{ dragRotate: true, touchRotate: true }}
         layers={layers}
-        style={{ position: "absolute", inset: 0 }}
+        style={{ position: "absolute", inset: "0" }}
         onViewStateChange={() => setTooltip(null)}
       >
         <Map

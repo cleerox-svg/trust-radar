@@ -34,8 +34,22 @@ const severityColor: Record<string, string> = {
 
 // ─── Live Feed Panel ──────────────────────────────────────────────
 
+// Matches the partial shape returned in ThreatStats.recentThreats
+interface RecentThreat {
+  id: string;
+  type: string;
+  title: string;
+  severity: string;
+  source: string;
+  domain: string | null;
+  ioc_value: string | null;
+  ip_address: string | null;
+  country_code: string | null;
+  created_at: string;
+}
+
 interface FeedPanelProps {
-  recentThreats: Threat[];
+  recentThreats: RecentThreat[];
 }
 
 function LiveFeedPanel({ recentThreats }: FeedPanelProps) {
