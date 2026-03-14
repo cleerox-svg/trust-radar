@@ -19,10 +19,17 @@ function b64url(buf: ArrayBuffer): string {
     .replace(/=/g, "");
 }
 
+/** 15-minute access token */
+export const ACCESS_TOKEN_TTL = 60 * 15;
+/** 7-day refresh token */
+export const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 7;
+/** 30-day absolute session limit */
+export const ABSOLUTE_SESSION_TTL = 60 * 60 * 24 * 30;
+
 export async function signJWT(
   payload: Omit<JWTPayload, "iat" | "exp">,
   secret: string,
-  expiresInSeconds = 60 * 60 * 24 * 7 // 7 days
+  expiresInSeconds = ACCESS_TOKEN_TTL
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const fullPayload: JWTPayload = { ...payload, iat: now, exp: now + expiresInSeconds };

@@ -27,7 +27,7 @@ export function applySecurityHeaders(response: Response): Response {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
     "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
     "img-src 'self' data: blob:",
-    "connect-src 'self' https://lrxradar.com https://api.lrxradar.com",
+    "connect-src 'self' https://lrxradar.com https://api.lrxradar.com https://accounts.google.com https://oauth2.googleapis.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
