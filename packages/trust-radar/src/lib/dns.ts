@@ -46,6 +46,7 @@ export async function batchResolve(
 ): Promise<Map<string, string>> {
   const results = new Map<string, string>();
   const unique = [...new Set(domains)];
+  console.log(`[dns] batchResolve: ${unique.length} unique domains (from ${domains.length} total)`);
 
   for (let i = 0; i < unique.length; i += concurrency) {
     const chunk = unique.slice(i, i + concurrency);

@@ -44,18 +44,23 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
     const chunk = uniqueIps.slice(i, i + CHUNK_SIZE);
 
     try {
-      const res = await fetch("http://ip-api.com/batch?fields=status,query,countryCode,country,isp,org,as,lat,lon", {
+      const batchUrl = "http://ip-api.com/batch?fields=status,query,countryCode,country,isp,org,as,lat,lon";
+      console.log(`[geoip] POST ${batchUrl} (${chunk.length} IPs)`);
+      const res = await fetch(batchUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(chunk),
       });
 
+      console.log(`[geoip] Response: HTTP ${res.status}`);
       if (!res.ok) {
-        console.error(`[geoip] batch lookup HTTP ${res.status}`);
+        const errBody = await res.text().catch(() => "");
+        console.error(`[geoip] batch lookup HTTP ${res.status}: ${errBody.slice(0, 300)}`);
         continue;
       }
 
       const data = await res.json() as IpApiBatchResponse[];
+      console.log(`[geoip] Parsed ${data.length} entries, ${data.filter(e => e.status === "success").length} successful`);
 
       for (const entry of data) {
         if (entry.status === "success" && entry.countryCode) {

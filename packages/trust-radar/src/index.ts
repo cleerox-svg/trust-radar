@@ -904,15 +904,23 @@ export default {
                 const result = await executeAgent(env, mod, {}, "cron", "scheduled");
                 console.log(`[cron] agent observer: ${result.status}`);
               }
+            }
 
-              // Also generate daily snapshots at midnight
-              try {
-                const { generateDailySnapshots } = await import("./lib/snapshots");
-                const snapResult = await generateDailySnapshots(env.DB);
+            // Daily snapshots — run at midnight UTC, or if none exist yet (bootstrap)
+            try {
+              const { generateDailySnapshots } = await import("./lib/snapshots");
+              const today = new Date().toISOString().slice(0, 10);
+              const hasSnapshotToday = await env.DB.prepare(
+                "SELECT COUNT(*) as n FROM daily_snapshots WHERE date = ?"
+              ).bind(today).first<{ n: number }>();
+
+              if (hour === 0 && minute < 5 || (hasSnapshotToday?.n ?? 0) === 0) {
+                console.log(`[cron] generating daily snapshots (hour=${hour}, existing=${hasSnapshotToday?.n ?? 0})`);
+                const snapResult = await generateDailySnapshots(env.DB, today);
                 console.log(`[cron] snapshots: brands=${snapResult.brandSnapshots}, providers=${snapResult.providerSnapshots}`);
-              } catch (err) {
-                console.error("[cron] snapshot error:", err);
               }
+            } catch (err) {
+              console.error("[cron] snapshot error:", err);
             }
           } catch (err) {
             console.error("[cron] agent auto-trigger error:", err);
