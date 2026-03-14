@@ -4,6 +4,44 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env } from "../types";
 
+// GET /api/brands/stats
+export async function handleBrandStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM brands").first<{ n: number }>();
+
+    const newThisWeek = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM brands WHERE first_seen >= datetime('now', '-7 days')"
+    ).first<{ n: number }>();
+
+    const fastestRising = await env.DB.prepare(`
+      SELECT b.name, COUNT(t.id) AS cnt
+      FROM brands b
+      JOIN threats t ON t.target_brand_id = b.id AND t.created_at >= datetime('now', '-1 day')
+      GROUP BY b.id ORDER BY cnt DESC LIMIT 1
+    `).first<{ name: string; cnt: number }>();
+
+    const topType = await env.DB.prepare(`
+      SELECT threat_type, COUNT(*) AS cnt, ROUND(COUNT(*) * 100.0 / MAX(1, (SELECT COUNT(*) FROM threats)), 1) AS pct
+      FROM threats GROUP BY threat_type ORDER BY cnt DESC LIMIT 1
+    `).first<{ threat_type: string; cnt: number; pct: number }>();
+
+    return json({
+      success: true,
+      data: {
+        total_tracked: total?.n ?? 0,
+        new_this_week: newThisWeek?.n ?? 0,
+        fastest_rising: fastestRising?.name ?? null,
+        fastest_rising_pct: fastestRising?.cnt ?? 0,
+        top_threat_type: topType?.threat_type ?? null,
+        top_threat_type_pct: topType?.pct ?? 0,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // GET /api/brands
 export async function handleListBrands(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");

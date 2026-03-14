@@ -11,11 +11,11 @@ export async function handleLatestInsights(request: Request, env: Env): Promise<
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "5", 10));
 
     const rows = await env.DB.prepare(`
-      SELECT ao.id, ao.agent_name, ao.severity, ao.summary AS summary_text,
-             ao.created_at, ao.output_type,
+      SELECT ao.id, ao.agent_id AS agent_name, ao.severity, ao.summary AS summary_text,
+             ao.created_at, ao.type AS output_type,
              ao.details
       FROM agent_outputs ao
-      WHERE ao.output_type = 'insight'
+      WHERE ao.type = 'insight'
       ORDER BY ao.created_at DESC
       LIMIT ?
     `).bind(limit).all();

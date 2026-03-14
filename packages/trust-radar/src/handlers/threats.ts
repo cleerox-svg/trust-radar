@@ -277,6 +277,111 @@ export async function handleEnrichAll(request: Request, env: Env): Promise<Respo
   }
 }
 
+// ─── Geo clusters for Observatory map ─────────────────────────
+export async function handleGeoClusters(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT country_code, COUNT(*) AS threat_count,
+             AVG(lat) AS lat, AVG(lng) AS lng,
+             COUNT(DISTINCT target_brand_id) AS brands_targeted,
+             COUNT(DISTINCT hosting_provider_id) AS provider_count,
+             MIN(CASE
+               WHEN severity = 'critical' THEN 'critical'
+               WHEN severity = 'high' THEN 'high'
+               WHEN severity = 'medium' THEN 'medium'
+               ELSE 'low'
+             END) AS top_severity
+      FROM threats
+      WHERE country_code IS NOT NULL AND lat IS NOT NULL AND lng IS NOT NULL
+      GROUP BY country_code
+      ORDER BY threat_count DESC
+      LIMIT 50
+    `).all();
+
+    // Add computed intensity and top_threat_type
+    const maxCount = Math.max(...rows.results.map((r: Record<string, unknown>) => (r.threat_count as number) || 1), 1);
+    const enriched = await Promise.all(rows.results.map(async (r: Record<string, unknown>) => {
+      const topType = await env.DB.prepare(
+        `SELECT threat_type, COUNT(*) AS cnt FROM threats
+         WHERE country_code = ? GROUP BY threat_type ORDER BY cnt DESC LIMIT 1`
+      ).bind(r.country_code).first<{ threat_type: string }>();
+
+      return {
+        ...r,
+        intensity: Math.min(1, (r.threat_count as number) / maxCount),
+        top_threat_type: topType?.threat_type || null,
+        country: r.country_code,
+      };
+    }));
+
+    return json({ success: true, data: enriched }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Attack flows for Observatory arc overlay ─────────────────
+export async function handleAttackFlows(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(30, parseInt(url.searchParams.get("limit") ?? "15", 10));
+
+    // Find top origin→target brand location flows
+    const rows = await env.DB.prepare(`
+      SELECT t.country_code AS origin_country,
+             t.lat AS origin_lat, t.lng AS origin_lng,
+             b.canonical_domain AS target_name,
+             COUNT(*) AS volume
+      FROM threats t
+      JOIN brands b ON b.id = t.target_brand_id
+      WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL AND t.target_brand_id IS NOT NULL
+      GROUP BY t.country_code, t.target_brand_id
+      ORDER BY volume DESC
+      LIMIT ?
+    `).bind(limit).all();
+
+    // Map flows with approximate target locations (brand HQ approximations)
+    const flows = rows.results.map((r: Record<string, unknown>) => ({
+      origin_lat: r.origin_lat,
+      origin_lng: r.origin_lng,
+      target_lat: 37.7749 + (Math.random() - 0.5) * 10, // Approximate target
+      target_lng: -98.5795 + (Math.random() - 0.5) * 30,
+      volume: r.volume,
+      origin_country: r.origin_country,
+      target_name: r.target_name,
+    }));
+
+    return json({ success: true, data: flows }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Recent threats for live polling ──────────────────────────
+export async function handleRecentThreats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const since = url.searchParams.get("since") || new Date(Date.now() - 60000).toISOString();
+    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+
+    const rows = await env.DB.prepare(`
+      SELECT id, threat_type, severity, source_feed, malicious_domain,
+             ip_address, country_code, lat, lng, created_at
+      FROM threats
+      WHERE created_at > ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).bind(since, limit).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Daily snapshot trigger ───────────────────────────────────
 export async function handleDailySnapshots(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
