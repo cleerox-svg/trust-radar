@@ -5,16 +5,19 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** PhishTank Community — Verified phishing URLs */
 export const phishtank: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    console.log(`[phishtank] fetching: ${ctx.feedUrl}`);
     const res = await fetch(ctx.feedUrl);
+    console.log(`[phishtank] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`PhishTank HTTP ${res.status}`);
 
     const data = await res.json() as Array<{
       phish_id: number; url: string; phish_detail_url?: string;
       submission_time?: string; verified?: string; target?: string;
     }>;
+    console.log(`[phishtank] parsed ${Array.isArray(data) ? data.length : 0} entries`);
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = data.slice(0, 2000);
+    const items = (Array.isArray(data) ? data : []).slice(0, 2000);
 
     for (const entry of items) {
       try {
@@ -34,9 +37,13 @@ export const phishtank: FeedModule = {
         });
         await markSeen(ctx.env, "url", entry.url);
         itemsNew++;
-      } catch { itemsError++; }
+      } catch (e) {
+        itemsError++;
+        if (itemsError <= 3) console.error(`[phishtank] item error: ${e}`);
+      }
     }
 
+    console.log(`[phishtank] done: fetched=${items.length}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

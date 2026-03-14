@@ -5,11 +5,14 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** Feodo Tracker (abuse.ch) — Botnet C2 IP blocklist */
 export const feodo: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    console.log(`[feodo] fetching: ${ctx.feedUrl}`);
     const res = await fetch(ctx.feedUrl);
+    console.log(`[feodo] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`Feodo HTTP ${res.status}`);
 
     const text = await res.text();
     const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+    console.log(`[feodo] parsed ${lines.length} lines from ${text.length} chars`);
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
 

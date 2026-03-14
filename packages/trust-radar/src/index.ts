@@ -810,10 +810,12 @@ router.all("*", (request: Request, env: Env) => {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());
+    console.log("[cron] feedModules registered:", Object.keys(feedModules).join(", "));
     ctx.waitUntil(
       runAllFeeds(env, feedModules)
         .then(async (r) => {
-          console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed`);
+          console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed, ${r.feedsSkipped} skipped`);
 
           // Run enrichment pipeline after ingestion
           try {

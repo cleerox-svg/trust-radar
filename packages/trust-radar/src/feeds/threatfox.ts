@@ -5,19 +5,23 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** ThreatFox (abuse.ch) — IOCs: domains, URLs, IPs, hashes */
 export const threatfox: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    console.log(`[threatfox] fetching: ${ctx.feedUrl}`);
     const res = await fetch(ctx.feedUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: "get_iocs", days: 1 }),
     });
+    console.log(`[threatfox] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`ThreatFox HTTP ${res.status}`);
 
     const data = await res.json() as { query_status: string; data?: Array<{
       id: number; ioc: string; ioc_type: string; threat_type: string;
       malware?: string; confidence_level?: number; tags?: string[];
     }> };
+    console.log(`[threatfox] query_status=${data.query_status}, iocs=${data.data?.length ?? 0}`);
 
     if (data.query_status !== "ok" || !data.data) {
+      console.log(`[threatfox] no data, returning empty`);
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 
