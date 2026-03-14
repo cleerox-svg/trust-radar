@@ -87,7 +87,7 @@ class VTQuotaError extends Error {
   constructor() { super("VTQuotaError"); }
 }
 
-// ─── IP Geolocation (ip-api.com — free, 45 req/min, no key) ──────────────
+// ─── IP Geolocation (ipapi.co — HTTPS, free 1000/day, no key) ────────────
 
 interface GeoResult {
   lat: number;
@@ -114,12 +114,13 @@ async function resolveGeo(ip: string, env: Env): Promise<GeoResult | null> {
 
   try {
     const res = await fetch(
-      `http://ip-api.com/json/${ip}?fields=lat,lon,city,country,countryCode,status`,
-      { cf: { cacheTtl: 86400 } } as RequestInit
+      `https://ipapi.co/${ip}/json/`,
+      { headers: { "User-Agent": "trust-radar/1.0", Accept: "application/json" } }
     );
-    const data = await res.json() as { status: string; lat?: number; lon?: number; city?: string; country?: string; countryCode?: string };
-    if (data.status !== "success" || !data.lat || !data.lon) return null;
-    return { lat: data.lat, lng: data.lon, city: data.city ?? "", country: data.country ?? "", countryCode: data.countryCode ?? "" };
+    if (!res.ok) return null;
+    const data = await res.json() as { error?: boolean; country_code?: string; country_name?: string; city?: string; latitude?: number; longitude?: number };
+    if (data.error || !data.latitude || !data.longitude) return null;
+    return { lat: data.latitude, lng: data.longitude, city: data.city ?? "", country: data.country_name ?? "", countryCode: data.country_code ?? "" };
   } catch {
     return null;
   }

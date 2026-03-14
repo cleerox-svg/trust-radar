@@ -1,8 +1,9 @@
 /**
- * GeoIP Enrichment — Batch IP-to-country resolution using ip-api.com.
+ * GeoIP Enrichment — IP-to-location resolution using ipapi.co (HTTPS).
  *
- * Free tier: 45 requests/min, 100 IPs per batch.
+ * Free tier: 1000 requests/day, no API key required.
  * Returns ISO 3166-1 alpha-2 country codes (e.g., "US", "DE", "CN").
+ * Processes IPs individually with concurrency control.
  */
 
 export interface GeoIPResult {
@@ -16,74 +17,113 @@ export interface GeoIPResult {
   lng: number | null;
 }
 
-interface IpApiBatchResponse {
-  status: string;
-  query: string;
-  countryCode?: string;
-  country?: string;
-  isp?: string;
+interface IpapiCoResponse {
+  ip: string;
+  country_code?: string;
+  country_name?: string;
   org?: string;
-  as?: string;
-  lat?: number;
-  lon?: number;
+  asn?: string;
+  latitude?: number;
+  longitude?: number;
+  error?: boolean;
+  reason?: string;
 }
 
 /**
- * Batch-resolve IPs to country codes via ip-api.com.
- * Processes in chunks of 100 (API limit).
+ * Look up a single IP via ipapi.co (HTTPS, free, no key).
+ */
+async function lookupSingleIP(ip: string): Promise<GeoIPResult | null> {
+  try {
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, {
+      headers: { "User-Agent": "trust-radar/1.0", Accept: "application/json" },
+    });
+
+    if (res.status === 429) {
+      console.warn(`[geoip] Rate limited on ${ip} — stopping batch`);
+      return null;
+    }
+
+    if (!res.ok) {
+      console.error(`[geoip] HTTP ${res.status} for ${ip}`);
+      return null;
+    }
+
+    const data = (await res.json()) as IpapiCoResponse;
+
+    if (data.error) {
+      console.error(`[geoip] API error for ${ip}: ${data.reason}`);
+      return null;
+    }
+
+    return {
+      ip: data.ip || ip,
+      countryCode: data.country_code ?? null,
+      country: data.country_name ?? null,
+      isp: data.org ?? null,
+      org: data.org ?? null,
+      as: data.asn ?? null,
+      lat: data.latitude ?? null,
+      lng: data.longitude ?? null,
+    };
+  } catch (err) {
+    console.error(`[geoip] fetch error for ${ip}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Batch-resolve IPs to geo data via ipapi.co (HTTPS).
+ * Processes concurrently (5 at a time) with rate limiting.
  */
 export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPResult>> {
   const results = new Map<string, GeoIPResult>();
   if (ips.length === 0) return results;
 
-  // Deduplicate
   const uniqueIps = [...new Set(ips)];
-  const CHUNK_SIZE = 100;
+  const CONCURRENCY = 5;
+  let rateLimited = false;
 
-  for (let i = 0; i < uniqueIps.length; i += CHUNK_SIZE) {
-    const chunk = uniqueIps.slice(i, i + CHUNK_SIZE);
+  console.log(`[geoip] Looking up ${uniqueIps.length} unique IPs via ipapi.co (HTTPS)`);
 
-    try {
-      const batchUrl = "http://ip-api.com/batch?fields=status,query,countryCode,country,isp,org,as,lat,lon";
-      console.log(`[geoip] POST ${batchUrl} (${chunk.length} IPs)`);
-      const res = await fetch(batchUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(chunk),
-      });
+  for (let i = 0; i < uniqueIps.length; i += CONCURRENCY) {
+    if (rateLimited) break;
 
-      console.log(`[geoip] Response: HTTP ${res.status}`);
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => "");
-        console.error(`[geoip] batch lookup HTTP ${res.status}: ${errBody.slice(0, 300)}`);
-        continue;
-      }
-
-      const data = await res.json() as IpApiBatchResponse[];
-      console.log(`[geoip] Parsed ${data.length} entries, ${data.filter(e => e.status === "success").length} successful`);
-
-      for (const entry of data) {
-        if (entry.status === "success" && entry.countryCode) {
-          results.set(entry.query, {
-            ip: entry.query,
-            countryCode: entry.countryCode,
-            country: entry.country ?? null,
-            isp: entry.isp ?? null,
-            org: entry.org ?? null,
-            as: entry.as ?? null,
-            lat: entry.lat ?? null,
-            lng: entry.lon ?? null,
-          });
+    const chunk = uniqueIps.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      chunk.map(async (ip) => {
+        const geo = await lookupSingleIP(ip);
+        if (geo) {
+          results.set(ip, geo);
+        } else if (geo === null) {
+          // Check if we got rate limited (lookupSingleIP logs and returns null)
+          // We'll detect via the results count after this chunk
         }
-      }
-    } catch (err) {
-      console.error("[geoip] batch lookup error:", err);
+        return geo;
+      }),
+    );
+
+    // Check if any in this chunk got rate limited (all null = likely rate limited)
+    const allNull = settled.every(
+      (s) => s.status === "rejected" || (s.status === "fulfilled" && s.value === null),
+    );
+    if (allNull && chunk.length > 1) {
+      console.warn(`[geoip] All ${chunk.length} lookups returned null — likely rate limited, stopping`);
+      rateLimited = true;
+      break;
     }
 
-    // Rate limit: small delay between chunks
-    if (i + CHUNK_SIZE < uniqueIps.length) {
-      await new Promise((r) => setTimeout(r, 1500));
+    // Rate limit: 200ms between chunks to stay under 1000/day (~5 req/s is fine)
+    if (i + CONCURRENCY < uniqueIps.length) {
+      await new Promise((r) => setTimeout(r, 250));
     }
+  }
+
+  console.log(`[geoip] Resolved ${results.size}/${uniqueIps.length} IPs${rateLimited ? " (stopped: rate limited)" : ""}`);
+
+  // Log first result as sample for debugging
+  if (results.size > 0) {
+    const sample = results.values().next().value;
+    console.log(`[geoip] Sample: ip=${sample?.ip} country=${sample?.countryCode} org=${sample?.org} asn=${sample?.as}`);
   }
 
   return results;

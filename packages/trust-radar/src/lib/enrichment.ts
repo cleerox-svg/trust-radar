@@ -106,7 +106,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
       console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {
-        console.error("[enrich] WARNING: GeoIP returned 0 results — ip-api.com may be blocking Worker IPs or rate limiting");
+        console.error("[enrich] WARNING: GeoIP returned 0 results — ipapi.co may be rate limiting or blocking");
       }
 
       for (const row of needsGeo.results) {
