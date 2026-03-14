@@ -5,8 +5,11 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** PhishTank Community — Verified phishing URLs */
 export const phishtank: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    console.log(`[phishtank] fetching: ${ctx.feedUrl}`);
-    const res = await fetch(ctx.feedUrl);
+    const feedUrl = "http://data.phishtank.com/data/online-valid.json";
+    console.log(`[phishtank] fetching: ${feedUrl}`);
+    const res = await fetch(feedUrl, {
+      headers: { "User-Agent": "trust-radar/2.0" },
+    });
     console.log(`[phishtank] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`PhishTank HTTP ${res.status}`);
 
