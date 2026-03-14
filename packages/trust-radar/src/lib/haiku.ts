@@ -59,9 +59,18 @@ async function callAnthropic<T>(
   systemPrompt: string,
   userMessage: string,
 ): Promise<HaikuResponse<T>> {
-  if (!env.ANTHROPIC_API_KEY) {
-    console.error("[haiku] ANTHROPIC_API_KEY is not configured");
-    return { success: false, error: "ANTHROPIC_API_KEY not configured" };
+  // Support both secret names: ANTHROPIC_API_KEY (preferred) or LRX_API_KEY (legacy)
+  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+  const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
+
+  if (!apiKey) {
+    console.error("[haiku] No API key found — set ANTHROPIC_API_KEY in Cloudflare secrets (wrangler secret put ANTHROPIC_API_KEY)");
+    return { success: false, error: "No Anthropic API key configured (checked ANTHROPIC_API_KEY and LRX_API_KEY)" };
+  }
+
+  if (apiKey.startsWith("lrx_")) {
+    console.error("[haiku] LRX_API_KEY contains an LRX proxy key (lrx_...) which does not work with api.anthropic.com. Set ANTHROPIC_API_KEY to a real Anthropic key (sk-ant-...)");
+    return { success: false, error: "LRX_API_KEY is an LRX proxy key — need an Anthropic API key (sk-ant-...). Run: wrangler secret put ANTHROPIC_API_KEY" };
   }
 
   const body = {
@@ -71,13 +80,13 @@ async function callAnthropic<T>(
     messages: [{ role: "user", content: userMessage }],
   };
 
-  console.log(`[haiku] POST ${ANTHROPIC_API_URL} model=${MODEL}`);
+  console.log(`[haiku] POST ${ANTHROPIC_API_URL} model=${MODEL} key_source=${keySource} key_prefix=${apiKey.slice(0, 8)}...`);
 
   try {
     const res = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
-        "x-api-key": env.ANTHROPIC_API_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": ANTHROPIC_VERSION,
         "content-type": "application/json",
       },

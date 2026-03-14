@@ -11,7 +11,8 @@ export interface Env {
   ENVIRONMENT: string;
   // Secrets
   JWT_SECRET: string;
-  ANTHROPIC_API_KEY: string;
+  ANTHROPIC_API_KEY?: string;
+  LRX_API_KEY?: string;
   VIRUSTOTAL_API_KEY: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;

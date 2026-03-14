@@ -22,7 +22,9 @@ export const analystAgent: AgentModule = {
 
     // ─── Diagnostic logging ───────────────────────────────────
     console.log("[analyst] === STARTING ===");
-    console.log("[analyst] ANTHROPIC_API_KEY configured:", !!env.ANTHROPIC_API_KEY, env.ANTHROPIC_API_KEY ? "present (length=" + env.ANTHROPIC_API_KEY.length + ")" : "MISSING");
+    const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+    const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
+    console.log(`[analyst] API key: source=${keySource}, configured=${!!apiKey}${apiKey ? ", prefix=" + apiKey.slice(0, 8) + "..." : ""}`);
 
     // Get threats without brand assignment that rule-based detection missed
     const threats = await env.DB.prepare(
@@ -74,8 +76,9 @@ export const analystAgent: AgentModule = {
 
       if (!result.success || !result.data) {
         haikuFailures++;
-        if (haikuFailures <= 3) {
-          console.log(`[analyst] Haiku FAILED for ${threat.id} (domain=${threat.malicious_domain}): ${result.error ?? "no data returned"}`);
+        if (haikuFailures === 1) {
+          console.error(`[analyst] FIRST HAIKU FAILURE — domain=${threat.malicious_domain}, error: ${result.error ?? "no data returned"}`);
+          console.error(`[analyst] This error will repeat for all ${threats.results.length} threats. Fix the root cause above.`);
         }
         continue;
       }
@@ -150,7 +153,8 @@ export const analystAgent: AgentModule = {
         noBrandThreats: noBrandCount?.n ?? 0,
         noBrandWithDomain: noBrandWithDomain?.n ?? 0,
         knownBrands: brandNames.length,
-        anthropicApiConfigured: !!env.ANTHROPIC_API_KEY,
+        anthropicKeySource: keySource,
+        anthropicApiConfigured: !!apiKey,
         model,
       },
     });
