@@ -2038,7 +2038,7 @@ const AGENT_META = {
   analyst: { icon: '\u25c8', iconClass: 'analyst', color: '#00e5a0', role: 'Threat Classification & Brand Matching' },
   cartographer: { icon: '\u25c7', iconClass: 'cartographer', color: '#ffb627', role: 'Infrastructure Mapping & Provider Scoring' },
   strategist: { icon: '\u25c6', iconClass: 'strategist', color: '#ff3b5c', role: 'Campaign Correlation & Clustering' },
-  observer: { icon: '\u25cb', iconClass: 'observer', color: '#b388ff', role: 'Trend Analysis & Intelligence Synthesis' },
+  observer: { icon: '\u25c9', iconClass: 'observer', color: '#b388ff', role: 'Trend Analysis & Intelligence Synthesis' },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -2069,10 +2069,10 @@ async function viewAgents(el) {
     const activeCount = agents.filter(a => a.status === 'active').length;
 
     document.getElementById('agents-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val">${agents.length}</div><div class="agg-lbl">Total Agents</div><div class="agg-sub">${activeCount} active</div></div>
-      <div class="agg-card"><div class="agg-val">${totalJobs}</div><div class="agg-lbl">Jobs (24h)</div></div>
-      <div class="agg-card"><div class="agg-val">${totalOutputs}</div><div class="agg-lbl">Outputs (24h)</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:${totalErrors > 0 ? 'var(--negative)' : 'var(--positive)'}">${totalErrors}</div><div class="agg-lbl">Errors (24h)</div></div>`;
+      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${activeCount}/${agents.length}</div><div class="agg-lbl">Agents operational</div><div class="agg-sub">${agents.filter(a => a.status === 'idle').length} idle</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${totalJobs}</div><div class="agg-lbl">Jobs (24h)</div><div class="agg-sub">Analysis runs completed</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--text-accent)">${totalOutputs}</div><div class="agg-lbl">Outputs (24h)</div><div class="agg-sub">Insights + classifications</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:${totalErrors > 0 ? 'var(--negative)' : 'var(--positive)'}">${totalErrors}</div><div class="agg-lbl">Errors (24h)</div><div class="agg-sub">${totalErrors === 0 ? 'All systems nominal' : 'Attention needed'}</div></div>`;
 
     // Agent cards
     const grid = document.getElementById('agent-grid');
@@ -2136,26 +2136,26 @@ async function viewAgents(el) {
             <div class="dh-desc">${agent?.description || meta.role}</div>
           </div>
           <div class="dh-stats">
-            <div class="dhs"><div class="dhs-val">${agent?.jobs_24h || 0}</div><div class="dhs-label">Jobs</div></div>
-            <div class="dhs"><div class="dhs-val">${agent?.outputs_24h || 0}</div><div class="dhs-label">Outputs</div></div>
-            <div class="dhs"><div class="dhs-val">${agent?.avg_duration_ms ? Math.round(agent.avg_duration_ms / 1000) + 's' : '-'}</div><div class="dhs-label">Avg Duration</div></div>
+            <div class="dhs"><div class="dhs-val">${agent?.schedule || '-'}</div><div class="dhs-label">Schedule</div></div>
+            <div class="dhs"><div class="dhs-val">${agent?.avg_duration_ms ? (agent.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</div><div class="dhs-label">Avg duration</div></div>
+            <div class="dhs"><div class="dhs-val" style="color:${(agent?.error_count_24h || 0) > 0 ? 'var(--negative)' : 'var(--positive)'}">${agent?.jobs_24h ? ((1 - (agent.error_count_24h || 0) / agent.jobs_24h) * 100).toFixed(1) + '%' : '100.0%'}</div><div class="dhs-label">Success</div></div>
           </div>
         </div>
         <div class="agent-detail-grid">
           <div class="agent-detail-left">
-            <div class="dp-head"><span class="dp-title">Output Feed</span><span class="dp-badge">${outputs.length}</span></div>
+            <div class="dp-head"><span class="dp-title">Recent Outputs</span><span class="dp-badge">${agent?.outputs_24h || outputs.length} today</span></div>
             <div class="output-feed">${outputs.length ? outputs.map(o => `<div class="output-item">
               <div class="output-meta">
                 <span class="output-type ${o.type || ''}">${o.type || 'output'}</span>
                 ${o.severity ? `<span class="output-sev ${o.severity}">${o.severity}</span>` : ''}
-                <span class="output-time">${o.created_at ? o.created_at.slice(11, 16) : ''}</span>
+                <span class="output-time">${o.created_at ? relativeTime(Math.round((Date.now() - new Date(o.created_at).getTime()) / 60000)) : ''}</span>
               </div>
               <div class="output-text">${o.summary || o.summary_text || ''}</div>
               ${o.related_entities?.length ? `<div class="output-entities">${o.related_entities.map(e => `<span class="output-entity">${typeof e === 'string' ? e : e.name || ''}</span>`).join('')}</div>` : ''}
             </div>`).join('') : '<div class="empty-state"><div class="message">No recent outputs</div></div>'}</div>
           </div>
           <div>
-            <div class="dp-head"><span class="dp-title">Health (24h)</span></div>
+            <div class="dp-head"><span class="dp-title">Health (24h)</span><span class="dp-badge">${agent?.jobs_24h || 0} runs</span></div>
             <div class="health-chart-area"><canvas id="agent-health-chart"></canvas></div>
           </div>
         </div>`;
@@ -2166,22 +2166,31 @@ async function viewAgents(el) {
       const errors = health.errors || [];
       const outputCounts = health.outputs || health.avg_duration_trend || [];
       if (runs.length && typeof Chart !== 'undefined') {
-        const labels = Array.from({ length: runs.length }, (_, i) => `${i}h`);
+        const labels = Array.from({ length: runs.length }, (_, i) => {
+          const h = (new Date().getHours() - runs.length + 1 + i + 24) % 24;
+          return String(h).padStart(2, '0') + ':00';
+        });
         _agentHealthChart = new Chart(document.getElementById('agent-health-chart'), {
           type: 'bar',
           data: {
             labels,
             datasets: [
-              { label: 'Duration (ms)', data: runs, backgroundColor: meta.color + '66', borderColor: meta.color, borderWidth: 1, yAxisID: 'y' },
-              { label: 'Errors', data: errors, type: 'scatter', pointBackgroundColor: '#ff3b5c', pointRadius: errors.map(e => e > 0 ? 6 : 0), yAxisID: 'y', showLine: false },
+              { label: 'Duration (s)', data: runs.map(v => v / 1000), backgroundColor: meta.color + '40', borderColor: meta.color + '99', borderWidth: 1, borderRadius: 3, barPercentage: 0.6, yAxisID: 'y' },
+              { label: 'Outputs', data: outputCounts, type: 'line', borderColor: '#00e5a0', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: 0, pointHoverRadius: 4, yAxisID: 'y1' },
+              { label: 'Errors', data: errors, type: 'line', borderColor: '#ff3b5c', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: errors.map(e => e > 0 ? 5 : 0), pointBackgroundColor: '#ff3b5c', yAxisID: 'y1' },
             ]
           },
           options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+              legend: { display: true, position: 'top', labels: { color: '#7a8ba8', font: { family: "'IBM Plex Mono'", size: 9 }, boxWidth: 12, padding: 12, usePointStyle: true } },
+              tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 11 }, bodyFont: { family: "'IBM Plex Mono'", size: 11 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6 }
+            },
             scales: {
-              x: { ticks: { color: '#4a5a73', font: { size: 8 } }, grid: { color: 'rgba(0,212,255,0.06)' } },
-              y: { ticks: { color: '#4a5a73', font: { size: 8 } }, grid: { color: 'rgba(0,212,255,0.06)' } }
+              x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+              y: { position: 'left', title: { display: true, text: 'Duration (s)', color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true },
+              y1: { position: 'right', title: { display: true, text: 'Count', color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { display: false }, beginAtZero: true }
             }
           }
         });
