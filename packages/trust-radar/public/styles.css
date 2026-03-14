@@ -265,48 +265,8 @@ input, select, textarea { font-family: inherit; }
 .period-btn:hover { color: var(--text-secondary); }
 .period-btn.active { background: var(--bg-elevated); color: var(--blue-primary); }
 
-/* ─── Modal ─────────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 500;
-  background: rgba(4,8,16,0.85); backdrop-filter: blur(8px);
-  display: flex; align-items: center; justify-content: center;
-}
-.modal-overlay.hidden { display: none; }
-.modal {
-  background: var(--bg-surface); border: 1px solid var(--blue-border-bright);
-  border-radius: var(--radius); width: 90%; max-width: 480px; padding: 0;
-}
-.modal-header {
-  font-family: var(--font-display); font-size: 13px; font-weight: 600;
-  padding: 16px 20px; border-bottom: 1px solid var(--blue-border);
-  display: flex; justify-content: space-between; align-items: center;
-}
-.modal-close {
-  background: none; border: none; color: var(--text-tertiary);
-  font-size: 18px; line-height: 1; padding: 0;
-}
-.modal-close:hover { color: var(--text-primary); }
-.modal-body { padding: 20px; }
-.modal-footer {
-  padding: 12px 20px; border-top: 1px solid var(--blue-border);
-  display: flex; justify-content: flex-end; gap: 8px;
-}
-
-/* ─── Form Elements ─────────────────────────────────────────── */
-.form-group { margin-bottom: 14px; }
-.form-label {
-  display: block; font-size: 11px; font-weight: 500;
-  color: var(--text-secondary); margin-bottom: 4px;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.form-input {
-  width: 100%; padding: 8px 12px; font-size: 13px;
-  background: var(--bg-panel); border: 1px solid var(--blue-border);
-  border-radius: var(--radius); color: var(--text-primary);
-  transition: border-color var(--transition-fast);
-}
-.form-input:focus { outline: none; border-color: var(--blue-primary); }
-.form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a8ba8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+/* ─── Modal — see updated modal-overlay under Brands section ── */
+/* ─── Form Elements — see form-group/input/select under Brands ─ */
 
 /* ─── Buttons ───────────────────────────────────────────────── */
 .btn {
@@ -697,6 +657,195 @@ a.sidebar-brand-row:hover, a.sidebar-provider-row:hover { text-decoration: none;
 .status-badge.clean { background: rgba(0,229,160,0.12); color: var(--positive); }
 .status-badge.new-status { background: rgba(0,212,255,0.08); color: var(--blue-primary); }
 .monitored-meta { font-family: var(--font-mono); font-size: 9px; color: var(--text-tertiary); min-width: 80px; text-align: right; }
+a.monitored-row { color: inherit; text-decoration: none; }
+a.monitored-row:hover { text-decoration: none; }
+a.brand-card { color: inherit; text-decoration: none; }
+a.brand-card:hover { text-decoration: none; }
+
+/* ─── Monitor Brand Button ────────────────────────────────── */
+.btn-monitor {
+  font-family: var(--font-display); font-size: 10px; font-weight: 600;
+  padding: 6px 14px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border-bright); background: rgba(0,212,255,0.08);
+  color: var(--blue-primary); cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.btn-monitor:hover { background: rgba(0,212,255,0.15); }
+
+/* ─── Search & Filter Controls ────────────────────────────── */
+.mon-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.search-input {
+  font-family: var(--font-body); font-size: 12px;
+  padding: 7px 12px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: var(--bg-panel);
+  color: var(--text-primary); outline: none; transition: border-color 0.15s; width: 240px;
+}
+.search-input:focus { border-color: var(--blue-border-bright); }
+.search-input::placeholder { color: var(--text-tertiary); }
+.sector-select {
+  font-family: var(--font-body); font-size: 11px;
+  padding: 6px 10px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: var(--bg-panel);
+  color: var(--text-primary); cursor: pointer; outline: none;
+}
+.filter-row { display: flex; gap: 6px; }
+.filter-pill {
+  font-family: var(--font-body); font-size: 10px; font-weight: 500;
+  padding: 4px 10px; border-radius: 4px;
+  border: 1px solid var(--blue-border); background: none;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.filter-pill.active { background: var(--bg-elevated); color: var(--blue-primary); border-color: var(--blue-border-bright); }
+.filter-pill:hover:not(.active) { color: var(--text-primary); }
+
+/* ─── All Brands Table ────────────────────────────────────── */
+.all-brands-table { background: var(--bg-surface); border: 1px solid var(--blue-border); border-radius: 10px; overflow: hidden; }
+.star-toggle { font-size: 16px; cursor: pointer; transition: all 0.15s; }
+.star-toggle.on { color: var(--threat-medium); }
+.star-toggle.off { color: var(--text-tertiary); }
+.star-toggle:hover { transform: scale(1.2); }
+.brand-table-link { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.brand-table-link:hover { text-decoration: none; }
+.brand-table-icon {
+  width: 28px; height: 28px; border-radius: var(--radius);
+  background: var(--bg-elevated); border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+
+/* ─── Trust Score Ring (SVG) ──────────────────────────────── */
+.ts-ring-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.ts-val-center {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+}
+.ts-grade {
+  font-family: var(--font-display); font-size: 11px; font-weight: 600;
+  color: var(--threat-medium); margin-top: 4px; letter-spacing: 1px;
+}
+.sector-pill {
+  font-family: var(--font-body); font-size: 10px; font-weight: 500;
+  padding: 3px 10px; border-radius: 20px;
+  background: rgba(0,212,255,0.08); color: var(--blue-primary);
+  border: 1px solid var(--blue-border);
+}
+
+/* ─── Threats Table Controls ──────────────────────────────── */
+.threats-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid rgba(0,212,255,0.08);
+}
+.td-url { font-family: var(--font-mono); font-size: 11px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prov-cell { font-size: 11px; color: var(--text-secondary); }
+.prov-cell .asn { font-family: var(--font-mono); font-size: 9px; color: var(--text-tertiary); }
+.date-cell { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); white-space: nowrap; }
+.status-badge-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500;
+  padding: 2px 8px; border-radius: 3px;
+}
+.status-badge-sm.active { background: rgba(255,59,92,0.12); color: var(--negative); }
+.status-badge-sm.active::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--negative); animation: pulse 2s ease-in-out infinite; }
+.status-badge-sm.down { background: rgba(0,229,160,0.12); color: var(--positive); }
+.status-badge-sm.monitoring { background: rgba(0,212,255,0.08); color: var(--blue-primary); }
+
+/* ─── Evidence Icon ───────────────────────────────────────── */
+.ev-icon {
+  width: 24px; height: 24px; border-radius: 4px;
+  background: var(--bg-elevated); border: 1px solid var(--blue-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--text-secondary);
+}
+.ev-icon.captured { color: var(--positive); border-color: rgba(0,229,160,0.3); }
+
+/* ─── Pagination ──────────────────────────────────────────── */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-top: 1px solid var(--blue-border);
+}
+.pgn-info { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+.pgn-btns { display: flex; gap: 4px; }
+.pgn-btn {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 4px 10px; border-radius: 4px;
+  border: 1px solid var(--blue-border); background: none;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.pgn-btn:hover { color: var(--text-primary); border-color: var(--blue-border-bright); }
+.pgn-btn.active { background: var(--bg-elevated); color: var(--blue-primary); }
+.pgn-btn.disabled { opacity: 0.3; cursor: default; }
+
+/* ─── Provider Bars (Brand Detail) ────────────────────────── */
+.pbar-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.pbar-lbl { font-size: 11px; color: var(--text-secondary); width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pbar-trk { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+.pbar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.pbar-ct { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); width: 36px; text-align: right; flex-shrink: 0; }
+
+/* ─── Campaign Cards (Brand Detail sidebar) ───────────────── */
+.campaign-card-sm {
+  display: block; padding: 10px 14px;
+  border: 1px solid var(--blue-border); border-radius: var(--radius);
+  background: var(--bg-panel); margin-bottom: 8px;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  color: inherit; text-decoration: none;
+}
+.campaign-card-sm:hover { border-color: var(--blue-border-bright); background: var(--bg-elevated); text-decoration: none; }
+.ccard-name { font-family: var(--font-display); font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.ccard-meta { font-size: 10px; color: var(--text-secondary); display: flex; gap: 12px; }
+.ccard-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* ─── Detail Right Column ─────────────────────────────────── */
+.detail-rcol { display: flex; flex-direction: column; gap: 16px; }
+.padded { padding: 16px 18px; }
+
+/* ─── Modal (updated for Monitor Brand) ───────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(4,8,16,0.8); backdrop-filter: blur(8px);
+  z-index: 200; display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  background: var(--bg-surface); border: 1px solid var(--blue-border-bright);
+  border-radius: 10px; padding: 24px; width: 440px; max-width: 90vw;
+}
+.modal-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.modal-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; }
+.modal-body { }
+.form-group { margin-bottom: 14px; }
+.form-label {
+  font-family: var(--font-display); font-size: 9px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary);
+  margin-bottom: 5px; display: block;
+}
+.form-input {
+  font-family: var(--font-body); font-size: 13px;
+  padding: 9px 12px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: var(--bg-panel);
+  color: var(--text-primary); width: 100%; outline: none; transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--blue-border-bright); }
+.form-input::placeholder { color: var(--text-tertiary); }
+.form-select {
+  font-family: var(--font-body); font-size: 13px;
+  padding: 9px 12px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: var(--bg-panel);
+  color: var(--text-primary); width: 100%; cursor: pointer; outline: none;
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.modal-btn-cancel {
+  font-family: var(--font-body); font-size: 12px;
+  padding: 8px 16px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: none;
+  color: var(--text-secondary); cursor: pointer;
+}
+.modal-btn-submit {
+  font-family: var(--font-display); font-size: 12px; font-weight: 600;
+  padding: 8px 20px; border-radius: var(--radius);
+  border: 1px solid var(--blue-primary); background: rgba(0,212,255,0.12);
+  color: var(--blue-primary); cursor: pointer; transition: all 0.15s;
+}
+.modal-btn-submit:hover { background: rgba(0,212,255,0.2); }
 
 /* ─── Provider Cards ───────────────────────────────────────── */
 .provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
@@ -759,13 +908,7 @@ a.sidebar-brand-row:hover, a.sidebar-provider-row:hover { text-decoration: none;
 .header-stat { display: flex; flex-direction: column; }
 .header-stat-val { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1; }
 .header-stat-label { font-size: 10px; color: var(--text-tertiary); margin-top: 3px; }
-.trust-score-ring {
-  width: 64px; height: 64px; border-radius: 50%;
-  border: 4px solid var(--blue-border); position: relative;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.trust-score-ring .score-val { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
-.trust-score-ring .score-grade { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+/* trust-score-ring: now uses .ts-ring-wrap with SVG (see above) */
 .back-link {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;

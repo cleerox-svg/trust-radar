@@ -294,16 +294,20 @@ function showModal(title, bodyHtml, onConfirm) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal">
-    <div class="modal-header">${title}<button class="modal-close">&times;</button></div>
+    <div class="modal-title">${title}</div>
     <div class="modal-body">${bodyHtml}</div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-action="cancel">Cancel</button>
-      <button class="btn btn-primary" data-action="confirm">Confirm</button>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" data-action="cancel">Cancel</button>
+      <button class="modal-btn-submit" data-action="confirm">Begin Monitoring</button>
     </div>
   </div>`;
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay || e.target.closest('.modal-close') || e.target.dataset.action === 'cancel') overlay.remove();
-    if (e.target.dataset.action === 'confirm' && onConfirm) { onConfirm(overlay); overlay.remove(); }
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', async (e) => {
+    if (e.target === overlay || e.target.dataset.action === 'cancel') close();
+    if (e.target.dataset.action === 'confirm' && onConfirm) {
+      const result = await onConfirm(overlay);
+      if (result !== false) close();
+    }
   });
   document.body.appendChild(overlay);
 }
@@ -651,8 +655,13 @@ async function viewObservatory(el) {
 let _brandsSubTab = 'top-targeted';
 let _brandsPeriod = '24h';
 
+function _brandInitials(name) { return (name || '').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(); }
+function _tColor(t) { return t >= 200 ? 'var(--threat-critical)' : t >= 100 ? 'var(--threat-high)' : t >= 50 ? 'var(--threat-medium)' : 'var(--blue-primary)'; }
+function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--blue-primary)' : s >= 70 ? 'var(--threat-medium)' : s >= 50 ? 'var(--threat-high)' : 'var(--threat-critical)'; }
+
 async function viewBrandsHub(el) {
   el.innerHTML = `
+    <div style="padding:20px 24px 0"><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Brands Intelligence</div></div>
     <div class="agg-stats" id="brands-agg"></div>
     <div class="sub-tabs" id="brands-tabs">
       <button class="sub-tab active" data-tab="top-targeted">Top Targeted<span class="tab-count" id="tc-top">--</span></button>
@@ -660,9 +669,20 @@ async function viewBrandsHub(el) {
       <button class="sub-tab" data-tab="all">All Brands<span class="tab-count" id="tc-all">--</span></button>
       <div class="sub-tab-actions">
         ${renderPeriodSelector(_brandsPeriod, 'brands-period')}
+        <button class="btn-monitor" id="brands-add-btn"><span style="font-size:14px">+</span> Monitor Brand</button>
       </div>
     </div>
     <div style="padding:20px 24px" id="brands-content">Loading...</div>`;
+
+  // Aggregate stats — populated from API
+  api('/brands/stats').then(res => {
+    const s = res?.data || {};
+    document.getElementById('brands-agg').innerHTML = `
+      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.total_tracked || 0}</div><div class="agg-lbl">Brands tracked</div><div class="agg-sub">Across all feeds</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">+${s.new_this_week || 0}</div><div class="agg-lbl">New this week</div><div class="agg-sub">First seen in feeds</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.fastest_rising || '-'}</div><div class="agg-lbl">Fastest rising</div><div class="agg-sub">${s.fastest_rising_pct ? '+' + s.fastest_rising_pct + '% in 24h' : ''}</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.top_threat_type || 'Phishing'}</div><div class="agg-lbl">Top threat type</div><div class="agg-sub">${s.top_threat_type_pct || 0}% of all threats</div></div>`;
+  }).catch(() => {});
 
   const loadTopTargeted = async (period) => {
     const res = await api(`/brands/top-targeted?period=${period}&limit=20`).catch(() => null);
@@ -672,8 +692,10 @@ async function viewBrandsHub(el) {
     const content = document.getElementById('brands-content');
     if (!brands.length) { content.innerHTML = '<div class="empty-state"><div class="message">No targeted brands detected yet</div></div>'; return; }
     content.innerHTML = `<div class="brand-grid">${brands.map((b, i) => {
-      const initials = (b.name || '').slice(0, 2).toUpperCase();
+      const initials = _brandInitials(b.name);
       const rankClass = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'rn';
+      const tc = b.threat_count || 0;
+      const color = _tColor(tc);
       const trendDir = (b.trend_pct || 0) >= 0 ? 'up' : 'down';
       const risingHtml = b.rising ? '<div class="rising-badge">Rising</div>' : '';
       const sparkData = b.sparkline || [];
@@ -681,11 +703,11 @@ async function viewBrandsHub(el) {
         ${risingHtml}
         <div class="brand-card-top">
           <div class="brand-rank ${rankClass}">${i + 1}</div>
-          <div class="brand-icon-lg">${initials}</div>
+          <div class="brand-icon-lg" style="color:${color}">${initials}</div>
           <div class="brand-card-info"><div class="brand-card-name">${b.name}</div><div class="brand-card-sector">${b.sector || ''}</div></div>
         </div>
         <div class="brand-card-stats">
-          <div><div class="brand-threat-val">${b.threat_count || 0}</div><div class="brand-threat-label">threats</div></div>
+          <div><div class="brand-threat-val" style="color:${color}">${tc}</div><div class="brand-threat-label">active threats</div></div>
           <div class="brand-trend">${renderSparkline(sparkData)}<span class="trend-pct ${trendDir}">${trendDir === 'up' ? '+' : ''}${b.trend_pct || 0}%</span></div>
         </div>
         <div class="brand-card-footer">
@@ -703,40 +725,124 @@ async function viewBrandsHub(el) {
     if (el) el.textContent = brands.length;
     const content = document.getElementById('brands-content');
     if (!brands.length) { content.innerHTML = '<div class="empty-state"><div class="message">No monitored brands. Add one to start proactive monitoring.</div></div>'; return; }
-    content.innerHTML = brands.map(b => {
-      const initials = (b.name || '').slice(0, 2).toUpperCase();
-      const statusClass = b.threat_count > 0 ? 'active-threats' : b.status === 'new' ? 'new-status' : 'clean';
-      const statusText = b.threat_count > 0 ? 'Active Threats' : b.status === 'new' ? 'New' : 'Clean';
-      return `<a href="/brands/${b.brand_id || b.id}" class="monitored-row">
-        <div class="monitored-icon">${initials}</div>
+
+    // Search + filter controls
+    let html = `<div class="mon-controls">
+      <input class="search-input" placeholder="Search monitored brands..." id="mon-search">
+      <div class="filter-row">
+        <button class="filter-pill active" data-filter="all">All</button>
+        <button class="filter-pill" data-filter="active">Active Threats</button>
+        <button class="filter-pill" data-filter="clean">Clean</button>
+        <button class="filter-pill" data-filter="new">New</button>
+      </div>
+    </div>`;
+
+    html += brands.map(b => {
+      const initials = _brandInitials(b.name);
+      const tc = b.threat_count || 0;
+      const color = tc > 0 ? _tColor(tc) : 'var(--positive)';
+      const statusClass = tc > 0 ? 'active-threats' : b.status === 'new' ? 'new-status' : 'clean';
+      const statusText = tc > 0 ? 'Active Threats' : b.status === 'new' ? 'New' : 'Clean';
+      return `<a href="/brands/${b.brand_id || b.id}" class="monitored-row" data-status="${statusClass}" data-name="${(b.name || '').toLowerCase()}">
+        <div class="monitored-icon" style="color:${color}">${initials}</div>
         <div class="monitored-info"><div class="monitored-name">${b.name}</div><div class="monitored-domain">${b.canonical_domain || ''}</div></div>
         <div class="monitored-sector">${b.sector || ''}</div>
-        <div class="monitored-threats">${b.threat_count || 0}</div>
+        <div class="monitored-threats" style="color:${color}">${tc}</div>
         <span class="status-badge ${statusClass}">${statusText}</span>
-        <div class="monitored-meta">${b.monitored_since ? b.monitored_since.slice(0, 10) : ''}</div>
+        <div class="monitored-meta">Since ${b.monitored_since ? b.monitored_since.slice(0, 10) : ''}</div>
       </a>`;
     }).join('');
+
+    content.innerHTML = html;
+
+    // Search filter wiring
+    const searchEl = document.getElementById('mon-search');
+    if (searchEl) {
+      searchEl.addEventListener('input', () => {
+        const q = searchEl.value.toLowerCase();
+        content.querySelectorAll('.monitored-row').forEach(r => {
+          r.style.display = r.dataset.name.includes(q) ? '' : 'none';
+        });
+      });
+    }
+    content.querySelectorAll('.filter-pill').forEach(p => p.addEventListener('click', () => {
+      content.querySelectorAll('.filter-pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      const f = p.dataset.filter;
+      content.querySelectorAll('.monitored-row').forEach(r => {
+        if (f === 'all') r.style.display = '';
+        else if (f === 'active') r.style.display = r.dataset.status === 'active-threats' ? '' : 'none';
+        else if (f === 'clean') r.style.display = r.dataset.status === 'clean' ? '' : 'none';
+        else if (f === 'new') r.style.display = r.dataset.status === 'new-status' ? '' : 'none';
+      });
+    }));
   };
 
   const loadAll = async () => {
-    const res = await api('/brands?limit=50').catch(() => null);
+    const res = await api('/brands?limit=100').catch(() => null);
     const brands = res?.data || [];
-    const el = document.getElementById('tc-all');
-    if (el) el.textContent = brands.length;
+    const elCount = document.getElementById('tc-all');
+    if (elCount) elCount.textContent = brands.length;
     const content = document.getElementById('brands-content');
-    content.innerHTML = renderDataTable(
-      [
-        { key: 'name', label: 'Brand', render: (v, r) => `<a href="/brands/${r.brand_id || r.id}">${v}</a>` },
-        { key: 'sector', label: 'Sector' },
-        { key: 'threat_count', label: 'Threats', className: 'mono' },
-        { key: 'trend_pct', label: 'Trend', className: 'mono', render: v => `<span class="trend-pct ${(v || 0) >= 0 ? 'up' : 'down'}">${(v || 0) >= 0 ? '+' : ''}${v || 0}%</span>` },
-        { key: 'last_threat_seen', label: 'Last Activity', className: 'mono', render: v => v ? v.slice(0, 10) : '-' },
-      ],
-      brands,
-      { emptyMessage: 'No brands detected yet' }
-    );
+    if (!brands.length) { content.innerHTML = '<div class="empty-state"><div class="message">No brands detected yet</div></div>'; return; }
+
+    // Search + sector filter
+    let html = `<div class="mon-controls">
+      <input class="search-input" placeholder="Search by name or domain..." id="all-search" style="width:280px">
+      <select class="sector-select" id="all-sector-filter"><option value="">All Sectors</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Social Media</option><option>Logistics</option><option>Government</option></select>
+    </div>`;
+
+    const monRes = await api('/brands/monitored').catch(() => null);
+    const monIds = new Set((monRes?.data?.brands || monRes?.data || []).map(b => b.brand_id || b.id));
+
+    html += `<div class="all-brands-table"><table class="data-table"><thead><tr>
+      <th style="width:32px">\u2605</th><th>Brand</th><th>Sector</th><th>Threats</th><th>Trend</th><th>Type</th>
+    </tr></thead><tbody>`;
+
+    brands.forEach(b => {
+      const id = b.brand_id || b.id;
+      const mon = monIds.has(id);
+      const tc = b.threat_count || 0;
+      const color = _tColor(tc);
+      const t = b.trend_pct || 0;
+      const trendDir = t >= 0 ? 'up' : 'down';
+      const initials = _brandInitials(b.name);
+      html += `<tr data-id="${id}" data-name="${(b.name || '').toLowerCase()}" data-domain="${(b.canonical_domain || '').toLowerCase()}" data-sector="${b.sector || ''}">
+        <td><span class="star-toggle ${mon ? 'on' : 'off'}">${mon ? '\u2605' : '\u2606'}</span></td>
+        <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div style="font-weight:500">${b.name}</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${b.canonical_domain || ''}</div></div></a></td>
+        <td style="font-size:11px;color:var(--text-secondary)">${b.sector || ''}</td>
+        <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${color}">${tc}</span></td>
+        <td><span class="trend-pct ${trendDir}" style="font-size:11px">${t >= 0 ? '+' : ''}${t}%</span></td>
+        <td>${b.top_threat_type ? `<span class="type-pill ${b.top_threat_type}">${b.top_threat_type}</span>` : '-'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
+
+    // Star toggle
+    content.querySelectorAll('.star-toggle').forEach(s => s.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      s.classList.toggle('on'); s.classList.toggle('off');
+      s.textContent = s.classList.contains('on') ? '\u2605' : '\u2606';
+    }));
+
+    // Search
+    const searchEl = document.getElementById('all-search');
+    const sectorEl = document.getElementById('all-sector-filter');
+    const filterRows = () => {
+      const q = (searchEl?.value || '').toLowerCase();
+      const sec = sectorEl?.value || '';
+      content.querySelectorAll('.all-brands-table tbody tr').forEach(r => {
+        const nameMatch = !q || r.dataset.name.includes(q) || r.dataset.domain.includes(q);
+        const secMatch = !sec || r.dataset.sector === sec;
+        r.style.display = nameMatch && secMatch ? '' : 'none';
+      });
+    };
+    searchEl?.addEventListener('input', filterRows);
+    sectorEl?.addEventListener('change', filterRows);
   };
 
+  // Aggregate stats
   await loadTopTargeted(_brandsPeriod);
 
   // Tab switching
@@ -761,15 +867,59 @@ async function viewBrandsHub(el) {
     _brandsPeriod = btn.dataset.period;
     if (_brandsSubTab === 'top-targeted') await loadTopTargeted(_brandsPeriod);
   });
+
+  // Monitor Brand modal
+  document.getElementById('brands-add-btn')?.addEventListener('click', () => {
+    showModal('Monitor a Brand',
+      `<div class="modal-sub">Add a domain for proactive monitoring. We\u2019ll scan it immediately and begin watching for threats.</div>
+       <div class="form-group"><label class="form-label">Domain</label><input class="form-input" placeholder="e.g. acmecorp.com" id="modal-domain"></div>
+       <div class="form-group"><label class="form-label">Brand Name (optional)</label><input class="form-input" placeholder="Auto-detected if left blank" id="modal-name"></div>
+       <div style="display:flex;gap:12px">
+         <div class="form-group" style="flex:1"><label class="form-label">Sector</label><select class="form-select" id="modal-sector"><option value="">Auto-detect</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Government</option><option>Social Media</option></select></div>
+         <div class="form-group" style="flex:1"><label class="form-label">Reason</label><select class="form-select" id="modal-reason"><option>Prospect</option><option>Competitor</option><option>Client request</option><option>Threat research</option></select></div>
+       </div>
+       <div class="form-group"><label class="form-label">Notes</label><input class="form-input" placeholder="Internal notes..." id="modal-notes"></div>`,
+      async (overlay) => {
+        const domain = document.getElementById('modal-domain')?.value?.trim();
+        if (!domain) {
+          const inp = document.getElementById('modal-domain');
+          if (inp) inp.style.borderColor = 'var(--threat-critical)';
+          return false; // prevent close
+        }
+        try {
+          await api('/brands/monitor', {
+            method: 'POST',
+            body: JSON.stringify({
+              domain,
+              name: document.getElementById('modal-name')?.value?.trim() || null,
+              sector: document.getElementById('modal-sector')?.value || null,
+              reason: document.getElementById('modal-reason')?.value || null,
+              notes: document.getElementById('modal-notes')?.value?.trim() || null,
+            })
+          });
+          showToast('Monitoring started for ' + domain, 'success');
+          if (_brandsSubTab === 'monitored') {
+            const content = document.getElementById('brands-content');
+            if (content) { content.innerHTML = 'Loading...'; await loadMonitored(); }
+          }
+        } catch (err) { showToast(err.message, 'error'); }
+      }
+    );
+  });
 }
 
 // ─── View: Brand Detail (Step 9) ────────────────────────────
+let _brandDetailMap = null;
+let _brandDetailChart = null;
+let _brandThreatsPage = 1;
+const _brandThreatsPerPage = 15;
+
 async function viewBrandDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
     const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes] = await Promise.all([
       api(`/brands/${params.id}`),
-      api(`/brands/${params.id}/threats?status=active&limit=15`).catch(() => null),
+      api(`/brands/${params.id}/threats?status=active&limit=50`).catch(() => null),
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
       api(`/brands/${params.id}/providers`).catch(() => null),
       api(`/brands/${params.id}/campaigns`).catch(() => null),
@@ -779,79 +929,232 @@ async function viewBrandDetail(el, params) {
     if (!b) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
 
     const stats = b.stats || b;
-    const initials = (b.name || '').slice(0, 2).toUpperCase();
-    const threats = threatsRes?.data || [];
+    const initials = _brandInitials(b.name);
+    const allThreats = threatsRes?.data || [];
+    const totalThreats = stats.threat_count || stats.total_threats || allThreats.length;
     const providers = providersRes?.data || [];
     const campaigns = campaignsRes?.data || [];
+    const locations = locationsRes?.data || [];
+    const sc = b.trust_score != null ? _scoreColor(b.trust_score) : 'var(--text-tertiary)';
+    const trendColor = (stats.trend_pct || 0) >= 0 ? 'var(--threat-medium)' : 'var(--positive)';
+    const threatColor = _tColor(totalThreats);
+
+    // SVG Trust Score ring (matches prototype: 72x72 SVG with dashoffset)
+    const trustRingHtml = b.trust_score != null
+      ? `<div class="ts-ring-wrap"><div style="width:72px;height:72px;position:relative">
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - b.trust_score / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
+          <div class="ts-val-center">${b.trust_score}</div>
+        </div><div class="ts-grade">Grade: ${b.trust_grade || ''}</div></div>`
+      : '';
+
+    // Provider bar colors
+    const provColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3', '#4a5a73'];
     const maxProv = providers[0]?.count || providers[0]?.threat_count || 1;
 
     el.innerHTML = `
       <a href="/brands" class="back-link">\u2190 Back to Brands</a>
       <div class="detail-header">
-        <div class="detail-header-icon">${initials}</div>
+        <div class="detail-header-icon" style="color:${threatColor}">${initials}</div>
         <div class="detail-header-meta">
-          <div class="detail-header-title">${b.name}</div>
-          <div class="detail-header-sub">${b.canonical_domain || ''} \u00b7 ${b.sector || 'Unknown'}</div>
+          <div class="detail-header-title">${b.name}<span class="sector-pill">${b.sector || 'Unknown'}</span></div>
+          <div class="detail-header-sub">${b.canonical_domain || ''} \u2014 First tracked: ${b.first_tracked || b.created_at?.slice(0, 10) || '-'}</div>
           <div class="detail-header-stats">
-            <div class="header-stat"><div class="header-stat-val">${stats.threat_count || stats.total_threats || 0}</div><div class="header-stat-label">Threats</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:${(stats.trend_pct||0) >= 0 ? 'var(--negative)' : 'var(--positive)'}">${(stats.trend_pct||0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7d Trend</div></div>
-            <div class="header-stat"><div class="header-stat-val">${providers.length}</div><div class="header-stat-label">Providers</div></div>
-            <div class="header-stat"><div class="header-stat-val">${campaigns.length}</div><div class="header-stat-label">Campaigns</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--threat-critical)">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:${trendColor}">${(stats.trend_pct || 0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7-day trend</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${campaigns.length}</div><div class="header-stat-label">Active campaigns</div></div>
           </div>
         </div>
-        ${b.trust_score != null ? `<div class="trust-score-ring" style="border-color:${b.trust_score >= 70 ? 'var(--positive)' : b.trust_score >= 40 ? 'var(--threat-medium)' : 'var(--negative)'}"><div style="text-align:center"><div class="score-val">${b.trust_score}</div><div class="score-grade">${b.trust_grade || ''}</div></div></div>` : ''}
+        ${trustRingHtml}
       </div>
       <div class="detail-grid">
-        <div>
-          ${renderPanel('Active Threats', threats.length, renderDataTable(
-            [
-              { key: 'malicious_domain', label: 'URL', className: 'domain' },
-              { key: 'threat_type', label: 'Type', render: v => `<span class="threat-pill ${v}">${v}</span>` },
-              { key: 'hosting_provider', label: 'Provider' },
-              { key: 'created_at', label: 'First Seen', className: 'mono', render: v => v?.slice(0, 10) },
-              { key: 'status', label: 'Status', render: v => `<span class="badge-status ${v}">${v}</span>` },
-            ],
-            threats,
-            { emptyMessage: 'No active threats detected' }
-          ))}
-        </div>
-        <div>
-          <div class="panel" style="margin-bottom:16px"><div class="phead">Threat Map</div><div class="panel-body"><div id="brand-mini-map" class="mini-map"></div></div></div>
-          ${renderPanel('Provider Breakdown', null, providers.length ?
-            providers.map(p => renderBarRow(p.name || p.provider_name, p.count || p.threat_count, maxProv)).join('') :
-            '<div class="empty-state"><div class="message">No providers</div></div>'
-          )}
-          ${renderPanel('Active Campaigns', null, campaigns.length ?
-            campaigns.map(c => `<a href="/campaigns/${c.id}" style="display:block;padding:8px 0;border-bottom:1px solid rgba(0,212,255,0.06)">
-              <div style="font-size:13px;font-weight:500">${c.name}</div>
-              <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${c.threat_count || 0} threats \u00b7 ${c.status || ''}</div>
+        <div class="panel" id="brand-threats-panel"></div>
+        <div class="detail-rcol">
+          <div class="panel"><div class="phead"><span>Threat Locations</span><span class="badge">${locations.length} countries</span></div><div class="panel-body"><div id="brand-mini-map" class="mini-map"></div></div></div>
+          <div class="panel"><div class="phead"><span>Hosting Providers</span></div><div class="panel-body padded" id="brand-prov-bars">${providers.length ?
+            providers.map((p, i) => {
+              const cnt = p.count || p.threat_count || 0;
+              const pct = maxProv > 0 ? Math.round(cnt / maxProv * 100) : 0;
+              return `<div class="pbar-row"><span class="pbar-lbl">${p.name || p.provider_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
+            }).join('') :
+            '<div class="empty-state"><div class="message">No provider data</div></div>'
+          }</div></div>
+          <div class="panel"><div class="phead"><span>Active Campaigns</span><span class="badge">${campaigns.length}</span></div><div class="panel-body padded">${campaigns.length ?
+            campaigns.map(c => `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card-sm">
+              <div class="ccard-name">${c.name}</div>
+              <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span style="color:var(--blue-primary)">${c.brand_count || 1}</span> brands</span><span style="color:var(--text-tertiary)">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
             </a>`).join('') :
-            '<div class="empty-state"><div class="message">No campaigns</div></div>'
-          )}
+            '<div class="empty-state"><div class="message">No campaigns associated</div></div>'
+          }</div></div>
         </div>
       </div>
-      <div class="chart-wrap"><div class="chart-head"><div class="chart-title">Threat Timeline</div>${renderPeriodSelector('30d', 'brand-timeline-period')}</div><canvas id="brand-timeline-chart"></canvas></div>`;
+      <div>
+        <div class="chart-head"><div class="chart-title">Threat Timeline</div><div class="period-selector" id="brand-timeline-period">
+          <button class="period-btn" data-period="7d">7D</button><button class="period-btn active" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button><button class="period-btn" data-period="1y">1Y</button>
+        </div></div>
+        <div class="chart-wrap"><canvas id="brand-timeline-chart"></canvas></div>
+      </div>`;
 
-    // Mini map
-    const locations = locationsRes?.data || [];
-    if (locations.length > 0) {
-      const miniMap = L.map('brand-mini-map', { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false }).setView([20, 0], 1.5);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd' }).addTo(miniMap);
-      locations.forEach(loc => {
-        const r = Math.max(5, Math.min(15, (loc.count || 1) * 2));
-        L.circleMarker([loc.lat, loc.lng], { radius: r, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.5, weight: 1 }).addTo(miniMap);
+    // Render threats table with filter, evidence column, and pagination
+    _brandThreatsPage = 1;
+    const threatTypes = ['all', 'phishing', 'typosquat', 'impersonation', 'credential'];
+    let activeFilter = 'all';
+
+    function renderBrandThreats() {
+      const filtered = activeFilter === 'all' ? allThreats : allThreats.filter(t => (t.threat_type || t.type) === activeFilter);
+      const totalPages = Math.max(1, Math.ceil(filtered.length / _brandThreatsPerPage));
+      if (_brandThreatsPage > totalPages) _brandThreatsPage = totalPages;
+      const start = (_brandThreatsPage - 1) * _brandThreatsPerPage;
+      const pageThreats = filtered.slice(start, start + _brandThreatsPerPage);
+
+      let html = `<div class="phead"><span>Active Threats</span><span class="badge">${totalThreats} total</span></div>`;
+
+      // Filter controls
+      html += `<div class="threats-controls"><div class="filter-row" id="threat-type-filter">
+        ${threatTypes.map(t => `<button class="filter-pill ${t === activeFilter ? 'active' : ''}" data-type="${t}">${t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join('')}
+      </div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${start + 1}\u2013${Math.min(start + _brandThreatsPerPage, filtered.length)} of ${filtered.length}</span></div>`;
+
+      if (!pageThreats.length) {
+        html += '<div class="empty-state"><div class="message">No threats matching filter</div></div>';
+      } else {
+        html += `<table class="data-table"><thead><tr><th>Malicious URL</th><th>Type</th><th>Provider</th><th>First Seen</th><th>Status</th><th>Ev</th></tr></thead><tbody>`;
+        pageThreats.forEach(t => {
+          const url = t.malicious_domain || t.url || '';
+          const type = t.threat_type || t.type || '';
+          const prov = t.hosting_provider || t.provider || '';
+          const asn = t.asn || '';
+          const date = (t.created_at || t.first_seen || '').slice(0, 16).replace('T', ' ');
+          const status = t.status || 'active';
+          const hasEv = t.evidence_captured ?? t.evidence ?? false;
+          const statusClass = status === 'active' ? 'active' : status === 'down' ? 'down' : 'monitoring';
+          html += `<tr>
+            <td><div class="td-url">${url}</div></td>
+            <td><span class="type-pill ${type}">${type}</span></td>
+            <td><div class="prov-cell">${prov}${asn ? '<br><span class="asn">' + asn + '</span>' : ''}</div></td>
+            <td><span class="date-cell">${date}</span></td>
+            <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
+            <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Pagination
+        html += `<div class="pagination"><span class="pgn-info">Page ${_brandThreatsPage} of ${totalPages}</span><div class="pgn-btns">
+          <button class="pgn-btn ${_brandThreatsPage <= 1 ? 'disabled' : ''}" data-page="prev">\u2039</button>`;
+        for (let p = 1; p <= Math.min(totalPages, 5); p++) {
+          html += `<button class="pgn-btn ${p === _brandThreatsPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+        }
+        html += `<button class="pgn-btn ${_brandThreatsPage >= totalPages ? 'disabled' : ''}" data-page="next">\u203a</button></div></div>`;
+      }
+
+      const panel = document.getElementById('brand-threats-panel');
+      if (panel) panel.innerHTML = html;
+
+      // Wire filter pills
+      panel?.querySelectorAll('#threat-type-filter .filter-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          activeFilter = pill.dataset.type;
+          _brandThreatsPage = 1;
+          renderBrandThreats();
+        });
       });
+
+      // Wire pagination
+      panel?.querySelectorAll('.pgn-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('disabled')) return;
+          const page = btn.dataset.page;
+          if (page === 'prev') _brandThreatsPage = Math.max(1, _brandThreatsPage - 1);
+          else if (page === 'next') _brandThreatsPage = Math.min(totalPages, _brandThreatsPage + 1);
+          else _brandThreatsPage = parseInt(page);
+          renderBrandThreats();
+        });
+      });
+    }
+
+    renderBrandThreats();
+
+    // Mini map with sized+colored markers (matches prototype)
+    if (_brandDetailMap) { _brandDetailMap.remove(); _brandDetailMap = null; }
+    if (locations.length > 0) {
+      setTimeout(() => {
+        _brandDetailMap = L.map('brand-mini-map', { zoomControl: false, attributionControl: false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(_brandDetailMap);
+        const maxC = Math.max(...locations.map(l => l.count || 1));
+        locations.forEach(loc => {
+          const int = (loc.count || 1) / maxC;
+          const col = int >= 0.7 ? '#ff3b5c' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#ffb627' : '#00d4ff';
+          L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5, opacity: 0.6 }).addTo(_brandDetailMap);
+          L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
+            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .addTo(_brandDetailMap);
+        });
+        const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
+        _brandDetailMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 5 });
+      }, 50);
     }
 
     // Timeline chart
+    if (_brandDetailChart) { _brandDetailChart.destroy(); _brandDetailChart = null; }
     const timeline = timelineRes?.data || {};
     if (timeline.labels?.length && typeof Chart !== 'undefined') {
-      new Chart(document.getElementById('brand-timeline-chart'), {
+      _brandDetailChart = new Chart(document.getElementById('brand-timeline-chart'), {
         type: 'line',
-        data: { labels: timeline.labels, datasets: [{ data: timeline.values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } }, y: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } } } }
+        data: {
+          labels: timeline.labels,
+          datasets: [{
+            label: 'Threats', data: timeline.values,
+            borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)',
+            fill: true, tension: 0.35, pointRadius: 0,
+            pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff',
+            pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
+              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
+              displayColors: false,
+              callbacks: { label: i => i.parsed.y + ' new threats' }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+          }
+        }
       });
     }
+
+    // Period selector for timeline
+    document.getElementById('brand-timeline-period')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.period-btn');
+      if (!btn) return;
+      document.querySelectorAll('#brand-timeline-period .period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      try {
+        const tlRes = await api(`/brands/${params.id}/threats/timeline?period=${btn.dataset.period}`);
+        const tl = tlRes?.data || {};
+        if (_brandDetailChart && tl.labels?.length) {
+          _brandDetailChart.data.labels = tl.labels;
+          _brandDetailChart.data.datasets[0].data = tl.values;
+          _brandDetailChart.update();
+        }
+      } catch {}
+    });
+
+    // Cleanup
+    window._viewCleanup = () => {
+      if (_brandDetailMap) { _brandDetailMap.remove(); _brandDetailMap = null; }
+      if (_brandDetailChart) { _brandDetailChart.destroy(); _brandDetailChart = null; }
+    };
+
   } catch (err) { showToast(err.message, 'error'); }
 }
 
