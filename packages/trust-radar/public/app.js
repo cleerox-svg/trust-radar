@@ -382,8 +382,11 @@ async function viewObservatory(el) {
   L.control.zoom({ position: 'topleft' }).addTo(map);
   _obsMap = map;
 
+  let _obsPulseInterval = null;
+
   window._viewCleanup = () => {
     clearInterval(clockInterval);
+    if (_obsPulseInterval) clearInterval(_obsPulseInterval);
     if (_obsPoller) clearInterval(_obsPoller);
     if (_obsMap) { _obsMap.remove(); _obsMap = null; }
     _obsPoller = null;
@@ -428,12 +431,32 @@ async function viewObservatory(el) {
       }).addTo(map);
     }
 
-    // Cluster markers
+    // Cluster markers + pulse ring layer group
+    const pulseRings = L.layerGroup().addTo(map);
+
     clusterData.forEach(c => {
       const color = c.intensity >= 0.8 ? '#ff3b5c' : c.intensity >= 0.5 ? '#ff6b35' : c.intensity >= 0.3 ? '#ffb627' : '#00d4ff';
       const outerR = Math.max(8, Math.min(30, c.threat_count * 0.5));
-      L.circleMarker([c.lat, c.lng], { radius: outerR, color, fillColor: color, fillOpacity: 0.15, weight: 1, opacity: 0.4 }).addTo(map);
-      const marker = L.circleMarker([c.lat, c.lng], { radius: outerR * 0.4, color, fillColor: color, fillOpacity: 0.7, weight: 0 }).addTo(map);
+
+      // Outer ring (used for pulse animation)
+      const ring = L.circleMarker([c.lat, c.lng], { radius: outerR, color, fillColor: color, fillOpacity: 0.12, weight: 1, opacity: 0.4 });
+      ring._baseRadius = outerR;
+      ring.addTo(pulseRings);
+
+      // Inner bright core
+      const marker = L.circleMarker([c.lat, c.lng], { radius: Math.max(3, outerR * 0.4), color, fillColor: color, fillOpacity: 0.85, weight: 0.5, opacity: 1 }).addTo(map);
+
+      // Click popup (matches prototype: country name, threats, brands, type, providers)
+      const popupContent = `
+        <div class="popup-title">${c.country || c.country_code || 'Unknown'}</div>
+        <div class="popup-row"><span class="popup-label">Active threats</span><span class="popup-val" style="color:${color}">${(c.threat_count || 0).toLocaleString()}</span></div>
+        <div class="popup-row"><span class="popup-label">Brands targeted</span><span class="popup-val">${c.brands_targeted || 0}</span></div>
+        <div class="popup-row"><span class="popup-label">Top threat type</span><span class="popup-val">${c.top_threat_type || '-'}</span></div>
+        <div class="popup-row"><span class="popup-label">Hosting providers</span><span class="popup-val">${c.provider_count || 0}</span></div>
+      `;
+      marker.bindPopup(popupContent, { className: 'threat-popup' });
+
+      // Hover → sidebar country tooltip
       marker.on('mouseover', () => {
         const tt = document.getElementById('country-tooltip');
         document.getElementById('ct-name').textContent = c.country || c.country_code || 'Unknown';
@@ -446,6 +469,16 @@ async function viewObservatory(el) {
       });
       marker.on('mouseout', () => document.getElementById('country-tooltip').classList.remove('visible'));
     });
+
+    // Pulse animation — expand outer rings every 3s then revert (matches prototype)
+    _obsPulseInterval = setInterval(() => {
+      pulseRings.eachLayer(ring => {
+        const base = ring._baseRadius || ring.getRadius();
+        const expand = base * (1 + Math.random() * 0.3);
+        ring.setRadius(expand);
+        setTimeout(() => ring.setRadius(base), 1500);
+      });
+    }, 3000);
 
     // Arc overlay (canvas)
     const flowData = flows?.data || [];
@@ -593,8 +626,16 @@ async function viewObservatory(el) {
           lastPollTime = new Date().toISOString();
           recent.data.forEach(t => {
             if (t.lat && t.lng) {
-              const flash = L.circleMarker([t.lat, t.lng], { radius: 15, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.6, weight: 2 }).addTo(map);
-              setTimeout(() => map.removeLayer(flash), 2000);
+              const flash = L.circleMarker([t.lat, t.lng], { radius: 12, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.6, weight: 1, opacity: 0.8 }).addTo(map);
+              // Animate: expand radius and fade out (matches prototype spawnThreat)
+              let r = 12, o = 0.6;
+              const anim = setInterval(() => {
+                r += 1.5;
+                o -= 0.03;
+                if (o <= 0) { clearInterval(anim); map.removeLayer(flash); return; }
+                flash.setRadius(r);
+                flash.setStyle({ fillOpacity: o, opacity: o });
+              }, 50);
             }
           });
         }
