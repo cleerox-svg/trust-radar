@@ -1546,24 +1546,33 @@ async function viewProviderDetail(el, params) {
 }
 
 // ─── View: Campaigns Hub (Step 11) ──────────────────────────
+function _campSevColor(s) { return s === 'critical' ? 'var(--threat-critical)' : s === 'high' ? 'var(--threat-high)' : 'var(--threat-medium)'; }
+function _campSpark(data, color) {
+  if (!data || !data.length) return '';
+  const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
+  const pts = data.map((v, i) => `${2 + i / (data.length - 1) * 70},${24 - ((v - min) / range) * 20}`);
+  return `<svg width="74" height="26" viewBox="0 0 74 26"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+}
+
 async function viewCampaignsHub(el) {
   el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Campaign Intelligence</div>
     <div class="agg-stats" id="camp-agg"></div>
     <div class="sub-tabs" id="camp-tabs">
       <button class="sub-tab active" data-tab="active">Active<span class="tab-count" id="tc-active">--</span></button>
       <button class="sub-tab" data-tab="dormant">Dormant<span class="tab-count" id="tc-dormant">--</span></button>
       <button class="sub-tab" data-tab="disrupted">Disrupted<span class="tab-count" id="tc-disrupted">--</span></button>
     </div>
-    <div style="padding:20px 24px" id="camp-content">Loading...</div>`;
+    <div style="padding:20px 0" id="camp-content">Loading...</div>`;
 
   // Stats
   api('/campaigns/stats').then(res => {
     const s = res?.data || {};
     document.getElementById('camp-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${s.active_count || 0}</div><div class="agg-lbl">Active Campaigns</div></div>
-      <div class="agg-card"><div class="agg-val">${s.dormant_count || 0}</div><div class="agg-lbl">Dormant</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.disrupted_count || 0}</div><div class="agg-lbl">Disrupted</div></div>
-      <div class="agg-card"><div class="agg-val">${s.total_threats_in_campaigns || 0}</div><div class="agg-lbl">Total Threats</div><div class="agg-sub">${s.brands_affected || 0} brands affected</div></div>`;
+      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${s.active_count || 0}</div><div class="agg-lbl">Active campaigns</div><div class="agg-sub">${s.active_threats || ''} associated threats</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.dormant_count || 0}</div><div class="agg-lbl">Dormant</div><div class="agg-sub">No activity 7+ days</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.disrupted_count || 0}</div><div class="agg-lbl">Disrupted</div><div class="agg-sub">All threats remediated</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.brands_affected || 0}</div><div class="agg-lbl">Brands affected</div><div class="agg-sub">Across all campaigns</div></div>`;
     if (document.getElementById('tc-active')) document.getElementById('tc-active').textContent = s.active_count || 0;
     if (document.getElementById('tc-dormant')) document.getElementById('tc-dormant').textContent = s.dormant_count || 0;
     if (document.getElementById('tc-disrupted')) document.getElementById('tc-disrupted').textContent = s.disrupted_count || 0;
@@ -1577,28 +1586,37 @@ async function viewCampaignsHub(el) {
       content.innerHTML = `<div class="empty-state"><div class="message">No ${status} campaigns</div></div>`;
       return;
     }
-    const statusClassMap = { active: 'active-status', dormant: 'dormant-status', disrupted: 'disrupted-status' };
     content.innerHTML = `<div class="campaign-grid">${campaigns.map(c => {
-      const sevClass = c.severity || 'medium';
-      const brandIcons = (c.brands || c.brand_breakdown || []).slice(0, 3).map(b =>
-        `<div class="brand-ico">${((b.name || b.brand_name || '').slice(0, 2)).toUpperCase()}</div>`
-      ).join('');
-      return `<a href="/campaigns/${c.id}" class="campaign-card">
+      const sev = c.severity || 'medium';
+      const sc = _campSevColor(sev);
+      const stClass = c.status === 'active' ? 'active-s' : c.status;
+      const stLabel = (c.status || '').charAt(0).toUpperCase() + (c.status || '').slice(1);
+      const brandNames = c.brand_names || (c.brands || c.brand_breakdown || []).map(b => b.name || b.brand_name || '');
+      const brandCount = c.brand_count || brandNames.length || 0;
+      const provCount = c.provider_count || (c.provider_breakdown || []).length || 0;
+      const domainCount = c.domain_count || c.domains || 0;
+      const sparkData = c.sparkline || c.spark || [];
+      const brandIcons = brandNames.slice(0, 3).map(b =>
+        `<div class="brand-ico">${_brandInitials(b)}</div>`
+      ).join('') + (brandCount > 3 ? `<div class="brand-ico" style="color:var(--text-tertiary)">+${brandCount - 3}</div>` : '');
+      return `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card">
         <div class="campaign-card-top">
           <div class="campaign-name">${c.name}</div>
-          <span class="sev ${sevClass}">${sevClass}</span>
+          <span class="sev ${sev}">${sev}</span>
         </div>
-        <div class="campaign-status ${statusClassMap[c.status] || ''}">${c.status}</div>
+        <div class="campaign-card-status ${stClass}">${stLabel}</div>
         ${c.description ? `<div class="campaign-desc">${c.description}</div>` : ''}
         <div class="campaign-metrics">
-          <div class="campaign-metric"><div class="campaign-metric-val">${c.threat_count || 0}</div><div class="campaign-metric-label">Threats</div></div>
-          <div class="campaign-metric"><div class="campaign-metric-val">${c.brand_count || (c.brand_breakdown || []).length || 0}</div><div class="campaign-metric-label">Brands</div></div>
-          <div class="campaign-metric"><div class="campaign-metric-val">${c.provider_count || (c.provider_breakdown || []).length || 0}</div><div class="campaign-metric-label">Providers</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val" style="color:${sc}">${c.threat_count || 0}</div><div class="campaign-metric-label">Threats</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--blue-primary)">${brandCount}</div><div class="campaign-metric-label">Brands</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--threat-medium)">${provCount}</div><div class="campaign-metric-label">Providers</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--text-secondary)">${domainCount}</div><div class="campaign-metric-label">Domains</div></div>
         </div>
         <div class="campaign-card-footer">
           <div class="brand-icons">${brandIcons}</div>
           <div class="campaign-dates">${c.first_seen ? c.first_seen.slice(0, 10) : ''} \u2192 ${c.last_seen ? c.last_seen.slice(0, 10) : 'now'}</div>
         </div>
+        ${sparkData.length ? `<div class="campaign-card-spark">${_campSpark(sparkData, sc)}</div>` : ''}
       </a>`;
     }).join('')}</div>`;
   };
@@ -1616,6 +1634,77 @@ async function viewCampaignsHub(el) {
 }
 
 // ─── View: Campaign Detail (Step 11) ────────────────────────
+let _campDetailChart = null;
+
+function _campDrawInfraGraph(canvasEl, domains, ips, providers) {
+  if (!canvasEl) return;
+  const ctx = canvasEl.getContext('2d');
+  canvasEl.width = canvasEl.parentElement.clientWidth;
+  canvasEl.height = 280;
+  const w = canvasEl.width, h = canvasEl.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Layout: Domains (left 15%) → IPs (center 50%) → Providers (right 85%)
+  const colD = w * 0.15, colI = w * 0.5, colP = w * 0.85;
+  const domY = domains.map((_, i) => 40 + i * (h - 60) / Math.max(domains.length - 1, 1));
+  const ipY = ips.map((_, i) => 50 + i * (h - 80) / Math.max(ips.length - 1, 1));
+  const provY = providers.map((_, i) => 60 + i * (h - 100) / Math.max(providers.length - 1, 1));
+
+  // Draw connections: domains → IPs (red Bezier curves)
+  domains.forEach((_, di) => {
+    const targets = ips.slice(0, Math.min(2, ips.length));
+    targets.forEach((_, ti) => {
+      const tIdx = (di + ti) % ips.length;
+      ctx.beginPath();
+      ctx.moveTo(colD + 60, domY[di]);
+      ctx.quadraticCurveTo((colD + colI) / 2, domY[di] * 0.6 + ipY[tIdx] * 0.4, colI - 40, ipY[tIdx]);
+      ctx.strokeStyle = 'rgba(255,59,92,0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+  });
+
+  // Draw connections: IPs → Providers (cyan Bezier curves)
+  ips.forEach((_, ii) => {
+    const pIdx = ii % providers.length;
+    ctx.beginPath();
+    ctx.moveTo(colI + 40, ipY[ii]);
+    ctx.quadraticCurveTo((colI + colP) / 2, ipY[ii] * 0.5 + provY[pIdx] * 0.5, colP - 60, provY[pIdx]);
+    ctx.strokeStyle = 'rgba(0,212,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  function drawNode(x, y, label, type) {
+    const colors = { domain: ['rgba(255,59,92,0.15)', '#ff3b5c'], ip: ['rgba(0,212,255,0.1)', '#00d4ff'], provider: ['rgba(255,182,39,0.1)', '#ffb627'] };
+    const [bg, fg] = colors[type] || colors.ip;
+    ctx.font = '500 9px "IBM Plex Mono"';
+    const tw = ctx.measureText(label).width;
+    const pw = tw + 16;
+    const rx = x - pw / 2, ry = y - 10;
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, pw, 20, 4);
+    ctx.fill();
+    ctx.strokeStyle = fg + '40';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = fg;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+    // Category label
+    ctx.font = '500 7px "Chakra Petch"';
+    ctx.fillStyle = '#4a5a73';
+    ctx.fillText(type.toUpperCase(), x, y + 16);
+  }
+
+  domains.forEach((d, i) => drawNode(colD, domY[i], (typeof d === 'string' ? d : d.domain || d.name || '').substring(0, 18), 'domain'));
+  ips.forEach((ip, i) => drawNode(colI, ipY[i], typeof ip === 'string' ? ip : ip.ip || ip.address || '', 'ip'));
+  providers.forEach((p, i) => drawNode(colP, provY[i], typeof p === 'string' ? p : p.name || p.provider || '', 'provider'));
+}
+
 async function viewCampaignDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
@@ -1633,88 +1722,149 @@ async function viewCampaignDetail(el, params) {
     const infra = infraRes?.data || {};
     const brands = brandsRes?.data || [];
     const maxBrand = brands[0]?.count || brands[0]?.threat_count || 1;
-    const statusClassMap = { active: 'active-status', dormant: 'dormant-status', disrupted: 'disrupted-status' };
+    const brandColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3'];
+    const sev = c.severity || 'medium';
+    const sc = _campSevColor(sev);
+    const stClass = c.status === 'active' ? 'active-s' : c.status;
+    const stLabel = (c.status || '').charAt(0).toUpperCase() + (c.status || '').slice(1);
+    const domainCount = c.domain_count || c.domains || (infra.domains || []).length || 0;
+    const ipCount = c.ip_count || c.ips || (infra.ips || []).length || 0;
+    const provCount = c.provider_count || (infra.providers || []).length || 0;
+    const regCount = c.registrar_count || c.registrars || (infra.registrars || []).length || 0;
+    const tldDist = c.tld_distribution || c.tld_dist || {};
+    const providerNames = c.provider_names || (infra.providers || []).map(p => typeof p === 'string' ? p : p.name || p.provider || '');
 
     el.innerHTML = `
       <a href="/campaigns" class="back-link">\u2190 Back to Campaigns</a>
-      <div class="detail-header">
-        <div class="detail-header-meta">
-          <div class="detail-header-title">${c.name} <span class="campaign-status ${statusClassMap[c.status] || ''}">${c.status}</span> <span class="sev ${c.severity || 'medium'}">${c.severity || 'medium'}</span></div>
-          <div class="detail-header-sub">${c.first_seen ? c.first_seen.slice(0, 10) : ''} \u2013 ${c.last_seen ? c.last_seen.slice(0, 10) : 'present'}</div>
-          <div class="detail-header-stats">
-            <div class="header-stat"><div class="header-stat-val">${c.threat_count || 0}</div><div class="header-stat-label">Threats</div></div>
-            <div class="header-stat"><div class="header-stat-val">${brands.length || c.brand_count || 0}</div><div class="header-stat-label">Brands</div></div>
-            <div class="header-stat"><div class="header-stat-val">${(infra.providers || []).length || c.provider_count || 0}</div><div class="header-stat-label">Providers</div></div>
-          </div>
+      <div class="camp-header">
+        <div class="camp-title">${c.name}<span class="sev ${sev}">${sev}</span><span class="campaign-card-status ${stClass}">${stLabel}</span></div>
+        <div class="camp-sub">First seen: ${c.first_seen ? c.first_seen.slice(0, 10) : '-'} \u2014 Last activity: ${c.last_seen ? c.last_seen.slice(0, 10) : 'present'}</div>
+        <div class="camp-stats">
+          <div class="camp-stat"><div class="camp-stat-val" style="color:${sc}">${c.threat_count || 0}</div><div class="camp-stat-label">Total threats</div></div>
+          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--blue-primary)">${brands.length || c.brand_count || 0}</div><div class="camp-stat-label">Brands targeted</div></div>
+          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--threat-medium)">${provCount}</div><div class="camp-stat-label">Hosting providers</div></div>
+          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${domainCount}</div><div class="camp-stat-label">Domains</div></div>
+          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${ipCount}</div><div class="camp-stat-label">Unique IPs</div></div>
+          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${regCount}</div><div class="camp-stat-label">Registrars</div></div>
         </div>
       </div>
-      ${c.ai_assessment || c.description ? `<div class="ai-panel">
-        <div class="ai-head"><div class="ai-dot"></div><span class="ai-agent">Strategist Analysis</span></div>
-        <div class="ai-body">${c.ai_assessment || c.description || ''}</div>
-        ${c.methodology ? `<div class="ai-tags">${(Array.isArray(c.methodology) ? c.methodology : [c.methodology]).map(m => `<span class="ai-tag">${m}</span>`).join('')}</div>` : ''}
-      </div>` : ''}
-      ${(infra.domains || infra.ips || infra.providers) ? `<div class="infra-panel">
-        <div class="phead">Infrastructure Map</div>
-        <div class="infra-body" id="infra-graph"></div>
-      </div>` : ''}
+
+      <div class="ai-panel">
+        <div class="ai-head"><div class="ai-dot"></div><span class="ai-agent">Strategist \u2014 Campaign Assessment</span></div>
+        <div class="ai-body">${c.description || c.ai_assessment || ''}${c.methodology ? `<br><br><strong>Methodology:</strong> ${typeof c.methodology === 'string' ? c.methodology : (Array.isArray(c.methodology) ? c.methodology.join('. ') : '')}` : ''}${c.actor_profile ? `<br><br><strong>Actor Profile:</strong> ${c.actor_profile}` : ''}</div>
+        <div class="ai-tags">
+          ${c.sophistication ? `<div class="ai-tag">Sophistication: ${c.sophistication}</div>` : ''}
+          <div class="ai-tag">${domainCount} domains</div>
+          <div class="ai-tag">${ipCount} IPs</div>
+          ${Object.entries(tldDist).map(([tld, ct]) => `<div class="ai-tag">${tld}: ${ct}</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="infra-panel">
+        <div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Map</span><span class="badge">${domainCount} domains \u2192 ${ipCount} IPs \u2192 ${provCount} providers</span></div>
+        <div class="infra-body" style="height:280px"><canvas id="camp-infra-canvas" class="infra-canvas"></canvas></div>
+      </div>
+
       <div class="detail-grid">
-        <div>
-          ${renderPanel('Campaign Threats', threats.length, renderDataTable(
-            [
-              { key: 'malicious_domain', label: 'URL', className: 'domain' },
-              { key: 'threat_type', label: 'Type', render: v => `<span class="threat-pill ${v}">${v}</span>` },
-              { key: 'brand_name', label: 'Brand' },
-              { key: 'hosting_provider', label: 'Provider' },
-              { key: 'status', label: 'Status', render: v => `<span class="badge-status ${v}">${v}</span>` },
-            ],
-            threats,
-            { emptyMessage: 'No threats' }
-          ))}
+        <div class="panel">
+          <div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Associated Threats</span><span class="badge">${c.threat_count || threats.length}</span></div>
+          <table class="prov-threats-tbl"><thead><tr><th>URL</th><th>Type</th><th>Target</th><th>Provider</th><th>Status</th></tr></thead><tbody>
+          ${threats.map(t => {
+      const url = t.malicious_domain || t.url || '';
+      const type = t.threat_type || t.type || '';
+      const brand = t.brand_name || t.brand || '';
+      const prov = t.hosting_provider || t.provider || '';
+      const status = t.status || 'active';
+      return `<tr>
+              <td><div class="td-url">${url}</div></td>
+              <td><span class="type-pill ${type}">${type}</span></td>
+              <td style="font-size:11px;color:var(--text-secondary)">${brand}</td>
+              <td style="font-size:11px;color:var(--text-tertiary)">${prov}</td>
+              <td><span class="status-badge-sm ${status}">${status}</span></td>
+            </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px">No threats</td></tr>'}
+          </tbody></table>
         </div>
-        <div>
-          ${renderPanel('Targeted Brands', null, brands.length ?
-            brands.map(b => renderBarRow(b.name || b.brand_name, b.count || b.threat_count, maxBrand)).join('') :
-            '<div class="empty-state"><div class="message">No brands</div></div>'
-          )}
-          ${renderPanel('Infrastructure Stats', null, `
-            <div style="padding:4px 0;display:flex;justify-content:space-between;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.05)"><span style="color:var(--text-secondary)">Domains</span><span style="font-family:var(--font-mono)">${(infra.domains || []).length}</span></div>
-            <div style="padding:4px 0;display:flex;justify-content:space-between;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.05)"><span style="color:var(--text-secondary)">IP Addresses</span><span style="font-family:var(--font-mono)">${(infra.ips || []).length}</span></div>
-            <div style="padding:4px 0;display:flex;justify-content:space-between;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.05)"><span style="color:var(--text-secondary)">Providers</span><span style="font-family:var(--font-mono)">${(infra.providers || []).length}</span></div>
-            <div style="padding:4px 0;display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Registrars</span><span style="font-family:var(--font-mono)">${(infra.registrars || []).length}</span></div>
-          `)}
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Targeted Brands</span></div><div class="padded">${brands.length ?
+      brands.map((b, i) => {
+        const cnt = b.count || b.threat_count || 0;
+        const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
+        return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${brandColors[i] || brandColors[4]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
+      }).join('') :
+      '<div class="empty-state"><div class="message">No brands</div></div>'
+    }</div></div>
+          <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Stats</span></div><div class="padded">
+            <div class="infra-stat"><span class="infra-stat-label">TLD Distribution</span><span class="infra-stat-val">${Object.entries(tldDist).map(([t, v]) => `${t}: ${v}`).join(', ') || '\u2014'}</span></div>
+            <div class="infra-stat"><span class="infra-stat-label">Providers</span><span class="infra-stat-val">${providerNames.join(', ') || '\u2014'}</span></div>
+            <div class="infra-stat"><span class="infra-stat-label">Registrars</span><span class="infra-stat-val">${regCount} unique</span></div>
+            <div class="infra-stat"><span class="infra-stat-label">IP Ranges</span><span class="infra-stat-val">${ipCount} unique addresses</span></div>
+          </div></div>
         </div>
       </div>
-      <div class="chart-wrap"><div class="chart-head"><div class="chart-title">Activity Timeline</div></div><canvas id="camp-timeline-chart"></canvas></div>`;
 
-    // Infrastructure graph (simple visualization)
-    const graphEl = document.getElementById('infra-graph');
-    if (graphEl) {
-      const domains = (infra.domains || []).slice(0, 6);
-      const ips = (infra.ips || []).slice(0, 4);
-      const providers = (infra.providers || []).slice(0, 3);
-      const registrars = (infra.registrars || []).slice(0, 2);
-      let nodes = '';
-      const totalItems = domains.length + ips.length + providers.length + registrars.length;
-      if (totalItems > 0) {
-        domains.forEach((d, i) => { nodes += `<div class="inode" style="left:${10 + (i * 14)}%;top:20%"><div class="inode-box domain-node">${typeof d === 'string' ? d : d.domain || d.name}</div><div class="inode-label">Domain</div></div>`; });
-        ips.forEach((ip, i) => { nodes += `<div class="inode" style="left:${15 + (i * 18)}%;top:50%"><div class="inode-box ip-node">${typeof ip === 'string' ? ip : ip.ip || ip.address}</div><div class="inode-label">IP</div></div>`; });
-        providers.forEach((p, i) => { nodes += `<div class="inode" style="left:${20 + (i * 22)}%;top:75%"><div class="inode-box provider-node">${typeof p === 'string' ? p : p.name || p.provider}</div><div class="inode-label">Provider</div></div>`; });
-        registrars.forEach((r, i) => { nodes += `<div class="inode" style="left:${70 + (i * 15)}%;top:30%"><div class="inode-box registrar-node">${typeof r === 'string' ? r : r.name || r.registrar}</div><div class="inode-label">Registrar</div></div>`; });
-      } else {
-        nodes = '<div class="empty-state"><div class="message">No infrastructure data</div></div>';
+      <div class="chart-head"><div class="chart-title">Campaign Activity Timeline</div></div>
+      <div class="chart-wrap"><canvas id="camp-timeline-chart"></canvas></div>`;
+
+    // ── Draw infrastructure graph on canvas with Bezier connections ──
+    setTimeout(() => {
+      const canvas = document.getElementById('camp-infra-canvas');
+      if (!canvas) return;
+      const domainNodes = (infra.domains || []).slice(0, 6);
+      const ipNodes = (infra.ips || []).slice(0, 6);
+      const provNodes = (infra.providers || []).slice(0, 3);
+      if (domainNodes.length || ipNodes.length || provNodes.length) {
+        _campDrawInfraGraph(canvas, domainNodes, ipNodes, provNodes);
       }
-      graphEl.innerHTML = nodes;
-    }
+    }, 100);
 
-    // Timeline chart
+    // ── Timeline chart — line type with fill (not bar) ──
+    if (_campDetailChart) { _campDetailChart.destroy(); _campDetailChart = null; }
     const timeline = timelineRes?.data || {};
     if (timeline.labels?.length && typeof Chart !== 'undefined') {
-      new Chart(document.getElementById('camp-timeline-chart'), {
-        type: 'bar',
-        data: { labels: timeline.labels, datasets: [{ data: timeline.values, backgroundColor: 'rgba(255,59,92,0.4)', borderColor: '#ff3b5c', borderWidth: 1 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } }, y: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } } } }
-      });
+      // Resolve severity color to a raw rgba string for Chart.js fill
+      const sevColorMap = { critical: '255,59,92', high: '255,107,53', medium: '255,182,39' };
+      const rawColor = sevColorMap[sev] || '255,59,92';
+      const borderColor = `rgb(${rawColor})`;
+      const bgColor = `rgba(${rawColor},0.06)`;
+
+      setTimeout(() => {
+        const ctx2 = document.getElementById('camp-timeline-chart');
+        if (!ctx2) return;
+        _campDetailChart = new Chart(ctx2, {
+          type: 'line',
+          data: { labels: timeline.labels, datasets: [{
+            label: 'Threats', data: timeline.values,
+            borderColor, backgroundColor: bgColor,
+            fill: true, tension: 0.35, pointRadius: 0,
+            pointHoverRadius: 5, borderWidth: 2
+          }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
+                titleFont: { family: "'Chakra Petch'", size: 11 },
+                bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+                titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6, displayColors: false
+              }
+            },
+            scales: {
+              x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+              y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+            }
+          }
+        });
+      }, 150);
     }
+
+    // Cleanup
+    window._viewCleanup = () => {
+      if (_campDetailChart) { _campDetailChart.destroy(); _campDetailChart = null; }
+    };
+
   } catch (err) { showToast(err.message, 'error'); }
 }
 
