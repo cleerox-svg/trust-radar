@@ -2307,7 +2307,7 @@ async function viewAdmin(el) {
       if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
       _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
         type: 'line', data: { labels: feedLabels, datasets: feeds.slice(0, 4).map((f, i) => ({
-          label: f.name || f.feed_id, data: Array.from({ length: 24 }, () => Math.floor(Math.random() * (f.records_today || 200) / 24 * 2)),
+          label: f.display_name || f.feed_name, data: Array.from({ length: 24 }, () => Math.floor(Math.random() * (f.records_ingested_today || 200) / 24 * 2)),
           backgroundColor: feedColors[i % 4] + '30', borderColor: feedColors[i % 4], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 }))},
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
           scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
@@ -2317,7 +2317,7 @@ async function viewAdmin(el) {
     // Feed list
     document.getElementById('adm-feed-list').innerHTML = feeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<div class="adm-feed-row"><div class="adm-feed-dot ${st}"></div><div class="adm-feed-name">${f.name || f.feed_id}</div><div class="adm-feed-last">${f.last_run_at ? relativeTime(Math.round((Date.now() - new Date(f.last_run_at).getTime()) / 60000)) : '-'}</div><div class="adm-feed-count">${(f.records_today || 0).toLocaleString()} today</div></div>`;
+      return `<div class="adm-feed-row"><div class="adm-feed-dot ${st}"></div><div class="adm-feed-name">${f.display_name || f.feed_name}</div><div class="adm-feed-last">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</div><div class="adm-feed-count">${(f.records_ingested_today || 0).toLocaleString()} today</div></div>`;
     }).join('');
 
     // Events
@@ -2516,7 +2516,7 @@ async function viewAdminFeeds(el) {
   let allFeeds = [];
 
   function showFeedDetail(feedId) {
-    const f = allFeeds.find(x => (x.feed_id || x.id) === feedId);
+    const f = allFeeds.find(x => (x.feed_name || x.feed_id || x.id) === feedId);
     if (!f) return;
     document.getElementById('adm-feed-list-view')?.classList.remove('visible');
     document.getElementById('adm-feed-detail-view')?.classList.add('visible');
@@ -2529,16 +2529,16 @@ async function viewAdminFeeds(el) {
     });
 
     document.getElementById('adm-feed-detail-content').innerHTML = `
-      <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.name || f.feed_id}</div><div class="adm-dh-meta">${f.source_url || f.feed_id} \u2014 ${f.schedule_label || f.schedule || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
+      <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.display_name || f.feed_name}</div><div class="adm-dh-meta">${f.source_url || f.feed_name} \u2014 ${f.schedule_cron || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
       <div class="adm-grid-2">
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Ingestion (7d)</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-detail-chart"></canvas></div></div>
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Configuration</div><button class="adm-action-btn" style="font-size:9px">Edit</button></div><div class="adm-padded">
-          <div class="adm-config-row"><span class="adm-cfg-label">Schedule (cron)</span><span class="adm-cfg-val">${f.schedule || '*/5 * * * *'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Schedule (cron)</span><span class="adm-cfg-val">${f.schedule_cron || '*/5 * * * *'}</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">Source URL</span><span class="adm-cfg-val" style="font-size:9px">${f.source_url || '-'}</span></div>
-          <div class="adm-config-row"><span class="adm-cfg-label">API Key</span><span class="adm-cfg-val">${f.api_key_configured ? 'Configured \u2713' : 'Not required'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">API Key</span><span class="adm-cfg-val">${f.api_key_encrypted ? 'Configured \u2713' : 'Not required'}</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">Rate Limit</span><span class="adm-cfg-val">${f.rate_limit || 60} req/min</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">Batch Size</span><span class="adm-cfg-val">${f.batch_size || 500} records</span></div>
-          <div class="adm-config-row"><span class="adm-cfg-label">Retries</span><span class="adm-cfg-val">${f.retries || 3} attempts</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Retries</span><span class="adm-cfg-val">${f.retry_count || 3} attempts</span></div>
         </div></div>
       </div>
       <div class="adm-grid-2">
@@ -2552,7 +2552,7 @@ async function viewAdminFeeds(el) {
       const ctx = document.getElementById('adm-feed-detail-chart');
       if (!ctx || typeof Chart === 'undefined') return;
       const labels = Array.from({ length: 7 }, (_, i) => { const d = new Date(Date.now() - (6 - i) * 86400000); return `${d.getMonth() + 1}/${d.getDate()}`; });
-      const data = labels.map(() => Math.floor((f.records_today || 200) * (0.6 + Math.random() * 0.8)));
+      const data = labels.map(() => Math.floor((f.records_ingested_today || 200) * (0.6 + Math.random() * 0.8)));
       _feedDetailChart = new Chart(ctx, {
         type: 'bar', data: { labels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#ffb627', borderWidth: 1, borderRadius: 4 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(255,182,39,.3)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
@@ -2564,7 +2564,7 @@ async function viewAdminFeeds(el) {
   try {
     const res = await api('/feeds').catch(() => null);
     allFeeds = res?.data || [];
-    const totalToday = allFeeds.reduce((s, f) => s + (f.records_today || 0), 0);
+    const totalToday = allFeeds.reduce((s, f) => s + (f.records_ingested_today || f.records_today || 0), 0);
     const healthyCount = allFeeds.filter(f => f.health_status === 'healthy' || !f.health_status).length;
 
     document.getElementById('adm-feed-agg').innerHTML = `
@@ -2575,7 +2575,7 @@ async function viewAdminFeeds(el) {
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.name || f.feed_id}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_run_at ? relativeTime(Math.round((Date.now() - new Date(f.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure_at ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure_at ? relativeTime(Math.round((Date.now() - new Date(f.last_failure_at).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_label || f.schedule || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
 
     // Row click to detail
