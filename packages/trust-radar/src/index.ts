@@ -18,6 +18,7 @@ import {
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
   handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
+  handleAgentOutputs,
 } from "./handlers/agents";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
@@ -490,6 +491,11 @@ router.get("/api/agents/runs", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleAgentRuns(request, env);
 });
+router.get("/api/agents/outputs", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentOutputs(request, env);
+});
 router.get("/api/agents/approvals", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -579,22 +585,68 @@ export default {
             console.error("[cron] enrichment error:", err);
           }
 
-          // Auto-trigger agents when new threat data arrives
-          if (r.totalNew > 0) {
-            try {
-              const { agentModules } = await import("./agents/index");
-              const { executeAgent } = await import("./lib/agentRunner");
-              const autoAgents = ["triage", "threat-hunt", "campaign-correlator", "impersonation-detector", "hosting-provider-analysis"] as const;
-              for (const name of autoAgents) {
-                const mod = agentModules[name];
+          // Auto-trigger v2 AI agents after ingestion + enrichment
+          try {
+            const { agentModules: allAgents } = await import("./agents/index");
+            const { executeAgent } = await import("./lib/agentRunner");
+
+            // Event-triggered agents (run on every ingestion with new data)
+            if (r.totalNew > 0) {
+              const eventAgents = ["sentinel", "triage", "impersonation-detector", "hosting-provider-analysis"] as const;
+              for (const name of eventAgents) {
+                const mod = allAgents[name];
                 if (mod) {
                   const result = await executeAgent(env, mod, { newItems: r.totalNew }, "cron", "event");
                   console.log(`[cron] agent ${name}: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
                 }
               }
-            } catch (err) {
-              console.error("[cron] agent auto-trigger error:", err);
             }
+
+            // Scheduled agents (run based on time — every Nth invocation)
+            // analyst: every 15min (3x per cron cycle at 5min), strategist: every 6h, cartographer: every 6h, observer: daily
+            const now = new Date();
+            const hour = now.getUTCHours();
+            const minute = now.getUTCMinutes();
+
+            // Analyst runs every 15 minutes
+            if (minute % 15 < 5) {
+              const mod = allAgents["analyst"];
+              if (mod) {
+                const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+                console.log(`[cron] agent analyst: ${result.status}`);
+              }
+            }
+
+            // Strategist + Cartographer run every 6 hours (0, 6, 12, 18)
+            if (hour % 6 === 0 && minute < 5) {
+              for (const name of ["strategist", "cartographer"] as const) {
+                const mod = allAgents[name];
+                if (mod) {
+                  const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+                  console.log(`[cron] agent ${name}: ${result.status}`);
+                }
+              }
+            }
+
+            // Observer runs daily at midnight UTC
+            if (hour === 0 && minute < 5) {
+              const mod = allAgents["observer"];
+              if (mod) {
+                const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+                console.log(`[cron] agent observer: ${result.status}`);
+              }
+
+              // Also generate daily snapshots at midnight
+              try {
+                const { generateDailySnapshots } = await import("./lib/snapshots");
+                const snapResult = await generateDailySnapshots(env.DB);
+                console.log(`[cron] snapshots: brands=${snapResult.brandSnapshots}, providers=${snapResult.providerSnapshots}`);
+              } catch (err) {
+                console.error("[cron] snapshot error:", err);
+              }
+            }
+          } catch (err) {
+            console.error("[cron] agent auto-trigger error:", err);
           }
         })
         .catch((err) => console.error("[cron] feed runner error:", err))

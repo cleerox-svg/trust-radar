@@ -1,8 +1,9 @@
 /**
- * Agent Runner — Orchestrator for AI agent execution.
+ * Agent Runner — Orchestrator for AI agent execution (v2).
  *
- * Manages agent lifecycle: create run → execute → record result.
- * Supports HITL (Human-in-the-Loop) approval gating.
+ * Uses v2 tables: agent_runs, agent_outputs.
+ * Supports both v2 named agents (sentinel, analyst, etc.) and
+ * legacy rule-based agents (triage, threat-hunt, etc.).
  */
 
 import type { Env } from "../types";
@@ -10,6 +11,13 @@ import type { Env } from "../types";
 // ─── Types ──────────────────────────────────────────────────────
 
 export type AgentName =
+  // v2 AI agents
+  | "sentinel"
+  | "analyst"
+  | "cartographer"
+  | "strategist"
+  | "observer"
+  // legacy rule-based agents (kept for backward compat)
   | "triage"
   | "threat-hunt"
   | "impersonation-detector"
@@ -23,41 +31,30 @@ export type AgentName =
   | "hosting-provider-analysis";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
-export type RunStatus = "queued" | "running" | "success" | "failed" | "cancelled" | "timeout" | "awaiting_approval";
+export type RunStatus = "queued" | "running" | "success" | "failed" | "cancelled" | "timeout" | "awaiting_approval" | "partial";
 
 export interface AgentRunRow {
   id: string;
-  agent_name: string;
-  trigger_type: string;
-  triggered_by: string | null;
-  status: string;
-  input: string;
-  output: string;
-  error: string | null;
-  items_processed: number;
-  items_created: number;
-  items_updated: number;
-  duration_ms: number | null;
-  model: string | null;
-  tokens_used: number;
-  requires_approval: number;
-  started_at: string | null;
+  agent_id: string;
+  started_at: string;
   completed_at: string | null;
-  created_at: string;
+  duration_ms: number | null;
+  status: string;
+  error_message: string | null;
+  records_processed: number;
+  outputs_generated: number;
 }
 
-export interface AgentApprovalRow {
+export interface AgentOutputRow {
   id: string;
-  run_id: string;
-  agent_name: string;
-  action_type: string;
-  description: string;
-  details: string;
-  status: string;
-  decided_by: string | null;
-  decision_note: string | null;
-  expires_at: string | null;
-  decided_at: string | null;
+  agent_id: string;
+  type: string;
+  summary: string;
+  severity: string | null;
+  details: string | null;
+  related_brand_ids: string | null;
+  related_campaign_id: string | null;
+  related_provider_ids: string | null;
   created_at: string;
 }
 
@@ -77,6 +74,18 @@ export interface AgentResult {
   model?: string;
   tokensUsed?: number;
   approvals?: ApprovalRequest[];
+  /** Agent outputs to persist in agent_outputs table */
+  agentOutputs?: AgentOutputEntry[];
+}
+
+export interface AgentOutputEntry {
+  type: "insight" | "classification" | "correlation" | "score" | "trend_report";
+  summary: string;
+  severity?: "critical" | "high" | "medium" | "low" | "info";
+  details?: Record<string, unknown>;
+  relatedBrandIds?: string[];
+  relatedCampaignId?: string;
+  relatedProviderIds?: string[];
 }
 
 export interface ApprovalRequest {
@@ -106,6 +115,13 @@ export const AGENT_DEFINITIONS: Array<{
   trigger: TriggerType;
   requiresApproval: boolean;
 }> = [
+  // v2 AI agents (Haiku-powered)
+  { name: "sentinel", displayName: "Sentinel", description: "Certificate & domain surveillance — classifies new threats via AI", color: "#22D3EE", trigger: "event", requiresApproval: false },
+  { name: "analyst", displayName: "Analyst", description: "Threat classification & brand matching via Haiku", color: "#818CF8", trigger: "scheduled", requiresApproval: false },
+  { name: "cartographer", displayName: "Cartographer", description: "Infrastructure mapping & provider reputation scoring", color: "#34D399", trigger: "scheduled", requiresApproval: false },
+  { name: "strategist", displayName: "Strategist", description: "Campaign correlation & clustering intelligence", color: "#F472B6", trigger: "scheduled", requiresApproval: false },
+  { name: "observer", displayName: "Observer", description: "Trend analysis & daily intelligence synthesis", color: "#FBBF24", trigger: "scheduled", requiresApproval: false },
+  // Legacy rule-based agents
   { name: "triage", displayName: "Triage", description: "Auto-score and prioritize incoming threats", color: "#22D3EE", trigger: "event", requiresApproval: false },
   { name: "threat-hunt", displayName: "Threat Hunt", description: "Correlate across feeds to find campaigns", color: "#818CF8", trigger: "scheduled", requiresApproval: false },
   { name: "impersonation-detector", displayName: "Impersonation Detector", description: "Detect lookalike domains and homoglyphs", color: "#F472B6", trigger: "event", requiresApproval: false },
@@ -116,7 +132,7 @@ export const AGENT_DEFINITIONS: Array<{
   { name: "trust-score-monitor", displayName: "Trust Score Monitor", description: "Continuous brand trust scoring", color: "#2DD4BF", trigger: "scheduled", requiresApproval: false },
   { name: "executive-intel", displayName: "Executive Intel", description: "Generate C-suite threat briefings", color: "#E879F9", trigger: "scheduled", requiresApproval: true },
   { name: "trustbot", displayName: "TrustBot", description: "Interactive AI threat intelligence copilot", color: "#60A5FA", trigger: "manual", requiresApproval: false },
-  { name: "hosting-provider-analysis", displayName: "Hosting Provider Analysis", description: "Track hosting providers used by threat actors, identify worst offenders", color: "#F97316", trigger: "event", requiresApproval: false },
+  { name: "hosting-provider-analysis", displayName: "Hosting Provider Analysis", description: "Track hosting providers used by threat actors", color: "#F97316", trigger: "event", requiresApproval: false },
 ];
 
 // ─── Run Execution ──────────────────────────────────────────────
@@ -129,16 +145,12 @@ export async function executeAgent(
   triggerType: TriggerType = "manual",
 ): Promise<{ runId: string; status: RunStatus; result: AgentResult | null; error?: string }> {
   const runId = crypto.randomUUID();
-  const startedAt = new Date().toISOString();
 
-  // Create run record
+  // Create run record in v2 agent_runs table
   await env.DB.prepare(
-    `INSERT INTO radar_agent_runs (id, agent_name, trigger_type, triggered_by, status, input, started_at, requires_approval, created_at)
-     VALUES (?, ?, ?, ?, 'running', ?, ?, ?, datetime('now'))`
-  ).bind(
-    runId, agentModule.name, triggerType, triggeredBy,
-    JSON.stringify(input), startedAt, agentModule.requiresApproval ? 1 : 0,
-  ).run();
+    `INSERT INTO agent_runs (id, agent_id, started_at, status, records_processed, outputs_generated)
+     VALUES (?, ?, datetime('now'), 'running', 0, 0)`
+  ).bind(runId, agentModule.name).run();
 
   const ctx: AgentContext = { env, runId, agentName: agentModule.name, input, triggeredBy };
   const start = Date.now();
@@ -147,35 +159,36 @@ export async function executeAgent(
     const result = await agentModule.execute(ctx);
     const durationMs = Date.now() - start;
 
-    // Create approval requests if any
-    if (result.approvals && result.approvals.length > 0) {
-      for (const approval of result.approvals) {
-        const approvalId = crypto.randomUUID();
-        const expiresAt = approval.expiresInHours
-          ? new Date(Date.now() + approval.expiresInHours * 3600000).toISOString()
-          : null;
-
+    // Persist agent outputs if any
+    let outputsGenerated = 0;
+    if (result.agentOutputs && result.agentOutputs.length > 0) {
+      for (const output of result.agentOutputs) {
+        const outputId = crypto.randomUUID();
         await env.DB.prepare(
-          `INSERT INTO radar_agent_approvals (id, run_id, agent_name, action_type, description, details, status, expires_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'))`
+          `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, related_brand_ids, related_campaign_id, related_provider_ids, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
         ).bind(
-          approvalId, runId, agentModule.name, approval.actionType,
-          approval.description, JSON.stringify(approval.details), expiresAt,
+          outputId, agentModule.name, output.type, output.summary,
+          output.severity ?? null,
+          output.details ? JSON.stringify(output.details) : null,
+          output.relatedBrandIds ? JSON.stringify(output.relatedBrandIds) : null,
+          output.relatedCampaignId ?? null,
+          output.relatedProviderIds ? JSON.stringify(output.relatedProviderIds) : null,
         ).run();
+        outputsGenerated++;
       }
     }
 
     const finalStatus: RunStatus = result.approvals?.length ? "awaiting_approval" : "success";
 
     await env.DB.prepare(
-      `UPDATE radar_agent_runs SET
-         status = ?, output = ?, items_processed = ?, items_created = ?, items_updated = ?,
-         duration_ms = ?, model = ?, tokens_used = ?, completed_at = datetime('now')
+      `UPDATE agent_runs SET
+         status = ?, duration_ms = ?, records_processed = ?,
+         outputs_generated = ?, completed_at = datetime('now')
        WHERE id = ?`
     ).bind(
-      finalStatus, JSON.stringify(result.output), result.itemsProcessed,
-      result.itemsCreated, result.itemsUpdated, durationMs,
-      result.model ?? null, result.tokensUsed ?? 0, runId,
+      finalStatus, durationMs, result.itemsProcessed,
+      outputsGenerated, runId,
     ).run();
 
     return { runId, status: finalStatus, result };
@@ -184,14 +197,14 @@ export async function executeAgent(
     const errorMsg = err instanceof Error ? err.message : String(err);
 
     await env.DB.prepare(
-      `UPDATE radar_agent_runs SET status = 'failed', error = ?, duration_ms = ?, completed_at = datetime('now') WHERE id = ?`
+      `UPDATE agent_runs SET status = 'failed', error_message = ?, duration_ms = ?, completed_at = datetime('now') WHERE id = ?`
     ).bind(errorMsg, durationMs, runId).run();
 
     return { runId, status: "failed", result: null, error: errorMsg };
   }
 }
 
-// ─── Approval Management ────────────────────────────────────────
+// ─── Approval Management (legacy compat) ────────────────────────
 
 export async function resolveApproval(
   env: Env,
@@ -200,30 +213,12 @@ export async function resolveApproval(
   decidedBy: string,
   note?: string,
 ): Promise<void> {
-  await env.DB.prepare(
-    `UPDATE radar_agent_approvals SET status = ?, decided_by = ?, decision_note = ?, decided_at = datetime('now') WHERE id = ? AND status = 'pending'`
-  ).bind(decision, decidedBy, note ?? null, approvalId).run();
-
-  // If approved, check if all approvals for the run are resolved
-  const approval = await env.DB.prepare(
-    "SELECT run_id FROM radar_agent_approvals WHERE id = ?"
-  ).bind(approvalId).first<{ run_id: string }>();
-
-  if (approval) {
-    const pending = await env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM radar_agent_approvals WHERE run_id = ? AND status = 'pending'"
-    ).bind(approval.run_id).first<{ cnt: number }>();
-
-    if (pending && pending.cnt === 0) {
-      // All approvals resolved — update run status
-      const rejected = await env.DB.prepare(
-        "SELECT COUNT(*) as cnt FROM radar_agent_approvals WHERE run_id = ? AND status = 'rejected'"
-      ).bind(approval.run_id).first<{ cnt: number }>();
-
-      const newStatus = rejected && rejected.cnt > 0 ? "cancelled" : "success";
-      await env.DB.prepare(
-        "UPDATE radar_agent_runs SET status = ?, completed_at = datetime('now') WHERE id = ?"
-      ).bind(newStatus, approval.run_id).run();
-    }
+  // Try v1 table first (for legacy agents), gracefully handle if not exists
+  try {
+    await env.DB.prepare(
+      `UPDATE radar_agent_approvals SET status = ?, decided_by = ?, decision_note = ?, decided_at = datetime('now') WHERE id = ? AND status = 'pending'`
+    ).bind(decision, decidedBy, note ?? null, approvalId).run();
+  } catch {
+    // radar_agent_approvals may not exist in v2-only deployments
   }
 }
