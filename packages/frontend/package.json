@@ -4,11 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev:radar": "vite --config radar/vite.config.ts",
     "dev:imprsn8": "vite --config imprsn8/vite.config.ts",
-    "build:radar": "vite build --config radar/vite.config.ts",
     "build:imprsn8": "vite build --config imprsn8/vite.config.ts",
-    "build": "pnpm build:radar && pnpm build:imprsn8",
+    "build": "pnpm build:imprsn8",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts"
