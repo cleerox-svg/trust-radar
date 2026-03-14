@@ -276,19 +276,21 @@ export async function handleScan(
   // Run fresh scan
   const scanData = await runScan(url, env);
 
-  // LRX AI insight (best-effort, 5s timeout)
-  if (env.LRX_API_URL && env.LRX_API_KEY) {
+  // AI scan insight via Anthropic Haiku (best-effort, 10s timeout)
+  if (env.ANTHROPIC_API_KEY) {
     try {
-      type InsightResp = { success: boolean; data?: { summary: string; explanation: string; recommendations: string[] } };
-      const insight = await Promise.race<InsightResp | null>([
-        fetch(`${env.LRX_API_URL}/api/ai/scan-insight`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": env.LRX_API_KEY },
-          body: JSON.stringify({ url, trust_score: scanData.trust_score, risk_level: scanData.risk_level, flags: scanData.flags }),
-        }).then((r) => r.json() as Promise<InsightResp>),
-        new Promise<null>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      const { analyzeWithHaiku } = await import("../lib/haiku");
+      const insight = await Promise.race([
+        analyzeWithHaiku(env,
+          `Analyze this URL scan and provide a brief security insight. Respond with JSON: { "summary": "...", "explanation": "...", "recommendations": ["..."] }`,
+          { url, trust_score: scanData.trust_score, risk_level: scanData.risk_level, flags: scanData.flags },
+        ),
+        new Promise<null>((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000)),
       ]);
-      if (insight?.success && insight.data) scanData.metadata.ai_insight = insight.data;
+      if (insight && "success" in insight && insight.success && insight.data) {
+        const d = insight.data as { structured?: { summary?: string; explanation?: string; recommendations?: string[] } };
+        if (d.structured) scanData.metadata.ai_insight = d.structured as { summary: string; explanation: string; recommendations: string[] };
+      }
     } catch { /* non-fatal */ }
   }
 

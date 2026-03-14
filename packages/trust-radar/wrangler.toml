@@ -54,12 +54,11 @@ new_classes = ["ThreatPushHub"]
 # ─── Environment variables ────────────────────────────────────
 [vars]
 ENVIRONMENT = "production"
-LRX_API_URL = "https://api.lrx.io"
 
 # ─── Secrets (set via: wrangler secret put <NAME>) ────────────
+# ANTHROPIC_API_KEY  — Anthropic API key for Claude Haiku AI analysis
 # JWT_SECRET
 # VIRUSTOTAL_API_KEY
-# LRX_API_KEY
 # GOOGLE_CLIENT_ID
 # GOOGLE_CLIENT_SECRET
 
@@ -69,7 +68,7 @@ name = "trust-radar-staging"
 routes = [
   { pattern = "staging.lrxradar.com", custom_domain = true }
 ]
-vars = { ENVIRONMENT = "staging", LRX_API_URL = "https://api.lrx.io" }
+vars = { ENVIRONMENT = "staging" }
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -86,7 +85,7 @@ migrations_dir = "migrations-audit"
 # ─── Local dev overrides ─────────────────────────────────────
 [env.dev]
 name = "trust-radar-dev"
-vars = { ENVIRONMENT = "development", LRX_API_URL = "http://localhost:8000" }
+vars = { ENVIRONMENT = "development" }
 
 [[env.dev.d1_databases]]
 binding = "DB"

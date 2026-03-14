@@ -22,8 +22,7 @@ export const analystAgent: AgentModule = {
 
     // ─── Diagnostic logging ───────────────────────────────────
     console.log("[analyst] === STARTING ===");
-    console.log("[analyst] LRX_API_URL configured:", !!env.LRX_API_URL, env.LRX_API_URL ? env.LRX_API_URL.slice(0, 30) + "..." : "MISSING");
-    console.log("[analyst] LRX_API_KEY configured:", !!env.LRX_API_KEY, env.LRX_API_KEY ? "present (length=" + env.LRX_API_KEY.length + ")" : "MISSING");
+    console.log("[analyst] ANTHROPIC_API_KEY configured:", !!env.ANTHROPIC_API_KEY, env.ANTHROPIC_API_KEY ? "present (length=" + env.ANTHROPIC_API_KEY.length + ")" : "MISSING");
 
     // Get threats without brand assignment that rule-based detection missed
     const threats = await env.DB.prepare(
@@ -151,7 +150,7 @@ export const analystAgent: AgentModule = {
         noBrandThreats: noBrandCount?.n ?? 0,
         noBrandWithDomain: noBrandWithDomain?.n ?? 0,
         knownBrands: brandNames.length,
-        lrxApiConfigured: !!env.LRX_API_URL && !!env.LRX_API_KEY,
+        anthropicApiConfigured: !!env.ANTHROPIC_API_KEY,
         model,
       },
     });
