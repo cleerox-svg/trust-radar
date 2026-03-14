@@ -77,6 +77,8 @@ const routes = [
   { path: '/admin/users',          view: viewAdminUsers,      auth: true, admin: true },
   { path: '/admin/feeds',          view: viewAdminFeeds,      auth: true, admin: true },
   { path: '/admin/leads',          view: viewAdminLeads,      auth: true, admin: true },
+  { path: '/admin/api-keys',       view: viewAdminApiKeys,    auth: true, admin: true },
+  { path: '/admin/agent-config',   view: viewAdminAgentConfig, auth: true, admin: true },
   { path: '/admin/audit',          view: viewAdminAudit,      auth: true, admin: true },
   { path: '/login',                view: viewLogin,           auth: false },
   { path: '/auth/callback',        view: viewAuthCallback,    auth: false },
@@ -170,8 +172,10 @@ async function render() {
     const isObservatory = pathname === '/';
     if (isObservatory) {
       app.innerHTML = `<div>${renderTopbar()}<div class="observatory-layout"><div class="main" id="view"></div><div class="obs-sidebar" id="obs-sidebar"></div></div></div><div class="toast-container" id="toasts"></div>`;
+    } else if (isAdmin) {
+      app.innerHTML = `<div class="admin-mode">${renderAdminTopbar(pathname)}<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
     } else {
-      app.innerHTML = `<div class="${isAdmin ? 'admin-mode' : ''}">${renderTopbar()}` +
+      app.innerHTML = `<div>${renderTopbar()}` +
         `<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
     }
     route.view(document.getElementById('view'), params);
@@ -212,6 +216,39 @@ function renderTopbar() {
           <a href="/">${u?.email || ''}</a>
           <a href="/"><span class="role-pill ${u?.role}">${u?.role || ''}</span></a>
           ${isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+          <a href="#" onclick="logout(); return false;">Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAdminTopbar(activePath) {
+  const u = currentUser;
+  const initials = u?.name ? u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?';
+  const adminNav = [
+    { href: '/admin', label: 'Dashboard' },
+    { href: '/admin/users', label: 'Users' },
+    { href: '/admin/feeds', label: 'Feeds' },
+    { href: '/admin/leads', label: 'Leads' },
+    { href: '/admin/api-keys', label: 'API Keys' },
+    { href: '/admin/agent-config', label: 'Agent Config' },
+    { href: '/admin/audit', label: 'Audit Log' },
+  ];
+  return `<div class="topbar admin-topbar">
+    <div class="topbar-left" style="display:flex;align-items:center;gap:20px">
+      <div class="topbar-logo"><span class="dot"></span>TRUST RADAR</div>
+      <span class="admin-badge">Admin</span>
+      <nav class="admin-nav-pills">
+        ${adminNav.map(n => `<a href="${n.href}" class="admin-np${activePath === n.href ? ' active' : ''}">${n.label}</a>`).join('')}
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <a href="/" class="admin-back-link">\u2190 Back to Observatory</a>
+      <div class="user-menu" onclick="this.classList.toggle('open')">
+        <div class="user-avatar">${initials}</div>
+        <div class="user-dropdown">
+          <a href="/">${u?.email || ''}</a>
           <a href="#" onclick="logout(); return false;">Logout</a>
         </div>
       </div>
@@ -2202,111 +2239,667 @@ async function viewAgents(el) {
   window._viewCleanup = () => { if (_agentHealthChart) { _agentHealthChart.destroy(); _agentHealthChart = null; } _selectedAgent = null; };
 }
 
-// ─── View: Admin Dashboard ──────────────────────────────────
+// ─── View: Admin Dashboard (Step 14) ────────────────────────
+let _adminFeedChart = null;
 async function viewAdmin(el) {
-  el.innerHTML = `<div class="page-header"><h1 class="page-title">Admin Dashboard</h1></div>
-    <div class="stat-row" id="admin-stats"></div>
-    <div class="grid-3">
-      <a href="/admin/users" class="panel" style="text-decoration:none"><div class="phead">User Management</div><div class="panel-body" style="color:var(--text-secondary)">Manage users, roles, invitations</div></a>
-      <a href="/admin/feeds" class="panel" style="text-decoration:none"><div class="phead">Feed Management</div><div class="panel-body" style="color:var(--text-secondary)">Monitor feed health and triggers</div></a>
-      <a href="/admin/audit" class="panel" style="text-decoration:none"><div class="phead">Audit Log</div><div class="panel-body" style="color:var(--text-secondary)">View all system activity</div></a>
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
+    <div class="adm-metrics" id="adm-metrics"></div>
+    <div class="adm-actions">
+      <div class="adm-action-btn" onclick="navigate('/admin/users')"><div class="adm-action-icon">+</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn" onclick="navigate('/admin/feeds')"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn" onclick="navigate('/admin/agent-config')"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
+    </div>
+    <div class="adm-grid-2">
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div id="adm-events" style="max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
+    </div>
+    <div class="adm-grid-2">
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
     </div>`;
+
   try {
-    const res = await api('/admin/stats');
-    const d = res?.data || {};
-    document.getElementById('admin-stats').innerHTML = [
-      renderStatCard('\ud83d\udc65', 'brands', d.users?.total || 0, 'Total Users'),
-      renderStatCard('\u2b55', 'positive', d.users?.active || 0, 'Active Users'),
-      renderStatCard('\u26a0', 'threats', d.threats?.total || 0, 'Total Threats'),
-      renderStatCard('\ud83d\udd12', 'campaigns', d.sessions?.active || 0, 'Active Sessions'),
-    ].join('');
+    const [statsRes, feedsRes, eventsRes, leadsRes, agentsRes] = await Promise.all([
+      api('/admin/stats').catch(() => null),
+      api('/feeds').catch(() => null),
+      api('/admin/audit?limit=15').catch(() => null),
+      api('/admin/leads').catch(() => null),
+      api('/agents').catch(() => null),
+    ]);
+    const stats = statsRes?.data || {};
+    const feeds = feedsRes?.data || [];
+    const events = eventsRes?.data || [];
+    const leads = leadsRes?.data || [];
+    const agents = agentsRes?.data || [];
+
+    // Metrics
+    const userTotal = stats.users?.total || 0;
+    const activeSessions = stats.sessions?.active || 0;
+    const saCount = stats.users?.super_admin || 0;
+    const adminCount = stats.users?.admin || 0;
+    const analystCount = stats.users?.analyst || 0;
+    const healthyFeeds = feeds.filter(f => f.health_status === 'healthy' || f.enabled).length;
+    const totalFeeds = feeds.length;
+    const totalRecords = feeds.reduce((s, f) => s + (f.records_today || 0), 0);
+    const leadNew = leads.filter(l => l.status === 'new').length;
+    const leadContacted = leads.filter(l => l.status === 'contacted').length;
+    const leadQualified = leads.filter(l => l.status === 'qualified').length;
+    const leadProposal = leads.filter(l => l.status === 'proposal').length;
+    const leadConverted = leads.filter(l => l.status === 'converted').length;
+    const leadTotal = leadNew + leadContacted + leadQualified + leadProposal;
+    const agentJobs = agents.reduce((s, a) => s + (a.jobs_24h || 0), 0);
+    const agentErrors = agents.reduce((s, a) => s + (a.error_count_24h || 0), 0);
+
+    document.getElementById('adm-metrics').innerHTML = `
+      <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value" style="color:var(--blue-primary)">${userTotal}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value" style="color:var(--positive)">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${healthyFeeds} healthy</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:100%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value" style="color:var(--threat-medium)">${leadTotal}</div><div class="adm-metric-sub"><span style="color:var(--negative)">${leadNew} new</span><span style="color:var(--positive)">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
+
+    // Feed ingestion chart
+    const feedBadgeEl = document.getElementById('adm-feed-badge');
+    if (feedBadgeEl) feedBadgeEl.textContent = feeds.every(f => f.health_status === 'healthy' || !f.health_status) ? 'All healthy' : 'Issues detected';
+    if (feeds.length && typeof Chart !== 'undefined') {
+      const feedLabels = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
+      const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff'];
+      if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
+      _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
+        type: 'line', data: { labels: feedLabels, datasets: feeds.slice(0, 4).map((f, i) => ({
+          label: f.name || f.feed_id, data: Array.from({ length: 24 }, () => Math.floor(Math.random() * (f.records_today || 200) / 24 * 2)),
+          backgroundColor: feedColors[i % 4] + '30', borderColor: feedColors[i % 4], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 }))},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
+          scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
+      });
+    }
+
+    // Feed list
+    document.getElementById('adm-feed-list').innerHTML = feeds.map(f => {
+      const st = f.health_status || 'healthy';
+      return `<div class="adm-feed-row"><div class="adm-feed-dot ${st}"></div><div class="adm-feed-name">${f.name || f.feed_id}</div><div class="adm-feed-last">${f.last_run_at ? relativeTime(Math.round((Date.now() - new Date(f.last_run_at).getTime()) / 60000)) : '-'}</div><div class="adm-feed-count">${(f.records_today || 0).toLocaleString()} today</div></div>`;
+    }).join('');
+
+    // Events
+    const evBadge = document.getElementById('adm-events-badge');
+    if (evBadge) evBadge.textContent = `Last ${events.length}`;
+    const evIcons = { login: { cls: 'auth', icon: '\u25c8' }, login_failed: { cls: 'feed-err', icon: '\u25c8' }, feed_run: { cls: 'feed', icon: '\u21bb' }, feed_error: { cls: 'feed-err', icon: '\u26a0' }, config_change: { cls: 'config', icon: '\u229e' }, role_change: { cls: 'user', icon: '+' }, invitation: { cls: 'user', icon: '+' }, lead_update: { cls: 'lead', icon: '\u25c9' } };
+    document.getElementById('adm-events').innerHTML = events.map(e => {
+      const ev = evIcons[e.action] || evIcons.login;
+      return `<div class="adm-event-row"><div class="adm-ev-icon ${ev.cls}">${ev.icon}</div><div class="adm-ev-body"><div class="adm-ev-text">${e.summary || e.action || ''} <strong>${e.resource_type || ''}</strong></div><div class="adm-ev-time">${e.timestamp ? relativeTime(Math.round((Date.now() - new Date(e.timestamp).getTime()) / 60000)) : ''}</div></div><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></div>`;
+    }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No recent events</div>';
+
+    // Pipeline
+    const pipeStages = [
+      { label: 'New', count: leadNew, color: 'var(--negative)' },
+      { label: 'Contacted', count: leadContacted, color: 'var(--threat-high)' },
+      { label: 'Qualified', count: leadQualified, color: 'var(--threat-medium)' },
+      { label: 'Proposal', count: leadProposal, color: 'var(--blue-primary)' },
+      { label: 'Converted', count: leadConverted, color: 'var(--positive)' },
+    ];
+    const pipeBadge = document.getElementById('adm-pipe-badge');
+    if (pipeBadge) pipeBadge.textContent = `${leads.length} total`;
+    document.getElementById('adm-pipeline').innerHTML = pipeStages.map(s => `<div class="adm-pipe-stage"><div class="adm-pipe-v" style="color:${s.color}">${s.count}</div><div class="adm-pipe-l">${s.label}</div></div>`).join('');
+    document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span style="font-family:var(--font-mono);color:var(--text-secondary)">--</span> \u00b7 Conversion rate: <span style="font-family:var(--font-mono);color:var(--positive)">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
+
+    // Agent summary
+    const agentBadge = document.getElementById('adm-agent-badge');
+    const agentActive = agents.filter(a => a.status === 'active').length;
+    if (agentBadge) agentBadge.textContent = `${agentActive}/${agents.length} operational`;
+    document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
+      const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,212,255,.04)"><div style="width:7px;height:7px;border-radius:50%;background:${a.status==='active'?'var(--positive)':'var(--blue-primary)'};${a.status==='active'?'animation:pulse 2s ease-in-out infinite':''}"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color}">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} outputs</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div></div>`;
+    }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
+
   } catch (err) { showToast(err.message, 'error'); }
+
+  window._viewCleanup = () => { if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; } };
 }
 
-// ─── View: Admin Users ──────────────────────────────────────
+// ─── View: Admin Users (Step 15) ────────────────────────────
 async function viewAdminUsers(el) {
-  el.innerHTML = `<div class="page-header"><h1 class="page-title">User Management</h1><button class="btn btn-primary" id="invite-btn">Invite User</button></div><div id="users-content">Loading...</div>`;
-  try {
-    const res = await api('/admin/users');
-    document.getElementById('users-content').innerHTML = renderDataTable(
-      [
-        { key: 'name', label: 'Name' },
-        { key: 'email', label: 'Email', className: 'mono' },
-        { key: 'role', label: 'Role', render: v => `<span class="role-pill ${v}">${v}</span>` },
-        { key: 'status', label: 'Status', render: v => `<span class="badge-status ${v}">${v}</span>` },
-        { key: 'last_login', label: 'Last Login', className: 'mono', render: v => v?.slice(0, 10) || 'Never' },
-      ],
-      res?.data?.users || [],
-    );
-  } catch (err) { showToast(err.message, 'error'); }
+  const ini = n => n ? n.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
 
-  document.getElementById('invite-btn')?.addEventListener('click', () => {
-    showModal('Invite User', `
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="invite-email" type="email" placeholder="user@company.com"></div>
-      <div class="form-group"><label class="form-label">Role</label><select class="form-input form-select" id="invite-role"><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
-    `, async (overlay) => {
-      const email = overlay.querySelector('#invite-email')?.value;
-      const role = overlay.querySelector('#invite-role')?.value;
-      if (!email) return;
-      try {
-        await api('/admin/invites', { method: 'POST', body: JSON.stringify({ email, role }) });
-        showToast(`Invite sent to ${email}`, 'success');
-      } catch (err) { showToast(err.message, 'error'); }
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Users & Roles</div>
+      <button class="adm-btn adm-btn-primary" id="adm-invite-btn"><span style="font-size:14px">+</span> Invite User</button>
+    </div>
+    <div class="adm-page-tabs">
+      <div class="adm-ptab active" data-tab="users">Active Users<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)" id="user-count">-</span></div>
+      <div class="adm-ptab" data-tab="invites">Pending Invitations<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)" id="inv-count">-</span></div>
+    </div>
+    <div class="adm-ptab-c visible" id="tab-users">
+      <div class="adm-controls">
+        <input class="adm-search" placeholder="Search by name or email..." id="adm-user-search">
+        <select class="adm-sel" id="adm-role-filter"><option value="">All Roles</option><option value="super_admin">Super Admin</option><option value="admin">Admin</option><option value="analyst">Analyst</option></select>
+        <select class="adm-sel" id="adm-status-filter"><option value="">All Status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
+      </div>
+      <div class="adm-panel" id="users-table-wrap"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    </div>
+    <div class="adm-ptab-c" id="tab-invites"><div id="inv-list"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div></div>
+    <div class="adm-modal-ov" id="adm-inv-modal">
+      <div class="adm-modal">
+        <div class="adm-modal-t">Invite User</div>
+        <div class="adm-modal-s">Send an invitation email with a secure token link. The recipient must authenticate with the matching Google account.</div>
+        <div class="adm-fg"><label class="adm-fl">Email Address</label><input class="adm-fi" placeholder="user@company.com" id="adm-inv-email"></div>
+        <div class="adm-fg"><label class="adm-fl">Role</label><select class="adm-fsel" id="adm-inv-role"><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
+        <div class="adm-macts"><button class="adm-btn-c" id="adm-inv-cancel">Cancel</button><button class="adm-btn-s" id="adm-inv-send">Send Invitation</button></div>
+      </div>
+    </div>
+    <div class="adm-slideout" id="adm-user-slideout"><button class="adm-so-close" id="adm-so-close">\u00d7</button><div id="adm-so-content"></div></div>`;
+
+  let allUsers = [];
+  let allInvites = [];
+
+  function renderUsersTable(users) {
+    if (!users.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No users found</div>';
+    return `<table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Last Active</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
+      const roleColors = { super_admin: 'var(--threat-medium)', admin: 'var(--purple)', analyst: 'var(--blue-primary)' };
+      const c = roleColors[u.role] || 'var(--blue-primary)';
+      return `<tr data-uid="${u.id}"><td><div class="adm-user-cell"><div class="adm-avatar" style="color:${c}">${ini(u.name)}</div><div><div class="adm-user-name">${u.name}</div><div class="adm-user-email">${u.email}</div></div></div></td><td><span class="adm-role-pill ${u.role}">${(u.role || '').replace('_', ' ')}</span></td><td><span class="adm-status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_active_at ? relativeTime(Math.round((Date.now() - new Date(u.last_active_at).getTime()) / 60000)) : '-'}</td><td><button class="adm-action-btn" onclick="event.stopPropagation()">Details</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+  }
+
+  function filterUsers() {
+    const search = (document.getElementById('adm-user-search')?.value || '').toLowerCase();
+    const role = document.getElementById('adm-role-filter')?.value || '';
+    const status = document.getElementById('adm-status-filter')?.value || '';
+    const filtered = allUsers.filter(u => {
+      if (search && !u.name?.toLowerCase().includes(search) && !u.email?.toLowerCase().includes(search)) return false;
+      if (role && u.role !== role) return false;
+      if (status && u.status !== status) return false;
+      return true;
     });
+    document.getElementById('users-table-wrap').innerHTML = renderUsersTable(filtered);
+    bindUserRows();
+  }
+
+  function openUserSlideout(userId) {
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    const c = { super_admin: 'var(--threat-medium)', admin: 'var(--purple)', analyst: 'var(--blue-primary)' }[u.role] || 'var(--blue-primary)';
+    document.getElementById('adm-so-content').innerHTML = `
+      <div class="adm-so-header"><div class="adm-so-avatar" style="color:${c}">${ini(u.name)}</div><div><div class="adm-so-name">${u.name}</div><div class="adm-so-email">${u.email}</div></div></div>
+      <div class="adm-so-section"><div class="adm-so-sect-title">Account</div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Role</span><span class="adm-so-row-v"><span class="adm-role-pill ${u.role}">${(u.role || '').replace('_', ' ')}</span></span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Status</span><span class="adm-so-row-v"><span class="adm-status-pill ${u.status || 'active'}">${u.status || 'active'}</span></span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Created</span><span class="adm-so-row-v">${u.created_at ? u.created_at.slice(0, 10) : '-'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Total logins</span><span class="adm-so-row-v">${u.login_count || 0}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Last login</span><span class="adm-so-row-v">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</span></div>
+      </div>
+      <div class="adm-so-section"><div class="adm-so-sect-title">Active Sessions (${u.sessions?.length || 0})</div>
+        ${(u.sessions || []).length ? (u.sessions || []).map(s => `<div class="adm-session-row"><div style="width:6px;height:6px;border-radius:50%;background:var(--positive);flex-shrink:0"></div><div class="adm-sess-device">${s.device || 'Unknown'}<br><span class="adm-sess-ip">${s.ip || ''}</span></div><div class="adm-sess-active">${s.active || '-'}</div><button class="adm-revoke-btn">Revoke</button></div>`).join('') : '<div style="font-size:11px;color:var(--text-tertiary);padding:8px 0">No active sessions</div>'}
+      </div>
+      <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="adm-action-btn" onclick="event.stopPropagation()">Change Role</button>
+          <button class="adm-action-btn" style="border-color:${u.status==='active'?'rgba(255,59,92,.2)':'rgba(0,229,160,.2)'};color:${u.status==='active'?'var(--negative)':'var(--positive)'}">${u.status==='active'?'Suspend':'Reactivate'}</button>
+          <button class="adm-action-btn" onclick="navigate('/admin/audit')">View Audit Trail</button>
+        </div>
+      </div>`;
+    document.getElementById('adm-user-slideout').classList.add('open');
+  }
+
+  function bindUserRows() {
+    document.querySelectorAll('#users-table-wrap tr[data-uid]').forEach(tr => {
+      tr.addEventListener('click', () => openUserSlideout(tr.dataset.uid));
+    });
+  }
+
+  try {
+    const [usersRes, invitesRes] = await Promise.all([
+      api('/admin/users').catch(() => null),
+      api('/admin/invites').catch(() => null),
+    ]);
+    allUsers = usersRes?.data?.users || usersRes?.data || [];
+    allInvites = invitesRes?.data || [];
+
+    document.getElementById('user-count').textContent = allUsers.length;
+    document.getElementById('inv-count').textContent = allInvites.length;
+    filterUsers();
+
+    // Invitations
+    document.getElementById('inv-list').innerHTML = allInvites.length ? allInvites.map(inv => `
+      <div class="adm-inv-row">
+        <div class="adm-inv-email">${inv.email}</div>
+        <div class="adm-inv-role"><span class="adm-role-pill ${inv.role || 'analyst'}">${inv.role || 'analyst'}</span></div>
+        <div class="adm-inv-sent">Sent ${inv.created_at ? relativeTime(Math.round((Date.now() - new Date(inv.created_at).getTime()) / 60000)) : '-'}</div>
+        <div class="adm-inv-status"><span class="adm-status-pill ${inv.status === 'pending' ? 'pending-inv' : 'expired'}">${inv.status || 'pending'}</span></div>
+        <div style="display:flex;gap:4px"><button class="adm-action-btn">Resend</button><button class="adm-action-btn" style="border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke</button></div>
+      </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No pending invitations</div>';
+  } catch (err) { showToast(err.message, 'error'); }
+
+  // Search/filter handlers
+  document.getElementById('adm-user-search')?.addEventListener('input', filterUsers);
+  document.getElementById('adm-role-filter')?.addEventListener('change', filterUsers);
+  document.getElementById('adm-status-filter')?.addEventListener('change', filterUsers);
+
+  // Tabs
+  el.querySelectorAll('.adm-ptab').forEach(t => t.addEventListener('click', () => {
+    el.querySelectorAll('.adm-ptab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    el.querySelectorAll('.adm-ptab-c').forEach(c => c.classList.remove('visible'));
+    document.getElementById('tab-' + t.dataset.tab)?.classList.add('visible');
+  }));
+
+  // Modal
+  document.getElementById('adm-invite-btn')?.addEventListener('click', () => document.getElementById('adm-inv-modal')?.classList.add('vis'));
+  document.getElementById('adm-inv-cancel')?.addEventListener('click', () => document.getElementById('adm-inv-modal')?.classList.remove('vis'));
+  document.getElementById('adm-inv-modal')?.addEventListener('click', e => { if (e.target.id === 'adm-inv-modal') e.target.classList.remove('vis'); });
+  document.getElementById('adm-inv-send')?.addEventListener('click', async () => {
+    const email = document.getElementById('adm-inv-email')?.value;
+    const role = document.getElementById('adm-inv-role')?.value;
+    if (!email) return;
+    try {
+      await api('/admin/invites', { method: 'POST', body: JSON.stringify({ email, role }) });
+      showToast(`Invite sent to ${email}`, 'success');
+      document.getElementById('adm-inv-modal')?.classList.remove('vis');
+    } catch (err) { showToast(err.message, 'error'); }
   });
+
+  // Slideout close
+  document.getElementById('adm-so-close')?.addEventListener('click', () => document.getElementById('adm-user-slideout')?.classList.remove('open'));
+
+  window._viewCleanup = () => { document.getElementById('adm-user-slideout')?.classList.remove('open'); document.getElementById('adm-inv-modal')?.classList.remove('vis'); };
 }
 
-// ─── View: Admin Feeds ──────────────────────────────────────
+// ─── View: Admin Feeds (Step 16) ────────────────────────────
+let _feedDetailChart = null;
 async function viewAdminFeeds(el) {
-  el.innerHTML = `<div class="page-header"><h1 class="page-title">Feed Management</h1></div><div id="feeds-content">Loading...</div>`;
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Feed Management</div>
+    <div class="adm-agg" id="adm-feed-agg"></div>
+    <div id="adm-feed-list-view" class="visible"><div class="adm-panel" id="adm-feeds-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div></div>
+    <div id="adm-feed-detail-view"><button class="adm-back-btn" id="adm-feed-back">\u2190 Back to Feeds</button><div id="adm-feed-detail-content"></div></div>`;
+
+  let allFeeds = [];
+
+  function showFeedDetail(feedId) {
+    const f = allFeeds.find(x => (x.feed_id || x.id) === feedId);
+    if (!f) return;
+    document.getElementById('adm-feed-list-view')?.classList.remove('visible');
+    document.getElementById('adm-feed-detail-view')?.classList.add('visible');
+    const st = f.health_status || 'healthy';
+
+    // Generate pull history simulation
+    const pulls = Array.from({ length: 20 }, (_, i) => {
+      const status = Math.random() > 0.05 ? 'success' : Math.random() > 0.5 ? 'partial' : 'failed';
+      return { time: new Date(Date.now() - i * 300000).toISOString().substring(0, 16).replace('T', ' '), dur: (1.0 + Math.random() * 3).toFixed(1) + 's', records: status === 'failed' ? 0 : Math.floor(Math.random() * 500), rejected: Math.floor(Math.random() * 5), status };
+    });
+
+    document.getElementById('adm-feed-detail-content').innerHTML = `
+      <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.name || f.feed_id}</div><div class="adm-dh-meta">${f.source_url || f.feed_id} \u2014 ${f.schedule_label || f.schedule || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
+      <div class="adm-grid-2">
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Ingestion (7d)</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-detail-chart"></canvas></div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Configuration</div><button class="adm-action-btn" style="font-size:9px">Edit</button></div><div class="adm-padded">
+          <div class="adm-config-row"><span class="adm-cfg-label">Schedule (cron)</span><span class="adm-cfg-val">${f.schedule || '*/5 * * * *'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Source URL</span><span class="adm-cfg-val" style="font-size:9px">${f.source_url || '-'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">API Key</span><span class="adm-cfg-val">${f.api_key_configured ? 'Configured \u2713' : 'Not required'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Rate Limit</span><span class="adm-cfg-val">${f.rate_limit || 60} req/min</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Batch Size</span><span class="adm-cfg-val">${f.batch_size || 500} records</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Retries</span><span class="adm-cfg-val">${f.retries || 3} attempts</span></div>
+        </div></div>
+      </div>
+      <div class="adm-grid-2">
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">Last 20</div></div><div style="max-height:300px;overflow-y:auto">${pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count" style="color:var(--text-tertiary)">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('')}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div style="text-align:center;padding:24px;color:var(--positive);font-size:12px">No errors recorded</div>'}</div></div>
+      </div>`;
+
+    // Detail chart
+    if (_feedDetailChart) { _feedDetailChart.destroy(); _feedDetailChart = null; }
+    setTimeout(() => {
+      const ctx = document.getElementById('adm-feed-detail-chart');
+      if (!ctx || typeof Chart === 'undefined') return;
+      const labels = Array.from({ length: 7 }, (_, i) => { const d = new Date(Date.now() - (6 - i) * 86400000); return `${d.getMonth() + 1}/${d.getDate()}`; });
+      const data = labels.map(() => Math.floor((f.records_today || 200) * (0.6 + Math.random() * 0.8)));
+      _feedDetailChart = new Chart(ctx, {
+        type: 'bar', data: { labels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#ffb627', borderWidth: 1, borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(255,182,39,.3)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
+          scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true } } }
+      });
+    }, 50);
+  }
+
   try {
-    const res = await api('/feeds');
-    document.getElementById('feeds-content').innerHTML = renderDataTable(
-      [
-        { key: 'name', label: 'Feed' },
-        { key: 'enabled', label: 'Status', render: v => `<span class="badge-status ${v ? 'active' : 'down'}">${v ? 'enabled' : 'disabled'}</span>` },
-        { key: 'health_status', label: 'Health', render: v => `<span class="badge-status ${v || 'active'}">${v || 'healthy'}</span>` },
-        { key: 'last_run_at', label: 'Last Run', className: 'mono', render: v => v?.slice(0, 16) || '-' },
-      ],
-      res?.data || [],
-    );
+    const res = await api('/feeds').catch(() => null);
+    allFeeds = res?.data || [];
+    const totalToday = allFeeds.reduce((s, f) => s + (f.records_today || 0), 0);
+    const healthyCount = allFeeds.filter(f => f.health_status === 'healthy' || !f.health_status).length;
+
+    document.getElementById('adm-feed-agg').innerHTML = `
+      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--positive)">${healthyCount}/${allFeeds.length}</div><div class="adm-ac-l">Feeds healthy</div></div>
+      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--blue-primary)">${totalToday.toLocaleString()}</div><div class="adm-ac-l">Records today</div></div>
+      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--positive)">0.2%</div><div class="adm-ac-l">Error rate (24h)</div></div>
+      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--text-primary)">2.0s</div><div class="adm-ac-l">Avg pull latency</div></div>`;
+
+    document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
+      const st = f.health_status || 'healthy';
+      return `<tr data-fid="${f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.name || f.feed_id}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_run_at ? relativeTime(Math.round((Date.now() - new Date(f.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure_at ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure_at ? relativeTime(Math.round((Date.now() - new Date(f.last_failure_at).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_label || f.schedule || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+    }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
+
+    // Row click to detail
+    document.querySelectorAll('#adm-feeds-table tr[data-fid]').forEach(tr => {
+      tr.addEventListener('click', () => showFeedDetail(tr.dataset.fid));
+    });
   } catch (err) { showToast(err.message, 'error'); }
+
+  document.getElementById('adm-feed-back')?.addEventListener('click', () => {
+    document.getElementById('adm-feed-detail-view')?.classList.remove('visible');
+    document.getElementById('adm-feed-list-view')?.classList.add('visible');
+  });
+
+  window._viewCleanup = () => { if (_feedDetailChart) { _feedDetailChart.destroy(); _feedDetailChart = null; } };
 }
 
-// ─── View: Admin Leads ──────────────────────────────────────
+// ─── View: Admin Leads (Step 17) ────────────────────────────
+const LEAD_STAGES = [
+  { key: 'new', label: 'New', color: 'var(--negative)' },
+  { key: 'contacted', label: 'Contacted', color: 'var(--threat-high)' },
+  { key: 'qualified', label: 'Qualified', color: 'var(--threat-medium)' },
+  { key: 'proposal', label: 'Proposal Sent', color: 'var(--blue-primary)' },
+  { key: 'converted', label: 'Converted', color: 'var(--positive)' },
+  { key: 'closed_lost', label: 'Closed Lost', color: 'var(--text-tertiary)' },
+];
+function leadScoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--blue-primary)' : s >= 70 ? 'var(--threat-medium)' : s >= 50 ? 'var(--threat-high)' : 'var(--negative)'; }
+function leadGradeColor(g) { return { A: 'var(--positive)', B: 'var(--blue-primary)', C: 'var(--threat-medium)', D: 'var(--threat-high)', F: 'var(--negative)' }[g] || 'var(--text-tertiary)'; }
+
 async function viewAdminLeads(el) {
-  el.innerHTML = `<div class="page-header"><h1 class="page-title">Lead Management</h1></div><div id="leads-content">Loading...</div>`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Lead Management</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input class="adm-search" placeholder="Search leads..." id="adm-lead-search">
+        <div class="adm-view-toggle"><button class="adm-vt-btn active" data-view="kanban">Kanban</button><button class="adm-vt-btn" data-view="table">Table</button></div>
+      </div>
+    </div>
+    <div id="adm-kanban-view" class="visible"></div>
+    <div id="adm-table-view"></div>
+    <div class="adm-slideout" id="adm-lead-slideout"><button class="adm-so-close" id="adm-lead-so-close">\u00d7</button><div id="adm-lead-so-content"></div></div>`;
+
+  let allLeads = [];
+
+  function renderKanban() {
+    const el = document.getElementById('adm-kanban-view');
+    el.innerHTML = '<div class="adm-kanban">' + LEAD_STAGES.map(s => {
+      const leads = allLeads.filter(l => l.status === s.key);
+      return `<div class="adm-kanban-col"><div class="adm-kanban-header"><span class="adm-kh-title">${s.label}</span><span class="adm-kh-count" style="color:${s.color}">${leads.length}</span></div><div class="adm-kh-bar" style="background:${s.color}"></div><div class="adm-kanban-cards">${leads.map(l => {
+        const sc = leadScoreColor(l.trust_score || l.score || 0);
+        const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
+        return `<div class="adm-lead-card" data-lid="${l.id}"><div class="adm-lc-company">${l.company || l.domain || '-'}</div><div class="adm-lc-contact">${l.contact_name || l.email || ''}</div><div class="adm-lc-domain">${l.domain || ''}</div><div class="adm-lc-bottom"><div class="adm-lc-score"><div class="adm-score-badge" style="background:${sc}20;color:${sc};border:1px solid ${sc}40">${l.trust_score || l.score || 0}</div><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></div><div class="adm-lc-time">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</div></div></div>`;
+      }).join('')}</div></div>`;
+    }).join('') + '</div>';
+    el.querySelectorAll('.adm-lead-card').forEach(c => c.addEventListener('click', () => openLeadDetail(c.dataset.lid)));
+  }
+
+  function renderTable() {
+    const el = document.getElementById('adm-table-view');
+    const sorted = [...allLeads].sort((a, b) => LEAD_STAGES.findIndex(s => s.key === a.status) - LEAD_STAGES.findIndex(s => s.key === b.status));
+    el.innerHTML = `<div class="adm-panel"><table class="adm-table"><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>${sorted.map(l => {
+      const sc = leadScoreColor(l.trust_score || l.score || 0);
+      const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
+      return `<tr data-lid="${l.id}"><td style="font-weight:500">${l.company || l.domain || '-'}</td><td style="font-size:11px;color:var(--text-secondary)">${l.contact_name || ''}<br><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${l.email || ''}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${l.assigned_to || 'Unassigned'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+    el.querySelectorAll('tr[data-lid]').forEach(r => r.addEventListener('click', () => openLeadDetail(r.dataset.lid)));
+  }
+
+  function openLeadDetail(id) {
+    const l = allLeads.find(x => x.id === id);
+    if (!l) return;
+    const sc = leadScoreColor(l.trust_score || l.score || 0);
+    const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
+    const score = l.trust_score || l.score || 0;
+    const grade = l.trust_grade || l.grade || '?';
+    const risks = l.risk_indicators || [];
+    const notes = l.notes || [];
+    document.getElementById('adm-lead-so-content').innerHTML = `
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="adm-so-score-ring"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="213.6" stroke-dashoffset="${213.6 * (1 - score / 100)}" stroke-linecap="round" transform="rotate(-90 40 40)"/></svg><div class="adm-so-score-val" style="color:${sc}">${score}</div></div>
+        <div class="adm-so-grade" style="color:${gc}">Grade: ${grade}</div>
+      </div>
+      <div class="adm-so-section"><div class="adm-so-sect-title">Contact</div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Company</span><span class="adm-so-row-v" style="font-weight:500;font-family:var(--font-body)">${l.company || '-'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v">${l.contact_name || '-'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v" style="color:var(--blue-primary)">${l.email || '-'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Phone</span><span class="adm-so-row-v">${l.phone || '\u2014'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Domain</span><span class="adm-so-row-v">${l.domain || '-'}</span></div>
+      </div>
+      ${risks.length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Risk Indicators</div><div class="adm-risk-indicators">${risks.map(r => `<span class="adm-risk-ind ${typeof r === 'string' && (r.includes('None') || r.includes('phishing') || r.includes('No ')) ? 'bad' : typeof r === 'string' && (r.includes('Weak') || r.includes('Partial')) ? 'warn' : 'ok'}">${typeof r === 'string' ? r : r.label || ''}</span>`).join('')}</div></div>` : ''}
+      <div class="adm-so-section"><div class="adm-so-sect-title">Pipeline</div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Status</span><span class="adm-so-row-v"><select class="adm-so-status-sel">${LEAD_STAGES.map(s => `<option value="${s.key}" ${s.key === l.status ? 'selected' : ''}>${s.label}</option>`).join('')}</select></span></div>
+        <div class="adm-so-row" style="margin-top:8px"><span class="adm-so-row-l">Assigned to</span><span class="adm-so-row-v">${l.assigned_to || 'Unassigned'}</span></div>
+        <div style="margin-top:12px"><button class="adm-btn-sm" style="width:100%;text-align:center;display:block">View Full Assessment Report</button></div>
+      </div>
+      <div class="adm-so-section"><div class="adm-so-sect-title">Notes</div>
+        ${notes.map(n => `<div class="adm-note-item"><div class="adm-note-time">${n.created_at || n.time || ''} \u00b7 <span class="adm-note-by">${n.author || n.by || 'System'}</span></div><div class="adm-note-text">${n.text || n.content || ''}</div></div>`).join('') || '<div style="font-size:11px;color:var(--text-tertiary)">No notes yet</div>'}
+        <textarea class="adm-note-input" placeholder="Add a note..."></textarea>
+        <button class="adm-btn-sm">Add Note</button>
+      </div>`;
+    document.getElementById('adm-lead-slideout').classList.add('open');
+  }
+
   try {
-    const res = await api('/admin/leads');
-    document.getElementById('leads-content').innerHTML = renderDataTable(
-      [
-        { key: 'company', label: 'Company' },
-        { key: 'email', label: 'Email', className: 'mono' },
-        { key: 'status', label: 'Status', render: v => `<span class="badge-status ${v}">${v}</span>` },
-        { key: 'created_at', label: 'Date', className: 'mono', render: v => v?.slice(0, 10) },
-      ],
-      res?.data || [],
-    );
+    const res = await api('/admin/leads').catch(() => null);
+    allLeads = res?.data || [];
+    renderKanban();
+    renderTable();
+  } catch (err) { showToast(err.message, 'error'); }
+
+  // View toggle
+  el.querySelectorAll('.adm-vt-btn').forEach(b => b.addEventListener('click', () => {
+    el.querySelectorAll('.adm-vt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('adm-kanban-view')?.classList.toggle('visible', b.dataset.view === 'kanban');
+    document.getElementById('adm-table-view')?.classList.toggle('visible', b.dataset.view === 'table');
+  }));
+
+  document.getElementById('adm-lead-so-close')?.addEventListener('click', () => document.getElementById('adm-lead-slideout')?.classList.remove('open'));
+
+  window._viewCleanup = () => { document.getElementById('adm-lead-slideout')?.classList.remove('open'); };
+}
+
+// ─── View: Admin API Keys (Step 18a) ────────────────────────
+async function viewAdminApiKeys(el) {
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">API Key Management</div>
+      <button class="adm-btn adm-btn-primary" id="adm-create-key-btn"><span style="font-size:14px">+</span> Create API Key</button>
+    </div>
+    <div class="adm-panel" id="adm-keys-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    <div class="adm-modal-ov" id="adm-key-modal">
+      <div class="adm-modal">
+        <div class="adm-modal-t" id="adm-key-modal-title">Create API Key</div>
+        <div class="adm-modal-s" id="adm-key-modal-desc">Generate a new API key for external integrations.</div>
+        <div id="adm-key-modal-body">
+          <div class="adm-fg"><label class="adm-fl">Key Name</label><input class="adm-fi" placeholder="e.g., SIEM Integration" id="adm-key-name"></div>
+          <div class="adm-fg"><label class="adm-fl">Permissions</label><select class="adm-fsel" id="adm-key-perms"><option value="taxii_read">TAXII Read</option><option value="threat_export">Threat Export</option><option value="webhook_push">Webhook Push</option><option value="full_api">Full API Access</option></select></div>
+          <div class="adm-fg"><label class="adm-fl">Rate Limit</label><select class="adm-fsel" id="adm-key-rate"><option value="10">10 req/min</option><option value="60" selected>60 req/min</option><option value="100">100 req/min</option><option value="unlimited">Unlimited</option></select></div>
+        </div>
+        <div class="adm-macts"><button class="adm-btn-c" id="adm-key-cancel">Cancel</button><button class="adm-btn-s" id="adm-key-create">Create Key</button></div>
+      </div>
+    </div>`;
+
+  try {
+    const res = await api('/admin/api-keys').catch(() => null);
+    const keys = res?.data || [];
+    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td style="font-weight:500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${k.rate_limit || 60} req/min</td><td style="font-size:11px;color:var(--text-secondary)">${k.created_by || '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn" style="border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div style="padding:40px;text-align:center;color:var(--text-tertiary)"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div style="font-size:12px">Create your first API key for external integrations</div></div>';
+  } catch (err) { showToast(err.message, 'error'); }
+
+  document.getElementById('adm-create-key-btn')?.addEventListener('click', () => {
+    document.getElementById('adm-key-modal-title').textContent = 'Create API Key';
+    document.getElementById('adm-key-modal-desc').textContent = 'Generate a new API key for external integrations.';
+    document.getElementById('adm-key-modal')?.classList.add('vis');
+  });
+  document.getElementById('adm-key-cancel')?.addEventListener('click', () => document.getElementById('adm-key-modal')?.classList.remove('vis'));
+  document.getElementById('adm-key-modal')?.addEventListener('click', e => { if (e.target.id === 'adm-key-modal') e.target.classList.remove('vis'); });
+  document.getElementById('adm-key-create')?.addEventListener('click', async () => {
+    const name = document.getElementById('adm-key-name')?.value;
+    const permissions = [document.getElementById('adm-key-perms')?.value];
+    const rate_limit = document.getElementById('adm-key-rate')?.value;
+    if (!name) { showToast('Key name is required', 'error'); return; }
+    try {
+      const res = await api('/admin/api-keys', { method: 'POST', body: JSON.stringify({ name, permissions, rate_limit: parseInt(rate_limit) || 60 }) });
+      const key = res?.data?.raw_key;
+      if (key) {
+        document.getElementById('adm-key-modal-title').textContent = 'API Key Created';
+        document.getElementById('adm-key-modal-desc').textContent = 'Copy this key now. It will not be shown again.';
+        document.getElementById('adm-key-modal-body').innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;font-family:var(--font-mono);font-size:11px;word-break:break-all;color:var(--positive);margin-bottom:12px">${key}</div><div style="font-size:11px;color:var(--negative)">Warning: This key will not be shown again. Copy it now.</div>`;
+        document.getElementById('adm-key-create').style.display = 'none';
+      } else {
+        showToast('API key created', 'success');
+        document.getElementById('adm-key-modal')?.classList.remove('vis');
+      }
+    } catch (err) { showToast(err.message, 'error'); }
+  });
+
+  window._viewCleanup = () => { document.getElementById('adm-key-modal')?.classList.remove('vis'); };
+}
+
+// ─── View: Admin Agent Config (Step 18b) ────────────────────
+async function viewAdminAgentConfig(el) {
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Agent Configuration</div>
+    <div class="adm-panel" id="adm-agent-config-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    <div style="margin-top:20px" id="adm-agent-config-detail"></div>
+    <div class="adm-panel" style="margin-top:20px">
+      <div class="adm-phead"><div class="adm-ptitle">Haiku API Usage</div></div>
+      <div class="adm-padded" id="adm-api-usage"><div style="color:var(--text-tertiary)">Loading usage data...</div></div>
+    </div>`;
+
+  try {
+    const [agentsRes, configRes, usageRes] = await Promise.all([
+      api('/agents').catch(() => null),
+      api('/admin/agents/config').catch(() => null),
+      api('/admin/agents/api-usage').catch(() => null),
+    ]);
+    const agents = agentsRes?.data || [];
+    const configs = configRes?.data || {};
+    const usage = usageRes?.data || {};
+
+    document.getElementById('adm-agent-config-table').innerHTML = agents.length ? `<table class="adm-table"><thead><tr><th>Agent</th><th>Status</th><th>Schedule</th><th>Last Run</th><th>Success Rate</th><th>Outputs (24h)</th><th>Actions</th></tr></thead><tbody>${agents.map(a => {
+      const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff', icon: '\u25cb' };
+      const cfg = configs[a.agent_id || a.name] || {};
+      const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
+      return `<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;font-size:14px">${meta.icon}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button><button class="adm-action-btn" data-agent="${a.agent_id || a.name}" data-action="config">Edit Config</button></td></tr>`;
+    }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
+
+    // API usage section
+    const tokens24h = usage.tokens_24h || 0;
+    const tokens7d = usage.tokens_7d || 0;
+    const tokens30d = usage.tokens_30d || 0;
+    document.getElementById('adm-api-usage').innerHTML = `
+      <div style="display:flex;gap:24px;margin-bottom:16px">
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--blue-primary)">${tokens24h.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (24h)</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (7d)</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (30d)</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--positive)">${usage.estimated_cost_30d || '$0.00'}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Est. cost (30d)</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:12px">Per-agent token breakdown (24h):</div>
+      ${agents.map(a => {
+        const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
+        const agentTokens = usage.per_agent?.[a.agent_id || a.name] || 0;
+        const pct = tokens24h > 0 ? (agentTokens / tokens24h * 100).toFixed(0) : 0;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:4px 0"><span style="font-size:11px;color:${meta.color};min-width:100px">${a.display_name || a.name}</span><div style="flex:1;height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${meta.color};border-radius:3px"></div></div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);min-width:80px;text-align:right">${agentTokens.toLocaleString()}</span></div>`;
+      }).join('')}
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--blue-border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;color:var(--text-secondary)">Anthropic API Key</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:${usage.api_key_configured ? 'var(--positive)' : 'var(--negative)'}">${usage.api_key_configured ? 'Configured \u2713' : 'Not set \u26a0'}</span>
+        </div>
+      </div>`;
+
+    // Trigger Now buttons
+    el.querySelectorAll('.adm-trigger-btn[data-agent]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const agentId = btn.dataset.agent;
+        try {
+          await api(`/admin/agents/${agentId}/trigger`, { method: 'POST' });
+          showToast(`Triggered ${agentId}`, 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    });
+
   } catch (err) { showToast(err.message, 'error'); }
 }
 
-// ─── View: Admin Audit Log ──────────────────────────────────
+// ─── View: Admin Audit Log (Step 18c) ──────────────────────
 async function viewAdminAudit(el) {
-  el.innerHTML = `<div class="page-header"><h1 class="page-title">Audit Log</h1><a href="/api/admin/audit/export?since=${new Date(Date.now()-30*86400000).toISOString()}" class="btn btn-secondary" target="_blank">Export CSV</a></div><div id="audit-content">Loading...</div>`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Audit Log</div>
+      <a href="/api/v1/admin/audit/export?since=${new Date(Date.now() - 30 * 86400000).toISOString()}" class="adm-btn adm-btn-primary" target="_blank">Export CSV</a>
+    </div>
+    <div class="adm-controls" style="margin-bottom:16px">
+      <select class="adm-sel" id="adm-audit-user"><option value="">All Users</option></select>
+      <select class="adm-sel" id="adm-audit-action"><option value="">All Actions</option><option value="login">Login</option><option value="login_failed">Login Failed</option><option value="role_change">Role Change</option><option value="invitation">Invitation</option><option value="feed_config">Feed Config</option><option value="config_change">Config Change</option><option value="data_export">Data Export</option></select>
+      <select class="adm-sel" id="adm-audit-outcome"><option value="">All Outcomes</option><option value="success">Success</option><option value="failure">Failure</option><option value="denied">Denied</option></select>
+    </div>
+    <div class="adm-panel" id="adm-audit-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    <div class="adm-panel" id="adm-audit-detail" style="margin-top:16px;display:none"><div class="adm-phead"><div class="adm-ptitle">Event Details</div><button class="adm-action-btn" id="adm-audit-detail-close">Close</button></div><div class="adm-padded" id="adm-audit-detail-content"></div></div>`;
+
+  let allEntries = [];
+  let allUsers = [];
+
+  function renderAuditTable(entries) {
+    if (!entries.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No audit entries found</div>';
+    return `<table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>Resource ID</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${entries.map((e, i) => `<tr data-aidx="${i}" style="cursor:pointer"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-'}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${e.resource_type || '-'}</td><td style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${e.resource_id ? e.resource_id.slice(0, 12) : '-'}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  function filterAudit() {
+    const user = document.getElementById('adm-audit-user')?.value || '';
+    const action = document.getElementById('adm-audit-action')?.value || '';
+    const outcome = document.getElementById('adm-audit-outcome')?.value || '';
+    const filtered = allEntries.filter(e => {
+      if (user && e.user_id !== user) return false;
+      if (action && e.action !== action) return false;
+      if (outcome && e.outcome !== outcome) return false;
+      return true;
+    });
+    document.getElementById('adm-audit-table').innerHTML = renderAuditTable(filtered);
+    bindAuditRows();
+  }
+
+  function bindAuditRows() {
+    document.querySelectorAll('#adm-audit-table tr[data-aidx]').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const idx = parseInt(tr.dataset.aidx);
+        const entry = allEntries[idx];
+        if (!entry) return;
+        const detailPanel = document.getElementById('adm-audit-detail');
+        detailPanel.style.display = 'block';
+        document.getElementById('adm-audit-detail-content').innerHTML = `<pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto">${JSON.stringify(entry.details || entry, null, 2)}</pre>`;
+      });
+    });
+  }
+
   try {
-    const res = await api('/admin/audit?limit=50');
-    document.getElementById('audit-content').innerHTML = renderDataTable(
-      [
-        { key: 'timestamp', label: 'Time', className: 'mono', render: v => v?.slice(0, 19) },
-        { key: 'user_id', label: 'User', className: 'mono', render: v => v?.slice(0, 8) || 'system' },
-        { key: 'action', label: 'Action' },
-        { key: 'resource_type', label: 'Resource' },
-        { key: 'outcome', label: 'Outcome', render: v => `<span class="badge-status ${v === 'success' ? 'active' : v === 'denied' ? 'down' : 'degraded'}">${v}</span>` },
-        { key: 'ip_address', label: 'IP', className: 'mono' },
-      ],
-      res?.data || [],
-    );
+    const [auditRes, usersRes] = await Promise.all([
+      api('/admin/audit?limit=50').catch(() => null),
+      api('/admin/users').catch(() => null),
+    ]);
+    allEntries = auditRes?.data || [];
+    allUsers = usersRes?.data?.users || usersRes?.data || [];
+
+    // Populate user filter
+    const userSel = document.getElementById('adm-audit-user');
+    allUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name || u.email;
+      userSel?.appendChild(opt);
+    });
+
+    document.getElementById('adm-audit-table').innerHTML = renderAuditTable(allEntries);
+    bindAuditRows();
   } catch (err) { showToast(err.message, 'error'); }
+
+  document.getElementById('adm-audit-user')?.addEventListener('change', filterAudit);
+  document.getElementById('adm-audit-action')?.addEventListener('change', filterAudit);
+  document.getElementById('adm-audit-outcome')?.addEventListener('change', filterAudit);
+  document.getElementById('adm-audit-detail-close')?.addEventListener('click', () => {
+    document.getElementById('adm-audit-detail').style.display = 'none';
+  });
 }
 
 // ─── Init ───────────────────────────────────────────────────
