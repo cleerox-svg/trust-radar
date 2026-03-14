@@ -7,29 +7,29 @@ import type { Env } from "../types";
 export async function handleListAgents(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Get latest run per agent
+    // Get latest run per agent (v2 table)
     const latestRuns = await env.DB.prepare(
-      `SELECT agent_name, id, status, items_processed, items_created, items_updated,
-              duration_ms, tokens_used, error, started_at, completed_at, created_at
-       FROM radar_agent_runs
+      `SELECT agent_id, id, status, records_processed, outputs_generated,
+              duration_ms, error_message, started_at, completed_at
+       FROM agent_runs
        WHERE id IN (
-         SELECT id FROM radar_agent_runs r2
-         WHERE r2.agent_name = radar_agent_runs.agent_name
-         ORDER BY r2.created_at DESC LIMIT 1
+         SELECT id FROM agent_runs r2
+         WHERE r2.agent_id = agent_runs.agent_id
+         ORDER BY r2.started_at DESC LIMIT 1
        )`
     ).all();
 
-    const runMap = new Map(latestRuns.results.map((r) => [(r as Record<string, unknown>).agent_name, r]));
+    const runMap = new Map(latestRuns.results.map((r) => [(r as Record<string, unknown>).agent_id, r]));
 
     // Get run counts for today
     const todayRuns = await env.DB.prepare(
-      `SELECT agent_name, COUNT(*) as runs_today
-       FROM radar_agent_runs
-       WHERE created_at >= datetime('now', 'start of day')
-       GROUP BY agent_name`
-    ).all<{ agent_name: string; runs_today: number }>();
+      `SELECT agent_id, COUNT(*) as runs_today
+       FROM agent_runs
+       WHERE started_at >= datetime('now', 'start of day')
+       GROUP BY agent_id`
+    ).all<{ agent_id: string; runs_today: number }>();
 
-    const todayMap = new Map(todayRuns.results.map((r) => [r.agent_name, r.runs_today]));
+    const todayMap = new Map(todayRuns.results.map((r) => [r.agent_id, r.runs_today]));
 
     const agents = AGENT_DEFINITIONS.map((def) => ({
       ...def,
@@ -51,11 +51,18 @@ export async function handleGetAgent(request: Request, env: Env, agentName: stri
     if (!def) return json({ success: false, error: "Agent not found" }, 404, origin);
 
     const runs = await env.DB.prepare(
-      `SELECT id, status, trigger_type, triggered_by, items_processed, items_created,
-              items_updated, duration_ms, model, tokens_used, error, output, started_at,
-              completed_at, created_at
-       FROM radar_agent_runs WHERE agent_name = ?
-       ORDER BY created_at DESC LIMIT 50`
+      `SELECT id, status, records_processed, outputs_generated,
+              duration_ms, error_message, started_at, completed_at
+       FROM agent_runs WHERE agent_id = ?
+       ORDER BY started_at DESC LIMIT 50`
+    ).bind(agentName).all();
+
+    // Get agent outputs
+    const outputs = await env.DB.prepare(
+      `SELECT id, type, summary, severity, details, related_brand_ids,
+              related_campaign_id, related_provider_ids, created_at
+       FROM agent_outputs WHERE agent_id = ?
+       ORDER BY created_at DESC LIMIT 20`
     ).bind(agentName).all();
 
     const stats = await env.DB.prepare(
@@ -63,16 +70,15 @@ export async function handleGetAgent(request: Request, env: Env, agentName: stri
          COUNT(*) as total_runs,
          SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
-         SUM(items_processed) as total_processed,
-         SUM(items_created) as total_created,
-         AVG(duration_ms) as avg_duration_ms,
-         SUM(tokens_used) as total_tokens
-       FROM radar_agent_runs WHERE agent_name = ?`
+         SUM(records_processed) as total_processed,
+         SUM(outputs_generated) as total_outputs,
+         AVG(duration_ms) as avg_duration_ms
+       FROM agent_runs WHERE agent_id = ?`
     ).bind(agentName).first();
 
     return json({
       success: true,
-      data: { agent: def, runs: runs.results, stats },
+      data: { agent: def, runs: runs.results, outputs: outputs.results, stats },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
@@ -105,19 +111,18 @@ export async function handleAgentRuns(request: Request, env: Env): Promise<Respo
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const agentFilter = url.searchParams.get("agent");
 
-    let query = `SELECT id, agent_name, status, trigger_type, triggered_by, items_processed,
-                        items_created, items_updated, duration_ms, tokens_used, error,
-                        started_at, completed_at, created_at
-                 FROM radar_agent_runs`;
+    let query = `SELECT id, agent_id, status, records_processed, outputs_generated,
+                        duration_ms, error_message, started_at, completed_at
+                 FROM agent_runs`;
 
     if (agentFilter) {
-      query += ` WHERE agent_name = ?`;
-      const rows = await env.DB.prepare(query + " ORDER BY created_at DESC LIMIT ?")
+      query += ` WHERE agent_id = ?`;
+      const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
         .bind(agentFilter, limit).all();
       return json({ success: true, data: rows.results }, 200, origin);
     }
 
-    const rows = await env.DB.prepare(query + " ORDER BY created_at DESC LIMIT ?")
+    const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
       .bind(limit).all();
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
@@ -125,7 +130,38 @@ export async function handleAgentRuns(request: Request, env: Env): Promise<Respo
   }
 }
 
-// ─── HITL Approval Queue ────────────────────────────────────────
+// ─── Get latest agent outputs (insights, classifications, etc.) ─
+export async function handleAgentOutputs(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "20", 10));
+    const type = url.searchParams.get("type");
+    const agentFilter = url.searchParams.get("agent");
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (type) { conditions.push("type = ?"); params.push(type); }
+    if (agentFilter) { conditions.push("agent_id = ?"); params.push(agentFilter); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    params.push(limit);
+
+    const rows = await env.DB.prepare(
+      `SELECT id, agent_id, type, summary, severity, details,
+              related_brand_ids, related_campaign_id, related_provider_ids, created_at
+       FROM agent_outputs ${where}
+       ORDER BY created_at DESC LIMIT ?`
+    ).bind(...params).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── HITL Approval Queue (legacy compat) ────────────────────────
 export async function handleListApprovals(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -141,8 +177,9 @@ export async function handleListApprovals(request: Request, env: Env): Promise<R
     ).bind(status).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+  } catch {
+    // Table may not exist in v2
+    return json({ success: true, data: [] }, 200, origin);
   }
 }
 
@@ -202,30 +239,30 @@ export async function handleAgentStats(request: Request, env: Env): Promise<Resp
          SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
          SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
-         SUM(CASE WHEN status = 'awaiting_approval' THEN 1 ELSE 0 END) as awaiting_approval,
-         SUM(items_processed) as total_processed,
-         SUM(items_created) as total_created,
-         SUM(tokens_used) as total_tokens,
+         SUM(records_processed) as total_processed,
+         SUM(outputs_generated) as total_outputs,
          AVG(duration_ms) as avg_duration_ms
-       FROM radar_agent_runs`
+       FROM agent_runs`
     ).first();
 
-    const pendingApprovals = await env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM radar_agent_approvals WHERE status = 'pending'"
-    ).first<{ cnt: number }>();
-
     const todayRuns = await env.DB.prepare(
-      `SELECT agent_name, COUNT(*) as runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes
-       FROM radar_agent_runs WHERE created_at >= datetime('now', 'start of day')
-       GROUP BY agent_name`
+      `SELECT agent_id, COUNT(*) as runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes
+       FROM agent_runs WHERE started_at >= datetime('now', 'start of day')
+       GROUP BY agent_id`
+    ).all();
+
+    // Latest outputs for insights panel
+    const latestOutputs = await env.DB.prepare(
+      `SELECT id, agent_id, type, summary, severity, created_at
+       FROM agent_outputs ORDER BY created_at DESC LIMIT 10`
     ).all();
 
     return json({
       success: true,
       data: {
         summary,
-        pendingApprovals: pendingApprovals?.cnt ?? 0,
         todayByAgent: todayRuns.results,
+        latestOutputs: latestOutputs.results,
       },
     }, 200, origin);
   } catch (err) {
