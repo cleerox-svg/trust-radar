@@ -40,13 +40,31 @@ import { requireAuth, requireAdmin, requireSuperAdmin, isAuthContext } from "./m
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
-import { handleProviderStats, handleProviderDrilldown } from "./handlers/providers";
+import { handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders, handleGetProvider, handleProviderDrilldown, handleProviderBrands, handleProviderTimeline, handleProviderLocations } from "./handlers/providers";
 import {
   handleBrandScan, handleBrandScanHistory, handlePublicBrandScan,
   handleLeadCapture, handleListLeads, handleUpdateLead,
 } from "./handlers/brandScan";
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleValidateInvite, handleRevokeInvite } from "./handlers/invites";
+import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "./handlers/dashboard";
+import {
+  handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
+  handleAddMonitoredBrand, handleRemoveMonitoredBrand, handleGetBrand,
+  handleBrandThreats, handleBrandThreatLocations, handleBrandThreatTimeline,
+  handleBrandProviders, handleBrandCampaigns,
+} from "./handlers/brands";
+import {
+  handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
+  handleCampaignThreats, handleCampaignInfrastructure, handleCampaignBrands,
+  handleCampaignTimeline,
+} from "./handlers/campaigns";
+import {
+  handleTrendVolume, handleTrendBrands, handleTrendProviders,
+  handleTrendTLDs, handleTrendTypes, handleTrendCompare,
+} from "./handlers/trends";
+import { handleLatestInsights, handleListNotifications, handleMarkNotificationRead, handleMarkAllNotificationsRead } from "./handlers/insights";
+import { handleListAuditLog, handleExportAuditLog } from "./handlers/audit";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
@@ -141,6 +159,22 @@ router.get("/api/dashboard/sources", (request: Request, env: Env) =>
 router.get("/api/dashboard/trend", (request: Request, env: Env) =>
   handleQualityTrend(request, env)
 );
+// ─── Dashboard v2 (Observatory) ──────────────────────────────
+router.get("/api/dashboard/overview", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDashboardOverview(request, env);
+});
+router.get("/api/dashboard/top-brands", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDashboardTopBrands(request, env);
+});
+router.get("/api/dashboard/providers", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDashboardProviders(request, env);
+});
 
 // ─── Signals ──────────────────────────────────────────────────
 router.get("/api/signals", (request: Request, env: Env) =>
@@ -397,10 +431,40 @@ router.patch("/api/erasures/:id", async (request: Request & { params: Record<str
 });
 
 // ─── Campaign Clusters ─────────────────────────────────────
+router.get("/api/campaigns/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCampaignStats(request, env);
+});
 router.get("/api/campaigns", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleListCampaigns(request, env);
+  return handleListCampaignsV2(request, env);
+});
+router.get("/api/campaigns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetCampaign(request, env, request.params["id"] ?? "");
+});
+router.get("/api/campaigns/:id/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCampaignThreats(request, env, request.params["id"] ?? "");
+});
+router.get("/api/campaigns/:id/infrastructure", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCampaignInfrastructure(request, env, request.params["id"] ?? "");
+});
+router.get("/api/campaigns/:id/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCampaignBrands(request, env, request.params["id"] ?? "");
+});
+router.get("/api/campaigns/:id/timeline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCampaignTimeline(request, env, request.params["id"] ?? "");
 });
 
 // ─── Intel: Breach Checks ──────────────────────────────────
@@ -449,10 +513,102 @@ router.get("/api/providers/stats", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleProviderStats(request, env);
 });
-router.get("/api/providers/:name/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+router.get("/api/providers/worst", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleProviderDrilldown(request, env, request.params["name"] ?? "");
+  return handleWorstProviders(request, env);
+});
+router.get("/api/providers/improving", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleImprovingProviders(request, env);
+});
+router.get("/api/providers", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListProviders(request, env);
+});
+router.get("/api/providers/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetProvider(request, env, request.params["id"] ?? "");
+});
+router.get("/api/providers/:id/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderDrilldown(request, env, request.params["id"] ?? "");
+});
+router.get("/api/providers/:id/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderBrands(request, env, request.params["id"] ?? "");
+});
+router.get("/api/providers/:id/timeline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderTimeline(request, env, request.params["id"] ?? "");
+});
+router.get("/api/providers/:id/locations", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleProviderLocations(request, env, request.params["id"] ?? "");
+});
+
+// ─── Brands ──────────────────────────────────────────────────
+router.get("/api/brands", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListBrands(request, env);
+});
+router.get("/api/brands/top-targeted", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTopTargetedBrands(request, env);
+});
+router.get("/api/brands/monitored", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleMonitoredBrands(request, env);
+});
+router.post("/api/brands/monitor", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAddMonitoredBrand(request, env, ctx.userId);
+});
+router.delete("/api/brands/monitor/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRemoveMonitoredBrand(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.get("/api/brands/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrand(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandThreats(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/threats/locations", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandThreatLocations(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/threats/timeline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandThreatTimeline(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/providers", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandProviders(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/campaigns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandCampaigns(request, env, request.params["id"] ?? "");
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────
@@ -535,6 +691,74 @@ router.post("/api/trustbot/chat", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTrustBotChat(request, env, ctx.userId);
+});
+
+// ─── Trends ──────────────────────────────────────────────────
+router.get("/api/trends/volume", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendVolume(request, env);
+});
+router.get("/api/trends/brands", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendBrands(request, env);
+});
+router.get("/api/trends/providers", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendProviders(request, env);
+});
+router.get("/api/trends/tlds", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendTLDs(request, env);
+});
+router.get("/api/trends/types", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendTypes(request, env);
+});
+router.get("/api/trends/compare", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTrendCompare(request, env);
+});
+
+// ─── Insights ────────────────────────────────────────────────
+router.get("/api/insights/latest", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleLatestInsights(request, env);
+});
+
+// ─── Notifications ───────────────────────────────────────────
+router.get("/api/notifications", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListNotifications(request, env, ctx.userId);
+});
+router.post("/api/notifications/:id/read", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleMarkNotificationRead(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/notifications/read-all", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleMarkAllNotificationsRead(request, env, ctx.userId);
+});
+
+// ─── Admin: Audit Log ────────────────────────────────────────
+router.get("/api/admin/audit", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListAuditLog(request, env);
+});
+router.get("/api/admin/audit/export", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleExportAuditLog(request, env);
 });
 
 // ─── Data Export ─────────────────────────────────────────────
