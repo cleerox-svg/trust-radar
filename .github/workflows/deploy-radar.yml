@@ -5,7 +5,6 @@ on:
     branches: [master]
     paths:
       - "packages/trust-radar/**"
-      - "packages/frontend/**"
       - ".github/workflows/deploy-radar.yml"
   workflow_dispatch:
 
@@ -26,7 +25,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -34,10 +33,6 @@ jobs:
 
       - name: Type check (worker)
         working-directory: packages/trust-radar
-        run: pnpm typecheck
-
-      - name: Type check (frontend)
-        working-directory: packages/frontend
         run: pnpm typecheck
 
   deploy:
@@ -54,15 +49,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Build frontend
-        working-directory: packages/frontend
-        run: pnpm build:radar
 
       - name: Inject resource IDs into wrangler.toml
         working-directory: packages/trust-radar

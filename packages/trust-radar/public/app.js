@@ -1160,9 +1160,45 @@ async function viewBrandDetail(el, params) {
 
 // ─── View: Providers Hub (Step 10) ──────────────────────────
 let _provSubTab = 'worst';
+let _provPeriod = '7d';
+
+function _provFlag(countryCode) {
+  if (!countryCode) return '\ud83c\udf10';
+  try { return String.fromCodePoint(...[...countryCode.toUpperCase()].map(c => 0x1F1E6 - 65 + c.charCodeAt(0))); } catch { return '\ud83c\udf10'; }
+}
+function _provRepColor(r) { return r >= 75 ? 'var(--positive)' : r >= 50 ? 'var(--blue-primary)' : r >= 30 ? 'var(--threat-medium)' : r >= 15 ? 'var(--threat-high)' : 'var(--threat-critical)'; }
+
+function _renderProvCard(p, i, isImproving) {
+  const tc = _tColor(p.threat_count || p.threats || 0);
+  const rc = _provRepColor(p.reputation_score ?? p.reputation ?? 50);
+  const trend = p.trend_7d_pct ?? p.trend_7d ?? 0;
+  const tSign = trend >= 0 ? '+' : '';
+  const tClass = trend >= 0 ? 'up' : 'down';
+  const flag = _provFlag(p.country_code || p.country);
+  const threats = p.threat_count || p.threats || 0;
+  const rep = p.reputation_score ?? p.reputation ?? 0;
+  const respHrs = p.avg_response_time_hours ?? p.response_hrs;
+  const color = isImproving ? 'var(--positive)' : tc;
+  return `<a href="/providers/${encodeURIComponent(p.provider_id || p.id || p.name)}" class="provider-card ${isImproving ? 'improving' : ''}">
+    <div class="provider-card-top">
+      <div class="provider-rank ${!isImproving && i < 3 ? 'top' : ''}">${i + 1}</div>
+      <div class="provider-icon"><span style="font-size:16px;line-height:1">${flag}</span><span class="pico-asn">${p.asn || ''}</span></div>
+      <div class="provider-card-info"><div class="provider-card-name">${p.name}</div><div class="provider-card-asn">${p.asn || ''} <span class="country-code-pill">${p.country_code || p.country || ''}</span></div></div>
+    </div>
+    <div class="provider-card-stats">
+      <div><div class="provider-threat-val" style="color:${color}">${threats}</div><div class="provider-threat-label">active threats</div></div>
+      <div class="brand-trend"><span class="trend-pct ${tClass}">${tSign}${trend}%</span>${renderSparkline(p.sparkline || [])}</div>
+    </div>
+    <div class="provider-card-footer">
+      <div class="rep-gauge"><div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${rc}"></div></div><span class="rep-val" style="color:${rc}">${rep}/100</span></div>
+      <span class="resp-time">${respHrs != null ? respHrs + 'h resp' : 'No data'}</span>
+    </div>
+  </a>`;
+}
 
 async function viewProvidersHub(el) {
   el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Infrastructure Intelligence</div>
     <div class="agg-stats" id="prov-agg"></div>
     <div class="sub-tabs" id="prov-tabs">
       <button class="sub-tab active" data-tab="worst">Worst Actors<span class="tab-count" id="tc-worst">--</span></button>
@@ -1170,86 +1206,99 @@ async function viewProvidersHub(el) {
       <button class="sub-tab" data-tab="all">All Providers<span class="tab-count" id="tc-allp">--</span></button>
       <div class="sub-tab-actions">${renderPeriodSelector('7d', 'prov-period')}</div>
     </div>
-    <div style="padding:20px 24px" id="prov-content">Loading...</div>`;
+    <div style="padding:20px 0" id="prov-content">Loading...</div>`;
 
   // Aggregate stats
   api('/providers/stats').then(res => {
     const s = res?.data || {};
     document.getElementById('prov-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val">${s.total_tracked || 0}</div><div class="agg-lbl">Providers Tracked</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${s.worst_this_week || 0}</div><div class="agg-lbl">Worst This Week</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.most_improved || 0}</div><div class="agg-lbl">Most Improved</div></div>
-      <div class="agg-card"><div class="agg-val">${s.avg_response_time || '-'}</div><div class="agg-lbl">Avg Response Time</div></div>`;
+      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.total_tracked || 0}</div><div class="agg-lbl">Providers tracked</div><div class="agg-sub">Across all feeds</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.worst_this_week_name || s.worst_this_week || '-'}</div><div class="agg-lbl">Worst this week</div><div class="agg-sub">${s.worst_this_week_threats || ''} active threats</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.most_improved_name || s.most_improved || '-'}</div><div class="agg-lbl">Most improved</div><div class="agg-sub">${s.most_improved_pct || ''}% this week</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.avg_response_time || '-'}</div><div class="agg-lbl">Avg response time</div><div class="agg-sub">Across all providers</div></div>`;
   }).catch(() => {});
 
   const loadWorst = async (period) => {
     const res = await api(`/providers/worst?period=${period}&limit=20`).catch(() => null);
     const providers = res?.data || [];
-    const el = document.getElementById('tc-worst');
-    if (el) el.textContent = providers.length;
+    const tcEl = document.getElementById('tc-worst');
+    if (tcEl) tcEl.textContent = providers.length;
     const content = document.getElementById('prov-content');
     if (!providers.length) { content.innerHTML = '<div class="empty-state"><div class="message">No provider data</div></div>'; return; }
-    content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => {
-      const trendDir = (p.trend_7d_pct || 0) >= 0 ? 'up' : 'down';
-      const repColor = (p.reputation_score || 50) < 30 ? 'var(--negative)' : (p.reputation_score || 50) < 60 ? 'var(--threat-medium)' : 'var(--positive)';
-      return `<a href="/providers/${encodeURIComponent(p.provider_id || p.name)}" class="provider-card">
-        <div class="provider-card-top">
-          <div class="provider-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
-          <div class="provider-icon"><span style="font-size:14px">${p.country_code ? String.fromCodePoint(...[...p.country_code.toUpperCase()].map(c => 0x1F1E6 - 65 + c.charCodeAt(0))) : '\ud83c\udf10'}</span><span class="pico-asn">${p.asn || ''}</span></div>
-          <div class="provider-card-info"><div class="provider-card-name">${p.name}</div><div class="provider-card-asn">${p.asn || ''} ${p.country ? '\u00b7 ' + p.country : ''}</div></div>
-        </div>
-        <div class="provider-card-stats">
-          <div><div class="provider-threat-val" style="color:var(--negative)">${p.threat_count || 0}</div><div class="provider-threat-label">active threats</div></div>
-          <div class="brand-trend">${renderSparkline(p.sparkline || [])}<span class="trend-pct ${trendDir}">${trendDir === 'up' ? '+' : ''}${p.trend_7d_pct || 0}%</span></div>
-        </div>
-        <div class="provider-card-footer">
-          <div class="rep-gauge"><div class="rep-bar"><div class="rep-fill" style="width:${p.reputation_score || 0}%;background:${repColor}"></div></div><span class="rep-val" style="color:${repColor}">${p.reputation_score || 0}/100</span></div>
-          ${p.top_brand_targeted ? `<span style="font-size:10px;color:var(--text-secondary)">${p.top_brand_targeted}</span>` : ''}
-        </div>
-      </a>`;
-    }).join('')}</div>`;
+    content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => _renderProvCard(p, i, false)).join('')}</div>`;
   };
 
   const loadImproving = async (period) => {
     const res = await api(`/providers/improving?period=${period}&limit=10`).catch(() => null);
     const providers = res?.data || [];
-    const el = document.getElementById('tc-impr');
-    if (el) el.textContent = providers.length;
+    const tcEl = document.getElementById('tc-impr');
+    if (tcEl) tcEl.textContent = providers.length;
     const content = document.getElementById('prov-content');
     if (!providers.length) { content.innerHTML = '<div class="empty-state"><div class="message">No improving providers detected</div></div>'; return; }
-    content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => `<a href="/providers/${encodeURIComponent(p.provider_id || p.name)}" class="provider-card improving">
-      <div class="provider-card-top">
-        <div class="provider-rank">${i + 1}</div>
-        <div class="provider-icon"><span style="font-size:14px">\ud83c\udf10</span><span class="pico-asn">${p.asn || ''}</span></div>
-        <div class="provider-card-info"><div class="provider-card-name">${p.name}</div><div class="provider-card-asn">${p.asn || ''}</div></div>
-      </div>
-      <div class="provider-card-stats">
-        <div><div class="provider-threat-val">${p.threat_count || 0}</div><div class="provider-threat-label">active threats</div></div>
-        <div class="brand-trend"><span class="trend-pct down">${p.trend_7d_pct || 0}%</span></div>
-      </div>
-    </a>`).join('')}</div>`;
+    content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => _renderProvCard(p, i, true)).join('')}</div>`;
   };
 
   const loadAllProviders = async () => {
-    const res = await api('/providers?limit=50').catch(() => null);
-    const providers = res?.data || [];
-    const el = document.getElementById('tc-allp');
-    if (el) el.textContent = providers.length;
-    document.getElementById('prov-content').innerHTML = renderDataTable(
-      [
-        { key: 'name', label: 'Provider', render: (v, r) => `<a href="/providers/${encodeURIComponent(r.provider_id || v)}">${v}</a>` },
-        { key: 'asn', label: 'ASN', className: 'mono' },
-        { key: 'country', label: 'Country' },
-        { key: 'threat_count', label: 'Threats', className: 'mono' },
-        { key: 'reputation_score', label: 'Reputation', className: 'mono' },
-      ],
-      providers,
-      { emptyMessage: 'No providers' }
-    );
+    const res = await api('/providers?limit=100').catch(() => null);
+    const allProviders = (res?.data || []).sort((a, b) => (b.threat_count || b.threats || 0) - (a.threat_count || a.threats || 0));
+    const tcEl = document.getElementById('tc-allp');
+    if (tcEl) tcEl.textContent = allProviders.length;
+    const content = document.getElementById('prov-content');
+
+    // Collect unique countries for filter
+    const countries = [...new Set(allProviders.map(p => p.country_code || p.country).filter(Boolean))].sort();
+
+    function renderAllTable(filter, search) {
+      let filtered = allProviders;
+      if (filter) filtered = filtered.filter(p => (p.country_code || p.country) === filter);
+      if (search) { const s = search.toLowerCase(); filtered = filtered.filter(p => p.name.toLowerCase().includes(s) || (p.asn || '').toLowerCase().includes(s)); }
+
+      let html = `<div class="prov-search-bar"><input class="prov-search-in" placeholder="Search providers..." value="${search || ''}"><select class="prov-country-sel"><option value="">All Countries</option>${countries.map(c => `<option ${c === filter ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`;
+      html += `<div class="prov-all-tbl"><table><thead><tr><th>Provider</th><th>ASN</th><th>Country</th><th>Threats</th><th>7d</th><th>30d</th><th>Reputation</th><th>Response</th></tr></thead><tbody>`;
+      filtered.forEach(p => {
+        const threats = p.threat_count || p.threats || 0;
+        const tc = _tColor(threats);
+        const rep = p.reputation_score ?? p.reputation ?? 0;
+        const rc = _provRepColor(rep);
+        const flag = _provFlag(p.country_code || p.country);
+        const t7 = p.trend_7d_pct ?? p.trend_7d ?? 0;
+        const t30 = p.trend_30d_pct ?? p.trend_30d ?? 0;
+        const respHrs = p.avg_response_time_hours ?? p.response_hrs;
+        html += `<tr data-id="${p.provider_id || p.id || p.name}">
+          <td style="font-weight:500">${flag} ${p.name}</td>
+          <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${p.asn || ''}</td>
+          <td>${p.country_code || p.country || ''}</td>
+          <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${tc}">${threats}</span></td>
+          <td><span class="trend-pct ${t7 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t7 >= 0 ? '+' : ''}${t7}%</span></td>
+          <td><span class="trend-pct ${t30 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t30 >= 0 ? '+' : ''}${t30}%</span></td>
+          <td><span style="font-family:var(--font-mono);font-size:11px;color:${rc}">${rep}/100</span></td>
+          <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${respHrs != null ? respHrs + 'h' : '\u2014'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+      content.innerHTML = html;
+
+      // Wire table row clicks
+      content.querySelectorAll('.prov-all-tbl tbody tr').forEach(r => {
+        r.addEventListener('click', () => navigate('/providers/' + encodeURIComponent(r.dataset.id)));
+      });
+
+      // Wire search
+      content.querySelector('.prov-search-in')?.addEventListener('input', (e) => {
+        renderAllTable(content.querySelector('.prov-country-sel')?.value || '', e.target.value);
+      });
+      // Wire country filter
+      content.querySelector('.prov-country-sel')?.addEventListener('change', (e) => {
+        renderAllTable(e.target.value, content.querySelector('.prov-search-in')?.value || '');
+      });
+    }
+
+    renderAllTable('', '');
   };
 
-  await loadWorst('7d');
+  await loadWorst(_provPeriod);
 
+  // Sub-tab switching
   document.getElementById('prov-tabs').addEventListener('click', async (e) => {
     const tab = e.target.closest('.sub-tab');
     if (!tab || !tab.dataset.tab) return;
@@ -1257,19 +1306,35 @@ async function viewProvidersHub(el) {
     tab.classList.add('active');
     _provSubTab = tab.dataset.tab;
     document.getElementById('prov-content').innerHTML = 'Loading...';
-    if (_provSubTab === 'worst') await loadWorst('7d');
-    else if (_provSubTab === 'improving') await loadImproving('7d');
+    if (_provSubTab === 'worst') await loadWorst(_provPeriod);
+    else if (_provSubTab === 'improving') await loadImproving(_provPeriod);
     else await loadAllProviders();
+  });
+
+  // Period selector
+  document.getElementById('prov-period')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.period-btn');
+    if (!btn) return;
+    document.querySelectorAll('#prov-period .period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _provPeriod = btn.dataset.period;
+    if (_provSubTab === 'worst') { document.getElementById('prov-content').innerHTML = 'Loading...'; await loadWorst(_provPeriod); }
+    else if (_provSubTab === 'improving') { document.getElementById('prov-content').innerHTML = 'Loading...'; await loadImproving(_provPeriod); }
   });
 }
 
 // ─── View: Provider Detail (Step 10) ────────────────────────
+let _provDetailMap = null;
+let _provDetailChart = null;
+let _provThreatsPage = 1;
+const _provThreatsPerPage = 15;
+
 async function viewProviderDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
     const [provRes, threatsRes, brandsRes, timelineRes, locationsRes] = await Promise.all([
       api(`/providers/${encodeURIComponent(params.id)}`),
-      api(`/providers/${encodeURIComponent(params.id)}/threats?limit=15`).catch(() => null),
+      api(`/providers/${encodeURIComponent(params.id)}/threats?limit=50`).catch(() => null),
       api(`/providers/${encodeURIComponent(params.id)}/brands`).catch(() => null),
       api(`/providers/${encodeURIComponent(params.id)}/timeline?period=90d`).catch(() => null),
       api(`/providers/${encodeURIComponent(params.id)}/locations`).catch(() => null),
@@ -1277,71 +1342,206 @@ async function viewProviderDetail(el, params) {
     const p = provRes?.data;
     if (!p) { el.innerHTML = '<div class="empty-state"><div class="message">Provider not found</div></div>'; return; }
 
-    const threats = threatsRes?.data || [];
+    const allThreats = threatsRes?.data || [];
     const brands = brandsRes?.data || [];
+    const locations = locationsRes?.data || [];
+    const totalThreats = p.threat_count || p.total_threats || allThreats.length;
+    const repScore = p.reputation_score ?? p.reputation ?? 50;
+    const rc = _provRepColor(repScore);
+    const flag = _provFlag(p.country_code || p.country);
+    const t7 = p.trend_7d_pct ?? p.trend_7d ?? 0;
+    const t30 = p.trend_30d_pct ?? p.trend_30d ?? 0;
+    const respHrs = p.avg_response_time_hours ?? p.response_hrs;
+    const repLabel = repScore >= 60 ? 'Responsive' : repScore >= 30 ? 'Slow' : 'Negligent';
+    const provColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3', '#4a5a73'];
     const maxBrand = brands[0]?.count || brands[0]?.threat_count || 1;
-    const repScore = p.reputation_score || 50;
-    const repColor = repScore < 30 ? 'var(--negative)' : repScore < 60 ? 'var(--threat-medium)' : 'var(--positive)';
 
     el.innerHTML = `
       <a href="/providers" class="back-link">\u2190 Back to Providers</a>
       <div class="detail-header">
-        <div class="detail-header-icon" style="font-size:28px">\ud83c\udf10</div>
+        <div class="detail-header-icon" style="flex-direction:column;gap:2px"><span style="font-size:22px">${flag}</span><span style="font-family:var(--font-mono);font-size:8px;color:var(--text-tertiary)">${p.asn || ''}</span></div>
         <div class="detail-header-meta">
-          <div class="detail-header-title">${p.name} ${p.asn ? `<span style="font-family:var(--font-mono);font-size:12px;padding:3px 10px;border-radius:20px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--blue-border)">${p.asn}</span>` : ''}</div>
-          <div class="detail-header-sub">${p.country || ''}</div>
+          <div class="detail-header-title">${p.name}${p.asn ? `<span class="asn-pill">${p.asn}</span>` : ''}<span class="country-code-pill" style="font-size:11px;padding:3px 8px">${p.country_code || p.country || ''}</span></div>
+          <div class="detail-header-sub">Hosting Provider \u2014 ${totalThreats} active threats hosted</div>
           <div class="detail-header-stats">
-            <div class="header-stat"><div class="header-stat-val">${p.threat_count || p.total_threats || 0}</div><div class="header-stat-label">Active Threats</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:${(p.trend_7d_pct||0) >= 0 ? 'var(--negative)' : 'var(--positive)'}">${(p.trend_7d_pct||0) >= 0 ? '+' : ''}${p.trend_7d_pct || 0}%</div><div class="header-stat-label">7d Trend</div></div>
-            <div class="header-stat"><div class="header-stat-val">${p.trend_30d_pct || 0}%</div><div class="header-stat-label">30d Trend</div></div>
-            <div class="header-stat"><div class="header-stat-val">${p.avg_response_time_hours || '-'}h</div><div class="header-stat-label">Avg Response</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:${_tColor(totalThreats)}">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:${t7 >= 0 ? 'var(--threat-medium)' : 'var(--positive)'}">${t7 >= 0 ? '+' : ''}${t7}%</div><div class="header-stat-label">7-day trend</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:${t30 >= 0 ? 'var(--threat-high)' : 'var(--positive)'}">${t30 >= 0 ? '+' : ''}${t30}%</div><div class="header-stat-label">30-day trend</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--text-secondary)">${respHrs != null ? respHrs + 'h' : 'N/A'}</div><div class="header-stat-label">Avg response</div></div>
           </div>
         </div>
-        <div class="trust-score-ring" style="border-color:${repColor}"><div style="text-align:center"><div class="score-val" style="color:${repColor}">${repScore}</div><div class="score-grade">REP</div></div></div>
+        <div class="rep-ring"><div style="width:72px;height:72px;position:relative"><svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${rc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - repScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg><div class="rep-ring-val" style="color:${rc}">${repScore}</div></div><div class="rep-ring-label" style="color:${rc}">${repLabel}</div></div>
       </div>
       <div class="detail-grid">
-        <div>
-          ${renderPanel('Hosted Threats', threats.length, renderDataTable(
-            [
-              { key: 'malicious_domain', label: 'URL', className: 'domain' },
-              { key: 'threat_type', label: 'Type', render: v => `<span class="threat-pill ${v}">${v}</span>` },
-              { key: 'brand_name', label: 'Target Brand' },
-              { key: 'created_at', label: 'First Seen', className: 'mono', render: v => v?.slice(0, 10) },
-              { key: 'status', label: 'Status', render: v => `<span class="badge-status ${v}">${v}</span>` },
-            ],
-            threats,
-            { emptyMessage: 'No threats hosted' }
-          ))}
-        </div>
-        <div>
-          <div class="panel" style="margin-bottom:16px"><div class="phead">Threat Locations</div><div class="panel-body"><div id="prov-mini-map" class="mini-map"></div></div></div>
-          ${renderPanel('Brand Breakdown', null, brands.length ?
-            brands.map(b => renderBarRow(b.name || b.brand_name, b.count || b.threat_count, maxBrand)).join('') :
-            '<div class="empty-state"><div class="message">No brands</div></div>'
-          )}
+        <div class="panel" id="prov-threats-panel"></div>
+        <div class="detail-rcol" style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel"><div class="phead"><span>Target Locations</span><span class="badge" id="prov-loc-ct">${locations.length} countries</span></div><div class="panel-body"><div id="prov-mini-map" class="mini-map"></div></div></div>
+          <div class="panel"><div class="phead"><span>Brands Targeted</span></div><div class="panel-body padded" id="prov-brand-bars">${brands.length ?
+            brands.map((b, i) => {
+              const cnt = b.count || b.threat_count || 0;
+              const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
+              return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
+            }).join('') :
+            '<div class="empty-state"><div class="message">No brand data</div></div>'
+          }</div></div>
+          <div class="panel"><div class="phead"><span>AI Assessment</span></div><div class="panel-body padded" id="prov-ai-insight"></div></div>
         </div>
       </div>
-      <div class="chart-wrap"><div class="chart-head"><div class="chart-title">Trend Timeline</div></div><canvas id="prov-timeline-chart"></canvas></div>`;
+      <div>
+        <div class="chart-head"><div class="chart-title">Threat Trend</div></div>
+        <div class="chart-legend" id="prov-chart-legend"></div>
+        <div class="chart-wrap"><canvas id="prov-timeline-chart"></canvas></div>
+      </div>`;
 
-    // Mini map
-    const locations = locationsRes?.data || [];
-    if (locations.length > 0) {
-      const miniMap = L.map('prov-mini-map', { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false }).setView([20, 0], 1.5);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd' }).addTo(miniMap);
-      locations.forEach(loc => {
-        L.circleMarker([loc.lat, loc.lng], { radius: Math.max(5, (loc.count || 1) * 2), color: '#ff6b35', fillColor: '#ff6b35', fillOpacity: 0.5, weight: 1 }).addTo(miniMap);
+    // ── Threats table with filter pills, evidence column, pagination ──
+    _provThreatsPage = 1;
+    const threatTypes = ['all', 'phishing', 'typosquat', 'impersonation', 'credential'];
+    let activeFilter = 'all';
+
+    function renderProvThreats() {
+      const filtered = activeFilter === 'all' ? allThreats : allThreats.filter(t => (t.threat_type || t.type) === activeFilter);
+      const totalPages = Math.max(1, Math.ceil(filtered.length / _provThreatsPerPage));
+      if (_provThreatsPage > totalPages) _provThreatsPage = totalPages;
+      const start = (_provThreatsPage - 1) * _provThreatsPerPage;
+      const pageThreats = filtered.slice(start, start + _provThreatsPerPage);
+
+      let html = `<div class="phead"><span>Threats Hosted</span><span class="badge">${totalThreats} total</span></div>`;
+      html += `<div class="prov-threats-controls"><div class="prov-tfilter" id="prov-threat-filter">
+        ${threatTypes.map(t => `<button class="prov-fp ${t === activeFilter ? 'active' : ''}" data-type="${t}">${t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join('')}
+      </div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${filtered.length > 0 ? (start + 1) + '\u2013' + Math.min(start + _provThreatsPerPage, filtered.length) + ' of ' + filtered.length : '0'}</span></div>`;
+
+      if (!pageThreats.length) {
+        html += '<div class="empty-state"><div class="message">No threats matching filter</div></div>';
+      } else {
+        html += `<table class="prov-threats-tbl"><thead><tr><th>Malicious URL</th><th>Type</th><th>Target Brand</th><th>First Seen</th><th>Status</th><th>Ev</th></tr></thead><tbody>`;
+        pageThreats.forEach(t => {
+          const url = t.malicious_domain || t.url || '';
+          const type = t.threat_type || t.type || '';
+          const brand = t.brand_name || t.brand || '';
+          const date = (t.created_at || t.first_seen || '').slice(0, 16).replace('T', ' ');
+          const status = t.status || 'active';
+          const hasEv = t.evidence_captured ?? t.evidence ?? false;
+          const statusClass = status === 'active' ? 'active' : status === 'down' ? 'down' : 'monitoring';
+          html += `<tr>
+            <td><div class="td-url">${url}</div></td>
+            <td><span class="type-pill ${type}">${type}</span></td>
+            <td style="font-size:11px;color:var(--text-secondary)">${brand}</td>
+            <td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${date}</span></td>
+            <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
+            <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Pagination
+        html += `<div class="prov-pgn"><span class="prov-pgn-info">Page ${_provThreatsPage} of ${totalPages}</span><div class="prov-pgn-btns">
+          <button class="prov-pgn-btn ${_provThreatsPage <= 1 ? 'disabled' : ''}" data-page="prev">\u2039</button>`;
+        for (let pg = 1; pg <= Math.min(totalPages, 5); pg++) {
+          html += `<button class="prov-pgn-btn ${pg === _provThreatsPage ? 'active' : ''}" data-page="${pg}">${pg}</button>`;
+        }
+        html += `<button class="prov-pgn-btn ${_provThreatsPage >= totalPages ? 'disabled' : ''}" data-page="next">\u203a</button></div></div>`;
+      }
+
+      const panel = document.getElementById('prov-threats-panel');
+      if (panel) panel.innerHTML = html;
+
+      // Wire filter pills
+      panel?.querySelectorAll('#prov-threat-filter .prov-fp').forEach(pill => {
+        pill.addEventListener('click', () => {
+          activeFilter = pill.dataset.type;
+          _provThreatsPage = 1;
+          renderProvThreats();
+        });
+      });
+
+      // Wire pagination
+      panel?.querySelectorAll('.prov-pgn-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('disabled')) return;
+          const page = btn.dataset.page;
+          if (page === 'prev') _provThreatsPage = Math.max(1, _provThreatsPage - 1);
+          else if (page === 'next') _provThreatsPage = Math.min(totalPages, _provThreatsPage + 1);
+          else _provThreatsPage = parseInt(page);
+          renderProvThreats();
+        });
       });
     }
 
-    // Timeline chart
+    renderProvThreats();
+
+    // ── Cartographer AI assessment card ──
+    document.getElementById('prov-ai-insight').innerHTML = `<div class="ai-card">
+      <div class="ai-agent">Cartographer</div>
+      <div class="ai-text">Attackers are ${t7 > 0 ? 'increasingly' : 'decreasingly'} using <strong>${p.name}</strong> (${p.asn || ''}) to host attack infrastructure. ${respHrs != null ? `Average abuse response time is <strong>${respHrs} hours</strong>${respHrs > 24 ? ', significantly above the industry average of 8 hours' : ''}.` : 'No abuse response data available.'} ${t7 > 20 ? `This provider has seen a <strong>${t7}% surge</strong> in hosted threats this week \u2014 attackers may be exploiting lax enforcement.` : `Threat volume is ${t7 > 0 ? 'gradually increasing' : 'declining'}.`}</div>
+    </div>`;
+
+    // ── Mini map with sized/colored markers ──
+    if (_provDetailMap) { _provDetailMap.remove(); _provDetailMap = null; }
+    if (locations.length > 0) {
+      setTimeout(() => {
+        _provDetailMap = L.map('prov-mini-map', { zoomControl: false, attributionControl: false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(_provDetailMap);
+        const maxC = Math.max(...locations.map(l => l.count || 1));
+        locations.forEach(loc => {
+          const int = (loc.count || 1) / maxC;
+          const col = int >= 0.7 ? '#ff3b5c' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#ffb627' : '#00d4ff';
+          L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5 }).addTo(_provDetailMap);
+          L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
+            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .addTo(_provDetailMap);
+        });
+        _provDetailMap.fitBounds(L.latLngBounds(locations.map(l => [l.lat, l.lng])), { padding: [20, 20], maxZoom: 5 });
+      }, 50);
+    }
+
+    // ── 3-dataset timeline chart (current 30d, prev 30d, 60-90d ago) ──
+    document.getElementById('prov-chart-legend').innerHTML = `
+      <div class="legend-item"><div class="legend-swatch" style="background:#00d4ff"></div>Last 30 days</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ff6b35"></div>Previous 30 days</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--text-tertiary);opacity:.5"></div>60\u201390 days ago</div>`;
+
+    if (_provDetailChart) { _provDetailChart.destroy(); _provDetailChart = null; }
     const timeline = timelineRes?.data || {};
     if (timeline.labels?.length && typeof Chart !== 'undefined') {
-      new Chart(document.getElementById('prov-timeline-chart'), {
+      const allVals = timeline.values || [];
+      const labels30 = timeline.labels.slice(-30);
+      const d30 = allVals.slice(-30);
+      const prev30 = allVals.length >= 60 ? allVals.slice(-60, -30) : d30.map(() => null);
+      const old30 = allVals.length >= 90 ? allVals.slice(-90, -60) : d30.map(() => null);
+
+      _provDetailChart = new Chart(document.getElementById('prov-timeline-chart'), {
         type: 'line',
-        data: { labels: timeline.labels, datasets: [{ data: timeline.values, borderColor: '#ff6b35', backgroundColor: 'rgba(255,107,53,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } }, y: { ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } } } }
+        data: { labels: labels30, datasets: [
+          { label: 'Last 30d', data: d30, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)', fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2 },
+          { label: 'Prev 30d', data: prev30, borderColor: '#ff6b35', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 3] },
+          { label: '60-90d ago', data: old30, borderColor: 'rgba(122,139,168,0.3)', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1, borderDash: [2, 4] }
+        ] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
+              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+          }
+        }
       });
     }
+
+    // Cleanup
+    window._viewCleanup = () => {
+      if (_provDetailMap) { _provDetailMap.remove(); _provDetailMap = null; }
+      if (_provDetailChart) { _provDetailChart.destroy(); _provDetailChart = null; }
+    };
+
   } catch (err) { showToast(err.message, 'error'); }
 }
 
