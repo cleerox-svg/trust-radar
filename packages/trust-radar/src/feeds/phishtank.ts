@@ -1,5 +1,5 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
-import { threatId } from "./types";
+import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
 /** PhishTank Community — Verified phishing URLs */
@@ -20,31 +20,23 @@ export const phishtank: FeedModule = {
       try {
         if (await isDuplicate(ctx.env, "url", entry.url)) { itemsDuplicate++; continue; }
 
-        let domain: string | undefined;
-        try { domain = new URL(entry.url).hostname; } catch {}
+        const domain = extractDomain(entry.url);
 
         await insertThreat(ctx.env.DB, {
           id: threatId("phishtank", "url", entry.url),
-          type: "phishing",
-          title: `PhishTank: ${domain ?? entry.url}`,
-          description: `Verified phishing URL${entry.target ? ` targeting ${entry.target}` : ""}. PhishTank ID: ${entry.phish_id}`,
-          severity: "high",
-          confidence: entry.verified === "yes" ? 0.95 : 0.7,
-          source: "phishtank",
-          source_ref: String(entry.phish_id),
-          ioc_type: "url",
+          source_feed: "phishtank",
+          threat_type: "phishing",
+          malicious_url: entry.url,
+          malicious_domain: domain,
           ioc_value: entry.url,
-          domain,
-          url: entry.url,
-          tags: ["phishing", ...(entry.target ? [entry.target.toLowerCase()] : [])],
-          metadata: { target: entry.target, detail_url: entry.phish_detail_url },
-          created_by: "phishtank",
+          severity: "high",
+          confidence_score: entry.verified === "yes" ? 95 : 70,
         });
         await markSeen(ctx.env, "url", entry.url);
         itemsNew++;
       } catch { itemsError++; }
     }
 
-    return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
+    return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

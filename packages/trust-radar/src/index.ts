@@ -13,7 +13,7 @@ import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAd
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
-  handleResetCircuit, handleCreateFeed, handleDeleteFeed, handleFeedQuota,
+  handleResetCircuit, handleFeedQuota,
 } from "./handlers/feeds";
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
@@ -240,14 +240,12 @@ router.post("/api/feeds/:id/reset", async (request: Request & { params: Record<s
   return handleResetCircuit(request, env, request.params["id"] ?? "");
 });
 router.post("/api/feeds", async (request: Request, env: Env) => {
-  const ctx = await requireAdmin(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleCreateFeed(request, env, ctx.userId);
+  const origin = request.headers.get("Origin");
+  return json({ success: false, error: "Feed creation via API deferred to v2 admin module" }, 501, origin);
 });
 router.delete("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-  const ctx = await requireAdmin(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleDeleteFeed(request, env, request.params["id"] ?? "");
+  const origin = request.headers.get("Origin");
+  return json({ success: false, error: "Feed deletion via API deferred to v2 admin module" }, 501, origin);
 });
 router.post("/api/feeds/trigger-all", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);

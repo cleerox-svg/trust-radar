@@ -1,5 +1,5 @@
-import type { FeedModule, FeedContext, FeedResult } from "./types";
-import { threatId } from "./types";
+import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "./types";
+import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
 /** ThreatFox (abuse.ch) — IOCs: domains, URLs, IPs, hashes */
@@ -15,10 +15,11 @@ export const threatfox: FeedModule = {
     const data = await res.json() as { query_status: string; data?: Array<{
       id: number; ioc: string; ioc_type: string; threat_type: string;
       malware?: string; confidence_level?: number; tags?: string[];
-      reference?: string; first_seen_utc?: string;
     }> };
 
-    if (data.query_status !== "ok" || !data.data) return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0, threatsCreated: 0 };
+    if (data.query_status !== "ok" || !data.data) {
+      return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
+    }
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
     const items = data.data.slice(0, 1500);
@@ -28,30 +29,28 @@ export const threatfox: FeedModule = {
         const iocType = mapIocType(ioc.ioc_type);
         if (await isDuplicate(ctx.env, iocType, ioc.ioc)) { itemsDuplicate++; continue; }
 
+        const domain = iocType === "domain" ? ioc.ioc : extractDomain(ioc.ioc);
+        const isUrl = iocType === "url";
+        const isIp = iocType === "ip";
+        const confidence = ioc.confidence_level ?? 50;
+
         await insertThreat(ctx.env.DB, {
           id: threatId("threatfox", iocType, ioc.ioc),
-          type: mapThreatType(ioc.threat_type),
-          title: `ThreatFox: ${ioc.malware ?? ioc.threat_type} — ${ioc.ioc}`,
-          description: `IOC from ThreatFox feed. Malware: ${ioc.malware ?? "unknown"}. Ref: ${ioc.reference ?? "N/A"}`,
-          severity: confidenceToSeverity(ioc.confidence_level ?? 50),
-          confidence: (ioc.confidence_level ?? 50) / 100,
-          source: "threatfox",
-          source_ref: String(ioc.id),
-          ioc_type: iocType,
+          source_feed: "threatfox",
+          threat_type: "malware_distribution",
+          malicious_url: isUrl ? ioc.ioc : null,
+          malicious_domain: domain,
+          ip_address: isIp ? ioc.ioc : null,
           ioc_value: ioc.ioc,
-          domain: iocType === "domain" ? ioc.ioc : extractDomain(ioc.ioc),
-          url: iocType === "url" ? ioc.ioc : undefined,
-          ip_address: iocType === "ip" ? ioc.ioc : undefined,
-          tags: ioc.tags ?? [],
-          metadata: { malware: ioc.malware, threat_type: ioc.threat_type },
-          created_by: "threatfox",
+          severity: confidenceToSeverity(confidence),
+          confidence_score: confidence,
         });
         await markSeen(ctx.env, iocType, ioc.ioc);
         itemsNew++;
       } catch { itemsError++; }
     }
 
-    return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
+    return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
 
@@ -63,22 +62,9 @@ function mapIocType(t: string): string {
   return "unknown";
 }
 
-function mapThreatType(t: string): string {
-  if (t.includes("botnet")) return "c2";
-  if (t.includes("payload")) return "malware";
-  return "malware";
-}
-
-function confidenceToSeverity(c: number): string {
+function confidenceToSeverity(c: number): ThreatRow["severity"] {
   if (c >= 90) return "critical";
   if (c >= 70) return "high";
   if (c >= 40) return "medium";
   return "low";
-}
-
-function extractDomain(val: string): string | undefined {
-  try {
-    const u = new URL(val.startsWith("http") ? val : `https://${val}`);
-    return u.hostname;
-  } catch { return undefined; }
 }
