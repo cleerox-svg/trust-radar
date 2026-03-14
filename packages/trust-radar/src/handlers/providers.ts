@@ -48,32 +48,37 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
     const search = url.searchParams.get("q");
 
-    let where = "";
+    const conditions: string[] = ["t.hosting_provider_id IS NOT NULL"];
     const params: unknown[] = [];
-    if (search) { where = "WHERE hosting_provider_id LIKE ?"; params.push(`%${search}%`); }
+    if (search) {
+      conditions.push("(COALESCE(hp.name, t.hosting_provider_id) LIKE ? OR hp.asn LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
     params.push(limit, offset);
 
+    const where = `WHERE ${conditions.join(" AND ")}`;
+
     const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS id, hosting_provider_id AS name,
+      SELECT t.hosting_provider_id AS id, t.hosting_provider_id AS provider_id,
+             COALESCE(hp.name, t.hosting_provider_id) AS name,
+             hp.asn, hp.country AS country_code,
+             hp.reputation_score, hp.avg_response_time AS avg_response_time_hours,
+             hp.trend_7d AS trend_7d_pct, hp.trend_30d AS trend_30d_pct,
              COUNT(*) AS threat_count,
-             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats,
-             SUM(CASE WHEN severity IN ('critical','high') THEN 1 ELSE 0 END) AS high_sev,
-             MIN(created_at) AS first_seen,
-             MAX(created_at) AS last_seen
-      FROM threats ${where} AND hosting_provider_id IS NOT NULL
-      GROUP BY hosting_provider_id
+             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+             SUM(CASE WHEN t.severity IN ('critical','high') THEN 1 ELSE 0 END) AS high_sev,
+             MIN(t.created_at) AS first_seen,
+             MAX(t.created_at) AS last_seen
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      ${where}
+      GROUP BY t.hosting_provider_id
       ORDER BY threat_count DESC LIMIT ? OFFSET ?
     `).bind(...params).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    // Fallback: simpler query without WHERE condition issue
-    const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS id, COUNT(*) AS threat_count
-      FROM threats WHERE hosting_provider_id IS NOT NULL
-      GROUP BY hosting_provider_id ORDER BY threat_count DESC LIMIT 50
-    `).all();
-    return json({ success: true, data: rows.results }, 200, origin);
+    return json({ success: false, error: String(err) }, 500, origin);
   }
 }
 
@@ -82,12 +87,21 @@ export async function handleWorstProviders(request: Request, env: Env): Promise<
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS provider_id,
+      SELECT t.hosting_provider_id AS provider_id,
+             COALESCE(hp.name, t.hosting_provider_id) AS name,
+             hp.asn, hp.country AS country_code,
+             hp.reputation_score, hp.avg_response_time AS avg_response_time_hours,
              COUNT(*) AS threat_count,
-             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
-             COUNT(DISTINCT target_brand_id) AS brands_targeted
-      FROM threats WHERE hosting_provider_id IS NOT NULL
-      GROUP BY hosting_provider_id
+             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_count,
+             COUNT(DISTINCT t.target_brand_id) AS brands_targeted,
+             ROUND(
+               (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
+                NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
+             , 1) AS trend_7d_pct
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE t.hosting_provider_id IS NOT NULL
+      GROUP BY t.hosting_provider_id
       ORDER BY threat_count DESC LIMIT 10
     `).all();
 
@@ -103,11 +117,21 @@ export async function handleImprovingProviders(request: Request, env: Env): Prom
   try {
     // Providers where recent (7d) threats < previous (8-14d) threats
     const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS provider_id,
-             SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS recent,
-             SUM(CASE WHEN created_at >= datetime('now', '-14 days') AND created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) AS previous
-      FROM threats WHERE hosting_provider_id IS NOT NULL AND created_at >= datetime('now', '-14 days')
-      GROUP BY hosting_provider_id
+      SELECT t.hosting_provider_id AS provider_id,
+             COALESCE(hp.name, t.hosting_provider_id) AS name,
+             hp.asn, hp.country AS country_code,
+             hp.reputation_score, hp.avg_response_time AS avg_response_time_hours,
+             SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS threat_count,
+             SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS recent,
+             SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) AS previous,
+             ROUND(
+               (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
+                NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
+             , 1) AS trend_7d_pct
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE t.hosting_provider_id IS NOT NULL AND t.created_at >= datetime('now', '-14 days')
+      GROUP BY t.hosting_provider_id
       HAVING previous > 0 AND recent < previous
       ORDER BY (CAST(recent AS REAL) / previous) ASC
       LIMIT 10
@@ -124,6 +148,14 @@ export async function handleGetProvider(request: Request, env: Env, providerId: 
   const origin = request.headers.get("Origin");
   try {
     const decoded = decodeURIComponent(providerId);
+
+    // Try to get provider info from hosting_providers table
+    const providerInfo = await env.DB.prepare(
+      "SELECT id, name, asn, country, reputation_score, avg_response_time FROM hosting_providers WHERE id = ?"
+    ).bind(decoded).first<{ id: string; name: string; asn: string | null; country: string | null; reputation_score: number | null; avg_response_time: number | null }>();
+
+    const displayName = providerInfo?.name ?? decoded;
+
     const [stats, brandBreakdown, typeBreakdown] = await Promise.all([
       env.DB.prepare(`
         SELECT COUNT(*) AS total_threats,
@@ -148,7 +180,17 @@ export async function handleGetProvider(request: Request, env: Env, providerId: 
 
     return json({
       success: true,
-      data: { id: decoded, name: decoded, ...stats, brand_breakdown: brandBreakdown.results, type_breakdown: typeBreakdown.results },
+      data: {
+        id: decoded,
+        name: displayName,
+        asn: providerInfo?.asn ?? null,
+        country: providerInfo?.country ?? null,
+        reputation_score: providerInfo?.reputation_score ?? null,
+        avg_response_time: providerInfo?.avg_response_time ?? null,
+        ...stats,
+        brand_breakdown: brandBreakdown.results,
+        type_breakdown: typeBreakdown.results,
+      },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
