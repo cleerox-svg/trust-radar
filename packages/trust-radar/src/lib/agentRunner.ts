@@ -31,7 +31,7 @@ export type AgentName =
   | "hosting-provider-analysis";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
-export type RunStatus = "queued" | "running" | "success" | "failed" | "cancelled" | "timeout" | "awaiting_approval" | "partial";
+export type RunStatus = "success" | "partial" | "failed";
 
 export interface AgentRunRow {
   id: string;
@@ -149,7 +149,7 @@ export async function executeAgent(
   // Create run record in v2 agent_runs table
   await env.DB.prepare(
     `INSERT INTO agent_runs (id, agent_id, started_at, status, records_processed, outputs_generated)
-     VALUES (?, ?, datetime('now'), 'running', 0, 0)`
+     VALUES (?, ?, datetime('now'), 'partial', 0, 0)`
   ).bind(runId, agentModule.name).run();
 
   const ctx: AgentContext = { env, runId, agentName: agentModule.name, input, triggeredBy };
@@ -179,7 +179,7 @@ export async function executeAgent(
       }
     }
 
-    const finalStatus: RunStatus = result.approvals?.length ? "awaiting_approval" : "success";
+    const finalStatus: RunStatus = result.approvals?.length ? "partial" : "success";
 
     await env.DB.prepare(
       `UPDATE agent_runs SET
