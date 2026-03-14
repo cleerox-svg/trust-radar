@@ -9,9 +9,10 @@
     "deploy": "wrangler deploy",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 migrations apply radar-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply radar-db --remote",
-    "db:create": "wrangler d1 create radar-db",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
+    "db:migrate:audit:local": "wrangler d1 migrations apply AUDIT_DB --local",
+    "db:migrate:audit:prod": "wrangler d1 migrations apply AUDIT_DB --remote",
     "test": "vitest run",
     "test:watch": "vitest"
   },
