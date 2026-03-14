@@ -95,7 +95,7 @@ async function runFeed(
 
   // Create pull history entry
   await env.DB.prepare(
-    `INSERT INTO feed_pull_history (id, feed_name, started_at, status) VALUES (?, ?, ?, 'running')`
+    `INSERT INTO feed_pull_history (id, feed_name, started_at, status) VALUES (?, ?, ?, 'partial')`
   ).bind(pullId, config.feed_name, startedAt).run();
 
   const ctx: FeedContext = {
