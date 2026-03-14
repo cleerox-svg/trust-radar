@@ -219,9 +219,8 @@ export async function runAllFeeds(
     toRun.map(({ config, mod }) => runFeed(env, config, mod))
   );
 
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    const name = toRun[i].config.feed_name;
+  for (const [i, r] of results.entries()) {
+    const name = toRun[i]!.config.feed_name;
     feedsRun++;
     if (r.status === "fulfilled") {
       totalNew += r.value.itemsNew;
