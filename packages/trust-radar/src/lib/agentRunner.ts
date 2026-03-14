@@ -2,8 +2,7 @@
  * Agent Runner — Orchestrator for AI agent execution (v2).
  *
  * Uses v2 tables: agent_runs, agent_outputs.
- * Supports both v2 named agents (sentinel, analyst, etc.) and
- * legacy rule-based agents (triage, threat-hunt, etc.).
+ * Supports the 5 canonical agents: sentinel, analyst, cartographer, strategist, observer.
  */
 
 import type { Env } from "../types";
@@ -135,21 +134,27 @@ export async function executeAgent(
 
     // Persist agent outputs if any
     let outputsGenerated = 0;
+    console.log(`[agentRunner] ${agentModule.name}: result has ${result.agentOutputs?.length ?? 0} outputs to persist`);
     if (result.agentOutputs && result.agentOutputs.length > 0) {
       for (const output of result.agentOutputs) {
         const outputId = crypto.randomUUID();
-        await env.DB.prepare(
-          `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, related_brand_ids, related_campaign_id, related_provider_ids, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-        ).bind(
-          outputId, agentModule.name, output.type, output.summary,
-          output.severity ?? null,
-          output.details ? JSON.stringify(output.details) : null,
-          output.relatedBrandIds ? JSON.stringify(output.relatedBrandIds) : null,
-          output.relatedCampaignId ?? null,
-          output.relatedProviderIds ? JSON.stringify(output.relatedProviderIds) : null,
-        ).run();
-        outputsGenerated++;
+        try {
+          await env.DB.prepare(
+            `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, related_brand_ids, related_campaign_id, related_provider_ids, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+          ).bind(
+            outputId, agentModule.name, output.type, output.summary,
+            output.severity ?? null,
+            output.details ? JSON.stringify(output.details) : null,
+            output.relatedBrandIds ? JSON.stringify(output.relatedBrandIds) : null,
+            output.relatedCampaignId ?? null,
+            output.relatedProviderIds ? JSON.stringify(output.relatedProviderIds) : null,
+          ).run();
+          outputsGenerated++;
+          console.log(`[agentRunner] ${agentModule.name}: persisted output ${outputId} (type=${output.type})`);
+        } catch (err) {
+          console.error(`[agentRunner] ${agentModule.name}: FAILED to persist output:`, err);
+        }
       }
     }
 

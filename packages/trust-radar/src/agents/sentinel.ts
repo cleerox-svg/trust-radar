@@ -66,6 +66,11 @@ export const sentinelAgent: AgentModule = {
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
 
+    // ─── Diagnostic logging ───────────────────────────────────
+    console.log("[sentinel] === STARTING ===");
+    console.log("[sentinel] LRX_API_URL configured:", !!env.LRX_API_URL, env.LRX_API_URL ? env.LRX_API_URL.slice(0, 30) + "..." : "MISSING");
+    console.log("[sentinel] LRX_API_KEY configured:", !!env.LRX_API_KEY, env.LRX_API_KEY ? "present (length=" + env.LRX_API_KEY.length + ")" : "MISSING");
+
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
       `SELECT id, malicious_url, malicious_domain, ip_address, source_feed, ioc_value, threat_type
@@ -78,12 +83,21 @@ export const sentinelAgent: AgentModule = {
       threat_type: string;
     }>();
 
+    console.log("[sentinel] Threats with confidence_score IS NULL:", threats.results.length);
+
+    // Also check total threat count for context
+    const totalCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>();
+    const nullCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE confidence_score IS NULL").first<{ n: number }>();
+    console.log("[sentinel] Total threats in DB:", totalCount?.n ?? 0, "| With NULL confidence:", nullCount?.n ?? 0);
+
     let itemsProcessed = 0;
     let itemsUpdated = 0;
     let impersonationsFound = 0;
     const outputs: AgentOutputEntry[] = [];
     let totalTokens = 0;
     let model: string | undefined;
+    let haikuSuccesses = 0;
+    let haikuFailures = 0;
 
     for (const threat of threats.results) {
       itemsProcessed++;
@@ -101,11 +115,19 @@ export const sentinelAgent: AgentModule = {
       let severity: string;
 
       if (result.success && result.data) {
+        haikuSuccesses++;
         confidence = result.data.confidence;
         severity = result.data.severity;
         if (result.tokens_used) totalTokens += result.tokens_used;
         if (result.model) model = result.model;
+        if (itemsProcessed <= 3) {
+          console.log(`[sentinel] Haiku SUCCESS for ${threat.id}: confidence=${confidence}, severity=${severity}`);
+        }
       } else {
+        haikuFailures++;
+        if (haikuFailures <= 3) {
+          console.log(`[sentinel] Haiku FAILED for ${threat.id}: ${result.error ?? "no data"}`);
+        }
         // Fallback: rule-based scoring with source-quality boosting
         const fb = ruleBasedClassify(threat.source_feed, threat.threat_type);
         confidence = fb.confidence;
@@ -121,10 +143,8 @@ export const sentinelAgent: AgentModule = {
 
         if (hasHomoglyphs || squattedBrand) {
           impersonationsFound++;
-          // Escalate severity for impersonation threats
           if (severity === "low" || severity === "medium") severity = "high";
           if (threatType === "unknown") threatType = "impersonation";
-          // Boost confidence for impersonation detections
           confidence = Math.min(95, confidence + 10);
         }
       }
@@ -139,15 +159,29 @@ export const sentinelAgent: AgentModule = {
       }
     }
 
-    // Generate summary output if threats were processed
-    if (itemsProcessed > 0) {
-      outputs.push({
-        type: "classification",
-        summary: `Sentinel classified ${itemsUpdated} threats (${itemsProcessed} processed, ${impersonationsFound} impersonations detected)`,
-        severity: "info",
-        details: { processed: itemsProcessed, updated: itemsUpdated, impersonationsFound },
-      });
-    }
+    console.log(`[sentinel] Processing complete: processed=${itemsProcessed}, updated=${itemsUpdated}, haiku_ok=${haikuSuccesses}, haiku_fail=${haikuFailures}, impersonations=${impersonationsFound}`);
+
+    // Always generate a summary output so agent_outputs gets populated
+    outputs.push({
+      type: "classification",
+      summary: itemsProcessed > 0
+        ? `Sentinel classified ${itemsUpdated} threats (${itemsProcessed} processed, ${impersonationsFound} impersonations, haiku=${haikuSuccesses}/${haikuFailures})`
+        : `Sentinel found 0 unclassified threats (${totalCount?.n ?? 0} total in DB, ${nullCount?.n ?? 0} with NULL confidence)`,
+      severity: "info",
+      details: {
+        processed: itemsProcessed,
+        updated: itemsUpdated,
+        impersonationsFound,
+        haikuSuccesses,
+        haikuFailures,
+        totalThreats: totalCount?.n ?? 0,
+        nullConfidenceThreats: nullCount?.n ?? 0,
+        lrxApiConfigured: !!env.LRX_API_URL && !!env.LRX_API_KEY,
+      },
+    });
+
+    console.log("[sentinel] agentOutputs to persist:", outputs.length, "entries");
+    console.log("[sentinel] === DONE ===");
 
     return {
       itemsProcessed,
@@ -165,7 +199,6 @@ function ruleBasedClassify(
   sourceFeed: string,
   threatType: string,
 ): { confidence: number; severity: string } {
-  // High-confidence sources (merged from triage agent)
   const highConfidence = ["phishtank", "threatfox", "feodo", "cisa_kev"];
   const medConfidence = ["urlhaus", "openphish"];
   const socialSources = ["tweetfeed", "mastodon_ioc"];
@@ -178,8 +211,8 @@ function ruleBasedClassify(
   let severity = "medium";
   if (threatType === "malware_distribution" || threatType === "credential_harvesting") severity = "high";
   if (threatType === "c2" || threatType === "botnet") severity = "critical";
-  if (sourceFeed === "feodo") severity = "critical"; // botnet C2
-  if (sourceFeed === "cisa_kev") severity = "critical"; // known exploited vulns
+  if (sourceFeed === "feodo") severity = "critical";
+  if (sourceFeed === "cisa_kev") severity = "critical";
 
   return { confidence, severity };
 }
