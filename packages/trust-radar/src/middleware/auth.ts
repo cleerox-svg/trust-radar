@@ -1,16 +1,22 @@
+// Trust Radar v2 — Auth Middleware (JWT + RBAC)
+
 import { verifyJWT } from "../lib/jwt";
 import { json } from "../lib/cors";
-import type { Env, JWTPayload } from "../types";
+import type { Env, JWTPayload, UserRole } from "../types";
 
 export interface AuthContext {
   userId: string;
   email: string;
-  plan: string;
+  role: UserRole;
 }
 
+/**
+ * Validates JWT access token and returns auth context.
+ * Checks for forced logout via KV.
+ */
 export async function requireAuth(
   request: Request,
-  env: Env
+  env: Env,
 ): Promise<AuthContext | Response> {
   const authHeader = request.headers.get("Authorization");
   const origin = request.headers.get("Origin");
@@ -32,20 +38,63 @@ export async function requireAuth(
     return json({ success: false, error: "Session invalidated by administrator" }, 401, origin);
   }
 
-  return { userId: payload.sub, email: payload.email, plan: payload.plan ?? "free" };
+  // Verify user still active in DB
+  const user = await env.DB.prepare("SELECT status FROM users WHERE id = ?")
+    .bind(payload.sub).first<{ status: string }>();
+
+  if (!user || user.status !== "active") {
+    return json({ success: false, error: "Account is not active" }, 403, origin);
+  }
+
+  // Update last_active timestamp (fire-and-forget)
+  env.DB.prepare("UPDATE users SET last_active = datetime('now') WHERE id = ?")
+    .bind(payload.sub).run().catch(() => {});
+
+  return { userId: payload.sub, email: payload.email, role: payload.role };
 }
 
+/**
+ * Role hierarchy: super_admin > admin > analyst > client
+ */
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  super_admin: 4,
+  admin: 3,
+  analyst: 2,
+  client: 1,
+};
+
+/**
+ * Require a minimum role level. Roles are hierarchical —
+ * super_admin can access admin routes, admin can access analyst routes, etc.
+ */
+export function requireRole(...allowedRoles: UserRole[]) {
+  const minLevel = Math.min(...allowedRoles.map((r) => ROLE_HIERARCHY[r]));
+
+  return async (request: Request, env: Env): Promise<AuthContext | Response> => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+
+    const userLevel = ROLE_HIERARCHY[ctx.role] ?? 0;
+    if (userLevel < minLevel) {
+      return json({ success: false, error: "Forbidden: insufficient role" }, 403, request.headers.get("Origin"));
+    }
+
+    return ctx;
+  };
+}
+
+/**
+ * Shorthand: require admin or super_admin role.
+ */
 export async function requireAdmin(request: Request, env: Env): Promise<AuthContext | Response> {
-  const ctx = await requireAuth(request, env);
-  if (!isAuthContext(ctx)) return ctx;
+  return requireRole("admin")(request, env);
+}
 
-  const row = await env.DB.prepare("SELECT is_admin FROM users WHERE id = ?")
-    .bind(ctx.userId).first<{ is_admin: number }>();
-
-  if (!row?.is_admin) {
-    return json({ success: false, error: "Forbidden" }, 403, request.headers.get("Origin"));
-  }
-  return ctx;
+/**
+ * Shorthand: require super_admin role.
+ */
+export async function requireSuperAdmin(request: Request, env: Env): Promise<AuthContext | Response> {
+  return requireRole("super_admin")(request, env);
 }
 
 export function isAuthContext(val: AuthContext | Response): val is AuthContext {

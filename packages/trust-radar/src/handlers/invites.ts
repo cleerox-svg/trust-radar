@@ -1,98 +1,161 @@
+// Trust Radar v2 — Invitation Handlers (hash-based tokens, email-bound)
+
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import { generateInviteToken, hashToken } from "../lib/hash";
+import { audit } from "../lib/audit";
+import type { Env, UserRole } from "../types";
 
-// ─── Create invite token (admin only) ─────────────────────────────
+const VALID_ROLES: UserRole[] = ["super_admin", "admin", "analyst", "client"];
+const INVITE_EXPIRY_HOURS = 72;
 
-export async function handleCreateInvite(request: Request, env: Env, adminUserId: string): Promise<Response> {
+// ─── Create invitation (admin/super_admin only) ─────────────────
+
+export async function handleCreateInvite(
+  request: Request,
+  env: Env,
+  adminUserId: string,
+  adminRole: UserRole,
+): Promise<Response> {
   const origin = request.headers.get("Origin");
   const body = await request.json().catch(() => null) as {
-    role?: string;
-    group_id?: string;
-    email_hint?: string;
-    notes?: string;
-    expires_days?: number;
+    email?: string;
+    role?: UserRole;
   } | null;
 
-  if (!body) return json({ success: false, error: "Invalid request body" }, 400, origin);
+  if (!body?.email) return json({ success: false, error: "Email is required" }, 400, origin);
 
   const role = body.role ?? "analyst";
-  if (!["admin", "analyst", "customer"].includes(role)) {
-    return json({ success: false, error: "Invalid role. Must be admin, analyst, or customer" }, 400, origin);
+  if (!VALID_ROLES.includes(role)) {
+    return json({ success: false, error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}` }, 400, origin);
   }
 
-  const token = crypto.randomUUID();
+  // Permission: only super_admin can invite admins/super_admins
+  if ((role === "super_admin" || role === "admin") && adminRole !== "super_admin") {
+    await audit(env, {
+      action: "invite_create_denied",
+      userId: adminUserId,
+      details: { target_email: body.email, target_role: role, reason: "insufficient_role" },
+      outcome: "denied",
+      request,
+    });
+    return json({ success: false, error: "Only super admins can invite admin or super_admin roles" }, 403, origin);
+  }
+
+  // Generate secure token — only the hash is stored
+  const rawToken = generateInviteToken();
+  const tokenHash = await hashToken(rawToken);
+
   const id = crypto.randomUUID();
-  const expDays = Math.min(body.expires_days ?? 7, 30);
-
   await env.DB.prepare(
-    `INSERT INTO invite_tokens (id, token, role, group_id, email_hint, notes, created_by, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+' || ? || ' days'))`,
-  )
-    .bind(id, token, role, body.group_id ?? null, body.email_hint ?? null, body.notes ?? null, adminUserId, expDays)
-    .run();
+    `INSERT INTO invitations (id, email, role, token_hash, invited_by, expires_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now', '+${INVITE_EXPIRY_HOURS} hours'))`,
+  ).bind(id, body.email.toLowerCase(), role, tokenHash, adminUserId).run();
 
-  const invite = await env.DB.prepare("SELECT * FROM invite_tokens WHERE id = ?").bind(id).first();
+  await audit(env, {
+    action: "invite_created",
+    userId: adminUserId,
+    resourceType: "invitation",
+    resourceId: id,
+    details: { email: body.email, role },
+    request,
+  });
 
-  return json({ success: true, data: invite }, 201, origin);
+  // Return the raw token once — it will never be retrievable again
+  const inviteUrl = `${new URL(request.url).origin}/invite?token=${rawToken}`;
+
+  return json({
+    success: true,
+    data: {
+      id,
+      email: body.email,
+      role,
+      invite_url: inviteUrl,
+      expires_in_hours: INVITE_EXPIRY_HOURS,
+    },
+  }, 201, origin);
 }
 
-// ─── List invite tokens (admin only) ──────────────────────────────
+// ─── List invitations (admin only) ──────────────────────────────
 
 export async function handleListInvites(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
-  const { results } = await env.DB.prepare(
-    `SELECT it.*, u.email as created_by_email
-     FROM invite_tokens it
-     LEFT JOIN users u ON u.id = it.created_by
-     ORDER BY it.created_at DESC
-     LIMIT 100`,
-  ).all();
+  const url = new URL(request.url);
+  const status = url.searchParams.get("status");
+  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10), 200);
+  const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+  let sql = `SELECT i.id, i.email, i.role, i.status, i.created_at, i.expires_at, i.accepted_at,
+                    u.email as invited_by_email
+             FROM invitations i
+             LEFT JOIN users u ON u.id = i.invited_by
+             WHERE 1=1`;
+  const params: unknown[] = [];
+
+  if (status) {
+    sql += " AND i.status = ?";
+    params.push(status);
+  }
+
+  sql += " ORDER BY i.created_at DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
+  const { results } = await env.DB.prepare(sql).bind(...params).all();
 
   return json({ success: true, data: results }, 200, origin);
 }
 
-// ─── Validate invite token (public) ──────────────────────────────
+// ─── Validate invite token (public — used by frontend) ──────────
 
-export async function handleValidateInvite(request: Request, env: Env, token: string): Promise<Response> {
+export async function handleValidateInvite(request: Request, env: Env, rawToken: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const tokenHash = await hashToken(rawToken);
 
   const invite = await env.DB.prepare(
-    `SELECT id, token, role, group_id, email_hint, expires_at, used_at
-     FROM invite_tokens WHERE token = ?`,
-  )
-    .bind(token)
-    .first<{ id: string; token: string; role: string; group_id: string | null; email_hint: string | null; expires_at: string; used_at: string | null }>();
+    "SELECT id, email, role, status, expires_at FROM invitations WHERE token_hash = ?",
+  ).bind(tokenHash).first<{ id: string; email: string; role: string; status: string; expires_at: string }>();
 
   if (!invite) return json({ success: false, error: "Invalid invite token" }, 404, origin);
-  if (invite.used_at) return json({ success: false, error: "Invite already used" }, 410, origin);
+  if (invite.status !== "pending") return json({ success: false, error: `Invite already ${invite.status}` }, 410, origin);
   if (new Date(invite.expires_at) < new Date()) {
+    await env.DB.prepare("UPDATE invitations SET status = 'expired' WHERE id = ?").bind(invite.id).run();
     return json({ success: false, error: "Invite has expired" }, 410, origin);
   }
 
   return json({
     success: true,
     data: {
-      token: invite.token,
+      email: invite.email,
       role: invite.role,
-      group_id: invite.group_id,
-      email_hint: invite.email_hint,
       expires_at: invite.expires_at,
     },
   }, 200, origin);
 }
 
-// ─── Revoke invite (admin only) ──────────────────────────────────
+// ─── Revoke invitation (admin only) ─────────────────────────────
 
-export async function handleRevokeInvite(request: Request, env: Env, inviteId: string): Promise<Response> {
+export async function handleRevokeInvite(
+  request: Request,
+  env: Env,
+  inviteId: string,
+  adminUserId: string,
+): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  const result = await env.DB.prepare("DELETE FROM invite_tokens WHERE id = ? AND used_at IS NULL")
-    .bind(inviteId)
-    .run();
+  const result = await env.DB.prepare(
+    "UPDATE invitations SET status = 'revoked' WHERE id = ? AND status = 'pending'",
+  ).bind(inviteId).run();
 
   if (!result.meta.changes) {
-    return json({ success: false, error: "Invite not found or already used" }, 404, origin);
+    return json({ success: false, error: "Invite not found or not pending" }, 404, origin);
   }
+
+  await audit(env, {
+    action: "invite_revoked",
+    userId: adminUserId,
+    resourceType: "invitation",
+    resourceId: inviteId,
+    request,
+  });
 
   return json({ success: true, data: { message: "Invite revoked" } }, 200, origin);
 }

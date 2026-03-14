@@ -1,26 +1,32 @@
 #!/usr/bin/env node
-// Usage: node scripts/create-admin.js <email> <password> [plan]
-// Outputs the wrangler d1 execute commands to create an admin user.
+// Trust Radar v2 — Super Admin Bootstrap
+// Usage: node scripts/create-admin.js <email> <name> [google_sub]
+// Generates wrangler d1 execute commands to seed the first super_admin user.
+// The google_sub will be linked automatically on first Google OAuth login if omitted.
 
-const [email, password, plan = "enterprise"] = process.argv.slice(2);
+const [email, name, googleSub] = process.argv.slice(2);
 
-if (!email || !password) {
-  console.error("Usage: node scripts/create-admin.js <email> <password> [plan]");
+if (!email || !name) {
+  console.error("Usage: node scripts/create-admin.js <email> <name> [google_sub]");
+  console.error("  email      — Google account email for the super admin");
+  console.error("  name       — Display name");
+  console.error("  google_sub — (optional) Google subject ID; linked on first login if omitted");
   process.exit(1);
 }
 
 const crypto = require("crypto");
-const hash = crypto.createHash("sha256").update(password).digest("hex");
 const id = crypto.randomUUID();
+const googleSubValue = googleSub ? `'${googleSub}'` : "NULL";
 
-const sql = `INSERT INTO users (id, email, password_hash, plan, scans_limit, is_admin) VALUES ('${id}', '${email}', '${hash}', '${plan}', 99999, 1);`;
+const sql = `INSERT OR IGNORE INTO users (id, google_sub, email, name, role, status) VALUES ('${id}', ${googleSubValue}, '${email}', '${name}', 'super_admin', 'active');`;
 
 console.log("\n── Local (dev) ──────────────────────────────────────────────");
 console.log(`npx wrangler d1 execute DB --local --command "${sql}"`);
 console.log("\n── Production ───────────────────────────────────────────────");
 console.log(`npx wrangler d1 execute DB --remote --command "${sql}"`);
-console.log("\nCredentials:");
-console.log(`  Email:    ${email}`);
-console.log(`  Password: ${password}`);
-console.log(`  Plan:     ${plan}`);
-console.log(`  ID:       ${id}\n`);
+console.log("\nSuper Admin:");
+console.log(`  Email:      ${email}`);
+console.log(`  Name:       ${name}`);
+console.log(`  Role:       super_admin`);
+console.log(`  Google Sub: ${googleSub ?? "(will link on first login)"}`);
+console.log(`  ID:         ${id}\n`);

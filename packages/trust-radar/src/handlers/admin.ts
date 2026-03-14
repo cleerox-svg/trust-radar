@@ -1,6 +1,9 @@
+// Trust Radar v2 — Admin Handlers
+
 import { z } from "zod";
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import { audit } from "../lib/audit";
+import type { Env, UserRole, UserStatus } from "../types";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -31,7 +34,7 @@ export async function handleAdminHealth(request: Request, env: Env): Promise<Res
       journalMode = journalResult?.["journal_mode"] ?? "wal";
     } catch { /* D1 WAL is managed by Cloudflare */ }
 
-    const tableNames = ["users", "scans", "signal_alerts", "signals", "feed_schedules", "agent_runs", "threats", "briefings", "investigations"];
+    const tableNames = ["users", "sessions", "invitations", "threats", "brands", "campaigns", "feed_configs", "agent_runs", "briefings"];
     tables = await Promise.all(
       tableNames.map(async (name) => {
         try {
@@ -74,25 +77,46 @@ export async function handleAdminHealth(request: Request, env: Env): Promise<Res
 }
 
 const UpdateUserSchema = z.object({
-  plan: z.enum(["free", "pro", "enterprise"]).optional(),
-  scans_limit: z.number().int().min(0).max(100_000).optional(),
-  is_admin: z.boolean().optional(),
+  role: z.enum(["super_admin", "admin", "analyst", "client"] as const).optional(),
+  status: z.enum(["active", "suspended", "deactivated"] as const).optional(),
 });
 
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  const [users, scans, alerts] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN plan='pro' THEN 1 ELSE 0 END) AS pro, SUM(CASE WHEN plan='enterprise' THEN 1 ELSE 0 END) AS enterprise FROM users").first<{ total: number; pro: number; enterprise: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN risk_level IN ('high','critical') THEN 1 ELSE 0 END) AS high_risk, AVG(trust_score) AS avg_trust FROM scans").first<{ total: number; high_risk: number; avg_trust: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open FROM signal_alerts").first<{ total: number; open: number }>(),
+  const [users, threats, sessions] = await Promise.all([
+    env.DB.prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN role = 'super_admin' THEN 1 ELSE 0 END) AS super_admins,
+              SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS admins,
+              SUM(CASE WHEN role = 'analyst' THEN 1 ELSE 0 END) AS analysts,
+              SUM(CASE WHEN role = 'client' THEN 1 ELSE 0 END) AS clients,
+              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active
+       FROM users`,
+    ).first<{ total: number; super_admins: number; admins: number; analysts: number; clients: number; active: number }>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats
+       FROM threats`,
+    ).first<{ total: number; active_threats: number }>(),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS active_sessions FROM sessions WHERE expires_at > datetime('now') AND revoked_at IS NULL",
+    ).first<{ active_sessions: number }>(),
   ]);
 
   return json({
-    success: true, data: {
-      users: { total: users?.total ?? 0, pro: users?.pro ?? 0, enterprise: users?.enterprise ?? 0 },
-      scans: { total: scans?.total ?? 0, high_risk: scans?.high_risk ?? 0, avg_trust: Math.round(scans?.avg_trust ?? 0) },
-      alerts: { total: alerts?.total ?? 0, open: alerts?.open ?? 0 },
+    success: true,
+    data: {
+      users: {
+        total: users?.total ?? 0,
+        super_admins: users?.super_admins ?? 0,
+        admins: users?.admins ?? 0,
+        analysts: users?.analysts ?? 0,
+        clients: users?.clients ?? 0,
+        active: users?.active ?? 0,
+      },
+      threats: { total: threats?.total ?? 0, active: threats?.active_threats ?? 0 },
+      sessions: { active: sessions?.active_sessions ?? 0 },
     },
   }, 200, origin);
 }
@@ -102,41 +126,87 @@ export async function handleAdminListUsers(request: Request, env: Env): Promise<
   const url = new URL(request.url);
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50"), 200);
   const offset = parseInt(url.searchParams.get("offset") ?? "0");
+  const roleFilter = url.searchParams.get("role");
+  const statusFilter = url.searchParams.get("status");
 
-  const { results } = await env.DB.prepare(
-    "SELECT id, email, plan, scans_used, scans_limit, is_admin, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?"
-  ).bind(limit, offset).all();
+  let sql = "SELECT id, email, name, role, status, created_at, last_login, last_active, invited_by FROM users WHERE 1=1";
+  const params: unknown[] = [];
 
+  if (roleFilter) {
+    sql += " AND role = ?";
+    params.push(roleFilter);
+  }
+  if (statusFilter) {
+    sql += " AND status = ?";
+    params.push(statusFilter);
+  }
+
+  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
+  const { results } = await env.DB.prepare(sql).bind(...params).all();
   const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
 
   return json({ success: true, data: { users: results, total: total?.n ?? 0 } }, 200, origin);
 }
 
-export async function handleAdminUpdateUser(request: Request, env: Env, userId: string): Promise<Response> {
+export async function handleAdminUpdateUser(
+  request: Request,
+  env: Env,
+  targetUserId: string,
+  adminUserId: string,
+  adminRole: UserRole,
+): Promise<Response> {
   const origin = request.headers.get("Origin");
 
   const body = await request.json().catch(() => null);
   const parsed = UpdateUserSchema.safeParse(body);
   if (!parsed.success) return json({ success: false, error: parsed.error.flatten().fieldErrors }, 400, origin);
 
-  const { plan, scans_limit, is_admin } = parsed.data;
-  if (plan === undefined && scans_limit === undefined && is_admin === undefined) {
+  const { role, status } = parsed.data;
+  if (role === undefined && status === undefined) {
     return json({ success: false, error: "Nothing to update" }, 400, origin);
   }
 
-  await env.DB.prepare(`
-    UPDATE users SET
-      plan        = COALESCE(?, plan),
-      scans_limit = COALESCE(?, scans_limit),
-      is_admin    = COALESCE(?, is_admin),
-      updated_at  = datetime('now')
-    WHERE id = ?
-  `).bind(plan ?? null, scans_limit ?? null, is_admin !== undefined ? (is_admin ? 1 : 0) : null, userId).run();
+  // Only super_admin can change roles to/from admin/super_admin
+  if (role && (role === "super_admin" || role === "admin") && adminRole !== "super_admin") {
+    return json({ success: false, error: "Only super admins can assign admin or super_admin roles" }, 403, origin);
+  }
+
+  // Prevent self-demotion for super_admins (safety)
+  if (targetUserId === adminUserId && role && role !== adminRole) {
+    return json({ success: false, error: "Cannot change your own role" }, 400, origin);
+  }
+
+  const sets: string[] = [];
+  const params: unknown[] = [];
+
+  if (role !== undefined) {
+    sets.push("role = ?");
+    params.push(role);
+  }
+  if (status !== undefined) {
+    sets.push("status = ?");
+    params.push(status);
+  }
+
+  params.push(targetUserId);
+  await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).bind(...params).run();
 
   const user = await env.DB.prepare(
-    "SELECT id, email, plan, scans_used, scans_limit, is_admin, created_at FROM users WHERE id = ?"
-  ).bind(userId).first();
+    "SELECT id, email, name, role, status, created_at, last_login FROM users WHERE id = ?",
+  ).bind(targetUserId).first();
 
   if (!user) return json({ success: false, error: "User not found" }, 404, origin);
+
+  await audit(env, {
+    action: "user_updated",
+    userId: adminUserId,
+    resourceType: "user",
+    resourceId: targetUserId,
+    details: { changes: parsed.data },
+    request,
+  });
+
   return json({ success: true, data: user }, 200, origin);
 }

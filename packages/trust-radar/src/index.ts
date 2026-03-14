@@ -2,7 +2,7 @@ import { Router } from "itty-router";
 import { handleOptions, json } from "./lib/cors";
 import { runAllFeeds } from "./lib/feedRunner";
 import { feedModules } from "./feeds/index";
-import { handleRegister, handleLogin, handleMe } from "./handlers/auth";
+import { handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback, handleRefreshToken, handleLogout, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleHeatmap } from "./handlers/heatmap";
 import { renderHomepage } from "./templates/homepage";
@@ -36,7 +36,7 @@ import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
   handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
 } from "./handlers/intel";
-import { requireAuth, requireAdmin, isAuthContext } from "./middleware/auth";
+import { requireAuth, requireAdmin, requireSuperAdmin, isAuthContext } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
@@ -70,16 +70,31 @@ router.get("/health", (_request: Request, env: Env) =>
   })
 );
 
-// ─── Auth ─────────────────────────────────────────────────────
-router.post("/api/auth/register", async (request: Request, env: Env) => {
+// ─── Auth (Google OAuth) ──────────────────────────────────────
+router.get("/api/auth/login", async (request: Request, env: Env) => {
   const limited = await rateLimit(request, env, "auth");
   if (limited) return limited;
-  return handleRegister(request, env);
+  return handleOAuthLogin(request, env);
 });
-router.post("/api/auth/login", async (request: Request, env: Env) => {
+router.get("/api/auth/invite", async (request: Request, env: Env) => {
   const limited = await rateLimit(request, env, "auth");
   if (limited) return limited;
-  return handleLogin(request, env);
+  return handleOAuthInviteLogin(request, env);
+});
+router.get("/api/auth/callback", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "auth");
+  if (limited) return limited;
+  return handleOAuthCallback(request, env);
+});
+router.post("/api/auth/refresh", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "auth");
+  if (limited) return limited;
+  return handleRefreshToken(request, env);
+});
+router.post("/api/auth/logout", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleLogout(request, env, ctx.userId);
 });
 router.get("/api/auth/me", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
@@ -160,7 +175,7 @@ router.get("/api/admin/users", async (request: Request, env: Env) => {
 router.patch("/api/admin/users/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleAdminUpdateUser(request, env, request.params["id"] ?? "");
+  return handleAdminUpdateUser(request, env, request.params["id"] ?? "", ctx.userId, ctx.role);
 });
 router.get("/api/admin/health", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
@@ -187,7 +202,7 @@ router.get("/api/invites/:token", async (request: Request & { params: Record<str
 router.post("/api/admin/invites", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleCreateInvite(request, env, ctx.userId);
+  return handleCreateInvite(request, env, ctx.userId, ctx.role);
 });
 router.get("/api/admin/invites", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
@@ -197,7 +212,7 @@ router.get("/api/admin/invites", async (request: Request, env: Env) => {
 router.delete("/api/admin/invites/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleRevokeInvite(request, env, request.params["id"] ?? "");
+  return handleRevokeInvite(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────
