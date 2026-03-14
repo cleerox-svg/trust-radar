@@ -32,7 +32,7 @@ export async function requireAuth(
     return json({ success: false, error: "Session invalidated by administrator" }, 401, origin);
   }
 
-  return { userId: payload.sub, email: payload.email, plan: payload.plan };
+  return { userId: payload.sub, email: payload.email, plan: payload.plan ?? "free" };
 }
 
 export async function requireAdmin(request: Request, env: Env): Promise<AuthContext | Response> {

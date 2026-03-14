@@ -100,7 +100,7 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
       .run();
   }
 
-  const token = await signJWT({ sub: id, email, plan: plan as "free" | "pro" | "enterprise" }, env.JWT_SECRET);
+  const token = await signJWT({ sub: id, email, role: "analyst", plan: plan as "free" | "pro" | "enterprise" }, env.JWT_SECRET);
 
   await logSessionEvent(env, id, "register", request);
 
@@ -137,7 +137,7 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
   }
 
   const token = await signJWT(
-    { sub: user.id, email: user.email, plan: user.plan as "free" | "pro" | "enterprise" },
+    { sub: user.id, email: user.email, role: "analyst", plan: user.plan as "free" | "pro" | "enterprise" },
     env.JWT_SECRET
   );
 

@@ -134,6 +134,7 @@ export interface JWTPayload {
   sub: string;        // user ID
   email: string;
   role: UserRole;
+  plan?: UserPlan;    // v1 compat — remove when v1 auth handlers are replaced
   iat: number;
   exp: number;
 }
@@ -144,4 +145,47 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// ─── v1 Legacy Types (used by existing handlers — remove during v2 migration) ──
+export type RiskLevel = "safe" | "low" | "medium" | "high" | "critical";
+export type UserPlan = "free" | "pro" | "enterprise";
+
+export interface ScanFlag {
+  type: string;
+  severity: RiskLevel;
+  detail: string;
+}
+
+export interface ScanMetadata {
+  ip?: string;
+  country?: string;
+  registrar?: string;
+  registered_at?: string;
+  ssl_valid?: boolean;
+  ssl_expiry?: string;
+  redirects?: string[];
+  virustotal?: {
+    malicious: number;
+    suspicious: number;
+    harmless: number;
+    undetected: number;
+  };
+  ai_insight?: {
+    summary: string;
+    explanation: string;
+    recommendations: string[];
+  };
+}
+
+export interface ScanResult {
+  id: string;
+  url: string;
+  domain: string;
+  trust_score: number;
+  risk_level: RiskLevel;
+  flags: ScanFlag[];
+  metadata: ScanMetadata;
+  cached: boolean;
+  created_at: string;
 }
