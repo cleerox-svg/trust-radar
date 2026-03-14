@@ -19,18 +19,22 @@ export async function handleListThreats(request: Request, env: Env): Promise<Res
     const params: unknown[] = [];
 
     if (severity) { conditions.push("severity = ?"); params.push(severity); }
-    if (type) { conditions.push("type = ?"); params.push(type); }
+    if (type) { conditions.push("threat_type = ?"); params.push(type); }
     if (status) { conditions.push("status = ?"); params.push(status); }
-    if (source) { conditions.push("source = ?"); params.push(source); }
-    if (search) { conditions.push("(title LIKE ? OR domain LIKE ? OR ip_address LIKE ? OR ioc_value LIKE ?)"); params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`); }
+    if (source) { conditions.push("source_feed = ?"); params.push(source); }
+    if (search) {
+      conditions.push("(malicious_domain LIKE ? OR malicious_url LIKE ? OR ip_address LIKE ? OR ioc_value LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit, offset);
 
     const rows = await env.DB.prepare(
-      `SELECT id, type, title, severity, confidence, status, source, ioc_type, ioc_value,
-              domain, ip_address, country_code, tags, first_seen, last_seen, created_at,
-              lat, lng
+      `SELECT id, threat_type, severity, confidence_score, status, source_feed,
+              ioc_value, malicious_domain, malicious_url, ip_address, asn,
+              country_code, target_brand_id, hosting_provider_id, campaign_id,
+              first_seen, last_seen, created_at, lat, lng
        FROM threats ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
     ).bind(...params).all();
 
@@ -56,10 +60,10 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
         SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
         SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium,
         SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low,
-        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as unprocessed,
-        SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
-        COUNT(DISTINCT source) as sources,
-        COUNT(DISTINCT type) as types
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'remediated' THEN 1 ELSE 0 END) as remediated,
+        COUNT(DISTINCT source_feed) as sources,
+        COUNT(DISTINCT threat_type) as types
       FROM threats
     `).first();
 
@@ -71,18 +75,16 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       FROM threats WHERE created_at >= datetime('now', '-24 hours')
     `).first();
 
-    // ─── Daily stats (reset at 00:00 UTC) ───────────────────────
     const today = await env.DB.prepare(`
       SELECT
         COUNT(*) as threats_flagged,
         COUNT(DISTINCT country_code) as countries_active,
         SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical_today,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today,
-        SUM(CASE WHEN status IN ('confirmed', 'new') THEN 1 ELSE 0 END) as confirmed_today
+        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today
       FROM threats WHERE created_at >= date('now', 'start of day')
     `).first<{
       threats_flagged: number; countries_active: number;
-      critical_today: number; high_today: number; confirmed_today: number;
+      critical_today: number; high_today: number;
     }>();
 
     const yesterday = await env.DB.prepare(`
@@ -92,25 +94,17 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       FROM threats WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')
     `).first<{ threats_flagged: number; countries_active: number }>();
 
-    const scansToday = await env.DB.prepare(
-      "SELECT COUNT(*) as count FROM scans WHERE created_at >= date('now', 'start of day')"
-    ).first<{ count: number }>();
-
-    const scansYesterday = await env.DB.prepare(
-      "SELECT COUNT(*) as count FROM scans WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')"
-    ).first<{ count: number }>();
-
-    // Feed ingestion counts for today
+    // Feed ingestion counts for today (v2 table)
     const feedIngestionsToday = await env.DB.prepare(
-      "SELECT COALESCE(SUM(items_new), 0) as items_today FROM feed_ingestions WHERE started_at >= date('now', 'start of day')"
+      "SELECT COALESCE(SUM(records_ingested), 0) as items_today FROM feed_pull_history WHERE started_at >= date('now', 'start of day') AND status = 'success'"
     ).first<{ items_today: number }>();
 
     const byType = await env.DB.prepare(
-      "SELECT type, COUNT(*) as count FROM threats GROUP BY type ORDER BY count DESC LIMIT 10"
+      "SELECT threat_type, COUNT(*) as count FROM threats GROUP BY threat_type ORDER BY count DESC LIMIT 10"
     ).all();
 
     const bySource = await env.DB.prepare(
-      "SELECT source, COUNT(*) as count FROM threats GROUP BY source ORDER BY count DESC LIMIT 10"
+      "SELECT source_feed, COUNT(*) as count FROM threats GROUP BY source_feed ORDER BY count DESC LIMIT 10"
     ).all();
 
     const bySeverity = await env.DB.prepare(
@@ -121,13 +115,14 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       "SELECT country_code, COUNT(*) as count FROM threats WHERE country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 30"
     ).all();
 
-    // ─── Recent threats for live feed ───────────────────────────
+    // Recent threats for live feed
     const recentThreats = await env.DB.prepare(`
-      SELECT id, type, title, severity, source, domain, ioc_value, ip_address, country_code, lat, lng, created_at
+      SELECT id, threat_type, severity, source_feed, malicious_domain, ioc_value,
+             ip_address, country_code, lat, lng, created_at
       FROM threats ORDER BY created_at DESC LIMIT 20
     `).all();
 
-    // ─── Top origin countries (by threat count today) ───────────
+    // Top origin countries (by threat count today)
     const topOriginsToday = await env.DB.prepare(`
       SELECT country_code, COUNT(*) as count
       FROM threats
@@ -135,23 +130,23 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       GROUP BY country_code ORDER BY count DESC LIMIT 10
     `).all();
 
-    // ─── Hosting provider breakdown ─────────────────────────────
+    // Hosting provider breakdown (v2: join hosting_providers)
     let byProvider: unknown[] = [];
     try {
       const providerRows = await env.DB.prepare(`
-        SELECT hosting_provider, COUNT(*) as count,
-          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
-          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
-        FROM threats
-        WHERE hosting_provider IS NOT NULL
-        GROUP BY hosting_provider ORDER BY count DESC LIMIT 20
+        SELECT hp.name as hosting_provider, COUNT(*) as count,
+          SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) as critical,
+          SUM(CASE WHEN t.severity = 'high' THEN 1 ELSE 0 END) as high
+        FROM threats t
+        JOIN hosting_providers hp ON t.hosting_provider_id = hp.id
+        GROUP BY hp.name ORDER BY count DESC LIMIT 20
       `).all();
       byProvider = providerRows.results;
-    } catch { /* column may not exist yet */ }
+    } catch { /* table may not be populated yet */ }
 
     const dailyStats = {
-      scansToday: (scansToday?.count ?? 0) + (feedIngestionsToday?.items_today ?? 0),
-      scansYesterday: scansYesterday?.count ?? 0,
+      scansToday: feedIngestionsToday?.items_today ?? 0,
+      scansYesterday: 0,
       threatsFlagged: today?.threats_flagged ?? 0,
       threatsYesterday: yesterday?.threats_flagged ?? 0,
       countriesActive: today?.countries_active ?? 0,
@@ -196,12 +191,11 @@ export async function handleUpdateThreat(request: Request, env: Env, id: string)
 
     if (typeof body.status === "string") { updates.push("status = ?"); values.push(body.status); }
     if (typeof body.severity === "string") { updates.push("severity = ?"); values.push(body.severity); }
-    if (typeof body.confidence === "number") { updates.push("confidence = ?"); values.push(body.confidence); }
+    if (typeof body.confidence_score === "number") { updates.push("confidence_score = ?"); values.push(body.confidence_score); }
 
     if (updates.length === 0) return json({ success: false, error: "No valid fields" }, 400, origin);
 
-    updates.push("updated_at = datetime('now')");
-    if (body.status === "resolved") updates.push("resolved_at = datetime('now')");
+    updates.push("last_seen = datetime('now')");
     values.push(id);
 
     await env.DB.prepare(`UPDATE threats SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
@@ -211,7 +205,7 @@ export async function handleUpdateThreat(request: Request, env: Env, id: string)
   }
 }
 
-// ─── List briefings ─────────────────────────────────────────────
+// ─── List briefings (v1 compat stub) ────────────────────────────
 export async function handleListBriefings(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -220,24 +214,25 @@ export async function handleListBriefings(request: Request, env: Env): Promise<R
        FROM threat_briefings ORDER BY created_at DESC LIMIT 20`
     ).all();
     return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+  } catch {
+    // Table may not exist in v2
+    return json({ success: true, data: [] }, 200, origin);
   }
 }
 
-// ─── Get briefing detail ────────────────────────────────────────
+// ─── Get briefing detail (v1 compat stub) ───────────────────────
 export async function handleGetBriefing(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const briefing = await env.DB.prepare("SELECT * FROM threat_briefings WHERE id = ?").bind(id).first();
     if (!briefing) return json({ success: false, error: "Briefing not found" }, 404, origin);
     return json({ success: true, data: briefing }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+  } catch {
+    return json({ success: false, error: "Not available in v2" }, 410, origin);
   }
 }
 
-// ─── Social IOCs ────────────────────────────────────────────────
+// ─── Social IOCs (v1 compat stub) ───────────────────────────────
 export async function handleListSocialIOCs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -253,19 +248,9 @@ export async function handleListSocialIOCs(request: Request, env: Env): Promise<
     params.push(limit);
 
     const rows = await env.DB.prepare(query).bind(...params).all();
-
-    const stats = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN verified = 1 THEN 1 ELSE 0 END) as verified,
-        AVG(confidence) as avg_confidence,
-        COUNT(DISTINCT platform) as platforms
-      FROM social_iocs
-    `).first();
-
-    return json({ success: true, data: { iocs: rows.results, stats } }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: true, data: { iocs: rows.results, stats: {} } }, 200, origin);
+  } catch {
+    return json({ success: true, data: { iocs: [], stats: {} } }, 200, origin);
   }
 }
 
@@ -274,6 +259,30 @@ export async function handleEnrichGeo(request: Request, env: Env): Promise<Respo
   const origin = request.headers.get("Origin");
   try {
     const result = await enrichThreatsGeo(env.DB);
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Full enrichment pipeline trigger ─────────────────────────
+export async function handleEnrichAll(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { runEnrichmentPipeline } = await import("../lib/enrichment");
+    const result = await runEnrichmentPipeline(env);
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Daily snapshot trigger ───────────────────────────────────
+export async function handleDailySnapshots(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { generateDailySnapshots } = await import("../lib/snapshots");
+    const result = await generateDailySnapshots(env.DB);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);

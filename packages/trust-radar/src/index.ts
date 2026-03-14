@@ -13,7 +13,7 @@ import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAd
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
-  handleResetCircuit, handleCreateFeed, handleDeleteFeed, handleFeedQuota,
+  handleResetCircuit, handleFeedQuota,
 } from "./handlers/feeds";
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
@@ -22,6 +22,7 @@ import {
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
+  handleEnrichAll, handleDailySnapshots,
 } from "./handlers/threats";
 import { handleCorrelations } from "./handlers/correlations";
 import { handleGenerateBriefing, handleListBriefingHistory } from "./handlers/briefing";
@@ -240,14 +241,12 @@ router.post("/api/feeds/:id/reset", async (request: Request & { params: Record<s
   return handleResetCircuit(request, env, request.params["id"] ?? "");
 });
 router.post("/api/feeds", async (request: Request, env: Env) => {
-  const ctx = await requireAdmin(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleCreateFeed(request, env, ctx.userId);
+  const origin = request.headers.get("Origin");
+  return json({ success: false, error: "Feed creation via API deferred to v2 admin module" }, 501, origin);
 });
 router.delete("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-  const ctx = await requireAdmin(request, env);
-  if (!isAuthContext(ctx)) return ctx;
-  return handleDeleteFeed(request, env, request.params["id"] ?? "");
+  const origin = request.headers.get("Origin");
+  return json({ success: false, error: "Feed deletion via API deferred to v2 admin module" }, 501, origin);
 });
 router.post("/api/feeds/trigger-all", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
@@ -287,11 +286,23 @@ router.patch("/api/threats/:id", async (request: Request & { params: Record<stri
   return handleUpdateThreat(request, env, request.params["id"] ?? "");
 });
 
-// ─── GeoIP Enrichment ─────────────────────────────────────
+// ─── Enrichment ──────────────────────────────────────────
 router.post("/api/threats/enrich-geo", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleEnrichGeo(request, env);
+});
+
+router.post("/api/threats/enrich-all", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleEnrichAll(request, env);
+});
+
+router.post("/api/snapshots/generate", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDailySnapshots(request, env);
 });
 
 // ─── Briefings ─────────────────────────────────────────────
@@ -558,6 +569,16 @@ export default {
       runAllFeeds(env, feedModules)
         .then(async (r) => {
           console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed`);
+
+          // Run enrichment pipeline after ingestion
+          try {
+            const { runEnrichmentPipeline } = await import("./lib/enrichment");
+            const enrichResult = await runEnrichmentPipeline(env);
+            console.log(`[cron] enrichment: dns=${enrichResult.dnsResolved}, geo=${enrichResult.geoEnriched}, whois=${enrichResult.whoisEnriched}, brands=${enrichResult.brandsMatched}`);
+          } catch (err) {
+            console.error("[cron] enrichment error:", err);
+          }
+
           // Auto-trigger agents when new threat data arrives
           if (r.totalNew > 0) {
             try {

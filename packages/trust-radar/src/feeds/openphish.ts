@@ -1,5 +1,5 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
-import { threatId } from "./types";
+import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
 /** OpenPhish Community — Active phishing URLs (plaintext feed, no auth) */
@@ -21,31 +21,23 @@ export const openphish: FeedModule = {
       try {
         if (await isDuplicate(ctx.env, "url", url)) { itemsDuplicate++; continue; }
 
-        let domain: string | undefined;
-        try { domain = new URL(url).hostname; } catch { /* ignore */ }
+        const domain = extractDomain(url);
 
         await insertThreat(ctx.env.DB, {
           id: threatId("openphish", "url", url),
-          type: "phishing",
-          title: `OpenPhish: Active phishing URL — ${domain ?? url.slice(0, 60)}`,
-          description: `Active phishing URL reported by the OpenPhish community feed.`,
-          severity: "high",
-          confidence: 0.85,
-          source: "openphish",
-          source_ref: url,
-          ioc_type: "url",
+          source_feed: "openphish",
+          threat_type: "phishing",
+          malicious_url: url,
+          malicious_domain: domain,
           ioc_value: url,
-          domain,
-          url,
-          tags: ["phishing", "openphish", "active"],
-          metadata: {},
-          created_by: "openphish",
+          severity: "high",
+          confidence_score: 85,
         });
         await markSeen(ctx.env, "url", url);
         itemsNew++;
       } catch { itemsError++; }
     }
 
-    return { itemsFetched: urls.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
+    return { itemsFetched: urls.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

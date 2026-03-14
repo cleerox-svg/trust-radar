@@ -18,25 +18,23 @@ export const feodo: FeedModule = {
       if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) continue;
       try {
         if (await isDuplicate(ctx.env, "ip", ip)) { itemsDuplicate++; continue; }
+
         await insertThreat(ctx.env.DB, {
           id: threatId("feodo", "ip", ip),
-          type: "c2",
-          title: `Feodo C2: ${ip}`,
-          description: "Botnet command-and-control IP from Feodo Tracker recommended blocklist.",
-          severity: "high",
-          confidence: 0.9,
-          source: "feodo",
-          ioc_type: "ip",
-          ioc_value: ip,
+          source_feed: "feodo",
+          threat_type: "malware_distribution",
+          malicious_url: null,
+          malicious_domain: null,
           ip_address: ip,
-          tags: ["botnet", "c2"],
-          created_by: "feodo",
+          ioc_value: ip,
+          severity: "high",
+          confidence_score: 90,
         });
         await markSeen(ctx.env, "ip", ip);
         itemsNew++;
       } catch { itemsError++; }
     }
 
-    return { itemsFetched: lines.length, itemsNew, itemsDuplicate, itemsError, threatsCreated: itemsNew };
+    return { itemsFetched: lines.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
