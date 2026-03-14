@@ -2305,10 +2305,20 @@ async function viewAdmin(el) {
       const feedLabels = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
       const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff'];
       if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
+      // Fetch real ingestion job data for chart
+      const jobsRes = await api('/feeds/jobs?limit=100').catch(() => null);
+      const jobs = jobsRes?.data || [];
+      const feedDatasets = feeds.slice(0, 4).map((f, i) => {
+        const hourBuckets = new Array(24).fill(0);
+        jobs.filter(j => j.feed_name === f.feed_name && j.status === 'success').forEach(j => {
+          const h = parseInt((j.started_at || '').substring(11, 13), 10);
+          if (!isNaN(h)) hourBuckets[h] += (j.records_ingested || 0);
+        });
+        return { label: f.display_name || f.feed_name, data: hourBuckets,
+          backgroundColor: feedColors[i % 4] + '30', borderColor: feedColors[i % 4], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 };
+      });
       _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
-        type: 'line', data: { labels: feedLabels, datasets: feeds.slice(0, 4).map((f, i) => ({
-          label: f.display_name || f.feed_name, data: Array.from({ length: 24 }, () => Math.floor(Math.random() * (f.records_ingested_today || 200) / 24 * 2)),
-          backgroundColor: feedColors[i % 4] + '30', borderColor: feedColors[i % 4], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 }))},
+        type: 'line', data: { labels: feedLabels, datasets: feedDatasets },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
           scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
       });
@@ -2515,18 +2525,22 @@ async function viewAdminFeeds(el) {
 
   let allFeeds = [];
 
-  function showFeedDetail(feedId) {
+  async function showFeedDetail(feedId) {
     const f = allFeeds.find(x => (x.feed_name || x.feed_id || x.id) === feedId);
     if (!f) return;
     document.getElementById('adm-feed-list-view')?.classList.remove('visible');
     document.getElementById('adm-feed-detail-view')?.classList.add('visible');
     const st = f.health_status || 'healthy';
 
-    // Generate pull history simulation
-    const pulls = Array.from({ length: 20 }, (_, i) => {
-      const status = Math.random() > 0.05 ? 'success' : Math.random() > 0.5 ? 'partial' : 'failed';
-      return { time: new Date(Date.now() - i * 300000).toISOString().substring(0, 16).replace('T', ' '), dur: (1.0 + Math.random() * 3).toFixed(1) + 's', records: status === 'failed' ? 0 : Math.floor(Math.random() * 500), rejected: Math.floor(Math.random() * 5), status };
-    });
+    // Fetch real pull history from API
+    const detailRes = await api(`/feeds/${encodeURIComponent(feedId)}`).catch(() => null);
+    const pulls = (detailRes?.data?.pulls || []).map(p => ({
+      time: (p.started_at || '').substring(0, 16).replace('T', ' '),
+      dur: p.duration_ms != null ? (p.duration_ms / 1000).toFixed(1) + 's' : '-',
+      records: p.records_ingested || 0,
+      rejected: p.records_rejected || 0,
+      status: p.status || 'success',
+    }));
 
     document.getElementById('adm-feed-detail-content').innerHTML = `
       <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.display_name || f.feed_name}</div><div class="adm-dh-meta">${f.source_url || f.feed_name} \u2014 ${f.schedule_cron || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
@@ -2542,19 +2556,26 @@ async function viewAdminFeeds(el) {
         </div></div>
       </div>
       <div class="adm-grid-2">
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">Last 20</div></div><div style="max-height:300px;overflow-y:auto">${pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count" style="color:var(--text-tertiary)">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('')}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">${pulls.length ? 'Last ' + pulls.length : 'No pulls'}</div></div><div style="max-height:300px;overflow-y:auto">${pulls.length ? pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count" style="color:var(--text-tertiary)">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('') : '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:12px">No pull history yet</div>'}</div></div>
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div style="text-align:center;padding:24px;color:var(--positive);font-size:12px">No errors recorded</div>'}</div></div>
       </div>`;
 
-    // Detail chart
+    // Detail chart — use real pull history data aggregated by day
     if (_feedDetailChart) { _feedDetailChart.destroy(); _feedDetailChart = null; }
     setTimeout(() => {
       const ctx = document.getElementById('adm-feed-detail-chart');
       if (!ctx || typeof Chart === 'undefined') return;
-      const labels = Array.from({ length: 7 }, (_, i) => { const d = new Date(Date.now() - (6 - i) * 86400000); return `${d.getMonth() + 1}/${d.getDate()}`; });
-      const data = labels.map(() => Math.floor((f.records_ingested_today || 200) * (0.6 + Math.random() * 0.8)));
+      const dayMap = {};
+      const allPulls = detailRes?.data?.pulls || [];
+      allPulls.forEach(p => {
+        const day = (p.started_at || '').substring(0, 10);
+        if (day) dayMap[day] = (dayMap[day] || 0) + (p.records_ingested || 0);
+      });
+      const labels = Array.from({ length: 7 }, (_, i) => { const d = new Date(Date.now() - (6 - i) * 86400000); return d.toISOString().substring(0, 10); });
+      const data = labels.map(d => dayMap[d] || 0);
+      const displayLabels = labels.map(d => { const dt = new Date(d); return `${dt.getMonth() + 1}/${dt.getDate()}`; });
       _feedDetailChart = new Chart(ctx, {
-        type: 'bar', data: { labels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#ffb627', borderWidth: 1, borderRadius: 4 }] },
+        type: 'bar', data: { labels: displayLabels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#ffb627', borderWidth: 1, borderRadius: 4 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(255,182,39,.3)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
           scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true } } }
       });

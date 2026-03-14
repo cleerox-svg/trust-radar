@@ -161,6 +161,61 @@ export async function handleAgentOutputs(request: Request, env: Env): Promise<Re
   }
 }
 
+// ─── Agent outputs by name ───────────────────────────────────────
+export async function handleAgentOutputsByName(request: Request, env: Env, agentName: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "10", 10));
+
+    const rows = await env.DB.prepare(
+      `SELECT id, agent_id, type, summary, severity, details,
+              related_brand_ids, related_campaign_id, related_provider_ids, created_at
+       FROM agent_outputs WHERE agent_id = ?
+       ORDER BY created_at DESC LIMIT ?`
+    ).bind(agentName, limit).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Agent health metrics (hourly breakdown) ─────────────────────
+export async function handleAgentHealth(request: Request, env: Env, agentName: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Get runs for last 24 hours bucketed by hour
+    const hoursBack = 24;
+    const runs: number[] = new Array(hoursBack).fill(0);
+    const errors: number[] = new Array(hoursBack).fill(0);
+    const outputs: number[] = new Array(hoursBack).fill(0);
+
+    const rows = await env.DB.prepare(
+      `SELECT
+         CAST(strftime('%H', started_at) AS INTEGER) AS hour,
+         duration_ms,
+         status,
+         outputs_generated
+       FROM agent_runs
+       WHERE agent_id = ? AND started_at >= datetime('now', '-24 hours')
+       ORDER BY started_at ASC`
+    ).bind(agentName).all();
+
+    const currentHour = new Date().getUTCHours();
+    for (const row of rows.results as { hour: number; duration_ms: number; status: string; outputs_generated: number }[]) {
+      const idx = (row.hour - currentHour + hoursBack + hoursBack) % hoursBack;
+      runs[idx] = (runs[idx] || 0) + (row.duration_ms || 0);
+      if (row.status === "failed") errors[idx] = (errors[idx] ?? 0) + 1;
+      outputs[idx] = (outputs[idx] ?? 0) + (row.outputs_generated || 0);
+    }
+
+    return json({ success: true, data: { runs, errors, outputs } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── HITL Approval Queue (legacy compat) ────────────────────────
 export async function handleListApprovals(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");

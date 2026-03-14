@@ -18,12 +18,13 @@ import {
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
   handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
-  handleAgentOutputs,
+  handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
 } from "./handlers/agents";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
-  handleEnrichAll, handleDailySnapshots,
+  handleEnrichAll, handleDailySnapshots, handleGeoClusters, handleAttackFlows,
+  handleRecentThreats,
 } from "./handlers/threats";
 import { handleCorrelations } from "./handlers/correlations";
 import { handleGenerateBriefing, handleListBriefingHistory } from "./handlers/briefing";
@@ -52,7 +53,7 @@ import {
   handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
   handleAddMonitoredBrand, handleRemoveMonitoredBrand, handleGetBrand,
   handleBrandThreats, handleBrandThreatLocations, handleBrandThreatTimeline,
-  handleBrandProviders, handleBrandCampaigns,
+  handleBrandProviders, handleBrandCampaigns, handleBrandStats,
 } from "./handlers/brands";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
@@ -325,6 +326,21 @@ router.get("/api/threats/stats", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleThreatStats(request, env);
 });
+router.get("/api/threats/geo-clusters", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGeoClusters(request, env);
+});
+router.get("/api/threats/attack-flows", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAttackFlows(request, env);
+});
+router.get("/api/threats/recent", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRecentThreats(request, env);
+});
 router.get("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -570,6 +586,11 @@ router.get("/api/brands/monitored", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleMonitoredBrands(request, env);
 });
+router.get("/api/brands/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandStats(request, env);
+});
 router.post("/api/brands/monitor", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -671,6 +692,16 @@ router.get("/api/agents/approvals", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleListApprovals(request, env);
+});
+router.get("/api/agents/:name/outputs", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentOutputsByName(request, env, request.params["name"] ?? "");
+});
+router.get("/api/agents/:name/health", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentHealth(request, env, request.params["name"] ?? "");
 });
 router.get("/api/agents/:name", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
