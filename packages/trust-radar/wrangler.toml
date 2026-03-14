@@ -35,7 +35,7 @@ migrations_dir = "migrations-audit"
 # ─── KV Namespace (cache) ────────────────────────────────────
 [[kv_namespaces]]
 binding = "CACHE"
-id = "$RADAR_KV_NAMESPACE_ID"
+id = "2f168effdbf54d3b913a1070524d6cc1"
 
 # ─── R2 Storage (evidence archives, feed snapshots) ──────────
 # [[r2_buckets]]
