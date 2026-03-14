@@ -3,17 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# ─── Static Assets (SPA frontend) ────────────────────────────
-[assets]
-directory = "./public"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-
 # ─── Routes ──────────────────────────────────────────────────
 routes = [
   { pattern = "lrxradar.com", custom_domain = true },
   { pattern = "www.lrxradar.com", custom_domain = true }
 ]
+
+# ─── Static Assets (SPA frontend) ────────────────────────────
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 # ─── Cron Triggers (automated feed ingestion) ────────────────
 [triggers]
