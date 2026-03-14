@@ -9,7 +9,6 @@ dist/
 *.tsbuildinfo
 
 # Frontend built assets (built in CI before deploy)
-packages/trust-radar/public/
 packages/imprsn8/public/
 
 # Python

@@ -1,12 +1,9 @@
-/**
- * Hosting Provider Intelligence API handlers.
- *
- * Surfaces provider-level threat aggregations for the worst offenders widget.
- */
+// Trust Radar v2 — Provider Intelligence API Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
 
+// GET /api/providers/stats (top providers by threat count)
 export async function handleProviderStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -23,50 +20,213 @@ export async function handleProviderStats(request: Request, env: Env): Promise<R
       LIMIT 20
     `).bind(period).all();
 
-    // Also get the raw threat-level data for drill-down
     let periodWhere = "created_at >= date('now', 'start of day')";
     if (period === "7d") periodWhere = "created_at >= date('now', '-7 days')";
     else if (period === "30d") periodWhere = "created_at >= date('now', '-30 days')";
     else if (period === "all") periodWhere = "1=1";
 
     const summary = await env.DB.prepare(`
-      SELECT
-        COUNT(DISTINCT hosting_provider) as total_providers,
-        COUNT(*) as total_threats,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
-      FROM threats
-      WHERE hosting_provider IS NOT NULL AND ${periodWhere}
+      SELECT COUNT(DISTINCT hosting_provider_id) as total_providers,
+             COUNT(*) as total_threats,
+             SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+             SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
+      FROM threats WHERE hosting_provider_id IS NOT NULL AND ${periodWhere}
     `).first();
+
+    return json({ success: true, data: { providers: stats.results, summary, period } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers
+export async function handleListProviders(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const search = url.searchParams.get("q");
+
+    let where = "";
+    const params: unknown[] = [];
+    if (search) { where = "WHERE hosting_provider_id LIKE ?"; params.push(`%${search}%`); }
+    params.push(limit, offset);
+
+    const rows = await env.DB.prepare(`
+      SELECT hosting_provider_id AS id, hosting_provider_id AS name,
+             COUNT(*) AS threat_count,
+             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+             SUM(CASE WHEN severity IN ('critical','high') THEN 1 ELSE 0 END) AS high_sev,
+             MIN(created_at) AS first_seen,
+             MAX(created_at) AS last_seen
+      FROM threats ${where} AND hosting_provider_id IS NOT NULL
+      GROUP BY hosting_provider_id
+      ORDER BY threat_count DESC LIMIT ? OFFSET ?
+    `).bind(...params).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    // Fallback: simpler query without WHERE condition issue
+    const rows = await env.DB.prepare(`
+      SELECT hosting_provider_id AS id, COUNT(*) AS threat_count
+      FROM threats WHERE hosting_provider_id IS NOT NULL
+      GROUP BY hosting_provider_id ORDER BY threat_count DESC LIMIT 50
+    `).all();
+    return json({ success: true, data: rows.results }, 200, origin);
+  }
+}
+
+// GET /api/providers/worst
+export async function handleWorstProviders(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT hosting_provider_id AS provider_id,
+             COUNT(*) AS threat_count,
+             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
+             COUNT(DISTINCT target_brand_id) AS brands_targeted
+      FROM threats WHERE hosting_provider_id IS NOT NULL
+      GROUP BY hosting_provider_id
+      ORDER BY threat_count DESC LIMIT 10
+    `).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/improving
+export async function handleImprovingProviders(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Providers where recent (7d) threats < previous (8-14d) threats
+    const rows = await env.DB.prepare(`
+      SELECT hosting_provider_id AS provider_id,
+             SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS recent,
+             SUM(CASE WHEN created_at >= datetime('now', '-14 days') AND created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) AS previous
+      FROM threats WHERE hosting_provider_id IS NOT NULL AND created_at >= datetime('now', '-14 days')
+      GROUP BY hosting_provider_id
+      HAVING previous > 0 AND recent < previous
+      ORDER BY (CAST(recent AS REAL) / previous) ASC
+      LIMIT 10
+    `).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/:id (detail)
+export async function handleGetProvider(request: Request, env: Env, providerId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const decoded = decodeURIComponent(providerId);
+    const [stats, brandBreakdown, typeBreakdown] = await Promise.all([
+      env.DB.prepare(`
+        SELECT COUNT(*) AS total_threats,
+               SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+               COUNT(DISTINCT target_brand_id) AS brands_targeted,
+               COUNT(DISTINCT campaign_id) AS campaigns,
+               MIN(created_at) AS first_seen, MAX(created_at) AS last_seen
+        FROM threats WHERE hosting_provider_id = ?
+      `).bind(decoded).first(),
+      env.DB.prepare(`
+        SELECT target_brand_id AS brand_id, b.name AS brand_name, COUNT(*) AS count
+        FROM threats t LEFT JOIN brands b ON b.id = t.target_brand_id
+        WHERE t.hosting_provider_id = ? AND t.target_brand_id IS NOT NULL
+        GROUP BY target_brand_id ORDER BY count DESC LIMIT 10
+      `).bind(decoded).all(),
+      env.DB.prepare(`
+        SELECT threat_type, COUNT(*) AS count
+        FROM threats WHERE hosting_provider_id = ?
+        GROUP BY threat_type ORDER BY count DESC
+      `).bind(decoded).all(),
+    ]);
 
     return json({
       success: true,
-      data: {
-        providers: stats.results,
-        summary,
-        period,
-      },
+      data: { id: decoded, name: decoded, ...stats, brand_breakdown: brandBreakdown.results, type_breakdown: typeBreakdown.results },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
 
+// GET /api/providers/:id/threats
 export async function handleProviderDrilldown(request: Request, env: Env, provider: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
-    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
-    const threats = await env.DB.prepare(`
-      SELECT id, type, title, severity, source, domain, ioc_value, ip_address, country_code, created_at
-      FROM threats
-      WHERE hosting_provider = ?
-      ORDER BY created_at DESC
-      LIMIT ?
-    `).bind(decodeURIComponent(provider), limit).all();
+    const rows = await env.DB.prepare(`
+      SELECT t.id, t.threat_type, t.severity, t.status, t.malicious_domain, t.malicious_url,
+             t.ip_address, t.country_code, t.target_brand_id, b.name AS brand_name,
+             t.first_seen, t.last_seen, t.created_at
+      FROM threats t LEFT JOIN brands b ON b.id = t.target_brand_id
+      WHERE t.hosting_provider_id = ?
+      ORDER BY t.created_at DESC LIMIT ? OFFSET ?
+    `).bind(decodeURIComponent(provider), limit, offset).all();
 
-    return json({ success: true, data: { threats: threats.results } }, 200, origin);
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/:id/brands
+export async function handleProviderBrands(request: Request, env: Env, providerId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT b.id, b.name, b.sector, COUNT(t.id) AS threat_count
+      FROM threats t JOIN brands b ON b.id = t.target_brand_id
+      WHERE t.hosting_provider_id = ?
+      GROUP BY b.id ORDER BY threat_count DESC LIMIT 20
+    `).bind(decodeURIComponent(providerId)).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/:id/timeline
+export async function handleProviderTimeline(request: Request, env: Env, providerId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const period = new URL(request.url).searchParams.get("period") ?? "30d";
+    let since = "datetime('now', '-30 days')";
+    if (period === "7d") since = "datetime('now', '-7 days')";
+    else if (period === "90d") since = "datetime('now', '-90 days')";
+
+    const rows = await env.DB.prepare(`
+      SELECT date(created_at) AS period, COUNT(*) AS count
+      FROM threats WHERE hosting_provider_id = ? AND created_at >= ${since}
+      GROUP BY date(created_at) ORDER BY period ASC
+    `).bind(decodeURIComponent(providerId)).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/:id/locations
+export async function handleProviderLocations(request: Request, env: Env, providerId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT country_code, COUNT(*) AS count, lat, lng
+      FROM threats WHERE hosting_provider_id = ? AND country_code IS NOT NULL
+      GROUP BY country_code ORDER BY count DESC
+    `).bind(decodeURIComponent(providerId)).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
