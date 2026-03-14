@@ -11,24 +11,11 @@ import type { Env } from "../types";
 // ─── Types ──────────────────────────────────────────────────────
 
 export type AgentName =
-  // v2 AI agents
   | "sentinel"
   | "analyst"
   | "cartographer"
   | "strategist"
-  | "observer"
-  // legacy rule-based agents (kept for backward compat)
-  | "triage"
-  | "threat-hunt"
-  | "impersonation-detector"
-  | "takedown-orchestrator"
-  | "evidence-preservation"
-  | "abuse-mailbox"
-  | "campaign-correlator"
-  | "trust-score-monitor"
-  | "executive-intel"
-  | "trustbot"
-  | "hosting-provider-analysis";
+  | "observer";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
@@ -61,7 +48,7 @@ export interface AgentOutputRow {
 export interface AgentContext {
   env: Env;
   runId: string;
-  agentName: AgentName;
+  agentName: string;
   input: Record<string, unknown>;
   triggeredBy: string | null;
 }
@@ -96,7 +83,7 @@ export interface ApprovalRequest {
 }
 
 export interface AgentModule {
-  name: AgentName;
+  name: string;
   displayName: string;
   description: string;
   color: string;
@@ -115,24 +102,11 @@ export const AGENT_DEFINITIONS: Array<{
   trigger: TriggerType;
   requiresApproval: boolean;
 }> = [
-  // v2 AI agents (Haiku-powered)
   { name: "sentinel", displayName: "Sentinel", description: "Certificate & domain surveillance — classifies new threats via AI", color: "#22D3EE", trigger: "event", requiresApproval: false },
   { name: "analyst", displayName: "Analyst", description: "Threat classification & brand matching via Haiku", color: "#818CF8", trigger: "scheduled", requiresApproval: false },
   { name: "cartographer", displayName: "Cartographer", description: "Infrastructure mapping & provider reputation scoring", color: "#34D399", trigger: "scheduled", requiresApproval: false },
   { name: "strategist", displayName: "Strategist", description: "Campaign correlation & clustering intelligence", color: "#F472B6", trigger: "scheduled", requiresApproval: false },
   { name: "observer", displayName: "Observer", description: "Trend analysis & daily intelligence synthesis", color: "#FBBF24", trigger: "scheduled", requiresApproval: false },
-  // Legacy rule-based agents
-  { name: "triage", displayName: "Triage", description: "Auto-score and prioritize incoming threats", color: "#22D3EE", trigger: "event", requiresApproval: false },
-  { name: "threat-hunt", displayName: "Threat Hunt", description: "Correlate across feeds to find campaigns", color: "#818CF8", trigger: "scheduled", requiresApproval: false },
-  { name: "impersonation-detector", displayName: "Impersonation Detector", description: "Detect lookalike domains and homoglyphs", color: "#F472B6", trigger: "event", requiresApproval: false },
-  { name: "takedown-orchestrator", displayName: "Takedown Orchestrator", description: "Draft and send abuse notices to providers", color: "#FB923C", trigger: "manual", requiresApproval: true },
-  { name: "evidence-preservation", displayName: "Evidence Preservation", description: "Forensic snapshots of threat artifacts", color: "#34D399", trigger: "event", requiresApproval: false },
-  { name: "abuse-mailbox", displayName: "Abuse Mailbox", description: "Triage phishing report emails", color: "#FBBF24", trigger: "event", requiresApproval: false },
-  { name: "campaign-correlator", displayName: "Campaign Correlator", description: "Cluster threats by shared infrastructure", color: "#A78BFA", trigger: "scheduled", requiresApproval: false },
-  { name: "trust-score-monitor", displayName: "Trust Score Monitor", description: "Continuous brand trust scoring", color: "#2DD4BF", trigger: "scheduled", requiresApproval: false },
-  { name: "executive-intel", displayName: "Executive Intel", description: "Generate C-suite threat briefings", color: "#E879F9", trigger: "scheduled", requiresApproval: true },
-  { name: "trustbot", displayName: "TrustBot", description: "Interactive AI threat intelligence copilot", color: "#60A5FA", trigger: "manual", requiresApproval: false },
-  { name: "hosting-provider-analysis", displayName: "Hosting Provider Analysis", description: "Track hosting providers used by threat actors", color: "#F97316", trigger: "event", requiresApproval: false },
 ];
 
 // ─── Run Execution ──────────────────────────────────────────────

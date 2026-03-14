@@ -864,13 +864,10 @@ export default {
 
             // Event-triggered agents (run on every ingestion with new data)
             if (r.totalNew > 0) {
-              const eventAgents = ["sentinel", "triage", "impersonation-detector", "hosting-provider-analysis"] as const;
-              for (const name of eventAgents) {
-                const mod = allAgents[name];
-                if (mod) {
-                  const result = await executeAgent(env, mod, { newItems: r.totalNew }, "cron", "event");
-                  console.log(`[cron] agent ${name}: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
-                }
+              const mod = allAgents["sentinel"];
+              if (mod) {
+                const result = await executeAgent(env, mod, { newItems: r.totalNew }, "cron", "event");
+                console.log(`[cron] agent sentinel: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
               }
             }
 
