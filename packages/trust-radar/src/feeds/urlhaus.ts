@@ -5,10 +5,12 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** URLhaus (abuse.ch) — Active malware distribution URLs */
 export const urlhaus: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    console.log(`[urlhaus] fetching: ${ctx.feedUrl}`);
     const res = await fetch(ctx.feedUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
+    console.log(`[urlhaus] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`URLhaus HTTP ${res.status}`);
 
     const body = await res.json() as {
@@ -18,8 +20,10 @@ export const urlhaus: FeedModule = {
         date_added: string; threat: string; tags: string[] | null;
       }>;
     };
+    console.log(`[urlhaus] query_status=${body.query_status}, urls=${body.urls?.length ?? 0}`);
 
     if (!body.urls) {
+      console.log(`[urlhaus] no urls in response, returning empty`);
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 

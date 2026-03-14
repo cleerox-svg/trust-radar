@@ -104,33 +104,39 @@ async function runFeed(
     feedUrl: config.source_url ?? "",
   };
 
+  console.log(`[runFeed] ${config.feed_name}: starting ingest (feedUrl=${ctx.feedUrl})`);
   const start = Date.now();
 
   try {
     const result = await feedModule.ingest(ctx);
     const durationMs = Date.now() - start;
+    console.log(`[runFeed] ${config.feed_name}: ingest completed in ${durationMs}ms — fetched=${result.itemsFetched}, new=${result.itemsNew}, dup=${result.itemsDuplicate}, err=${result.itemsError}`);
 
     // Log success in pull history
-    await env.DB.prepare(
+    const pullUpdate = await env.DB.prepare(
       `UPDATE feed_pull_history SET
          status = 'success', records_ingested = ?, records_rejected = ?,
          duration_ms = ?, completed_at = datetime('now')
        WHERE id = ?`
     ).bind(result.itemsNew, result.itemsDuplicate + result.itemsError, durationMs, pullId).run();
+    console.log(`[runFeed] ${config.feed_name}: pull_history updated, changes=${pullUpdate.meta.changes}`);
 
     // Update feed_status
-    await env.DB.prepare(
+    const statusUpdate = await env.DB.prepare(
       `UPDATE feed_status SET
          last_successful_pull = datetime('now'),
          records_ingested_today = records_ingested_today + ?,
          health_status = 'healthy'
        WHERE feed_name = ?`
     ).bind(result.itemsNew, config.feed_name).run();
+    console.log(`[runFeed] ${config.feed_name}: feed_status updated, changes=${statusUpdate.meta.changes}`);
 
     return result;
   } catch (err) {
     const durationMs = Date.now() - start;
     const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[runFeed] ${config.feed_name}: FAILED after ${durationMs}ms — ${errorMsg}`);
+    if (err instanceof Error && err.stack) console.error(`[runFeed] ${config.feed_name}: stack:`, err.stack);
 
     // Log failure in pull history
     await env.DB.prepare(
@@ -164,14 +170,17 @@ export async function runAllFeeds(
   totalNew: number;
 }> {
   // Fetch enabled feed configs
+  console.log("[feedRunner] querying feed_configs WHERE enabled = 1...");
   const configs = await env.DB.prepare(
     "SELECT * FROM feed_configs WHERE enabled = 1"
   ).all<FeedConfigRow>();
+  console.log(`[feedRunner] found ${configs.results.length} enabled feed configs:`, configs.results.map(c => c.feed_name).join(", "));
 
   // Fetch feed status for last-run checks
   const statuses = await env.DB.prepare(
     "SELECT * FROM feed_status"
   ).all<FeedStatusRow>();
+  console.log(`[feedRunner] feed_status rows:`, JSON.stringify(statuses.results));
   const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
 
   let feedsRun = 0;
@@ -186,31 +195,44 @@ export async function runAllFeeds(
 
   for (const config of configs.results) {
     const mod = feedModules[config.feed_name];
-    if (!mod) { feedsSkipped++; continue; }
+    if (!mod) {
+      console.log(`[feedRunner] SKIP ${config.feed_name}: no module registered`);
+      feedsSkipped++;
+      continue;
+    }
 
     const status = statusMap.get(config.feed_name);
-    if (!shouldRunNow(config, status, now)) { feedsSkipped++; continue; }
+    const shouldRun = shouldRunNow(config, status, now);
+    if (!shouldRun) {
+      console.log(`[feedRunner] SKIP ${config.feed_name}: shouldRunNow=false (last_pull=${status?.last_successful_pull}, cron=${config.schedule_cron})`);
+      feedsSkipped++;
+      continue;
+    }
 
+    console.log(`[feedRunner] WILL RUN ${config.feed_name} (source_url=${config.source_url})`);
     toRun.push({ config, mod });
   }
 
   // Run all eligible feeds concurrently
+  console.log(`[feedRunner] running ${toRun.length} feeds concurrently...`);
   const results = await Promise.allSettled(
     toRun.map(({ config, mod }) => runFeed(env, config, mod))
   );
 
-  for (const r of results) {
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const name = toRun[i].config.feed_name;
     feedsRun++;
     if (r.status === "fulfilled") {
       totalNew += r.value.itemsNew;
-      if (r.value.itemsFetched === 0 && r.value.itemsNew === 0 && r.value.itemsError === 0) {
-        // Feed returned empty — might have errored internally
-      }
+      console.log(`[feedRunner] ${name}: fulfilled — new=${r.value.itemsNew}, fetched=${r.value.itemsFetched}`);
     } else {
       feedsFailed++;
+      console.error(`[feedRunner] ${name}: REJECTED — ${r.reason}`);
     }
   }
 
+  console.log(`[feedRunner] SUMMARY: run=${feedsRun}, skipped=${feedsSkipped}, failed=${feedsFailed}, totalNew=${totalNew}`);
   return { feedsRun, feedsSkipped, feedsFailed, totalNew };
 }
 
