@@ -86,13 +86,12 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
 
 /**
  * Enrich threats in D1 that have ip_address but no country_code.
- * Returns the number of enriched rows.
+ * Uses v2 schema: hosting_provider_id (FK) instead of hosting_provider (text).
  */
 export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: number; total: number }> {
-  // Get threats with IP but missing geo or hosting data
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider IS NULL)
+     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider_id IS NULL)
      LIMIT 500`
   ).all<{ id: string; ip_address: string }>();
 
@@ -109,21 +108,22 @@ export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: numb
     if (!geo) continue;
 
     try {
-      const hostingProvider = normalizeProvider(geo.isp, geo.org);
+      const providerName = normalizeProvider(geo.isp, geo.org);
+      let providerId: string | null = null;
+      if (providerName) {
+        providerId = await upsertHostingProvider(db, providerName, geo.as, geo.countryCode);
+      }
+
       await db.prepare(
         `UPDATE threats SET
           country_code = COALESCE(country_code, ?),
-          isp_name = COALESCE(isp_name, ?),
-          hosting_provider = COALESCE(hosting_provider, ?),
           asn = COALESCE(asn, ?),
-          is_datacenter = CASE WHEN ? IS NOT NULL THEN 1 ELSE is_datacenter END,
+          hosting_provider_id = COALESCE(hosting_provider_id, ?),
           lat = COALESCE(lat, ?),
-          lng = COALESCE(lng, ?),
-          updated_at = datetime('now')
+          lng = COALESCE(lng, ?)
         WHERE id = ?`
       ).bind(
-        geo.countryCode, geo.isp, hostingProvider, geo.as,
-        hostingProvider, geo.lat, geo.lng, row.id,
+        geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
       ).run();
       enriched++;
     } catch (err) {
@@ -135,10 +135,31 @@ export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: numb
 }
 
 /**
+ * Upsert a hosting provider record. Returns the provider ID.
+ * Uses deterministic IDs based on provider name.
+ */
+export async function upsertHostingProvider(
+  db: D1Database,
+  name: string,
+  asn: string | null,
+  country: string | null,
+): Promise<string> {
+  const id = `hp_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+  await db.prepare(
+    `INSERT INTO hosting_providers (id, name, asn, country)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       asn = COALESCE(hosting_providers.asn, excluded.asn),
+       country = COALESCE(hosting_providers.country, excluded.country)`
+  ).bind(id, name, asn, country).run();
+  return id;
+}
+
+/**
  * Normalize ISP/Org names to canonical hosting provider names.
  * Maps common ISP variations to consistent provider names for trending.
  */
-function normalizeProvider(isp: string | null, org: string | null): string | null {
+export function normalizeProvider(isp: string | null, org: string | null): string | null {
   const raw = (isp || org || "").toLowerCase();
   if (!raw) return null;
 
