@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--purple:#b388ff;--purple-dim:rgba(138,43,226,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+
+/* ADMIN TOPBAR — distinct from analyst topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}
+.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}
+.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}
+.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}
+@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}
+.logo span{color:var(--blue-primary)}
+
+/* Admin nav — amber accent to distinguish from analyst blue */
+.admin-badge{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--threat-medium);padding:3px 9px;border:1px solid rgba(255,182,39,.3);border-radius:3px;background:rgba(255,182,39,.08)}
+.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}
+.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}
+.np.active{background:var(--bg-elevated);color:var(--threat-medium)}.np:hover:not(.active){color:var(--text-primary)}
+.back-link{font-family:var(--font-body);font-size:11px;color:var(--blue-primary);text-decoration:none;display:flex;align-items:center;gap:4px;cursor:pointer;transition:opacity .15s;border:none;background:none}.back-link:hover{opacity:.7}
+
+.topbar-right{display:flex;align-items:center;gap:14px}
+.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+
+.main{overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}.main::-webkit-scrollbar{width:5px}.main::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:3px}
+
+/* METRIC CARDS */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metric{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:16px;position:relative;overflow:hidden}
+.metric-label{font-size:10px;color:var(--text-tertiary);margin-bottom:6px;letter-spacing:.3px}
+.metric-value{font-family:var(--font-display);font-weight:700;font-size:28px;line-height:1;margin-bottom:4px}
+.metric-sub{display:flex;gap:8px;font-family:var(--font-mono);font-size:10px}
+.metric-sub span{display:flex;align-items:center;gap:3px}
+.metric-bar{position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 var(--radius-lg) var(--radius-lg);overflow:hidden;display:flex}
+.metric-bar-seg{height:100%}
+
+/* TWO-COLUMN GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--blue-border)}
+.ptitle{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:7px}
+.ptitle::before{content:'';width:3px;height:11px;background:var(--threat-medium);border-radius:2px}
+.pbadge{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.08);color:var(--threat-medium);border:1px solid rgba(255,182,39,.15)}
+.padded{padding:16px 18px}
+.chart-wrap{position:relative;height:200px;padding:16px}
+
+/* SYSTEM EVENTS */
+.event-row{display:flex;align-items:flex-start;gap:12px;padding:10px 18px;border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s}
+.event-row:last-child{border-bottom:none}
+.event-row:hover{background:var(--bg-hover)}
+.ev-icon{width:28px;height:28px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.ev-icon.auth{background:var(--blue-glow);color:var(--blue-primary)}
+.ev-icon.feed{background:var(--positive-muted);color:var(--positive)}
+.ev-icon.feed-err{background:var(--negative-muted);color:var(--negative)}
+.ev-icon.config{background:rgba(255,182,39,.1);color:var(--threat-medium)}
+.ev-icon.user{background:var(--purple-dim);color:var(--purple)}
+.ev-icon.lead{background:rgba(0,212,255,.08);color:var(--blue-primary)}
+.ev-body{flex:1;min-width:0}
+.ev-text{font-size:12px;color:var(--text-secondary);line-height:1.4}.ev-text strong{color:var(--text-primary);font-weight:500}
+.ev-time{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-top:2px}
+.ev-outcome{font-family:var(--font-mono);font-size:8px;padding:2px 6px;border-radius:3px;flex-shrink:0;align-self:center}
+.ev-outcome.success{background:var(--positive-muted);color:var(--positive)}
+.ev-outcome.failure{background:var(--negative-muted);color:var(--negative)}
+.ev-outcome.denied{background:rgba(255,182,39,.1);color:var(--threat-medium)}
+
+/* QUICK ACTIONS */
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.action-btn{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:all .2s;text-align:center}
+.action-btn:hover{border-color:rgba(255,182,39,.3);background:var(--bg-panel);transform:translateY(-1px)}
+.action-icon{font-size:20px;margin-bottom:6px}
+.action-label{font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--text-primary);letter-spacing:.3px}
+.action-desc{font-size:9px;color:var(--text-tertiary);margin-top:3px}
+
+/* LEAD PIPELINE */
+.pipeline{display:flex;gap:2px;margin-bottom:12px}
+.pipe-stage{flex:1;background:var(--bg-elevated);border-radius:var(--radius);padding:10px;text-align:center;position:relative}
+.pipe-stage::after{content:'→';position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:10px;z-index:1}
+.pipe-stage:last-child::after{display:none}
+.pipe-v{font-family:var(--font-display);font-weight:700;font-size:18px;line-height:1}
+.pipe-l{font-size:8px;color:var(--text-tertiary);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+
+/* FEED MINI STATUS */
+.feed-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,212,255,.04)}
+.feed-row:last-child{border-bottom:none}
+.feed-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.feed-dot.healthy{background:var(--positive)}.feed-dot.degraded{background:var(--threat-medium);animation:pc 1.5s ease-in-out infinite}.feed-dot.down{background:var(--negative);animation:pc 1s ease-in-out infinite}
+.feed-name{font-size:11px;flex:1}.feed-last{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}
+.feed-count{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);min-width:60px;text-align:right}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <span class="admin-badge">Admin</span>
+      <nav class="nav-pills">
+        <button class="np active">Dashboard</button>
+        <button class="np">Users</button>
+        <button class="np">Feeds</button>
+        <button class="np">Leads</button>
+        <button class="np">API Keys</button>
+        <button class="np">Agent Config</button>
+        <button class="np">Audit Log</button>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <button class="back-link">← Back to Observatory</button>
+      <div class="ua">SA</div>
+    </div>
+  </header>
+  <main class="main">
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
+
+    <!-- METRICS -->
+    <div class="metrics" id="metrics"></div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="actions">
+      <div class="action-btn"><div class="action-icon">+</div><div class="action-label">Invite User</div><div class="action-desc">Send invitation email</div></div>
+      <div class="action-btn"><div class="action-icon">↻</div><div class="action-label">Force Feed Pull</div><div class="action-desc">Trigger all feeds now</div></div>
+      <div class="action-btn"><div class="action-icon">◈</div><div class="action-label">Run AI Analysis</div><div class="action-desc">Trigger all agents</div></div>
+      <div class="action-btn"><div class="action-icon">⊞</div><div class="action-label">View Audit Log</div><div class="action-desc">Recent system events</div></div>
+    </div>
+
+    <!-- TWO COLUMN -->
+    <div class="grid-2">
+      <!-- Feed Health -->
+      <div class="panel">
+        <div class="phead"><div class="ptitle">Feed Ingestion (24h)</div><div class="pbadge">All healthy</div></div>
+        <div class="chart-wrap"><canvas id="feed-chart"></canvas></div>
+        <div class="padded" id="feed-list"></div>
+      </div>
+
+      <!-- System Events -->
+      <div class="panel">
+        <div class="phead"><div class="ptitle">Recent System Events</div><div class="pbadge">Last 20</div></div>
+        <div id="events" style="max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="grid-2">
+      <!-- Lead Pipeline -->
+      <div class="panel">
+        <div class="phead"><div class="ptitle">Lead Pipeline</div><div class="pbadge">23 total</div></div>
+        <div class="padded">
+          <div class="pipeline" id="pipeline"></div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">Avg time to contact: <span style="font-family:var(--font-mono);color:var(--text-secondary)">4.2 hours</span> · Conversion rate: <span style="font-family:var(--font-mono);color:var(--positive)">18%</span></div>
+        </div>
+      </div>
+
+      <!-- AI Agent Summary -->
+      <div class="panel">
+        <div class="phead"><div class="ptitle">AI Agent Health</div><div class="pbadge">5/5 operational</div></div>
+        <div class="padded" id="agent-summary"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+// ═══ DATA ═══
+const SYSTEM={users:{total:8,super_admin:1,admin:2,analyst:5},activeSessions:6,feeds:{healthy:4,degraded:0,down:0},leads:{new_count:5,contacted:8,qualified:6,proposal:3,converted:1},aiJobs:{completed:393,failed:2,queued:0},uptime:'99.97%'};
+
+const FEEDS=[
+  {name:'CT Logs',status:'healthy',last:'3m ago',today:4212,schedule:'Every 5 min'},
+  {name:'PhishTank',status:'healthy',last:'12m ago',today:847,schedule:'Hourly'},
+  {name:'URLhaus',status:'healthy',last:'4m ago',today:1834,schedule:'Every 5 min'},
+  {name:'OpenPhish',status:'healthy',last:'2h ago',today:156,schedule:'Every 12h'},
+];
+
+const EVENTS=[
+  {type:'feed',icon:'feed',text:'<strong>CT Logs</strong> ingested 288 records',time:'3m ago',outcome:'success'},
+  {type:'auth',icon:'auth',text:'<strong>analyst@trustradar.com</strong> logged in via Google OAuth',time:'8m ago',outcome:'success'},
+  {type:'lead',icon:'lead',text:'New lead captured: <strong>globalfinance.com</strong> (Trust Score: 48/F)',time:'14m ago',outcome:'success'},
+  {type:'feed',icon:'feed',text:'<strong>URLhaus</strong> ingested 412 records',time:'18m ago',outcome:'success'},
+  {type:'config',icon:'config',text:'Feed config updated: <strong>OpenPhish</strong> schedule changed to every 12h',time:'42m ago',outcome:'success'},
+  {type:'user',icon:'user',text:'Invitation sent to <strong>jsmith@example.com</strong> (Analyst role)',time:'1h ago',outcome:'success'},
+  {type:'auth',icon:'auth',text:'Failed login attempt from IP <strong>185.220.101.42</strong>',time:'1.5h ago',outcome:'failure'},
+  {type:'feed',icon:'feed',text:'<strong>PhishTank</strong> ingested 156 records',time:'2h ago',outcome:'success'},
+  {type:'auth',icon:'auth',text:'Failed login attempt from IP <strong>185.220.101.42</strong>',time:'2.1h ago',outcome:'failure'},
+  {type:'auth',icon:'auth',text:'Failed login attempt from IP <strong>185.220.101.42</strong>',time:'2.2h ago',outcome:'denied'},
+  {type:'config',icon:'config',text:'Agent config updated: <strong>Analyst</strong> confidence threshold → 75%',time:'3h ago',outcome:'success'},
+  {type:'feed',icon:'feed-err',text:'<strong>URLhaus</strong> pull failed: timeout after 30s',time:'4h ago',outcome:'failure'},
+  {type:'feed',icon:'feed',text:'<strong>URLhaus</strong> retry succeeded: 380 records ingested',time:'4h ago',outcome:'success'},
+  {type:'user',icon:'user',text:'Role changed: <strong>jdoe@trustradar.com</strong> Analyst → Admin',time:'6h ago',outcome:'success'},
+  {type:'lead',icon:'lead',text:'Lead status updated: <strong>acmecorp.com</strong> → Qualified',time:'8h ago',outcome:'success'},
+];
+
+const AGENTS=[
+  {name:'Sentinel',status:'active',jobs:288,outputs:47,errors:0,color:'#00d4ff'},
+  {name:'Analyst',status:'active',jobs:96,outputs:312,errors:2,color:'#00e5a0'},
+  {name:'Cartographer',status:'idle',jobs:4,outputs:23,errors:0,color:'#ffb627'},
+  {name:'Strategist',status:'active',jobs:4,outputs:6,errors:0,color:'#ff3b5c'},
+  {name:'Observer',status:'idle',jobs:1,outputs:4,errors:0,color:'#b388ff'},
+];
+
+// ═══ RENDER ═══
+
+// Metrics
+document.getElementById('metrics').innerHTML=`
+  <div class="metric">
+    <div class="metric-label">Users</div>
+    <div class="metric-value" style="color:var(--blue-primary)">${SYSTEM.users.total}</div>
+    <div class="metric-sub"><span style="color:var(--positive)">${SYSTEM.activeSessions} active sessions</span></div>
+    <div class="metric-bar">
+      <div class="metric-bar-seg" style="background:var(--threat-medium);width:${SYSTEM.users.super_admin/SYSTEM.users.total*100}%"></div>
+      <div class="metric-bar-seg" style="background:var(--blue-primary);width:${SYSTEM.users.admin/SYSTEM.users.total*100}%"></div>
+      <div class="metric-bar-seg" style="background:var(--positive);width:${SYSTEM.users.analyst/SYSTEM.users.total*100}%"></div>
+    </div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Data Feeds</div>
+    <div class="metric-value" style="color:var(--positive)">${SYSTEM.feeds.healthy}/${FEEDS.length}</div>
+    <div class="metric-sub"><span style="color:var(--positive)">${SYSTEM.feeds.healthy} healthy</span><span style="color:var(--text-tertiary)">${SYSTEM.feeds.degraded} degraded</span></div>
+    <div class="metric-bar"><div class="metric-bar-seg" style="background:var(--positive);width:100%"></div></div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Leads in Pipeline</div>
+    <div class="metric-value" style="color:var(--threat-medium)">${SYSTEM.leads.new_count+SYSTEM.leads.contacted+SYSTEM.leads.qualified+SYSTEM.leads.proposal}</div>
+    <div class="metric-sub"><span style="color:var(--negative)">${SYSTEM.leads.new_count} new</span><span style="color:var(--positive)">${SYSTEM.leads.converted} converted</span></div>
+    <div class="metric-bar">
+      <div class="metric-bar-seg" style="background:var(--negative);width:${SYSTEM.leads.new_count/23*100}%"></div>
+      <div class="metric-bar-seg" style="background:var(--threat-high);width:${SYSTEM.leads.contacted/23*100}%"></div>
+      <div class="metric-bar-seg" style="background:var(--threat-medium);width:${SYSTEM.leads.qualified/23*100}%"></div>
+      <div class="metric-bar-seg" style="background:var(--positive);width:${SYSTEM.leads.proposal/23*100}%"></div>
+    </div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">AI Analysis (24h)</div>
+    <div class="metric-value" style="color:var(--text-primary)">${SYSTEM.aiJobs.completed}</div>
+    <div class="metric-sub"><span style="color:var(--positive)">${SYSTEM.aiJobs.completed} completed</span><span style="color:${SYSTEM.aiJobs.failed>0?'var(--negative)':'var(--positive)'}">${SYSTEM.aiJobs.failed} failed</span></div>
+    <div class="metric-bar"><div class="metric-bar-seg" style="background:var(--positive);width:${SYSTEM.aiJobs.completed/(SYSTEM.aiJobs.completed+SYSTEM.aiJobs.failed)*100}%"></div><div class="metric-bar-seg" style="background:var(--negative);width:${SYSTEM.aiJobs.failed/(SYSTEM.aiJobs.completed+SYSTEM.aiJobs.failed)*100}%"></div></div>
+  </div>`;
+
+// Feed chart
+const feedLabels=Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`);
+const feedColors=['#00d4ff','#00e5a0','#ffb627','#b388ff'];
+const feedDatasets=FEEDS.map((f,i)=>({
+  label:f.name,
+  data:Array.from({length:24},()=>Math.floor(Math.random()*f.today/24*2)),
+  backgroundColor:feedColors[i]+'30',borderColor:feedColors[i],borderWidth:1.5,
+  fill:true,tension:.35,pointRadius:0
+}));
+
+new Chart(document.getElementById('feed-chart'),{
+  type:'line',data:{labels:feedLabels,datasets:feedDatasets},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,16,32,0.95)',borderColor:'rgba(0,212,255,0.35)',borderWidth:1,titleFont:{family:"'Chakra Petch'",size:10},bodyFont:{family:"'IBM Plex Mono'",size:10},titleColor:'#e8edf5',bodyColor:'#7a8ba8',padding:8,cornerRadius:6}},
+  scales:{x:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:8},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},stacked:true},y:{ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:8}},grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},stacked:true,beginAtZero:true}}}
+});
+
+// Feed list
+document.getElementById('feed-list').innerHTML=FEEDS.map(f=>`
+  <div class="feed-row">
+    <div class="feed-dot ${f.status}"></div>
+    <div class="feed-name">${f.name}</div>
+    <div class="feed-last">${f.last}</div>
+    <div class="feed-count">${f.today.toLocaleString()} today</div>
+  </div>`).join('');
+
+// Events
+document.getElementById('events').innerHTML=EVENTS.map(e=>`
+  <div class="event-row">
+    <div class="ev-icon ${e.icon}">${{auth:'◈',feed:'↻','feed-err':'⚠',config:'⊞',user:'+',lead:'◉'}[e.icon]}</div>
+    <div class="ev-body"><div class="ev-text">${e.text}</div><div class="ev-time">${e.time}</div></div>
+    <span class="ev-outcome ${e.outcome}">${e.outcome}</span>
+  </div>`).join('');
+
+// Pipeline
+document.getElementById('pipeline').innerHTML=[
+  {label:'New',count:SYSTEM.leads.new_count,color:'var(--negative)'},
+  {label:'Contacted',count:SYSTEM.leads.contacted,color:'var(--threat-high)'},
+  {label:'Qualified',count:SYSTEM.leads.qualified,color:'var(--threat-medium)'},
+  {label:'Proposal',count:SYSTEM.leads.proposal,color:'var(--blue-primary)'},
+  {label:'Converted',count:SYSTEM.leads.converted,color:'var(--positive)'}
+].map(s=>`<div class="pipe-stage"><div class="pipe-v" style="color:${s.color}">${s.count}</div><div class="pipe-l">${s.label}</div></div>`).join('');
+
+// Agent summary
+document.getElementById('agent-summary').innerHTML=AGENTS.map(a=>`
+  <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,212,255,.04)">
+    <div style="width:7px;height:7px;border-radius:50%;background:${a.status==='active'?'var(--positive)':'var(--blue-primary)'};${a.status==='active'?'animation:pc 2s ease-in-out infinite':''}"></div>
+    <div style="flex:1;font-size:12px;font-weight:500;color:${a.color}">${a.name}</div>
+    <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs} jobs</div>
+    <div style="font-family:var(--font-mono);font-size:10px;color:${a.color}">${a.outputs} outputs</div>
+    <div style="font-family:var(--font-mono);font-size:10px;color:${a.errors>0?'var(--negative)':'var(--positive)'}">${a.errors} err</div>
+  </div>`).join('');
+</script>
+</body>
+</html>

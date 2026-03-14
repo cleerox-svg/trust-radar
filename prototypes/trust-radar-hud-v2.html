@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+:root {
+  --bg-void: #040810;
+  --bg-surface: #0a1020;
+  --bg-panel: #0d1528;
+  --bg-elevated: #111d35;
+  --bg-hover: #152545;
+
+  --blue-primary: #00d4ff;
+  --blue-muted: #0091b3;
+  --blue-deep: #005f7a;
+  --blue-glow: rgba(0, 212, 255, 0.08);
+  --blue-border: rgba(0, 212, 255, 0.15);
+  --blue-border-bright: rgba(0, 212, 255, 0.35);
+
+  --threat-critical: #ff3b5c;
+  --threat-high: #ff6b35;
+  --threat-medium: #ffb627;
+  --threat-low: #00d4ff;
+
+  --positive: #00e5a0;
+  --positive-muted: rgba(0, 229, 160, 0.12);
+  --negative: #ff3b5c;
+  --negative-muted: rgba(255, 59, 92, 0.12);
+
+  --text-primary: #e8edf5;
+  --text-secondary: #7a8ba8;
+  --text-tertiary: #4a5a73;
+  --text-accent: #00d4ff;
+
+  --font-display: 'Chakra Petch', sans-serif;
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── LAYOUT ── */
+.app {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 372px;
+  height: 100vh;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--blue-border);
+  z-index: 1000;
+}
+
+.topbar-left { display: flex; align-items: center; gap: 20px; }
+
+.logo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logo-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--blue-primary);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+
+.logo-icon::after {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--blue-primary);
+  animation: pulse-core 2s ease-in-out infinite;
+}
+
+@keyframes pulse-core {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.5); }
+}
+
+.logo span { color: var(--blue-primary); }
+
+.nav-pills {
+  display: flex; gap: 2px;
+  background: var(--bg-panel);
+  padding: 3px; border-radius: var(--radius);
+}
+
+.nav-pill {
+  font-family: var(--font-body);
+  font-size: 11px; font-weight: 500;
+  padding: 5px 13px; border-radius: 4px;
+  border: none; background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer; transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.nav-pill.active { background: var(--bg-elevated); color: var(--text-accent); }
+.nav-pill:hover:not(.active) { color: var(--text-primary); }
+
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+
+.feed-status {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--positive);
+}
+.feed-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--positive);
+  animation: pulse-core 2s ease-in-out infinite;
+}
+
+.live-tag {
+  font-family: var(--font-display);
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--blue-primary);
+  padding: 3px 9px;
+  border: 1px solid var(--blue-border-bright);
+  border-radius: 3px;
+}
+
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 11px; font-weight: 600;
+  color: var(--blue-primary); cursor: pointer;
+}
+
+/* ── MAP AREA ── */
+.main-content {
+  position: relative;
+  overflow: hidden;
+}
+
+#threat-map {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Override Leaflet defaults for our dark theme */
+.leaflet-container { background: var(--bg-void) !important; }
+.leaflet-control-zoom { display: none; }
+.leaflet-bar { border: 1px solid var(--blue-border) !important; }
+.leaflet-bar a {
+  background: var(--bg-panel) !important;
+  color: var(--blue-primary) !important;
+  border-bottom: 1px solid var(--blue-border) !important;
+}
+.leaflet-bar a:hover { background: var(--bg-elevated) !important; }
+
+/* Custom zoom controls */
+.map-controls {
+  position: absolute;
+  bottom: 96px;
+  left: 20px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-ctrl-btn {
+  width: 34px; height: 34px;
+  background: rgba(10, 16, 32, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  color: var(--blue-primary);
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.map-ctrl-btn:hover {
+  background: rgba(10, 16, 32, 0.95);
+  border-color: var(--blue-border-bright);
+}
+
+/* HUD overlay on map */
+.hud-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 700;
+}
+
+.hud-corner {
+  position: absolute;
+  width: 32px; height: 32px;
+}
+.hud-corner.tl { top: 12px; left: 12px; border-top: 2px solid var(--blue-primary); border-left: 2px solid var(--blue-primary); }
+.hud-corner.tr { top: 12px; right: 12px; border-top: 2px solid var(--blue-primary); border-right: 2px solid var(--blue-primary); }
+.hud-corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--blue-primary); border-left: 2px solid var(--blue-primary); }
+.hud-corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--blue-primary); border-right: 2px solid var(--blue-primary); }
+
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,212,255,0.12) 30%, rgba(0,212,255,0.2) 50%, rgba(0,212,255,0.12) 70%, transparent 100%);
+  animation: scanDown 10s linear infinite;
+  z-index: 701;
+}
+@keyframes scanDown {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+/* Country info tooltip — appears on hover/click */
+.country-tooltip {
+  position: absolute;
+  top: 16px; left: 16px;
+  background: rgba(10, 16, 32, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--blue-border-bright);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  z-index: 800;
+  pointer-events: auto;
+  min-width: 210px;
+  display: none;
+}
+
+.country-tooltip.visible { display: block; }
+
+.country-tooltip-title {
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 13px;
+  color: var(--text-accent);
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+.country-tooltip-title::before {
+  content: '';
+  width: 3px; height: 12px;
+  background: var(--blue-primary);
+  border-radius: 2px;
+}
+
+.tt-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; font-size: 11px;
+}
+.tt-label { color: var(--text-secondary); }
+.tt-value { font-family: var(--font-mono); font-weight: 500; color: var(--text-primary); }
+
+/* UTC readout */
+.time-readout {
+  position: absolute;
+  top: 16px; right: 16px;
+  text-align: right;
+  z-index: 800;
+  pointer-events: none;
+}
+.time-utc {
+  font-family: var(--font-mono);
+  font-size: 20px; font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+.time-label {
+  font-family: var(--font-display);
+  font-size: 8px; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* Map legend */
+.map-legend {
+  position: absolute;
+  bottom: 96px; right: 16px;
+  display: flex; flex-direction: column;
+  gap: 3px; z-index: 800;
+  pointer-events: none;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px; color: var(--text-tertiary);
+}
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── BOTTOM STAT BAR ── */
+.map-stats {
+  position: absolute;
+  bottom: 16px; left: 16px; right: 16px;
+  display: flex; gap: 10px;
+  z-index: 800;
+  pointer-events: auto;
+}
+
+.stat-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(10, 16, 32, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  flex: 1;
+  transition: border-color 0.2s;
+  cursor: default;
+}
+.stat-chip:hover { border-color: var(--blue-border-bright); }
+
+.sc-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.sc-icon.threats { background: var(--negative-muted); color: var(--negative); }
+.sc-icon.brands { background: var(--blue-glow); color: var(--blue-primary); }
+.sc-icon.providers { background: rgba(255,182,39,0.12); color: var(--threat-medium); }
+.sc-icon.campaigns { background: rgba(138,43,226,0.12); color: #b388ff; }
+
+.sc-data { display: flex; flex-direction: column; }
+.sc-value {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 18px;
+  line-height: 1; color: var(--text-primary);
+}
+.sc-label {
+  font-size: 10px; color: var(--text-secondary);
+  margin-top: 2px; letter-spacing: 0.3px;
+}
+.sc-trend {
+  font-family: var(--font-mono);
+  font-size: 10px; margin-left: auto;
+  padding: 2px 6px; border-radius: 3px;
+}
+.sc-trend.up { background: var(--negative-muted); color: var(--negative); }
+.sc-trend.down { background: var(--positive-muted); color: var(--positive); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg-surface);
+  border-left: 1px solid var(--blue-border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) transparent;
+  z-index: 900;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
+
+.panel {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--blue-border);
+}
+.panel:last-child { border-bottom: none; }
+
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-secondary);
+  display: flex; align-items: center; gap: 7px;
+}
+.panel-title::before {
+  content: '';
+  width: 3px; height: 11px;
+  background: var(--blue-primary);
+  border-radius: 2px;
+}
+.panel-badge {
+  font-family: var(--font-mono);
+  font-size: 9px; padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--blue-glow);
+  color: var(--blue-primary);
+  border: 1px solid var(--blue-border);
+}
+
+/* Brand rows */
+.brand-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius);
+  cursor: pointer; transition: background 0.15s;
+  margin-bottom: 2px;
+}
+.brand-row:hover { background: var(--bg-hover); }
+
+.brand-rank {
+  font-family: var(--font-mono);
+  font-size: 9px; color: var(--text-tertiary);
+  width: 14px; text-align: center;
+}
+.brand-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 10px; font-weight: 700;
+  color: var(--blue-primary);
+}
+.brand-info { flex: 1; min-width: 0; }
+.brand-name {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.brand-sector { font-size: 9px; color: var(--text-tertiary); margin-top: 1px; }
+.brand-threats { text-align: right; }
+.brand-threat-count {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 15px;
+  color: var(--threat-critical); line-height: 1;
+}
+.brand-threat-label { font-size: 8px; color: var(--text-tertiary); margin-top: 1px; }
+
+/* Provider rows */
+.provider-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: var(--radius);
+  cursor: pointer; transition: background 0.15s;
+  margin-bottom: 2px;
+}
+.provider-row:hover { background: var(--bg-hover); }
+
+.prov-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.prov-dot.bad { background: var(--threat-critical); }
+.prov-dot.improving { background: var(--positive); }
+.prov-dot.degrading { background: var(--threat-high); }
+
+.prov-info { flex: 1; min-width: 0; }
+.prov-name {
+  font-size: 11px; font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prov-asn { font-family: var(--font-mono); font-size: 9px; color: var(--text-tertiary); margin-top: 1px; }
+.prov-metric { text-align: right; flex-shrink: 0; }
+.prov-count { font-family: var(--font-mono); font-weight: 500; font-size: 12px; color: var(--text-primary); line-height: 1; }
+.prov-trend { font-family: var(--font-mono); font-size: 9px; margin-top: 2px; }
+.prov-trend.up { color: var(--negative); }
+.prov-trend.down { color: var(--positive); }
+
+/* Divider */
+.panel-divider {
+  display: flex; align-items: center; gap: 7px;
+  margin: 12px 0 8px;
+}
+.panel-divider-line { flex: 1; height: 1px; background: var(--blue-border); }
+.panel-divider-label {
+  font-family: var(--font-display);
+  font-size: 8px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* AI Insight cards */
+.insight-card {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--blue-border);
+  background: var(--bg-panel);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.insight-card:hover {
+  border-color: var(--blue-border-bright);
+  background: var(--bg-elevated);
+}
+
+.insight-meta {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 5px;
+}
+.ins-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--blue-primary); }
+.ins-agent {
+  font-family: var(--font-display);
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--blue-primary);
+}
+.ins-time {
+  font-family: var(--font-mono);
+  font-size: 9px; color: var(--text-tertiary);
+  margin-left: auto;
+}
+.insight-text {
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-secondary);
+}
+.insight-text strong { color: var(--text-primary); font-weight: 500; }
+.ins-sev {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 8px; font-weight: 500;
+  padding: 1px 5px; border-radius: 3px;
+  margin-top: 5px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.ins-sev.critical { background: var(--negative-muted); color: var(--negative); }
+.ins-sev.high { background: rgba(255,107,53,0.12); color: var(--threat-high); }
+.ins-sev.medium { background: rgba(255,182,39,0.12); color: var(--threat-medium); }
+.ins-sev.info { background: var(--blue-glow); color: var(--blue-primary); }
+
+/* Leaflet popup overrides */
+.leaflet-popup-content-wrapper {
+  background: rgba(10, 16, 32, 0.95) !important;
+  border: 1px solid var(--blue-border-bright) !important;
+  border-radius: var(--radius-lg) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-body) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+.leaflet-popup-content {
+  margin: 12px 16px !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.leaflet-popup-tip {
+  background: rgba(10, 16, 32, 0.95) !important;
+  border: 1px solid var(--blue-border-bright) !important;
+}
+.leaflet-popup-close-button {
+  color: var(--text-secondary) !important;
+  font-size: 18px !important;
+}
+
+.popup-title {
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 13px;
+  color: var(--text-accent);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.popup-row {
+  display: flex; justify-content: space-between;
+  padding: 2px 0;
+}
+.popup-label { color: var(--text-secondary); font-size: 11px; }
+.popup-val { font-family: var(--font-mono); font-weight: 500; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <div class="logo-icon"></div>
+        TRUST <span>RADAR</span>
+      </div>
+      <nav class="nav-pills">
+        <button class="nav-pill active">Observatory</button>
+        <button class="nav-pill">Brands</button>
+        <button class="nav-pill">Providers</button>
+        <button class="nav-pill">Campaigns</button>
+        <button class="nav-pill">Trends</button>
+        <button class="nav-pill">Agents</button>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <div class="feed-status"><span class="feed-dot"></span>6 feeds active</div>
+      <span class="live-tag">Live</span>
+      <span style="font-family:var(--font-body);font-size:10px;color:var(--text-secondary);cursor:pointer;padding:3px 9px;border:1px solid var(--blue-border);border-radius:4px;transition:all .15s" onmouseover="this.style.color='var(--threat-medium)';this.style.borderColor='rgba(255,182,39,.3)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='rgba(0,212,255,.15)'">Admin</span>
+      <div class="user-avatar">SA</div>
+    </div>
+  </header>
+
+  <!-- MAP -->
+  <main class="main-content">
+    <div id="threat-map"></div>
+
+    <div class="hud-overlay">
+      <div class="hud-corner tl"></div>
+      <div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div>
+      <div class="hud-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+
+    <div class="country-tooltip" id="countryTooltip">
+      <div class="country-tooltip-title" id="ttTitle">—</div>
+      <div class="tt-row"><span class="tt-label">Active threats</span><span class="tt-value" id="ttThreats">—</span></div>
+      <div class="tt-row"><span class="tt-label">Brands targeted</span><span class="tt-value" id="ttBrands">—</span></div>
+      <div class="tt-row"><span class="tt-label">Top threat type</span><span class="tt-value" id="ttType">—</span></div>
+      <div class="tt-row"><span class="tt-label">Hosting providers</span><span class="tt-value" id="ttProviders">—</span></div>
+    </div>
+
+    <div class="time-readout">
+      <div class="time-utc" id="utcClock">00:00:00</div>
+      <div class="time-label">UTC — Real-time feed</div>
+    </div>
+
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--threat-critical)"></div>Critical volume</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--threat-high)"></div>High volume</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--threat-medium)"></div>Moderate</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue-primary)"></div>Low / new</div>
+      <div style="height:6px"></div>
+      <div class="legend-item"><div style="width:14px;height:2px;background:linear-gradient(90deg,var(--threat-critical),transparent);border-radius:1px"></div>Attack flow</div>
+      <div class="legend-item"><div style="width:7px;height:7px;transform:rotate(45deg);background:rgba(255,107,53,0.5);border:1px solid rgba(255,107,53,0.8)"></div>Origin</div>
+      <div class="legend-item"><div style="width:8px;height:8px;position:relative"><div style="position:absolute;top:3px;left:0;width:8px;height:1px;background:rgba(255,182,39,0.6)"></div><div style="position:absolute;top:0;left:3px;width:1px;height:8px;background:rgba(255,182,39,0.6)"></div></div>Target</div>
+    </div>
+
+    <div class="map-controls">
+      <button class="map-ctrl-btn" id="zoomIn">+</button>
+      <button class="map-ctrl-btn" id="zoomOut">−</button>
+    </div>
+
+    <div class="map-stats">
+      <div class="stat-chip">
+        <div class="sc-icon threats">&#9888;</div>
+        <div class="sc-data">
+          <div class="sc-value" id="statThreats">4,892</div>
+          <div class="sc-label">Active threats</div>
+        </div>
+        <span class="sc-trend up">+12.4%</span>
+      </div>
+      <div class="stat-chip">
+        <div class="sc-icon brands">&#9678;</div>
+        <div class="sc-data">
+          <div class="sc-value">186</div>
+          <div class="sc-label">Brands tracked</div>
+        </div>
+        <span class="sc-trend up">+8</span>
+      </div>
+      <div class="stat-chip">
+        <div class="sc-icon providers">&#9881;</div>
+        <div class="sc-data">
+          <div class="sc-value">73</div>
+          <div class="sc-label">Hosting providers</div>
+        </div>
+        <span class="sc-trend down">−3</span>
+      </div>
+      <div class="stat-chip">
+        <div class="sc-icon campaigns">&#9733;</div>
+        <div class="sc-data">
+          <div class="sc-value">12</div>
+          <div class="sc-label">Active campaigns</div>
+        </div>
+        <span class="sc-trend up">+2</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Top targeted brands</div>
+        <span class="panel-badge">24h</span>
+      </div>
+      <div class="brand-row"><span class="brand-rank">1</span><div class="brand-icon" style="color:#ff3b5c">PY</div><div class="brand-info"><div class="brand-name">PayPal</div><div class="brand-sector">Financial services</div></div><div class="brand-threats"><div class="brand-threat-count">312</div><div class="brand-threat-label">threats</div></div></div>
+      <div class="brand-row"><span class="brand-rank">2</span><div class="brand-icon" style="color:#ff6b35">AZ</div><div class="brand-info"><div class="brand-name">Amazon</div><div class="brand-sector">E-commerce</div></div><div class="brand-threats"><div class="brand-threat-count">287</div><div class="brand-threat-label">threats</div></div></div>
+      <div class="brand-row"><span class="brand-rank">3</span><div class="brand-icon" style="color:#ffb627">MS</div><div class="brand-info"><div class="brand-name">Microsoft</div><div class="brand-sector">Technology</div></div><div class="brand-threats"><div class="brand-threat-count">234</div><div class="brand-threat-label">threats</div></div></div>
+      <div class="brand-row"><span class="brand-rank">4</span><div class="brand-icon">CB</div><div class="brand-info"><div class="brand-name">Coinbase</div><div class="brand-sector">Cryptocurrency</div></div><div class="brand-threats"><div class="brand-threat-count">198</div><div class="brand-threat-label">threats</div></div></div>
+      <div class="brand-row"><span class="brand-rank">5</span><div class="brand-icon">AP</div><div class="brand-info"><div class="brand-name">Apple</div><div class="brand-sector">Technology</div></div><div class="brand-threats"><div class="brand-threat-count">176</div><div class="brand-threat-label">threats</div></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Worst hosting providers</div>
+        <span class="panel-badge">7d trend</span>
+      </div>
+      <div class="provider-row"><span class="prov-dot bad"></span><div class="prov-info"><div class="prov-name">Namecheap Hosting</div><div class="prov-asn">AS22612</div></div><div class="prov-metric"><div class="prov-count">847</div><div class="prov-trend up">+23%</div></div></div>
+      <div class="provider-row"><span class="prov-dot bad"></span><div class="prov-info"><div class="prov-name">DigitalOcean</div><div class="prov-asn">AS14061</div></div><div class="prov-metric"><div class="prov-count">612</div><div class="prov-trend up">+18%</div></div></div>
+      <div class="provider-row"><span class="prov-dot degrading"></span><div class="prov-info"><div class="prov-name">OVH SAS</div><div class="prov-asn">AS16276</div></div><div class="prov-metric"><div class="prov-count">534</div><div class="prov-trend up">+41%</div></div></div>
+      <div class="provider-row"><span class="prov-dot bad"></span><div class="prov-info"><div class="prov-name">Hetzner Online</div><div class="prov-asn">AS24940</div></div><div class="prov-metric"><div class="prov-count">398</div><div class="prov-trend up">+9%</div></div></div>
+
+      <div class="panel-divider">
+        <span class="panel-divider-line"></span>
+        <span class="panel-divider-label">Improving</span>
+        <span class="panel-divider-line"></span>
+      </div>
+
+      <div class="provider-row"><span class="prov-dot improving"></span><div class="prov-info"><div class="prov-name">Cloudflare</div><div class="prov-asn">AS13335</div></div><div class="prov-metric"><div class="prov-count">156</div><div class="prov-trend down">−34%</div></div></div>
+      <div class="provider-row"><span class="prov-dot improving"></span><div class="prov-info"><div class="prov-name">Amazon AWS</div><div class="prov-asn">AS16509</div></div><div class="prov-metric"><div class="prov-count">289</div><div class="prov-trend down">−17%</div></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Agent intelligence</div>
+        <span class="panel-badge">Live</span>
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-meta"><span class="ins-dot"></span><span class="ins-agent">Strategist</span><span class="ins-time">3m ago</span></div>
+        <div class="insight-text">New campaign detected: <strong>47 domains</strong> registered within a 6-hour window targeting <strong>Coinbase</strong> and <strong>Binance</strong>. All hosted on AS22612 (Namecheap). Shared phishing kit fingerprint across 39 of 47.</div>
+        <span class="ins-sev critical">Critical</span>
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-meta"><span class="ins-dot"></span><span class="ins-agent">Cartographer</span><span class="ins-time">18m ago</span></div>
+        <div class="insight-text">Infrastructure pivot: attackers targeting <strong>PayPal</strong> shifted <strong>23%</strong> of phishing infra from OVH to Hetzner in 48h. OVH abuse response improved to 4.2h avg.</div>
+        <span class="ins-sev high">High</span>
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-meta"><span class="ins-dot"></span><span class="ins-agent">Sentinel</span><span class="ins-time">42m ago</span></div>
+        <div class="insight-text">Unusual CT log activity: <strong>28 certificates</strong> issued for <strong>apple-id-*.xyz</strong> variants in the last hour. Registrar: Tucows. Automated bulk registration pattern.</div>
+        <span class="ins-sev medium">Medium</span>
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-meta"><span class="ins-dot"></span><span class="ins-agent">Observer</span><span class="ins-time">1h ago</span></div>
+        <div class="insight-text">Weekly trend: <strong>.top</strong> and <strong>.xyz</strong> TLDs now account for <strong>61%</strong> of all typosquatting domains, up from 47% last month. Crypto brands primary targets.</div>
+        <span class="ins-sev info">Trend</span>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ── LEAFLET MAP — same stack as current Trust Radar ──
+const map = L.map('threat-map', {
+  zoomControl: false,
+  attributionControl: false,
+  minZoom: 2,
+  maxZoom: 12,
+  zoomSnap: 0.5,
+  worldCopyJump: true
+});
+
+// CartoDB dark tiles — identical to current Trust Radar
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 18,
+  subdomains: 'abcd'
+}).addTo(map);
+
+map.setView([25, 10], 2.5);
+
+// Custom zoom controls
+document.getElementById('zoomIn').addEventListener('click', () => map.zoomIn());
+document.getElementById('zoomOut').addEventListener('click', () => map.zoomOut());
+
+// ── THREAT DATA — simulated, will be API-driven in production ──
+const threatClusters = [
+  // [lat, lng, intensity (0-1), threat_count, country, brands_targeted, top_type, providers]
+  { lat: 37.09, lng: -95.71, intensity: 1.0, threats: 1247, country: 'United States', brands: 38, type: 'Phishing', providers: 14 },
+  { lat: 51.17, lng: 10.45, intensity: 0.85, threats: 834, country: 'Germany', brands: 22, type: 'Phishing', providers: 8 },
+  { lat: 55.75, lng: 37.62, intensity: 0.65, threats: 567, country: 'Russia', brands: 15, type: 'Credential Harvesting', providers: 11 },
+  { lat: 35.86, lng: 104.20, intensity: 0.72, threats: 723, country: 'China', brands: 19, type: 'Impersonation', providers: 9 },
+  { lat: 36.20, lng: 138.25, intensity: 0.4, threats: 312, country: 'Japan', brands: 12, type: 'Typosquatting', providers: 5 },
+  { lat: 55.38, lng: -3.44, intensity: 0.55, threats: 456, country: 'United Kingdom', brands: 18, type: 'Phishing', providers: 7 },
+  { lat: 46.23, lng: 2.21, intensity: 0.32, threats: 234, country: 'France', brands: 10, type: 'Phishing', providers: 6 },
+  { lat: 23.63, lng: -102.55, intensity: 0.25, threats: 189, country: 'Mexico', brands: 7, type: 'Impersonation', providers: 4 },
+  { lat: -25.27, lng: 133.78, intensity: 0.2, threats: 145, country: 'Australia', brands: 9, type: 'Phishing', providers: 3 },
+  { lat: -14.24, lng: -51.93, intensity: 0.38, threats: 298, country: 'Brazil', brands: 11, type: 'Credential Harvesting', providers: 6 },
+  { lat: 20.59, lng: 78.96, intensity: 0.35, threats: 267, country: 'India', brands: 14, type: 'Phishing', providers: 5 },
+  { lat: 9.08, lng: 8.68, intensity: 0.18, threats: 123, country: 'Nigeria', brands: 6, type: 'Impersonation', providers: 3 },
+  { lat: 56.13, lng: -106.35, intensity: 0.28, threats: 201, country: 'Canada', brands: 9, type: 'Typosquatting', providers: 4 },
+  { lat: 52.13, lng: 5.29, intensity: 0.42, threats: 345, country: 'Netherlands', brands: 16, type: 'Phishing', providers: 8 },
+  { lat: 35.91, lng: 127.77, intensity: 0.22, threats: 156, country: 'South Korea', brands: 8, type: 'Phishing', providers: 4 },
+  { lat: 1.35, lng: 103.82, intensity: 0.19, threats: 134, country: 'Singapore', brands: 7, type: 'Credential Harvesting', providers: 3 },
+  { lat: 48.02, lng: 66.92, intensity: 0.15, threats: 98, country: 'Kazakhstan', brands: 3, type: 'Malware Distribution', providers: 2 },
+  { lat: 50.50, lng: 30.52, intensity: 0.45, threats: 378, country: 'Ukraine', brands: 8, type: 'Credential Harvesting', providers: 6 },
+  { lat: 39.07, lng: 21.82, intensity: 0.12, threats: 76, country: 'Greece', brands: 4, type: 'Phishing', providers: 2 },
+  { lat: -33.87, lng: 151.21, intensity: 0.16, threats: 112, country: 'Australia (Sydney)', brands: 6, type: 'Phishing', providers: 3 },
+];
+
+// ── HEAT MAP LAYER ──
+const heatData = [];
+threatClusters.forEach(c => {
+  // Generate scattered points around each cluster center for realistic heatmap
+  const count = Math.ceil(c.intensity * 40);
+  for (let i = 0; i < count; i++) {
+    const lat = c.lat + (Math.random() - 0.5) * 8 * (1 - c.intensity * 0.5);
+    const lng = c.lng + (Math.random() - 0.5) * 12 * (1 - c.intensity * 0.5);
+    heatData.push([lat, lng, c.intensity * 0.7 + Math.random() * 0.3]);
+  }
+});
+
+L.heatLayer(heatData, {
+  radius: 30,
+  blur: 25,
+  maxZoom: 8,
+  max: 1.0,
+  gradient: {
+    0.0: '#040810',
+    0.2: '#003366',
+    0.4: '#005f7a',
+    0.5: '#0091b3',
+    0.6: '#00d4ff',
+    0.75: '#ffb627',
+    0.85: '#ff6b35',
+    1.0: '#ff3b5c'
+  }
+}).addTo(map);
+
+// ── THREAT CLUSTER MARKERS ──
+const markers = L.layerGroup().addTo(map);
+
+threatClusters.forEach(c => {
+  // Determine color by intensity
+  let color;
+  if (c.intensity >= 0.8) color = '#ff3b5c';
+  else if (c.intensity >= 0.5) color = '#ff6b35';
+  else if (c.intensity >= 0.3) color = '#ffb627';
+  else color = '#00d4ff';
+
+  // Outer pulsing ring
+  const pulseMarker = L.circleMarker([c.lat, c.lng], {
+    radius: Math.max(8, c.intensity * 24),
+    fillColor: color,
+    fillOpacity: 0.12,
+    color: color,
+    weight: 1,
+    opacity: 0.4
+  }).addTo(markers);
+
+  // Inner bright core
+  const coreMarker = L.circleMarker([c.lat, c.lng], {
+    radius: Math.max(3, c.intensity * 8),
+    fillColor: color,
+    fillOpacity: 0.85,
+    color: color,
+    weight: 0.5,
+    opacity: 1
+  }).addTo(markers);
+
+  // Popup on click
+  const popupContent = `
+    <div class="popup-title">${c.country}</div>
+    <div class="popup-row"><span class="popup-label">Active threats</span><span class="popup-val" style="color:${color}">${c.threats.toLocaleString()}</span></div>
+    <div class="popup-row"><span class="popup-label">Brands targeted</span><span class="popup-val">${c.brands}</span></div>
+    <div class="popup-row"><span class="popup-label">Top threat type</span><span class="popup-val">${c.type}</span></div>
+    <div class="popup-row"><span class="popup-label">Hosting providers</span><span class="popup-val">${c.providers}</span></div>
+  `;
+
+  coreMarker.bindPopup(popupContent, { className: 'threat-popup' });
+
+  // Hover → show sidebar country tooltip
+  coreMarker.on('mouseover', () => {
+    const tt = document.getElementById('countryTooltip');
+    document.getElementById('ttTitle').textContent = c.country;
+    document.getElementById('ttThreats').textContent = c.threats.toLocaleString();
+    document.getElementById('ttThreats').style.color = color;
+    document.getElementById('ttBrands').textContent = c.brands;
+    document.getElementById('ttType').textContent = c.type;
+    document.getElementById('ttProviders').textContent = c.providers;
+    tt.classList.add('visible');
+  });
+
+  coreMarker.on('mouseout', () => {
+    document.getElementById('countryTooltip').classList.remove('visible');
+  });
+});
+
+// ── ANIMATED ATTACK ARC SYSTEM ──
+// Canvas overlay for high-performance animated arcs with directional particles
+
+// Attack corridors: [origin, target, volume (1-10), color]
+// origin = where the attack COMES FROM, target = where the brand being attacked IS
+const attackFlows = [
+  { from: threatClusters[2],  to: threatClusters[0],  volume: 9,  color: '#ff3b5c', label: 'RU → US' },
+  { from: threatClusters[3],  to: threatClusters[0],  volume: 8,  color: '#ff6b35', label: 'CN → US' },
+  { from: threatClusters[17], to: threatClusters[1],  volume: 7,  color: '#ff3b5c', label: 'UA → DE' },
+  { from: threatClusters[1],  to: threatClusters[5],  volume: 5,  color: '#ffb627', label: 'DE → UK' },
+  { from: threatClusters[9],  to: threatClusters[0],  volume: 4,  color: '#ffb627', label: 'BR → US' },
+  { from: threatClusters[10], to: threatClusters[5],  volume: 4,  color: '#ffb627', label: 'IN → UK' },
+  { from: threatClusters[3],  to: threatClusters[4],  volume: 5,  color: '#ff6b35', label: 'CN → JP' },
+  { from: threatClusters[2],  to: threatClusters[1],  volume: 6,  color: '#ff6b35', label: 'RU → DE' },
+  { from: threatClusters[13], to: threatClusters[0],  volume: 5,  color: '#ffb627', label: 'NL → US' },
+  { from: threatClusters[3],  to: threatClusters[15], volume: 3,  color: '#00d4ff', label: 'CN → SG' },
+  { from: threatClusters[2],  to: threatClusters[5],  volume: 4,  color: '#ff6b35', label: 'RU → UK' },
+  { from: threatClusters[11], to: threatClusters[0],  volume: 3,  color: '#00d4ff', label: 'NG → US' },
+  { from: threatClusters[17], to: threatClusters[13], volume: 3,  color: '#ffb627', label: 'UA → NL' },
+  { from: threatClusters[10], to: threatClusters[0],  volume: 3,  color: '#00d4ff', label: 'IN → US' },
+];
+
+// Create a canvas overlay for the arcs
+const ArcLayer = L.Layer.extend({
+  onAdd(map) {
+    this._map = map;
+    this._canvas = L.DomUtil.create('canvas', 'arc-canvas');
+    this._canvas.style.position = 'absolute';
+    this._canvas.style.top = '0';
+    this._canvas.style.left = '0';
+    this._canvas.style.pointerEvents = 'none';
+    this._canvas.style.zIndex = '450';
+    map.getPanes().overlayPane.appendChild(this._canvas);
+    this._ctx = this._canvas.getContext('2d');
+    this._particles = [];
+    this._time = 0;
+
+    // Initialize particles for each flow
+    attackFlows.forEach((flow, fi) => {
+      const numParticles = Math.max(2, Math.ceil(flow.volume * 0.8));
+      for (let i = 0; i < numParticles; i++) {
+        this._particles.push({
+          flowIndex: fi,
+          t: Math.random(),
+          speed: 0.002 + Math.random() * 0.003,
+          size: 2 + flow.volume * 0.3,
+        });
+      }
+    });
+
+    map.on('move zoom viewreset resize', this._reset, this);
+    this._reset();
+    this._animate();
+  },
+
+  onRemove(map) {
+    L.DomUtil.remove(this._canvas);
+    map.off('move zoom viewreset resize', this._reset, this);
+    if (this._animFrame) cancelAnimationFrame(this._animFrame);
+  },
+
+  _reset() {
+    const size = this._map.getSize();
+    const topLeft = this._map.containerPointToLayerPoint([0, 0]);
+    this._canvas.width = size.x;
+    this._canvas.height = size.y;
+    L.DomUtil.setPosition(this._canvas, topLeft);
+  },
+
+  // Quadratic Bezier: compute point at parameter t
+  _bezierPoint(p0, cp, p1, t) {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * p0.x + 2 * mt * t * cp.x + t * t * p1.x,
+      y: mt * mt * p0.y + 2 * mt * t * cp.y + t * t * p1.y
+    };
+  },
+
+  _getFlowGeometry(flow) {
+    const fromPx = this._map.latLngToContainerPoint([flow.from.lat, flow.from.lng]);
+    const toPx = this._map.latLngToContainerPoint([flow.to.lat, flow.to.lng]);
+
+    // Arc curvature: perpendicular offset scaled by distance
+    const dx = toPx.x - fromPx.x;
+    const dy = toPx.y - fromPx.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Control point: offset perpendicular to the midpoint
+    // Negative Y offset = arc curves upward (visually pleasing on world map)
+    const midX = (fromPx.x + toPx.x) / 2;
+    const midY = (fromPx.y + toPx.y) / 2;
+    const curvature = Math.min(dist * 0.3, 120);
+    // Perpendicular direction
+    const nx = -dy / dist;
+    const ny = dx / dist;
+
+    return {
+      from: fromPx,
+      to: toPx,
+      cp: { x: midX + nx * curvature, y: midY + ny * curvature },
+      dist
+    };
+  },
+
+  _draw() {
+    const ctx = this._ctx;
+    const w = this._canvas.width;
+    const h = this._canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw each flow arc
+    attackFlows.forEach((flow, fi) => {
+      const geo = this._getFlowGeometry(flow);
+      if (geo.dist < 20) return; // too small to see
+
+      const lineWidth = Math.max(0.8, flow.volume * 0.22);
+
+      // Parse color for rgba
+      const col = flow.color;
+
+      // 1. Draw the arc path (semi-transparent base)
+      ctx.beginPath();
+      ctx.moveTo(geo.from.x, geo.from.y);
+      ctx.quadraticCurveTo(geo.cp.x, geo.cp.y, geo.to.x, geo.to.y);
+      ctx.strokeStyle = col.replace(')', ', 0.15)').replace('rgb', 'rgba').replace('#', '');
+      // Convert hex to rgba for the base arc
+      ctx.strokeStyle = this._hexToRgba(col, 0.15);
+      ctx.lineWidth = lineWidth + 1;
+      ctx.stroke();
+
+      // 2. Draw a brighter thinner inner arc
+      ctx.beginPath();
+      ctx.moveTo(geo.from.x, geo.from.y);
+      ctx.quadraticCurveTo(geo.cp.x, geo.cp.y, geo.to.x, geo.to.y);
+      ctx.strokeStyle = this._hexToRgba(col, 0.35);
+      ctx.lineWidth = lineWidth * 0.5;
+      ctx.stroke();
+
+      // 3. Arrowhead at destination (target brand)
+      const t = 0.96;
+      const tipT = 1.0;
+      const preArrow = this._bezierPoint(geo.from, geo.cp, geo.to, t);
+      const tip = this._bezierPoint(geo.from, geo.cp, geo.to, tipT);
+      const angle = Math.atan2(tip.y - preArrow.y, tip.x - preArrow.x);
+      const arrowLen = 6 + flow.volume * 0.5;
+
+      ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y);
+      ctx.lineTo(tip.x - arrowLen * Math.cos(angle - 0.4), tip.y - arrowLen * Math.sin(angle - 0.4));
+      ctx.moveTo(tip.x, tip.y);
+      ctx.lineTo(tip.x - arrowLen * Math.cos(angle + 0.4), tip.y - arrowLen * Math.sin(angle + 0.4));
+      ctx.strokeStyle = this._hexToRgba(col, 0.7);
+      ctx.lineWidth = Math.max(1, lineWidth);
+      ctx.stroke();
+    });
+
+    // Draw particles
+    this._particles.forEach(p => {
+      const flow = attackFlows[p.flowIndex];
+      const geo = this._getFlowGeometry(flow);
+      if (geo.dist < 20) return;
+
+      const pos = this._bezierPoint(geo.from, geo.cp, geo.to, p.t);
+      const col = flow.color;
+
+      // Outer glow
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, p.size + 3, 0, Math.PI * 2);
+      ctx.fillStyle = this._hexToRgba(col, 0.15);
+      ctx.fill();
+
+      // Core particle
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = this._hexToRgba(col, 0.85);
+      ctx.fill();
+
+      // Bright center
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, p.size * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.7;
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+
+      // Trail — a fading line behind the particle
+      const trailLen = 0.04;
+      const trailT = Math.max(0, p.t - trailLen);
+      const trailPos = this._bezierPoint(geo.from, geo.cp, geo.to, trailT);
+      const grad = ctx.createLinearGradient(trailPos.x, trailPos.y, pos.x, pos.y);
+      grad.addColorStop(0, this._hexToRgba(col, 0));
+      grad.addColorStop(1, this._hexToRgba(col, 0.5));
+      ctx.beginPath();
+      ctx.moveTo(trailPos.x, trailPos.y);
+      // Draw trail as short Bezier segment
+      const midTrailT = (trailT + p.t) / 2;
+      const midTrail = this._bezierPoint(geo.from, geo.cp, geo.to, midTrailT);
+      ctx.quadraticCurveTo(midTrail.x, midTrail.y, pos.x, pos.y);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = p.size * 0.8;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    });
+
+    // Origin labels at source countries (small diamond markers)
+    attackFlows.forEach(flow => {
+      const geo = this._getFlowGeometry(flow);
+      if (geo.dist < 60) return;
+      const col = flow.color;
+
+      // Small diamond at origin
+      const ox = geo.from.x;
+      const oy = geo.from.y;
+      const ds = 4;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - ds);
+      ctx.lineTo(ox + ds, oy);
+      ctx.lineTo(ox, oy + ds);
+      ctx.lineTo(ox - ds, oy);
+      ctx.closePath();
+      ctx.fillStyle = this._hexToRgba(col, 0.5);
+      ctx.strokeStyle = this._hexToRgba(col, 0.8);
+      ctx.lineWidth = 1;
+      ctx.fill();
+      ctx.stroke();
+
+      // Small crosshair at target
+      const tx = geo.to.x;
+      const ty = geo.to.y;
+      const cs = 5;
+      ctx.strokeStyle = this._hexToRgba(col, 0.4);
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(tx - cs, ty); ctx.lineTo(tx + cs, ty);
+      ctx.moveTo(tx, ty - cs); ctx.lineTo(tx, ty + cs);
+      ctx.stroke();
+    });
+  },
+
+  _hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  },
+
+  _animate() {
+    // Move particles along their arcs
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.t += p.speed;
+      if (p.isBurst) {
+        // Burst particles die after one pass
+        if (p.t > 1.1) {
+          this._particles.splice(i, 1);
+          continue;
+        }
+      } else {
+        // Regular particles loop
+        if (p.t > 1.05) {
+          p.t = -0.05;
+        }
+      }
+    }
+
+    this._draw();
+    this._animFrame = requestAnimationFrame(() => this._animate());
+  }
+});
+
+const arcLayer = new ArcLayer();
+arcLayer.addTo(map);
+
+// ── PULSE ANIMATION on markers ──
+function pulseMarkers() {
+  markers.eachLayer(layer => {
+    if (layer.options.fillOpacity < 0.2) {
+      const current = layer.getRadius();
+      const base = current;
+      const expand = base * (1 + Math.random() * 0.3);
+      layer.setRadius(expand);
+      setTimeout(() => layer.setRadius(base), 1500);
+    }
+  });
+}
+setInterval(pulseMarkers, 3000);
+
+// ── UTC CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2, '0');
+  const m = String(now.getUTCMinutes()).padStart(2, '0');
+  const s = String(now.getUTCSeconds()).padStart(2, '0');
+  document.getElementById('utcClock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── LIVE THREAT COUNTER ──
+let threatCount = 4892;
+function tickThreats() {
+  if (Math.random() > 0.5) {
+    threatCount += Math.floor(Math.random() * 3) + 1;
+    document.getElementById('statThreats').textContent = threatCount.toLocaleString();
+  }
+}
+setInterval(tickThreats, 5000);
+
+// ── SIMULATE NEW THREAT APPEARING ON MAP ──
+function spawnThreat() {
+  const cluster = threatClusters[Math.floor(Math.random() * threatClusters.length)];
+  const lat = cluster.lat + (Math.random() - 0.5) * 4;
+  const lng = cluster.lng + (Math.random() - 0.5) * 6;
+
+  const flash = L.circleMarker([lat, lng], {
+    radius: 12,
+    fillColor: '#00d4ff',
+    fillOpacity: 0.6,
+    color: '#00d4ff',
+    weight: 1,
+    opacity: 0.8
+  }).addTo(map);
+
+  // Animate: expand and fade
+  let r = 12;
+  let o = 0.6;
+  const anim = setInterval(() => {
+    r += 1.5;
+    o -= 0.03;
+    if (o <= 0) {
+      clearInterval(anim);
+      map.removeLayer(flash);
+      return;
+    }
+    flash.setRadius(r);
+    flash.setStyle({ fillOpacity: o, opacity: o });
+  }, 50);
+}
+
+setInterval(spawnThreat, 4000);
+
+// ── FIRE A RANDOM LIVE ATTACK ARC (one-shot dramatic particle) ──
+function fireLiveAttack() {
+  if (!arcLayer._particles) return;
+  const flow = attackFlows[Math.floor(Math.random() * attackFlows.length)];
+  const fi = attackFlows.indexOf(flow);
+
+  // Add a burst of fast, bright particles
+  for (let i = 0; i < 3; i++) {
+    arcLayer._particles.push({
+      flowIndex: fi,
+      t: -0.02 * i,
+      speed: 0.008 + Math.random() * 0.004,
+      size: 4 + flow.volume * 0.4,
+      isBurst: true,
+      life: 1.0
+    });
+  }
+}
+
+setInterval(fireLiveAttack, 6000);
+</script>
+</body>
+</html>

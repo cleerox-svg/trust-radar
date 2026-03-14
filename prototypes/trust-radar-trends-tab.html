@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Trends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--threat-low:#00d4ff;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--purple:#b388ff;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}
+.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}
+.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}
+.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}
+@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}
+.logo span{color:var(--blue-primary)}.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}
+.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}.np.active{background:var(--bg-elevated);color:var(--text-accent)}.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}.feed-st{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--positive)}.fd{width:5px;height:5px;border-radius:50%;background:var(--positive);animation:pc 2s ease-in-out infinite}
+.live-tag{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--blue-primary);padding:3px 9px;border:1px solid var(--blue-border-bright);border-radius:3px}
+.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+.main{overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}.main::-webkit-scrollbar{width:5px}.main::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:3px}
+
+/* HEADLINE */
+.insights-row{display:flex;gap:12px;margin-bottom:20px}
+.insight-card{flex:1;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:14px 16px}
+.ic-label{font-size:10px;color:var(--text-tertiary);margin-bottom:4px}
+.ic-value{font-family:var(--font-display);font-weight:700;font-size:18px;line-height:1.2}
+.ic-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-top:3px}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:14px 18px;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg)}
+.ctrl-group{display:flex;align-items:center;gap:6px}
+.ctrl-label{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);margin-right:4px}
+.fp{font-family:var(--font-body);font-size:10px;font-weight:500;padding:5px 12px;border-radius:4px;border:1px solid var(--blue-border);background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.fp.active{background:var(--bg-elevated);color:var(--text-accent);border-color:var(--blue-border-bright)}.fp:hover:not(.active){color:var(--text-primary)}
+.divider{width:1px;height:24px;background:var(--blue-border);margin:0 4px}
+.compare-toggle{display:flex;align-items:center;gap:6px;margin-left:auto}
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--blue-border);cursor:pointer;position:relative;transition:all .2s}
+.toggle.on{background:rgba(0,212,255,.15);border-color:var(--blue-border-bright)}
+.toggle-dot{width:14px;height:14px;border-radius:50%;background:var(--text-tertiary);position:absolute;top:2px;left:2px;transition:all .2s}
+.toggle.on .toggle-dot{left:18px;background:var(--blue-primary)}
+.compare-selects{display:flex;gap:8px;margin-left:8px}
+.csel{font-family:var(--font-body);font-size:11px;padding:5px 10px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;outline:none;min-width:120px}
+
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);cursor:pointer;transition:opacity .15s;padding:3px 8px;border-radius:4px}
+.leg-item:hover{background:var(--bg-hover)}
+.leg-item.muted{opacity:.3}
+.leg-swatch{width:20px;height:3px;border-radius:2px}
+
+/* CHART */
+.chart-container{position:relative;height:400px;background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);padding:20px;margin-bottom:24px}
+
+/* AI TREND INSIGHT */
+.ai-trend{background:rgba(138,43,226,.04);border:1px solid rgba(138,43,226,.15);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:24px}
+.ai-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--purple)}
+.ai-agent{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--purple)}
+.ai-text{font-size:12px;line-height:1.6;color:var(--text-secondary)}.ai-text strong{color:var(--text-primary);font-weight:500}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <nav class="nav-pills"><button class="np">Observatory</button><button class="np">Brands</button><button class="np">Providers</button><button class="np">Campaigns</button><button class="np active">Trends</button></nav>
+    </div>
+    <div class="topbar-right"><div class="feed-st"><span class="fd"></span>6 feeds active</div><span class="live-tag">Live</span><div class="ua">SA</div></div>
+  </header>
+  <main class="main">
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Trend Explorer</div>
+    <div class="insights-row" id="insights"></div>
+    <div class="controls" id="controls"></div>
+    <div class="ai-trend" id="ai-trend"></div>
+    <div class="legend" id="legend"></div>
+    <div class="chart-container"><canvas id="main-chart"></canvas></div>
+  </main>
+</div>
+<script>
+// ═══ DATA GENERATORS — simulate API responses ═══
+const COLORS=['#00d4ff','#ff3b5c','#ff6b35','#ffb627','#00e5a0','#b388ff','#0091b3','#ff80ab','#82b1ff','#ccff90'];
+
+function makeDates(n){return Array.from({length:n},(_,i)=>{const d=new Date(Date.now()-(n-1-i)*86400000);return `${d.getMonth()+1}/${d.getDate()}`})}
+function makeSeries(n,base,variance){let v=base;return Array.from({length:n},()=>{v=Math.max(0,v+Math.floor(Math.random()*variance*2-variance));return v})}
+
+const DIMENSIONS={
+  brands:{
+    label:'Brands',
+    names:['PayPal','Amazon','Microsoft','Coinbase','Apple','Chase Bank','Binance','Netflix','Wells Fargo','MetaMask'],
+    type:'line',
+    gen:(days)=>({labels:makeDates(days),series:['PayPal','Amazon','Microsoft','Coinbase','Apple','Chase Bank','Binance','Netflix','Wells Fargo','MetaMask'].map((n,i)=>({name:n,values:makeSeries(days,30-i*2,6)}))})
+  },
+  providers:{
+    label:'Providers',
+    names:['Namecheap','DigitalOcean','OVH SAS','Hetzner','Hostinger','Cloudflare','Amazon AWS','Google Cloud'],
+    type:'line',
+    gen:(days)=>({labels:makeDates(days),series:['Namecheap','DigitalOcean','OVH SAS','Hetzner','Hostinger','Cloudflare','Amazon AWS','Google Cloud'].map((n,i)=>({name:n,values:makeSeries(days,i<5?25-i*3:15-i,5)}))})
+  },
+  tlds:{
+    label:'TLDs',
+    names:['.com','.xyz','.top','.shop','.net','.io','.org','other'],
+    type:'stacked',
+    gen:(days)=>({labels:makeDates(days),series:['.com','.xyz','.top','.shop','.net','.io','.org','other'].map((n,i)=>({name:n,values:makeSeries(days,20-i*2,3).map(v=>Math.max(1,v))}))})
+  },
+  types:{
+    label:'Threat Types',
+    names:['Phishing','Typosquatting','Impersonation','Credential Harvesting','Malware Distribution'],
+    type:'stacked',
+    gen:(days)=>({labels:makeDates(days),series:['Phishing','Typosquatting','Impersonation','Credential Harvesting','Malware Distribution'].map((n,i)=>({name:n,values:makeSeries(days,25-i*4,4).map(v=>Math.max(1,v))}))})
+  },
+  volume:{
+    label:'Volume',
+    names:['Total Threats'],
+    type:'area',
+    gen:(days)=>({labels:makeDates(days),series:[{name:'Total Threats',values:makeSeries(days,80,15)}]})
+  }
+};
+
+const PERIODS={
+  '7d':7,'30d':30,'90d':90,'1y':365
+};
+
+let currentDim='brands',currentPeriod='30d',compareMode=false,chart=null,hiddenSeries=new Set();
+
+// ═══ HEADLINE INSIGHTS ═══
+function renderInsights(){
+  const data=DIMENSIONS[currentDim].gen(PERIODS[currentPeriod]);
+  let biggest='',biggestPct=0,smallest='',smallestPct=0;
+  data.series.forEach(s=>{
+    if(s.values.length<2)return;
+    const first=s.values.slice(0,Math.ceil(s.values.length/3)).reduce((a,b)=>a+b,0)/Math.ceil(s.values.length/3);
+    const last=s.values.slice(-Math.ceil(s.values.length/3)).reduce((a,b)=>a+b,0)/Math.ceil(s.values.length/3);
+    const pct=first>0?Math.round((last-first)/first*100):0;
+    if(pct>biggestPct){biggestPct=pct;biggest=s.name}
+    if(pct<smallestPct){smallestPct=pct;smallest=s.name}
+  });
+  const totalNow=data.series.reduce((a,s)=>a+s.values[s.values.length-1],0);
+  const totalPrev=data.series.reduce((a,s)=>a+s.values[0],0);
+  const volChange=totalPrev>0?Math.round((totalNow-totalPrev)/totalPrev*100):0;
+  
+  document.getElementById('insights').innerHTML=`
+    <div class="insight-card"><div class="ic-label">Biggest increase</div><div class="ic-value" style="color:var(--threat-critical)">${biggest||'—'}</div><div class="ic-sub">${biggestPct>0?'+':''}${biggestPct}% over ${currentPeriod}</div></div>
+    <div class="insight-card"><div class="ic-label">Biggest decrease</div><div class="ic-value" style="color:var(--positive)">${smallest||'—'}</div><div class="ic-sub">${smallestPct}% over ${currentPeriod}</div></div>
+    <div class="insight-card"><div class="ic-label">Volume change</div><div class="ic-value" style="color:${volChange>=0?'var(--threat-medium)':'var(--positive)'}">${volChange>=0?'+':''}${volChange}%</div><div class="ic-sub">Total ${currentDim} activity</div></div>
+    <div class="insight-card"><div class="ic-label">Active series</div><div class="ic-value" style="color:var(--blue-primary)">${data.series.length}</div><div class="ic-sub">${DIMENSIONS[currentDim].label} tracked</div></div>`;
+}
+
+// ═══ CONTROLS ═══
+function renderControls(){
+  const dims=Object.keys(DIMENSIONS);
+  const periods=Object.keys(PERIODS);
+  const brands=DIMENSIONS.brands.names;
+  
+  document.getElementById('controls').innerHTML=`
+    <div class="ctrl-group">
+      <span class="ctrl-label">Dimension</span>
+      ${dims.map(d=>`<button class="fp dim-btn ${d===currentDim?'active':''}" data-dim="${d}">${DIMENSIONS[d].label}</button>`).join('')}
+    </div>
+    <div class="divider"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Period</span>
+      ${periods.map(p=>`<button class="fp period-btn ${p===currentPeriod?'active':''}" data-period="${p}">${p}</button>`).join('')}
+    </div>
+    <div class="divider"></div>
+    <div class="compare-toggle">
+      <span class="ctrl-label">Compare</span>
+      <div class="toggle ${compareMode?'on':''}" id="compareToggle"><div class="toggle-dot"></div></div>
+      <div class="compare-selects" id="compareSelects" style="display:${compareMode?'flex':'none'}">
+        <select class="csel" id="cselA">${brands.map(b=>`<option>${b}</option>`).join('')}</select>
+        <span style="color:var(--text-tertiary);font-size:11px">vs</span>
+        <select class="csel" id="cselB">${brands.map((b,i)=>`<option ${i===1?'selected':''}>${b}</option>`).join('')}</select>
+      </div>
+    </div>`;
+  
+  document.querySelectorAll('.dim-btn').forEach(b=>b.addEventListener('click',()=>{currentDim=b.dataset.dim;hiddenSeries.clear();render()}));
+  document.querySelectorAll('.period-btn').forEach(b=>b.addEventListener('click',()=>{currentPeriod=b.dataset.period;render()}));
+  document.getElementById('compareToggle').addEventListener('click',()=>{compareMode=!compareMode;render()});
+  if(compareMode){
+    document.getElementById('cselA')?.addEventListener('change',renderChart);
+    document.getElementById('cselB')?.addEventListener('change',renderChart);
+  }
+}
+
+// ═══ AI INSIGHT ═══
+function renderAI(){
+  const insights={
+    brands:'Cryptocurrency brands have seen the steepest acceleration in targeting over the past 30 days, with <strong>Coinbase</strong> and <strong>Binance</strong> experiencing a combined <strong>+310%</strong> increase. This coincides with rising crypto prices and suggests threat actors are following the money. Financial services brands remain the largest absolute target but growth has plateaued.',
+    providers:'Infrastructure is consolidating toward <strong>Namecheap</strong> and <strong>Hostinger</strong>, which together now host <strong>42%</strong> of all active threats. Meanwhile, major cloud providers (Cloudflare, AWS, Google Cloud) are improving significantly — their abuse response times have decreased and attackers are migrating away. This suggests a two-tier infrastructure landscape is emerging.',
+    tlds:'The <strong>.xyz</strong> and <strong>.top</strong> TLDs now account for <strong>61%</strong> of all typosquatting domains, up from 47% last month. Attackers are shifting away from <strong>.com</strong> due to higher registration costs and stricter registrar enforcement. Expect <strong>.shop</strong> to rise next — it\'s the fastest-growing TLD for phishing domains.',
+    types:'<strong>Phishing</strong> remains dominant at 58% of all threats, but <strong>credential harvesting</strong> is the fastest-growing category (+34% month-over-month). This shift suggests attackers are investing in more sophisticated, targeted attacks rather than high-volume spray campaigns. Impersonation attacks are also rising as AI tools make brand mimicry easier.',
+    volume:'Total threat volume is up <strong>18%</strong> month-over-month, continuing a 4-month upward trend. The increase is not uniform — it\'s concentrated in cryptocurrency and financial services sectors. Technology brands are actually seeing a slight decline, possibly due to improved security posture and faster takedown response times.'
+  };
+  document.getElementById('ai-trend').innerHTML=`<div class="ai-head"><div class="ai-dot"></div><div class="ai-agent">Observer — Trend Analysis</div></div><div class="ai-text">${insights[currentDim]}</div>`;
+}
+
+// ═══ LEGEND ═══
+function renderLegend(data){
+  if(compareMode||data.series.length<=1){document.getElementById('legend').innerHTML='';return}
+  document.getElementById('legend').innerHTML=data.series.map((s,i)=>`<div class="leg-item ${hiddenSeries.has(i)?'muted':''}" data-idx="${i}"><div class="leg-swatch" style="background:${COLORS[i%COLORS.length]}"></div>${s.name}</div>`).join('');
+  document.querySelectorAll('.leg-item').forEach(l=>l.addEventListener('click',()=>{
+    const idx=parseInt(l.dataset.idx);
+    if(hiddenSeries.has(idx))hiddenSeries.delete(idx);else hiddenSeries.add(idx);
+    renderChart();
+  }));
+}
+
+// ═══ CHART ═══
+function renderChart(){
+  const days=PERIODS[currentPeriod];
+  const dim=DIMENSIONS[currentDim];
+  
+  if(compareMode&&(currentDim==='brands'||currentDim==='providers')){
+    const nameA=document.getElementById('cselA')?.value||dim.names[0];
+    const nameB=document.getElementById('cselB')?.value||dim.names[1];
+    const data=dim.gen(days);
+    const sA=data.series.find(s=>s.name===nameA)||data.series[0];
+    const sB=data.series.find(s=>s.name===nameB)||data.series[1];
+    
+    const datasets=[
+      {label:sA.name,data:sA.values,borderColor:COLORS[0],backgroundColor:'rgba(0,212,255,0.06)',fill:true,tension:.35,pointRadius:0,pointHoverRadius:5,borderWidth:2},
+      {label:sB.name,data:sB.values,borderColor:COLORS[1],backgroundColor:'rgba(255,59,92,0.06)',fill:true,tension:.35,pointRadius:0,pointHoverRadius:5,borderWidth:2}
+    ];
+    buildChart(data.labels,datasets);
+    document.getElementById('legend').innerHTML=`
+      <div class="leg-item"><div class="leg-swatch" style="background:${COLORS[0]}"></div>${sA.name}</div>
+      <div class="leg-item"><div class="leg-swatch" style="background:${COLORS[1]}"></div>${sB.name}</div>`;
+    return;
+  }
+
+  const data=dim.gen(days);
+  renderLegend(data);
+  
+  const datasets=data.series.map((s,i)=>{
+    const hidden=hiddenSeries.has(i);
+    if(dim.type==='stacked'){
+      return{label:s.name,data:s.values,backgroundColor:COLORS[i%COLORS.length]+'30',borderColor:COLORS[i%COLORS.length],fill:true,tension:.35,pointRadius:0,borderWidth:1.5,hidden};
+    }else if(dim.type==='area'){
+      return{label:s.name,data:s.values,borderColor:COLORS[0],backgroundColor:'rgba(0,212,255,0.08)',fill:true,tension:.35,pointRadius:0,pointHoverRadius:5,borderWidth:2,hidden};
+    }else{
+      return{label:s.name,data:s.values,borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',fill:false,tension:.35,pointRadius:0,pointHoverRadius:4,borderWidth:1.8,hidden};
+    }
+  });
+  buildChart(data.labels,datasets,dim.type==='stacked');
+}
+
+function buildChart(labels,datasets,stacked=false){
+  if(chart){chart.destroy();chart=null}
+  const ctx=document.getElementById('main-chart');
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{intersect:false,mode:'index'},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(10,16,32,0.95)',borderColor:'rgba(0,212,255,0.35)',borderWidth:1,
+          titleFont:{family:"'Chakra Petch'",size:11,weight:'600'},bodyFont:{family:"'IBM Plex Mono'",size:11},
+          titleColor:'#e8edf5',bodyColor:'#7a8ba8',padding:12,cornerRadius:6,
+          callbacks:{labelColor:(ctx)=>({borderColor:ctx.dataset.borderColor,backgroundColor:ctx.dataset.borderColor,borderRadius:2})}
+        }
+      },
+      scales:{
+        x:{
+          ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12},
+          grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},
+          stacked
+        },
+        y:{
+          ticks:{color:'#4a5a73',font:{family:"'IBM Plex Mono'",size:9},padding:8},
+          grid:{color:'rgba(0,212,255,0.04)',drawBorder:false},
+          beginAtZero:true,stacked
+        }
+      }
+    }
+  });
+}
+
+// ═══ RENDER ALL ═══
+function render(){renderInsights();renderControls();renderAI();renderChart()}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Radar — Admin: Lead Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--bg-hover:#152545;--blue-primary:#00d4ff;--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--blue-glow:rgba(0,212,255,.08);--threat-medium:#ffb627;--threat-high:#ff6b35;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--negative-muted:rgba(255,59,92,.12);--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+*{margin:0;padding:0;box-sizing:border-box}html,body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg-surface);border-bottom:1px solid var(--blue-border);z-index:100}
+.topbar-left{display:flex;align-items:center;gap:20px}.logo{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--text-primary);display:flex;align-items:center;gap:9px;cursor:pointer}.logo-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}.logo-icon::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue-primary);animation:pc 2s ease-in-out infinite}@keyframes pc{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.5)}}.logo span{color:var(--blue-primary)}
+.admin-badge{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--threat-medium);padding:3px 9px;border:1px solid rgba(255,182,39,.3);border-radius:3px;background:rgba(255,182,39,.08)}
+.nav-pills{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}.np{font-family:var(--font-body);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .2s}.np.active{background:var(--bg-elevated);color:var(--threat-medium)}.np:hover:not(.active){color:var(--text-primary)}
+.topbar-right{display:flex;align-items:center;gap:14px}.back-link{font-family:var(--font-body);font-size:11px;color:var(--blue-primary);border:none;background:none;cursor:pointer}.ua{width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--blue-primary);cursor:pointer}
+.main{overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:2px;background:var(--bg-panel);padding:3px;border-radius:var(--radius)}
+.vt-btn{font-family:var(--font-body);font-size:10px;font-weight:500;padding:4px 12px;border-radius:4px;border:none;background:0 0;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.vt-btn.active{background:var(--bg-elevated);color:var(--threat-medium)}
+
+/* KANBAN */
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;min-height:500px}
+.kanban-col{flex:0 0 220px;display:flex;flex-direction:column}
+.kanban-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin-bottom:8px}
+.kh-title{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary)}
+.kh-count{font-family:var(--font-mono);font-size:11px;font-weight:700}
+.kh-bar{height:3px;border-radius:2px;margin-bottom:8px}
+.kanban-cards{flex:1;display:flex;flex-direction:column;gap:6px}
+
+.lead-card{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .15s}
+.lead-card:hover{border-color:var(--blue-border-bright);background:var(--bg-panel)}
+.lc-company{font-weight:600;font-size:13px;margin-bottom:2px}
+.lc-contact{font-size:10px;color:var(--text-secondary)}
+.lc-domain{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-top:4px}
+.lc-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.lc-score{display:flex;align-items:center;gap:4px}
+.score-badge{font-family:var(--font-display);font-size:11px;font-weight:700;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.grade-badge{font-family:var(--font-display);font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px}
+.lc-time{font-family:var(--font-mono);font-size:8px;color:var(--text-tertiary)}
+
+/* TABLE VIEW */
+.panel{background:var(--bg-surface);border:1px solid var(--blue-border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}thead th{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:10px 14px;border-bottom:1px solid var(--blue-border);white-space:nowrap;cursor:pointer}thead th:hover{color:var(--text-secondary)}
+tbody tr{border-bottom:1px solid rgba(0,212,255,.05);transition:background .1s;cursor:pointer}tbody tr:hover{background:var(--bg-hover)}td{padding:10px 14px;font-size:12px;vertical-align:middle}
+.status-pill{font-family:var(--font-mono);font-size:8px;font-weight:500;padding:2px 8px;border-radius:3px}
+.status-pill.new{background:var(--negative-muted);color:var(--negative)}.status-pill.contacted{background:rgba(255,107,53,.1);color:var(--threat-high)}.status-pill.qualified{background:rgba(255,182,39,.1);color:var(--threat-medium)}.status-pill.proposal{background:var(--blue-glow);color:var(--blue-primary)}.status-pill.converted{background:var(--positive-muted);color:var(--positive)}.status-pill.closed_lost{background:var(--bg-elevated);color:var(--text-tertiary)}
+
+#kanban-view,#table-view{display:none}#kanban-view.visible,#table-view.visible{display:block}
+
+/* DETAIL SLIDE-OUT */
+.slideout{position:fixed;top:52px;right:0;bottom:0;width:480px;background:var(--bg-surface);border-left:1px solid var(--blue-border-bright);z-index:150;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:24px;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent}
+.slideout.open{transform:translateX(0)}
+.so-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer}
+.so-score-ring{width:80px;height:80px;margin:0 auto 12px;position:relative}
+.so-score-val{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-display);font-weight:700;font-size:24px}
+.so-grade{text-align:center;font-family:var(--font-display);font-size:12px;font-weight:600;margin-bottom:16px}
+.so-section{margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--blue-border)}
+.so-section:last-child{border-bottom:none}
+.so-sect-title{font-family:var(--font-display);font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px}
+.so-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}.so-row-l{color:var(--text-secondary)}.so-row-v{font-family:var(--font-mono);font-size:11px}
+.so-status-sel{font-family:var(--font-body);font-size:12px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;outline:none;width:100%}
+.so-assign-sel{font-family:var(--font-body);font-size:12px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;outline:none;width:100%}
+.note-item{padding:8px 0;border-bottom:1px solid rgba(0,212,255,.04)}
+.note-time{font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)}.note-by{font-size:10px;color:var(--text-secondary)}.note-text{font-size:11px;margin-top:2px;color:var(--text-primary)}
+.note-input{font-family:var(--font-body);font-size:12px;padding:8px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);width:100%;outline:none;resize:none;height:60px;margin-top:8px}.note-input:focus{border-color:var(--blue-border-bright)}
+.btn-sm{font-family:var(--font-display);font-size:10px;font-weight:600;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--threat-medium);background:rgba(255,182,39,.08);color:var(--threat-medium);cursor:pointer;margin-top:6px}
+.risk-indicators{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.risk-ind{font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px}
+.risk-ind.bad{background:var(--negative-muted);color:var(--negative)}.risk-ind.warn{background:rgba(255,182,39,.1);color:var(--threat-medium)}.risk-ind.ok{background:var(--positive-muted);color:var(--positive)}
+.search{font-family:var(--font-body);font-size:12px;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--blue-border);background:var(--bg-panel);color:var(--text-primary);outline:none;width:240px}.search::placeholder{color:var(--text-tertiary)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-icon"></div>TRUST <span>RADAR</span></div>
+      <span class="admin-badge">Admin</span>
+      <nav class="nav-pills"><button class="np">Dashboard</button><button class="np">Users</button><button class="np">Feeds</button><button class="np active">Leads</button><button class="np">API Keys</button><button class="np">Agent Config</button><button class="np">Audit Log</button></nav>
+    </div>
+    <div class="topbar-right"><button class="back-link">← Back to Observatory</button><div class="ua">SA</div></div>
+  </header>
+  <main class="main">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Lead Management</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input class="search" placeholder="Search leads...">
+        <div class="view-toggle"><button class="vt-btn active" data-view="kanban">Kanban</button><button class="vt-btn" data-view="table">Table</button></div>
+      </div>
+    </div>
+
+    <div id="kanban-view" class="visible"></div>
+    <div id="table-view"></div>
+  </main>
+</div>
+<div class="slideout" id="slideout"><button class="so-close" id="soClose">×</button><div id="so-content"></div></div>
+
+<script>
+const STAGES=[
+  {key:'new',label:'New',color:'var(--negative)'},
+  {key:'contacted',label:'Contacted',color:'var(--threat-high)'},
+  {key:'qualified',label:'Qualified',color:'var(--threat-medium)'},
+  {key:'proposal',label:'Proposal Sent',color:'var(--blue-primary)'},
+  {key:'converted',label:'Converted',color:'var(--positive)'},
+  {key:'closed_lost',label:'Closed Lost',color:'var(--text-tertiary)'}
+];
+
+function scoreColor(s){return s>=90?'var(--positive)':s>=80?'var(--blue-primary)':s>=70?'var(--threat-medium)':s>=50?'var(--threat-high)':'var(--negative)'}
+function gradeColor(g){return{A:'var(--positive)',B:'var(--blue-primary)',C:'var(--threat-medium)',D:'var(--threat-high)',F:'var(--negative)'}[g]||'var(--text-tertiary)'}
+
+const LEADS=[
+  {id:'l1',company:'Acme Financial',contact:'John Smith',email:'jsmith@acmefinancial.com',phone:'+1 (415) 555-0123',domain:'acmefinancial.com',score:42,grade:'F',status:'new',assigned:'Sarah Chen',created:'2h ago',followup:'Tomorrow 10am',notes:[{by:'System',time:'2h ago',text:'Lead captured via Brand Assessment. Trust Score: 42/F.'}],risks:['DMARC: None','Active phishing: 12','SSL: Expiring']},
+  {id:'l2',company:'TechVault Inc',contact:'Maria Garcia',email:'mgarcia@techvault.io',phone:'+1 (650) 555-0187',domain:'techvault.io',score:58,grade:'D',status:'new',assigned:'Unassigned',created:'6h ago',followup:null,notes:[{by:'System',time:'6h ago',text:'Lead captured via Brand Assessment. Trust Score: 58/D.'}],risks:['DMARC: Quarantine','Active threats: 5','Headers: Weak']},
+  {id:'l3',company:'Global Payments Ltd',contact:'David Park',email:'dpark@globalpay.com',phone:'+44 20 7946 0958',domain:'globalpay.com',score:48,grade:'F',status:'contacted',assigned:'Sarah Chen',created:'1d ago',followup:'Today 3pm',notes:[{by:'Sarah Chen',time:'4h ago',text:'Left voicemail. Will try email follow-up.'},{by:'System',time:'1d ago',text:'Lead captured. Trust Score: 48/F.'}],risks:['DMARC: None','Active phishing: 8','Typosquats: 3']},
+  {id:'l4',company:'NordStream Energy',contact:'Olga Petrov',email:'opetrov@nordstream.eu',phone:'+49 30 1234 5678',domain:'nordstream.eu',score:65,grade:'D',status:'contacted',assigned:'James Rodriguez',created:'2d ago',followup:'Thursday',notes:[{by:'James Rodriguez',time:'1d ago',text:'Initial call completed. Interested in full report. Scheduling demo.'},{by:'System',time:'2d ago',text:'Lead captured. Trust Score: 65/D.'}],risks:['DMARC: Monitor only','Impersonation: 2','SPF: Partial']},
+  {id:'l5',company:'CryptoShield',contact:'Alex Tanaka',email:'atanaka@cryptoshield.com',phone:'+1 (212) 555-0234',domain:'cryptoshield.com',score:34,grade:'F',status:'qualified',assigned:'Sarah Chen',created:'3d ago',followup:'Monday demo',notes:[{by:'Sarah Chen',time:'1d ago',text:'Demo scheduled for Monday. Sending prep materials.'},{by:'Sarah Chen',time:'2d ago',text:'Very interested. Multiple impersonation domains targeting them.'},{by:'System',time:'3d ago',text:'Lead captured. Trust Score: 34/F. Critical exposure.'}],risks:['Active phishing: 24','Impersonation: 18','No DMARC']},
+  {id:'l6',company:'BrightBank',contact:'Lisa Wong',email:'lwong@brightbank.com',phone:'+1 (312) 555-0345',domain:'brightbank.com',score:52,grade:'D',status:'qualified',assigned:'James Rodriguez',created:'5d ago',followup:'Proposal draft due Friday',notes:[{by:'James Rodriguez',time:'2d ago',text:'Second call. Wants proposal with pricing for enterprise tier.'},{by:'System',time:'5d ago',text:'Lead captured. Trust Score: 52/D.'}],risks:['DMARC: Reject','Active threats: 7','SSL: Valid']},
+  {id:'l7',company:'MedSecure Health',contact:'Robert Johnson',email:'rjohnson@medsecure.com',phone:'+1 (617) 555-0456',domain:'medsecure.com',score:71,grade:'C',status:'proposal',assigned:'Sarah Chen',created:'1w ago',followup:'Awaiting sign-off',notes:[{by:'Sarah Chen',time:'3d ago',text:'Proposal sent. $2,400/mo enterprise tier. Awaiting internal approval.'},{by:'System',time:'1w ago',text:'Lead captured. Trust Score: 71/C.'}],risks:['DMARC: Quarantine','Low threats: 2','Headers: Good']},
+  {id:'l8',company:'FinEdge Partners',contact:'Tom Wilson',email:'twilson@finedge.com',phone:'+1 (305) 555-0567',domain:'finedge.com',score:45,grade:'F',status:'converted',assigned:'James Rodriguez',created:'2w ago',followup:null,notes:[{by:'James Rodriguez',time:'4d ago',text:'Contract signed! Enterprise tier. Onboarding next week.'},{by:'System',time:'2w ago',text:'Lead captured. Trust Score: 45/F.'}],risks:['DMARC: None','Phishing: 14','Remediation active']},
+];
+
+// Kanban
+function renderKanban(){
+  const el=document.getElementById('kanban-view');
+  el.innerHTML='<div class="kanban">'+STAGES.map(s=>{
+    const leads=LEADS.filter(l=>l.status===s.key);
+    return `<div class="kanban-col">
+      <div class="kanban-header"><span class="kh-title">${s.label}</span><span class="kh-count" style="color:${s.color}">${leads.length}</span></div>
+      <div class="kh-bar" style="background:${s.color}"></div>
+      <div class="kanban-cards">${leads.map(l=>{
+        const sc=scoreColor(l.score);const gc=gradeColor(l.grade);
+        return `<div class="lead-card" data-id="${l.id}">
+          <div class="lc-company">${l.company}</div>
+          <div class="lc-contact">${l.contact}</div>
+          <div class="lc-domain">${l.domain}</div>
+          <div class="lc-bottom">
+            <div class="lc-score"><div class="score-badge" style="background:${sc}20;color:${sc};border:1px solid ${sc}40">${l.score}</div><span class="grade-badge" style="background:${gc}20;color:${gc}">${l.grade}</span></div>
+            <div class="lc-time">${l.created}</div>
+          </div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('')+'</div>';
+  el.querySelectorAll('.lead-card').forEach(c=>c.addEventListener('click',()=>openLead(c.dataset.id)));
+}
+
+// Table
+function renderTable(){
+  const el=document.getElementById('table-view');
+  const sorted=[...LEADS].sort((a,b)=>STAGES.findIndex(s=>s.key===a.status)-STAGES.findIndex(s=>s.key===b.status));
+  el.innerHTML=`<div class="panel"><table><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>
+  ${sorted.map(l=>{const sc=scoreColor(l.score);const gc=gradeColor(l.grade);
+    return `<tr data-id="${l.id}"><td style="font-weight:500">${l.company}</td><td style="font-size:11px;color:var(--text-secondary)">${l.contact}<br><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${l.email}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.domain}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.score}</span></td><td><span class="grade-badge" style="background:${gc}20;color:${gc}">${l.grade}</span></td><td><span class="status-pill ${l.status}">${l.status.replace('_',' ')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${l.assigned}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created}</td></tr>`}).join('')}
+  </tbody></table></div>`;
+  el.querySelectorAll('tr[data-id]').forEach(r=>r.addEventListener('click',()=>openLead(r.dataset.id)));
+}
+
+function openLead(id){
+  const l=LEADS.find(x=>x.id===id);if(!l)return;
+  const sc=scoreColor(l.score);const gc=gradeColor(l.grade);
+  document.getElementById('so-content').innerHTML=`
+    <div style="text-align:center;margin-bottom:16px">
+      <div class="so-score-ring"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="213.6" stroke-dashoffset="${213.6*(1-l.score/100)}" stroke-linecap="round" transform="rotate(-90 40 40)"/></svg><div class="so-score-val" style="color:${sc}">${l.score}</div></div>
+      <div class="so-grade" style="color:${gc}">Grade: ${l.grade}</div>
+    </div>
+    <div class="so-section">
+      <div class="so-sect-title">Contact</div>
+      <div class="so-row"><span class="so-row-l">Company</span><span class="so-row-v" style="font-weight:500;font-family:var(--font-body)">${l.company}</span></div>
+      <div class="so-row"><span class="so-row-l">Name</span><span class="so-row-v">${l.contact}</span></div>
+      <div class="so-row"><span class="so-row-l">Email</span><span class="so-row-v" style="color:var(--blue-primary)">${l.email}</span></div>
+      <div class="so-row"><span class="so-row-l">Phone</span><span class="so-row-v">${l.phone||'—'}</span></div>
+      <div class="so-row"><span class="so-row-l">Domain</span><span class="so-row-v">${l.domain}</span></div>
+    </div>
+    <div class="so-section">
+      <div class="so-sect-title">Risk Indicators</div>
+      <div class="risk-indicators">${l.risks.map(r=>{const cls=r.includes('None')||r.includes('phishing')||r.includes('Expiring')||r.includes('Typo')||r.includes('Impersonation')||r.includes('No ')?'bad':r.includes('Weak')||r.includes('Partial')||r.includes('Monitor')||r.includes('Quarantine')?'warn':'ok';return `<span class="risk-ind ${cls}">${r}</span>`}).join('')}</div>
+    </div>
+    <div class="so-section">
+      <div class="so-sect-title">Pipeline</div>
+      <div class="so-row"><span class="so-row-l">Status</span><span class="so-row-v"><select class="so-status-sel">${STAGES.map(s=>`<option ${s.key===l.status?'selected':''}>${s.label}</option>`).join('')}</select></span></div>
+      <div class="so-row" style="margin-top:8px"><span class="so-row-l">Assigned to</span><span class="so-row-v"><select class="so-assign-sel"><option>Unassigned</option><option ${l.assigned==='Sarah Chen'?'selected':''}>Sarah Chen</option><option ${l.assigned==='James Rodriguez'?'selected':''}>James Rodriguez</option></select></span></div>
+      <div class="so-row" style="margin-top:8px"><span class="so-row-l">Follow-up</span><span class="so-row-v">${l.followup||'Not scheduled'}</span></div>
+      <div style="margin-top:12px"><button class="btn-sm" style="width:100%;text-align:center;display:block">View Full Assessment Report</button></div>
+    </div>
+    <div class="so-section">
+      <div class="so-sect-title">Notes</div>
+      ${l.notes.map(n=>`<div class="note-item"><div class="note-time">${n.time} · <span class="note-by">${n.by}</span></div><div class="note-text">${n.text}</div></div>`).join('')}
+      <textarea class="note-input" placeholder="Add a note..."></textarea>
+      <button class="btn-sm">Add Note</button>
+    </div>`;
+  document.getElementById('slideout').classList.add('open');
+}
+
+renderKanban();renderTable();
+
+document.querySelectorAll('.vt-btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.vt-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  document.getElementById('kanban-view').classList.toggle('visible',b.dataset.view==='kanban');
+  document.getElementById('table-view').classList.toggle('visible',b.dataset.view==='table');
+}));
+document.getElementById('soClose').addEventListener('click',()=>document.getElementById('slideout').classList.remove('open'));
+</script>
+</body>
+</html>
