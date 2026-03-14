@@ -1,9 +1,13 @@
 /**
  * Cartographer Agent — Infrastructure mapping & provider reputation scoring.
  *
- * Runs every 6 hours + weekly batch.
+ * Runs every 6 hours.
  * Maps threat infrastructure to hosting providers and computes
  * reputation scores via Haiku AI analysis.
+ *
+ * Also performs:
+ * - Geo enrichment of unenriched threats (merged from hosting-provider-analysis)
+ * - Provider threat stats aggregation across time periods (merged from hosting-provider-analysis)
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -20,7 +24,23 @@ export const cartographerAgent: AgentModule = {
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
 
-    // Get all hosting providers with threat data
+    let itemsProcessed = 0;
+    let itemsUpdated = 0;
+    let itemsCreated = 0;
+    let totalTokens = 0;
+    let model: string | undefined;
+    const outputs: AgentOutputEntry[] = [];
+
+    // Phase 1: Geo-enrich any threats missing location data
+    try {
+      const { enrichThreatsGeo } = await import("../lib/geoip");
+      const enrichResult = await enrichThreatsGeo(env.DB);
+      itemsUpdated += enrichResult.enriched;
+    } catch (err) {
+      console.error("[cartographer] geo enrichment error:", err);
+    }
+
+    // Phase 2: Score hosting providers via Haiku AI
     const providers = await env.DB.prepare(
       `SELECT hp.id, hp.name, hp.asn, hp.active_threat_count, hp.total_threat_count,
               hp.avg_response_time, hp.trend_7d, hp.trend_30d
@@ -32,12 +52,6 @@ export const cartographerAgent: AgentModule = {
       active_threat_count: number; total_threat_count: number;
       avg_response_time: number | null; trend_7d: number; trend_30d: number;
     }>();
-
-    let itemsProcessed = 0;
-    let itemsUpdated = 0;
-    let totalTokens = 0;
-    let model: string | undefined;
-    const outputs: AgentOutputEntry[] = [];
 
     for (const provider of providers.results) {
       itemsProcessed++;
@@ -104,11 +118,15 @@ export const cartographerAgent: AgentModule = {
       }
     }
 
+    // Phase 3: Aggregate provider threat stats across time periods
+    const statsCreated = await aggregateProviderStats(env);
+    itemsCreated += statsCreated;
+
     return {
       itemsProcessed,
-      itemsCreated: 0,
+      itemsCreated,
       itemsUpdated,
-      output: { providersScored: itemsUpdated },
+      output: { providersScored: providers.results.length, statsEntries: statsCreated },
       model,
       tokensUsed: totalTokens,
       agentOutputs: outputs,
@@ -141,4 +159,109 @@ function computeHeuristicScore(
   else if (totalThreats > 100) score -= 10;
 
   return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Aggregate provider threat stats across time periods.
+ * Merged from the hosting-provider-analysis agent — computes stats for
+ * today, 7d, 30d, and all-time, writing to provider_threat_stats table.
+ */
+async function aggregateProviderStats(env: { DB: D1Database }): Promise<number> {
+  const db = env.DB;
+  let totalEntries = 0;
+
+  const periods = [
+    { key: "today", where: "created_at >= date('now', 'start of day')", priorWhere: "created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')" },
+    { key: "7d", where: "created_at >= date('now', '-7 days')", priorWhere: "created_at >= date('now', '-14 days') AND created_at < date('now', '-7 days')" },
+    { key: "30d", where: "created_at >= date('now', '-30 days')", priorWhere: "created_at >= date('now', '-60 days') AND created_at < date('now', '-30 days')" },
+    { key: "all", where: "1=1", priorWhere: null as string | null },
+  ];
+
+  for (const period of periods) {
+    const providerRows = await db.prepare(`
+      SELECT
+        hosting_provider_id,
+        COUNT(*) as threat_count,
+        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical_count,
+        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_count,
+        SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) as phishing_count,
+        SUM(CASE WHEN threat_type = 'malware_distribution' THEN 1 ELSE 0 END) as malware_count,
+        GROUP_CONCAT(DISTINCT country_code) as countries
+      FROM threats
+      WHERE hosting_provider_id IS NOT NULL AND ${period.where}
+      GROUP BY hosting_provider_id
+      ORDER BY threat_count DESC
+      LIMIT 50
+    `).all<{
+      hosting_provider_id: string; threat_count: number;
+      critical_count: number; high_count: number;
+      phishing_count: number; malware_count: number;
+      countries: string | null;
+    }>();
+
+    // Get prior period for trend calculation
+    const priorMap = new Map<string, number>();
+    if (period.priorWhere) {
+      const priorRows = await db.prepare(`
+        SELECT hosting_provider_id, COUNT(*) as count
+        FROM threats
+        WHERE hosting_provider_id IS NOT NULL AND ${period.priorWhere}
+        GROUP BY hosting_provider_id
+      `).all<{ hosting_provider_id: string; count: number }>();
+      for (const r of priorRows.results) {
+        priorMap.set(r.hosting_provider_id, r.count);
+      }
+    }
+
+    for (const row of providerRows.results) {
+      const priorCount = priorMap.get(row.hosting_provider_id) ?? 0;
+      let trendDirection = "stable";
+      let trendPct = 0;
+
+      if (priorCount > 0 && period.priorWhere) {
+        trendPct = ((row.threat_count - priorCount) / priorCount) * 100;
+        trendDirection = trendPct > 10 ? "up" : trendPct < -10 ? "down" : "stable";
+      } else if (row.threat_count > 0 && priorCount === 0 && period.priorWhere) {
+        trendDirection = "up";
+        trendPct = 100;
+      }
+
+      const countryCodes = (row.countries || "").split(",").filter(Boolean);
+      const topCountries = countryCodes.slice(0, 5).map(c => ({ country_code: c, count: 1 }));
+
+      // Resolve provider name from hosting_providers table
+      const hp = await db.prepare("SELECT name FROM hosting_providers WHERE id = ?")
+        .bind(row.hosting_provider_id).first<{ name: string }>();
+      const providerName = hp?.name ?? row.hosting_provider_id;
+
+      const id = crypto.randomUUID();
+      try {
+        await db.prepare(`
+          INSERT INTO provider_threat_stats
+            (id, provider_name, period, threat_count, critical_count, high_count, phishing_count, malware_count, top_countries, trend_direction, trend_pct, computed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(provider_name, period) DO UPDATE SET
+            threat_count = excluded.threat_count,
+            critical_count = excluded.critical_count,
+            high_count = excluded.high_count,
+            phishing_count = excluded.phishing_count,
+            malware_count = excluded.malware_count,
+            top_countries = excluded.top_countries,
+            trend_direction = excluded.trend_direction,
+            trend_pct = excluded.trend_pct,
+            computed_at = excluded.computed_at
+        `).bind(
+          id, providerName, period.key,
+          row.threat_count, row.critical_count, row.high_count,
+          row.phishing_count, row.malware_count,
+          JSON.stringify(topCountries), trendDirection, Math.round(trendPct * 10) / 10,
+        ).run();
+        totalEntries++;
+      } catch (err) {
+        console.error(`[cartographer] stats upsert failed for ${providerName}/${period.key}:`, err);
+      }
+    }
+  }
+
+  return totalEntries;
 }

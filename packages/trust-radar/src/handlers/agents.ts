@@ -1,6 +1,6 @@
 import { json } from "../lib/cors";
 import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRunner";
-import { agentModules } from "../agents";
+import { agentModules, trustbotAgent } from "../agents";
 import type { Env } from "../types";
 
 // ─── List all agent definitions + their latest run ──────────────
@@ -266,10 +266,7 @@ export async function handleTrustBotChat(
       return json({ success: false, error: "Query is required" }, 400, origin);
     }
 
-    const mod = agentModules["trustbot"];
-    if (!mod) return json({ success: false, error: "TrustBot agent not found" }, 500, origin);
-
-    const result = await executeAgent(env, mod, { query: body.query }, userId, "manual");
+    const result = await executeAgent(env, trustbotAgent, { query: body.query }, userId, "manual");
 
     return json({
       success: true,
