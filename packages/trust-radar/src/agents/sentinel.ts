@@ -68,8 +68,7 @@ export const sentinelAgent: AgentModule = {
 
     // ─── Diagnostic logging ───────────────────────────────────
     console.log("[sentinel] === STARTING ===");
-    console.log("[sentinel] LRX_API_URL configured:", !!env.LRX_API_URL, env.LRX_API_URL ? env.LRX_API_URL.slice(0, 30) + "..." : "MISSING");
-    console.log("[sentinel] LRX_API_KEY configured:", !!env.LRX_API_KEY, env.LRX_API_KEY ? "present (length=" + env.LRX_API_KEY.length + ")" : "MISSING");
+    console.log("[sentinel] ANTHROPIC_API_KEY configured:", !!env.ANTHROPIC_API_KEY, env.ANTHROPIC_API_KEY ? "present (length=" + env.ANTHROPIC_API_KEY.length + ")" : "MISSING");
 
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
@@ -176,7 +175,7 @@ export const sentinelAgent: AgentModule = {
         haikuFailures,
         totalThreats: totalCount?.n ?? 0,
         nullConfidenceThreats: nullCount?.n ?? 0,
-        lrxApiConfigured: !!env.LRX_API_URL && !!env.LRX_API_KEY,
+        anthropicApiConfigured: !!env.ANTHROPIC_API_KEY,
       },
     });
 

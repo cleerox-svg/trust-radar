@@ -1,12 +1,15 @@
 /**
- * Haiku Integration — Railway FastAPI client for Claude Haiku AI analysis.
+ * Haiku Integration — Direct Anthropic Messages API client.
  *
- * All AI analysis flows through the Railway-hosted FastAPI backend
- * which proxies to Claude Haiku. This module provides typed wrappers
- * for each analysis endpoint.
+ * Calls the Anthropic API directly using the Messages API format.
+ * Uses claude-haiku-4-5-20251001 for fast, cheap threat analysis.
  */
 
 import type { Env } from "../types";
+
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+const MODEL = "claude-haiku-4-5-20251001";
 
 // ─── Response types ──────────────────────────────────────────────
 
@@ -49,37 +52,77 @@ interface HaikuResponse<T> {
   tokens_used?: number;
 }
 
-// ─── Client ──────────────────────────────────────────────────────
+// ─── Core Anthropic API caller ──────────────────────────────────
 
-async function callHaiku<T>(
+async function callAnthropic<T>(
   env: Env,
-  endpoint: string,
-  payload: Record<string, unknown>,
+  systemPrompt: string,
+  userMessage: string,
 ): Promise<HaikuResponse<T>> {
-  if (!env.LRX_API_URL || !env.LRX_API_KEY) {
-    return { success: false, error: "LRX_API_URL or LRX_API_KEY not configured" };
+  if (!env.ANTHROPIC_API_KEY) {
+    console.error("[haiku] ANTHROPIC_API_KEY is not configured");
+    return { success: false, error: "ANTHROPIC_API_KEY not configured" };
   }
 
+  const body = {
+    model: MODEL,
+    max_tokens: 1024,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+  };
+
+  console.log(`[haiku] POST ${ANTHROPIC_API_URL} model=${MODEL}`);
+
   try {
-    const res = await fetch(`${env.LRX_API_URL}${endpoint}`, {
+    const res = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": env.LRX_API_KEY,
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
       },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30000), // 30s timeout
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
 
+    const responseText = await res.text();
+    console.log(`[haiku] Response: HTTP ${res.status} (${responseText.length} bytes)`);
+
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return { success: false, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+      console.error(`[haiku] API error: HTTP ${res.status}: ${responseText.slice(0, 500)}`);
+      return { success: false, error: `Anthropic HTTP ${res.status}: ${responseText.slice(0, 200)}` };
     }
 
-    const data = (await res.json()) as HaikuResponse<T>;
-    return data;
+    const apiResponse = JSON.parse(responseText) as {
+      content: Array<{ type: string; text: string }>;
+      model: string;
+      usage: { input_tokens: number; output_tokens: number };
+    };
+
+    const textBlock = apiResponse.content.find((b) => b.type === "text");
+    if (!textBlock) {
+      console.error("[haiku] No text block in response:", JSON.stringify(apiResponse.content).slice(0, 200));
+      return { success: false, error: "No text content in Anthropic response" };
+    }
+
+    // Parse the JSON from the response text
+    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[haiku] No JSON found in response text:", textBlock.text.slice(0, 200));
+      return { success: false, error: "No JSON in Anthropic response text" };
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]) as T;
+    return {
+      success: true,
+      data: parsed,
+      model: apiResponse.model,
+      tokens_used: apiResponse.usage.input_tokens + apiResponse.usage.output_tokens,
+    };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[haiku] Request failed:`, errMsg);
+    return { success: false, error: errMsg };
   }
 }
 
@@ -95,7 +138,22 @@ export async function classifyThreat(
     ioc_value?: string | null;
   },
 ): Promise<HaikuResponse<HaikuClassification>> {
-  return callHaiku<HaikuClassification>(env, "/api/ai/classify-threat", { threat });
+  const systemPrompt = `You are a cybersecurity threat classifier. Analyze the given threat indicator and classify it.
+Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) with these fields:
+- threat_type: one of "phishing", "typosquatting", "impersonation", "malware_distribution", "credential_harvesting"
+- confidence: number 0-100
+- severity: one of "critical", "high", "medium", "low", "info"
+- reasoning: brief explanation
+- ioc_indicators: array of notable IOC patterns found`;
+
+  const userMessage = `Classify this threat:
+- URL: ${threat.malicious_url ?? "N/A"}
+- Domain: ${threat.malicious_domain ?? "N/A"}
+- IP: ${threat.ip_address ?? "N/A"}
+- Source Feed: ${threat.source_feed}
+- IOC Value: ${threat.ioc_value ?? "N/A"}`;
+
+  return callAnthropic<HaikuClassification>(env, systemPrompt, userMessage);
 }
 
 // ─── Brand Inference ─────────────────────────────────────────────
@@ -110,10 +168,26 @@ export async function inferBrand(
   },
   knownBrands: string[],
 ): Promise<HaikuResponse<HaikuBrandMatch>> {
-  return callHaiku<HaikuBrandMatch>(env, "/api/ai/infer-brand", {
-    threat,
-    known_brands: knownBrands,
-  });
+  const systemPrompt = `You are a brand impersonation detector. Analyze the threat indicator and determine which brand is being targeted/impersonated.
+Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) with these fields:
+- brand_name: the brand being targeted (use official name)
+- confidence: number 0-100 (use 0 if no brand match)
+- reasoning: brief explanation
+- matched_indicators: array of indicators that suggest brand targeting`;
+
+  const brandList = knownBrands.length > 0
+    ? `Known brands in our database: ${knownBrands.slice(0, 50).join(", ")}`
+    : "No known brands in database yet.";
+
+  const userMessage = `${brandList}
+
+Identify the targeted brand for this threat:
+- URL: ${threat.malicious_url ?? "N/A"}
+- Domain: ${threat.malicious_domain ?? "N/A"}
+- Page Title: ${threat.page_title ?? "N/A"}
+- Source Feed: ${threat.source_feed}`;
+
+  return callAnthropic<HaikuBrandMatch>(env, systemPrompt, userMessage);
 }
 
 // ─── Daily Insight Generation ────────────────────────────────────
@@ -121,14 +195,25 @@ export async function inferBrand(
 export async function generateInsight(
   env: Env,
   context: {
-    period: string;           // "daily" | "weekly"
+    period: string;
     threats_summary: Record<string, unknown>;
     top_brands: Array<{ name: string; count: number }>;
     top_providers: Array<{ name: string; count: number }>;
     trend_data: Record<string, unknown>;
   },
 ): Promise<HaikuResponse<HaikuInsight>> {
-  return callHaiku<HaikuInsight>(env, "/api/ai/generate-insight", context);
+  const systemPrompt = `You are a threat intelligence analyst. Generate an executive intelligence briefing from the data provided.
+Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) with these fields:
+- title: brief title for the insight
+- summary: 2-3 sentence executive summary
+- severity: one of "critical", "high", "medium", "low", "info"
+- details: object with key findings
+- recommendations: array of actionable recommendations`;
+
+  const userMessage = `Generate a ${context.period} threat intelligence briefing:
+${JSON.stringify(context, null, 2)}`;
+
+  return callAnthropic<HaikuInsight>(env, systemPrompt, userMessage);
 }
 
 // ─── Provider Reputation Scoring ─────────────────────────────────
@@ -146,7 +231,18 @@ export async function scoreProvider(
     trend_30d: number;
   },
 ): Promise<HaikuResponse<HaikuProviderScore>> {
-  return callHaiku<HaikuProviderScore>(env, "/api/ai/score-provider", { provider });
+  const systemPrompt = `You are a hosting provider reputation analyst. Score the hosting provider based on their threat hosting metrics.
+Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) with these fields:
+- provider_name: the provider name
+- reputation_score: number 0-100 (100 = excellent, 0 = terrible)
+- reasoning: brief explanation
+- risk_factors: array of notable risk factors
+- response_assessment: assessment of their abuse response`;
+
+  const userMessage = `Score this hosting provider's reputation:
+${JSON.stringify(provider, null, 2)}`;
+
+  return callAnthropic<HaikuProviderScore>(env, systemPrompt, userMessage);
 }
 
 // ─── Batch Classification ────────────────────────────────────────
@@ -162,7 +258,18 @@ export async function batchClassify(
     ioc_value?: string | null;
   }>,
 ): Promise<HaikuResponse<Array<{ id: string; classification: HaikuClassification }>>> {
-  return callHaiku(env, "/api/ai/batch-classify", { threats });
+  const systemPrompt = `You are a cybersecurity threat classifier. Classify each threat in the batch.
+Respond with ONLY a JSON array (no markdown) where each element has:
+- id: the threat id
+- classification: object with threat_type, confidence (0-100), severity, reasoning, ioc_indicators`;
+
+  const userMessage = `Classify these ${threats.length} threats:\n${JSON.stringify(threats, null, 2)}`;
+
+  // Wrap array response parsing
+  const result = await callAnthropic<Array<{ id: string; classification: HaikuClassification }>>(
+    env, systemPrompt, userMessage,
+  );
+  return result;
 }
 
 // ─── Generic Analysis ────────────────────────────────────────────
@@ -172,5 +279,11 @@ export async function analyzeWithHaiku(
   prompt: string,
   context: Record<string, unknown>,
 ): Promise<HaikuResponse<{ response: string; structured?: Record<string, unknown> }>> {
-  return callHaiku(env, "/api/ai/analyze", { prompt, context });
+  const systemPrompt = `You are a cybersecurity analyst. Analyze the provided data and respond with a JSON object containing:
+- response: your analysis as a string
+- structured: optional object with any structured findings`;
+
+  const userMessage = `${prompt}\n\nContext:\n${JSON.stringify(context, null, 2)}`;
+
+  return callAnthropic(env, systemPrompt, userMessage);
 }
