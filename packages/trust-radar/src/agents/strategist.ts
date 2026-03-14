@@ -158,6 +158,37 @@ export const strategistAgent: AgentModule = {
         AND last_seen < datetime('now', '-30 days')
     `).run();
 
+    // Always produce at least one output for diagnostics
+    if (outputs.length === 0) {
+      // Count eligible threats for clustering
+      const eligibleIp = await env.DB.prepare(
+        `SELECT COUNT(DISTINCT ip_address) as n FROM threats WHERE ip_address IS NOT NULL AND status = 'active' AND campaign_id IS NULL`
+      ).first<{ n: number }>();
+      const eligibleReg = await env.DB.prepare(
+        `SELECT COUNT(DISTINCT registrar) as n FROM threats WHERE registrar IS NOT NULL AND status = 'active' AND campaign_id IS NULL AND created_at >= datetime('now', '-7 days')`
+      ).first<{ n: number }>();
+      const totalCampaigns = await env.DB.prepare(
+        `SELECT COUNT(*) as n FROM campaigns`
+      ).first<{ n: number }>();
+
+      outputs.push({
+        type: "correlation",
+        summary: `Strategist: ${ipClusters.results.length} IP clusters (need 3+), ${registrarClusters.results.length} registrar clusters (need 5+). ${totalCampaigns?.n ?? 0} total campaigns.`,
+        severity: "info",
+        details: {
+          ipClustersFound: ipClusters.results.length,
+          registrarClustersFound: registrarClusters.results.length,
+          eligibleUniqueIPs: eligibleIp?.n ?? 0,
+          eligibleUniqueRegistrars: eligibleReg?.n ?? 0,
+          totalCampaigns: totalCampaigns?.n ?? 0,
+          campaignsCreated: itemsCreated,
+          campaignsUpdated: itemsUpdated,
+        },
+      });
+    }
+
+    console.log(`[strategist] done: processed=${itemsProcessed}, created=${itemsCreated}, updated=${itemsUpdated}, ipClusters=${ipClusters.results.length}, regClusters=${registrarClusters.results.length}`);
+
     return {
       itemsProcessed,
       itemsCreated,
