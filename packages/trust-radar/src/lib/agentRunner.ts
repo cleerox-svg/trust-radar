@@ -163,11 +163,11 @@ export async function executeAgent(
     await env.DB.prepare(
       `UPDATE agent_runs SET
          status = ?, duration_ms = ?, records_processed = ?,
-         outputs_generated = ?, completed_at = datetime('now')
+         outputs_generated = ?, tokens_used = ?, completed_at = datetime('now')
        WHERE id = ?`
     ).bind(
       finalStatus, durationMs, result.itemsProcessed,
-      outputsGenerated, runId,
+      outputsGenerated, result.tokensUsed ?? 0, runId,
     ).run();
 
     return { runId, status: finalStatus, result };

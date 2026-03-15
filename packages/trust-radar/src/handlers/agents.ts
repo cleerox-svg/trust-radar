@@ -402,6 +402,66 @@ export async function handleTrustBotChat(
   }
 }
 
+// ─── Haiku API usage (token tracking + cost estimation) ─────────
+export async function handleAgentApiUsage(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Haiku 4.5 pricing: $0.80/M input, $4/M output.
+    // We only track total tokens, so use blended rate: ~$1.00/M tokens
+    const COST_PER_TOKEN = 1.0 / 1_000_000;
+
+    const [tokens24h, tokens7d, tokens30d, perAgent24h] = await Promise.all([
+      env.DB.prepare(
+        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-1 day')`
+      ).first<{ total: number }>(),
+      env.DB.prepare(
+        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-7 days')`
+      ).first<{ total: number }>(),
+      env.DB.prepare(
+        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-30 days')`
+      ).first<{ total: number }>(),
+      env.DB.prepare(
+        `SELECT agent_id, COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-1 day') GROUP BY agent_id`
+      ).all<{ agent_id: string; total: number }>(),
+    ]);
+
+    const perAgent: Record<string, number> = {};
+    for (const row of perAgent24h.results) {
+      perAgent[row.agent_id] = row.total;
+    }
+
+    const cost30d = (tokens30d?.total ?? 0) * COST_PER_TOKEN;
+
+    return json({
+      success: true,
+      data: {
+        tokens_24h: tokens24h?.total ?? 0,
+        tokens_7d: tokens7d?.total ?? 0,
+        tokens_30d: tokens30d?.total ?? 0,
+        estimated_cost_30d: `$${cost30d.toFixed(2)}`,
+        per_agent: perAgent,
+        api_key_configured: !!(env.ANTHROPIC_API_KEY || env.LRX_API_KEY),
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Agent config (schedule/settings per agent) ─────────────────
+export async function handleAgentConfig(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const configs: Record<string, { schedule_label: string; enabled: boolean }> = {};
+    for (const [name, schedule] of Object.entries(AGENT_SCHEDULES)) {
+      configs[name] = { schedule_label: schedule, enabled: true };
+    }
+    return json({ success: true, data: configs }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Agent overview stats ───────────────────────────────────────
 export async function handleAgentStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
