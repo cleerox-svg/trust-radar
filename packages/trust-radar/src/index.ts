@@ -19,6 +19,7 @@ import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleTriggerAllAgents, handleAgentRuns,
   handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
   handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
+  handleAgentApiUsage, handleAgentConfig,
 } from "./handlers/agents";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
@@ -682,6 +683,16 @@ router.get("/api/agents/stats", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleAgentStats(request, env);
+});
+router.get("/api/admin/agents/api-usage", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentApiUsage(request, env);
+});
+router.get("/api/admin/agents/config", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAgentConfig(request, env);
 });
 router.get("/api/agents/runs", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);

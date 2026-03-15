@@ -1069,14 +1069,14 @@ async function viewBrandDetail(el, params) {
               const pct = maxProv > 0 ? Math.round(cnt / maxProv * 100) : 0;
               return `<div class="pbar-row"><span class="pbar-lbl">${p.name || p.provider_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
             }).join('') :
-            '<div class="empty-state"><div class="message">No provider data</div></div>'
+            '<div class="empty-state"><div class="message">No provider data<br><span style="font-size:10px;color:var(--text-tertiary)">Run Geo Backfill in Admin to enrich</span></div></div>'
           }</div></div>
           <div class="panel"><div class="phead"><span>Active Campaigns</span><span class="badge">${campaigns.length}</span></div><div class="panel-body padded">${campaigns.length ?
             campaigns.map(c => `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card-sm">
               <div class="ccard-name">${c.name}</div>
               <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span style="color:var(--blue-primary)">${c.brand_count || 1}</span> brands</span><span style="color:var(--text-tertiary)">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
             </a>`).join('') :
-            '<div class="empty-state"><div class="message">No campaigns associated</div></div>'
+            '<div class="empty-state"><div class="message">No campaigns associated<br><span style="font-size:10px;color:var(--text-tertiary)">Run Strategist agent to cluster threats</span></div></div>'
           }</div></div>
         </div>
       </div>
