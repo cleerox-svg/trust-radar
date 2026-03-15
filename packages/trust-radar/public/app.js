@@ -2797,7 +2797,7 @@ async function viewAdminFeeds(el) {
       tr.addEventListener('click', () => showFeedDetail(tr.dataset.fid));
     });
 
-    // Feed trigger buttons — visual feedback
+    // Feed trigger buttons — visual feedback + auto-refresh row
     el.querySelectorAll('.adm-trigger-btn[data-feed]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -2808,6 +2808,24 @@ async function viewAdminFeeds(el) {
           await api(`/feeds/${feedId}/trigger`, { method: 'POST' });
           btn.classList.remove('trigger-pending');
           btn.classList.add('trigger-ok');
+          // Auto-refresh: wait 2s then re-fetch feed stats and update the row
+          setTimeout(async () => {
+            try {
+              const res = await api('/feeds');
+              const updated = (res?.data || []).find(f => (f.feed_name || f.feed_id || f.id) === feedId);
+              if (updated) {
+                const row = btn.closest('tr');
+                if (row) {
+                  const cells = row.querySelectorAll('td');
+                  // cells[1]=Status, cells[2]=Last Pull, cells[4]=Records Today
+                  const ust = updated.health_status || 'healthy';
+                  if (cells[1]) cells[1].innerHTML = `<span style="font-family:var(--font-mono);font-size:10px;color:${ust==='healthy'?'var(--positive)':ust==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${ust}</span>`;
+                  if (cells[2]) { cells[2].textContent = updated.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(updated.last_successful_pull).getTime()) / 60000)) : '-'; cells[2].style.color = 'var(--positive)'; setTimeout(() => { cells[2].style.color = 'var(--text-tertiary)'; }, 3000); }
+                  if (cells[4]) cells[4].textContent = (updated.records_ingested_today || 0).toLocaleString();
+                }
+              }
+            } catch (_) { /* silent */ }
+          }, 2000);
         } catch (err) {
           btn.classList.remove('trigger-pending');
           btn.classList.add('trigger-fail');
@@ -3041,7 +3059,7 @@ async function viewAdminAgentConfig(el) {
         </div>
       </div>`;
 
-    // Trigger Now buttons — visual feedback (spinner → green check / red x)
+    // Trigger Now buttons — visual feedback (spinner → green check / red x) + auto-refresh row
     el.querySelectorAll('.adm-trigger-btn[data-agent]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -3052,6 +3070,24 @@ async function viewAdminAgentConfig(el) {
           await api(`/agents/${agentId}/trigger`, { method: 'POST' });
           btn.classList.remove('trigger-pending');
           btn.classList.add('trigger-ok');
+          // Auto-refresh: wait 2s then re-fetch agent stats and update the row
+          setTimeout(async () => {
+            try {
+              const res = await api('/agents');
+              const updated = (res?.data || []).find(a => (a.agent_id || a.name) === agentId);
+              if (updated) {
+                const row = btn.closest('tr');
+                if (row) {
+                  const cells = row.querySelectorAll('td');
+                  // cells[1]=Status, cells[3]=Last Run, cells[4]=Success Rate, cells[5]=Outputs
+                  if (cells[1]) cells[1].innerHTML = `<span class="adm-status-pill ${updated.status || 'idle'}">${updated.status || 'idle'}</span>`;
+                  if (cells[3]) { cells[3].textContent = updated.last_run_at ? relativeTime(Math.round((Date.now() - new Date(updated.last_run_at).getTime()) / 60000)) : '-'; cells[3].style.color = 'var(--positive)'; setTimeout(() => { cells[3].style.color = 'var(--text-tertiary)'; }, 3000); }
+                  if (cells[4]) { const sr = updated.jobs_24h ? ((1 - (updated.error_count_24h || 0) / updated.jobs_24h) * 100).toFixed(1) : '100.0'; cells[4].textContent = sr + '%'; }
+                  if (cells[5]) cells[5].textContent = String(updated.outputs_24h || 0);
+                }
+              }
+            } catch (_) { /* silent */ }
+          }, 2000);
         } catch (err) {
           btn.classList.remove('trigger-pending');
           btn.classList.add('trigger-fail');

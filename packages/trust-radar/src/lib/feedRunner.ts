@@ -66,7 +66,7 @@ export async function insertThreat(db: D1Database, threat: ThreatRow): Promise<v
 
 // ─── Feed Config Row ─────────────────────────────────────────────
 
-interface FeedConfigRow {
+export interface FeedConfigRow {
   feed_name: string;
   display_name: string;
   source_url: string | null;
@@ -85,7 +85,7 @@ interface FeedStatusRow {
 
 // ─── Feed Execution ──────────────────────────────────────────────
 
-async function runFeed(
+export async function runFeed(
   env: Env,
   config: FeedConfigRow,
   feedModule: FeedModule,

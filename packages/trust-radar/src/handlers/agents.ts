@@ -108,6 +108,7 @@ export async function handleListAgents(request: Request, env: Env): Promise<Resp
 
     const agents = AGENT_DEFINITIONS.map((def) => {
       const stats = statsMap.get(def.name);
+      const latestRun = latestRunMap.get(def.name);
       return {
         agent_id: def.name,
         name: def.name,
@@ -122,6 +123,10 @@ export async function handleListAgents(request: Request, env: Env): Promise<Resp
         outputs_24h: outputMap.get(def.name) ?? 0,
         error_count_24h: stats?.error_count_24h ?? 0,
         activity: activityMap.get(def.name) ?? new Array(24).fill(0),
+        last_run_at: latestRun?.started_at ?? null,
+        last_run_status: latestRun?.status ?? null,
+        last_run_duration_ms: latestRun?.duration_ms ?? null,
+        last_run_error: latestRun?.error_message ?? null,
         last_output_at: lastOutputMap.get(def.name) ?? null,
         avg_duration_ms: avgDurMap.get(def.name) ?? null,
       };
@@ -182,13 +187,19 @@ export async function handleTriggerAgent(
   const origin = request.headers.get("Origin");
   try {
     const mod = agentModules[agentName];
-    if (!mod) return json({ success: false, error: "Agent not found" }, 404, origin);
+    if (!mod) {
+      console.log(`[triggerAgent] Agent "${agentName}" not found — available: ${Object.keys(agentModules).join(", ")}`);
+      return json({ success: false, error: "Agent not found" }, 404, origin);
+    }
 
+    console.log(`[triggerAgent] Executing "${agentName}" (triggered by ${userId})`);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const result = await executeAgent(env, mod, body.input as Record<string, unknown> ?? {}, userId, "manual");
+    console.log(`[triggerAgent] "${agentName}" completed: status=${result.status}, runId=${result.runId}${result.error ? `, error=${result.error}` : ""}`);
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
+    console.error(`[triggerAgent] "${agentName}" threw:`, err);
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
