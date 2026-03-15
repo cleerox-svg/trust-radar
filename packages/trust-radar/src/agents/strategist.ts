@@ -78,7 +78,7 @@ export const strategistAgent: AgentModule = {
           `SELECT DISTINCT COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.ip_address = ? AND t.hosting_provider_id IS NOT NULL LIMIT 3`
         ).bind(cluster.ip_address).all<{ name: string }>();
 
-        // Generate AI name (fall back to technical ID if Haiku fails)
+        // Generate AI name at creation time (fall back to technical ID if Haiku fails)
         let name = fallbackName;
         const nameResult = await generateCampaignName(env, {
           domains: campDomains.results.map(d => d.malicious_domain),
@@ -90,8 +90,12 @@ export const strategistAgent: AgentModule = {
         });
         if (nameResult.success && nameResult.data?.name) {
           name = nameResult.data.name;
+          console.log(`[strategist] AI-named new IP campaign: "${name}" (IP ${cluster.ip_address})`);
+        } else {
+          console.log(`[strategist] Haiku naming failed for new IP campaign (IP ${cluster.ip_address}): ${nameResult.error ?? 'no name returned'} — using fallback "${fallbackName}"`);
         }
 
+        // description stores the technical ID; name gets the AI name (or fallback)
         await env.DB.prepare(
           `INSERT INTO campaigns (id, name, description, threat_count, attack_pattern, status)
            VALUES (?, ?, ?, ?, ?, 'active')`
@@ -162,6 +166,9 @@ export const strategistAgent: AgentModule = {
       });
       if (nameResult.success && nameResult.data?.name) {
         name = nameResult.data.name;
+        console.log(`[strategist] AI-named new registrar campaign: "${name}" (${cluster.registrar})`);
+      } else {
+        console.log(`[strategist] Haiku naming failed for new registrar campaign (${cluster.registrar}): ${nameResult.error ?? 'no name returned'} — using fallback "${fallbackName}"`);
       }
 
       await env.DB.prepare(
@@ -213,6 +220,12 @@ export const strategistAgent: AgentModule = {
        LIMIT 10`
     ).all<{ id: string; name: string; attack_pattern: string | null }>();
 
+    console.log(`[strategist] Retroactive rename: ${technicalCampaigns.results.length} campaigns need renaming`);
+
+    let renameSuccessCount = 0;
+    let renameFailCount = 0;
+    let firstRenameResult: { campaign: string; success: boolean; newName?: string; error?: string } | null = null;
+
     for (const camp of technicalCampaigns.results) {
       // Fetch context from linked threats
       const campDomains = await env.DB.prepare(
@@ -231,6 +244,8 @@ export const strategistAgent: AgentModule = {
         `SELECT COUNT(*) as n FROM threats WHERE campaign_id = ?`
       ).bind(camp.id).first<{ n: number }>();
 
+      console.log(`[strategist] Rename context for "${camp.name}": domains=${campDomains.results.length}, brands=${campBrands.results.length}, providers=${campProviders.results.length}, types=${campTypes.results.length}, threats=${campCount?.n ?? 0}`);
+
       const nameResult = await generateCampaignName(env, {
         domains: campDomains.results.map(d => d.malicious_domain),
         target_brands: campBrands.results.map(b => b.name),
@@ -239,14 +254,42 @@ export const strategistAgent: AgentModule = {
         threat_count: campCount?.n ?? 0,
       });
 
+      // Log first rename attempt in detail
+      if (!firstRenameResult) {
+        console.log(`[strategist] First rename Haiku response: success=${nameResult.success}, data=${JSON.stringify(nameResult.data)}, error=${nameResult.error ?? 'none'}, tokens=${nameResult.tokens_used ?? 0}`);
+        firstRenameResult = {
+          campaign: camp.name,
+          success: nameResult.success,
+          newName: nameResult.data?.name,
+          error: nameResult.error,
+        };
+      }
+
       if (nameResult.success && nameResult.data?.name) {
         await env.DB.prepare(
           `UPDATE campaigns SET name = ?, description = ? WHERE id = ?`
         ).bind(nameResult.data.name, camp.name, camp.id).run();
         itemsUpdated++;
+        renameSuccessCount++;
         console.log(`[strategist] Renamed campaign "${camp.name}" → "${nameResult.data.name}"`);
+      } else {
+        renameFailCount++;
+        console.log(`[strategist] Rename FAILED for "${camp.name}": ${nameResult.error ?? 'no name in response'}`);
       }
     }
+
+    // Emit diagnostic output for rename telemetry
+    outputs.push({
+      type: "diagnostic",
+      summary: `Retroactive rename: ${technicalCampaigns.results.length} candidates, ${renameSuccessCount} renamed, ${renameFailCount} failed`,
+      severity: renameFailCount > 0 ? "medium" : technicalCampaigns.results.length > 0 ? "info" : "info",
+      details: {
+        campaigns_needing_rename: technicalCampaigns.results.length,
+        rename_success: renameSuccessCount,
+        rename_failed: renameFailCount,
+        first_rename_attempt: firstRenameResult,
+      },
+    });
 
     // Always produce at least one output for diagnostics
     if (outputs.length === 0) {
