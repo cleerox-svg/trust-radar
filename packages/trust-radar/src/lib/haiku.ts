@@ -281,6 +281,35 @@ Respond with ONLY a JSON array (no markdown) where each element has:
   return result;
 }
 
+// ─── Campaign Name Generation ────────────────────────────────────
+
+export async function generateCampaignName(
+  env: Env,
+  campaign: {
+    domains?: string[];
+    target_brands?: string[];
+    threat_types?: string[];
+    providers?: string[];
+    threat_count?: number;
+    ip_count?: number;
+  },
+): Promise<HaikuResponse<{ name: string }>> {
+  const systemPrompt = `You generate short, descriptive threat campaign names (3-6 words) based on cluster metadata.
+The name should describe the attack method and target, like "GoDaddy Phishing Kit Network" or "Crypto Exchange Credential Harvest".
+Do not use technical IDs, IP addresses, or UUIDs.
+Respond with ONLY a JSON object: {"name": "Your Campaign Name Here"}`;
+
+  const userMessage = `Generate a campaign name for this threat cluster:
+- Domains: ${(campaign.domains || []).slice(0, 10).join(", ") || "N/A"}
+- Target brands: ${(campaign.target_brands || []).join(", ") || "Unknown"}
+- Threat types: ${(campaign.threat_types || []).join(", ") || "Mixed"}
+- Hosting providers: ${(campaign.providers || []).join(", ") || "Unknown"}
+- Threat count: ${campaign.threat_count ?? 0}
+- Unique IPs: ${campaign.ip_count ?? 1}`;
+
+  return callAnthropic<{ name: string }>(env, systemPrompt, userMessage);
+}
+
 // ─── Generic Analysis ────────────────────────────────────────────
 
 export async function analyzeWithHaiku(
