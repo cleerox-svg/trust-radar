@@ -1,5 +1,6 @@
 import { json } from "../lib/cors";
-import { runAllFeeds } from "../lib/feedRunner";
+import { runAllFeeds, runFeed } from "../lib/feedRunner";
+import type { FeedConfigRow } from "../lib/feedRunner";
 import { feedModules } from "../feeds";
 import type { Env } from "../types";
 
@@ -119,15 +120,22 @@ export async function handleTriggerFeed(request: Request, env: Env, feedName: st
   const origin = request.headers.get("Origin");
   try {
     const mod = feedModules[feedName];
-    if (!mod) return json({ success: false, error: "Feed module not implemented" }, 501, origin);
+    if (!mod) {
+      console.log(`[triggerFeed] Feed "${feedName}" not found — available: ${Object.keys(feedModules).join(", ")}`);
+      return json({ success: false, error: "Feed module not implemented" }, 501, origin);
+    }
 
-    const config = await env.DB.prepare("SELECT * FROM feed_configs WHERE feed_name = ?").bind(feedName).first();
+    const config = await env.DB.prepare("SELECT * FROM feed_configs WHERE feed_name = ?").bind(feedName).first<FeedConfigRow>();
     if (!config) return json({ success: false, error: "Feed not found" }, 404, origin);
 
-    // Run inline (simplified — full trigger goes through runAllFeeds)
-    const result = await mod.ingest({ env, feedName, feedUrl: (config as Record<string, unknown>).source_url as string ?? "" });
+    // Use runFeed() so feed_status and feed_pull_history are properly updated
+    console.log(`[triggerFeed] Executing "${feedName}" (manual trigger)`);
+    const result = await runFeed(env, config, mod);
+    console.log(`[triggerFeed] "${feedName}" completed: fetched=${result.itemsFetched}, new=${result.itemsNew}`);
+
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
+    console.error(`[triggerFeed] "${feedName}" threw:`, err);
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
