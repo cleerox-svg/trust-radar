@@ -1,4 +1,6 @@
 -- Migration: 0005_add_display_name
--- Backfills display_name column on users table (missed in initial remote schema)
+-- Originally: ALTER TABLE users ADD COLUMN display_name TEXT;
+-- The display_name column already exists in the remote DB (added before migration tracking).
+-- This migration is now a no-op marker so the migration tracker advances past it.
 
-ALTER TABLE users ADD COLUMN display_name TEXT;
+SELECT 1;
