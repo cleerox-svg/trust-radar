@@ -53,6 +53,17 @@ export const cartographerAgent: AgentModule = {
       avg_response_time: number | null; trend_7d: number; trend_30d: number;
     }>();
 
+    // Diagnostic: count total providers and threats with hosting_provider_id
+    const totalProviders = await env.DB.prepare("SELECT COUNT(*) as n FROM hosting_providers").first<{ n: number }>();
+    const threatsWithProvider = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE hosting_provider_id IS NOT NULL").first<{ n: number }>();
+    const threatsWithoutProvider = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE hosting_provider_id IS NULL AND ip_address IS NOT NULL").first<{ n: number }>();
+    const threatsTotal = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE status = 'active'").first<{ n: number }>();
+
+    console.log(`[cartographer] Phase 2: ${providers.results.length} providers with threats (total providers=${totalProviders?.n ?? 0}, threats with provider=${threatsWithProvider?.n ?? 0}, threats without provider but with IP=${threatsWithoutProvider?.n ?? 0}, total active threats=${threatsTotal?.n ?? 0})`);
+
+    let haikuSuccessCount = 0;
+    let haikuFailCount = 0;
+
     for (const provider of providers.results) {
       itemsProcessed++;
 
@@ -86,6 +97,7 @@ export const cartographerAgent: AgentModule = {
         reputationScore = result.data.reputation_score;
         if (result.tokens_used) totalTokens += result.tokens_used;
         if (result.model) model = result.model;
+        haikuSuccessCount++;
 
         outputs.push({
           type: "score",
@@ -100,6 +112,8 @@ export const cartographerAgent: AgentModule = {
           relatedProviderIds: [provider.id],
         });
       } else {
+        haikuFailCount++;
+        console.log(`[cartographer] Haiku scoring failed for "${provider.name}": ${result.error ?? 'no data returned'}`);
         // Fallback: simple heuristic scoring
         reputationScore = computeHeuristicScore(
           provider.active_threat_count,
@@ -121,6 +135,23 @@ export const cartographerAgent: AgentModule = {
     // Phase 3: Aggregate provider threat stats across time periods
     const statsCreated = await aggregateProviderStats(env);
     itemsCreated += statsCreated;
+
+    // Emit diagnostic output so cartographer never shows 0 outputs silently
+    outputs.push({
+      type: "diagnostic",
+      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      severity: providers.results.length === 0 ? "medium" : "info",
+      details: {
+        providers_with_threats: providers.results.length,
+        total_providers: totalProviders?.n ?? 0,
+        haiku_scored: haikuSuccessCount,
+        heuristic_scored: haikuFailCount,
+        stats_entries: statsCreated,
+        threats_total_active: threatsTotal?.n ?? 0,
+        threats_with_provider: threatsWithProvider?.n ?? 0,
+        threats_without_provider_but_with_ip: threatsWithoutProvider?.n ?? 0,
+      },
+    });
 
     return {
       itemsProcessed,

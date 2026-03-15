@@ -204,6 +204,26 @@ export async function handleTriggerAgent(
   }
 }
 
+// ─── Trigger all agents sequentially ────────────────────────────
+export async function handleTriggerAllAgents(
+  request: Request, env: Env, userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const results: Record<string, { status: string; runId: string; error?: string }> = {};
+    for (const [name, mod] of Object.entries(agentModules)) {
+      console.log(`[triggerAll] Executing "${name}"`);
+      const result = await executeAgent(env, mod, {}, userId, "manual");
+      results[name] = { status: result.status, runId: result.runId, error: result.error };
+      console.log(`[triggerAll] "${name}": ${result.status}`);
+    }
+    return json({ success: true, data: results }, 200, origin);
+  } catch (err) {
+    console.error("[triggerAll] threw:", err);
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Get run history across all agents ──────────────────────────
 export async function handleAgentRuns(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");

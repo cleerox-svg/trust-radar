@@ -16,7 +16,7 @@ import {
   handleResetCircuit, handleFeedQuota,
 } from "./handlers/feeds";
 import {
-  handleListAgents, handleGetAgent, handleTriggerAgent, handleAgentRuns,
+  handleListAgents, handleGetAgent, handleTriggerAgent, handleTriggerAllAgents, handleAgentRuns,
   handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
   handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
 } from "./handlers/agents";
@@ -712,6 +712,11 @@ router.get("/api/agents/:name", async (request: Request & { params: Record<strin
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleGetAgent(request, env, request.params["name"] ?? "");
+});
+router.post("/api/agents/trigger-all", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerAllAgents(request, env, ctx.userId);
 });
 router.post("/api/agents/:name/trigger", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAdmin(request, env);
