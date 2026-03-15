@@ -2718,7 +2718,7 @@ async function viewAdminFeeds(el) {
     }));
 
     document.getElementById('adm-feed-detail-content').innerHTML = `
-      <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.display_name || f.feed_name}</div><div class="adm-dh-meta">${f.source_url || f.feed_name} \u2014 ${f.schedule_cron || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
+      <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.display_name || f.feed_name}</div><div class="adm-dh-meta">${f.source_url || f.feed_name} \u2014 ${f.schedule_cron || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" data-feed="${fid}" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
       <div class="adm-grid-2">
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Ingestion (7d)</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-detail-chart"></canvas></div></div>
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Configuration</div><button class="adm-action-btn" style="font-size:9px">Edit</button></div><div class="adm-padded">
@@ -2755,6 +2755,24 @@ async function viewAdminFeeds(el) {
           scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true } } }
       });
     }, 50);
+
+    // Feed detail trigger button — visual feedback
+    const detailTrigger = document.querySelector('#adm-feed-detail-content .adm-trigger-btn[data-feed]');
+    if (detailTrigger) {
+      detailTrigger.addEventListener('click', async () => {
+        detailTrigger.classList.remove('trigger-ok', 'trigger-fail');
+        detailTrigger.classList.add('trigger-pending');
+        try {
+          await api(`/feeds/${detailTrigger.dataset.feed}/trigger`, { method: 'POST' });
+          detailTrigger.classList.remove('trigger-pending');
+          detailTrigger.classList.add('trigger-ok');
+        } catch (err) {
+          detailTrigger.classList.remove('trigger-pending');
+          detailTrigger.classList.add('trigger-fail');
+        }
+        setTimeout(() => { detailTrigger.classList.remove('trigger-ok', 'trigger-fail'); }, 3000);
+      });
+    }
   }
 
   try {
@@ -2771,12 +2789,31 @@ async function viewAdminFeeds(el) {
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
 
     // Row click to detail
     document.querySelectorAll('#adm-feeds-table tr[data-fid]').forEach(tr => {
       tr.addEventListener('click', () => showFeedDetail(tr.dataset.fid));
+    });
+
+    // Feed trigger buttons — visual feedback
+    el.querySelectorAll('.adm-trigger-btn[data-feed]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const feedId = btn.dataset.feed;
+        btn.classList.remove('trigger-ok', 'trigger-fail');
+        btn.classList.add('trigger-pending');
+        try {
+          await api(`/feeds/${feedId}/trigger`, { method: 'POST' });
+          btn.classList.remove('trigger-pending');
+          btn.classList.add('trigger-ok');
+        } catch (err) {
+          btn.classList.remove('trigger-pending');
+          btn.classList.add('trigger-fail');
+        }
+        setTimeout(() => { btn.classList.remove('trigger-ok', 'trigger-fail'); }, 3000);
+      });
     });
   } catch (err) { showToast(err.message, 'error'); }
 
@@ -3004,15 +3041,22 @@ async function viewAdminAgentConfig(el) {
         </div>
       </div>`;
 
-    // Trigger Now buttons
+    // Trigger Now buttons — visual feedback (spinner → green check / red x)
     el.querySelectorAll('.adm-trigger-btn[data-agent]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const agentId = btn.dataset.agent;
+        btn.classList.remove('trigger-ok', 'trigger-fail');
+        btn.classList.add('trigger-pending');
         try {
           await api(`/agents/${agentId}/trigger`, { method: 'POST' });
-          showToast(`Triggered ${agentId}`, 'success');
-        } catch (err) { showToast(err.message, 'error'); }
+          btn.classList.remove('trigger-pending');
+          btn.classList.add('trigger-ok');
+        } catch (err) {
+          btn.classList.remove('trigger-pending');
+          btn.classList.add('trigger-fail');
+        }
+        setTimeout(() => { btn.classList.remove('trigger-ok', 'trigger-fail'); }, 3000);
       });
     });
 

@@ -1536,7 +1536,14 @@ a.campaign-card:hover { text-decoration: none; }
   color: var(--text-secondary); cursor: pointer; transition: all 0.15s; margin-right: 4px;
 }
 .adm-action-btn.adm-action-btn:hover { border-color: var(--blue-border-bright); color: var(--text-primary); }
-.adm-trigger-btn { border-color: rgba(255,182,39,.2) !important; color: var(--threat-medium) !important; }
+.adm-trigger-btn { border-color: rgba(255,182,39,.2) !important; color: var(--threat-medium) !important; transition: all 0.4s ease !important; position: relative; overflow: hidden; }
+.adm-trigger-btn.trigger-pending { border-color: rgba(255,182,39,.5) !important; background: rgba(255,182,39,.12) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn.trigger-pending::after { content: ''; position: absolute; inset: 0; margin: auto; width: 12px; height: 12px; border: 2px solid rgba(255,182,39,.3); border-top-color: var(--threat-medium); border-radius: 50%; animation: trigger-spin 0.6s linear infinite; }
+.adm-trigger-btn.trigger-ok { border-color: rgba(0,229,160,.5) !important; background: rgba(0,229,160,.15) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn.trigger-ok::after { content: '\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--positive); font-size: 12px; font-weight: 700; }
+.adm-trigger-btn.trigger-fail { border-color: rgba(255,59,92,.5) !important; background: rgba(255,59,92,.15) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn.trigger-fail::after { content: '\2717'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--negative); font-size: 12px; font-weight: 700; }
+@keyframes trigger-spin { to { transform: rotate(360deg); } }
 .adm-btn {
   font-family: var(--font-display); font-size: 10px; font-weight: 600;
   padding: 7px 16px; border-radius: var(--radius); cursor: pointer;
