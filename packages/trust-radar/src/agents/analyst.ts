@@ -31,7 +31,7 @@ export const analystAgent: AgentModule = {
       `SELECT id, malicious_url, malicious_domain, source_feed
        FROM threats
        WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL
-       ORDER BY created_at DESC LIMIT 30`
+       ORDER BY created_at DESC LIMIT 100`
     ).all<{
       id: string; malicious_url: string | null;
       malicious_domain: string | null; source_feed: string;
