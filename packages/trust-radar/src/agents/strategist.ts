@@ -241,7 +241,7 @@ export const strategistAgent: AgentModule = {
 
       if (nameResult.success && nameResult.data?.name) {
         await env.DB.prepare(
-          `UPDATE campaigns SET name = ?, description = COALESCE(description, ?) WHERE id = ?`
+          `UPDATE campaigns SET name = ?, description = ? WHERE id = ?`
         ).bind(nameResult.data.name, camp.name, camp.id).run();
         itemsUpdated++;
         console.log(`[strategist] Renamed campaign "${camp.name}" → "${nameResult.data.name}"`);
