@@ -1,9 +1,10 @@
 /**
  * Observer Agent — Trend analysis & daily intelligence synthesis.
  *
- * Runs daily. Generates intelligence insights by analyzing threat trends,
- * brand targeting patterns, and provider behavior. Writes to agent_outputs
- * for analyst consumption on the HUD and insights panel.
+ * Runs daily. Generates narrative intelligence briefings by analyzing threat
+ * trends, brand targeting patterns, provider behavior, and recent agent outputs.
+ * Sends context to Haiku for 3-5 professional intelligence briefing items.
+ * Writes to agent_outputs for analyst consumption on the HUD and insights panel.
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -24,7 +25,7 @@ export const observerAgent: AgentModule = {
     let model: string | undefined;
     const outputs: AgentOutputEntry[] = [];
 
-    // ─── Gather threat summary ──────────────────────────────────
+    // ─── Gather threat summary (last 24h) ────────────────────────
     const summary = await env.DB.prepare(`
       SELECT
         COUNT(*) as total_24h,
@@ -39,13 +40,15 @@ export const observerAgent: AgentModule = {
       feed_count: number; type_count: number; country_count: number;
     }>();
 
+    // ─── Top targeted brands (with IDs for linking) ──────────────
     const topBrands = await env.DB.prepare(`
-      SELECT b.name, COUNT(*) as count
+      SELECT b.id, b.name, COUNT(*) as count
       FROM threats t JOIN brands b ON t.target_brand_id = b.id
       WHERE t.created_at >= datetime('now', '-24 hours')
-      GROUP BY b.name ORDER BY count DESC LIMIT 10
-    `).all<{ name: string; count: number }>();
+      GROUP BY b.id ORDER BY count DESC LIMIT 10
+    `).all<{ id: string; name: string; count: number }>();
 
+    // ─── Top hosting providers ───────────────────────────────────
     const topProviders = await env.DB.prepare(`
       SELECT hp.name, COUNT(*) as count
       FROM threats t JOIN hosting_providers hp ON t.hosting_provider_id = hp.id
@@ -53,13 +56,14 @@ export const observerAgent: AgentModule = {
       GROUP BY hp.name ORDER BY count DESC LIMIT 10
     `).all<{ name: string; count: number }>();
 
+    // ─── Threat type distribution ────────────────────────────────
     const typeBreakdown = await env.DB.prepare(`
       SELECT threat_type, COUNT(*) as count
       FROM threats WHERE created_at >= datetime('now', '-24 hours')
       GROUP BY threat_type ORDER BY count DESC
     `).all<{ threat_type: string; count: number }>();
 
-    // ─── Compare with previous day ──────────────────────────────
+    // ─── Compare with previous day ───────────────────────────────
     const prevSummary = await env.DB.prepare(`
       SELECT COUNT(*) as total_prev
       FROM threats WHERE created_at >= datetime('now', '-48 hours') AND created_at < datetime('now', '-24 hours')
@@ -69,7 +73,22 @@ export const observerAgent: AgentModule = {
     const totalPrev = prevSummary?.total_prev ?? 0;
     const changePercent = totalPrev > 0 ? Math.round(((totalNow - totalPrev) / totalPrev) * 100) : 0;
 
-    // ─── Try Haiku insight generation ───────────────────────────
+    // ─── Recent campaigns ────────────────────────────────────────
+    const recentCampaigns = await env.DB.prepare(
+      `SELECT id, name, threat_count FROM campaigns
+       WHERE last_seen >= datetime('now', '-48 hours') AND status = 'active'
+       ORDER BY threat_count DESC LIMIT 10`
+    ).all<{ id: string; name: string; threat_count: number }>();
+
+    // ─── Recent agent outputs for context ────────────────────────
+    const recentOutputs = await env.DB.prepare(`
+      SELECT agent_id as agent, summary
+      FROM agent_outputs
+      WHERE agent_id != 'observer' AND created_at >= datetime('now', '-24 hours')
+      ORDER BY created_at DESC LIMIT 10
+    `).all<{ agent: string; summary: string }>();
+
+    // ─── Send to Haiku for intelligence briefing ─────────────────
     const insightResult = await generateInsight(env, {
       period: "daily",
       threats_summary: {
@@ -77,66 +96,86 @@ export const observerAgent: AgentModule = {
         critical: summary?.critical ?? 0,
         high: summary?.high ?? 0,
         change_percent: changePercent,
-        type_breakdown: typeBreakdown.results,
+        previous_day_total: totalPrev,
+        feed_count: summary?.feed_count ?? 0,
+        country_count: summary?.country_count ?? 0,
       },
       top_brands: topBrands.results,
       top_providers: topProviders.results,
       trend_data: { prev_day_total: totalPrev, change_percent: changePercent },
+      type_distribution: typeBreakdown.results,
+      recent_campaigns: recentCampaigns.results,
+      agent_context: recentOutputs.results,
     });
 
-    if (insightResult.success && insightResult.data) {
+    if (insightResult.success && insightResult.data?.items?.length) {
       if (insightResult.tokens_used) totalTokens += insightResult.tokens_used;
       if (insightResult.model) model = insightResult.model;
 
-      outputs.push({
-        type: "insight",
-        summary: insightResult.data.summary,
-        severity: insightResult.data.severity as "critical" | "high" | "medium" | "low" | "info",
-        details: {
-          title: insightResult.data.title,
-          recommendations: insightResult.data.recommendations,
-          period: "daily",
-        },
-      });
+      // Each briefing item becomes a separate agent_output with type='insight'
+      for (const item of insightResult.data.items) {
+        const severity = (["critical", "high", "medium", "low", "info"].includes(item.severity)
+          ? item.severity : "medium") as "critical" | "high" | "medium" | "low" | "info";
+
+        const output: AgentOutputEntry = {
+          type: "insight",
+          summary: `**${item.title}** — ${item.summary}`,
+          severity,
+          details: { title: item.title },
+        };
+
+        if (item.related_brand_id) {
+          output.relatedBrandIds = [item.related_brand_id];
+        }
+        if (item.related_campaign_id) {
+          output.relatedCampaignId = item.related_campaign_id;
+        }
+
+        outputs.push(output);
+      }
     } else {
-      // Fallback: generate rule-based insight
+      // Fallback: generate rule-based briefing items when Haiku is unavailable
       const trendLabel = changePercent > 20 ? "Significant increase" :
         changePercent > 0 ? "Slight increase" :
         changePercent < -20 ? "Notable decrease" :
         changePercent < 0 ? "Slight decrease" : "Stable";
 
-      const topBrand = topBrands.results[0]?.name ?? "none";
-      const topProvider = topProviders.results[0]?.name ?? "none";
+      const topBrand = topBrands.results[0];
+      const topProvider = topProviders.results[0];
 
+      // Item 1: Overall threat landscape
       outputs.push({
         type: "insight",
-        summary: `Daily briefing: ${totalNow} threats detected (${trendLabel}, ${changePercent > 0 ? "+" : ""}${changePercent}%). Top target: ${topBrand}. Top hosting: ${topProvider}. ${summary?.critical ?? 0} critical, ${summary?.high ?? 0} high severity.`,
+        summary: `**Daily Threat Landscape** — ${totalNow} threats detected in the last 24 hours (${trendLabel}, ${changePercent > 0 ? "+" : ""}${changePercent}% vs previous day). ${summary?.critical ?? 0} critical and ${summary?.high ?? 0} high severity threats identified across ${summary?.feed_count ?? 0} feed sources and ${summary?.country_count ?? 0} countries.`,
         severity: (summary?.critical ?? 0) > 0 ? "high" : "medium",
         details: {
+          title: "Daily Threat Landscape",
           total_threats: totalNow,
           change_percent: changePercent,
-          critical: summary?.critical ?? 0,
-          high: summary?.high ?? 0,
-          top_brands: topBrands.results,
-          top_providers: topProviders.results,
-          period: "daily",
         },
       });
-    }
 
-    // ─── New campaign alerts ────────────────────────────────────
-    const newCampaigns = await env.DB.prepare(
-      `SELECT id, name, threat_count FROM campaigns
-       WHERE first_seen >= datetime('now', '-24 hours') AND status = 'active'`
-    ).all<{ id: string; name: string; threat_count: number }>();
+      // Item 2: Top targeted brand (if any)
+      if (topBrand) {
+        outputs.push({
+          type: "insight",
+          summary: `**${topBrand.name} Under Active Targeting** — ${topBrand.count} new threats targeting ${topBrand.name} in the last 24 hours, making it the most-targeted brand this period.${topProvider ? ` Primary hosting infrastructure: ${topProvider.name}.` : ""}`,
+          severity: topBrand.count >= 10 ? "high" : "medium",
+          details: { title: `${topBrand.name} Under Active Targeting` },
+          relatedBrandIds: [topBrand.id],
+        });
+      }
 
-    for (const campaign of newCampaigns.results) {
-      outputs.push({
-        type: "correlation",
-        summary: `New campaign identified: "${campaign.name}" with ${campaign.threat_count} threats`,
-        severity: campaign.threat_count >= 10 ? "high" : "medium",
-        details: { campaign_id: campaign.id, name: campaign.name },
-      });
+      // Item 3: New campaigns
+      for (const campaign of recentCampaigns.results.slice(0, 2)) {
+        outputs.push({
+          type: "insight",
+          summary: `**Campaign: ${campaign.name}** — Active campaign with ${campaign.threat_count} associated threats. Infrastructure analysis suggests coordinated targeting activity.`,
+          severity: campaign.threat_count >= 10 ? "high" : "medium",
+          details: { title: `Campaign: ${campaign.name}` },
+          relatedCampaignId: campaign.id,
+        });
+      }
     }
 
     return {

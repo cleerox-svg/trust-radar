@@ -56,6 +56,7 @@ import {
   handleAddMonitoredBrand, handleRemoveMonitoredBrand, handleGetBrand,
   handleBrandThreats, handleBrandThreatLocations, handleBrandThreatTimeline,
   handleBrandProviders, handleBrandCampaigns, handleBrandStats,
+  handleGetBrandAnalysis, handleGenerateBrandAnalysis,
 } from "./handlers/brands";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
@@ -632,6 +633,16 @@ router.get("/api/brands/:id/campaigns", async (request: Request & { params: Reco
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleBrandCampaigns(request, env, request.params["id"] ?? "");
+});
+router.get("/api/brands/:id/analysis", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrandAnalysis(request, env, request.params["id"] ?? "");
+});
+router.post("/api/brands/:id/analysis", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGenerateBrandAnalysis(request, env, request.params["id"] ?? "");
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────

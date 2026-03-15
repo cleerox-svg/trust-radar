@@ -701,9 +701,17 @@ async function viewObservatory(el) {
 
       const insightItems = (insights?.data || []).map(ins => {
         const colors = { sentinel: 'var(--blue-primary)', analyst: 'var(--positive)', cartographer: 'var(--threat-medium)', strategist: 'var(--negative)', observer: '#b388ff' };
-        return `<div class="sidebar-insight">
+        // Build link from related brand or campaign
+        let linkBrand = null;
+        try { if (ins.related_brand_ids) { const ids = JSON.parse(ins.related_brand_ids); if (ids.length) linkBrand = ids[0]; } } catch {}
+        const linkCampaign = ins.related_campaign_id || null;
+        const href = linkBrand ? `/brands/${linkBrand}` : linkCampaign ? `/campaigns/${linkCampaign}` : null;
+        const clickAttr = href ? `onclick="navigate('${href}'); return false;" style="cursor:pointer"` : '';
+        // Render summary with **bold** title support
+        const text = (ins.summary_text || '').replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary)">$1</strong>');
+        return `<div class="sidebar-insight" ${clickAttr}>
           <div class="si-top"><span class="si-agent" style="color:${colors[ins.agent_name] || 'var(--text-secondary)'}">${ins.agent_name}</span><span class="sev ${ins.severity}">${ins.severity}</span></div>
-          <div class="si-text">${ins.summary_text || ''}</div>
+          <div class="si-text">${text}</div>
         </div>`;
       }).join('') || '<div class="empty-state"><div class="message">No insights yet</div></div>';
 
@@ -1009,13 +1017,14 @@ const _brandThreatsPerPage = 15;
 async function viewBrandDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
-    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes] = await Promise.all([
+    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes] = await Promise.all([
       api(`/brands/${params.id}`),
       api(`/brands/${params.id}/threats?status=active&limit=50`).catch(() => null),
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
       api(`/brands/${params.id}/providers`).catch(() => null),
       api(`/brands/${params.id}/campaigns`).catch(() => null),
       api(`/brands/${params.id}/threats/timeline?period=30d`).catch(() => null),
+      api(`/brands/${params.id}/analysis`).catch(() => null),
     ]);
     const b = brandRes?.data;
     if (!b) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
@@ -1058,6 +1067,16 @@ async function viewBrandDetail(el, params) {
           </div>
         </div>
         ${trustRingHtml}
+      </div>
+      <div class="panel" id="brand-analysis-panel" style="margin-bottom:16px">
+        <div class="phead"><span>AI Threat Analysis</span><span class="badge" id="brand-analysis-badge">${analysisRes?.data ? (analysisRes.data.stale ? 'Stale' : 'Current') : 'Not generated'}</span></div>
+        <div class="panel-body padded" id="brand-analysis-body">${analysisRes?.data ? `
+          <div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${analysisRes.data.analysis || ''}</div>
+          ${analysisRes.data.key_findings?.length ? `<div style="margin-bottom:12px">${analysisRes.data.key_findings.map(f => `<div style="display:flex;gap:8px;padding:4px 0;font-size:11px;color:var(--text-secondary)"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+          ${analysisRes.data.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:${analysisRes.data.risk_level === 'critical' ? 'rgba(255,59,92,.12)' : analysisRes.data.risk_level === 'high' ? 'rgba(255,107,53,.1)' : 'rgba(255,182,39,.1)'};color:${analysisRes.data.risk_level === 'critical' ? 'var(--negative)' : analysisRes.data.risk_level === 'high' ? 'var(--threat-high)' : 'var(--threat-medium)'}">${analysisRes.data.risk_level} risk</span>` : ''}
+          ${analysisRes.data.updated_at ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
+          <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>
+        ` : `<div style="text-align:center;padding:12px"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
       </div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
@@ -1240,6 +1259,33 @@ async function viewBrandDetail(el, params) {
         }
       } catch {}
     });
+
+    // Brand AI analysis — generate or refresh
+    async function triggerBrandAnalysis() {
+      const body = document.getElementById('brand-analysis-body');
+      const badge = document.getElementById('brand-analysis-badge');
+      if (!body) return;
+      body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)"><span class="dash-spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,212,255,.3);border-top-color:var(--blue-primary);border-radius:50%;animation:trigger-spin 0.6s linear infinite"></span> Generating analysis...</div>';
+      try {
+        const res = await api(`/brands/${params.id}/analysis`, { method: 'POST' });
+        const d = res?.data;
+        if (d?.analysis) {
+          if (badge) badge.textContent = 'Current';
+          body.innerHTML = `<div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${d.analysis}</div>
+            ${d.key_findings?.length ? `<div style="margin-bottom:12px">${d.key_findings.map(f => `<div style="display:flex;gap:8px;padding:4px 0;font-size:11px;color:var(--text-secondary)"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+            ${d.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.1);color:var(--threat-medium)">${d.risk_level} risk</span>` : ''}
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-left:8px">Just now</span>
+            <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>`;
+          body.querySelector('#brand-refresh-analysis')?.addEventListener('click', triggerBrandAnalysis);
+        } else {
+          body.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-tertiary)">Analysis generation failed — check API key configuration</div>';
+        }
+      } catch (err) {
+        body.innerHTML = `<div style="text-align:center;padding:12px;color:var(--negative)">${err.message || 'Failed to generate analysis'}</div>`;
+      }
+    }
+    document.getElementById('brand-gen-analysis')?.addEventListener('click', triggerBrandAnalysis);
+    document.getElementById('brand-refresh-analysis')?.addEventListener('click', triggerBrandAnalysis);
 
     // Cleanup
     window._viewCleanup = () => {

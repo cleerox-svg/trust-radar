@@ -13,9 +13,9 @@ export async function handleLatestInsights(request: Request, env: Env): Promise<
     const rows = await env.DB.prepare(`
       SELECT ao.id, ao.agent_id AS agent_name, ao.severity, ao.summary AS summary_text,
              ao.created_at, ao.type AS output_type,
-             ao.details
+             ao.details, ao.related_brand_ids, ao.related_campaign_id
       FROM agent_outputs ao
-      WHERE ao.type IN ('insight', 'classification', 'correlation', 'score', 'trend_report')
+      WHERE ao.type IN ('insight', 'correlation')
       ORDER BY ao.created_at DESC
       LIMIT ?
     `).bind(limit).all();

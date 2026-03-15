@@ -22,7 +22,7 @@ export async function handleDashboardOverview(request: Request, env: Env): Promi
       `).first<{ tracked: number }>().catch(() => ({ tracked: 0 })),
       env.DB.prepare(`
         SELECT COUNT(*) AS active,
-               SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
+               SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
         FROM campaigns
       `).first<{ active: number; new_7d: number }>().catch(() => ({ active: 0, new_7d: 0 })),
       env.DB.prepare(`

@@ -2,6 +2,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
+import { analyzeBrandThreats } from "../lib/haiku";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -339,6 +340,107 @@ export async function handleBrandCampaigns(request: Request, env: Env, brandId: 
     `).bind(brandId).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/brands/:id/analysis
+export async function handleGetBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare(
+      "SELECT id, name, canonical_domain, threat_analysis, analysis_updated_at FROM brands WHERE id = ?",
+    ).bind(brandId).first<{
+      id: string; name: string; canonical_domain: string;
+      threat_analysis: string | null; analysis_updated_at: string | null;
+    }>();
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Return cached analysis if fresh (< 6 hours old)
+    if (brand.threat_analysis && brand.analysis_updated_at) {
+      const age = Date.now() - new Date(brand.analysis_updated_at).getTime();
+      if (age < 6 * 60 * 60 * 1000) {
+        const parsed = JSON.parse(brand.threat_analysis);
+        return json({ success: true, data: { ...parsed, cached: true, updated_at: brand.analysis_updated_at } }, 200, origin);
+      }
+    }
+
+    return json({
+      success: true,
+      data: brand.threat_analysis ? { ...JSON.parse(brand.threat_analysis), cached: true, stale: true, updated_at: brand.analysis_updated_at } : null,
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/brands/:id/analysis — generate or refresh AI analysis
+export async function handleGenerateBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare(
+      "SELECT id, name, canonical_domain FROM brands WHERE id = ?",
+    ).bind(brandId).first<{ id: string; name: string; canonical_domain: string }>();
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Gather threat data for the brand
+    const [stats, providerRows, campaignRows, domainRows] = await Promise.all([
+      env.DB.prepare(`
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) AS phishing,
+               SUM(CASE WHEN threat_type = 'typosquatting' THEN 1 ELSE 0 END) AS typosquatting,
+               SUM(CASE WHEN threat_type = 'impersonation' THEN 1 ELSE 0 END) AS impersonation,
+               SUM(CASE WHEN threat_type = 'credential_harvesting' THEN 1 ELSE 0 END) AS credential,
+               SUM(CASE WHEN threat_type = 'malware_distribution' THEN 1 ELSE 0 END) AS malware
+        FROM threats WHERE target_brand_id = ?
+      `).bind(brandId).first<Record<string, number>>(),
+      env.DB.prepare(`
+        SELECT COALESCE(hp.name, t.hosting_provider_id) AS name
+        FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+        WHERE t.target_brand_id = ? AND t.hosting_provider_id IS NOT NULL
+        GROUP BY t.hosting_provider_id ORDER BY COUNT(*) DESC LIMIT 10
+      `).bind(brandId).all<{ name: string }>(),
+      env.DB.prepare(`
+        SELECT DISTINCT c.name FROM campaigns c JOIN threats t ON t.campaign_id = c.id
+        WHERE t.target_brand_id = ? ORDER BY c.threat_count DESC LIMIT 5
+      `).bind(brandId).all<{ name: string }>(),
+      env.DB.prepare(`
+        SELECT DISTINCT malicious_domain FROM threats
+        WHERE target_brand_id = ? AND malicious_domain IS NOT NULL LIMIT 10
+      `).bind(brandId).all<{ malicious_domain: string }>(),
+    ]);
+
+    const threatTypes: Record<string, number> = {};
+    if (stats) {
+      for (const [k, v] of Object.entries(stats)) {
+        if (k !== "total" && v > 0) threatTypes[k] = v;
+      }
+    }
+
+    const result = await analyzeBrandThreats(env, {
+      brand_name: brand.name,
+      threat_count: stats?.total ?? 0,
+      providers: providerRows.results.map(r => r.name),
+      domains: domainRows.results.map(r => r.malicious_domain),
+      threat_types: threatTypes,
+      campaigns: campaignRows.results.map(r => r.name),
+    });
+
+    if (result.success && result.data) {
+      const analysisJson = JSON.stringify(result.data);
+      await env.DB.prepare(
+        "UPDATE brands SET threat_analysis = ?, analysis_updated_at = datetime('now') WHERE id = ?",
+      ).bind(analysisJson, brandId).run();
+
+      return json({
+        success: true,
+        data: { ...result.data, cached: false, updated_at: new Date().toISOString() },
+        tokens_used: result.tokens_used,
+      }, 200, origin);
+    }
+
+    return json({ success: false, error: result.error || "Analysis generation failed" }, 500, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
