@@ -3010,7 +3010,7 @@ async function viewAdminAgentConfig(el) {
         e.stopPropagation();
         const agentId = btn.dataset.agent;
         try {
-          await api(`/admin/agents/${agentId}/trigger`, { method: 'POST' });
+          await api(`/agents/${agentId}/trigger`, { method: 'POST' });
           showToast(`Triggered ${agentId}`, 'success');
         } catch (err) { showToast(err.message, 'error'); }
       });
