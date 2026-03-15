@@ -1693,74 +1693,222 @@ async function viewCampaignsHub(el) {
 // ─── View: Campaign Detail (Step 11) ────────────────────────
 let _campDetailChart = null;
 
-function _campDrawInfraGraph(canvasEl, domains, ips, providers) {
+function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
   if (!canvasEl) return;
   const ctx = canvasEl.getContext('2d');
-  canvasEl.width = canvasEl.parentElement.clientWidth;
-  canvasEl.height = 280;
-  const w = canvasEl.width, h = canvasEl.height;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvasEl.parentElement.clientWidth;
+  const cssH = 380;
+  canvasEl.width = cssW * dpr;
+  canvasEl.height = cssH * dpr;
+  canvasEl.style.width = cssW + 'px';
+  canvasEl.style.height = cssH + 'px';
+  ctx.scale(dpr, dpr);
+  const w = cssW, h = cssH;
   ctx.clearRect(0, 0, w, h);
+  const extra = overflow || {};
 
-  // Layout: Domains (left 15%) → IPs (center 50%) → Providers (right 85%)
+  // ── Column header row ──
   const colD = w * 0.15, colI = w * 0.5, colP = w * 0.85;
-  const domY = domains.map((_, i) => 40 + i * (h - 60) / Math.max(domains.length - 1, 1));
-  const ipY = ips.map((_, i) => 50 + i * (h - 80) / Math.max(ips.length - 1, 1));
-  const provY = providers.map((_, i) => 60 + i * (h - 100) / Math.max(providers.length - 1, 1));
+  const headerY = 18;
+  ctx.font = '600 11px "Chakra Petch"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  [['DOMAINS', colD, '#ff3b5c'], ['IPs', colI, '#00d4ff'], ['PROVIDERS', colP, '#ffb627']].forEach(([lbl, x, c]) => {
+    ctx.fillStyle = c;
+    ctx.fillText(lbl, x, headerY);
+  });
+  ctx.beginPath();
+  ctx.moveTo(20, headerY + 12);
+  ctx.lineTo(w - 20, headerY + 12);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-  // Draw connections: domains → IPs (red Bezier curves)
-  domains.forEach((_, di) => {
-    const targets = ips.slice(0, Math.min(2, ips.length));
-    targets.forEach((_, ti) => {
-      const tIdx = (di + ti) % ips.length;
+  const topPad = 42;
+  const botPad = 30;
+
+  // ── Y positions: center nodes when few items ──
+  function computeY(arr, pad) {
+    const usable = h - topPad - botPad - pad;
+    if (arr.length === 1) return [topPad + usable / 2];
+    return arr.map((_, i) => topPad + pad / 2 + i * usable / (arr.length - 1));
+  }
+  const domY = computeY(domains, 0);
+  const ipY = computeY(ips, 10);
+  const provY = computeY(providers, 20);
+
+  // ── Connection tracking for hover ──
+  const connections = [];
+
+  // ── Draw connections: domains → IPs (red Bezier) ──
+  domains.forEach((d, di) => {
+    const dObj = typeof d === 'string' ? { domain: d } : d;
+    const dIp = dObj.ip || dObj.ip_address;
+    ips.forEach((ipNode, ii) => {
+      const ipStr = typeof ipNode === 'string' ? ipNode : ipNode.ip || ipNode.address || '';
+      // Connect if same IP or fallback: first 2 IPs
+      const linked = dIp ? (dIp === ipStr) : (ii < 2 || (di + ii) % ips.length < 2);
+      if (!linked && ips.length > 2) return;
       ctx.beginPath();
-      ctx.moveTo(colD + 60, domY[di]);
-      ctx.quadraticCurveTo((colD + colI) / 2, domY[di] * 0.6 + ipY[tIdx] * 0.4, colI - 40, ipY[tIdx]);
-      ctx.strokeStyle = 'rgba(255,59,92,0.12)';
-      ctx.lineWidth = 1;
+      const x0 = colD + 70, y0 = domY[di], x1 = colI - 50, y1 = ipY[ii];
+      ctx.moveTo(x0, y0);
+      const cpx = (x0 + x1) / 2;
+      ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
+      ctx.strokeStyle = 'rgba(255,59,92,0.28)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
+      connections.push({ type: 'domain-ip', di, ii, x0, y0, x1, y1 });
     });
   });
 
-  // Draw connections: IPs → Providers (cyan Bezier curves)
-  ips.forEach((_, ii) => {
-    const pIdx = ii % providers.length;
-    ctx.beginPath();
-    ctx.moveTo(colI + 40, ipY[ii]);
-    ctx.quadraticCurveTo((colI + colP) / 2, ipY[ii] * 0.5 + provY[pIdx] * 0.5, colP - 60, provY[pIdx]);
-    ctx.strokeStyle = 'rgba(0,212,255,0.12)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  // ── Draw connections: IPs → Providers (cyan Bezier) ──
+  ips.forEach((ipNode, ii) => {
+    const ipObj = typeof ipNode === 'string' ? {} : ipNode;
+    const ipProv = ipObj.provider || ipObj.hosting_provider;
+    providers.forEach((pNode, pi) => {
+      const provStr = typeof pNode === 'string' ? pNode : pNode.name || pNode.provider || '';
+      const linked = ipProv ? (ipProv === provStr) : (pi === ii % providers.length);
+      if (!linked && providers.length > 2) return;
+      ctx.beginPath();
+      const x0 = colI + 50, y0 = ipY[ii], x1 = colP - 70, y1 = provY[pi];
+      ctx.moveTo(x0, y0);
+      const cpx = (x0 + x1) / 2;
+      ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
+      ctx.strokeStyle = 'rgba(0,212,255,0.28)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      connections.push({ type: 'ip-prov', ii, pi, x0, y0, x1, y1 });
+    });
   });
 
-  // Draw nodes
-  function drawNode(x, y, label, type) {
-    const colors = { domain: ['rgba(255,59,92,0.15)', '#ff3b5c'], ip: ['rgba(0,212,255,0.1)', '#00d4ff'], provider: ['rgba(255,182,39,0.1)', '#ffb627'] };
+  // ── Draw nodes ──
+  const nodeRects = [];
+  function drawNode(x, y, label, type, idx) {
+    const colors = { domain: ['rgba(255,59,92,0.18)', '#ff3b5c'], ip: ['rgba(0,212,255,0.14)', '#00d4ff'], provider: ['rgba(255,182,39,0.14)', '#ffb627'] };
     const [bg, fg] = colors[type] || colors.ip;
-    ctx.font = '500 9px "IBM Plex Mono"';
+    ctx.font = '500 11px "IBM Plex Mono"';
     const tw = ctx.measureText(label).width;
-    const pw = tw + 16;
-    const rx = x - pw / 2, ry = y - 10;
+    const pw = tw + 20;
+    const ph = 24;
+    const rx = x - pw / 2, ry = y - ph / 2;
     ctx.fillStyle = bg;
     ctx.beginPath();
-    ctx.roundRect(rx, ry, pw, 20, 4);
+    ctx.roundRect(rx, ry, pw, ph, 5);
     ctx.fill();
-    ctx.strokeStyle = fg + '40';
+    ctx.strokeStyle = fg + '55';
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.fillStyle = fg;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, x, y);
-    // Category label
-    ctx.font = '500 7px "Chakra Petch"';
-    ctx.fillStyle = '#4a5a73';
-    ctx.fillText(type.toUpperCase(), x, y + 16);
+    nodeRects.push({ x: rx, y: ry, w: pw, h: ph, type, idx, label });
   }
 
-  domains.forEach((d, i) => drawNode(colD, domY[i], (typeof d === 'string' ? d : d.domain || d.name || '').substring(0, 18), 'domain'));
-  ips.forEach((ip, i) => drawNode(colI, ipY[i], typeof ip === 'string' ? ip : ip.ip || ip.address || '', 'ip'));
-  providers.forEach((p, i) => drawNode(colP, provY[i], typeof p === 'string' ? p : p.name || p.provider || '', 'provider'));
+  domains.forEach((d, i) => drawNode(colD, domY[i], (typeof d === 'string' ? d : d.domain || d.name || '').substring(0, 22), 'domain', i));
+  ips.forEach((ip, i) => drawNode(colI, ipY[i], typeof ip === 'string' ? ip : ip.ip || ip.address || '', 'ip', i));
+  providers.forEach((p, i) => drawNode(colP, provY[i], (typeof p === 'string' ? p : p.name || p.provider || '').substring(0, 22), 'provider', i));
+
+  // ── "+N more" indicators ──
+  ctx.font = '500 10px "IBM Plex Mono"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (extra.extraDomains > 0) { ctx.fillStyle = '#ff3b5c80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
+  if (extra.extraIps > 0) { ctx.fillStyle = '#00d4ff80'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
+  if (extra.extraProviders > 0) { ctx.fillStyle = '#ffb62780'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
+
+  // ── Hover highlight: highlight connected nodes and lines ──
+  let hoveredNode = null;
+  canvasEl.style.cursor = 'default';
+
+  function redrawHighlight(hovered) {
+    // Redraw full graph then overlay highlights
+    ctx.clearRect(0, 0, w, h);
+    // Re-call without hover to redraw base
+    _campDrawInfraGraph.__drawBase(ctx, w, h, domains, ips, providers, domY, ipY, provY, colD, colI, colP, connections, nodeRects, extra, headerY);
+    if (!hovered) return;
+    // Highlight connected edges
+    const ht = hovered.type, hi = hovered.idx;
+    connections.forEach(c => {
+      let match = false;
+      if (ht === 'domain' && c.type === 'domain-ip' && c.di === hi) match = true;
+      if (ht === 'ip' && c.type === 'domain-ip' && c.ii === hi) match = true;
+      if (ht === 'ip' && c.type === 'ip-prov' && c.ii === hi) match = true;
+      if (ht === 'provider' && c.type === 'ip-prov' && c.pi === hi) match = true;
+      if (match) {
+        ctx.beginPath();
+        ctx.moveTo(c.x0, c.y0);
+        const cpx = (c.x0 + c.x1) / 2;
+        ctx.bezierCurveTo(cpx, c.y0, cpx, c.y1, c.x1, c.y1);
+        ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.7)' : 'rgba(0,212,255,0.7)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+    });
+  }
+
+  canvasEl.onmousemove = function(e) {
+    const rect = canvasEl.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const found = nodeRects.find(n => mx >= n.x && mx <= n.x + n.w && my >= n.y && my <= n.y + n.h);
+    if (found && (!hoveredNode || found.type !== hoveredNode.type || found.idx !== hoveredNode.idx)) {
+      hoveredNode = found;
+      canvasEl.style.cursor = 'pointer';
+      redrawHighlight(found);
+    } else if (!found && hoveredNode) {
+      hoveredNode = null;
+      canvasEl.style.cursor = 'default';
+      redrawHighlight(null);
+    }
+  };
+  canvasEl.onmouseleave = function() {
+    if (hoveredNode) { hoveredNode = null; canvasEl.style.cursor = 'default'; redrawHighlight(null); }
+  };
 }
+
+// Static base-draw helper for hover re-render (avoids full re-init)
+_campDrawInfraGraph.__drawBase = function(ctx, w, h, domains, ips, providers, domY, ipY, provY, colD, colI, colP, connections, nodeRects, extra, headerY) {
+  // Header
+  ctx.font = '600 11px "Chakra Petch"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  [['DOMAINS', colD, '#ff3b5c'], ['IPs', colI, '#00d4ff'], ['PROVIDERS', colP, '#ffb627']].forEach(([lbl, x, c]) => {
+    ctx.fillStyle = c;
+    ctx.fillText(lbl, x, headerY);
+  });
+  ctx.beginPath(); ctx.moveTo(20, headerY + 12); ctx.lineTo(w - 20, headerY + 12);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Connections
+  connections.forEach(c => {
+    ctx.beginPath();
+    ctx.moveTo(c.x0, c.y0);
+    const cpx = (c.x0 + c.x1) / 2;
+    ctx.bezierCurveTo(cpx, c.y0, cpx, c.y1, c.x1, c.y1);
+    ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.28)' : 'rgba(0,212,255,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Nodes
+  nodeRects.forEach(n => {
+    const colors = { domain: ['rgba(255,59,92,0.18)', '#ff3b5c'], ip: ['rgba(0,212,255,0.14)', '#00d4ff'], provider: ['rgba(255,182,39,0.14)', '#ffb627'] };
+    const [bg, fg] = colors[n.type] || colors.ip;
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(n.x, n.y, n.w, n.h, 5); ctx.fill();
+    ctx.strokeStyle = fg + '55'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = '500 11px "IBM Plex Mono"'; ctx.fillStyle = fg;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(n.label, n.x + n.w / 2, n.y + n.h / 2);
+  });
+
+  // +N more
+  ctx.font = '500 10px "IBM Plex Mono"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (extra.extraDomains > 0) { ctx.fillStyle = '#ff3b5c80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
+  if (extra.extraIps > 0) { ctx.fillStyle = '#00d4ff80'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
+  if (extra.extraProviders > 0) { ctx.fillStyle = '#ffb62780'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
+};
 
 async function viewCampaignDetail(el, params) {
   el.innerHTML = 'Loading...';
@@ -1819,7 +1967,7 @@ async function viewCampaignDetail(el, params) {
 
       <div class="infra-panel">
         <div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Map</span><span class="badge">${domainCount} domains \u2192 ${ipCount} IPs \u2192 ${provCount} providers</span></div>
-        <div class="infra-body" style="height:280px"><canvas id="camp-infra-canvas" class="infra-canvas"></canvas></div>
+        <div class="infra-body" style="height:380px"><canvas id="camp-infra-canvas" class="infra-canvas"></canvas></div>
       </div>
 
       <div class="detail-grid">
@@ -1867,11 +2015,18 @@ async function viewCampaignDetail(el, params) {
     setTimeout(() => {
       const canvas = document.getElementById('camp-infra-canvas');
       if (!canvas) return;
-      const domainNodes = (infra.domains || []).slice(0, 6);
-      const ipNodes = (infra.ips || []).slice(0, 6);
-      const provNodes = (infra.providers || []).slice(0, 3);
+      const allDomains = infra.domains || [];
+      const allIps = infra.ips || [];
+      const allProviders = infra.providers || [];
+      const domainNodes = allDomains.slice(0, 8);
+      const ipNodes = allIps.slice(0, 8);
+      const provNodes = allProviders.slice(0, 8);
       if (domainNodes.length || ipNodes.length || provNodes.length) {
-        _campDrawInfraGraph(canvas, domainNodes, ipNodes, provNodes);
+        _campDrawInfraGraph(canvas, domainNodes, ipNodes, provNodes, {
+          extraDomains: Math.max(0, allDomains.length - 8),
+          extraIps: Math.max(0, allIps.length - 8),
+          extraProviders: Math.max(0, allProviders.length - 8),
+        });
       }
     }, 100);
 

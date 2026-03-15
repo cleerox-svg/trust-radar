@@ -7,6 +7,7 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+import { generateCampaignName } from "../lib/haiku";
 
 export const strategistAgent: AgentModule = {
   name: "strategist",
@@ -64,12 +65,38 @@ export const strategistAgent: AgentModule = {
       } else {
         // Create new campaign
         campaignId = crypto.randomUUID();
-        const name = `IP-cluster-${cluster.ip_address.replace(/\./g, "-")}`;
+        const fallbackName = `IP-cluster-${cluster.ip_address.replace(/\./g, "-")}`;
+
+        // Fetch campaign context for AI naming
+        const campDomains = await env.DB.prepare(
+          `SELECT DISTINCT malicious_domain FROM threats WHERE ip_address = ? AND status = 'active' AND malicious_domain IS NOT NULL LIMIT 10`
+        ).bind(cluster.ip_address).all<{ malicious_domain: string }>();
+        const campBrands = await env.DB.prepare(
+          `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.ip_address = ? AND t.status = 'active' LIMIT 5`
+        ).bind(cluster.ip_address).all<{ name: string }>();
+        const campProviders = await env.DB.prepare(
+          `SELECT DISTINCT COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.ip_address = ? AND t.hosting_provider_id IS NOT NULL LIMIT 3`
+        ).bind(cluster.ip_address).all<{ name: string }>();
+
+        // Generate AI name (fall back to technical ID if Haiku fails)
+        let name = fallbackName;
+        const nameResult = await generateCampaignName(env, {
+          domains: campDomains.results.map(d => d.malicious_domain),
+          target_brands: campBrands.results.map(b => b.name),
+          threat_types: cluster.types ? cluster.types.split(",") : [],
+          providers: campProviders.results.map(p => p.name),
+          threat_count: cluster.threat_count,
+          ip_count: 1,
+        });
+        if (nameResult.success && nameResult.data?.name) {
+          name = nameResult.data.name;
+        }
+
         await env.DB.prepare(
-          `INSERT INTO campaigns (id, name, threat_count, attack_pattern, status)
-           VALUES (?, ?, ?, ?, 'active')`
+          `INSERT INTO campaigns (id, name, description, threat_count, attack_pattern, status)
+           VALUES (?, ?, ?, ?, ?, 'active')`
         ).bind(
-          campaignId, name, cluster.threat_count,
+          campaignId, name, fallbackName, cluster.threat_count,
           JSON.stringify({
             type: "shared_ip",
             ip: cluster.ip_address,
@@ -81,12 +108,13 @@ export const strategistAgent: AgentModule = {
 
         outputs.push({
           type: "correlation",
-          summary: `New campaign detected: ${cluster.threat_count} threats sharing IP ${cluster.ip_address}`,
+          summary: `New campaign detected: "${name}" — ${cluster.threat_count} threats sharing IP ${cluster.ip_address}`,
           severity: cluster.threat_count >= 10 ? "high" : "medium",
           details: {
             ip: cluster.ip_address,
             threat_count: cluster.threat_count,
             sources: cluster.sources.split(","),
+            ai_name: name,
           },
         });
       }
@@ -114,13 +142,33 @@ export const strategistAgent: AgentModule = {
       itemsProcessed++;
 
       const campaignId = crypto.randomUUID();
-      const name = `Registrar-cluster-${cluster.registrar.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}`;
+      const fallbackName = `Registrar-cluster-${cluster.registrar.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}`;
+
+      // Fetch context for AI naming
+      const regDomains = await env.DB.prepare(
+        `SELECT DISTINCT malicious_domain FROM threats WHERE registrar = ? AND status = 'active' AND malicious_domain IS NOT NULL AND created_at >= datetime('now', '-7 days') LIMIT 10`
+      ).bind(cluster.registrar).all<{ malicious_domain: string }>();
+      const regBrands = await env.DB.prepare(
+        `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.registrar = ? AND t.status = 'active' AND t.created_at >= datetime('now', '-7 days') LIMIT 5`
+      ).bind(cluster.registrar).all<{ name: string }>();
+
+      let name = fallbackName;
+      const nameResult = await generateCampaignName(env, {
+        domains: regDomains.results.map(d => d.malicious_domain),
+        target_brands: regBrands.results.map(b => b.name),
+        threat_types: [],
+        providers: [cluster.registrar],
+        threat_count: cluster.threat_count,
+      });
+      if (nameResult.success && nameResult.data?.name) {
+        name = nameResult.data.name;
+      }
 
       await env.DB.prepare(
-        `INSERT INTO campaigns (id, name, threat_count, attack_pattern, status)
-         VALUES (?, ?, ?, ?, 'active')`
+        `INSERT INTO campaigns (id, name, description, threat_count, attack_pattern, status)
+         VALUES (?, ?, ?, ?, ?, 'active')`
       ).bind(
-        campaignId, name, cluster.threat_count,
+        campaignId, name, fallbackName, cluster.threat_count,
         JSON.stringify({ type: "shared_registrar", registrar: cluster.registrar }),
       ).run();
 
@@ -134,9 +182,9 @@ export const strategistAgent: AgentModule = {
 
       outputs.push({
         type: "correlation",
-        summary: `Registrar campaign: ${cluster.threat_count} threats via ${cluster.registrar}`,
+        summary: `Registrar campaign: "${name}" — ${cluster.threat_count} threats via ${cluster.registrar}`,
         severity: "medium",
-        details: { registrar: cluster.registrar, count: cluster.threat_count },
+        details: { registrar: cluster.registrar, count: cluster.threat_count, ai_name: name },
       });
     }
 
@@ -157,6 +205,48 @@ export const strategistAgent: AgentModule = {
       WHERE status = 'active'
         AND last_seen < datetime('now', '-30 days')
     `).run();
+
+    // ─── Retroactive rename: fix campaigns with technical names ───
+    const technicalCampaigns = await env.DB.prepare(
+      `SELECT id, name, attack_pattern FROM campaigns
+       WHERE name LIKE 'IP-cluster-%' OR name LIKE 'Registrar-cluster-%'
+       LIMIT 10`
+    ).all<{ id: string; name: string; attack_pattern: string | null }>();
+
+    for (const camp of technicalCampaigns.results) {
+      // Fetch context from linked threats
+      const campDomains = await env.DB.prepare(
+        `SELECT DISTINCT malicious_domain FROM threats WHERE campaign_id = ? AND malicious_domain IS NOT NULL LIMIT 10`
+      ).bind(camp.id).all<{ malicious_domain: string }>();
+      const campBrands = await env.DB.prepare(
+        `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.campaign_id = ? LIMIT 5`
+      ).bind(camp.id).all<{ name: string }>();
+      const campProviders = await env.DB.prepare(
+        `SELECT DISTINCT COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL LIMIT 3`
+      ).bind(camp.id).all<{ name: string }>();
+      const campTypes = await env.DB.prepare(
+        `SELECT DISTINCT threat_type FROM threats WHERE campaign_id = ? AND threat_type IS NOT NULL LIMIT 5`
+      ).bind(camp.id).all<{ threat_type: string }>();
+      const campCount = await env.DB.prepare(
+        `SELECT COUNT(*) as n FROM threats WHERE campaign_id = ?`
+      ).bind(camp.id).first<{ n: number }>();
+
+      const nameResult = await generateCampaignName(env, {
+        domains: campDomains.results.map(d => d.malicious_domain),
+        target_brands: campBrands.results.map(b => b.name),
+        threat_types: campTypes.results.map(t => t.threat_type),
+        providers: campProviders.results.map(p => p.name),
+        threat_count: campCount?.n ?? 0,
+      });
+
+      if (nameResult.success && nameResult.data?.name) {
+        await env.DB.prepare(
+          `UPDATE campaigns SET name = ?, description = COALESCE(description, ?) WHERE id = ?`
+        ).bind(nameResult.data.name, camp.name, camp.id).run();
+        itemsUpdated++;
+        console.log(`[strategist] Renamed campaign "${camp.name}" → "${nameResult.data.name}"`);
+      }
+    }
 
     // Always produce at least one output for diagnostics
     if (outputs.length === 0) {
