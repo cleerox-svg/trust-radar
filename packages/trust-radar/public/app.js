@@ -430,12 +430,12 @@ async function viewObservatory(el) {
     </div>
   </div>`;
 
-  // UTC clock
+  // Local time clock
   const clockEl = document.getElementById('utc-clock');
-  const clockInterval = setInterval(() => {
-    clockEl.textContent = new Date().toISOString().slice(11, 19) + ' UTC';
-  }, 1000);
-  clockEl.textContent = new Date().toISOString().slice(11, 19) + ' UTC';
+  const _tzAbbr = Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value || 'LOCAL';
+  function _updateClock() { clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + _tzAbbr; }
+  _updateClock();
+  const clockInterval = setInterval(_updateClock, 1000);
 
   // Initialize Leaflet map
   const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([25, 10], 2.5);
