@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { WordMark } from "./LogoMark";
+import { TrustRadarLogo } from "./TrustRadarLogo";
 import {
   LayoutDashboard, Shield, AlertTriangle, Download,
   Bot, Settings, LogOut, ChevronDown, ChevronRight,
@@ -99,7 +99,7 @@ export function Sidebar({ user, influencerList, selectedInfluencer, onInfluencer
         style={{ borderBottom: "1px solid var(--border-subtle)", height: 56 }}
       >
         <Link to="/" className="block group" onClick={onClose}>
-          <WordMark variant="shield" size={26} textSize="text-lg" className="group-hover:opacity-80 transition-opacity" />
+          <TrustRadarLogo variant="topbar" theme="dark" className="group-hover:opacity-80 transition-opacity" />
         </Link>
         <div className="flex items-center gap-1.5">
           <PlatformSwitcher />

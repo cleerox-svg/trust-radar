@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useSidebarData } from "./components/Sidebar";
 import { ThemeProvider } from "./lib/theme";
 import { ThemeToggle } from "./components/ui/ThemeToggle";
-import { WordMark } from "./components/LogoMark";
+import { TrustRadarLogo } from "./components/TrustRadarLogo";
 import { PlatformSwitcher } from "./components/PlatformSwitcher";
 import { BottomBar } from "./components/BottomBar";
 import { SectionNav } from "./components/SectionNav";
@@ -30,16 +30,33 @@ const BrandDashboard    = lazy(() => import("./pages/Dashboard"));
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[40vh]">
-      <div className="flex flex-col items-center gap-2">
-        <div
-          className="w-6 h-6 rounded-full animate-spin"
-          style={{ border: "2px solid var(--border-default)", borderTopColor: "var(--gold-400)" }}
-        />
-        <span className="text-[10px] font-mono tracking-widest" style={{ color: "var(--text-tertiary)" }}>
-          LOADING...
+      <div className="flex flex-col items-center gap-3">
+        <TrustRadarLogo variant="loading" theme="dark" />
+        <span className="text-[10px] tracking-widest" style={{ color: "var(--text-tertiary)", fontFamily: "'Chakra Petch', sans-serif", letterSpacing: "3px" }}>
+          SCANNING...
         </span>
       </div>
     </div>
+  );
+}
+
+// ─── Footer ──────────────────────────────────────────────────────────────
+function AppFooter() {
+  return (
+    <footer
+      style={{
+        textAlign: "center",
+        padding: "16px",
+        borderTop: "1px solid var(--border-subtle)",
+        fontSize: 10,
+        color: "var(--text-tertiary)",
+        fontFamily: "'DM Sans', 'Inter', sans-serif",
+      }}
+    >
+      Operated by{" "}
+      <span style={{ color: "var(--text-secondary)" }}>LRX Enterprises Inc.</span>
+      {" "}{"\u{1F1E8}\u{1F1E6}"} Canadian owned and operated
+    </footer>
   );
 }
 
@@ -75,10 +92,9 @@ function AppShell() {
     return (
       <div className="flex items-center justify-center h-screen" style={{ background: "var(--surface-base)" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full animate-spin"
-            style={{ border: "2px solid var(--border-default)", borderTopColor: "var(--gold-400)" }} />
-          <div className="text-xs font-mono tracking-widest" style={{ color: "var(--text-tertiary)" }}>
-            LOADING...
+          <TrustRadarLogo variant="loading" theme="dark" />
+          <div className="text-[10px] tracking-widest" style={{ color: "var(--text-tertiary)", fontFamily: "'Chakra Petch', sans-serif", letterSpacing: "3px" }}>
+            SCANNING...
           </div>
         </div>
       </div>
@@ -103,7 +119,14 @@ function AppShell() {
         style={{ background: "var(--surface-raised)", borderBottom: "1px solid var(--border-subtle)" }}
       >
         <div className="flex items-center gap-3">
-          <WordMark variant="shield" size={22} textSize="text-base" />
+          {/* Desktop: full topbar logo with wordmark */}
+          <span className="hidden sm:inline-flex">
+            <TrustRadarLogo variant="topbar" theme="dark" />
+          </span>
+          {/* Mobile: icon mark only */}
+          <span className="inline-flex sm:hidden">
+            <TrustRadarLogo variant="icon" theme="dark" />
+          </span>
           <div className="hidden sm:block">
             <PlatformSwitcher />
           </div>
@@ -202,6 +225,7 @@ function AppShell() {
             <Outlet context={{ user, selectedInfluencer, influencerList, setThreatCount }} />
           </Suspense>
         </ErrorBoundary>
+        <AppFooter />
       </div>
 
       {/* Bottom navigation bar */}
