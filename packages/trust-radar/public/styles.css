@@ -1342,27 +1342,27 @@ a.campaign-card:hover { text-decoration: none; }
 
 /* ─── Admin Module ─────────────────────────────────────────── */
 
-/* Admin Topbar */
+/* Admin Topbar — same structure as analyst topbar, amber color overrides */
 .admin-topbar .admin-badge {
   font-family: var(--font-display); font-size: 10px; font-weight: 700;
   letter-spacing: 1.2px; text-transform: uppercase; color: var(--threat-medium);
   padding: 4px 12px; border: 1px solid rgba(255,182,39,.4); border-radius: 4px;
   background: rgba(255,182,39,.12); text-shadow: 0 0 8px rgba(255,182,39,.25);
+  white-space: nowrap; flex-shrink: 0;
 }
-.admin-nav-pills {
-  display: flex; gap: 2px; background: var(--bg-panel); padding: 3px; border-radius: var(--radius);
+.admin-nav-pills .admin-np {
+  font-family: var(--font-display); font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 1px;
+  padding: 6px 12px; border-radius: var(--radius);
+  color: var(--text-secondary); transition: all var(--transition-fast);
+  text-decoration: none; white-space: nowrap; flex-shrink: 0;
 }
-.admin-np {
-  font-family: var(--font-body); font-size: 11px; font-weight: 500;
-  padding: 5px 13px; border-radius: 4px; border: none; background: transparent;
-  color: var(--text-secondary); cursor: pointer; transition: all 0.2s; text-decoration: none;
-}
-.admin-np.active { background: var(--bg-elevated); color: var(--threat-medium); }
-.admin-np:hover:not(.active) { color: var(--text-primary); }
+.admin-nav-pills .admin-np:hover { color: var(--text-primary); background: var(--bg-elevated); text-decoration: none; }
+.admin-nav-pills .admin-np.active { color: #ffb627; background: rgba(255,182,39,0.08); }
 .admin-back-link {
   font-family: var(--font-body); font-size: 11px; color: var(--blue-primary);
   text-decoration: none; display: flex; align-items: center; gap: 4px;
-  cursor: pointer; transition: opacity 0.15s;
+  cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
 }
 .admin-back-link:hover { opacity: 0.7; }
 
@@ -1870,8 +1870,8 @@ a.campaign-card:hover { text-decoration: none; }
   }
   .topbar-nav::-webkit-scrollbar { display: none; }
   .topbar-nav a { white-space: nowrap; flex-shrink: 0; font-size: 10px; padding: 5px 10px; }
-  .topbar-logo .tr-wordmark { display: none; }
-  .topbar-logo .tr-logo-mark { width: 36px; height: 36px; }
+  .topbar-logo .tr-logo-mark { width: 160px; height: 28px; }
+  /* Wordmark stays visible on mobile — do NOT hide it */
   .topbar-right { gap: 8px; }
   .live-tag { display: none; }
 
@@ -1920,19 +1920,9 @@ a.campaign-card:hover { text-decoration: none; }
   /* F) AGENTS — cards + detail */
   .agent-card { padding: 14px; }
 
-  /* G) ADMIN — nav scrollable row */
-  .admin-nav-pills {
-    display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; max-width: 60vw;
-  }
-  .admin-nav-pills::-webkit-scrollbar { display: none; }
-  .admin-nav-pills .admin-np { white-space: nowrap; flex-shrink: 0; }
-  .admin-topbar .topbar-left { gap: 10px; flex-wrap: nowrap; overflow: visible; }
-  .admin-nav-pills {
-    -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 85%, transparent 100%);
-  }
+  /* G) ADMIN — inherits analyst topbar-nav scroll, just override sizes */
   .admin-badge { font-size: 9px; padding: 2px 8px; }
+  .admin-nav-pills .admin-np { font-size: 10px; padding: 5px 10px; }
   .admin-back-link span.back-text { display: none; }
 
   /* G) ADMIN — grids */
@@ -1954,8 +1944,8 @@ a.campaign-card:hover { text-decoration: none; }
 @media (max-width: 480px) {
   /* A) GLOBAL — Topbar condensed */
   .topbar { padding: 6px 8px; }
-  .topbar-logo .tr-wordmark { display: none; }
-  .topbar-logo .tr-logo-mark { width: 36px; height: 36px; }
+  .topbar-logo .tr-logo-mark { width: 140px; height: 24px; }
+  /* Wordmark STILL visible on phones */
   .topbar-nav a { font-size: 9px; padding: 4px 8px; min-height: 32px; display: flex; align-items: center; }
   .feed-status { display: none; }
   .admin-gear { font-size: 14px; }
@@ -2007,7 +1997,6 @@ a.campaign-card:hover { text-decoration: none; }
   .adm-metrics { grid-template-columns: 1fr 1fr; }
   .adm-kanban { display: none; } /* hide kanban on tiny screens */
   .adm-slideout { border-radius: 0 !important; }
-  .admin-nav-pills { max-width: 55vw; }
   .admin-nav-pills .admin-np { font-size: 9px; padding: 4px 8px; }
   .admin-back-link { font-size: 12px; }
   .admin-back-link span.back-text { display: none; }
