@@ -64,6 +64,7 @@ async function refreshToken() {
 
 // ─── Router ─────────────────────────────────────────────────────
 const routes = [
+  { path: '/',                      view: viewRootRedirect,    auth: false },
   { path: '/observatory',           view: viewObservatory,     auth: true },
   { path: '/brands',               view: viewBrandsHub,       auth: true },
   { path: '/brands/:id',           view: viewBrandDetail,     auth: true },
@@ -354,6 +355,13 @@ async function logout() {
   accessToken = null;
   currentUser = null;
   navigate('/login');
+}
+
+// ─── View: Root Redirect ────────────────────────────────────────
+function viewRootRedirect() {
+  // Authenticated users in SPA → go to observatory
+  // Unauthenticated → full reload gets server-rendered public homepage
+  navigate(isAuthenticated() ? '/observatory' : '/login', true);
 }
 
 // ─── View: Login ────────────────────────────────────────────────
