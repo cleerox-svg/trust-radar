@@ -201,7 +201,46 @@ Identify the targeted brand for this threat:
 
 // ─── Daily Insight Generation ────────────────────────────────────
 
+export interface HaikuBriefingItem {
+  title: string;
+  severity: string;
+  summary: string;
+  related_brand_id?: string | null;
+  related_campaign_id?: string | null;
+}
+
 export async function generateInsight(
+  env: Env,
+  context: {
+    period: string;
+    threats_summary: Record<string, unknown>;
+    top_brands: Array<{ name: string; count: number; id?: string }>;
+    top_providers: Array<{ name: string; count: number }>;
+    trend_data: Record<string, unknown>;
+    recent_campaigns?: Array<{ id: string; name: string; threat_count: number }>;
+    agent_context?: Array<{ agent: string; summary: string }>;
+    type_distribution?: Array<{ threat_type: string; count: number }>;
+  },
+): Promise<HaikuResponse<{ items: HaikuBriefingItem[] }>> {
+  const systemPrompt = `You are a senior threat intelligence analyst at a security operations center. Based on the data provided, write 3-5 intelligence briefing items. Each item must have:
+- A concise descriptive title (e.g., 'Roblox Credential Harvest Expanding')
+- A severity level: critical, high, medium, or info
+- A 2-3 sentence summary explaining WHAT is happening, WHO is being targeted, HOW the attack works, and WHY it matters
+- A related_brand_id if the item is about a specific brand (use the brand ID from the data, or null)
+- A related_campaign_id if the item is about a specific campaign (use the campaign ID from the data, or null)
+
+Focus on: new or expanding campaigns, brand targeting spikes, infrastructure shifts, emerging attack patterns, and notable changes from previous periods. Write for a security professional — be specific, cite numbers, name the brands and providers involved. Do NOT write generic security advice.
+
+Respond with ONLY a JSON object: {"items": [...]}`;
+
+  const userMessage = `Generate intelligence briefing items from this ${context.period} data:
+${JSON.stringify(context, null, 2)}`;
+
+  return callAnthropic<{ items: HaikuBriefingItem[] }>(env, systemPrompt, userMessage);
+}
+
+// Legacy single-insight generation (kept for backward compatibility)
+export async function generateSingleInsight(
   env: Env,
   context: {
     period: string;
@@ -308,6 +347,37 @@ Respond with ONLY a JSON object: {"name": "Your Campaign Name Here"}`;
 - Unique IPs: ${campaign.ip_count ?? 1}`;
 
   return callAnthropic<{ name: string }>(env, systemPrompt, userMessage);
+}
+
+// ─── Brand Threat Analysis ───────────────────────────────────────
+
+export interface HaikuBrandAnalysis {
+  analysis: string;
+  risk_level: string;
+  key_findings: string[];
+}
+
+export async function analyzeBrandThreats(
+  env: Env,
+  context: {
+    brand_name: string;
+    threat_count: number;
+    providers: string[];
+    domains: string[];
+    threat_types: Record<string, number>;
+    campaigns: string[];
+  },
+): Promise<HaikuResponse<HaikuBrandAnalysis>> {
+  const types = Object.entries(context.threat_types).map(([k, v]) => `${k} (${v})`).join(", ");
+  const systemPrompt = `You are a brand protection analyst. Analyze the threat landscape for the brand and write a concise threat assessment.
+Respond with ONLY a JSON object (no markdown) with these fields:
+- analysis: a 3-4 sentence threat assessment suitable for a brand protection briefing. Be specific about the attack methodology, infrastructure used, and risk level.
+- risk_level: one of "critical", "high", "medium", "low"
+- key_findings: array of 2-4 brief key findings`;
+
+  const userMessage = `Analyze the threat landscape for ${context.brand_name}. Based on the data: ${context.threat_count} active phishing threats, hosted across ${context.providers.slice(0, 10).join(", ") || "unknown providers"}, targeting ${context.domains.slice(0, 5).join(", ") || "unknown domains"}. The primary attack types are ${types || "unknown"}. Campaigns: ${context.campaigns.slice(0, 5).join(", ") || "none identified"}. Write a 3-4 sentence threat assessment suitable for a brand protection briefing. Be specific about the attack methodology, infrastructure used, and risk level.`;
+
+  return callAnthropic<HaikuBrandAnalysis>(env, systemPrompt, userMessage);
 }
 
 // ─── Generic Analysis ────────────────────────────────────────────
