@@ -247,9 +247,10 @@ export async function handleBrandThreatLocations(request: Request, env: Env, bra
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT country_code, COUNT(*) AS count, lat, lng
+      SELECT country_code, COUNT(*) AS count,
+             AVG(CAST(lat AS REAL)) AS lat, AVG(CAST(lng AS REAL)) AS lng
       FROM threats
-      WHERE target_brand_id = ? AND country_code IS NOT NULL
+      WHERE target_brand_id = ? AND country_code IS NOT NULL AND lat IS NOT NULL AND lng IS NOT NULL
       GROUP BY country_code
       ORDER BY count DESC
     `).bind(brandId).all();
@@ -282,7 +283,23 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
       GROUP BY ${bucket} ORDER BY period ASC
     `).bind(brandId).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    // Reshape to {labels, values} for frontend chart compatibility
+    const results = rows.results as Array<{ period: string; count: number; phishing: number; typosquatting: number; impersonation: number }>;
+    const labels = results.map(r => r.period);
+    const values = results.map(r => r.count);
+
+    return json({
+      success: true,
+      data: {
+        labels,
+        values,
+        series: [
+          { name: "Phishing", values: results.map(r => r.phishing) },
+          { name: "Typosquatting", values: results.map(r => r.typosquatting) },
+          { name: "Impersonation", values: results.map(r => r.impersonation) },
+        ],
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -293,10 +310,14 @@ export async function handleBrandProviders(request: Request, env: Env, brandId: 
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS provider_id, COUNT(*) AS threat_count,
-             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count
-      FROM threats WHERE target_brand_id = ? AND hosting_provider_id IS NOT NULL
-      GROUP BY hosting_provider_id ORDER BY threat_count DESC LIMIT 20
+      SELECT t.hosting_provider_id AS provider_id,
+             COALESCE(hp.name, t.hosting_provider_id) AS name,
+             COUNT(*) AS threat_count,
+             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_count
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE t.target_brand_id = ? AND t.hosting_provider_id IS NOT NULL
+      GROUP BY t.hosting_provider_id ORDER BY threat_count DESC LIMIT 20
     `).bind(brandId).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
