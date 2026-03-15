@@ -41,12 +41,12 @@ export async function handleCampaignStats(request: Request, env: Env): Promise<R
   try {
     const stats = await env.DB.prepare(`
       SELECT COUNT(*) AS total,
-             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
-             SUM(CASE WHEN status = 'dormant' THEN 1 ELSE 0 END) AS dormant_count,
-             SUM(CASE WHEN status = 'disrupted' THEN 1 ELSE 0 END) AS disrupted_count,
-             SUM(threat_count) AS active_threats,
-             SUM(brand_count) AS brands_affected
-      FROM campaigns
+             SUM(CASE WHEN c.status = 'active' THEN 1 ELSE 0 END) AS active_count,
+             SUM(CASE WHEN c.status = 'dormant' THEN 1 ELSE 0 END) AS dormant_count,
+             SUM(CASE WHEN c.status = 'disrupted' THEN 1 ELSE 0 END) AS disrupted_count,
+             SUM(c.threat_count) AS active_threats,
+             (SELECT COUNT(DISTINCT t.target_brand_id) FROM threats t WHERE t.campaign_id IS NOT NULL AND t.target_brand_id IS NOT NULL) AS brands_affected
+      FROM campaigns c
     `).first();
 
     return json({ success: true, data: stats }, 200, origin);
