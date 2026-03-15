@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth, invites, type InviteValidation } from "../lib/api";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
-import { WordMark } from "../components/LogoMark";
+import { TrustRadarLogo } from "../components/TrustRadarLogo";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -59,9 +59,25 @@ export default function Register() {
       </div>
       <div className="relative w-full max-w-md space-y-6">
         <div className="flex justify-center mb-2">
-          <WordMark variant="shield" size={32} textSize="text-2xl" />
+          <TrustRadarLogo variant="hero" theme="dark" />
         </div>
         {children}
+      </div>
+
+      {/* Footer */}
+      <div
+        className="relative mt-8"
+        style={{
+          textAlign: "center",
+          padding: "16px",
+          fontSize: 10,
+          color: "var(--text-tertiary)",
+          fontFamily: "'DM Sans', 'Inter', sans-serif",
+        }}
+      >
+        Operated by{" "}
+        <span style={{ color: "var(--text-secondary)" }}>LRX Enterprises Inc.</span>
+        {" "}{"\u{1F1E8}\u{1F1E6}"} Canadian owned and operated
       </div>
     </div>
   );

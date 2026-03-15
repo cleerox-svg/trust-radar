@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
-import { WordMark } from "./LogoMark";
+import { TrustRadarLogo } from "./TrustRadarLogo";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -24,7 +24,14 @@ export default function Navbar() {
     <nav className="border-b border-brand-border bg-brand-card/60 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link to="/" onClick={() => setOpen(false)} className="group-hover:opacity-80 transition-opacity">
-          <WordMark variant="shield" size={26} textSize="text-xl" />
+          {/* Desktop: full logo */}
+          <span className="hidden sm:inline-flex">
+            <TrustRadarLogo variant="topbar" theme="dark" />
+          </span>
+          {/* Mobile: icon only */}
+          <span className="inline-flex sm:hidden">
+            <TrustRadarLogo variant="icon" theme="dark" />
+          </span>
         </Link>
 
         {/* Desktop nav */}

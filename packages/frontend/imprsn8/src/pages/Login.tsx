@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
-import { WordMark } from "../components/LogoMark";
+import { TrustRadarLogo } from "../components/TrustRadarLogo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -40,9 +40,9 @@ export default function Login() {
       </div>
 
       <div className="relative w-full max-w-md space-y-6">
-        {/* Brand mark */}
+        {/* Brand mark — hero logo */}
         <div className="flex justify-center mb-2">
-          <WordMark variant="shield" size={32} textSize="text-2xl" />
+          <TrustRadarLogo variant="hero" theme="dark" />
         </div>
 
         <div className="card w-full space-y-6" style={{ boxShadow: "0 0 60px rgba(139,92,246,0.12)" }}>
@@ -81,6 +81,22 @@ export default function Login() {
             <Link to="/register" className="text-brand-pink hover:underline">Create one free</Link>
           </p>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div
+        className="relative mt-8"
+        style={{
+          textAlign: "center",
+          padding: "16px",
+          fontSize: 10,
+          color: "var(--text-tertiary)",
+          fontFamily: "'DM Sans', 'Inter', sans-serif",
+        }}
+      >
+        Operated by{" "}
+        <span style={{ color: "var(--text-secondary)" }}>LRX Enterprises Inc.</span>
+        {" "}{"\u{1F1E8}\u{1F1E6}"} Canadian owned and operated
       </div>
     </div>
   );

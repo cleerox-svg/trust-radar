@@ -19,7 +19,7 @@ import { Play, Pause, SkipBack, SkipForward, RefreshCw, Check, Star } from "luci
 import { publicApi } from "../lib/api";
 import type { PublicStats } from "../lib/types";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
-import { WordMark } from "../components/LogoMark";
+import { TrustRadarLogo } from "../components/TrustRadarLogo";
 import { AgentIcon, AGENT_COLORS, AGENT_DESCRIPTIONS } from "../components/ui/AgentIcon";
 import type { AgentName } from "../components/ui/AgentIcon";
 import { RiveStory } from "../components/RiveStory";
@@ -65,7 +65,7 @@ function Nav() {
     >
       <div className="max-w-content mx-auto flex items-center justify-between px-6 py-4">
         <Link to="/">
-          <WordMark variant="shield" size={28} textSize="text-xl" />
+          <TrustRadarLogo variant="topbar" theme="dark" />
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm" style={{ color: "var(--text-secondary)" }}>
           {["Features", "Intelligence", "Pricing"].map((item) => (
@@ -963,7 +963,7 @@ function CtaFooter() {
         <div className="max-w-content mx-auto px-6">
           <div className="flex flex-col md:flex-row gap-8 mb-10">
             <div className="flex-1">
-              <WordMark variant="shield" size={24} textSize="text-lg" className="mb-3" />
+              <TrustRadarLogo variant="topbar" theme="dark" className="mb-3" />
               <p className="text-xs" style={{ color: "var(--text-tertiary)", maxWidth: 240, lineHeight: 1.7 }}>
                 Guard protects creators. Shield protects brands. 9 AI agents. 24/7 defense.
               </p>
@@ -996,9 +996,16 @@ function CtaFooter() {
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between pt-6" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>© 2026 imprsn8. All rights reserved.</span>
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>Privacy · Terms</span>
+          <div className="flex flex-col items-center gap-2 pt-6" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>© 2026 Trust Radar. All rights reserved.</span>
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>Privacy · Terms</span>
+            </div>
+            <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+              Operated by{" "}
+              <span style={{ color: "var(--text-secondary)" }}>LRX Enterprises Inc.</span>
+              {" "}{"\u{1F1E8}\u{1F1E6}"} Canadian owned and operated
+            </span>
           </div>
         </div>
       </footer>
