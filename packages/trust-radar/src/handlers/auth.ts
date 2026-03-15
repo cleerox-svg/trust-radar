@@ -16,7 +16,7 @@ export async function handleOAuthLogin(request: Request, env: Env): Promise<Resp
 
   // state carries a return-to URL + CSRF nonce
   const url = new URL(request.url);
-  const returnTo = url.searchParams.get("return_to") ?? "/";
+  const returnTo = url.searchParams.get("return_to") ?? "/observatory";
   const nonce = crypto.randomUUID();
 
   // Store nonce in KV with 10-min TTL for CSRF validation
