@@ -180,10 +180,44 @@ async function render() {
         `<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
     }
     route.view(document.getElementById('view'), params);
+    startFeedStatusUpdater();
+    // Auto-scroll active nav pill into view on mobile
+    requestAnimationFrame(() => {
+      const activeNav = document.querySelector('.topbar-nav a.active') || document.querySelector('.admin-nav-pills .admin-np.active');
+      if (activeNav) activeNav.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
   } else {
     app.innerHTML = '<div id="view"></div><div class="toast-container" id="toasts"></div>';
     route.view(document.getElementById('view'), params);
   }
+}
+
+// ─── Global feed status updater ─────────────────────────────────
+async function updateFeedStatus() {
+  try {
+    const res = await api('/feeds').catch(() => null);
+    const feeds = res?.data || [];
+    const fc = document.getElementById('feed-count');
+    const fd = document.getElementById('feed-dot');
+    if (!fc) return;
+    const enabled = feeds.filter(f => f.enabled !== false);
+    const issues = enabled.filter(f => f.health_status === 'degraded' || f.health_status === 'down');
+    fc.textContent = enabled.length;
+    if (issues.length > 0) {
+      if (fd) fd.style.background = 'var(--threat-medium)';
+      fc.parentElement.title = `${issues.length} feed${issues.length > 1 ? 's' : ''} with issues`;
+    } else {
+      if (fd) fd.style.background = 'var(--positive)';
+      fc.parentElement.title = 'All feeds healthy';
+    }
+  } catch (_) { /* silent */ }
+}
+// Update feed status on page load and every 30s
+let _feedStatusInterval = null;
+function startFeedStatusUpdater() {
+  if (_feedStatusInterval) clearInterval(_feedStatusInterval);
+  updateFeedStatus();
+  _feedStatusInterval = setInterval(updateFeedStatus, 30000);
 }
 
 // ─── Shared Components ──────────────────────────────────────────
@@ -209,8 +243,9 @@ function renderTopbar() {
       ${navItems.map(n => `<a href="${n.href}" class="${path === n.href || (n.href !== '/' && path.startsWith(n.href)) ? 'active' : ''}">${n.label}</a>`).join('')}
     </nav>
     <div class="topbar-right">
-      <div class="feed-status"><span class="dot"></span><span id="feed-count">--</span> feeds</div>
+      <div class="feed-status"><span class="dot" id="feed-dot"></span><span id="feed-count">--</span> feeds</div>
       <div class="live-tag">LIVE</div>
+      ${isAdmin ? '<a href="/admin" class="admin-gear" onclick="event.preventDefault(); navigate(\'/admin\');" title="Admin Panel">\u2699</a>' : ''}
       <div class="user-menu" onclick="this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown">
@@ -438,7 +473,7 @@ async function viewObservatory(el) {
   const clockInterval = setInterval(_updateClock, 1000);
 
   // Initialize Leaflet map
-  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 3);
+  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 2);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(map);
   L.control.zoom({ position: 'topleft' }).addTo(map);
   _obsMap = map;
@@ -2129,8 +2164,19 @@ async function viewTrends(el) {
     const dimMap = { brands: '/trends/brands', providers: '/trends/providers', tlds: '/trends/tlds', types: '/trends/types', volume: '/trends/volume' };
     const res = await api(`${dimMap[_trendDimension]}?period=${_trendPeriod}&limit=10`).catch(() => null);
     const data = res?.data || {};
-    const labels = data.labels || [];
+    const rawLabels = data.labels || [];
     const series = data.series || [];
+
+    // Format labels: hourly labels like "2026-03-15 02:00" → "Mar 15 02:00"
+    const isHourly = _trendPeriod === '7d';
+    const labels = rawLabels.map(l => {
+      if (isHourly && l.includes(' ')) {
+        const [date, time] = l.split(' ');
+        const d = new Date(date + 'T' + time);
+        if (!isNaN(d)) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time;
+      }
+      return l;
+    });
 
     // Destroy old chart
     if (_trendChart) { _trendChart.destroy(); _trendChart = null; }
@@ -2143,9 +2189,13 @@ async function viewTrends(el) {
     // Build datasets
     let datasets;
     if (isArea || series.length === 0) {
-      // Volume - single series or fallback
+      // Volume - total + severity overlay
       const values = data.values || (Array.isArray(data) ? data.map(d => d.total || d.count || 0) : []);
-      datasets = [{ label: 'Total Threats', data: values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.15)', fill: true, tension: 0.3, pointRadius: 0 }];
+      datasets = [
+        { label: 'Total Threats', data: values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        ...(data.high_sev ? [{ label: 'High Severity', data: data.high_sev, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
+        ...(data.active ? [{ label: 'Active', data: data.active, borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
+      ];
     } else {
       datasets = series.map((s, i) => ({
         label: s.name || s.tld || `Series ${i}`,

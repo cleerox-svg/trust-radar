@@ -3,12 +3,12 @@
 import { json } from "../lib/cors";
 import type { Env } from "../types";
 
-function periodClause(period: string): { since: string; bucket: string } {
+function periodClause(period: string): { since: string; bucket: string; hourly: boolean } {
   switch (period) {
-    case "7d": return { since: "datetime('now', '-7 days')", bucket: "date(created_at)" };
-    case "90d": return { since: "datetime('now', '-90 days')", bucket: "strftime('%Y-%W', created_at)" };
-    case "1y": return { since: "datetime('now', '-1 year')", bucket: "strftime('%Y-%m', created_at)" };
-    default: return { since: "datetime('now', '-30 days')", bucket: "date(created_at)" };
+    case "7d": return { since: "datetime('now', '-7 days')", bucket: "strftime('%Y-%m-%d %H:00', created_at)", hourly: true };
+    case "90d": return { since: "datetime('now', '-90 days')", bucket: "date(created_at)", hourly: false };
+    case "1y": return { since: "datetime('now', '-1 year')", bucket: "strftime('%Y-%m', created_at)", hourly: false };
+    default: return { since: "datetime('now', '-30 days')", bucket: "date(created_at)", hourly: false };
   }
 }
 
@@ -66,8 +66,10 @@ export async function handleTrendVolume(request: Request, env: Env): Promise<Res
 
     const labels = rows.results.map((r) => r.period);
     const values = rows.results.map((r) => r.total);
+    const high_sev = rows.results.map((r) => r.high_sev);
+    const active = rows.results.map((r) => r.active);
 
-    return json({ success: true, data: { labels, values } }, 200, origin);
+    return json({ success: true, data: { labels, values, high_sev, active } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
