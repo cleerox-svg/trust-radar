@@ -23,10 +23,10 @@ export function applySecurityHeaders(response: Response): Response {
   // Content Security Policy
   headers.set("Content-Security-Policy", [
     "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
+    "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com https://cdn.jsdelivr.net",
     "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org",
     "connect-src 'self' https://lrxradar.com https://api.lrxradar.com https://accounts.google.com https://oauth2.googleapis.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
