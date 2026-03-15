@@ -216,7 +216,7 @@ function renderTopbar() {
         <div class="user-dropdown">
           <a href="/observatory">${u?.email || ''}</a>
           <a href="/observatory"><span class="role-pill ${u?.role}">${u?.role || ''}</span></a>
-          ${isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
+          ${isAdmin ? '<a href="/admin" onclick="event.stopPropagation(); navigate(\'/admin\'); return false;">Admin Panel</a>' : ''}
           <a href="#" onclick="logout(); return false;">Logout</a>
         </div>
       </div>
@@ -245,7 +245,7 @@ function renderAdminTopbar(activePath) {
       </nav>
     </div>
     <div class="topbar-right">
-      <a href="/observatory" class="admin-back-link">\u2190 Back to Observatory</a>
+      <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 Back to Observatory</a>
       <div class="user-menu" onclick="this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown">
@@ -438,7 +438,7 @@ async function viewObservatory(el) {
   const clockInterval = setInterval(_updateClock, 1000);
 
   // Initialize Leaflet map
-  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([25, 10], 2.5);
+  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 3);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(map);
   L.control.zoom({ position: 'topleft' }).addTo(map);
   _obsMap = map;
@@ -2422,8 +2422,8 @@ async function viewAdmin(el) {
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
       <div class="adm-action-btn" onclick="navigate('/admin/users')"><div class="adm-action-icon">+</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn" onclick="navigate('/admin/feeds')"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn" onclick="navigate('/admin/agent-config')"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-feeds"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
     </div>
     <div class="adm-grid-2">
@@ -2537,6 +2537,32 @@ async function viewAdmin(el) {
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
   } catch (err) { showToast(err.message, 'error'); }
+
+  // Dashboard trigger buttons with spinner/checkmark feedback
+  function setupDashTrigger(btnId, apiPath) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (btn.classList.contains('dash-pending')) return;
+      const icon = btn.querySelector('.adm-action-icon');
+      const origIcon = icon?.textContent;
+      btn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      try {
+        await api(apiPath, { method: 'POST' });
+        btn.classList.remove('dash-pending');
+        btn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+      } catch (err) {
+        btn.classList.remove('dash-pending');
+        btn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+      }
+      setTimeout(() => { btn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; }, 3000);
+    });
+  }
+  setupDashTrigger('adm-dash-feeds', '/feeds/trigger-all');
+  setupDashTrigger('adm-dash-agents', '/agents/trigger-all');
 
   window._viewCleanup = () => { if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; } };
 }
