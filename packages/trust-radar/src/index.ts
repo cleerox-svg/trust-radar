@@ -872,17 +872,25 @@ export default {
             }
 
             // Scheduled agents (run based on time — every Nth invocation)
-            // analyst: every 15min (3x per cron cycle at 5min), strategist: every 6h, cartographer: every 6h, observer: daily
             const now = new Date();
             const hour = now.getUTCHours();
             const minute = now.getUTCMinutes();
 
+            // Analyst trigger diagnostics
+            const analystApiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+            const analystKeySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
+            const analystShouldRun = minute % 15 < 5;
+            console.log(`[cron] analyst check: minute=${minute}, minute%15=${minute % 15}, shouldRun=${analystShouldRun}, apiKey=${analystKeySource}:${analystApiKey ? "truthy(" + analystApiKey.slice(0, 10) + "...)" : "FALSY"}`);
+
             // Analyst runs every 15 minutes
-            if (minute % 15 < 5) {
+            if (analystShouldRun) {
               const mod = allAgents["analyst"];
               if (mod) {
+                console.log(`[cron] analyst: TRIGGERING (module found)`);
                 const result = await executeAgent(env, mod, {}, "cron", "scheduled");
-                console.log(`[cron] agent analyst: ${result.status}`);
+                console.log(`[cron] agent analyst: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}, updated=${result.result.itemsUpdated}` : ""}`);
+              } else {
+                console.error(`[cron] analyst: module NOT found in allAgents — keys: ${Object.keys(allAgents).join(", ")}`);
               }
             }
 

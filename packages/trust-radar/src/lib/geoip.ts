@@ -1,7 +1,7 @@
 /**
- * GeoIP Enrichment — IP-to-location resolution using ipapi.co (HTTPS).
+ * GeoIP Enrichment — IP-to-location resolution using ipinfo.io (HTTPS).
  *
- * Free tier: 1000 requests/day, no API key required.
+ * Free tier: 50,000 requests/month, no API key required.
  * Returns ISO 3166-1 alpha-2 country codes (e.g., "US", "DE", "CN").
  * Processes IPs individually with concurrency control.
  */
@@ -17,26 +17,34 @@ export interface GeoIPResult {
   lng: number | null;
 }
 
-interface IpapiCoResponse {
+interface IpinfoResponse {
   ip: string;
-  country_code?: string;
-  country_name?: string;
-  org?: string;
-  asn?: string;
-  latitude?: number;
-  longitude?: number;
-  error?: boolean;
-  reason?: string;
+  city?: string;
+  region?: string;
+  country?: string;   // 2-letter code
+  loc?: string;        // "lat,lng"
+  org?: string;        // "AS13335 Cloudflare, Inc."
+  postal?: string;
+  timezone?: string;
+  bogon?: boolean;
 }
 
 /**
- * Look up a single IP via ipapi.co (HTTPS, free, no key).
+ * Look up a single IP via ipinfo.io (HTTPS, free, no key).
  */
-async function lookupSingleIP(ip: string): Promise<GeoIPResult | null> {
+async function lookupSingleIP(ip: string, isFirst: boolean): Promise<GeoIPResult | null> {
   try {
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, {
-      headers: { "User-Agent": "trust-radar/1.0", Accept: "application/json" },
+    const res = await fetch(`https://ipinfo.io/${ip}/json`, {
+      headers: { Accept: "application/json" },
     });
+
+    if (isFirst) {
+      const bodyText = await res.text();
+      console.log(`[geoip] DIAGNOSTIC first lookup: ip=${ip} HTTP ${res.status} body=${bodyText.slice(0, 500)}`);
+      if (!res.ok) return null;
+      const data = JSON.parse(bodyText) as IpinfoResponse;
+      return parseIpinfoResponse(ip, data);
+    }
 
     if (res.status === 429) {
       console.warn(`[geoip] Rate limited on ${ip} — stopping batch`);
@@ -48,31 +56,55 @@ async function lookupSingleIP(ip: string): Promise<GeoIPResult | null> {
       return null;
     }
 
-    const data = (await res.json()) as IpapiCoResponse;
+    const data = (await res.json()) as IpinfoResponse;
+    if (data.bogon) return null;
 
-    if (data.error) {
-      console.error(`[geoip] API error for ${ip}: ${data.reason}`);
-      return null;
-    }
-
-    return {
-      ip: data.ip || ip,
-      countryCode: data.country_code ?? null,
-      country: data.country_name ?? null,
-      isp: data.org ?? null,
-      org: data.org ?? null,
-      as: data.asn ?? null,
-      lat: data.latitude ?? null,
-      lng: data.longitude ?? null,
-    };
+    return parseIpinfoResponse(ip, data);
   } catch (err) {
     console.error(`[geoip] fetch error for ${ip}:`, err);
     return null;
   }
 }
 
+function parseIpinfoResponse(ip: string, data: IpinfoResponse): GeoIPResult | null {
+  if (data.bogon) return null;
+
+  // Parse "lat,lng" from loc field
+  let lat: number | null = null;
+  let lng: number | null = null;
+  if (data.loc) {
+    const parts = data.loc.split(",");
+    lat = parseFloat(parts[0]!) || null;
+    lng = parseFloat(parts[1]!) || null;
+  }
+
+  // Parse ASN and org from org field: "AS13335 Cloudflare, Inc."
+  let asn: string | null = null;
+  let org: string | null = null;
+  if (data.org) {
+    const asnMatch = data.org.match(/^(AS\d+)\s+(.+)$/);
+    if (asnMatch) {
+      asn = asnMatch[1]!;
+      org = asnMatch[2]!;
+    } else {
+      org = data.org;
+    }
+  }
+
+  return {
+    ip: data.ip || ip,
+    countryCode: data.country ?? null,
+    country: null, // ipinfo.io free tier only returns 2-letter code
+    isp: org,
+    org,
+    as: asn,
+    lat,
+    lng,
+  };
+}
+
 /**
- * Batch-resolve IPs to geo data via ipapi.co (HTTPS).
+ * Batch-resolve IPs to geo data via ipinfo.io (HTTPS).
  * Processes concurrently (5 at a time) with rate limiting.
  */
 export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPResult>> {
@@ -82,8 +114,9 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
   const uniqueIps = [...new Set(ips)];
   const CONCURRENCY = 5;
   let rateLimited = false;
+  let isFirst = true;
 
-  console.log(`[geoip] Looking up ${uniqueIps.length} unique IPs via ipapi.co (HTTPS)`);
+  console.log(`[geoip] Looking up ${uniqueIps.length} unique IPs via ipinfo.io (HTTPS)`);
 
   for (let i = 0; i < uniqueIps.length; i += CONCURRENCY) {
     if (rateLimited) break;
@@ -91,12 +124,10 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
     const chunk = uniqueIps.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
       chunk.map(async (ip) => {
-        const geo = await lookupSingleIP(ip);
+        const geo = await lookupSingleIP(ip, isFirst);
+        isFirst = false;
         if (geo) {
           results.set(ip, geo);
-        } else if (geo === null) {
-          // Check if we got rate limited (lookupSingleIP logs and returns null)
-          // We'll detect via the results count after this chunk
         }
         return geo;
       }),
@@ -112,7 +143,7 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
       break;
     }
 
-    // Rate limit: 200ms between chunks to stay under 1000/day (~5 req/s is fine)
+    // Rate limit: 200ms between chunks
     if (i + CONCURRENCY < uniqueIps.length) {
       await new Promise((r) => setTimeout(r, 250));
     }
