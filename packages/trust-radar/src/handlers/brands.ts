@@ -136,16 +136,38 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
 export async function handleAddMonitoredBrand(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json().catch(() => null) as { brand_id?: string } | null;
-    if (!body?.brand_id) return json({ success: false, error: "brand_id required" }, 400, origin);
+    const body = await request.json().catch(() => null) as {
+      domain?: string; name?: string | null; sector?: string | null;
+      reason?: string | null; notes?: string | null;
+    } | null;
 
-    const id = crypto.randomUUID();
+    if (!body?.domain) return json({ success: false, error: "domain required" }, 400, origin);
+
+    const domain = body.domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+    const brandName = body.name || domain.split(".")[0]!.charAt(0).toUpperCase() + domain.split(".")[0]!.slice(1);
+
+    // Find existing brand by canonical_domain, or create one
+    let brand = await env.DB.prepare(
+      "SELECT id FROM brands WHERE canonical_domain = ?"
+    ).bind(domain).first<{ id: string }>();
+
+    if (!brand) {
+      const newId = `brand_${domain.replace(/[^a-z0-9]+/g, "_")}`;
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO brands (id, name, canonical_domain, sector, first_seen, threat_count)
+         VALUES (?, ?, ?, ?, datetime('now'), 0)`
+      ).bind(newId, brandName, domain, body.sector ?? null).run();
+      brand = { id: newId };
+    }
+
+    // Insert into monitored_brands (PK is brand_id + tenant_id)
     await env.DB.prepare(
-      "INSERT OR IGNORE INTO monitored_brands (id, brand_id, added_by) VALUES (?, ?, ?)",
-    ).bind(id, body.brand_id, userId).run();
+      `INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, notes, status)
+       VALUES (?, '__internal__', ?, ?, 'active')`
+    ).bind(brand.id, userId, body.notes ?? null).run();
 
-    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: body.brand_id, request });
-    return json({ success: true, data: { id } }, 201, origin);
+    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: brand.id, details: { domain, reason: body.reason }, request });
+    return json({ success: true, data: { brand_id: brand.id, domain, name: brandName } }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
