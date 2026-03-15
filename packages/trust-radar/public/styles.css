@@ -1349,10 +1349,10 @@ a.campaign-card:hover { text-decoration: none; }
 
 /* Admin Topbar */
 .admin-topbar .admin-badge {
-  font-family: var(--font-display); font-size: 9px; font-weight: 600;
-  letter-spacing: 1px; text-transform: uppercase; color: var(--threat-medium);
-  padding: 3px 9px; border: 1px solid rgba(255,182,39,.3); border-radius: 3px;
-  background: rgba(255,182,39,.08);
+  font-family: var(--font-display); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase; color: var(--threat-medium);
+  padding: 4px 12px; border: 1px solid rgba(255,182,39,.4); border-radius: 4px;
+  background: rgba(255,182,39,.12); text-shadow: 0 0 8px rgba(255,182,39,.25);
 }
 .admin-nav-pills {
   display: flex; gap: 2px; background: var(--bg-panel); padding: 3px; border-radius: var(--radius);
@@ -1499,6 +1499,28 @@ a.campaign-card:hover { text-decoration: none; }
 }
 .adm-table tbody tr:hover { background: var(--bg-hover); }
 .adm-table td { padding: 10px 16px; font-size: 12px; vertical-align: middle; }
+
+/* Admin Table Scroll Wrapper */
+.adm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--bg-elevated) transparent; }
+.adm-table-scroll::-webkit-scrollbar { height: 4px; }
+.adm-table-scroll::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
+.adm-table-scroll table { min-width: 700px; }
+.adm-table-scroll td:first-child, .adm-table-scroll th:first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--bg-surface);
+}
+.adm-table-scroll tr:hover td:first-child { background: var(--bg-hover); }
+
+/* Agent Config color accent rows */
+.adm-table tr[data-agent-color] td:first-child { border-left: 3px solid var(--agent-accent, var(--blue-primary)); padding-left: 13px; }
+.adm-table .agent-icon-sm {
+  width: 24px; height: 24px; border-radius: var(--radius); display: inline-flex;
+  align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+  margin-right: 8px; vertical-align: middle;
+}
+
+/* Agent status dot variants */
+.adm-status-pill.degraded { background: rgba(255,182,39,.12); color: var(--threat-medium); animation: pulse 2s ease-in-out infinite; }
+.adm-status-pill.error { background: rgba(255,59,92,.12); color: var(--negative); }
 
 /* Admin User cells */
 .adm-user-cell { display: flex; align-items: center; gap: 10px; }
@@ -1910,8 +1932,9 @@ a.campaign-card:hover { text-decoration: none; }
   .admin-nav-pills::-webkit-scrollbar { display: none; }
   .admin-nav-pills .admin-np { white-space: nowrap; flex-shrink: 0; }
   .admin-topbar .topbar-left { gap: 10px; flex-wrap: nowrap; overflow: hidden; }
-  .admin-badge { font-size: 8px; padding: 1px 6px; }
-  .admin-back-link { font-size: 10px; white-space: nowrap; }
+  .admin-badge { font-size: 9px; padding: 2px 8px; }
+  .admin-back-link span.back-text { display: none; }
+  .admin-back-link::before { content: '\2190'; }
 
   /* G) ADMIN — grids */
   .adm-metrics { grid-template-columns: 1fr 1fr; }
@@ -1919,7 +1942,11 @@ a.campaign-card:hover { text-decoration: none; }
   .adm-grid-2 { grid-template-columns: 1fr; }
   .adm-kanban { flex-wrap: wrap; }
   .adm-kanban-col { flex: 1 1 100%; }
-  .adm-slideout { width: 100% !important; position: fixed !important; inset: 0 !important; z-index: 200; }
+  .adm-slideout { width: 100% !important; position: fixed !important; inset: 0 !important; z-index: 200; top: 0 !important; border-left: none !important; border-radius: 0 !important; }
+
+  /* G) ADMIN — table horizontal scroll */
+  .adm-table-scroll { margin: 0 -1px; }
+  .adm-table-scroll table { min-width: 600px; }
 
   .panel, .adm-panel { border-radius: 6px; }
 }
@@ -1977,13 +2004,14 @@ a.campaign-card:hover { text-decoration: none; }
   .agent-detail-grid { grid-template-columns: 1fr; }
 
   /* G) ADMIN — single columns everywhere */
-  .adm-actions { grid-template-columns: 1fr; }
-  .adm-metrics { grid-template-columns: 1fr; }
+  .adm-actions { grid-template-columns: 1fr 1fr; }
+  .adm-metrics { grid-template-columns: 1fr 1fr; }
   .adm-kanban { display: none; } /* hide kanban on tiny screens */
   .adm-slideout { border-radius: 0 !important; }
   .admin-nav-pills { max-width: 55vw; }
   .admin-nav-pills .admin-np { font-size: 9px; padding: 4px 8px; }
-  .admin-back-link { font-size: 9px; }
+  .admin-back-link { font-size: 12px; }
+  .admin-back-link span.back-text { display: none; }
 
   /* User dropdown wider on mobile */
   .user-dropdown { min-width: 200px; right: -8px; }

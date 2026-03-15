@@ -280,7 +280,7 @@ function renderAdminTopbar(activePath) {
       </nav>
     </div>
     <div class="topbar-right">
-      <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 Back to Observatory</a>
+      <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 <span class="back-text">Back to Observatory</span></a>
       <div class="user-menu" onclick="this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown">
@@ -2505,9 +2505,11 @@ async function viewAdmin(el) {
     const saCount = stats.users?.super_admin || 0;
     const adminCount = stats.users?.admin || 0;
     const analystCount = stats.users?.analyst || 0;
-    const healthyFeeds = feeds.filter(f => f.health_status === 'healthy' || f.enabled).length;
+    const healthyFeeds = feeds.filter(f => (f.health_status === 'healthy' || !f.health_status) && f.enabled).length;
+    const degradedFeeds = feeds.filter(f => f.health_status === 'degraded').length;
+    const downFeeds = feeds.filter(f => f.health_status === 'down').length;
     const totalFeeds = feeds.length;
-    const totalRecords = feeds.reduce((s, f) => s + (f.records_today || 0), 0);
+    const totalRecords = feeds.reduce((s, f) => s + (f.records_today || f.records_ingested_today || 0), 0);
     const leadNew = leads.filter(l => l.status === 'new').length;
     const leadContacted = leads.filter(l => l.status === 'contacted').length;
     const leadQualified = leads.filter(l => l.status === 'qualified').length;
@@ -2519,7 +2521,7 @@ async function viewAdmin(el) {
 
     document.getElementById('adm-metrics').innerHTML = `
       <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value" style="color:var(--blue-primary)">${userTotal}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value" style="color:var(--positive)">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${healthyFeeds} healthy</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:100%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value" style="color:var(--positive)">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${healthyFeeds} healthy</span>${degradedFeeds?`<span style="color:var(--threat-medium)">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span style="color:var(--negative)">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
       <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value" style="color:var(--threat-medium)">${leadTotal}</div><div class="adm-metric-sub"><span style="color:var(--negative)">${leadNew} new</span><span style="color:var(--positive)">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
       <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
 
@@ -2528,25 +2530,30 @@ async function viewAdmin(el) {
     if (feedBadgeEl) feedBadgeEl.textContent = feeds.every(f => f.health_status === 'healthy' || !f.health_status) ? 'All healthy' : 'Issues detected';
     if (feeds.length && typeof Chart !== 'undefined') {
       const feedLabels = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
-      const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff'];
+      const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff', '#ff6b35', '#ff3b5c'];
       if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
       // Fetch real ingestion job data for chart
       const jobsRes = await api('/feeds/jobs?limit=500').catch(() => null);
       const jobs = jobsRes?.data || [];
-      const feedDatasets = feeds.slice(0, 4).map((f, i) => {
+      const feedDatasets = feeds.slice(0, 6).map((f, i) => {
         const hourBuckets = new Array(24).fill(0);
         jobs.filter(j => j.feed_name === f.feed_name && j.status === 'success').forEach(j => {
           const h = parseInt((j.started_at || '').substring(11, 13), 10);
           if (!isNaN(h)) hourBuckets[h] += (j.records_ingested || 0);
         });
         return { label: f.display_name || f.feed_name, data: hourBuckets,
-          backgroundColor: feedColors[i % 4] + '30', borderColor: feedColors[i % 4], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 };
+          backgroundColor: feedColors[i % feedColors.length] + '30', borderColor: feedColors[i % feedColors.length], borderWidth: 1.5, fill: true, tension: 0.35, pointRadius: 0 };
       });
-      _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
-        type: 'line', data: { labels: feedLabels, datasets: feedDatasets },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
-          scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
-      });
+      const hasData = feedDatasets.some(ds => ds.data.some(v => v > 0));
+      if (!hasData) {
+        document.getElementById('adm-feed-chart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">No ingestion data in last 24h \u2014 trigger a feed pull</div>';
+      } else {
+        _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
+          type: 'line', data: { labels: feedLabels, datasets: feedDatasets },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
+            scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
+        });
+      }
     }
 
     // Feed list
@@ -2583,7 +2590,9 @@ async function viewAdmin(el) {
     if (agentBadge) agentBadge.textContent = `${agentActive}/${agents.length} operational`;
     document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
       const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
-      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,212,255,.04)"><div style="width:7px;height:7px;border-radius:50%;background:${a.status==='active'?'var(--positive)':'var(--blue-primary)'};${a.status==='active'?'animation:pulse 2s ease-in-out infinite':''}"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color}">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} outputs</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div></div>`;
+      const dotColor = a.status === 'active' ? 'var(--positive)' : a.status === 'error' ? 'var(--negative)' : a.status === 'degraded' ? 'var(--threat-medium)' : 'var(--blue-primary)';
+      const dotAnim = a.status === 'active' ? 'animation:pulse 2s ease-in-out infinite' : a.status === 'degraded' ? 'animation:pulse 1.5s ease-in-out infinite' : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04)"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color}">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} outputs</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div></div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
   } catch (err) { showToast(err.message, 'error'); }
@@ -2655,11 +2664,11 @@ async function viewAdminUsers(el) {
 
   function renderUsersTable(users) {
     if (!users.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No users found</div>';
-    return `<table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Last Active</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
+    return `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Last Active</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
       const roleColors = { super_admin: 'var(--threat-medium)', admin: 'var(--purple)', analyst: 'var(--blue-primary)' };
       const c = roleColors[u.role] || 'var(--blue-primary)';
       return `<tr data-uid="${u.id}"><td><div class="adm-user-cell"><div class="adm-avatar" style="color:${c}">${ini(u.name)}</div><div><div class="adm-user-name">${u.name}</div><div class="adm-user-email">${u.email}</div></div></div></td><td><span class="adm-role-pill ${u.role}">${(u.role || '').replace('_', ' ')}</span></td><td><span class="adm-status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_active_at ? relativeTime(Math.round((Date.now() - new Date(u.last_active_at).getTime()) / 60000)) : '-'}</td><td><button class="adm-action-btn" onclick="event.stopPropagation()">Details</button></td></tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table></div>`;
   }
 
   function filterUsers() {
@@ -2863,10 +2872,10 @@ async function viewAdminFeeds(el) {
       <div class="adm-ac"><div class="adm-ac-v" style="color:var(--positive)">0.2%</div><div class="adm-ac-l">Error rate (24h)</div></div>
       <div class="adm-ac"><div class="adm-ac-v" style="color:var(--text-primary)">2.0s</div><div class="adm-ac-l">Avg pull latency</div></div>`;
 
-    document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
+    document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
       return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
-    }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
+    }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
 
     // Row click to detail
     document.querySelectorAll('#adm-feeds-table tr[data-fid]').forEach(tr => {
@@ -2962,11 +2971,11 @@ async function viewAdminLeads(el) {
   function renderTable() {
     const el = document.getElementById('adm-table-view');
     const sorted = [...allLeads].sort((a, b) => LEAD_STAGES.findIndex(s => s.key === a.status) - LEAD_STAGES.findIndex(s => s.key === b.status));
-    el.innerHTML = `<div class="adm-panel"><table class="adm-table"><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>${sorted.map(l => {
+    el.innerHTML = `<div class="adm-panel"><div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>${sorted.map(l => {
       const sc = leadScoreColor(l.trust_score || l.score || 0);
       const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
       return `<tr data-lid="${l.id}"><td style="font-weight:500">${l.company || l.domain || '-'}</td><td style="font-size:11px;color:var(--text-secondary)">${l.contact_name || ''}<br><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${l.email || ''}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${l.assigned_to || 'Unassigned'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
-    }).join('')}</tbody></table></div>`;
+    }).join('')}</tbody></table></div></div>`;
     el.querySelectorAll('tr[data-lid]').forEach(r => r.addEventListener('click', () => openLeadDetail(r.dataset.lid)));
   }
 
@@ -3103,12 +3112,13 @@ async function viewAdminAgentConfig(el) {
     const configs = configRes?.data || {};
     const usage = usageRes?.data || {};
 
-    document.getElementById('adm-agent-config-table').innerHTML = agents.length ? `<table class="adm-table"><thead><tr><th>Agent</th><th>Status</th><th>Schedule</th><th>Last Run</th><th>Success Rate</th><th>Outputs (24h)</th><th>Actions</th></tr></thead><tbody>${agents.map(a => {
+    document.getElementById('adm-agent-config-table').innerHTML = agents.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Agent</th><th>Status</th><th>Schedule</th><th>Last Run</th><th>Avg Duration</th><th>Success Rate</th><th>Outputs (24h)</th><th>Actions</th></tr></thead><tbody>${agents.map(a => {
       const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff', icon: '\u25cb' };
       const cfg = configs[a.agent_id || a.name] || {};
       const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
-      return `<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;font-size:14px">${meta.icon}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button><button class="adm-action-btn" data-agent="${a.agent_id || a.name}" data-action="config">Edit Config</button></td></tr>`;
-    }).join('')}</tbody></table>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
+      const avgDur = a.avg_duration_ms ? (a.avg_duration_ms / 1000).toFixed(1) + 's' : '-';
+      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;font-size:14px;background:${meta.color}15">${meta.icon}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // API usage section
     const tokens24h = usage.tokens_24h || 0;
@@ -3195,7 +3205,7 @@ async function viewAdminAudit(el) {
 
   function renderAuditTable(entries) {
     if (!entries.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No audit entries found</div>';
-    return `<table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>Resource ID</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${entries.map((e, i) => `<tr data-aidx="${i}" style="cursor:pointer"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-'}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${e.resource_type || '-'}</td><td style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${e.resource_id ? e.resource_id.slice(0, 12) : '-'}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>`).join('')}</tbody></table>`;
+    return `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>Resource ID</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${entries.map((e, i) => `<tr data-aidx="${i}" style="cursor:pointer"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-'}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${e.resource_type || '-'}</td><td style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${e.resource_id ? e.resource_id.slice(0, 12) : '-'}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function filterAudit() {
