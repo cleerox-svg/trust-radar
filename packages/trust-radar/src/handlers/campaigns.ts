@@ -15,18 +15,18 @@ export async function handleListCampaignsV2(request: Request, env: Env): Promise
     const conditions: string[] = [];
     const params: unknown[] = [];
 
-    if (status) { conditions.push("status = ?"); params.push(status); }
+    if (status) { conditions.push("c.status = ?"); params.push(status); }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit, offset);
 
     const rows = await env.DB.prepare(`
-      SELECT id, name, description, status, threat_count, confidence,
-             first_seen, last_seen, created_at
-      FROM campaign_clusters ${where}
-      ORDER BY last_seen DESC LIMIT ? OFFSET ?
+      SELECT c.id, c.name, c.status, c.threat_count, c.brand_count, c.provider_count,
+             c.attack_pattern, c.first_seen, c.last_seen
+      FROM campaigns c ${where}
+      ORDER BY c.last_seen DESC LIMIT ? OFFSET ?
     `).bind(...params).all();
 
-    const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM campaign_clusters ${where}`)
+    const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM campaigns c ${where}`)
       .bind(...params.slice(0, -2)).first<{ n: number }>();
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
@@ -41,12 +41,12 @@ export async function handleCampaignStats(request: Request, env: Env): Promise<R
   try {
     const stats = await env.DB.prepare(`
       SELECT COUNT(*) AS total,
-             SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
-             SUM(CASE WHEN status = 'dormant' THEN 1 ELSE 0 END) AS dormant,
-             SUM(CASE WHEN status = 'disrupted' THEN 1 ELSE 0 END) AS disrupted,
-             SUM(threat_count) AS total_threats,
-             AVG(threat_count) AS avg_threats_per_campaign
-      FROM campaign_clusters
+             SUM(CASE WHEN c.status = 'active' THEN 1 ELSE 0 END) AS active_count,
+             SUM(CASE WHEN c.status = 'dormant' THEN 1 ELSE 0 END) AS dormant_count,
+             SUM(CASE WHEN c.status = 'disrupted' THEN 1 ELSE 0 END) AS disrupted_count,
+             SUM(c.threat_count) AS active_threats,
+             (SELECT COUNT(DISTINCT t.target_brand_id) FROM threats t WHERE t.campaign_id IS NOT NULL AND t.target_brand_id IS NOT NULL) AS brands_affected
+      FROM campaigns c
     `).first();
 
     return json({ success: true, data: stats }, 200, origin);
@@ -60,7 +60,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT * FROM campaign_clusters WHERE id = ?",
+      "SELECT * FROM campaigns WHERE id = ?",
     ).bind(campaignId).first();
 
     if (!campaign) return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -73,9 +73,13 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
         GROUP BY target_brand_id ORDER BY count DESC
       `).bind(campaignId).all(),
       env.DB.prepare(`
-        SELECT hosting_provider_id AS provider_id, COUNT(*) AS count
-        FROM threats WHERE campaign_id = ? AND hosting_provider_id IS NOT NULL
-        GROUP BY hosting_provider_id ORDER BY count DESC
+        SELECT t.hosting_provider_id AS provider_id,
+               COALESCE(hp.name, t.hosting_provider_id) AS provider_name,
+               COUNT(*) AS count
+        FROM threats t
+        LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+        WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL
+        GROUP BY t.hosting_provider_id ORDER BY count DESC
       `).bind(campaignId).all(),
     ]);
 
@@ -128,9 +132,13 @@ export async function handleCampaignInfrastructure(request: Request, env: Env, c
         GROUP BY ip_address ORDER BY domain_count DESC LIMIT 50
       `).bind(campaignId).all(),
       env.DB.prepare(`
-        SELECT DISTINCT hosting_provider_id AS provider_id, COUNT(*) AS threat_count
-        FROM threats WHERE campaign_id = ? AND hosting_provider_id IS NOT NULL
-        GROUP BY hosting_provider_id ORDER BY threat_count DESC
+        SELECT DISTINCT t.hosting_provider_id AS provider_id,
+               COALESCE(hp.name, t.hosting_provider_id) AS provider_name,
+               COUNT(*) AS threat_count
+        FROM threats t
+        LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+        WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL
+        GROUP BY t.hosting_provider_id ORDER BY threat_count DESC
       `).bind(campaignId).all(),
     ]);
 

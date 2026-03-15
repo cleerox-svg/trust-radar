@@ -239,7 +239,7 @@ export async function handleListCampaigns(request: Request, env: Env): Promise<R
   try {
     const rows = await env.DB.prepare(
       `SELECT id, name, description, status, threat_count, confidence, first_seen, last_seen, created_at
-       FROM campaign_clusters ORDER BY created_at DESC LIMIT 50`
+       FROM campaigns ORDER BY created_at DESC LIMIT 50`
     ).all();
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {

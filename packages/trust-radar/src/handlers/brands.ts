@@ -311,7 +311,7 @@ export async function handleBrandCampaigns(request: Request, env: Env, brandId: 
   try {
     const rows = await env.DB.prepare(`
       SELECT DISTINCT c.id, c.name, c.status, c.threat_count, c.first_seen, c.last_seen
-      FROM campaign_clusters c
+      FROM campaigns c
       JOIN threats t ON t.campaign_id = c.id
       WHERE t.target_brand_id = ?
       ORDER BY c.last_seen DESC
