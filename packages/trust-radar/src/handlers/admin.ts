@@ -4,6 +4,8 @@ import { z } from "zod";
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
+import { classifyThreat } from "../lib/haiku";
+import { batchGeoLookup, normalizeProvider, upsertHostingProvider } from "../lib/geoip";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -209,4 +211,180 @@ export async function handleAdminUpdateUser(
   });
 
   return json({ success: true, data: user }, 200, origin);
+}
+
+// ─── Backfill: Classify all unclassified threats ────────────────
+
+export async function handleBackfillClassifications(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const totalRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE confidence_score IS NULL"
+    ).first<{ n: number }>();
+    const total = totalRow?.n ?? 0;
+
+    if (total === 0) {
+      return json({ success: true, data: { message: "No unclassified threats", total: 0, classified: 0 } }, 200, origin);
+    }
+
+    let classified = 0;
+    let failed = 0;
+    let batchNum = 0;
+    const BATCH_SIZE = 50;
+
+    while (true) {
+      batchNum++;
+      const batch = await env.DB.prepare(
+        `SELECT id, malicious_url, malicious_domain, ip_address, source_feed, ioc_value, threat_type
+         FROM threats WHERE confidence_score IS NULL
+         ORDER BY created_at DESC LIMIT ?`
+      ).bind(BATCH_SIZE).all<{
+        id: string; malicious_url: string | null; malicious_domain: string | null;
+        ip_address: string | null; source_feed: string; ioc_value: string | null;
+        threat_type: string;
+      }>();
+
+      if (batch.results.length === 0) break;
+
+      console.log(`[backfill-classify] Batch ${batchNum}: ${batch.results.length} threats`);
+
+      for (const threat of batch.results) {
+        const result = await classifyThreat(env, {
+          malicious_url: threat.malicious_url,
+          malicious_domain: threat.malicious_domain,
+          ip_address: threat.ip_address,
+          source_feed: threat.source_feed,
+          ioc_value: threat.ioc_value,
+        });
+
+        let confidence: number;
+        let severity: string;
+
+        if (result.success && result.data) {
+          confidence = result.data.confidence;
+          severity = result.data.severity;
+        } else {
+          // Rule-based fallback
+          const highConf = ["phishtank", "threatfox", "feodo"];
+          const medConf = ["urlhaus", "openphish"];
+          confidence = highConf.includes(threat.source_feed) ? 90 : medConf.includes(threat.source_feed) ? 80 : 60;
+          severity = threat.threat_type === "c2" || threat.source_feed === "feodo" ? "critical"
+            : threat.threat_type === "malware_distribution" ? "high" : "medium";
+          failed++;
+        }
+
+        try {
+          await env.DB.prepare(
+            "UPDATE threats SET confidence_score = ?, severity = COALESCE(severity, ?) WHERE id = ?"
+          ).bind(confidence, severity, threat.id).run();
+          classified++;
+        } catch (err) {
+          console.error(`[backfill-classify] update failed for ${threat.id}:`, err);
+        }
+      }
+
+      // 1-second delay between batches to avoid API rate limits
+      if (batch.results.length === BATCH_SIZE) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+
+    console.log(`[backfill-classify] Done: ${classified} classified, ${failed} haiku failures (rule-based fallback used)`);
+
+    return json({
+      success: true,
+      data: { total, classified, haikuFailures: failed, batches: batchNum },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Backfill: Geo-enrich all threats with IP but no lat/lng ────
+
+export async function handleBackfillGeo(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const totalRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE ip_address IS NOT NULL AND (lat IS NULL OR country_code IS NULL OR hosting_provider_id IS NULL)"
+    ).first<{ n: number }>();
+    const total = totalRow?.n ?? 0;
+
+    if (total === 0) {
+      return json({ success: true, data: { message: "No threats need geo enrichment", total: 0, enriched: 0 } }, 200, origin);
+    }
+
+    let enriched = 0;
+    let providersUpserted = 0;
+    let batchNum = 0;
+    const BATCH_SIZE = 50;
+
+    while (true) {
+      batchNum++;
+      const batch = await env.DB.prepare(
+        `SELECT id, ip_address FROM threats
+         WHERE ip_address IS NOT NULL AND (lat IS NULL OR country_code IS NULL OR hosting_provider_id IS NULL)
+         LIMIT ?`
+      ).bind(BATCH_SIZE).all<{ id: string; ip_address: string }>();
+
+      if (batch.results.length === 0) break;
+
+      console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats`);
+
+      const ips = batch.results.map((r) => r.ip_address);
+      const geoMap = await batchGeoLookup(ips);
+
+      for (const row of batch.results) {
+        const geo = geoMap.get(row.ip_address);
+        if (!geo) continue;
+
+        try {
+          const providerName = normalizeProvider(geo.isp, geo.org);
+          let providerId: string | null = null;
+          if (providerName) {
+            providerId = await upsertHostingProvider(env.DB, providerName, geo.as, geo.countryCode);
+            providersUpserted++;
+          }
+
+          await env.DB.prepare(
+            `UPDATE threats SET
+               country_code = COALESCE(country_code, ?),
+               asn = COALESCE(asn, ?),
+               lat = COALESCE(lat, ?),
+               lng = COALESCE(lng, ?),
+               hosting_provider_id = COALESCE(hosting_provider_id, ?)
+             WHERE id = ?`
+          ).bind(geo.countryCode, geo.as, geo.lat, geo.lng, providerId, row.id).run();
+          enriched++;
+        } catch (err) {
+          console.error(`[backfill-geo] update failed for ${row.id}:`, err);
+        }
+      }
+
+      // 1-second delay between batches for rate limiting
+      if (batch.results.length === BATCH_SIZE) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+
+    // Sync provider counts after backfill
+    try {
+      await env.DB.prepare(`
+        UPDATE hosting_providers SET
+          active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
+          total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
+      `).run();
+    } catch { /* non-critical */ }
+
+    console.log(`[backfill-geo] Done: ${enriched} enriched, ${providersUpserted} providers upserted`);
+
+    return json({
+      success: true,
+      data: { total, enriched, providersUpserted, batches: batchNum },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
 }
