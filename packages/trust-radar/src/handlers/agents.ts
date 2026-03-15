@@ -3,39 +3,129 @@ import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRu
 import { agentModules, trustbotAgent } from "../agents";
 import type { Env } from "../types";
 
+// ─── Schedule labels for each agent ─────────────────────────────
+const AGENT_SCHEDULES: Record<string, string> = {
+  sentinel: "5m (event)",
+  analyst: "every 15m",
+  cartographer: "every 6h",
+  strategist: "every 6h",
+  observer: "daily",
+};
+
 // ─── List all agent definitions + their latest run ──────────────
 export async function handleListAgents(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Get latest run per agent (v2 table)
-    const latestRuns = await env.DB.prepare(
-      `SELECT agent_id, id, status, records_processed, outputs_generated,
-              duration_ms, error_message, started_at, completed_at
-       FROM agent_runs
-       WHERE id IN (
-         SELECT id FROM agent_runs r2
-         WHERE r2.agent_id = agent_runs.agent_id
-         ORDER BY r2.started_at DESC LIMIT 1
-       )`
-    ).all();
+    // Run all aggregation queries in parallel
+    const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations] = await Promise.all([
+      // Latest run per agent
+      env.DB.prepare(
+        `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
+         FROM agent_runs
+         WHERE id IN (
+           SELECT id FROM agent_runs r2
+           WHERE r2.agent_id = agent_runs.agent_id
+           ORDER BY r2.started_at DESC LIMIT 1
+         )`
+      ).all<{ agent_id: string; status: string; started_at: string; completed_at: string | null; duration_ms: number | null; error_message: string | null }>(),
 
-    const runMap = new Map(latestRuns.results.map((r) => [(r as Record<string, unknown>).agent_id, r]));
+      // Jobs + errors in last 24h per agent
+      env.DB.prepare(
+        `SELECT agent_id,
+                COUNT(*) as jobs_24h,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as error_count_24h
+         FROM agent_runs
+         WHERE started_at >= datetime('now', '-1 day')
+         GROUP BY agent_id`
+      ).all<{ agent_id: string; jobs_24h: number; error_count_24h: number }>(),
 
-    // Get run counts for today
-    const todayRuns = await env.DB.prepare(
-      `SELECT agent_id, COUNT(*) as runs_today
-       FROM agent_runs
-       WHERE started_at >= datetime('now', 'start of day')
-       GROUP BY agent_id`
-    ).all<{ agent_id: string; runs_today: number }>();
+      // Outputs in last 24h per agent
+      env.DB.prepare(
+        `SELECT agent_id,
+                COUNT(*) as outputs_24h
+         FROM agent_outputs
+         WHERE created_at >= datetime('now', '-1 day')
+         GROUP BY agent_id`
+      ).all<{ agent_id: string; outputs_24h: number }>(),
 
-    const todayMap = new Map(todayRuns.results.map((r) => [r.agent_id, r.runs_today]));
+      // Hourly activity (last 24h) for activity bar
+      env.DB.prepare(
+        `SELECT agent_id,
+                CAST(strftime('%H', started_at) AS INTEGER) AS hour,
+                COUNT(*) AS cnt
+         FROM agent_runs
+         WHERE started_at >= datetime('now', '-1 day')
+         GROUP BY agent_id, hour`
+      ).all<{ agent_id: string; hour: number; cnt: number }>(),
 
-    const agents = AGENT_DEFINITIONS.map((def) => ({
-      ...def,
-      latestRun: runMap.get(def.name) ?? null,
-      runsToday: todayMap.get(def.name) ?? 0,
-    }));
+      // Last output time per agent
+      env.DB.prepare(
+        `SELECT agent_id, MAX(created_at) as last_output_at
+         FROM agent_outputs
+         GROUP BY agent_id`
+      ).all<{ agent_id: string; last_output_at: string }>(),
+
+      // Average duration per agent
+      env.DB.prepare(
+        `SELECT agent_id, AVG(duration_ms) as avg_duration_ms
+         FROM agent_runs
+         WHERE status = 'success'
+         GROUP BY agent_id`
+      ).all<{ agent_id: string; avg_duration_ms: number }>(),
+    ]);
+
+    // Build lookup maps
+    const latestRunMap = new Map(latestRuns.results.map((r) => [r.agent_id, r]));
+    const statsMap = new Map(runStats24h.results.map((r) => [r.agent_id, r]));
+    const outputMap = new Map(outputStats24h.results.map((r) => [r.agent_id, r.outputs_24h]));
+    const lastOutputMap = new Map(lastOutputTimes.results.map((r) => [r.agent_id, r.last_output_at]));
+    const avgDurMap = new Map(avgDurations.results.map((r) => [r.agent_id, r.avg_duration_ms]));
+
+    // Build hourly activity arrays (24 segments)
+    const activityMap = new Map<string, number[]>();
+    const currentHour = new Date().getUTCHours();
+    for (const row of hourlyActivity.results) {
+      if (!activityMap.has(row.agent_id)) {
+        activityMap.set(row.agent_id, new Array(24).fill(0));
+      }
+      // Map hour to array index relative to current hour
+      const idx = (row.hour - currentHour + 24) % 24;
+      activityMap.get(row.agent_id)![idx] = row.cnt;
+    }
+
+    // Derive status from latest run
+    function deriveStatus(agentName: string): string {
+      const latest = latestRunMap.get(agentName);
+      if (!latest) return "idle";
+      if (latest.status === "failed") return "error";
+      if (latest.status === "partial") return "degraded";
+      // Check if run is recent enough to be "active"
+      const lastRun = new Date(latest.started_at).getTime();
+      const ageMs = Date.now() - lastRun;
+      const twoHours = 2 * 60 * 60 * 1000;
+      return ageMs < twoHours ? "active" : "idle";
+    }
+
+    const agents = AGENT_DEFINITIONS.map((def) => {
+      const stats = statsMap.get(def.name);
+      return {
+        agent_id: def.name,
+        name: def.name,
+        display_name: def.displayName,
+        description: def.description,
+        color: def.color,
+        trigger: def.trigger,
+        requiresApproval: def.requiresApproval,
+        status: deriveStatus(def.name),
+        schedule: AGENT_SCHEDULES[def.name] ?? "-",
+        jobs_24h: stats?.jobs_24h ?? 0,
+        outputs_24h: outputMap.get(def.name) ?? 0,
+        error_count_24h: stats?.error_count_24h ?? 0,
+        activity: activityMap.get(def.name) ?? new Array(24).fill(0),
+        last_output_at: lastOutputMap.get(def.name) ?? null,
+        avg_duration_ms: avgDurMap.get(def.name) ?? null,
+      };
+    });
 
     return json({ success: true, data: agents }, 200, origin);
   } catch (err) {

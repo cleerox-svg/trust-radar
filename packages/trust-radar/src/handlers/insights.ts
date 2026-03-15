@@ -15,7 +15,7 @@ export async function handleLatestInsights(request: Request, env: Env): Promise<
              ao.created_at, ao.type AS output_type,
              ao.details
       FROM agent_outputs ao
-      WHERE ao.type = 'insight'
+      WHERE ao.type IN ('insight', 'classification', 'correlation', 'score', 'trend_report')
       ORDER BY ao.created_at DESC
       LIMIT ?
     `).bind(limit).all();
