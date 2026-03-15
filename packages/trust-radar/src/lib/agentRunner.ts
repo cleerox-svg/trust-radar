@@ -65,7 +65,7 @@ export interface AgentResult {
 }
 
 export interface AgentOutputEntry {
-  type: "insight" | "classification" | "correlation" | "score" | "trend_report";
+  type: "insight" | "classification" | "correlation" | "score" | "trend_report" | "diagnostic";
   summary: string;
   severity?: "critical" | "high" | "medium" | "low" | "info";
   details?: Record<string, unknown>;

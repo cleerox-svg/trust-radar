@@ -101,12 +101,34 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
 
   if (needsGeo.results.length > 0) {
     const ips = needsGeo.results.map((r) => r.ip_address);
+
+    // ─── GEO DIAGNOSTIC: probe first IP and write result to agent_outputs ───
+    try {
+      const probeIp = ips[0]!;
+      const probeRes = await fetch(`https://ipinfo.io/${probeIp}/json`, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(5000),
+      });
+      const probeBody = await probeRes.text();
+      const diagSummary = `geo_probe: ip=${probeIp} HTTP ${probeRes.status} body=${probeBody.slice(0, 200)}`;
+      await env.DB.prepare(
+        `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
+         VALUES (?, 'enrichment', 'diagnostic', ?, 'info', ?, datetime('now'))`,
+      ).bind(
+        crypto.randomUUID(),
+        diagSummary,
+        JSON.stringify({ ip: probeIp, http_status: probeRes.status, body_preview: probeBody.slice(0, 500), provider: "ipinfo.io", ips_to_enrich: ips.length }),
+      ).run();
+    } catch (diagErr) {
+      console.error("[enrich] geo diagnostic write failed:", diagErr);
+    }
+
     try {
       const geoMap = await batchGeoLookup(ips);
       console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {
-        console.error("[enrich] WARNING: GeoIP returned 0 results — ipapi.co may be rate limiting or blocking");
+        console.error("[enrich] WARNING: GeoIP returned 0 results — ipinfo.io may be rate limiting or blocking");
       }
 
       for (const row of needsGeo.results) {
