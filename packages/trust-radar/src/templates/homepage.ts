@@ -112,7 +112,7 @@ export function renderHomepage(): string {
   <div class="pub-nav-links">
     <a href="#agents">Agents</a>
     <a href="#how">How It Works</a>
-    <a class="login-btn" href="/login">Sign In</a>
+    <a class="login-btn" href="/api/auth/login">Sign In</a>
   </div>
 </nav>
 
