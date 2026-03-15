@@ -14,7 +14,6 @@ routes = [
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-serve_directly = false
 
 # ─── Cron Triggers (automated feed ingestion) ────────────────
 [triggers]
