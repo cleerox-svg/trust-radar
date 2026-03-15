@@ -196,7 +196,7 @@ export async function handleIngestionJobs(request: Request, env: Env): Promise<R
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
-    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+    const limit = Math.min(500, parseInt(url.searchParams.get("limit") ?? "20", 10));
     const rows = await env.DB.prepare(
       "SELECT * FROM feed_pull_history ORDER BY started_at DESC LIMIT ?"
     ).bind(limit).all();

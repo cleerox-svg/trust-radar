@@ -2531,7 +2531,7 @@ async function viewAdmin(el) {
       const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff'];
       if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
       // Fetch real ingestion job data for chart
-      const jobsRes = await api('/feeds/jobs?limit=100').catch(() => null);
+      const jobsRes = await api('/feeds/jobs?limit=500').catch(() => null);
       const jobs = jobsRes?.data || [];
       const feedDatasets = feeds.slice(0, 4).map((f, i) => {
         const hourBuckets = new Array(24).fill(0);
