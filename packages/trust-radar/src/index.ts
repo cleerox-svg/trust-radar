@@ -5,7 +5,7 @@ import { feedModules } from "./feeds/index";
 import { handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback, handleRefreshToken, handleLogout, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleHeatmap } from "./handlers/heatmap";
-import { renderHomepage } from "./templates/homepage";
+import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
@@ -44,6 +44,7 @@ import { handleExportScans, handleExportSignals, handleExportAlerts } from "./ha
 import { handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders, handleGetProvider, handleProviderDrilldown, handleProviderBrands, handleProviderTimeline, handleProviderLocations } from "./handlers/providers";
 import {
   handleBrandScan, handleBrandScanHistory, handlePublicBrandScan,
+  handlePublicBrandScanResult,
   handleLeadCapture, handleListLeads, handleUpdateLead,
 } from "./handlers/brandScan";
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
@@ -649,6 +650,10 @@ router.post("/api/brand-scan/public", async (request: Request, env: Env) => {
   if (limited) return limited;
   return handlePublicBrandScan(request, env);
 });
+// Public brand scan result lookup (no auth)
+router.get("/api/brand-scan/public/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
+  handlePublicBrandScanResult(request, env, request.params["id"] ?? "")
+);
 // Lead capture (no auth, rate-limited)
 router.post("/api/leads", async (request: Request, env: Env) => {
   const limited = await rateLimit(request, env, "auth");
@@ -828,7 +833,56 @@ router.get("/", () =>
   })
 );
 
-// ─── Public Scan Result Page ──────────────────────────────────
+// ─── Public Assessment (POST /assess triggers brand scan, redirects to results) ──
+router.post("/assess", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "scan");
+  if (limited) return limited;
+  try {
+    // Accept form-encoded or JSON
+    const ct = request.headers.get("Content-Type") ?? "";
+    let domain: string | undefined;
+    if (ct.includes("application/x-www-form-urlencoded")) {
+      const form = await request.formData();
+      domain = (form.get("domain") as string)?.toLowerCase().trim();
+    } else {
+      const body = await request.json() as { domain?: string };
+      domain = body.domain?.toLowerCase().trim();
+    }
+    // Strip protocol/path if user pasted a URL
+    domain = domain?.replace(/^https?:\/\//, "").split("/")[0];
+    if (!domain || !domain.includes(".")) {
+      return Response.redirect(new URL("/", request.url).toString(), 302);
+    }
+    // Run the brand scan internally
+    const scanRequest = new Request(request.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Origin": request.headers.get("Origin") ?? "" },
+      body: JSON.stringify({ domain }),
+    });
+    const scanRes = await handlePublicBrandScan(scanRequest, env);
+    const scanData = await scanRes.json() as { success: boolean; data?: { domain: string; trustScore: number } };
+    if (!scanData.success) {
+      return Response.redirect(new URL("/", request.url).toString(), 302);
+    }
+    // Find the scan ID (most recent for this domain)
+    const row = await env.DB.prepare(
+      "SELECT id FROM brand_scans WHERE domain = ? ORDER BY created_at DESC LIMIT 1"
+    ).bind(domain).first<{ id: string }>();
+    const id = row?.id ?? "unknown";
+    return Response.redirect(new URL(`/assess/${id}/results`, request.url).toString(), 303);
+  } catch {
+    return Response.redirect(new URL("/", request.url).toString(), 302);
+  }
+});
+
+// ─── Public Assessment Results Page ────────────────────────────
+router.get("/assess/:id/results", (request: Request & { params: Record<string, string> }) =>
+  new Response(renderAssessResults(request.params["id"] ?? ""), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })
+);
+
+// ─── Public Scan Result Page (legacy) ─────────────────────────
 router.get("/scan/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
   handleScanPage(request, env, request.params["id"] ?? "")
 );

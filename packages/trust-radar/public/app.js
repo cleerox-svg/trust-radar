@@ -15,7 +15,7 @@ function checkAuthCallback() {
     const token = params.get('token');
     if (token) {
       setAccessToken(token);
-      navigate('/');
+      navigate('/observatory');
       return true;
     }
   }
@@ -64,7 +64,7 @@ async function refreshToken() {
 
 // ─── Router ─────────────────────────────────────────────────────
 const routes = [
-  { path: '/',                     view: viewObservatory,     auth: true },
+  { path: '/observatory',           view: viewObservatory,     auth: true },
   { path: '/brands',               view: viewBrandsHub,       auth: true },
   { path: '/brands/:id',           view: viewBrandDetail,     auth: true },
   { path: '/providers',            view: viewProvidersHub,    auth: true },
@@ -169,7 +169,7 @@ async function render() {
   // Render view
   if (route.auth) {
     const isAdmin = pathname.startsWith('/admin');
-    const isObservatory = pathname === '/';
+    const isObservatory = pathname === '/observatory';
     if (isObservatory) {
       app.innerHTML = `<div>${renderTopbar()}<div class="observatory-layout"><div class="main" id="view"></div><div class="obs-sidebar" id="obs-sidebar"></div></div></div><div class="toast-container" id="toasts"></div>`;
     } else if (isAdmin) {
@@ -194,7 +194,7 @@ function renderTopbar() {
   const path = location.pathname;
 
   const navItems = [
-    { href: '/', label: 'Observatory' },
+    { href: '/observatory', label: 'Observatory' },
     { href: '/brands', label: 'Brands' },
     { href: '/providers', label: 'Providers' },
     { href: '/campaigns', label: 'Campaigns' },
@@ -213,8 +213,8 @@ function renderTopbar() {
       <div class="user-menu" onclick="this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown">
-          <a href="/">${u?.email || ''}</a>
-          <a href="/"><span class="role-pill ${u?.role}">${u?.role || ''}</span></a>
+          <a href="/observatory">${u?.email || ''}</a>
+          <a href="/observatory"><span class="role-pill ${u?.role}">${u?.role || ''}</span></a>
           ${isAdmin ? '<a href="/admin">Admin Panel</a>' : ''}
           <a href="#" onclick="logout(); return false;">Logout</a>
         </div>
@@ -244,11 +244,11 @@ function renderAdminTopbar(activePath) {
       </nav>
     </div>
     <div class="topbar-right">
-      <a href="/" class="admin-back-link">\u2190 Back to Observatory</a>
+      <a href="/observatory" class="admin-back-link">\u2190 Back to Observatory</a>
       <div class="user-menu" onclick="this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown">
-          <a href="/">${u?.email || ''}</a>
+          <a href="/observatory">${u?.email || ''}</a>
           <a href="#" onclick="logout(); return false;">Logout</a>
         </div>
       </div>

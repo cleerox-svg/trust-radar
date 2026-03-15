@@ -457,6 +457,33 @@ export async function handlePublicBrandScan(request: Request, env: Env): Promise
   }
 }
 
+// ─── Public Brand Scan Result Lookup ─────────────────────────────
+
+export async function handlePublicBrandScanResult(request: Request, env: Env, scanId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const row = await env.DB.prepare(
+      `SELECT id, domain, trust_score, spf_policy, dmarc_policy, feed_mentions,
+              lookalikes_found, status, created_at
+       FROM brand_scans WHERE id = ? AND status = 'completed'`
+    ).bind(scanId).first();
+
+    if (!row) {
+      return json({ success: false, error: "Assessment not found" }, 404, origin);
+    }
+
+    const score = (row as Record<string, unknown>).trust_score as number;
+    const riskLevel = score >= 80 ? "low" : score >= 60 ? "medium" : score >= 40 ? "high" : "critical";
+
+    return json({
+      success: true,
+      data: { ...row, risk_level: riskLevel },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Lead Capture ──────────────────────────────────────────────
 
 export async function handleLeadCapture(request: Request, env: Env): Promise<Response> {
