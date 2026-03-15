@@ -897,17 +897,11 @@ router.get("/ws/threats", async (request: Request, env: Env) => {
 });
 
 // ─── Static assets fallback (SPA) ────────────────────────────
-router.all("*", async (request: Request, env: Env) => {
+router.all("*", (request: Request, env: Env) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
     return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
   }
-  // Try to serve actual static files first (app.js, styles.css, etc.)
-  if (url.pathname.includes(".")) {
-    const assetRes = await env.ASSETS.fetch(request);
-    if (assetRes.status !== 404) return assetRes;
-  }
-  // SPA fallback — serve index.html for all page routes
   return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
 });
 
