@@ -12,6 +12,44 @@ function periodClause(period: string): { since: string; bucket: string } {
   }
 }
 
+/**
+ * Collect all unique period labels across multiple series, sorted chronologically.
+ */
+function collectLabels(rows: Array<{ period: string }>): string[] {
+  return [...new Set(rows.map((r) => r.period))].sort();
+}
+
+/**
+ * Pivot raw rows [{name, period, count}] into {labels, series} for Chart.js.
+ */
+function pivotToSeries(
+  rows: Array<{ name: string; period: string; count: number }>,
+  limit: number,
+): { labels: string[]; series: Array<{ name: string; values: number[] }> } {
+  const labels = collectLabels(rows);
+
+  // Group by name
+  const byName: Record<string, Map<string, number>> = {};
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    if (!byName[row.name]) { byName[row.name] = new Map(); totals[row.name] = 0; }
+    byName[row.name]!.set(row.period, (byName[row.name]!.get(row.period) ?? 0) + row.count);
+    totals[row.name] = (totals[row.name] ?? 0) + row.count;
+  }
+
+  // Sort by total desc, take top N
+  const sorted = Object.keys(byName)
+    .sort((a, b) => (totals[b] ?? 0) - (totals[a] ?? 0))
+    .slice(0, limit);
+
+  const series = sorted.map((name) => ({
+    name,
+    values: labels.map((l) => byName[name]!.get(l) ?? 0),
+  }));
+
+  return { labels, series };
+}
+
 // GET /api/trends/volume
 export async function handleTrendVolume(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -24,9 +62,12 @@ export async function handleTrendVolume(request: Request, env: Env): Promise<Res
              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active
       FROM threats WHERE created_at >= ${since}
       GROUP BY ${bucket} ORDER BY period ASC
-    `).all();
+    `).all<{ period: string; total: number; high_sev: number; active: number }>();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const labels = rows.results.map((r) => r.period);
+    const values = rows.results.map((r) => r.total);
+
+    return json({ success: true, data: { labels, values } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -41,27 +82,15 @@ export async function handleTrendBrands(request: Request, env: Env): Promise<Res
     const limit = Math.min(10, parseInt(url.searchParams.get("limit") ?? "5", 10));
 
     const rows = await env.DB.prepare(`
-      SELECT b.id AS brand_id, b.name, ${bucket} AS period, COUNT(t.id) AS count
+      SELECT b.name AS name, ${bucket} AS period, COUNT(t.id) AS count
       FROM threats t JOIN brands b ON b.id = t.target_brand_id
       WHERE t.created_at >= ${since} AND t.target_brand_id IS NOT NULL
       GROUP BY b.id, ${bucket}
       ORDER BY period ASC
-    `).all();
+    `).all<{ name: string; period: string; count: number }>();
 
-    // Group by brand for sparkline data
-    const byBrand: Record<string, { brand_id: string; name: string; points: { period: string; count: number }[] }> = {};
-    for (const row of rows.results as { brand_id: string; name: string; period: string; count: number }[]) {
-      if (!byBrand[row.brand_id]) byBrand[row.brand_id] = { brand_id: row.brand_id, name: row.name, points: [] };
-      byBrand[row.brand_id]!.points.push({ period: row.period, count: row.count });
-    }
-
-    // Sort by total and take top N
-    const sorted = Object.values(byBrand)
-      .map((b) => ({ ...b, total: b.points.reduce((s, p) => s + p.count, 0) }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, limit);
-
-    return json({ success: true, data: sorted }, 200, origin);
+    const result = pivotToSeries(rows.results, limit);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -76,25 +105,17 @@ export async function handleTrendProviders(request: Request, env: Env): Promise<
     const limit = Math.min(10, parseInt(url.searchParams.get("limit") ?? "5", 10));
 
     const rows = await env.DB.prepare(`
-      SELECT hosting_provider_id AS provider_id, ${bucket} AS period, COUNT(*) AS count
-      FROM threats
-      WHERE created_at >= ${since} AND hosting_provider_id IS NOT NULL
-      GROUP BY hosting_provider_id, ${bucket}
+      SELECT COALESCE(hp.name, t.hosting_provider_id) AS name,
+             ${bucket} AS period, COUNT(*) AS count
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE t.created_at >= ${since} AND t.hosting_provider_id IS NOT NULL
+      GROUP BY t.hosting_provider_id, ${bucket}
       ORDER BY period ASC
-    `).all();
+    `).all<{ name: string; period: string; count: number }>();
 
-    const byProvider: Record<string, { provider_id: string; points: { period: string; count: number }[] }> = {};
-    for (const row of rows.results as { provider_id: string; period: string; count: number }[]) {
-      if (!byProvider[row.provider_id]) byProvider[row.provider_id] = { provider_id: row.provider_id, points: [] };
-      byProvider[row.provider_id]!.points.push({ period: row.period, count: row.count });
-    }
-
-    const sorted = Object.values(byProvider)
-      .map((p) => ({ ...p, total: p.points.reduce((s, pt) => s + pt.count, 0) }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, limit);
-
-    return json({ success: true, data: sorted }, 200, origin);
+    const result = pivotToSeries(rows.results, limit);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -104,7 +125,8 @@ export async function handleTrendProviders(request: Request, env: Env): Promise<
 export async function handleTrendTLDs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const { since } = periodClause(new URL(request.url).searchParams.get("period") ?? "30d");
+    const url = new URL(request.url);
+    const { since, bucket } = periodClause(url.searchParams.get("period") ?? "30d");
 
     const rows = await env.DB.prepare(`
       SELECT
@@ -119,14 +141,17 @@ export async function handleTrendTLDs(request: Request, env: Env): Promise<Respo
           WHEN malicious_domain LIKE '%.ml' THEN '.ml'
           WHEN malicious_domain LIKE '%.cf' THEN '.cf'
           ELSE 'other'
-        END AS tld,
+        END AS name,
+        ${bucket} AS period,
         COUNT(*) AS count
       FROM threats
       WHERE created_at >= ${since} AND malicious_domain IS NOT NULL
-      GROUP BY tld ORDER BY count DESC LIMIT 15
-    `).all();
+      GROUP BY name, ${bucket}
+      ORDER BY period ASC
+    `).all<{ name: string; period: string; count: number }>();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const result = pivotToSeries(rows.results, 15);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -139,12 +164,13 @@ export async function handleTrendTypes(request: Request, env: Env): Promise<Resp
     const { since, bucket } = periodClause(new URL(request.url).searchParams.get("period") ?? "30d");
 
     const rows = await env.DB.prepare(`
-      SELECT ${bucket} AS period, threat_type, COUNT(*) AS count
+      SELECT threat_type AS name, ${bucket} AS period, COUNT(*) AS count
       FROM threats WHERE created_at >= ${since}
-      GROUP BY ${bucket}, threat_type ORDER BY period ASC
-    `).all();
+      GROUP BY threat_type, ${bucket} ORDER BY period ASC
+    `).all<{ name: string; period: string; count: number }>();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const result = pivotToSeries(rows.results, 10);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -165,11 +191,25 @@ export async function handleTrendCompare(request: Request, env: Env): Promise<Re
     const field = type === "provider" ? "hosting_provider_id" : "target_brand_id";
 
     const [rowsA, rowsB] = await Promise.all([
-      env.DB.prepare(`SELECT ${bucket} AS period, COUNT(*) AS count FROM threats WHERE ${field} = ? AND created_at >= ${since} GROUP BY ${bucket} ORDER BY period ASC`).bind(entityA).all(),
-      env.DB.prepare(`SELECT ${bucket} AS period, COUNT(*) AS count FROM threats WHERE ${field} = ? AND created_at >= ${since} GROUP BY ${bucket} ORDER BY period ASC`).bind(entityB).all(),
+      env.DB.prepare(`SELECT ${bucket} AS period, COUNT(*) AS count FROM threats WHERE ${field} = ? AND created_at >= ${since} GROUP BY ${bucket} ORDER BY period ASC`).bind(entityA).all<{ period: string; count: number }>(),
+      env.DB.prepare(`SELECT ${bucket} AS period, COUNT(*) AS count FROM threats WHERE ${field} = ? AND created_at >= ${since} GROUP BY ${bucket} ORDER BY period ASC`).bind(entityB).all<{ period: string; count: number }>(),
     ]);
 
-    return json({ success: true, data: { a: rowsA.results, b: rowsB.results } }, 200, origin);
+    // Merge labels from both series
+    const allLabels = collectLabels([...rowsA.results, ...rowsB.results]);
+    const mapA = new Map(rowsA.results.map((r) => [r.period, r.count]));
+    const mapB = new Map(rowsB.results.map((r) => [r.period, r.count]));
+
+    return json({
+      success: true,
+      data: {
+        labels: allLabels,
+        series: [
+          { name: entityA, values: allLabels.map((l) => mapA.get(l) ?? 0) },
+          { name: entityB, values: allLabels.map((l) => mapB.get(l) ?? 0) },
+        ],
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
