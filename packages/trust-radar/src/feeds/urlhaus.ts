@@ -56,7 +56,10 @@ export const urlhaus: FeedModule = {
         });
         await markSeen(ctx.env, "url", entry.url);
         itemsNew++;
-      } catch { itemsError++; }
+      } catch (err) {
+        console.error(`[urlhaus] insert error for url=${entry.url} host=${entry.host}: ${err instanceof Error ? err.message : err}`);
+        itemsError++;
+      }
     }
 
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };

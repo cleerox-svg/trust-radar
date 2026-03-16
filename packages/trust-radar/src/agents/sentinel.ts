@@ -15,7 +15,7 @@ import { classifyThreat } from "../lib/haiku";
 
 // ─── Homoglyph & brand-squatting detection ──────────────────────
 
-const BRAND_KEYWORDS = [
+const FALLBACK_BRAND_KEYWORDS = [
   "paypal", "apple", "google", "microsoft", "amazon", "netflix", "facebook",
   "instagram", "twitter", "linkedin", "dropbox", "adobe", "zoom", "slack",
   "github", "cloudflare", "stripe", "shopify", "coinbase", "binance",
@@ -42,9 +42,9 @@ function detectHomoglyphs(domain: string): boolean {
   return false;
 }
 
-function detectBrandSquatting(domain: string): string | null {
+function detectBrandSquatting(domain: string, brandKeywords: string[]): string | null {
   const cleaned = domain.toLowerCase().replace(/[.-]/g, "");
-  for (const brand of BRAND_KEYWORDS) {
+  for (const brand of brandKeywords) {
     if (cleaned.includes(brand)) {
       const realPatterns = [`${brand}.com`, `${brand}.io`, `${brand}.org`, `${brand}.net`];
       if (!realPatterns.includes(domain)) return brand;
@@ -69,6 +69,18 @@ export const sentinelAgent: AgentModule = {
     // ─── Diagnostic logging ───────────────────────────────────
     console.log("[sentinel] === STARTING ===");
     console.log("[sentinel] ANTHROPIC_API_KEY configured:", !!env.ANTHROPIC_API_KEY, env.ANTHROPIC_API_KEY ? "present (length=" + env.ANTHROPIC_API_KEY.length + ")" : "MISSING");
+
+    // Load monitored brand keywords from DB, fall back to hardcoded list
+    const monitoredBrands = await env.DB.prepare(
+      `SELECT b.name FROM brands b
+       INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+       WHERE mb.status = 'active'`
+    ).all<{ name: string }>().catch(() => ({ results: [] as { name: string }[] }));
+
+    const brandKeywords = monitoredBrands.results.length > 0
+      ? monitoredBrands.results.map((b) => b.name.toLowerCase().replace(/[^a-z0-9]/g, "")).filter((k) => k.length >= 3)
+      : FALLBACK_BRAND_KEYWORDS;
+    console.log(`[sentinel] brand keywords for squatting detection: ${brandKeywords.length} (source: ${monitoredBrands.results.length > 0 ? "DB" : "fallback"})`);
 
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
@@ -138,7 +150,7 @@ export const sentinelAgent: AgentModule = {
       const domain = threat.malicious_domain;
       if (domain) {
         const hasHomoglyphs = detectHomoglyphs(domain);
-        const squattedBrand = detectBrandSquatting(domain);
+        const squattedBrand = detectBrandSquatting(domain, brandKeywords);
 
         if (hasHomoglyphs || squattedBrand) {
           impersonationsFound++;

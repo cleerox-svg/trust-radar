@@ -2,15 +2,51 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
+/** Common homoglyph substitutions for brand matching */
+const HOMOGLYPHS: Record<string, string[]> = {
+  l: ["1", "i"],
+  o: ["0"],
+  i: ["1", "l"],
+  a: ["4", "@"],
+  e: ["3"],
+  s: ["5", "$"],
+};
+
 /**
  * CertStream — Certificate Transparency log monitoring for suspicious domains.
  * Uses crt.sh REST API to search for recently-issued certs containing brand
  * impersonation keywords.
+ *
+ * Checks each domain against:
+ * 1. Monitored brands from the DB (typosquatting detection with homoglyphs)
+ * 2. Hardcoded suspicious patterns (fallback for generic phishing keywords)
  */
 export const certstream: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    const keywords = ["paypal", "microsoft-login", "apple-id", "netflix-verify", "amazon-secure"];
-    const keyword = keywords[Math.floor(Date.now() / 900_000) % keywords.length];
+    // ─── Load monitored brand keywords from DB ──────────────
+    const brands = await ctx.env.DB.prepare(
+      `SELECT b.id, b.name, b.canonical_domain
+       FROM brands b
+       INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+       WHERE mb.status = 'active'`
+    ).all<{ id: string; name: string; canonical_domain: string }>();
+
+    const brandKeywords = brands.results.map((b) => ({
+      id: b.id,
+      keyword: b.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
+      domain: b.canonical_domain.toLowerCase(),
+    }));
+    console.log(`[ct_logs] loaded ${brandKeywords.length} monitored brands for matching`);
+
+    // ─── Build search keyword list ──────────────────────────
+    // Use monitored brand names + hardcoded fallback keywords for crt.sh query
+    const hardcodedKeywords = ["paypal", "microsoft-login", "apple-id", "netflix-verify", "amazon-secure"];
+    const allSearchKeywords = [
+      ...brandKeywords.filter((b) => b.keyword.length >= 4).map((b) => b.keyword),
+      ...hardcodedKeywords,
+    ];
+    // Rotate through keywords each 15-minute window
+    const keyword = allSearchKeywords[Math.floor(Date.now() / 900_000) % allSearchKeywords.length]!;
 
     const url = `${ctx.feedUrl}?q=%25${keyword}%25&output=json&limit=100`;
     console.log(`[ct_logs] fetching: ${url}`);
@@ -48,23 +84,45 @@ export const certstream: FeedModule = {
       try {
         const domain = cert.common_name ?? cert.name_value?.split("\n")[0];
         if (!domain) continue;
+
+        // ─── Check against monitored brands (typosquatting) ───
+        const matchedBrand = matchMonitoredBrand(domain.toLowerCase(), brandKeywords);
+        if (matchedBrand) {
+          if (await isDuplicate(ctx.env, "domain", domain)) { itemsDuplicate++; continue; }
+
+          await insertThreat(ctx.env.DB, {
+            id: threatId("ct_logs", "domain", domain),
+            source_feed: "ct_logs",
+            threat_type: "typosquatting",
+            malicious_url: null,
+            malicious_domain: domain,
+            target_brand_id: matchedBrand.id,
+            ioc_value: domain,
+            severity: "high",
+            confidence_score: 75,
+          });
+          await markSeen(ctx.env, "domain", domain);
+          itemsNew++;
+          continue;
+        }
+
+        // ─── Fallback: hardcoded suspicious patterns ──────────
         if (!suspiciousPatterns.test(domain)) continue;
         if (/\.(paypal|apple|google|microsoft|amazon|netflix)\.com$/i.test(domain)) continue;
 
         if (await isDuplicate(ctx.env, "domain", domain)) { itemsDuplicate++; continue; }
 
-        const threatRow = {
+        await insertThreat(ctx.env.DB, {
           id: threatId("ct_logs", "domain", domain),
-          source_feed: "ct_logs" as const,
-          threat_type: "phishing" as const,
+          source_feed: "ct_logs",
+          threat_type: "phishing",
           malicious_url: null,
           malicious_domain: domain,
           ioc_value: domain,
-          severity: "medium" as const,
+          severity: "medium",
           confidence_score: 65,
-        };
-        if (itemsNew < 3) console.log(`[ct_logs] inserting threat: domain=${domain}, id=${threatRow.id}`);
-        await insertThreat(ctx.env.DB, threatRow);
+        });
+        if (itemsNew < 3) console.log(`[ct_logs] inserting threat: domain=${domain}`);
         await markSeen(ctx.env, "domain", domain);
         itemsNew++;
       } catch (e) {
@@ -77,3 +135,31 @@ export const certstream: FeedModule = {
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
+
+/** Check if a domain matches any monitored brand (substring + homoglyph variants) */
+function matchMonitoredBrand(
+  domain: string,
+  brands: Array<{ id: string; keyword: string; domain: string }>,
+): { id: string; keyword: string } | null {
+  for (const brand of brands) {
+    // Skip if this IS the brand's canonical domain
+    if (domain === brand.domain) continue;
+    if (brand.keyword.length < 3) continue;
+
+    // Direct substring match
+    if (domain.includes(brand.keyword)) return brand;
+
+    // Homoglyph variant matching
+    for (let i = 0; i < brand.keyword.length; i++) {
+      const char = brand.keyword[i]!;
+      const subs = HOMOGLYPHS[char];
+      if (subs) {
+        for (const sub of subs) {
+          const variant = brand.keyword.slice(0, i) + sub + brand.keyword.slice(i + 1);
+          if (domain.includes(variant)) return brand;
+        }
+      }
+    }
+  }
+  return null;
+}
