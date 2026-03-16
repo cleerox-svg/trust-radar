@@ -9,7 +9,10 @@ export const threatfox: FeedModule = {
     console.log(`[threatfox] fetching: ${ctx.feedUrl}`);
     const res = await diagnosticFetch(ctx.env.DB, "threatfox", ctx.feedUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Auth-Key": ctx.env.ABUSECH_AUTH_KEY,
+      },
       body: JSON.stringify({ query: "get_iocs", days: 1 }),
     });
     console.log(`[threatfox] response: HTTP ${res.status}`);

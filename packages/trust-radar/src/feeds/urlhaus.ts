@@ -13,7 +13,10 @@ export const urlhaus: FeedModule = {
     console.log(`[urlhaus] fetching: ${url}`);
     const res = await diagnosticFetch(ctx.env.DB, "urlhaus", url, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Auth-Key": ctx.env.ABUSECH_AUTH_KEY,
+      },
     });
     console.log(`[urlhaus] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`URLhaus HTTP ${res.status}`);
