@@ -362,7 +362,7 @@ input, select, textarea { font-family: inherit; }
 .admin-mode .topbar-logo .dot { background: var(--threat-medium); }
 
 /* ─── Observatory Layout ───────────────────────────────────── */
-.observatory-view > .topbar { border-bottom: none; box-shadow: none; }
+.observatory-view .topbar { border-bottom: none; box-shadow: none; }
 .observatory-layout {
   display: grid; grid-template-columns: 1fr 372px; gap: 0;
   height: calc(100vh - 52px); overflow: hidden;
@@ -2382,4 +2382,22 @@ a.campaign-card:hover { text-decoration: none; }
   .pub-hero-title { font-size: 26px; }
   .pub-hero-cta { flex-direction: column; align-items: center; }
   .pub-btn-lg { font-size: 12px; padding: 12px 24px; }
+}
+
+/* ─── NUCLEAR FIX: Remove white bar between topbar and observatory map ─── */
+.observatory-view .topbar {
+  border-bottom: none !important;
+  box-shadow: none !important;
+  margin-bottom: 0 !important;
+}
+.observatory-view .observatory-layout {
+  margin-top: 0 !important;
+}
+.observatory-view .main {
+  padding-top: 0 !important;
+}
+.observatory-view .topbar-nav,
+.observatory-view .nav-row {
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
 }
