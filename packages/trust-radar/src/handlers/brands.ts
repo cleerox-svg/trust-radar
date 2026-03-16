@@ -167,6 +167,17 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
        VALUES (?, '__internal__', ?, ?, 'active')`
     ).bind(brand.id, userId, body.notes ?? null).run();
 
+    // ─── Auto-add canonical domain to safe domains allowlist ───
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+       VALUES (?, ?, ?, ?, 'auto_detected')`
+    ).bind(crypto.randomUUID(), brand.id, domain, userId).run();
+    // Also add www variant
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+       VALUES (?, ?, ?, ?, 'auto_detected')`
+    ).bind(crypto.randomUUID(), brand.id, "www." + domain, userId).run();
+
     // ─── Step A: Retroactive domain-based threat linking (free, no AI) ───
     const keyword = domain.split(".")[0]!; // e.g. "docusign.com" → "docusign"
     const hyphenated = keyword.includes("-") ? keyword : keyword.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
@@ -259,11 +270,14 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
              ip_address, country_code, hosting_provider_id, campaign_id,
              first_seen, last_seen, created_at
       FROM threats WHERE target_brand_id = ?
+        AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)
       ORDER BY created_at DESC LIMIT ? OFFSET ?
-    `).bind(brandId, limit, offset).all();
+    `).bind(brandId, brandId, limit, offset).all();
 
-    const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ?")
-      .bind(brandId).first<{ n: number }>();
+    const total = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ?
+         AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)`
+    ).bind(brandId, brandId).first<{ n: number }>();
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {

@@ -8,6 +8,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { inferBrand } from "../lib/haiku";
+import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 
 export const analystAgent: AgentModule = {
   name: "analyst",
@@ -52,6 +53,10 @@ export const analystAgent: AgentModule = {
     const brandNames = brands.results.map((b) => b.name);
     console.log("[analyst] Known brands loaded:", brandNames.length, brandNames.length > 0 ? `(first: ${brandNames[0]})` : "(none)");
 
+    // Load safe domains for allowlist filtering
+    const safeSet = await loadSafeDomainSet(env.DB);
+    console.log("[analyst] Safe domain set loaded:", safeSet.size, "entries");
+
     let itemsProcessed = 0;
     let itemsUpdated = 0;
     let totalTokens = 0;
@@ -61,8 +66,16 @@ export const analystAgent: AgentModule = {
     let lowConfidence = 0;
     const outputs: AgentOutputEntry[] = [];
 
+    let safeSkipped = 0;
+
     for (const threat of threats.results) {
       itemsProcessed++;
+
+      // Skip threats whose domain is in the safe domain allowlist
+      if (threat.malicious_domain && isSafeDomain(threat.malicious_domain, safeSet)) {
+        safeSkipped++;
+        continue;
+      }
 
       const result = await inferBrand(
         env,
@@ -162,7 +175,7 @@ export const analystAgent: AgentModule = {
       }
     }
 
-    console.log(`[analyst] Processing complete: processed=${itemsProcessed}, matched=${itemsUpdated}, haiku_ok=${haikuSuccesses}, haiku_fail=${haikuFailures}, low_confidence=${lowConfidence}`);
+    console.log(`[analyst] Processing complete: processed=${itemsProcessed}, matched=${itemsUpdated}, haiku_ok=${haikuSuccesses}, haiku_fail=${haikuFailures}, low_confidence=${lowConfidence}, safe_skipped=${safeSkipped}`);
 
     // Always generate an output so agent_outputs gets populated
     outputs.push({
