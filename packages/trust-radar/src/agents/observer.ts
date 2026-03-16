@@ -24,7 +24,8 @@ export const observerAgent: AgentModule = {
     // Cost guard: observer is non-critical
     const blocked = await checkCostGuard(env, false);
     if (blocked) {
-      return { status: "skipped", itemsProcessed: 0, itemsUpdated: 0, result: { message: blocked } };
+      console.warn(`[observer] ${blocked}`);
+      return { itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, output: { skipped: true, reason: blocked } };
     }
 
     let totalTokens = 0;

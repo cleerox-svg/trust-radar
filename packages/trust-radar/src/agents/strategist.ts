@@ -23,7 +23,8 @@ export const strategistAgent: AgentModule = {
     // Cost guard: strategist naming is non-critical
     const blocked = await checkCostGuard(env, false);
     if (blocked) {
-      return { status: "skipped", itemsProcessed: 0, itemsUpdated: 0, result: { message: blocked } };
+      console.warn(`[strategist] ${blocked}`);
+      return { itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, output: { skipped: true, reason: blocked } };
     }
 
     let itemsProcessed = 0;
