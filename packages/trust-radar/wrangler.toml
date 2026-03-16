@@ -13,6 +13,7 @@ routes = [
 [assets]
 directory = "./public"
 binding = "ASSETS"
+serve_directly = false
 not_found_handling = "single-page-application"
 
 # ─── Cron Triggers (automated feed ingestion) ────────────────
