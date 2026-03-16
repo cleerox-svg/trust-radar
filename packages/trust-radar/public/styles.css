@@ -365,6 +365,7 @@ input, select, textarea { font-family: inherit; }
 .observatory-layout {
   display: grid; grid-template-columns: 1fr 372px; gap: 0;
   height: calc(100vh - 52px); overflow: hidden;
+  margin-top: -1px; /* overlap topbar border to eliminate gap */
 }
 .observatory-layout .main { padding: 0; max-width: none; }
 .map-container {
@@ -874,7 +875,7 @@ a.campaign-card:hover { text-decoration: none; }
 }
 .provider-icon .pico-asn { font-family: var(--font-mono); font-size: 7px; color: var(--text-tertiary); }
 .provider-card-info { flex: 1; min-width: 0; }
-.provider-card-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.provider-card-name { font-size: 14px; font-weight: 700; white-space: normal; word-wrap: break-word; line-height: 1.3; }
 .provider-card-asn { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); margin-top: 1px; }
 .provider-card-stats { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .provider-threat-val { font-family: var(--font-display); font-weight: 700; font-size: 28px; line-height: 1; }

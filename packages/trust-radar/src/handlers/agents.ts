@@ -1,6 +1,7 @@
 import { json } from "../lib/cors";
 import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
+import { getDailyUsage } from "../lib/haiku";
 import type { Env } from "../types";
 
 // ─── Schedule labels for each agent ─────────────────────────────
@@ -406,40 +407,55 @@ export async function handleTrustBotChat(
 export async function handleAgentApiUsage(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Haiku 4.5 pricing: $0.80/M input, $4/M output.
-    // We only track total tokens, so use blended rate: ~$1.00/M tokens
-    const COST_PER_TOKEN = 1.0 / 1_000_000;
+    // Haiku 4.5 pricing: $0.80/M input, $4/M output
+    const INPUT_COST = 0.80 / 1_000_000;
+    const OUTPUT_COST = 4.0 / 1_000_000;
 
-    const [tokens24h, tokens7d, tokens30d, perAgent24h] = await Promise.all([
-      env.DB.prepare(
-        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-1 day')`
-      ).first<{ total: number }>(),
-      env.DB.prepare(
-        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-7 days')`
-      ).first<{ total: number }>(),
-      env.DB.prepare(
-        `SELECT COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-30 days')`
-      ).first<{ total: number }>(),
-      env.DB.prepare(
-        `SELECT agent_id, COALESCE(SUM(tokens_used), 0) AS total FROM agent_runs WHERE started_at >= datetime('now', '-1 day') GROUP BY agent_id`
-      ).all<{ agent_id: string; total: number }>(),
-    ]);
+    // Read KV-backed daily usage for each of the last 30 days
+    const today = new Date();
+    const dailyData = await Promise.all(
+      Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(today);
+        d.setUTCDate(d.getUTCDate() - i);
+        return getDailyUsage(env, d.toISOString().slice(0, 10));
+      })
+    );
 
-    const perAgent: Record<string, number> = {};
-    for (const row of perAgent24h.results) {
-      perAgent[row.agent_id] = row.total;
-    }
+    const sum = (days: number) => dailyData.slice(0, days).reduce((acc, d) => ({
+      calls: acc.calls + d.calls,
+      input_tokens: acc.input_tokens + d.input_tokens,
+      output_tokens: acc.output_tokens + d.output_tokens,
+      agent_calls: acc.agent_calls + d.agent_calls,
+      ondemand_calls: acc.ondemand_calls + d.ondemand_calls,
+    }), { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 });
 
-    const cost30d = (tokens30d?.total ?? 0) * COST_PER_TOKEN;
+    const d1 = sum(1);
+    const d7 = sum(7);
+    const d30 = sum(30);
+
+    const cost = (s: typeof d1) => s.input_tokens * INPUT_COST + s.output_tokens * OUTPUT_COST;
 
     return json({
       success: true,
       data: {
-        tokens_24h: tokens24h?.total ?? 0,
-        tokens_7d: tokens7d?.total ?? 0,
-        tokens_30d: tokens30d?.total ?? 0,
-        estimated_cost_30d: `$${cost30d.toFixed(2)}`,
-        per_agent: perAgent,
+        tokens_24h: d1.input_tokens + d1.output_tokens,
+        tokens_7d: d7.input_tokens + d7.output_tokens,
+        tokens_30d: d30.input_tokens + d30.output_tokens,
+        input_tokens_24h: d1.input_tokens,
+        output_tokens_24h: d1.output_tokens,
+        input_tokens_7d: d7.input_tokens,
+        output_tokens_7d: d7.output_tokens,
+        input_tokens_30d: d30.input_tokens,
+        output_tokens_30d: d30.output_tokens,
+        estimated_cost_24h: `$${cost(d1).toFixed(2)}`,
+        estimated_cost_7d: `$${cost(d7).toFixed(2)}`,
+        estimated_cost_30d: `$${cost(d30).toFixed(2)}`,
+        agent_cost_30d: `$${(d30.agent_calls > 0 ? cost(d30) * d30.agent_calls / d30.calls : 0).toFixed(2)}`,
+        ondemand_cost_30d: `$${(d30.ondemand_calls > 0 ? cost(d30) * d30.ondemand_calls / d30.calls : 0).toFixed(2)}`,
+        calls_today: d1.calls,
+        daily_limit: 500,
+        agent_calls_30d: d30.agent_calls,
+        ondemand_calls_30d: d30.ondemand_calls,
         api_key_configured: !!(env.ANTHROPIC_API_KEY || env.LRX_API_KEY),
       },
     }, 200, origin);

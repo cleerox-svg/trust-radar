@@ -674,11 +674,10 @@ async function viewObservatory(el) {
     const sidebar = document.getElementById('obs-sidebar');
     if (sidebar) {
       const brandRows = (topBrands?.data || []).map((b, i) => {
-        const initials = (b.name || '').slice(0, 2).toUpperCase();
         const color = b.threat_count > 50 ? 'var(--threat-critical)' : b.threat_count > 20 ? 'var(--threat-high)' : 'var(--blue-primary)';
         return `<a href="/brands/${b.brand_id || b.id}" class="sidebar-brand-row">
           <span class="rank">${i + 1}</span>
-          <div class="brand-icon" style="color:${color};border-color:${color}">${initials}</div>
+          ${_brandLogoImg(b.name, 28)}
           <div class="brand-info"><div class="brand-name">${b.name}</div><div class="brand-sector">${b.sector || ''}</div></div>
           <span class="threat-count" style="color:${color}">${b.threat_count}</span>
         </a>`;
@@ -759,6 +758,16 @@ let _brandsSubTab = 'top-targeted';
 let _brandsPeriod = '24h';
 
 function _brandInitials(name) { return (name || '').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(); }
+function _brandLogoDomain(name) {
+  // Derive real brand domain from brand name (not canonical_domain which may be a phishing domain)
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+}
+function _brandLogoImg(name, size, initials) {
+  const domain = _brandLogoDomain(name);
+  const init = initials || _brandInitials(name);
+  const fallbackDiv = `<div class=&quot;brand-icon&quot; style=&quot;width:${size}px;height:${size}px;font-size:${Math.round(size*0.45)}px&quot;>${init}</div>`;
+  return `<img src="https://logo.clearbit.com/${domain}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" onerror="this.onerror=function(){this.outerHTML='${fallbackDiv}'};this.src='https://www.google.com/s2/favicons?domain=${domain}&sz=128'" alt="${init}">`;
+}
 function _tColor(t) { return t >= 200 ? 'var(--threat-critical)' : t >= 100 ? 'var(--threat-high)' : t >= 50 ? 'var(--threat-medium)' : 'var(--blue-primary)'; }
 function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--blue-primary)' : s >= 70 ? 'var(--threat-medium)' : s >= 50 ? 'var(--threat-high)' : 'var(--threat-critical)'; }
 
@@ -806,7 +815,7 @@ async function viewBrandsHub(el) {
         ${risingHtml}
         <div class="brand-card-top">
           <div class="brand-rank ${rankClass}">${i + 1}</div>
-          <div class="brand-icon-lg" style="color:${color}">${initials}</div>
+          ${_brandLogoImg(b.name, 36, initials)}
           <div class="brand-card-info"><div class="brand-card-name">${b.name}</div><div class="brand-card-sector">${b.sector || ''}</div></div>
         </div>
         <div class="brand-card-stats">
@@ -1027,7 +1036,7 @@ async function viewBrandDetail(el, params) {
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
       api(`/brands/${params.id}/providers`).catch(() => null),
       api(`/brands/${params.id}/campaigns`).catch(() => null),
-      api(`/brands/${params.id}/threats/timeline?period=30d`).catch(() => null),
+      api(`/brands/${params.id}/threats/timeline?period=7d`).catch(() => null),
       api(`/brands/${params.id}/analysis`).catch(() => null),
     ]);
     const b = brandRes?.data;
@@ -1059,7 +1068,7 @@ async function viewBrandDetail(el, params) {
     el.innerHTML = `
       <a href="/brands" class="back-link">\u2190 Back to Brands</a>
       <div class="detail-header">
-        <div class="detail-header-icon" style="color:${threatColor}">${initials}</div>
+        <div class="detail-header-icon" style="color:${threatColor}">${_brandLogoImg(b.name, 48, initials)}</div>
         <div class="detail-header-meta">
           <div class="detail-header-title">${b.name}<span class="sector-pill">${b.sector || 'Unknown'}</span></div>
           <div class="detail-header-sub">${b.canonical_domain || ''} \u2014 First tracked: ${b.first_tracked || b.created_at?.slice(0, 10) || '-'}</div>
@@ -1112,7 +1121,7 @@ async function viewBrandDetail(el, params) {
       </div>
       <div>
         <div class="chart-head"><div class="chart-title">Threat Timeline</div><div class="period-selector" id="brand-timeline-period">
-          <button class="period-btn" data-period="7d">7D</button><button class="period-btn active" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button><button class="period-btn" data-period="1y">1Y</button>
+          <button class="period-btn active" data-period="7d">7D</button><button class="period-btn" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button><button class="period-btn" data-period="1y">1Y</button>
         </div></div>
         <div class="chart-wrap"><canvas id="brand-timeline-chart"></canvas></div>
       </div>`;
@@ -1353,8 +1362,11 @@ function _renderProvCard(p, i, isImproving) {
   return `<a href="/providers/${encodeURIComponent(p.provider_id || p.id || p.name)}" class="provider-card ${isImproving ? 'improving' : ''}">
     <div class="provider-card-top">
       <div class="provider-rank ${!isImproving && i < 3 ? 'top' : ''}">${i + 1}</div>
-      <div class="provider-icon"><span style="font-size:16px;line-height:1">${flag}</span><span class="pico-asn">${p.asn || ''}</span></div>
-      <div class="provider-card-info"><div class="provider-card-name">${p.name}</div><div class="provider-card-asn">${p.asn || ''} <span class="country-code-pill">${p.country_code || p.country || ''}</span></div></div>
+      <div class="provider-icon"><span style="font-size:16px;line-height:1">${flag}</span></div>
+      <div class="provider-card-info">
+        <div class="provider-card-name" style="font-size:14px;font-weight:700">${p.name}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">${p.country_code || p.country || ''} ${p.asn || ''}</div>
+      </div>
     </div>
     <div class="provider-card-stats">
       <div><div class="provider-threat-val" style="color:${color}">${threats}</div><div class="provider-threat-label">active threats</div></div>
@@ -1507,7 +1519,7 @@ async function viewProviderDetail(el, params) {
       api(`/providers/${encodeURIComponent(params.id)}`),
       api(`/providers/${encodeURIComponent(params.id)}/threats?limit=50`).catch(() => null),
       api(`/providers/${encodeURIComponent(params.id)}/brands`).catch(() => null),
-      api(`/providers/${encodeURIComponent(params.id)}/timeline?period=90d`).catch(() => null),
+      api(`/providers/${encodeURIComponent(params.id)}/timeline?period=7d`).catch(() => null),
       api(`/providers/${encodeURIComponent(params.id)}/locations`).catch(() => null),
     ]);
     const p = provRes?.data;
@@ -1530,10 +1542,10 @@ async function viewProviderDetail(el, params) {
     el.innerHTML = `
       <a href="/providers" class="back-link">\u2190 Back to Providers</a>
       <div class="detail-header">
-        <div class="detail-header-icon" style="flex-direction:column;gap:2px"><span style="font-size:22px">${flag}</span><span style="font-family:var(--font-mono);font-size:8px;color:var(--text-tertiary)">${p.asn || ''}</span></div>
+        <div class="detail-header-icon" style="flex-direction:column;gap:2px"><span style="font-size:22px">${flag}</span></div>
         <div class="detail-header-meta">
-          <div class="detail-header-title">${p.name}${p.asn ? `<span class="asn-pill">${p.asn}</span>` : ''}<span class="country-code-pill" style="font-size:11px;padding:3px 8px">${p.country_code || p.country || ''}</span></div>
-          <div class="detail-header-sub">Hosting Provider \u2014 ${totalThreats} active threats hosted</div>
+          <div class="detail-header-title">${p.name}</div>
+          <div class="detail-header-sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${p.country_code || p.country ? `<span class="country-code-pill" style="font-size:11px;padding:3px 8px">${p.country_code || p.country}</span>` : ''}${p.asn ? `<span class="asn-pill">${p.asn}</span>` : ''}<span>Hosting Provider \u2014 ${totalThreats} active threats hosted</span></div>
           <div class="detail-header-stats">
             <div class="header-stat"><div class="header-stat-val" style="color:${_tColor(totalThreats)}">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${t7 >= 0 ? 'var(--threat-medium)' : 'var(--positive)'}">${t7 >= 0 ? '+' : ''}${t7}%</div><div class="header-stat-label">7-day trend</div></div>
@@ -2032,7 +2044,7 @@ async function viewCampaignDetail(el, params) {
       api(`/campaigns/${params.id}/threats?limit=15`).catch(() => null),
       api(`/campaigns/${params.id}/infrastructure`).catch(() => null),
       api(`/campaigns/${params.id}/brands`).catch(() => null),
-      api(`/campaigns/${params.id}/timeline?period=30d`).catch(() => null),
+      api(`/campaigns/${params.id}/timeline?period=7d`).catch(() => null),
     ]);
     const c = campRes?.data;
     if (!c) { el.innerHTML = '<div class="empty-state"><div class="message">Campaign not found</div></div>'; return; }
@@ -2197,8 +2209,8 @@ async function viewCampaignDetail(el, params) {
 // ─── View: Trends (Step 12) ─────────────────────────────────
 const CHART_COLORS = ['#00d4ff', '#ff3b5c', '#ff6b35', '#ffb627', '#00e5a0', '#b388ff', '#0091b3', '#ff80ab', '#82b1ff', '#ccff90'];
 let _trendChart = null;
-let _trendDimension = 'brands';
-let _trendPeriod = '30d';
+let _trendDimension = 'volume';
+let _trendPeriod = '7d';
 let _trendCompare = false;
 let _hiddenSeries = new Set();
 
@@ -2953,7 +2965,7 @@ async function viewAdminFeeds(el) {
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#00d4ff' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
 
     // Row click to detail
@@ -3199,25 +3211,28 @@ async function viewAdminAgentConfig(el) {
       return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;font-size:14px;background:${meta.color}15">${meta.icon}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
-    // API usage section
+    // API usage section — KV-backed accurate per-day tracking
     const tokens24h = usage.tokens_24h || 0;
     const tokens7d = usage.tokens_7d || 0;
     const tokens30d = usage.tokens_30d || 0;
+    const callsToday = usage.calls_today || 0;
+    const dailyLimit = usage.daily_limit || 500;
+    const limitPct = Math.min(100, Math.round(callsToday / dailyLimit * 100));
     document.getElementById('adm-api-usage').innerHTML = `
-      <div style="display:flex;gap:24px;margin-bottom:16px">
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--blue-primary)">${tokens24h.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (24h)</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (7d)</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (30d)</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--positive)">${usage.estimated_cost_30d || '$0.00'}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Est. cost (30d)</div></div>
+      <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--blue-primary)">${tokens24h.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (24h)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_24h || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (7d)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_7d || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (30d)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_30d || '$0.00'}</div></div>
       </div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:12px">Per-agent token breakdown (24h):</div>
-      ${agents.map(a => {
-        const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
-        const agentTokens = usage.per_agent?.[a.agent_id || a.name] || 0;
-        const pct = tokens24h > 0 ? (agentTokens / tokens24h * 100).toFixed(0) : 0;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:4px 0"><span style="font-size:11px;color:${meta.color};min-width:100px">${a.display_name || a.name}</span><div style="flex:1;height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${meta.color};border-radius:3px"></div></div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);min-width:80px;text-align:right">${agentTokens.toLocaleString()}</span></div>`;
-      }).join('')}
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--blue-border)">
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text-secondary)">Today: ${callsToday} calls</span><span style="color:var(--text-tertiary)">limit: 300 soft / ${dailyLimit} hard</span></div>
+        <div style="height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${limitPct}%;background:${limitPct >= 100 ? 'var(--negative)' : limitPct >= 60 ? 'var(--threat-medium)' : 'var(--positive)'};border-radius:3px;transition:width .3s"></div></div>
+      </div>
+      <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="font-size:11px"><span style="color:var(--text-secondary)">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span style="color:var(--text-tertiary);font-size:9px"> (${usage.agent_calls_30d || 0} calls)</span></div>
+        <div style="font-size:11px"><span style="color:var(--text-secondary)">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span style="color:var(--text-tertiary);font-size:9px"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
+      </div>
+      <div style="padding-top:12px;border-top:1px solid var(--blue-border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:11px;color:var(--text-secondary)">Anthropic API Key</span>
           <span style="font-family:var(--font-mono);font-size:11px;color:${usage.api_key_configured ? 'var(--positive)' : 'var(--negative)'}">${usage.api_key_configured ? 'Configured \u2713' : 'Not set \u26a0'}</span>
