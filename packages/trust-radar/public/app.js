@@ -1170,7 +1170,7 @@ function _attachLogoFallbacks(container) {
     img.onerror = function() {
       if (!this.dataset.fallback) {
         this.dataset.fallback = '1';
-        this.src = 'https://logo.clearbit.com/' + this.dataset.domain;
+        this.src = 'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://' + this.dataset.domain + '&size=128';
       } else {
         this.outerHTML = '<div class="brand-icon" style="width:' + this.width + 'px;height:' + this.height + 'px;font-size:' + Math.round(this.width * 0.45) + 'px">' + this.dataset.initials + '</div>';
       }
