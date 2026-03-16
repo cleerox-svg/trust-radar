@@ -8,7 +8,7 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
-import { generateInsight } from "../lib/haiku";
+import { generateInsight, checkCostGuard } from "../lib/haiku";
 
 export const observerAgent: AgentModule = {
   name: "observer",
@@ -20,6 +20,13 @@ export const observerAgent: AgentModule = {
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
+
+    // Cost guard: observer is non-critical
+    const blocked = await checkCostGuard(env, false);
+    if (blocked) {
+      console.warn(`[observer] ${blocked}`);
+      return { itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, output: { skipped: true, reason: blocked } };
+    }
 
     let totalTokens = 0;
     let model: string | undefined;

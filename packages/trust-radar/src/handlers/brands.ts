@@ -2,7 +2,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
-import { analyzeBrandThreats } from "../lib/haiku";
+import { analyzeBrandThreats, callHaikuRaw } from "../lib/haiku";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -167,8 +167,36 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
        VALUES (?, '__internal__', ?, ?, 'active')`
     ).bind(brand.id, userId, body.notes ?? null).run();
 
-    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: brand.id, details: { domain, reason: body.reason }, request });
-    return json({ success: true, data: { brand_id: brand.id, domain, name: brandName } }, 201, origin);
+    // ─── Step A: Retroactive domain-based threat linking (free, no AI) ───
+    const keyword = domain.split(".")[0]!; // e.g. "docusign.com" → "docusign"
+    const hyphenated = keyword.includes("-") ? keyword : keyword.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+    // Build LIKE patterns: exact keyword and hyphenated variant
+    const patterns: string[] = [`%${keyword}%`];
+    if (hyphenated !== keyword) patterns.push(`%${hyphenated}%`);
+    // Also try splitting on common word boundaries: "docusign" → "docu-sign" won't match
+    // but "docu-sign" domain → keyword "docu-sign" will match via the first pattern
+
+    // Match threats by URL containing keyword or canonical_domain
+    const likeClause = patterns.map(() => "malicious_url LIKE ?").join(" OR ");
+    const domainLikeClause = `malicious_domain LIKE ? OR malicious_url LIKE ?`;
+    const linkQuery = `UPDATE threats SET target_brand_id = ? WHERE target_brand_id IS NULL AND (${likeClause} OR ${domainLikeClause}) `;
+    const bindValues = [brand.id, ...patterns, `%${domain}%`, `%${domain}%`];
+
+    const linkResult = await env.DB.prepare(linkQuery).bind(...bindValues).run();
+    const threatsLinked = linkResult.meta?.changes ?? 0;
+
+    // Update brand aggregate counts
+    if (threatsLinked > 0) {
+      await env.DB.prepare(
+        `UPDATE brands SET
+           threat_count = (SELECT COUNT(*) FROM threats WHERE target_brand_id = ?),
+           last_threat_seen = (SELECT MAX(created_at) FROM threats WHERE target_brand_id = ?)
+         WHERE id = ?`
+      ).bind(brand.id, brand.id, brand.id).run();
+    }
+
+    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: brand.id, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
+    return json({ success: true, data: { brand_id: brand.id, domain, name: brandName, threats_linked: threatsLinked, message: threatsLinked > 0 ? `Found ${threatsLinked} existing threats matching this brand` : "No existing threats matched" } }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -441,6 +469,69 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
     }
 
     return json({ success: false, error: result.error || "Analysis generation failed" }, 500, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/brands/:id/deep-scan — AI-powered threat linking (user-triggered, costs tokens)
+export async function handleBrandDeepScan(request: Request, env: Env, brandId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare(
+      "SELECT id, name, canonical_domain FROM brands WHERE id = ?"
+    ).bind(brandId).first<{ id: string; name: string; canonical_domain: string }>();
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Fetch up to 200 unlinked threats that haven't been AI-scored yet
+    const unlinked = await env.DB.prepare(
+      `SELECT id, malicious_url, malicious_domain FROM threats
+       WHERE target_brand_id IS NULL
+       ORDER BY created_at DESC LIMIT 200`
+    ).all<{ id: string; malicious_url: string | null; malicious_domain: string | null }>();
+
+    const threats = unlinked.results;
+    if (!threats.length) {
+      return json({ success: true, data: { scanned: 0, newly_linked: 0, message: "No unlinked threats to scan" } }, 200, origin);
+    }
+
+    const systemPrompt = "You are a brand impersonation detector. Reply with ONLY 'YES' or 'NO'.";
+    let newlyLinked = 0;
+    const BATCH_SIZE = 20;
+
+    for (let i = 0; i < threats.length; i += BATCH_SIZE) {
+      const batch = threats.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (t) => {
+          const url = t.malicious_url || t.malicious_domain || "";
+          if (!url) return { id: t.id, match: false };
+          const userMsg = `Does this URL target or impersonate the brand ${brand.name} (${brand.canonical_domain})? Consider typosquatting, homoglyph attacks, subdomain abuse, and lookalike domains. URL: ${url}`;
+          const res = await callHaikuRaw(env, systemPrompt, userMsg);
+          return { id: t.id, match: res.success && res.text?.toUpperCase().startsWith("YES") };
+        })
+      );
+
+      const matchedIds = results.filter(r => r.match).map(r => r.id);
+      if (matchedIds.length > 0) {
+        // Batch update matched threats
+        for (const id of matchedIds) {
+          await env.DB.prepare("UPDATE threats SET target_brand_id = ? WHERE id = ?").bind(brandId, id).run();
+        }
+        newlyLinked += matchedIds.length;
+      }
+    }
+
+    // Update brand aggregate counts
+    if (newlyLinked > 0) {
+      await env.DB.prepare(
+        `UPDATE brands SET
+           threat_count = (SELECT COUNT(*) FROM threats WHERE target_brand_id = ?),
+           last_threat_seen = (SELECT MAX(created_at) FROM threats WHERE target_brand_id = ?)
+         WHERE id = ?`
+      ).bind(brandId, brandId, brandId).run();
+    }
+
+    return json({ success: true, data: { scanned: threats.length, newly_linked: newlyLinked, message: newlyLinked > 0 ? `Found ${newlyLinked} additional threats` : "No new matches found" } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

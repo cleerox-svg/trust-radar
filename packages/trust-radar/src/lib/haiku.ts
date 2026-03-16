@@ -52,6 +52,35 @@ interface HaikuResponse<T> {
   tokens_used?: number;
 }
 
+// ─── Daily cost guard ────────────────────────────────────────────
+
+const DAILY_LIMIT = 500;
+
+async function getDailyCallCount(env: Env): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `haiku_calls_${today}`;
+  const val = await env.CACHE.get(key);
+  return val ? parseInt(val, 10) : 0;
+}
+
+async function incrementDailyCallCount(env: Env): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `haiku_calls_${today}`;
+  const current = await getDailyCallCount(env);
+  const next = current + 1;
+  await env.CACHE.put(key, String(next), { expirationTtl: 86400 });
+  return next;
+}
+
+export async function checkCostGuard(env: Env, critical: boolean): Promise<string | null> {
+  const count = await getDailyCallCount(env);
+  if (count >= DAILY_LIMIT && !critical) {
+    console.warn(`[haiku] Daily limit reached (${count}/${DAILY_LIMIT}), non-critical call paused`);
+    return `Daily Haiku limit reached (${count}/${DAILY_LIMIT}), non-critical calls paused`;
+  }
+  return null;
+}
+
 // ─── Core Anthropic API caller ──────────────────────────────────
 
 async function callAnthropic<T>(
@@ -122,6 +151,7 @@ async function callAnthropic<T>(
     }
 
     const parsed = JSON.parse(jsonMatch[0]) as T;
+    await incrementDailyCallCount(env);
     return {
       success: true,
       data: parsed,
@@ -132,6 +162,42 @@ async function callAnthropic<T>(
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`[haiku] Request failed:`, errMsg);
     return { success: false, error: errMsg };
+  }
+}
+
+// ─── Raw text caller (for YES/NO style prompts) ─────────────────
+
+export async function callHaikuRaw(
+  env: Env,
+  systemPrompt: string,
+  userMessage: string,
+): Promise<{ success: boolean; text?: string; error?: string; tokens_used?: number }> {
+  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+  if (!apiKey || apiKey.startsWith("lrx_")) {
+    return { success: false, error: "No valid Anthropic API key" };
+  }
+  try {
+    const res = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 16,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await res.json() as { content: Array<{ type: string; text: string }>; usage: { input_tokens: number; output_tokens: number } };
+    const text = data.content?.find((b: { type: string }) => b.type === "text")?.text?.trim() ?? "";
+    await incrementDailyCallCount(env);
+    return { success: true, text, tokens_used: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
+  } catch (err) {
+    return { success: false, error: String(err) };
   }
 }
 
