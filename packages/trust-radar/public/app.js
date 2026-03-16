@@ -1163,14 +1163,14 @@ function _brandLogoDomain(name) {
 function _brandLogoImg(name, size, initials) {
   const domain = _brandLogoDomain(name);
   const init = initials || _brandInitials(name);
-  return `<img class="brand-logo-img" src="https://logo.clearbit.com/${domain}" data-domain="${domain}" data-initials="${init}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${init}">`;
+  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${init}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${init}">`;
 }
 function _attachLogoFallbacks(container) {
   (container || document).querySelectorAll('.brand-logo-img').forEach(img => {
     img.onerror = function() {
       if (!this.dataset.fallback) {
         this.dataset.fallback = '1';
-        this.src = 'https://www.google.com/s2/favicons?domain=' + this.dataset.domain + '&sz=128';
+        this.src = 'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://' + this.dataset.domain + '&size=128';
       } else {
         this.outerHTML = '<div class="brand-icon" style="width:' + this.width + 'px;height:' + this.height + 'px;font-size:' + Math.round(this.width * 0.45) + 'px">' + this.dataset.initials + '</div>';
       }
