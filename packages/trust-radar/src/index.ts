@@ -992,6 +992,22 @@ export default {
       ).bind('diag_cron_' + Date.now(), 'CRON RUN: needs_geo=' + (needsGeo?.c ?? 0)).run();
     } catch (e) { console.error("[cron] diagnostic write failed:", e); }
 
+    // Geo enrichment — runs independently, NOT chained to feeds
+    try {
+      const { enrichThreatsGeo } = await import("./lib/geoip");
+      await enrichThreatsGeo(env.DB, env.CACHE);
+    } catch (e) {
+      console.error("[cron] geo enrichment error:", e);
+    }
+
+    // Post-geo diagnostic
+    try {
+      const afterGeo = await env.DB.prepare('SELECT COUNT(*) as c FROM threats WHERE ip_address IS NOT NULL AND lat IS NULL').first<{ c: number }>();
+      await env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+      ).bind('diag_geo_' + Date.now(), 'GEO ENRICHMENT DONE: needs_geo=' + (afterGeo?.c ?? 0)).run();
+    } catch (e) { /* ignore */ }
+
     console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());
     console.log("[cron] feedModules registered:", Object.keys(feedModules).join(", "));
     ctx.waitUntil(
