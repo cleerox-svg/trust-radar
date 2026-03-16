@@ -46,13 +46,31 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
   const counts = await env.DB.prepare(`
     SELECT
       (SELECT COUNT(*) FROM threats WHERE malicious_domain IS NOT NULL AND ip_address IS NULL) as needs_dns,
-      (SELECT COUNT(*) FROM threats WHERE ip_address IS NOT NULL AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL)) as needs_geo,
+      (SELECT COUNT(*) FROM threats WHERE ip_address IS NOT NULL AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)) as needs_geo,
       (SELECT COUNT(*) FROM threats WHERE malicious_domain IS NOT NULL AND registrar IS NULL AND severity IN ('critical', 'high')) as needs_whois,
       (SELECT COUNT(*) FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL) as needs_brand,
       (SELECT COUNT(*) FROM threats) as total
   `).first<{ needs_dns: number; needs_geo: number; needs_whois: number; needs_brand: number; total: number }>();
 
   console.log(`[enrich] Threats needing enrichment: dns=${counts?.needs_dns}, geo=${counts?.needs_geo}, whois=${counts?.needs_whois}, brand=${counts?.needs_brand} (total=${counts?.total})`);
+
+  // Write diagnostic agent_output every run for visibility
+  try {
+    await env.DB.prepare(
+      `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
+       VALUES (?, 'enrichment', 'diagnostic', ?, 'info', ?, datetime('now'))`,
+    ).bind(
+      crypto.randomUUID(),
+      `Enrichment pipeline started: dns=${counts?.needs_dns}, geo=${counts?.needs_geo}, whois=${counts?.needs_whois}, brand=${counts?.needs_brand}`,
+      JSON.stringify({
+        needs_dns: counts?.needs_dns,
+        needs_geo: counts?.needs_geo,
+        needs_whois: counts?.needs_whois,
+        needs_brand: counts?.needs_brand,
+        total: counts?.total,
+      }),
+    ).run();
+  } catch { /* non-fatal */ }
 
   // Log monthly geo usage
   try {
@@ -101,28 +119,19 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
   console.log(`[enrich] Stage 1 complete: ${result.dnsResolved} IPs resolved`);
 
   // ─── Stage 2: GeoIP + ASN + Hosting Provider ─────────────────
-  // PRIORITY: Enrich brand-matched threats first (most valuable for map/brand views)
-  const brandedGeo = await env.DB.prepare(
-    `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL AND lat IS NULL
-       AND target_brand_id IS NOT NULL
+  // Select threats needing geo: missing country_code OR asn OR hosting_provider_id OR lat
+  // Prioritize brand-matched threats first (most valuable for map/brand views)
+  const needsGeoRows = await env.DB.prepare(
+    `SELECT id, ip_address, target_brand_id FROM threats
+     WHERE ip_address IS NOT NULL
+       AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)
+     ORDER BY CASE WHEN target_brand_id IS NOT NULL THEN 0 ELSE 1 END, created_at DESC
      LIMIT 5`,
-  ).all<{ id: string; ip_address: string }>();
+  ).all<{ id: string; ip_address: string; target_brand_id: string | null }>();
 
-  // If quota remains, fill with unbranded threats
-  const remainingSlots = 5 - brandedGeo.results.length;
-  const unbrandedGeo = remainingSlots > 0
-    ? await env.DB.prepare(
-        `SELECT id, ip_address FROM threats
-         WHERE ip_address IS NOT NULL
-           AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL)
-           AND (target_brand_id IS NULL OR lat IS NOT NULL)
-         LIMIT ?`,
-      ).bind(remainingSlots).all<{ id: string; ip_address: string }>()
-    : { results: [] };
-
-  const needsGeo = [...brandedGeo.results, ...unbrandedGeo.results];
-  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats (${brandedGeo.results.length} branded + ${unbrandedGeo.results.length} unbranded)`);
+  const needsGeo = needsGeoRows.results;
+  const brandedCount = needsGeo.filter(r => r.target_brand_id).length;
+  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats (${brandedCount} branded + ${needsGeo.length - brandedCount} unbranded)`);
 
   if (needsGeo.length > 0) {
     const ips = needsGeo.map((r) => r.ip_address);
