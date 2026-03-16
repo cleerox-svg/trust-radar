@@ -34,7 +34,7 @@ export const cartographerAgent: AgentModule = {
     // Phase 1: Geo-enrich any threats missing location data
     try {
       const { enrichThreatsGeo } = await import("../lib/geoip");
-      const enrichResult = await enrichThreatsGeo(env.DB);
+      const enrichResult = await enrichThreatsGeo(env.DB, env.CACHE);
       itemsUpdated += enrichResult.enriched;
     } catch (err) {
       console.error("[cartographer] geo enrichment error:", err);
