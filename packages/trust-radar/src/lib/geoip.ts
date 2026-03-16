@@ -2,8 +2,8 @@
  * GeoIP Enrichment — IP-to-location resolution using ipinfo.io (HTTPS).
  *
  * Free tier: 50,000 requests/month, no API key required.
+ * Budget: 5 lookups per cron cycle (every 5 min) = ~43K/month.
  * Returns ISO 3166-1 alpha-2 country codes (e.g., "US", "DE", "CN").
- * Processes IPs individually with concurrency control.
  */
 
 export interface GeoIPResult {
@@ -29,40 +29,91 @@ interface IpinfoResponse {
   bogon?: boolean;
 }
 
-/**
- * Look up a single IP via ipinfo.io (HTTPS, free, no key).
- */
-async function lookupSingleIP(ip: string, isFirst: boolean): Promise<GeoIPResult | null> {
+// ─── Private/Bogon IP Filter ────────────────────────────────────────
+
+/** Returns true if the IP is private, bogon, or otherwise non-routable. */
+export function isPrivateIP(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p))) return true;
+  const [a, b] = parts as [number, number, number, number];
+
+  return (
+    a === 10 ||                              // 10.0.0.0/8
+    (a === 172 && b >= 16 && b <= 31) ||     // 172.16.0.0/12
+    (a === 192 && b === 168) ||              // 192.168.0.0/16
+    a === 127 ||                              // 127.0.0.0/8
+    (a === 0 && b === 0) ||                  // 0.0.0.0
+    (a === 100 && b === 64) ||               // 100.64.0.0/10 (CGNAT)
+    a === 169 && b === 254 ||                // 169.254.0.0/16 (link-local)
+    a >= 224                                  // 224.0.0.0+ (multicast/reserved)
+  );
+}
+
+// ─── Monthly Usage Tracking via KV ──────────────────────────────────
+
+const GEO_MONTHLY_LIMIT = 45000;
+
+function geoUsageKey(): string {
+  const now = new Date();
+  return `geo_usage_${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Get current monthly geo usage count from KV. */
+export async function getGeoUsage(kv: KVNamespace): Promise<number> {
+  const val = await kv.get(geoUsageKey());
+  return val ? parseInt(val, 10) : 0;
+}
+
+/** Increment monthly geo usage counter. */
+async function incrementGeoUsage(kv: KVNamespace, count: number): Promise<number> {
+  const key = geoUsageKey();
+  const current = await getGeoUsage(kv);
+  const updated = current + count;
+  // TTL: 35 days (auto-expire old months)
+  await kv.put(key, String(updated), { expirationTtl: 35 * 86400 });
+  return updated;
+}
+
+// ─── Single IP Lookup ───────────────────────────────────────────────
+
+interface LookupResult {
+  geo: GeoIPResult | null;
+  rateLimited: boolean;
+}
+
+async function lookupSingleIP(ip: string, isFirst: boolean): Promise<LookupResult> {
   try {
     const res = await fetch(`https://ipinfo.io/${ip}/json`, {
       headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
     });
 
-    if (isFirst) {
-      const bodyText = await res.text();
-      console.log(`[geoip] DIAGNOSTIC first lookup: ip=${ip} HTTP ${res.status} body=${bodyText.slice(0, 500)}`);
-      if (!res.ok) return null;
-      const data = JSON.parse(bodyText) as IpinfoResponse;
-      return parseIpinfoResponse(ip, data);
-    }
-
     if (res.status === 429) {
-      console.warn(`[geoip] Rate limited on ${ip} — stopping batch`);
-      return null;
+      console.warn(`[geoip] Rate limited (429) on ${ip}`);
+      return { geo: null, rateLimited: true };
     }
 
     if (!res.ok) {
-      console.error(`[geoip] HTTP ${res.status} for ${ip}`);
-      return null;
+      const bodyPreview = await res.text().catch(() => "");
+      console.error(`[geoip] HTTP ${res.status} for ${ip}: ${bodyPreview.slice(0, 200)}`);
+      return { geo: null, rateLimited: false };
     }
 
-    const data = (await res.json()) as IpinfoResponse;
-    if (data.bogon) return null;
+    const bodyText = await res.text();
+    if (isFirst) {
+      console.log(`[geoip] DIAGNOSTIC first lookup: ip=${ip} HTTP ${res.status} body=${bodyText.slice(0, 300)}`);
+    }
 
-    return parseIpinfoResponse(ip, data);
+    const data = JSON.parse(bodyText) as IpinfoResponse;
+    if (data.bogon) {
+      if (isFirst) console.log(`[geoip] ${ip} is bogon (ipinfo), skipping`);
+      return { geo: null, rateLimited: false };
+    }
+
+    return { geo: parseIpinfoResponse(ip, data), rateLimited: false };
   } catch (err) {
     console.error(`[geoip] fetch error for ${ip}:`, err);
-    return null;
+    return { geo: null, rateLimited: false };
   }
 }
 
@@ -103,55 +154,80 @@ function parseIpinfoResponse(ip: string, data: IpinfoResponse): GeoIPResult | nu
   };
 }
 
+// ─── Batch Lookup ───────────────────────────────────────────────────
+
 /**
- * Batch-resolve IPs to geo data via ipinfo.io (HTTPS).
- * Processes concurrently (5 at a time) with rate limiting.
+ * Batch-resolve IPs to geo data via ipinfo.io.
+ * - Filters out private/bogon IPs before making API calls
+ * - Checks monthly usage budget in KV before proceeding
+ * - Only treats HTTP 429 as rate limiting (not bogon/DNS nulls)
+ * - Processes sequentially to avoid race conditions
  */
-export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPResult>> {
+export async function batchGeoLookup(
+  ips: string[],
+  kv?: KVNamespace,
+): Promise<Map<string, GeoIPResult>> {
   const results = new Map<string, GeoIPResult>();
   if (ips.length === 0) return results;
 
-  const uniqueIps = [...new Set(ips)];
-  const CONCURRENCY = 5;
-  let rateLimited = false;
-  let isFirst = true;
+  // Filter out private/bogon IPs — they waste quota
+  const publicIps = [...new Set(ips)].filter(ip => !isPrivateIP(ip));
+  const skippedCount = new Set(ips).size - publicIps.length;
+  if (skippedCount > 0) {
+    console.log(`[geoip] Filtered out ${skippedCount} private/bogon IPs`);
+  }
 
-  console.log(`[geoip] Looking up ${uniqueIps.length} unique IPs via ipinfo.io (HTTPS)`);
+  if (publicIps.length === 0) {
+    console.log(`[geoip] No public IPs to look up after filtering`);
+    return results;
+  }
 
-  for (let i = 0; i < uniqueIps.length; i += CONCURRENCY) {
-    if (rateLimited) break;
+  // Check monthly budget
+  if (kv) {
+    const usage = await getGeoUsage(kv);
+    if (usage >= GEO_MONTHLY_LIMIT) {
+      console.warn(`[geoip] Monthly budget exhausted: ${usage}/${GEO_MONTHLY_LIMIT} — skipping all lookups`);
+      return results;
+    }
+    const remaining = GEO_MONTHLY_LIMIT - usage;
+    console.log(`[geoip] Monthly usage: ${usage}/${GEO_MONTHLY_LIMIT} (${remaining} remaining)`);
+  }
 
-    const chunk = uniqueIps.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      chunk.map(async (ip) => {
-        const geo = await lookupSingleIP(ip, isFirst);
-        isFirst = false;
-        if (geo) {
-          results.set(ip, geo);
-        }
-        return geo;
-      }),
-    );
+  // Cap to 5 per cycle
+  const batch = publicIps.slice(0, 5);
+  console.log(`[geoip] Looking up ${batch.length} IPs via ipinfo.io (${publicIps.length} eligible, capped at 5)`);
 
-    // Check if any in this chunk got rate limited (all null = likely rate limited)
-    const allNull = settled.every(
-      (s) => s.status === "rejected" || (s.status === "fulfilled" && s.value === null),
-    );
-    if (allNull && chunk.length > 1) {
-      console.warn(`[geoip] All ${chunk.length} lookups returned null — likely rate limited, stopping`);
-      rateLimited = true;
+  let successCount = 0;
+
+  // Process sequentially — no concurrency needed at batch size 5
+  for (let i = 0; i < batch.length; i++) {
+    const ip = batch[i]!;
+    const { geo, rateLimited } = await lookupSingleIP(ip, i === 0);
+
+    if (rateLimited) {
+      console.warn(`[geoip] HTTP 429 — stopping batch (${i} of ${batch.length} completed)`);
       break;
     }
 
-    // Rate limit: 200ms between chunks
-    if (i + CONCURRENCY < uniqueIps.length) {
-      await new Promise((r) => setTimeout(r, 250));
+    if (geo) {
+      results.set(ip, geo);
+      successCount++;
+    }
+
+    // Brief pause between requests
+    if (i < batch.length - 1) {
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
 
-  console.log(`[geoip] Resolved ${results.size}/${uniqueIps.length} IPs${rateLimited ? " (stopped: rate limited)" : ""}`);
+  // Track usage in KV
+  if (kv && successCount > 0) {
+    const newTotal = await incrementGeoUsage(kv, successCount);
+    console.log(`[geoip] Usage updated: +${successCount} → ${newTotal} this month`);
+  }
 
-  // Log first result as sample for debugging
+  console.log(`[geoip] Resolved ${results.size}/${batch.length} IPs`);
+
   if (results.size > 0) {
     const sample = results.values().next().value;
     console.log(`[geoip] Sample: ip=${sample?.ip} country=${sample?.countryCode} org=${sample?.org} asn=${sample?.as}`);
@@ -164,18 +240,18 @@ export async function batchGeoLookup(ips: string[]): Promise<Map<string, GeoIPRe
  * Enrich threats in D1 that have ip_address but no country_code.
  * Uses v2 schema: hosting_provider_id (FK) instead of hosting_provider (text).
  */
-export async function enrichThreatsGeo(db: D1Database): Promise<{ enriched: number; total: number }> {
+export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promise<{ enriched: number; total: number }> {
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider_id IS NULL)
-     LIMIT 500`
+     LIMIT 5`
   ).all<{ id: string; ip_address: string }>();
 
   const total = rows.results.length;
   if (total === 0) return { enriched: 0, total: 0 };
 
   const ips = rows.results.map((r) => r.ip_address);
-  const geoMap = await batchGeoLookup(ips);
+  const geoMap = await batchGeoLookup(ips, kv);
 
   let enriched = 0;
 

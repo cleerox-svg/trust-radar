@@ -3,17 +3,18 @@
  *
  * Pipeline stages:
  * 1. DNS resolution: domain → IP (for threats missing ip_address)
- * 2. GeoIP + ASN: IP → country, ASN, hosting provider
+ * 2. GeoIP + ASN: IP → country, ASN, hosting provider (brand matches first)
  * 3. WHOIS/RDAP: domain → registrar (for high-severity threats)
  * 4. Brand auto-detection: domain → target_brand_id
  * 5. Provider count sync: update hosting_providers.active_threat_count
  *
+ * Budget: 5 geo lookups per cycle, 10 DNS lookups per cycle.
  * Designed to be idempotent — can safely re-run without duplicating work.
  */
 
 import type { Env } from "../types";
 import { batchResolve } from "./dns";
-import { batchGeoLookup, normalizeProvider, upsertHostingProvider } from "./geoip";
+import { batchGeoLookup, normalizeProvider, upsertHostingProvider, isPrivateIP, getGeoUsage } from "./geoip";
 import { batchRDAPLookup } from "./whois";
 import { enrichBrands } from "./brandDetect";
 
@@ -53,12 +54,18 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
 
   console.log(`[enrich] Threats needing enrichment: dns=${counts?.needs_dns}, geo=${counts?.needs_geo}, whois=${counts?.needs_whois}, brand=${counts?.needs_brand} (total=${counts?.total})`);
 
+  // Log monthly geo usage
+  try {
+    const geoUsage = await getGeoUsage(env.CACHE);
+    console.log(`[enrich] Monthly geo API usage: ${geoUsage}/45000`);
+  } catch { /* non-fatal */ }
+
   // ─── Stage 1: DNS Resolution ──────────────────────────────────
-  // Resolve threats that have a domain but no IP
+  // Resolve threats that have a domain but no IP (10 per cycle)
   const needsDns = await env.DB.prepare(
     `SELECT id, malicious_domain FROM threats
      WHERE malicious_domain IS NOT NULL AND ip_address IS NULL
-     LIMIT 200`,
+     LIMIT 10`,
   ).all<{ id: string; malicious_domain: string }>();
 
   console.log(`[enrich] Stage 1 DNS: ${needsDns.results.length} threats to resolve`);
@@ -72,6 +79,11 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
       for (const row of needsDns.results) {
         const ip = dnsMap.get(row.malicious_domain);
         if (!ip) continue;
+        // Skip storing private IPs — they can't be geo-enriched
+        if (isPrivateIP(ip)) {
+          console.log(`[enrich] Skipping private IP ${ip} for ${row.malicious_domain}`);
+          continue;
+        }
         try {
           await env.DB.prepare(
             "UPDATE threats SET ip_address = ? WHERE id = ? AND ip_address IS NULL",
@@ -89,54 +101,54 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
   console.log(`[enrich] Stage 1 complete: ${result.dnsResolved} IPs resolved`);
 
   // ─── Stage 2: GeoIP + ASN + Hosting Provider ─────────────────
-  // Enrich threats that have IP but missing geo/ASN/provider
-  const needsGeo = await env.DB.prepare(
+  // PRIORITY: Enrich brand-matched threats first (most valuable for map/brand views)
+  const brandedGeo = await env.DB.prepare(
     `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL
-       AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL)
-     LIMIT 500`,
+     WHERE ip_address IS NOT NULL AND lat IS NULL
+       AND target_brand_id IS NOT NULL
+     LIMIT 5`,
   ).all<{ id: string; ip_address: string }>();
 
-  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.results.length} threats to enrich`);
+  // If quota remains, fill with unbranded threats
+  const remainingSlots = 5 - brandedGeo.results.length;
+  const unbrandedGeo = remainingSlots > 0
+    ? await env.DB.prepare(
+        `SELECT id, ip_address FROM threats
+         WHERE ip_address IS NOT NULL
+           AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL)
+           AND (target_brand_id IS NULL OR lat IS NOT NULL)
+         LIMIT ?`,
+      ).bind(remainingSlots).all<{ id: string; ip_address: string }>()
+    : { results: [] };
 
-  if (needsGeo.results.length > 0) {
-    const ips = needsGeo.results.map((r) => r.ip_address);
+  const needsGeo = [...brandedGeo.results, ...unbrandedGeo.results];
+  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats (${brandedGeo.results.length} branded + ${unbrandedGeo.results.length} unbranded)`);
 
-    // ─── GEO DIAGNOSTIC: probe first IP and write result to agent_outputs ───
-    try {
-      const probeIp = ips[0]!;
-      const probeRes = await fetch(`https://ipinfo.io/${probeIp}/json`, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(5000),
-      });
-      const probeBody = await probeRes.text();
-      const diagSummary = `geo_probe: ip=${probeIp} HTTP ${probeRes.status} body=${probeBody.slice(0, 200)}`;
-      await env.DB.prepare(
-        `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
-         VALUES (?, 'enrichment', 'diagnostic', ?, 'info', ?, datetime('now'))`,
-      ).bind(
-        crypto.randomUUID(),
-        diagSummary,
-        JSON.stringify({ ip: probeIp, http_status: probeRes.status, body_preview: probeBody.slice(0, 500), provider: "ipinfo.io", ips_to_enrich: ips.length }),
-      ).run();
-    } catch (diagErr) {
-      console.error("[enrich] geo diagnostic write failed:", diagErr);
-    }
+  if (needsGeo.length > 0) {
+    const ips = needsGeo.map((r) => r.ip_address);
 
     try {
-      const geoMap = await batchGeoLookup(ips);
+      const geoMap = await batchGeoLookup(ips, env.CACHE);
       console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {
         console.error("[enrich] WARNING: GeoIP returned 0 results — ipinfo.io may be rate limiting or blocking");
+        try {
+          await env.DB.prepare(
+            `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, created_at)
+             VALUES (?, 'enrichment', 'diagnostic', ?, 'high', datetime('now'))`,
+          ).bind(
+            crypto.randomUUID(),
+            `[geo_enrichment] BLOCKED: ipinfo.io returned 0 results for ${ips.length} IPs. Free tier (50K/month) likely exhausted. Sample IPs: ${ips.slice(0, 5).join(", ")}`,
+          ).run();
+        } catch { /* non-fatal */ }
       }
 
-      for (const row of needsGeo.results) {
+      for (const row of needsGeo) {
         const geo = geoMap.get(row.ip_address);
         if (!geo) continue;
 
         try {
-          // Determine hosting provider and upsert into hosting_providers table
           const providerName = normalizeProvider(geo.isp, geo.org);
           let providerId: string | null = null;
 
