@@ -862,7 +862,7 @@ async function viewObservatory(el) {
   const clockInterval = setInterval(_updateClock, 1000);
 
   // Initialize Leaflet map
-  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 2);
+  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 3);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(map);
   L.control.zoom({ position: 'topleft' }).addTo(map);
   _obsMap = map;
