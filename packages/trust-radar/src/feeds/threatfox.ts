@@ -1,12 +1,13 @@
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /** ThreatFox (abuse.ch) — IOCs: domains, URLs, IPs, hashes */
 export const threatfox: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     console.log(`[threatfox] fetching: ${ctx.feedUrl}`);
-    const res = await fetch(ctx.feedUrl, {
+    const res = await diagnosticFetch(ctx.env.DB, "threatfox", ctx.feedUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: "get_iocs", days: 1 }),

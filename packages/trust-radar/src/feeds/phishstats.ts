@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /**
  * PhishStats — Phishing URLs with confidence scores, IP, ASN, country.
@@ -16,11 +17,11 @@ export const phishstats: FeedModule = {
     let entries: Array<{ url: string; score: number; ip: string }>;
 
     try {
-      entries = await fetchCsv(csvUrl);
+      entries = await fetchCsv(ctx.env.DB, csvUrl);
       console.log(`[phishstats] CSV returned ${entries.length} entries (score>=5)`);
     } catch (csvErr) {
       console.warn(`[phishstats] CSV failed (${csvErr}), trying JSON API fallback`);
-      entries = await fetchApi(apiUrl);
+      entries = await fetchApi(ctx.env.DB, apiUrl);
       console.log(`[phishstats] API returned ${entries.length} entries`);
     }
 
@@ -64,9 +65,9 @@ export const phishstats: FeedModule = {
   },
 };
 
-async function fetchCsv(url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
+async function fetchCsv(db: D1Database, url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
   console.log(`[phishstats] fetching CSV: ${url}`);
-  const res = await fetch(url);
+  const res = await diagnosticFetch(db, "phishstats", url);
   console.log(`[phishstats] CSV response: HTTP ${res.status}`);
   if (!res.ok) throw new Error(`PhishStats CSV HTTP ${res.status}`);
 
@@ -86,9 +87,9 @@ async function fetchCsv(url: string): Promise<Array<{ url: string; score: number
   return results;
 }
 
-async function fetchApi(url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
+async function fetchApi(db: D1Database, url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
   console.log(`[phishstats] fetching API: ${url}`);
-  const res = await fetch(url);
+  const res = await diagnosticFetch(db, "phishstats", url);
   console.log(`[phishstats] API response: HTTP ${res.status}`);
   if (!res.ok) throw new Error(`PhishStats API HTTP ${res.status}`);
 
