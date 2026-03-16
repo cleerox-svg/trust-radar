@@ -1509,7 +1509,7 @@ const _brandThreatsPerPage = 15;
 async function viewBrandDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
-    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes] = await Promise.all([
+    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes, safeDomainsRes] = await Promise.all([
       api(`/brands/${params.id}`),
       api(`/brands/${params.id}/threats?status=active&limit=50`).catch(() => null),
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
@@ -1517,6 +1517,7 @@ async function viewBrandDetail(el, params) {
       api(`/brands/${params.id}/campaigns`).catch(() => null),
       api(`/brands/${params.id}/threats/timeline?period=7d`).catch(() => null),
       api(`/brands/${params.id}/analysis`).catch(() => null),
+      api(`/brands/${params.id}/safe-domains`).catch(() => null),
     ]);
     const b = brandRes?.data;
     if (!b) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
@@ -1528,6 +1529,7 @@ async function viewBrandDetail(el, params) {
     const providers = providersRes?.data || [];
     const campaigns = campaignsRes?.data || [];
     const locations = locationsRes?.data || [];
+    let safeDomains = safeDomainsRes?.data || [];
     const sc = b.trust_score != null ? _scoreColor(b.trust_score) : 'var(--text-tertiary)';
     const trendColor = (stats.trend_pct || 0) >= 0 ? 'var(--threat-medium)' : 'var(--positive)';
     const threatColor = _tColor(totalThreats);
@@ -1577,6 +1579,25 @@ async function viewBrandDetail(el, params) {
         </div>
         <span id="deep-scan-result" style="font-size:11px;color:var(--text-secondary)"></span>
       </div>
+      <div class="panel" id="safe-domains-panel" style="margin-bottom:16px">
+        <div class="phead">
+          <span style="display:flex;align-items:center;gap:6px"><span style="color:var(--positive)">&#9432;</span> Safe Domains</span>
+          <span class="badge" id="safe-domains-count">${safeDomains.length}</span>
+        </div>
+        <div class="panel-body padded" id="safe-domains-body"></div>
+      </div>
+      <div id="csv-upload-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:480px;width:90%">
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Upload Known Domains</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:16px">Upload a CSV file of domains owned by this brand. These domains will be excluded from threat detection.</div>
+          <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" style="margin-bottom:12px;font-size:12px;color:var(--text-secondary)">
+          <div id="csv-preview" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg-elevated);border-radius:6px;font-size:11px;max-height:180px;overflow-y:auto"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="filter-pill" id="csv-cancel-btn">Cancel</button>
+            <button class="filter-pill" id="csv-upload-btn" style="background:var(--positive);color:var(--bg-body)" disabled>Upload</button>
+          </div>
+        </div>
+      </div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
         <div class="detail-rcol">
@@ -1606,6 +1627,198 @@ async function viewBrandDetail(el, params) {
       </div>`;
     _attachLogoFallbacks(el);
 
+    // ─── Safe Domains panel rendering ───────────────────────
+    const brandId = params.id;
+
+    function renderSafeDomains() {
+      const body = document.getElementById('safe-domains-body');
+      if (!body) return;
+      const badge = document.getElementById('safe-domains-count');
+      if (badge) badge.textContent = safeDomains.length;
+
+      const srcBadge = (s) => {
+        const colors = { manual: '#00d4ff', csv_upload: '#ffb627', auto_detected: '#00e5a0' };
+        const labels = { manual: 'manual', csv_upload: 'csv', auto_detected: 'auto' };
+        return `<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:${colors[s] || '#4a5a73'}22;color:${colors[s] || '#4a5a73'}">${labels[s] || s}</span>`;
+      };
+
+      let html = '';
+      if (safeDomains.length) {
+        html += '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">';
+        safeDomains.forEach(sd => {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);flex:1">${sd.domain}</span>
+            ${srcBadge(sd.source)}
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${(sd.added_at || '').slice(0, 10)}</span>
+            <button class="safe-domain-rm" data-id="${sd.id}" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;padding:0 4px" title="Remove">&times;</button>
+          </div>`;
+        });
+        html += '</div>';
+      } else {
+        html += '<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px">No safe domains configured. Add domains owned by this brand to prevent false positive alerts.</div>';
+      }
+      html += `<div style="display:flex;gap:8px;align-items:center">
+        <div id="safe-add-form" style="display:flex;gap:6px;flex:1">
+          <input type="text" id="safe-domain-input" placeholder="subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
+          <button class="filter-pill" id="safe-add-btn" style="font-size:11px">Add</button>
+        </div>
+        <button class="filter-pill" id="safe-csv-btn" style="font-size:11px">&#8593; Upload CSV</button>
+      </div>`;
+      body.innerHTML = html;
+
+      // Wire remove buttons
+      body.querySelectorAll('.safe-domain-rm').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const domainId = btn.dataset.id;
+          await api(`/brands/${brandId}/safe-domains/${domainId}`, { method: 'DELETE' });
+          safeDomains = safeDomains.filter(d => d.id !== domainId);
+          renderSafeDomains();
+        });
+      });
+
+      // Wire add button
+      const addBtn = document.getElementById('safe-add-btn');
+      const addInput = document.getElementById('safe-domain-input');
+      if (addBtn && addInput) {
+        const doAdd = async () => {
+          const val = addInput.value.trim();
+          if (!val) return;
+          const res = await api(`/brands/${brandId}/safe-domains`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: val }),
+          });
+          if (res?.success && res.data) {
+            safeDomains.unshift(res.data);
+            addInput.value = '';
+            renderSafeDomains();
+          }
+        };
+        addBtn.addEventListener('click', doAdd);
+        addInput.addEventListener('keydown', e => { if (e.key === 'Enter') doAdd(); });
+      }
+
+      // Wire CSV upload button
+      const csvBtn = document.getElementById('safe-csv-btn');
+      if (csvBtn) {
+        csvBtn.addEventListener('click', () => {
+          const modal = document.getElementById('csv-upload-modal');
+          if (modal) modal.style.display = 'flex';
+        });
+      }
+    }
+
+    renderSafeDomains();
+
+    // ─── CSV Upload Modal logic ─────────────────────────────
+    let parsedDomains = [];
+    const csvModal = document.getElementById('csv-upload-modal');
+    const csvFileInput = document.getElementById('csv-file-input');
+    const csvPreview = document.getElementById('csv-preview');
+    const csvUploadBtn = document.getElementById('csv-upload-btn');
+    const csvCancelBtn = document.getElementById('csv-cancel-btn');
+
+    function parseCSVDomains(text) {
+      const lines = text.split(/\r?\n/);
+      const domains = [];
+      let headerIdx = -1;
+      lines.forEach((line, i) => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return;
+        // Detect header row
+        if (i === 0 && /\b(domain|url|host|name)\b/i.test(line)) {
+          const cols = line.split(/[,\t]/);
+          headerIdx = cols.findIndex(c => /^(domain|url|host|name)$/i.test(c.trim()));
+          if (headerIdx < 0) headerIdx = 0;
+          return;
+        }
+        let val = line;
+        if (line.includes(',') || line.includes('\t')) {
+          const cols = line.split(/[,\t]/);
+          val = cols[headerIdx >= 0 ? headerIdx : 0] || '';
+        }
+        val = val.trim().replace(/^["']|["']$/g, '');
+        // Clean: strip protocol, path, www
+        val = val.toLowerCase().replace(/^https?:\/\//, '').replace(/^ftp:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '').trim();
+        if (!val || val.length < 3 || !val.includes('.') || /\s/.test(val)) return;
+        if (/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(val)) {
+          domains.push(val);
+        }
+      });
+      // Deduplicate
+      return [...new Set(domains)];
+    }
+
+    if (csvFileInput) {
+      csvFileInput.addEventListener('change', () => {
+        const file = csvFileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          parsedDomains = parseCSVDomains(reader.result);
+          if (csvPreview) {
+            csvPreview.style.display = 'block';
+            let previewHtml = `<div style="font-weight:600;color:var(--text-primary);margin-bottom:6px">Found ${parsedDomains.length} domains in your file</div>`;
+            if (parsedDomains.length === 0) {
+              previewHtml += '<div style="color:var(--negative)">No valid domains found. Check file format.</div>';
+            } else {
+              parsedDomains.slice(0, 10).forEach(d => {
+                previewHtml += `<div style="font-family:var(--font-mono);padding:2px 0;color:var(--text-secondary)">${d}</div>`;
+              });
+              if (parsedDomains.length > 10) {
+                previewHtml += `<div style="color:var(--text-tertiary);margin-top:4px">...and ${parsedDomains.length - 10} more</div>`;
+              }
+            }
+            csvPreview.innerHTML = previewHtml;
+          }
+          if (csvUploadBtn) csvUploadBtn.disabled = parsedDomains.length === 0;
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    if (csvUploadBtn) {
+      csvUploadBtn.addEventListener('click', async () => {
+        if (!parsedDomains.length) return;
+        csvUploadBtn.disabled = true;
+        csvUploadBtn.textContent = 'Uploading...';
+        const res = await api(`/brands/${brandId}/safe-domains/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domains: parsedDomains }),
+        });
+        if (csvModal) csvModal.style.display = 'none';
+        if (res?.success && res.data) {
+          // Reload safe domains list
+          const refreshed = await api(`/brands/${brandId}/safe-domains`).catch(() => null);
+          safeDomains = refreshed?.data || safeDomains;
+          renderSafeDomains();
+        }
+        // Reset
+        parsedDomains = [];
+        if (csvFileInput) csvFileInput.value = '';
+        if (csvPreview) { csvPreview.style.display = 'none'; csvPreview.innerHTML = ''; }
+        if (csvUploadBtn) { csvUploadBtn.disabled = true; csvUploadBtn.textContent = 'Upload'; }
+      });
+    }
+
+    if (csvCancelBtn) {
+      csvCancelBtn.addEventListener('click', () => {
+        if (csvModal) csvModal.style.display = 'none';
+        parsedDomains = [];
+        if (csvFileInput) csvFileInput.value = '';
+        if (csvPreview) { csvPreview.style.display = 'none'; csvPreview.innerHTML = ''; }
+        if (csvUploadBtn) { csvUploadBtn.disabled = true; csvUploadBtn.textContent = 'Upload'; }
+      });
+    }
+
+    // Close modal on backdrop click
+    if (csvModal) {
+      csvModal.addEventListener('click', (e) => {
+        if (e.target === csvModal) csvCancelBtn?.click();
+      });
+    }
+
     // Render threats table with filter, evidence column, and pagination
     _brandThreatsPage = 1;
     const threatTypes = ['all', 'phishing', 'typosquat', 'impersonation', 'credential'];
@@ -1628,7 +1841,7 @@ async function viewBrandDetail(el, params) {
       if (!pageThreats.length) {
         html += '<div class="empty-state"><div class="message">No threats matching filter</div></div>';
       } else {
-        html += `<table class="data-table"><thead><tr><th>Malicious URL</th><th>Type</th><th>Provider</th><th>First Seen</th><th>Status</th><th>Ev</th></tr></thead><tbody>`;
+        html += `<table class="data-table"><thead><tr><th>Malicious URL</th><th>Type</th><th>Provider</th><th>First Seen</th><th>Status</th><th>Ev</th><th></th></tr></thead><tbody>`;
         pageThreats.forEach(t => {
           const url = t.malicious_domain || t.url || '';
           const type = t.threat_type || t.type || '';
@@ -1645,6 +1858,7 @@ async function viewBrandDetail(el, params) {
             <td><span class="date-cell">${date}</span></td>
             <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
             <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
+            <td><button class="mark-safe-btn" data-domain="${url}" title="Mark domain as safe/owned" style="background:none;border:1px solid rgba(0,229,160,.3);border-radius:4px;color:var(--positive);cursor:pointer;font-size:9px;padding:2px 6px;white-space:nowrap">&#10003; Safe</button></td>
           </tr>`;
         });
         html += '</tbody></table>';
@@ -1679,6 +1893,30 @@ async function viewBrandDetail(el, params) {
           else if (page === 'next') _brandThreatsPage = Math.min(totalPages, _brandThreatsPage + 1);
           else _brandThreatsPage = parseInt(page);
           renderBrandThreats();
+        });
+      });
+
+      // Wire mark-safe buttons
+      panel?.querySelectorAll('.mark-safe-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const domain = btn.dataset.domain;
+          if (!domain) return;
+          btn.disabled = true;
+          btn.textContent = '...';
+          const res = await api(`/brands/${brandId}/safe-domains`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain }),
+          });
+          if (res?.success && res.data) {
+            safeDomains.unshift(res.data);
+            renderSafeDomains();
+            // Dim the row visually
+            const row = btn.closest('tr');
+            if (row) row.style.opacity = '0.3';
+            btn.textContent = '\u2713';
+            btn.style.color = 'var(--text-tertiary)';
+          }
         });
       });
     }

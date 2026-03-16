@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 
 /** Common homoglyph substitutions for brand matching */
 const HOMOGLYPHS: Record<string, string[]> = {
@@ -37,6 +38,10 @@ export const certstream: FeedModule = {
       domain: b.canonical_domain.toLowerCase(),
     }));
     console.log(`[ct_logs] loaded ${brandKeywords.length} monitored brands for matching`);
+
+    // Load safe domains to skip owned domains
+    const safeSet = await loadSafeDomainSet(ctx.env.DB);
+    console.log(`[ct_logs] loaded ${safeSet.size} safe domains for allowlist`);
 
     // ─── Build search keyword list ──────────────────────────
     // Use monitored brand names + hardcoded fallback keywords for crt.sh query
@@ -84,6 +89,9 @@ export const certstream: FeedModule = {
       try {
         const domain = cert.common_name ?? cert.name_value?.split("\n")[0];
         if (!domain) continue;
+
+        // Skip domains in the safe/owned allowlist
+        if (isSafeDomain(domain, safeSet)) continue;
 
         // ─── Check against monitored brands (typosquatting) ───
         const matchedBrand = matchMonitoredBrand(domain.toLowerCase(), brandKeywords);

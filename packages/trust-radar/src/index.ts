@@ -60,6 +60,9 @@ import {
   handleBrandDeepScan,
 } from "./handlers/brands";
 import {
+  handleListSafeDomains, handleAddSafeDomain, handleBulkAddSafeDomains, handleDeleteSafeDomain,
+} from "./handlers/safeDomains";
+import {
   handlePublicStats, handlePublicGeo, handlePublicAssess, handlePublicLeadCapture,
 } from "./handlers/public";
 import {
@@ -653,6 +656,28 @@ router.post("/api/brands/:id/deep-scan", async (request: Request & { params: Rec
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleBrandDeepScan(request, env, request.params["id"] ?? "");
+});
+
+// ─── Brand Safe Domains (Known/Owned Allowlist) ─────────────
+router.get("/api/brands/:id/safe-domains", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListSafeDomains(request, env, request.params["id"] ?? "");
+});
+router.post("/api/brands/:id/safe-domains", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAddSafeDomain(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/brands/:id/safe-domains/bulk", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBulkAddSafeDomains(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.delete("/api/brands/:id/safe-domains/:domainId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteSafeDomain(request, env, request.params["id"] ?? "", request.params["domainId"] ?? "");
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────
