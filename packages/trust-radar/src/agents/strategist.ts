@@ -7,7 +7,7 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
-import { generateCampaignName } from "../lib/haiku";
+import { generateCampaignName, checkCostGuard } from "../lib/haiku";
 
 export const strategistAgent: AgentModule = {
   name: "strategist",
@@ -19,6 +19,12 @@ export const strategistAgent: AgentModule = {
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
+
+    // Cost guard: strategist naming is non-critical
+    const blocked = await checkCostGuard(env, false);
+    if (blocked) {
+      return { status: "skipped", itemsProcessed: 0, itemsUpdated: 0, result: { message: blocked } };
+    }
 
     let itemsProcessed = 0;
     let itemsCreated = 0;
@@ -217,7 +223,7 @@ export const strategistAgent: AgentModule = {
     const technicalCampaigns = await env.DB.prepare(
       `SELECT id, name, attack_pattern FROM campaigns
        WHERE name LIKE 'IP-cluster-%' OR name LIKE 'Registrar-cluster-%'
-       LIMIT 10`
+       LIMIT 5`
     ).all<{ id: string; name: string; attack_pattern: string | null }>();
 
     console.log(`[strategist] Retroactive rename: ${technicalCampaigns.results.length} campaigns need renaming`);

@@ -990,7 +990,7 @@ async function viewBrandsHub(el) {
           return false; // prevent close
         }
         try {
-          await api('/brands/monitor', {
+          const monRes = await api('/brands/monitor', {
             method: 'POST',
             body: JSON.stringify({
               domain,
@@ -1000,7 +1000,8 @@ async function viewBrandsHub(el) {
               notes: document.getElementById('modal-notes')?.value?.trim() || null,
             })
           });
-          showToast('Monitoring started for ' + domain, 'success');
+          const linked = monRes?.data?.threats_linked || 0;
+          showToast(linked > 0 ? `Monitoring started \u2014 ${linked} existing threats linked` : 'Monitoring started for ' + domain, 'success');
           if (_brandsSubTab === 'monitored') {
             const content = document.getElementById('brands-content');
             if (content) { content.innerHTML = 'Loading...'; await loadMonitored(); }
@@ -1080,6 +1081,13 @@ async function viewBrandDetail(el, params) {
           ${analysisRes.data.updated_at ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
           <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>
         ` : `<div style="text-align:center;padding:12px"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
+      </div>
+      <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between">
+        <div>
+          <button class="filter-pill" id="brand-deep-scan" style="font-size:11px">\uD83D\uDD0D AI Deep Scan</button>
+          <span style="font-size:9px;color:var(--text-tertiary);margin-left:8px">Uses AI credits (~$0.01 per 20 threats scanned)</span>
+        </div>
+        <span id="deep-scan-result" style="font-size:11px;color:var(--text-secondary)"></span>
       </div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
@@ -1289,6 +1297,28 @@ async function viewBrandDetail(el, params) {
     }
     document.getElementById('brand-gen-analysis')?.addEventListener('click', triggerBrandAnalysis);
     document.getElementById('brand-refresh-analysis')?.addEventListener('click', triggerBrandAnalysis);
+
+    // AI Deep Scan handler
+    document.getElementById('brand-deep-scan')?.addEventListener('click', async () => {
+      const btn = document.getElementById('brand-deep-scan');
+      const resultEl = document.getElementById('deep-scan-result');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="dash-spinner"></span> Scanning...';
+      if (resultEl) resultEl.textContent = '';
+      try {
+        const res = await api(`/brands/${params.id}/deep-scan`, { method: 'POST' });
+        const d = res?.data;
+        btn.innerHTML = '\uD83D\uDD0D AI Deep Scan';
+        btn.disabled = false;
+        if (resultEl) resultEl.textContent = d?.newly_linked > 0 ? `Found ${d.newly_linked} additional threats (${d.scanned} scanned)` : `No new matches (${d?.scanned || 0} scanned)`;
+        if (d?.newly_linked > 0) { showToast(`Deep scan linked ${d.newly_linked} new threats`, 'success'); }
+      } catch (err) {
+        btn.innerHTML = '\uD83D\uDD0D AI Deep Scan';
+        btn.disabled = false;
+        if (resultEl) resultEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
+      }
+    });
 
     // Cleanup
     window._viewCleanup = () => {

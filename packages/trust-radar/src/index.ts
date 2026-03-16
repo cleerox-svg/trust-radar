@@ -57,6 +57,7 @@ import {
   handleBrandThreats, handleBrandThreatLocations, handleBrandThreatTimeline,
   handleBrandProviders, handleBrandCampaigns, handleBrandStats,
   handleGetBrandAnalysis, handleGenerateBrandAnalysis,
+  handleBrandDeepScan,
 } from "./handlers/brands";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
@@ -643,6 +644,12 @@ router.post("/api/brands/:id/analysis", async (request: Request & { params: Reco
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleGenerateBrandAnalysis(request, env, request.params["id"] ?? "");
+});
+
+router.post("/api/brands/:id/deep-scan", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandDeepScan(request, env, request.params["id"] ?? "");
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────
