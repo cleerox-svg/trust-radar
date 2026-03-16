@@ -3,7 +3,7 @@ import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
 
-const NRD_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/nrd-14.txt";
+const NRD_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/nrd-1.txt";
 
 /** Common homoglyph substitutions for brand matching */
 const HOMOGLYPHS: Record<string, string[]> = {
@@ -16,7 +16,7 @@ const HOMOGLYPHS: Record<string, string[]> = {
 };
 
 /**
- * Hagezi NRD — Newly Registered Domains (last 14 days).
+ * Hagezi NRD — Newly Registered Domains (last 1 day).
  * Filters against monitored brands to find typosquatting/impersonation domains.
  * Schedule: daily (the list updates once per day).
  */
