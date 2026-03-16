@@ -49,7 +49,7 @@ input, select, textarea { font-family: inherit; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px; height: 52px;
-  background: var(--bg-surface); border-bottom: 1px solid var(--blue-border);
+  background: var(--bg-surface); border-bottom: none;
   position: sticky; top: 0; z-index: 100;
 }
 .topbar-logo {
@@ -362,7 +362,7 @@ input, select, textarea { font-family: inherit; }
 .admin-mode .topbar-logo .dot { background: var(--threat-medium); }
 
 /* ─── Observatory Layout ───────────────────────────────────── */
-.observatory-view .topbar { border-bottom: none; box-shadow: none; }
+.observatory-view .topbar { box-shadow: none; }
 .observatory-layout {
   display: grid; grid-template-columns: 1fr 372px; gap: 0;
   height: calc(100vh - 52px); overflow: hidden;
@@ -2384,20 +2384,3 @@ a.campaign-card:hover { text-decoration: none; }
   .pub-btn-lg { font-size: 12px; padding: 12px 24px; }
 }
 
-/* ─── NUCLEAR FIX: Remove white bar between topbar and observatory map ─── */
-.observatory-view .topbar {
-  border-bottom: none !important;
-  box-shadow: none !important;
-  margin-bottom: 0 !important;
-}
-.observatory-view .observatory-layout {
-  margin-top: 0 !important;
-}
-.observatory-view .main {
-  padding-top: 0 !important;
-}
-.observatory-view .topbar-nav,
-.observatory-view .nav-row {
-  border-bottom: none !important;
-  margin-bottom: 0 !important;
-}

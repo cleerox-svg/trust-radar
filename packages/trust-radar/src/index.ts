@@ -940,11 +940,20 @@ router.post("/api/v1/public/assess", (request: Request, env: Env) => handlePubli
 router.post("/api/v1/public/leads", (request: Request, env: Env) => handlePublicLeadCapture(request, env));
 
 // ─── Static assets fallback (SPA) ────────────────────────────
-router.all("*", (request: Request, env: Env) => {
+// serve_directly=false means ALL requests hit the Worker, so we must
+// serve static assets here. Try the exact path first; if Assets returns
+// 404, fall back to index.html for SPA client-side routing.
+router.all("*", async (request: Request, env: Env) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
     return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
   }
+  // Try serving the exact static asset (JS, CSS, images, etc.)
+  const assetResponse = await env.ASSETS.fetch(request);
+  if (assetResponse.status !== 404) {
+    return assetResponse;
+  }
+  // SPA fallback — serve index.html for client-side routes
   return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
 });
 
