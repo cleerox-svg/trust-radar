@@ -173,7 +173,7 @@ async function render() {
     const isAdmin = pathname.startsWith('/admin');
     const isObservatory = pathname === '/observatory';
     if (isObservatory) {
-      app.innerHTML = `<div>${renderTopbar()}<div class="observatory-layout"><div class="main" id="view"></div><div class="obs-sidebar" id="obs-sidebar"></div></div></div><div class="toast-container" id="toasts"></div>`;
+      app.innerHTML = `<div class="observatory-view">${renderTopbar()}<div class="observatory-layout"><div class="main" id="view"></div><div class="obs-sidebar" id="obs-sidebar"></div></div></div><div class="toast-container" id="toasts"></div>`;
     } else if (isAdmin) {
       app.innerHTML = `<div class="admin-mode">${renderAdminTopbar(pathname)}<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
     } else {
@@ -1144,8 +1144,19 @@ let _brandsSubTab = 'top-targeted';
 let _brandsPeriod = '24h';
 
 function _brandInitials(name) { return (name || '').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase(); }
+const LOGO_DOMAINS = {
+  'Standard Chartered': 'sc.com',
+  'WhatsApp': 'whatsapp.com',
+  'Instagram': 'instagram.com',
+  'DocuSign': 'docusign.com',
+  'PayPal': 'paypal.com',
+  'LinkedIn': 'linkedin.com',
+  'YouTube': 'youtube.com',
+  'TikTok': 'tiktok.com',
+  'AT&T': 'att.com',
+};
 function _brandLogoDomain(name) {
-  // Derive real brand domain from brand name (not canonical_domain which may be a phishing domain)
+  if (LOGO_DOMAINS[name]) return LOGO_DOMAINS[name];
   return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
 }
 function _brandLogoImg(name, size, initials) {
