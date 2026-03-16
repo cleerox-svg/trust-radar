@@ -52,34 +52,55 @@ interface HaikuResponse<T> {
   tokens_used?: number;
 }
 
-// ─── Daily cost guard ────────────────────────────────────────────
+// ─── Daily cost guard & usage tracking ───────────────────────────
 
 const DAILY_LIMIT = 500;
 
-async function getDailyCallCount(env: Env): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `haiku_calls_${today}`;
-  const val = await env.CACHE.get(key);
-  return val ? parseInt(val, 10) : 0;
+interface DailyUsage {
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  agent_calls: number;
+  ondemand_calls: number;
 }
 
-async function incrementDailyCallCount(env: Env): Promise<number> {
+function usageKey(date: string): string { return `haiku_usage_${date}`; }
+
+export async function getDailyUsage(env: Env, date?: string): Promise<DailyUsage> {
+  const d = date || new Date().toISOString().slice(0, 10);
+  const val = await env.CACHE.get(usageKey(d));
+  if (!val) return { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 };
+  try { return JSON.parse(val) as DailyUsage; } catch { return { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 }; }
+}
+
+async function trackUsage(
+  env: Env,
+  inputTokens: number,
+  outputTokens: number,
+  category: "agent" | "on_demand",
+): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
-  const key = `haiku_calls_${today}`;
-  const current = await getDailyCallCount(env);
-  const next = current + 1;
-  await env.CACHE.put(key, String(next), { expirationTtl: 86400 });
-  return next;
+  const current = await getDailyUsage(env, today);
+  current.calls += 1;
+  current.input_tokens += inputTokens;
+  current.output_tokens += outputTokens;
+  if (category === "agent") current.agent_calls += 1;
+  else current.ondemand_calls += 1;
+  await env.CACHE.put(usageKey(today), JSON.stringify(current), { expirationTtl: 86400 * 31 });
 }
 
 export async function checkCostGuard(env: Env, critical: boolean): Promise<string | null> {
-  const count = await getDailyCallCount(env);
-  if (count >= DAILY_LIMIT && !critical) {
-    console.warn(`[haiku] Daily limit reached (${count}/${DAILY_LIMIT}), non-critical call paused`);
-    return `Daily Haiku limit reached (${count}/${DAILY_LIMIT}), non-critical calls paused`;
+  const usage = await getDailyUsage(env);
+  if (usage.calls >= DAILY_LIMIT && !critical) {
+    console.warn(`[haiku] Daily limit reached (${usage.calls}/${DAILY_LIMIT}), non-critical call paused`);
+    return `Daily Haiku limit reached (${usage.calls}/${DAILY_LIMIT}), non-critical calls paused`;
   }
   return null;
 }
+
+// Current Haiku call category context — set by agents before calling
+let _currentCategory: "agent" | "on_demand" = "agent";
+export function setHaikuCategory(cat: "agent" | "on_demand"): void { _currentCategory = cat; }
 
 // ─── Core Anthropic API caller ──────────────────────────────────
 
@@ -151,7 +172,7 @@ async function callAnthropic<T>(
     }
 
     const parsed = JSON.parse(jsonMatch[0]) as T;
-    await incrementDailyCallCount(env);
+    await trackUsage(env, apiResponse.usage.input_tokens, apiResponse.usage.output_tokens, _currentCategory);
     return {
       success: true,
       data: parsed,
@@ -194,7 +215,7 @@ export async function callHaikuRaw(
     });
     const data = await res.json() as { content: Array<{ type: string; text: string }>; usage: { input_tokens: number; output_tokens: number } };
     const text = data.content?.find((b: { type: string }) => b.type === "text")?.text?.trim() ?? "";
-    await incrementDailyCallCount(env);
+    await trackUsage(env, data.usage?.input_tokens ?? 0, data.usage?.output_tokens ?? 0, _currentCategory);
     return { success: true, text, tokens_used: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
   } catch (err) {
     return { success: false, error: String(err) };

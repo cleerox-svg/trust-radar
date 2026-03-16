@@ -22,9 +22,28 @@ export async function handleListFeeds(request: Request, env: Env): Promise<Respo
        ORDER BY c.feed_name ASC`
     ).all();
 
+    // Enrich with last pull count and avg duration from feed_pull_history
+    const lastPulls = await env.DB.prepare(
+      `SELECT feed_name, records_ingested AS last_pull_count, duration_ms
+       FROM feed_pull_history
+       WHERE id IN (SELECT id FROM feed_pull_history GROUP BY feed_name HAVING started_at = MAX(started_at))`
+    ).all<{ feed_name: string; last_pull_count: number; duration_ms: number | null }>();
+
+    const avgDurations = await env.DB.prepare(
+      `SELECT feed_name, AVG(duration_ms) AS avg_duration_ms
+       FROM feed_pull_history
+       WHERE started_at >= datetime('now', '-1 day') AND duration_ms IS NOT NULL
+       GROUP BY feed_name`
+    ).all<{ feed_name: string; avg_duration_ms: number }>();
+
+    const lastPullMap = new Map(lastPulls.results.map(r => [r.feed_name, r]));
+    const avgDurMap = new Map(avgDurations.results.map(r => [r.feed_name, r.avg_duration_ms]));
+
     const masked = (configs.results as Record<string, unknown>[]).map((r) => ({
       ...r,
       api_key_encrypted: maskSecret(r.api_key_encrypted as string | null),
+      last_pull_count: lastPullMap.get(r.feed_name as string)?.last_pull_count ?? null,
+      avg_duration_ms: avgDurMap.get(r.feed_name as string) ?? null,
     }));
     return json({ success: true, data: masked }, 200, origin);
   } catch (err) {

@@ -2,7 +2,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
-import { analyzeBrandThreats, callHaikuRaw } from "../lib/haiku";
+import { analyzeBrandThreats, callHaikuRaw, setHaikuCategory } from "../lib/haiku";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -406,6 +406,7 @@ export async function handleGetBrandAnalysis(request: Request, env: Env, brandId
 // POST /api/brands/:id/analysis — generate or refresh AI analysis
 export async function handleGenerateBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  setHaikuCategory("on_demand");
   try {
     const brand = await env.DB.prepare(
       "SELECT id, name, canonical_domain FROM brands WHERE id = ?",
@@ -477,6 +478,7 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
 // POST /api/brands/:id/deep-scan — AI-powered threat linking (user-triggered, costs tokens)
 export async function handleBrandDeepScan(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  setHaikuCategory("on_demand");
   try {
     const brand = await env.DB.prepare(
       "SELECT id, name, canonical_domain FROM brands WHERE id = ?"
