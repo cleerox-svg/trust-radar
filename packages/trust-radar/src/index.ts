@@ -984,6 +984,14 @@ router.all("*", async (request: Request, env: Env) => {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // GUARANTEED diagnostic — runs before anything else
+    try {
+      const needsGeo = await env.DB.prepare('SELECT COUNT(*) as c FROM threats WHERE ip_address IS NOT NULL AND lat IS NULL').first<{ c: number }>();
+      await env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+      ).bind('diag_cron_' + Date.now(), 'CRON RUN: needs_geo=' + (needsGeo?.c ?? 0)).run();
+    } catch (e) { console.error("[cron] diagnostic write failed:", e); }
+
     console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());
     console.log("[cron] feedModules registered:", Object.keys(feedModules).join(", "));
     ctx.waitUntil(
