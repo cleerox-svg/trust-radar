@@ -993,19 +993,31 @@ export default {
     } catch (e) { console.error("[cron] diagnostic write failed:", e); }
 
     // Geo enrichment — runs independently, NOT chained to feeds
+    let geoResult: { enriched: number; total: number; skippedPrivate: number; skippedNoResult: number; errors: string[] } | null = null;
     try {
       const { enrichThreatsGeo } = await import("./lib/geoip");
-      await enrichThreatsGeo(env.DB, env.CACHE);
+      geoResult = await enrichThreatsGeo(env.DB, env.CACHE);
     } catch (e) {
       console.error("[cron] geo enrichment error:", e);
     }
 
-    // Post-geo diagnostic
+    // Post-geo diagnostic with detailed stats
     try {
       const afterGeo = await env.DB.prepare('SELECT COUNT(*) as c FROM threats WHERE ip_address IS NOT NULL AND lat IS NULL').first<{ c: number }>();
+      const { getGeoUsage } = await import("./lib/geoip");
+      let kvUsage = -1;
+      try { kvUsage = await getGeoUsage(env.CACHE); } catch { /* ok */ }
+      const g = geoResult;
+      const summary = g
+        ? `GEO ENRICHMENT DONE: enriched=${g.enriched}, private=${g.skippedPrivate}, no_result=${g.skippedNoResult}, errors=${g.errors.length}, needs_geo=${afterGeo?.c ?? '?'}, kv_usage=${kvUsage}`
+        : `GEO ENRICHMENT FAILED: needs_geo=${afterGeo?.c ?? '?'}, kv_usage=${kvUsage}`;
       await env.DB.prepare(
-        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-      ).bind('diag_geo_' + Date.now(), 'GEO ENRICHMENT DONE: needs_geo=' + (afterGeo?.c ?? 0)).run();
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, 'info', ?, datetime('now'))"
+      ).bind(
+        'diag_geo_' + Date.now(),
+        summary,
+        g?.errors.length ? JSON.stringify(g.errors) : null,
+      ).run();
     } catch (e) { /* ignore */ }
 
     console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());

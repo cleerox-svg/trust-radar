@@ -81,7 +81,7 @@ interface LookupResult {
   rateLimited: boolean;
 }
 
-async function lookupSingleIP(ip: string, isFirst: boolean): Promise<LookupResult> {
+async function lookupSingleIP(ip: string): Promise<LookupResult> {
   try {
     const res = await fetch(`https://ipinfo.io/${ip}/json`, {
       headers: { Accept: "application/json" },
@@ -100,13 +100,9 @@ async function lookupSingleIP(ip: string, isFirst: boolean): Promise<LookupResul
     }
 
     const bodyText = await res.text();
-    if (isFirst) {
-      console.log(`[geoip] DIAGNOSTIC first lookup: ip=${ip} HTTP ${res.status} body=${bodyText.slice(0, 300)}`);
-    }
-
     const data = JSON.parse(bodyText) as IpinfoResponse;
+    console.log(`[geoip] lookup ${ip}: HTTP ${res.status} loc=${data.loc ?? 'MISSING'} country=${data.country ?? 'MISSING'} org=${(data.org ?? 'MISSING').slice(0, 60)} bogon=${data.bogon ?? false}`);
     if (data.bogon) {
-      if (isFirst) console.log(`[geoip] ${ip} is bogon (ipinfo), skipping`);
       return { geo: null, rateLimited: false };
     }
 
@@ -125,8 +121,10 @@ function parseIpinfoResponse(ip: string, data: IpinfoResponse): GeoIPResult | nu
   let lng: number | null = null;
   if (data.loc) {
     const parts = data.loc.split(",");
-    lat = parseFloat(parts[0]!) || null;
-    lng = parseFloat(parts[1]!) || null;
+    const parsedLat = parseFloat(parts[0]!);
+    const parsedLng = parseFloat(parts[1]!);
+    lat = isNaN(parsedLat) ? null : parsedLat;
+    lng = isNaN(parsedLng) ? null : parsedLng;
   }
 
   // Parse ASN and org from org field: "AS13335 Cloudflare, Inc."
@@ -202,7 +200,7 @@ export async function batchGeoLookup(
   // Process sequentially — no concurrency needed at batch size 5
   for (let i = 0; i < batch.length; i++) {
     const ip = batch[i]!;
-    const { geo, rateLimited } = await lookupSingleIP(ip, i === 0);
+    const { geo, rateLimited } = await lookupSingleIP(ip);
 
     if (rateLimited) {
       console.warn(`[geoip] HTTP 429 — stopping batch (${i} of ${batch.length} completed)`);
@@ -240,24 +238,70 @@ export async function batchGeoLookup(
  * Enrich threats in D1 that have ip_address but no country_code.
  * Uses v2 schema: hosting_provider_id (FK) instead of hosting_provider (text).
  */
-export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promise<{ enriched: number; total: number }> {
+export interface GeoEnrichResult {
+  enriched: number;
+  total: number;
+  skippedPrivate: number;
+  skippedNoResult: number;
+  errors: string[];
+}
+
+export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promise<GeoEnrichResult> {
+  const result: GeoEnrichResult = { enriched: 0, total: 0, skippedPrivate: 0, skippedNoResult: 0, errors: [] };
+
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)
-     LIMIT 5`
+     WHERE ip_address IS NOT NULL
+       AND country_code IS NULL
+     LIMIT 10`
   ).all<{ id: string; ip_address: string }>();
 
-  const total = rows.results.length;
-  if (total === 0) return { enriched: 0, total: 0 };
+  result.total = rows.results.length;
+  if (result.total === 0) return result;
 
-  const ips = rows.results.map((r) => r.ip_address);
+  console.log(`[geo] enrichThreatsGeo: ${result.total} threats selected`);
+
+  // Pre-filter: mark private/bogon IPs as 'PRIV' so they exit the queue
+  const publicRows: typeof rows.results = [];
+  for (const row of rows.results) {
+    if (isPrivateIP(row.ip_address)) {
+      try {
+        await db.prepare(
+          "UPDATE threats SET country_code = 'PRIV' WHERE id = ?"
+        ).bind(row.id).run();
+        result.skippedPrivate++;
+        console.log(`[geo] marked private IP ${row.ip_address} (${row.id}) as PRIV`);
+      } catch (err) {
+        result.errors.push(`mark-private ${row.id}: ${err}`);
+      }
+    } else {
+      publicRows.push(row);
+    }
+  }
+
+  if (publicRows.length === 0) {
+    console.log(`[geo] all ${result.total} IPs were private — nothing to look up`);
+    return result;
+  }
+
+  const ips = publicRows.map((r) => r.ip_address);
   const geoMap = await batchGeoLookup(ips, kv);
 
-  let enriched = 0;
-
-  for (const row of rows.results) {
+  for (const row of publicRows) {
     const geo = geoMap.get(row.ip_address);
-    if (!geo) continue;
+    if (!geo) {
+      // Mark as 'XX' (unknown) so this IP doesn't block the queue
+      try {
+        await db.prepare(
+          "UPDATE threats SET country_code = 'XX' WHERE id = ? AND country_code IS NULL"
+        ).bind(row.id).run();
+        result.skippedNoResult++;
+        console.log(`[geo] no result for ${row.ip_address} (${row.id}) — marked XX`);
+      } catch (err) {
+        result.errors.push(`mark-xx ${row.id}: ${err}`);
+      }
+      continue;
+    }
 
     try {
       const providerName = normalizeProvider(geo.isp, geo.org);
@@ -277,13 +321,15 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promis
       ).bind(
         geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
       ).run();
-      enriched++;
+      result.enriched++;
     } catch (err) {
       console.error(`[geoip] update failed for ${row.id}:`, err);
+      result.errors.push(`update ${row.id}: ${err}`);
     }
   }
 
-  return { enriched, total };
+  console.log(`[geo] enrichThreatsGeo done: enriched=${result.enriched}, private=${result.skippedPrivate}, no_result=${result.skippedNoResult}, errors=${result.errors.length}`);
+  return result;
 }
 
 /**
