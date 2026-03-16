@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 const NRD_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/nrd-14.txt";
 
@@ -23,7 +24,7 @@ export const nrd_hagezi: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || NRD_URL;
     console.log(`[nrd_hagezi] fetching: ${url}`);
-    const res = await fetch(url);
+    const res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", url);
     console.log(`[nrd_hagezi] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`NRD Hagezi HTTP ${res.status}`);
 

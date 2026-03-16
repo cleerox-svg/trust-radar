@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /** URLhaus (abuse.ch) — Active malware distribution URLs */
 export const urlhaus: FeedModule = {
@@ -10,7 +11,7 @@ export const urlhaus: FeedModule = {
       ? ctx.feedUrl
       : "https://urlhaus-api.abuse.ch/v1/urls/recent/";
     console.log(`[urlhaus] fetching: ${url}`);
-    const res = await fetch(url, {
+    const res = await diagnosticFetch(ctx.env.DB, "urlhaus", url, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
