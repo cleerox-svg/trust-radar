@@ -226,9 +226,19 @@ function startFeedStatusUpdater() {
 
 // ─── Shared Components ──────────────────────────────────────────
 
+function getUserInitials(u) {
+  if (u?.name) {
+    const parts = u.name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0][0].toUpperCase();
+  }
+  if (u?.email) return u.email[0].toUpperCase();
+  return 'U';
+}
+
 function renderTopbar() {
   const u = currentUser;
-  const initials = u?.name ? u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?';
+  const initials = getUserInitials(u);
   const isAdmin = ['super_admin', 'admin'].includes(u?.role);
   const path = location.pathname;
 
@@ -250,13 +260,13 @@ function renderTopbar() {
       <div class="feed-status"><span class="dot" id="feed-dot"></span><span id="feed-count">--</span> feeds</div>
       <div class="live-tag">LIVE</div>
       ${isAdmin ? '<a href="/admin" class="admin-gear" onclick="event.preventDefault(); navigate(\'/admin\');" title="Admin Panel">\u2699</a>' : ''}
-      <div class="user-menu" onclick="this.classList.toggle('open')">
+      <div class="user-menu" onclick="event.stopPropagation(); this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
-        <div class="user-dropdown">
-          <a href="/observatory">${u?.email || ''}</a>
-          <a href="/observatory"><span class="role-pill ${u?.role}">${u?.role || ''}</span></a>
+        <div class="user-dropdown" style="right:0">
+          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
           ${isAdmin ? '<a href="/admin" onclick="event.stopPropagation(); navigate(\'/admin\'); return false;">Admin Panel</a>' : ''}
-          <a href="#" onclick="logout(); return false;">Logout</a>
+          <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
         </div>
       </div>
     </div>
@@ -265,7 +275,7 @@ function renderTopbar() {
 
 function renderAdminTopbar(activePath) {
   const u = currentUser;
-  const initials = u?.name ? u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?';
+  const initials = getUserInitials(u);
   const adminNav = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/users', label: 'Users' },
@@ -283,11 +293,11 @@ function renderAdminTopbar(activePath) {
     </nav>
     <div class="topbar-right">
       <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 <span class="back-text">Observatory</span></a>
-      <div class="user-menu" onclick="this.classList.toggle('open')">
+      <div class="user-menu" onclick="event.stopPropagation(); this.classList.toggle('open')">
         <div class="user-avatar">${initials}</div>
-        <div class="user-dropdown">
-          <a href="/observatory">${u?.email || ''}</a>
-          <a href="#" onclick="logout(); return false;">Logout</a>
+        <div class="user-dropdown" style="right:0">
+          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
         </div>
       </div>
     </div>
@@ -389,9 +399,12 @@ function showModal(title, bodyHtml, onConfirm) {
 
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch {}
+  document.cookie = 'token=; Max-Age=0; path=/;';
+  document.cookie = 'session=; Max-Age=0; path=/;';
+  document.cookie = 'jwt=; Max-Age=0; path=/;';
   accessToken = null;
   currentUser = null;
-  navigate('/login');
+  window.location.href = '/login';
 }
 
 // ─── View: Root (public landing / redirect) ────────────────────
@@ -1071,7 +1084,7 @@ async function viewObservatory(el) {
 
       const worstRows = (worstProv?.data || []).map(p =>
         `<a href="/providers/${encodeURIComponent(p.provider_id || p.name)}" class="sidebar-provider-row">
-          <div class="status-dot-sm" style="background:var(--negative)"></div>
+          ${_providerLogoImg(p.name, 22)}
           <div class="prov-info"><div class="prov-name">${p.name}</div><div class="prov-asn">${p.asn || ''}</div></div>
           <span class="prov-count">${p.threat_count}</span>
           <span class="prov-trend" style="color:var(--negative)">${p.trend_7d_pct >= 0 ? '+' : ''}${p.trend_7d_pct || 0}%</span>
@@ -1080,7 +1093,7 @@ async function viewObservatory(el) {
 
       const improvingRows = (improvingProv?.data || []).map(p =>
         `<a href="/providers/${encodeURIComponent(p.provider_id || p.name)}" class="sidebar-provider-row">
-          <div class="status-dot-sm" style="background:var(--positive)"></div>
+          ${_providerLogoImg(p.name, 22)}
           <div class="prov-info"><div class="prov-name">${p.name}</div><div class="prov-asn">${p.asn || ''}</div></div>
           <span class="prov-count">${p.threat_count}</span>
           <span class="prov-trend" style="color:var(--positive)">${p.trend_7d_pct || 0}%</span>
@@ -1177,6 +1190,62 @@ function _attachLogoFallbacks(container) {
     };
   });
 }
+// ─── Provider Logo Functions ─────────────────────────────────────
+const PROVIDER_LOGO_DOMAINS = {
+  'Cloudflare': 'cloudflare.com',
+  'Amazon AWS': 'aws.amazon.com',
+  'Amazon.com, Inc.': 'aws.amazon.com',
+  'Microsoft Azure': 'azure.microsoft.com',
+  'Microsoft Corporation': 'microsoft.com',
+  'Google': 'google.com',
+  'Google LLC': 'google.com',
+  'Google Cloud': 'cloud.google.com',
+  'GoDaddy': 'godaddy.com',
+  'GoDaddy.com, LLC': 'godaddy.com',
+  'Fastly': 'fastly.com',
+  'Fastly, Inc.': 'fastly.com',
+  'DigitalOcean': 'digitalocean.com',
+  'OVH': 'ovh.com',
+  'OVHcloud': 'ovh.com',
+  'Hetzner': 'hetzner.com',
+  'Namecheap': 'namecheap.com',
+  'Weebly': 'weebly.com',
+  'Weebly, Inc.': 'weebly.com',
+  'Vercel': 'vercel.com',
+  'Netlify': 'netlify.com',
+  'Hooray Solutions': 'yourhosting.nl',
+  'Protocol Labs': 'protocol.ai',
+  'Neon Core Network': 'neoncore.net',
+  'UltaHost': 'ultahost.com',
+  'Hostinger': 'hostinger.com',
+  'Vultr': 'vultr.com',
+  'Linode': 'linode.com',
+  'Linode/Akamai': 'linode.com',
+  'Akamai': 'akamai.com',
+  'Contabo': 'contabo.com',
+  'Bluehost': 'bluehost.com',
+  'HostGator': 'hostgator.com',
+  'SiteGround': 'siteground.com',
+  'DreamHost': 'dreamhost.com',
+  'Hostwinds': 'hostwinds.com',
+  '1&1 IONOS': 'ionos.com',
+  'Alibaba Cloud': 'alibabacloud.com',
+  'Tencent Cloud': 'cloud.tencent.com',
+  'Oracle Cloud': 'oracle.com',
+  'Leaseweb': 'leaseweb.com',
+  'Choopa/Vultr': 'vultr.com',
+};
+function _providerLogoDomain(name) {
+  if (PROVIDER_LOGO_DOMAINS[name]) return PROVIDER_LOGO_DOMAINS[name];
+  const clean = (name || '').replace(/,?\s*(Inc\.?|LLC|Corp\.?|Ltd\.?|GmbH|S\.?A\.?|Co\.?)$/i, '').trim();
+  return clean.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+}
+function _providerLogoImg(name, size) {
+  const domain = _providerLogoDomain(name);
+  const initials = (name || '??').substring(0, 2).toUpperCase();
+  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${initials}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${initials}">`;
+}
+
 function _tColor(t) { return t >= 200 ? 'var(--threat-critical)' : t >= 100 ? 'var(--threat-high)' : t >= 50 ? 'var(--threat-medium)' : 'var(--blue-primary)'; }
 function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--blue-primary)' : s >= 70 ? 'var(--threat-medium)' : s >= 50 ? 'var(--threat-high)' : 'var(--threat-critical)'; }
 
@@ -1773,10 +1842,11 @@ function _renderProvCard(p, i, isImproving) {
   return `<a href="/providers/${encodeURIComponent(p.provider_id || p.id || p.name)}" class="provider-card ${isImproving ? 'improving' : ''}">
     <div class="provider-card-top">
       <div class="provider-rank ${!isImproving && i < 3 ? 'top' : ''}">${i + 1}</div>
-      <div class="provider-icon"><span style="font-size:16px;line-height:1">${flag}</span></div>
-      <div class="provider-card-info">
-        <div class="provider-card-name" style="font-size:14px;font-weight:700">${p.name}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">${p.country_code || p.country || ''} ${p.asn || ''}</div>
+      <div class="provider-icon">${_providerLogoImg(p.name, 32)}</div>
+      <div class="provider-card-info" style="min-width:0">
+        <div class="provider-card-name" style="font-size:14px;font-weight:700;white-space:normal;word-wrap:break-word;overflow-wrap:break-word">${p.name}</div>
+        ${(p.country_code || p.country) ? `<span style="display:inline-block;font-size:10px;padding:1px 6px;background:var(--bg-elevated);border-radius:4px;color:var(--text-secondary);margin-top:3px">${p.country_code || p.country}</span>` : ''}
+        ${p.asn ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);margin-top:2px;white-space:normal;word-wrap:break-word">${p.asn}</div>` : ''}
       </div>
     </div>
     <div class="provider-card-stats">
@@ -1820,6 +1890,7 @@ async function viewProvidersHub(el) {
     const content = document.getElementById('prov-content');
     if (!providers.length) { content.innerHTML = '<div class="empty-state"><div class="message">No provider data</div></div>'; return; }
     content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => _renderProvCard(p, i, false)).join('')}</div>`;
+    _attachLogoFallbacks(content);
   };
 
   const loadImproving = async (period) => {
@@ -1830,6 +1901,7 @@ async function viewProvidersHub(el) {
     const content = document.getElementById('prov-content');
     if (!providers.length) { content.innerHTML = '<div class="empty-state"><div class="message">No improving providers detected</div></div>'; return; }
     content.innerHTML = `<div class="provider-grid">${providers.map((p, i) => _renderProvCard(p, i, true)).join('')}</div>`;
+    _attachLogoFallbacks(content);
   };
 
   const loadAllProviders = async () => {
@@ -1953,7 +2025,7 @@ async function viewProviderDetail(el, params) {
     el.innerHTML = `
       <a href="/providers" class="back-link">\u2190 Back to Providers</a>
       <div class="detail-header">
-        <div class="detail-header-icon" style="flex-direction:column;gap:2px"><span style="font-size:22px">${flag}</span></div>
+        <div class="detail-header-icon" style="flex-direction:column;gap:2px">${_providerLogoImg(p.name, 48)}</div>
         <div class="detail-header-meta">
           <div class="detail-header-title">${p.name}</div>
           <div class="detail-header-sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${p.country_code || p.country ? `<span class="country-code-pill" style="font-size:11px;padding:3px 8px">${p.country_code || p.country}</span>` : ''}${p.asn ? `<span class="asn-pill">${p.asn}</span>` : ''}<span>Hosting Provider \u2014 ${totalThreats} active threats hosted</span></div>
@@ -1986,6 +2058,8 @@ async function viewProviderDetail(el, params) {
         <div class="chart-legend" id="prov-chart-legend"></div>
         <div class="chart-wrap"><canvas id="prov-timeline-chart"></canvas></div>
       </div>`;
+
+    _attachLogoFallbacks(el);
 
     // ── Threats table with filter pills, evidence column, pagination ──
     _provThreatsPage = 1;
@@ -3769,6 +3843,11 @@ async function viewAdminAudit(el) {
     document.getElementById('adm-audit-detail').style.display = 'none';
   });
 }
+
+// ─── Close user-menu dropdowns on outside click ─────────────
+document.addEventListener('click', () => {
+  document.querySelectorAll('.user-menu.open').forEach(m => m.classList.remove('open'));
+});
 
 // ─── Init ───────────────────────────────────────────────────
 render();
