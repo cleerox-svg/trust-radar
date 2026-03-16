@@ -1107,6 +1107,7 @@ async function viewObservatory(el) {
         renderPanel('Top Targeted Brands', (topBrands?.data || []).length, brandRows) +
         renderPanel('Hosting Providers', null, (worstRows ? '<div class="sidebar-divider">Worst Actors</div>' + worstRows : '') + (improvingRows ? '<div class="sidebar-divider">Improving</div>' + improvingRows : '') || '<div class="empty-state"><div class="message">No data</div></div>') +
         renderPanel('Agent Intelligence', (insights?.data || []).length, insightItems);
+      _attachLogoFallbacks(sidebar);
     }
 
     // Live polling
@@ -1162,8 +1163,19 @@ function _brandLogoDomain(name) {
 function _brandLogoImg(name, size, initials) {
   const domain = _brandLogoDomain(name);
   const init = initials || _brandInitials(name);
-  const fallbackDiv = `<div class=&quot;brand-icon&quot; style=&quot;width:${size}px;height:${size}px;font-size:${Math.round(size*0.45)}px&quot;>${init}</div>`;
-  return `<img src="https://logo.clearbit.com/${domain}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" onerror="this.onerror=function(){this.outerHTML='${fallbackDiv}'};this.src='https://www.google.com/s2/favicons?domain=${domain}&sz=128'" alt="${init}">`;
+  return `<img class="brand-logo-img" src="https://logo.clearbit.com/${domain}" data-domain="${domain}" data-initials="${init}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${init}">`;
+}
+function _attachLogoFallbacks(container) {
+  (container || document).querySelectorAll('.brand-logo-img').forEach(img => {
+    img.onerror = function() {
+      if (!this.dataset.fallback) {
+        this.dataset.fallback = '1';
+        this.src = 'https://www.google.com/s2/favicons?domain=' + this.dataset.domain + '&sz=128';
+      } else {
+        this.outerHTML = '<div class="brand-icon" style="width:' + this.width + 'px;height:' + this.height + 'px;font-size:' + Math.round(this.width * 0.45) + 'px">' + this.dataset.initials + '</div>';
+      }
+    };
+  });
 }
 function _tColor(t) { return t >= 200 ? 'var(--threat-critical)' : t >= 100 ? 'var(--threat-high)' : t >= 50 ? 'var(--threat-medium)' : 'var(--blue-primary)'; }
 function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--blue-primary)' : s >= 70 ? 'var(--threat-medium)' : s >= 50 ? 'var(--threat-high)' : 'var(--threat-critical)'; }
@@ -1225,6 +1237,7 @@ async function viewBrandsHub(el) {
         </div>
       </a>`;
     }).join('')}</div>`;
+    _attachLogoFallbacks(content);
   };
 
   const loadMonitored = async () => {
@@ -1522,6 +1535,7 @@ async function viewBrandDetail(el, params) {
         </div></div>
         <div class="chart-wrap"><canvas id="brand-timeline-chart"></canvas></div>
       </div>`;
+    _attachLogoFallbacks(el);
 
     // Render threats table with filter, evidence column, and pagination
     _brandThreatsPage = 1;

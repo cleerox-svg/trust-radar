@@ -42,7 +42,7 @@ button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
 /* ─── Layout ────────────────────────────────────────────────── */
-#app { display: flex; flex-direction: column; min-height: 100vh; }
+#app { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-surface); }
 .main { flex: 1; padding: 20px 24px; max-width: 1440px; margin: 0 auto; width: 100%; }
 
 /* ─── Topbar ────────────────────────────────────────────────── */
@@ -51,6 +51,10 @@ input, select, textarea { font-family: inherit; }
   padding: 0 24px; height: 52px;
   background: var(--bg-surface); border-bottom: none;
   position: sticky; top: 0; z-index: 100;
+}
+.topbar::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 1px; background: var(--bg-surface);
 }
 .topbar-logo {
   display: flex; align-items: center; gap: 0; flex-shrink: 0;
@@ -366,6 +370,7 @@ input, select, textarea { font-family: inherit; }
 .observatory-layout {
   display: grid; grid-template-columns: 1fr 372px; gap: 0;
   height: calc(100vh - 52px); overflow: hidden;
+  margin-top: -1px; padding-top: 1px;
 }
 .observatory-layout .main { padding: 0; max-width: none; }
 .map-container {
