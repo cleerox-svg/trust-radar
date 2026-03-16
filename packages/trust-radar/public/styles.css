@@ -362,10 +362,10 @@ input, select, textarea { font-family: inherit; }
 .admin-mode .topbar-logo .dot { background: var(--threat-medium); }
 
 /* ─── Observatory Layout ───────────────────────────────────── */
+.observatory-view > .topbar { border-bottom: none; box-shadow: none; }
 .observatory-layout {
   display: grid; grid-template-columns: 1fr 372px; gap: 0;
   height: calc(100vh - 52px); overflow: hidden;
-  margin-top: -1px; /* overlap topbar border to eliminate gap */
 }
 .observatory-layout .main { padding: 0; max-width: none; }
 .map-container {
