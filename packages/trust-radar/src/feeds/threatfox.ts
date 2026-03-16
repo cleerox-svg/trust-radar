@@ -26,7 +26,7 @@ export const threatfox: FeedModule = {
     }
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
-    const items = data.data.slice(0, 1500);
+    const items = data.data.slice(0, 500);
 
     for (const ioc of items) {
       try {
@@ -41,7 +41,7 @@ export const threatfox: FeedModule = {
         await insertThreat(ctx.env.DB, {
           id: threatId("threatfox", iocType, ioc.ioc),
           source_feed: "threatfox",
-          threat_type: "malware_distribution",
+          threat_type: mapThreatType(ioc.threat_type),
           malicious_url: isUrl ? ioc.ioc : null,
           malicious_domain: domain,
           ip_address: isIp ? ioc.ioc : null,
@@ -57,6 +57,12 @@ export const threatfox: FeedModule = {
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
+
+function mapThreatType(t: string): ThreatRow["threat_type"] {
+  if (t === "botnet_cc") return "c2";
+  if (t === "payload_delivery") return "malware_distribution";
+  return "malware_distribution";
+}
 
 function mapIocType(t: string): string {
   if (t.includes("domain")) return "domain";
