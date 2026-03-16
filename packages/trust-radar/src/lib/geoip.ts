@@ -243,7 +243,7 @@ export async function batchGeoLookup(
 export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promise<{ enriched: number; total: number }> {
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
-     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider_id IS NULL)
+     WHERE ip_address IS NOT NULL AND (country_code IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)
      LIMIT 5`
   ).all<{ id: string; ip_address: string }>();
 
