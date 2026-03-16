@@ -274,6 +274,11 @@ function parseCronIntervalMs(cron: string): number {
     return 60 * 60 * 1000;
   }
 
+  // "0 0 * * *" — daily (specific hour, no wildcard)
+  if (/^\d+$/.test(minute) && /^\d+$/.test(hour)) {
+    return 24 * 60 * 60 * 1000;
+  }
+
   // Default: 5 minutes
   return 5 * 60 * 1000;
 }

@@ -5,8 +5,12 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** URLhaus (abuse.ch) — Active malware distribution URLs */
 export const urlhaus: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    console.log(`[urlhaus] fetching: ${ctx.feedUrl}`);
-    const res = await fetch(ctx.feedUrl, {
+    // The feed_configs source_url may be missing /urls/recent/ — use correct endpoint
+    const url = ctx.feedUrl.includes("/urls/recent")
+      ? ctx.feedUrl
+      : "https://urlhaus-api.abuse.ch/v1/urls/recent/";
+    console.log(`[urlhaus] fetching: ${url}`);
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
@@ -27,7 +31,7 @@ export const urlhaus: FeedModule = {
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 
-    const items = body.urls.slice(0, 1000);
+    const items = body.urls.slice(0, 500);
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
 
     for (const entry of items) {

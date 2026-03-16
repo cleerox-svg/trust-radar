@@ -9,6 +9,10 @@ import { threatfox } from "./threatfox";
 import { feodo } from "./feodo";
 import { phishstats } from "./phishstats";
 import { phishdestroy } from "./phishdestroy";
+import { nrd_hagezi } from "./nrd_hagezi";
+import { dshield } from "./dshield";
+import { cins_army } from "./cins_army";
+import { sslbl } from "./sslbl";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -23,4 +27,8 @@ export const feedModules: Record<string, FeedModule> = {
   feodo,
   phishstats,
   phishdestroy,
+  nrd_hagezi,
+  dshield,
+  cins_army,
+  sslbl,
 };

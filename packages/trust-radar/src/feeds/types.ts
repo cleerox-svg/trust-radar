@@ -27,7 +27,7 @@ export interface FeedModule {
 export interface ThreatRow {
   id: string;
   source_feed: string;
-  threat_type: "phishing" | "typosquatting" | "impersonation" | "malware_distribution" | "credential_harvesting";
+  threat_type: "phishing" | "typosquatting" | "impersonation" | "malware_distribution" | "credential_harvesting" | "c2" | "scanning" | "malicious_ip" | "botnet" | "malicious_ssl";
   malicious_url: string | null;
   malicious_domain: string | null;
   target_brand_id?: string | null;
