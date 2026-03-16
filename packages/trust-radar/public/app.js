@@ -84,6 +84,7 @@ const routes = [
   { path: '/login',                view: viewLogin,           auth: false },
   { path: '/auth/callback',        view: viewAuthCallback,    auth: false },
   { path: '/auth/error',           view: viewAuthError,       auth: false },
+  { path: '/public-preview',       view: viewPublicSite,      auth: false },
 ];
 
 let currentParams = {};
@@ -400,17 +401,8 @@ async function viewRootRedirect(el) {
   // Try refresh (user has cookie but page was reloaded)
   const refreshed = await refreshToken();
   if (refreshed) { navigate('/observatory', true); return; }
-  // Unauthenticated → show simple coming soon page
-  el.innerHTML = `<div class="login-screen">
-    <div class="login-logo"><svg width="400" height="100" viewBox="0 0 480 120"><g transform="translate(60,60)"><path d="M-12.6,-44 A46,46 0 0,1 27,-37.2" stroke="#00d4ff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/><path d="M32.2,-30.6 A46,46 0 0,1 45.2,8.4" stroke="#00e5a0" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/><path d="M41.4,19.8 A46,46 0 0,1 8.4,45.2" stroke="#ffb627" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-1.8,46 A46,46 0 0,1 -41.4,19.8" stroke="#ff3b5c" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-45.2,8.4 A46,46 0 0,1 -22,-40.4" stroke="#b388ff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".5"/><circle cx="30" cy="-34" r="2" fill="#ff3b5c" opacity=".3"><animate attributeName="opacity" values=".3;.6;.3" dur="4s" begin="0.8s" repeatCount="indefinite"/></circle><circle cx="-44" cy="14" r="2" fill="#ff3b5c" opacity=".3"><animate attributeName="opacity" values=".3;.6;.3" dur="4s" begin="2.4s" repeatCount="indefinite"/></circle><circle cx="0" cy="0" r="28" fill="none" stroke="#00d4ff" stroke-width=".5" opacity=".1"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><path d="M0,0 L0,-44 A44,44 0 0,1 22,-38 Z" fill="rgba(0,212,255,.06)" opacity=".5"/><line x1="0" y1="0" x2="0" y2="-44" stroke="#00d4ff" stroke-width="1.5" opacity=".6" stroke-linecap="round"/></g><g><circle cx="8.7" cy="-26.6" r="6" fill="#00d4ff" opacity="0"><animate attributeName="opacity" values="0;.25;0" dur="6s" begin="0.3s" repeatCount="indefinite"/></circle><circle cx="8.7" cy="-26.6" r="5" fill="#040810" stroke="#00d4ff" stroke-width="1.5" opacity=".6"/><circle cx="8.7" cy="-26.6" r="2.2" fill="#00d4ff" opacity=".4"><animate attributeName="opacity" values=".4;1;.4" dur="6s" begin="0.3s" repeatCount="indefinite"/><animate attributeName="r" values="2.2;3.2;2.2" dur="6s" begin="0.3s" repeatCount="indefinite"/></circle></g><g><circle cx="28" cy="0" r="6" fill="#00e5a0" opacity="0"><animate attributeName="opacity" values="0;.25;0" dur="6s" begin="1.5s" repeatCount="indefinite"/></circle><circle cx="28" cy="0" r="5" fill="#040810" stroke="#00e5a0" stroke-width="1.5" opacity=".6"/><circle cx="28" cy="0" r="2.2" fill="#00e5a0" opacity=".4"><animate attributeName="opacity" values=".4;1;.4" dur="6s" begin="1.5s" repeatCount="indefinite"/><animate attributeName="r" values="2.2;3.2;2.2" dur="6s" begin="1.5s" repeatCount="indefinite"/></circle></g><g><circle cx="8.7" cy="26.6" r="6" fill="#ffb627" opacity="0"><animate attributeName="opacity" values="0;.25;0" dur="6s" begin="2.7s" repeatCount="indefinite"/></circle><circle cx="8.7" cy="26.6" r="5" fill="#040810" stroke="#ffb627" stroke-width="1.5" opacity=".6"/><circle cx="8.7" cy="26.6" r="2.2" fill="#ffb627" opacity=".4"><animate attributeName="opacity" values=".4;1;.4" dur="6s" begin="2.7s" repeatCount="indefinite"/><animate attributeName="r" values="2.2;3.2;2.2" dur="6s" begin="2.7s" repeatCount="indefinite"/></circle></g><g><circle cx="-22.6" cy="16.4" r="6" fill="#ff3b5c" opacity="0"><animate attributeName="opacity" values="0;.25;0" dur="6s" begin="3.9s" repeatCount="indefinite"/></circle><circle cx="-22.6" cy="16.4" r="5" fill="#040810" stroke="#ff3b5c" stroke-width="1.5" opacity=".6"/><circle cx="-22.6" cy="16.4" r="2.2" fill="#ff3b5c" opacity=".4"><animate attributeName="opacity" values=".4;1;.4" dur="6s" begin="3.9s" repeatCount="indefinite"/><animate attributeName="r" values="2.2;3.2;2.2" dur="6s" begin="3.9s" repeatCount="indefinite"/></circle></g><g><circle cx="-22.6" cy="-16.4" r="6" fill="#b388ff" opacity="0"><animate attributeName="opacity" values="0;.25;0" dur="6s" begin="5.1s" repeatCount="indefinite"/></circle><circle cx="-22.6" cy="-16.4" r="5" fill="#040810" stroke="#b388ff" stroke-width="1.5" opacity=".6"/><circle cx="-22.6" cy="-16.4" r="2.2" fill="#b388ff" opacity=".4"><animate attributeName="opacity" values=".4;1;.4" dur="6s" begin="5.1s" repeatCount="indefinite"/><animate attributeName="r" values="2.2;3.2;2.2" dur="6s" begin="5.1s" repeatCount="indefinite"/></circle></g><circle cx="0" cy="0" r="10" fill="rgba(0,212,255,.04)" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/><circle cx="0" cy="0" r="4.5" fill="#00d4ff"><animate attributeName="r" values="4.5;5.5;4.5" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.5;1" dur="2s" repeatCount="indefinite"/></circle></g><text x="130" y="48" font-family="'Chakra Petch',sans-serif" font-weight="700" font-size="34" letter-spacing="4" fill="#e8edf5">TRUST</text><text x="130" y="82" font-family="'Chakra Petch',sans-serif" font-weight="500" font-size="34" letter-spacing="4" fill="#00d4ff">RADAR</text></svg></div>
-    <p style="color:var(--text-secondary);font-size:14px;margin:12px 0 24px">AI-Powered Brand Threat Intelligence</p>
-    <p style="color:var(--text-tertiary);font-size:12px;margin-bottom:24px">Public site coming soon. Sign in to access the Observatory.</p>
-    <a class="login-btn" href="/api/auth/login">
-      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Sign in with Google
-    </a>
-    <div style="text-align:center;padding:16px 0 0;font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>
-  </div>`;
+  // Unauthenticated → show public marketing site
+  viewPublicSite(el, {});
 }
 
 // ─── View: Login ────────────────────────────────────────────────
@@ -437,6 +429,400 @@ function viewAuthError(el) {
     <p style="color:var(--negative);font-size:13px">${msg}</p>
     <a class="login-btn" href="/api/auth/login">Try Again</a>
   </div>`;
+}
+
+// ─── View: Public Site ──────────────────────────────────────
+async function viewPublicSite(el, params) {
+  const isPreview = location.pathname === '/public-preview';
+  const isAuth = isAuthenticated();
+
+  // Animated logo SVG (topbar size)
+  const logoSvg = `<svg class="tr-logo-mark" width="200" height="32" viewBox="0 0 200 32"><g transform="translate(16,16)"><path d="M-2.2,-14 A14,14 0 0,1 8.2,-11.3" stroke="#00d4ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M10.4,-8.2 A14,14 0 0,1 13.8,2.6" stroke="#00e5a0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M12.6,6 A14,14 0 0,1 2.6,13.8" stroke="#ffb627" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-0.6,14 A14,14 0 0,1 -12.6,6" stroke="#ff3b5c" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-13.8,2.6 A14,14 0 0,1 -6.7,-12.3" stroke="#b388ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-13" stroke="#00d4ff" stroke-width=".8" opacity=".35"/></g><circle cx="0" cy="0" r="2.5" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1"/><circle cx="0" cy="0" r="1.2" fill="#00d4ff"/></g><text class="tr-wordmark" x="36" y="21" font-family="'Chakra Petch',sans-serif" font-weight="700" font-size="16" letter-spacing="2" fill="#e8edf5">TRUST <tspan fill="#00d4ff">RADAR</tspan></text></svg>`;
+
+  // Hero logo (large animated SVG for footer CTA)
+  const heroLogo = `<svg width="80" height="80" viewBox="0 0 80 80"><g transform="translate(40,40)"><path d="M-6.3,-35 A35,35 0 0,1 20.5,-28.3" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M26,-20.5 A35,35 0 0,1 34.5,6.5" stroke="#00e5a0" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M31.5,15 A35,35 0 0,1 6.5,34.5" stroke="#ffb627" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-1.5,35 A35,35 0 0,1 -31.5,15" stroke="#ff3b5c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-34.5,6.5 A35,35 0 0,1 -16.8,-30.8" stroke="#b388ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-32" stroke="#00d4ff" stroke-width="1" opacity=".35"/></g><circle cx="0" cy="0" r="6" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1.5"/><circle cx="0" cy="0" r="3" fill="#00d4ff"/></g></svg>`;
+
+  const agents = [
+    { name: 'Sentinel', color: '#00d4ff', role: 'Certificate & Domain Surveillance', icon: '\u25C9',
+      bullets: ['Monitors Certificate Transparency logs in real-time', 'Detects newly registered suspicious domains', 'Flags typosquatting and homoglyph attacks'],
+      statKey: 'certificates_today', statLabel: 'certificates scanned today' },
+    { name: 'Analyst', color: '#00e5a0', role: 'Threat Classification & Brand Matching', icon: '\u25C8',
+      bullets: ['AI-powered URL analysis using Claude Haiku', 'Matches threats to target brands automatically', 'Scores confidence and assigns severity levels'],
+      statKey: 'threats_classified_today', statLabel: 'threats classified today' },
+    { name: 'Cartographer', color: '#ffb627', role: 'Infrastructure Mapping & Provider Scoring', icon: '\u25CE',
+      bullets: ['Maps IP addresses to hosting providers and ASNs', 'Scores provider abuse rates and response times', 'Identifies infrastructure patterns across campaigns'],
+      statKey: 'providers_mapped', statLabel: 'providers mapped' },
+    { name: 'Strategist', color: '#ff3b5c', role: 'Campaign Correlation & Clustering', icon: '\u25C6',
+      bullets: ['Groups related threats into coordinated campaigns', 'AI-generates descriptive campaign names', 'Identifies shared infrastructure and attack patterns'],
+      statKey: 'threat_campaigns', statLabel: 'active threat campaigns' },
+    { name: 'Observer', color: '#b388ff', role: 'Intelligence Synthesis & Trend Analysis', icon: '\u25CB',
+      bullets: ['Produces narrative threat intelligence briefings', 'Identifies emerging attack trends and shifts', 'Monitors brand-specific threat landscapes'],
+      statKey: 'latest_insight_summary', statLabel: '' },
+  ];
+
+  el.innerHTML = `
+    ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" style="color:#00d4ff">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
+
+    <!-- NAV -->
+    <nav class="pub-nav">
+      <div class="pub-nav-inner">
+        <a href="/" class="pub-nav-logo">${logoSvg}</a>
+        <div class="pub-nav-links">
+          <a href="#features">Features</a>
+          <a href="#agents">Agents</a>
+          <a href="#assessment">Assessment</a>
+        </div>
+        <div class="pub-nav-cta">
+          <a href="/login" class="pub-nav-login">Login</a>
+          <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-sm">Sign Up</a>
+        </div>
+        <button class="pub-hamburger" id="pub-hamburger">\u2630</button>
+      </div>
+      <div class="pub-mobile-menu" id="pub-mobile-menu" style="display:none">
+        <a href="#features">Features</a><a href="#agents">Agents</a><a href="#assessment">Assessment</a>
+        <a href="/login">Login</a><a href="#assessment" class="pub-btn pub-btn-primary" style="text-align:center">Sign Up</a>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="pub-hero">
+      <div class="pub-hero-map" id="pub-hero-map"></div>
+      <div class="pub-hero-overlay"></div>
+      <div class="pub-hero-content">
+        <h1 class="pub-hero-title">See What Attackers See</h1>
+        <p class="pub-hero-sub">Trust Radar is an AI-powered threat intelligence observatory that watches the internet\u2019s attack surface 24/7. Five autonomous agents detect threat campaigns, map hostile infrastructure, and protect your brand \u2014 before damage is done.</p>
+        <div class="pub-hero-cta">
+          <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Scan Your Brand</a>
+          <a href="#agents" class="pub-btn pub-btn-outline pub-btn-lg">See It Live \u2193</a>
+        </div>
+      </div>
+      <div class="pub-hero-stats" id="pub-hero-stats">
+        <span>\u26A0 <strong id="pub-stat-threats">--</strong> Active Threats</span>
+        <span>\u2605 <strong id="pub-stat-brands">--</strong> Brands Tracked</span>
+        <span>\u25C6 <strong id="pub-stat-providers">--</strong> Providers Mapped</span>
+        <span>\u2295 <strong id="pub-stat-campaigns">--</strong> Threat Campaigns</span>
+      </div>
+    </section>
+
+    <!-- PROBLEM -->
+    <section class="pub-section">
+      <h2 class="pub-section-title">Your Brand Is Being Impersonated Right Now</h2>
+      <div class="pub-problem-grid">
+        <div class="pub-problem-card">
+          <div class="pub-problem-num">4,000+</div>
+          <div class="pub-problem-label">Threat domains registered daily targeting major brands</div>
+          <div class="pub-problem-src">Source: Anti-Phishing Working Group</div>
+        </div>
+        <div class="pub-problem-card">
+          <div class="pub-problem-num" style="color:var(--threat-medium)">21 days</div>
+          <div class="pub-problem-label">Average time to detect brand impersonation</div>
+          <div class="pub-problem-src">Your customers are at risk before you even know</div>
+        </div>
+        <div class="pub-problem-card">
+          <div class="pub-problem-num" style="color:var(--threat-high)">83%</div>
+          <div class="pub-problem-label">Of threat sites use legitimate hosting providers</div>
+          <div class="pub-problem-src">Making takedowns harder than ever</div>
+        </div>
+      </div>
+      <p class="pub-problem-cta">Trust Radar changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong style="color:#00d4ff">every five minutes</strong>.</p>
+    </section>
+
+    <!-- AGENTS -->
+    <section class="pub-section" id="agents">
+      <h2 class="pub-section-title">Five AI Agents. One Mission.</h2>
+      <p class="pub-section-sub">Each agent has a specialized role in the intelligence pipeline. Together, they form a continuous detection and analysis system.</p>
+      <div class="pub-agents-pipeline">
+        ${agents.map((a, i) => `
+          <div class="pub-agent-card" style="--agent-color:${a.color};animation-delay:${i * 0.2}s">
+            <div class="pub-agent-icon" style="color:${a.color};border-color:${a.color}">${a.icon}</div>
+            <div class="pub-agent-name" style="color:${a.color}">${a.name}</div>
+            <div class="pub-agent-role">${a.role}</div>
+            <ul class="pub-agent-bullets">${a.bullets.map(b => `<li>${b}</li>`).join('')}</ul>
+            <div class="pub-agent-stat" id="pub-agent-stat-${i}"></div>
+          </div>
+          ${i < agents.length - 1 ? '<div class="pub-agent-arrow">\u2192</div>' : ''}
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="pub-section" id="features">
+      <h2 class="pub-section-title">How It Works</h2>
+      <div class="pub-steps">
+        <div class="pub-step">
+          <div class="pub-step-num">1</div>
+          <h3>We Watch</h3>
+          <p>Trust Radar ingests data from 8+ threat intelligence feeds every 5 minutes. Certificate Transparency logs, threat databases, botnet trackers, and more.</p>
+        </div>
+        <div class="pub-step">
+          <div class="pub-step-num">2</div>
+          <h3>We Analyze</h3>
+          <p>Five AI agents process every signal \u2014 classifying threats, matching brands, mapping infrastructure, correlating campaigns, and synthesizing intelligence.</p>
+        </div>
+        <div class="pub-step">
+          <div class="pub-step-num">3</div>
+          <h3>We Alert</h3>
+          <p>Your brand\u2019s threat landscape is monitored continuously. When new attacks emerge, you know immediately \u2014 with full context and severity scoring.</p>
+        </div>
+        <div class="pub-step pub-step-coming">
+          <div class="pub-step-num">4</div>
+          <span class="pub-coming-badge">Coming Soon</span>
+          <h3>We Take Action</h3>
+          <p>Automated threat mitigation: domain takedown requests, hosting provider abuse reports, DNS sinkholing, and coordinated response.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ASSESSMENT -->
+    <section class="pub-section pub-assess-section" id="assessment">
+      <h2 class="pub-section-title">How Exposed Is Your Brand?</h2>
+      <p class="pub-section-sub">Enter your domain to get a free AI-powered threat assessment. See if attackers are already targeting your brand.</p>
+      <div class="pub-assess-form">
+        <div class="pub-assess-input-row">
+          <input type="text" id="pub-assess-domain" class="pub-assess-input" placeholder="yourbrand.com" autocomplete="off">
+          <button class="pub-btn pub-btn-primary pub-btn-lg" id="pub-assess-submit">Scan Now \u2192</button>
+        </div>
+        <div class="pub-assess-note">Free assessment \u2022 No credit card \u2022 Results in 30 seconds</div>
+      </div>
+      <div id="pub-assess-loading" style="display:none" class="pub-assess-loading">
+        ${heroLogo}
+        <div>Scanning threat landscape...</div>
+      </div>
+      <div id="pub-assess-results" style="display:none"></div>
+      <div id="pub-lead-form" style="display:none"></div>
+    </section>
+
+    <!-- SOCIAL PROOF -->
+    <section class="pub-section pub-proof">
+      <h3 class="pub-proof-title">Powered by Open Intelligence</h3>
+      <div class="pub-proof-feeds">
+        <span class="pub-feed-badge">Certificate Transparency</span>
+        <span class="pub-feed-badge">PhishTank</span>
+        <span class="pub-feed-badge">OpenPhish</span>
+        <span class="pub-feed-badge">PhishDestroy</span>
+        <span class="pub-feed-badge">Feodo Tracker</span>
+        <span class="pub-feed-badge">APWG</span>
+      </div>
+      <p class="pub-proof-sub">Aggregating 8+ threat intelligence feeds \u2022 Processing 4,000+ signals daily \u2022 AI-powered by Anthropic Claude</p>
+    </section>
+
+    <!-- CTA FOOTER -->
+    <footer class="pub-footer">
+      <div class="pub-footer-logo">${heroLogo}</div>
+      <h2 class="pub-footer-title">Ready to protect your brand?</h2>
+      <div class="pub-footer-cta">
+        <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Get Your Free Assessment</a>
+        <a href="mailto:hello@lrxradar.com" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
+      </div>
+      <div class="pub-footer-legal">
+        <div>\u00A9 2026 LRX Enterprises Inc. \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>
+        <div>lrxradar.com</div>
+        <div class="pub-footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></div>
+      </div>
+    </footer>
+  `;
+
+  // ─── Smooth scroll for anchor links ───
+  el.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // ─── Hamburger menu ───
+  document.getElementById('pub-hamburger')?.addEventListener('click', () => {
+    const menu = document.getElementById('pub-mobile-menu');
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  // ─── Hero map (decorative, non-interactive) ───
+  try {
+    if (typeof L !== 'undefined') {
+      const map = L.map('pub-hero-map', {
+        center: [30, 0], zoom: 2, zoomControl: false, attributionControl: false,
+        dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+        touchZoom: false, keyboard: false, boxZoom: false,
+      });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 4, opacity: 0.6,
+      }).addTo(map);
+
+      // Plot public geo markers
+      const geoRes = await fetch('/api/v1/public/geo').then(r => r.json()).catch(() => null);
+      if (geoRes?.data) {
+        const colors = { critical: '#ff3b5c', high: '#ff6b35', medium: '#ffb627', low: '#00d4ff' };
+        geoRes.data.slice(0, 200).forEach(p => {
+          L.circleMarker([p.lat, p.lng], {
+            radius: 3, fillColor: colors[p.severity] || '#00d4ff',
+            fillOpacity: 0.6, stroke: false,
+          }).addTo(map);
+        });
+      }
+    }
+  } catch {}
+
+  // ─── Live stats ───
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/v1/public/stats').then(r => r.json());
+      const d = res?.data;
+      if (!d) return;
+      const animate = (el, val) => { if (el) { el.textContent = (val || 0).toLocaleString(); el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'pub-pulse 2s ease-in-out'; } };
+      animate(document.getElementById('pub-stat-threats'), d.active_threats);
+      animate(document.getElementById('pub-stat-brands'), d.brands_tracked);
+      animate(document.getElementById('pub-stat-providers'), d.providers_mapped);
+      animate(document.getElementById('pub-stat-campaigns'), d.threat_campaigns);
+
+      // Agent stats
+      const agentStats = [d.certificates_today, d.threats_classified_today, d.providers_mapped, d.threat_campaigns, d.latest_insight_summary];
+      agents.forEach((a, i) => {
+        const el = document.getElementById('pub-agent-stat-' + i);
+        if (!el) return;
+        if (i === 4 && d.latest_insight_summary) {
+          el.innerHTML = '<span style="font-size:10px;color:' + a.color + '">Latest: ' + d.latest_insight_summary.slice(0, 60) + '...</span>';
+        } else {
+          el.innerHTML = '<span style="font-family:var(--font-mono);font-size:12px;color:' + a.color + '">' + (agentStats[i] || 0).toLocaleString() + '</span> <span style="font-size:10px;color:var(--text-tertiary)">' + a.statLabel + '</span>';
+        }
+      });
+    } catch {}
+  }
+  loadStats();
+  const statsInterval = setInterval(loadStats, 60000);
+
+  // ─── Assessment form ───
+  const submitBtn = document.getElementById('pub-assess-submit');
+  const domainInput = document.getElementById('pub-assess-domain');
+
+  async function runAssessment() {
+    const domain = domainInput?.value?.trim();
+    if (!domain || !domain.includes('.')) {
+      domainInput.style.borderColor = '#ff3b5c';
+      return;
+    }
+    domainInput.style.borderColor = '';
+    document.getElementById('pub-assess-loading').style.display = 'flex';
+    document.getElementById('pub-assess-results').style.display = 'none';
+    document.getElementById('pub-lead-form').style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Scanning...';
+
+    try {
+      const res = await fetch('/api/v1/public/assess', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      }).then(r => r.json());
+
+      document.getElementById('pub-assess-loading').style.display = 'none';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Scan Now \u2192';
+
+      if (!res?.success || !res?.data) {
+        document.getElementById('pub-assess-results').style.display = 'block';
+        document.getElementById('pub-assess-results').innerHTML = '<div class="pub-assess-error">' + (res?.error || 'Assessment failed') + '</div>';
+        return;
+      }
+
+      const d = res.data;
+      const scoreColor = d.grade === 'A' ? '#00d4ff' : d.grade === 'B' ? '#00e5a0' : d.grade === 'C' ? '#ffb627' : d.grade === 'D' ? '#ff6b35' : '#ff3b5c';
+      const pct = d.trust_score / 100;
+      const radius = 60;
+      const circ = 2 * Math.PI * radius;
+      const offset = circ * (1 - pct);
+
+      document.getElementById('pub-assess-results').style.display = 'block';
+      document.getElementById('pub-assess-results').innerHTML = `
+        <div class="pub-results-card">
+          <div class="pub-results-top">
+            <div class="pub-score-ring">
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="${radius}" fill="none" stroke="#111d35" stroke-width="8"/>
+                <circle cx="80" cy="80" r="${radius}" fill="none" stroke="${scoreColor}" stroke-width="8" stroke-linecap="round"
+                  stroke-dasharray="${circ}" stroke-dashoffset="${circ}"
+                  transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 1.5s ease">
+                  <animate attributeName="stroke-dashoffset" from="${circ}" to="${offset}" dur="1.5s" fill="freeze"/>
+                </circle>
+                <text x="80" y="72" text-anchor="middle" font-family="'Chakra Petch',sans-serif" font-size="36" font-weight="700" fill="${scoreColor}">${d.trust_score}</text>
+                <text x="80" y="95" text-anchor="middle" font-family="'Chakra Petch',sans-serif" font-size="16" font-weight="600" fill="${scoreColor}">${d.grade}</text>
+              </svg>
+            </div>
+            <div class="pub-results-stats">
+              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-critical)">${d.threat_count}</div><div class="pub-result-stat-label">Threats Found</div></div>
+              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-medium)">${d.provider_count}</div><div class="pub-result-stat-label">Providers Involved</div></div>
+              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--blue-primary)">${d.campaign_count}</div><div class="pub-result-stat-label">Campaigns Detected</div></div>
+            </div>
+          </div>
+          ${d.threat_count > 0 ? '<div class="pub-alert-bar pub-alert-danger">\u26A0 Your brand has active threats in the wild.</div>' : '<div class="pub-alert-bar pub-alert-safe">\u2713 No threats detected. Stay ahead by monitoring your brand.</div>'}
+          <div class="pub-assess-text">${d.assessment_text}</div>
+        </div>
+      `;
+      document.getElementById('pub-assess-results').scrollIntoView({ behavior: 'smooth' });
+
+      // Show lead capture form
+      setTimeout(() => {
+        const leadForm = document.getElementById('pub-lead-form');
+        leadForm.style.display = 'block';
+        leadForm.innerHTML = `
+          <div class="pub-lead-card">
+            <h3>Get the Full Threat Report</h3>
+            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px">We\u2019ll send you a detailed analysis with every threat domain, hosting provider, and campaign targeting your brand.</p>
+            <div class="pub-lead-fields">
+              <input type="email" id="pub-lead-email" placeholder="Business email" required>
+              <input type="text" id="pub-lead-name" placeholder="Full name" required>
+              <input type="text" id="pub-lead-company" placeholder="Company" required>
+              <select id="pub-lead-role"><option value="">Select role...</option><option>CISO</option><option>Security Engineer</option><option>IT Director</option><option>Brand Manager</option><option>Legal/Compliance</option><option>Executive/C-Suite</option><option>Other</option></select>
+            </div>
+            <div id="pub-lead-error" style="display:none;color:#ff3b5c;font-size:12px;margin-bottom:8px"></div>
+            <button class="pub-btn pub-btn-primary pub-btn-lg" id="pub-lead-submit" style="width:100%">Send My Report \u2192</button>
+          </div>
+        `;
+
+        document.getElementById('pub-lead-submit')?.addEventListener('click', async () => {
+          const email = document.getElementById('pub-lead-email')?.value?.trim();
+          const name = document.getElementById('pub-lead-name')?.value?.trim();
+          const company = document.getElementById('pub-lead-company')?.value?.trim();
+          const role = document.getElementById('pub-lead-role')?.value;
+          const errEl = document.getElementById('pub-lead-error');
+
+          if (!email || !name || !company) {
+            errEl.style.display = 'block'; errEl.textContent = 'All fields are required'; return;
+          }
+          errEl.style.display = 'none';
+
+          const btn = document.getElementById('pub-lead-submit');
+          btn.disabled = true; btn.textContent = 'Sending...';
+
+          try {
+            const lRes = await fetch('/api/v1/public/leads', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, name, company, role, domain: d.domain, trust_score: d.trust_score, grade: d.grade, assessment_id: d.assessment_id }),
+            }).then(r => r.json());
+
+            if (lRes?.success) {
+              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 style="color:var(--positive);margin-top:16px">\u2713 Report Requested</h3><p style="color:var(--text-secondary)">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
+            } else {
+              errEl.style.display = 'block'; errEl.textContent = lRes?.error || 'Failed to submit';
+              btn.disabled = false; btn.textContent = 'Send My Report \u2192';
+            }
+          } catch (err) {
+            errEl.style.display = 'block'; errEl.textContent = 'Network error. Please try again.';
+            btn.disabled = false; btn.textContent = 'Send My Report \u2192';
+          }
+        });
+      }, 800);
+
+    } catch (err) {
+      document.getElementById('pub-assess-loading').style.display = 'none';
+      submitBtn.disabled = false; submitBtn.textContent = 'Scan Now \u2192';
+    }
+  }
+
+  submitBtn?.addEventListener('click', runAssessment);
+  domainInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAssessment(); });
+
+  // ─── Cleanup ───
+  window._viewCleanup = () => { clearInterval(statsInterval); };
 }
 
 // ─── View: Observatory (Step 8) ─────────────────────────────
@@ -2566,6 +2952,7 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-feeds"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
+      <div class="adm-action-btn" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F441}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
