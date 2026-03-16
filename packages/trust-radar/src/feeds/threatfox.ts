@@ -35,6 +35,8 @@ export const threatfox: FeedModule = {
     for (const ioc of items) {
       try {
         const iocType = mapIocType(ioc.ioc_type);
+        // Skip hash-type IOCs — they can't be stored as domains/URLs/IPs
+        if (iocType === "hash" || iocType === "unknown") continue;
         if (await isDuplicate(ctx.env, iocType, ioc.ioc)) { itemsDuplicate++; continue; }
 
         const domain = iocType === "domain" ? ioc.ioc : extractDomain(ioc.ioc);
@@ -55,7 +57,10 @@ export const threatfox: FeedModule = {
         });
         await markSeen(ctx.env, iocType, ioc.ioc);
         itemsNew++;
-      } catch { itemsError++; }
+      } catch (err) {
+        console.error(`[threatfox] insert error for ioc=${ioc.ioc} type=${ioc.ioc_type} threat=${ioc.threat_type}: ${err instanceof Error ? err.message : err}`);
+        itemsError++;
+      }
     }
 
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
