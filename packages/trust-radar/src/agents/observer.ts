@@ -9,6 +9,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { generateInsight, checkCostGuard } from "../lib/haiku";
+import { createNotification } from "../lib/notifications";
 
 export const observerAgent: AgentModule = {
   name: "observer",
@@ -182,6 +183,23 @@ export const observerAgent: AgentModule = {
           details: { title: `Campaign: ${campaign.name}` },
           relatedCampaignId: campaign.id,
         });
+      }
+    }
+
+    // Send intelligence digest notification (rate-limited: 1 per day)
+    if (outputs.length > 0) {
+      const firstInsight = outputs[0]!;
+      const summaryText = firstInsight.summary.replace(/\*\*/g, '').substring(0, 100);
+      try {
+        await createNotification(env.DB, {
+          type: 'intelligence_digest',
+          severity: 'info',
+          title: 'New intelligence briefing',
+          message: summaryText + '...',
+          link: '/agents',
+        });
+      } catch (e) {
+        console.error(`[observer] notification error:`, e);
       }
     }
 

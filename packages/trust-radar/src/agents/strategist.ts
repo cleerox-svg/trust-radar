@@ -8,6 +8,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { generateCampaignName, checkCostGuard } from "../lib/haiku";
+import { createNotification } from "../lib/notifications";
 
 export const strategistAgent: AgentModule = {
   name: "strategist",
@@ -60,6 +61,10 @@ export const strategistAgent: AgentModule = {
 
       if (existing) {
         campaignId = existing.id;
+        // Get old count before update
+        const oldCount = await env.DB.prepare(
+          `SELECT threat_count FROM campaigns WHERE id = ?`
+        ).bind(campaignId).first<{ threat_count: number }>();
         // Update existing campaign
         await env.DB.prepare(
           `UPDATE campaigns SET
@@ -69,6 +74,25 @@ export const strategistAgent: AgentModule = {
            WHERE id = ?`
         ).bind(campaignId, campaignId).run();
         itemsUpdated++;
+        // Get new count and notify on escalation
+        const newCount = await env.DB.prepare(
+          `SELECT name, threat_count FROM campaigns WHERE id = ?`
+        ).bind(campaignId).first<{ name: string; threat_count: number }>();
+        const addedThreats = (newCount?.threat_count ?? 0) - (oldCount?.threat_count ?? 0);
+        if (addedThreats > 0 && newCount) {
+          try {
+            await createNotification(env.DB, {
+              type: 'campaign_escalation',
+              severity: 'medium',
+              title: `Campaign growing: ${newCount.name}`,
+              message: `${addedThreats} new threats added to campaign`,
+              link: `/campaigns/${campaignId}`,
+              metadata: { campaign_id: campaignId },
+            });
+          } catch (e) {
+            console.error(`[strategist] escalation notification error:`, e);
+          }
+        }
       } else {
         // Create new campaign
         campaignId = crypto.randomUUID();
@@ -128,6 +152,20 @@ export const strategistAgent: AgentModule = {
             ai_name: name,
           },
         });
+
+        // Notify: new campaign identified
+        try {
+          await createNotification(env.DB, {
+            type: 'agent_milestone',
+            severity: 'medium',
+            title: 'New campaign identified',
+            message: `Strategist found: ${name}`,
+            link: `/campaigns/${campaignId}`,
+            metadata: { campaign_id: campaignId },
+          });
+        } catch (e) {
+          console.error(`[strategist] notification error:`, e);
+        }
       }
 
       // Assign unlinked threats to this campaign

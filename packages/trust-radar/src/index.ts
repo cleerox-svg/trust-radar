@@ -75,7 +75,11 @@ import {
   handleTrendVolume, handleTrendBrands, handleTrendProviders,
   handleTrendTLDs, handleTrendTypes, handleTrendCompare,
 } from "./handlers/trends";
-import { handleLatestInsights, handleListNotifications, handleMarkNotificationRead, handleMarkAllNotificationsRead } from "./handlers/insights";
+import { handleLatestInsights } from "./handlers/insights";
+import {
+  handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
+  handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
+} from "./handlers/notifications";
 import { handleListAuditLog, handleExportAuditLog } from "./handlers/audit";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
@@ -841,17 +845,32 @@ router.get("/api/insights/latest", async (request: Request, env: Env) => {
 router.get("/api/notifications", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleListNotifications(request, env, ctx.userId);
+  return handleListNotificationsV2(request, env, ctx.userId);
 });
 router.post("/api/notifications/:id/read", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleMarkNotificationRead(request, env, request.params["id"] ?? "", ctx.userId);
+  return handleMarkNotificationReadV2(request, env, request.params["id"] ?? "", ctx.userId);
 });
 router.post("/api/notifications/read-all", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
-  return handleMarkAllNotificationsRead(request, env, ctx.userId);
+  return handleMarkAllNotificationsReadV2(request, env, ctx.userId);
+});
+router.get("/api/notifications/unread-count", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUnreadCount(request, env, ctx.userId);
+});
+router.get("/api/notifications/preferences", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetPreferences(request, env, ctx.userId);
+});
+router.put("/api/notifications/preferences", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdatePreferences(request, env, ctx.userId);
 });
 
 // ─── Admin: Audit Log ────────────────────────────────────────

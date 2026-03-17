@@ -8,6 +8,11 @@ function getAccessToken() { return accessToken; }
 function setAccessToken(token) { accessToken = token; }
 function isAuthenticated() { return !!accessToken; }
 
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 // Parse token from auth callback hash fragment
 function checkAuthCallback() {
   if (location.pathname === '/auth/callback' && location.hash) {
@@ -185,6 +190,7 @@ async function render() {
     const mainEl = document.querySelector('.main');
     if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(0,212,255,.15);font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>');
     startFeedStatusUpdater();
+    startNotificationPoller();
     _initUserMenu();
     // Auto-scroll active nav pill into view on mobile
     requestAnimationFrame(() => {
@@ -224,6 +230,252 @@ function startFeedStatusUpdater() {
   updateFeedStatus();
   _feedStatusInterval = setInterval(updateFeedStatus, 30000);
 }
+
+// ─── Notification System ─────────────────────────────────────────
+let _notifUnreadCount = 0;
+let _notifPrevCount = 0;
+let _notifInterval = null;
+let _notifDropdownOpen = false;
+
+function startNotificationPoller() {
+  if (_notifInterval) clearInterval(_notifInterval);
+  _pollUnreadCount();
+  _notifInterval = setInterval(_pollUnreadCount, 30000);
+}
+
+async function _pollUnreadCount() {
+  try {
+    const res = await api('/notifications/unread-count').catch(() => null);
+    if (!res?.success) return;
+    const newCount = res.count ?? 0;
+    const increased = newCount > _notifUnreadCount;
+    _notifPrevCount = _notifUnreadCount;
+    _notifUnreadCount = newCount;
+    _updateBellBadge();
+    if (increased) {
+      _animateBell();
+      _maybeBrowserNotify();
+    }
+  } catch (_) { /* silent */ }
+}
+
+function _updateBellBadge() {
+  document.querySelectorAll('.notif-badge').forEach(badge => {
+    if (_notifUnreadCount === 0) {
+      badge.style.display = 'none';
+    } else {
+      badge.style.display = 'flex';
+      badge.textContent = _notifUnreadCount > 99 ? '99+' : String(_notifUnreadCount);
+    }
+  });
+}
+
+function _animateBell() {
+  document.querySelectorAll('.notif-bell-icon').forEach(bell => {
+    bell.classList.remove('bell-shake');
+    void bell.offsetWidth; // force reflow
+    bell.classList.add('bell-shake');
+  });
+}
+
+async function _maybeBrowserNotify() {
+  try {
+    const prefs = await api('/notifications/preferences').catch(() => null);
+    if (!prefs?.data?.browser_notifications) return;
+    if (Notification.permission !== 'granted') return;
+    const res = await api('/notifications?unread=true&limit=1').catch(() => null);
+    if (res?.data?.length) {
+      const n = res.data[0];
+      const notif = new Notification(n.title, { body: n.message, icon: '/favicon.svg' });
+      notif.onclick = () => { window.focus(); if (n.link) navigate(n.link); };
+    }
+  } catch (_) { /* silent */ }
+}
+
+async function toggleNotifDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('notif-dropdown');
+  if (!dropdown) return;
+  _notifDropdownOpen = !_notifDropdownOpen;
+  if (_notifDropdownOpen) {
+    dropdown.classList.add('open');
+    await _loadNotifications();
+  } else {
+    dropdown.classList.remove('open');
+  }
+}
+
+async function _loadNotifications() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary)">Loading...</div>';
+  try {
+    const res = await api('/notifications?limit=30');
+    const items = res?.data || [];
+    if (items.length === 0) {
+      list.innerHTML = `<div class="notif-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div style="margin-top:8px">No notifications yet</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = items.map(n => {
+      const severityColor = { critical: '#ff3b5c', high: '#ff6b35', medium: '#ffb627', low: '#00d4ff', info: '#7a8ba8' }[n.severity] || '#7a8ba8';
+      const readClass = n.read_at ? 'notif-read' : 'notif-unread';
+      const timeAgo = _timeAgo(n.created_at);
+      return `<div class="notif-item ${readClass}" onclick="markNotifRead('${n.id}', '${n.link || ''}')">
+        <div class="notif-dot" style="background:${severityColor}"></div>
+        <div class="notif-body">
+          <div class="notif-title">${_escHtml(n.title)}</div>
+          <div class="notif-msg">${_escHtml(n.message)}</div>
+          <div class="notif-time">${timeAgo}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--negative)">Failed to load</div>';
+  }
+}
+
+async function markNotifRead(id, link) {
+  try { await api(`/notifications/${id}/read`, { method: 'POST' }); } catch (_) {}
+  _notifDropdownOpen = false;
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dropdown) dropdown.classList.remove('open');
+  if (link) navigate(link);
+  _pollUnreadCount();
+}
+
+async function markAllNotifRead() {
+  try { await api('/notifications/read-all', { method: 'POST' }); } catch (_) {}
+  _notifUnreadCount = 0;
+  _updateBellBadge();
+  await _loadNotifications();
+}
+
+function openNotifPreferences(e) {
+  if (e) e.stopPropagation();
+  _notifDropdownOpen = false;
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dropdown) dropdown.classList.remove('open');
+  _showPreferencesModal();
+}
+
+async function _showPreferencesModal() {
+  // Remove existing modal
+  document.getElementById('notif-prefs-modal')?.remove();
+
+  const prefs = await api('/notifications/preferences').catch(() => ({ data: {} }));
+  const d = prefs?.data || {};
+
+  const types = [
+    { key: 'brand_threat', label: 'Brand threats' },
+    { key: 'campaign_escalation', label: 'Campaign escalation' },
+    { key: 'feed_health', label: 'Feed health alerts' },
+    { key: 'intelligence_digest', label: 'Intelligence digest' },
+    { key: 'agent_milestone', label: 'Agent milestones' },
+  ];
+
+  const modal = document.createElement('div');
+  modal.id = 'notif-prefs-modal';
+  modal.className = 'notif-modal-overlay';
+  modal.innerHTML = `<div class="notif-modal">
+    <div class="notif-modal-header">
+      <span>Notification Settings</span>
+      <button class="notif-modal-close" onclick="document.getElementById('notif-prefs-modal').remove()">&times;</button>
+    </div>
+    <div class="notif-modal-body">
+      ${types.map(t => `<div class="notif-pref-row">
+        <span>${t.label}</span>
+        <label class="notif-toggle"><input type="checkbox" data-pref="${t.key}" ${d[t.key] !== false ? 'checked' : ''}><span class="notif-toggle-slider"></span></label>
+      </div>`).join('')}
+      <div class="notif-pref-divider"></div>
+      <div class="notif-pref-row">
+        <span>Browser notifications</span>
+        <label class="notif-toggle"><input type="checkbox" data-pref="browser_notifications" ${d.browser_notifications ? 'checked' : ''} onchange="handleBrowserNotifToggle(this)"><span class="notif-toggle-slider"></span></label>
+      </div>
+      <div class="notif-pref-row">
+        <span>Push notifications</span>
+        <label class="notif-toggle"><input type="checkbox" data-pref="push_notifications" ${d.push_notifications ? 'checked' : ''}><span class="notif-toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="notif-modal-footer">
+      <button class="btn-primary" onclick="saveNotifPreferences()">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+async function handleBrowserNotifToggle(checkbox) {
+  if (checkbox.checked) {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') checkbox.checked = false;
+  }
+}
+
+async function saveNotifPreferences() {
+  const body = {};
+  document.querySelectorAll('#notif-prefs-modal [data-pref]').forEach(el => {
+    body[el.dataset.pref] = el.checked;
+  });
+  try {
+    await api('/notifications/preferences', { method: 'PUT', body: JSON.stringify(body) });
+    document.getElementById('notif-prefs-modal')?.remove();
+    showToast('Preferences saved', 'success');
+  } catch (err) {
+    showToast('Failed to save preferences', 'error');
+  }
+}
+
+function _timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const now = Date.now();
+  const then = new Date(dateStr + 'Z').getTime();
+  const diff = Math.max(0, now - then);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`;
+}
+
+function _escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderNotifBell() {
+  return `<div class="notif-bell-wrapper" onclick="toggleNotifDropdown(event)">
+    <svg class="notif-bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    <span class="notif-badge" style="display:none">0</span>
+    <div class="notif-dropdown" id="notif-dropdown">
+      <div class="notif-dropdown-header">
+        <span>Notifications</span>
+        <a href="#" onclick="event.preventDefault(); event.stopPropagation(); markAllNotifRead();">Mark all read</a>
+      </div>
+      <div class="notif-dropdown-list" id="notif-list"></div>
+      <div class="notif-dropdown-footer">
+        <a href="#" onclick="event.preventDefault(); openNotifPreferences(event);">Notification Settings</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', () => {
+  if (_notifDropdownOpen) {
+    _notifDropdownOpen = false;
+    const dropdown = document.getElementById('notif-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+  }
+});
 
 // ─── Shared Components ──────────────────────────────────────────
 
@@ -287,6 +539,7 @@ function renderTopbar() {
     <div class="topbar-right">
       <div class="feed-status"><span class="dot" id="feed-dot"></span><span id="feed-count">--</span> feeds</div>
       <div class="live-tag">LIVE</div>
+      ${renderNotifBell()}
       ${isAdmin ? '<a href="/admin" class="admin-gear" onclick="event.preventDefault(); navigate(\'/admin\');" title="Admin Panel">\u2699</a>' : ''}
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
@@ -324,6 +577,7 @@ function renderAdminTopbar(activePath) {
     </nav>
     <div class="topbar-right">
       <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 <span class="back-text">Observatory</span></a>
+      ${renderNotifBell()}
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
