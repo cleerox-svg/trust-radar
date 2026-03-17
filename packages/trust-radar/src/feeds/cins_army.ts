@@ -25,8 +25,11 @@ export const cins_army: FeedModule = {
     const ips = text.split("\n").map((l) => l.trim()).filter((l) => l && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(l));
     console.log(`[cins_army] parsed ${ips.length} IPs`);
 
-    let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
+    let itemsNew = 0, itemsDuplicate = 0, itemsError = 0, itemsEnriched = 0;
+    let firstError: string | null = null;
     const MAX_NEW = 200;
+
+    console.log(`[cins_army] parsed ${ips.length} IPs from response`);
 
     for (const ip of ips) {
       try {
@@ -41,6 +44,7 @@ export const cins_army: FeedModule = {
           await ctx.env.DB.prepare(
             "UPDATE threats SET confidence_score = ?, last_seen = datetime('now') WHERE id = ?"
           ).bind(newScore, existing.id).run();
+          itemsEnriched++;
           itemsDuplicate++;
           continue;
         }
@@ -62,10 +66,14 @@ export const cins_army: FeedModule = {
         });
         await markSeen(ctx.env, "ip", ip);
         itemsNew++;
-      } catch { itemsError++; }
+      } catch (e) {
+        itemsError++;
+        if (!firstError) firstError = String(e);
+      }
     }
 
-    console.log(`[cins_army] done: total=${ips.length}, new=${itemsNew}, enriched/dup=${itemsDuplicate}, err=${itemsError}`);
+    console.log(`[cins_army] done: total=${ips.length}, new=${itemsNew}, enriched=${itemsEnriched}, dup=${itemsDuplicate}, err=${itemsError}`);
+    if (firstError) console.error(`[cins_army] first_error=${firstError}`);
     return { itemsFetched: ips.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

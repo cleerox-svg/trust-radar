@@ -54,10 +54,12 @@ export const cisa_kev: FeedModule = {
     ).first<{ summary: string }>();
 
     const newestCve = recent[0]?.cveID ?? "none";
-    console.log(`[cisa_kev] newestCve=${newestCve}, lastDigest=${lastDigest ? 'exists' : 'null'}`);
+    const lastDigestPreview = lastDigest?.summary?.slice(0, 100) ?? "NULL";
+    console.log(`[cisa_kev] newestCve=${newestCve}, lastDigest=${lastDigest ? 'exists' : 'null'}, preview="${lastDigestPreview}"`);
+    console.log(`[cisa_kev] parsed ${recent.length} recent KEVs from ${vulns.length} total`);
 
     if (lastDigest?.summary?.includes(newestCve)) {
-      console.log(`[cisa_kev] no new KEVs since last digest (newest: ${newestCve})`);
+      console.log(`[cisa_kev] SKIP: newestCve "${newestCve}" already in last digest — returning 0 new`);
       return { itemsFetched: recent.length, itemsNew: 0, itemsDuplicate: recent.length, itemsError: 0 };
     }
 
@@ -83,10 +85,17 @@ export const cisa_kev: FeedModule = {
     })));
 
     // Use type='insight' — matches agent_outputs CHECK constraint
-    const insertResult = await ctx.env.DB.prepare(
-      "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at) VALUES (?, 'sentinel', 'insight', ?, 'high', ?, datetime('now'))"
-    ).bind('kev_' + Date.now(), summary, details).run();
-    console.log(`[cisa_kev] insert result: changes=${insertResult.meta.changes}`);
+    const kevId = 'kev_' + Date.now();
+    console.log(`[cisa_kev] inserting agent_output id=${kevId}, summary_len=${summary.length}, details_len=${details.length}`);
+    try {
+      const insertResult = await ctx.env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at) VALUES (?, 'sentinel', 'insight', ?, 'high', ?, datetime('now'))"
+      ).bind(kevId, summary, details).run();
+      console.log(`[cisa_kev] insert SUCCESS: changes=${insertResult.meta.changes}`);
+    } catch (insertErr) {
+      console.error(`[cisa_kev] INSERT FAILED: ${insertErr}`);
+      throw insertErr;
+    }
 
     console.log(`[cisa_kev] done: stored ${recent.length} KEVs, newest=${newestCve}`);
     return { itemsFetched: recent.length, itemsNew: 1, itemsDuplicate: 0, itemsError: 0 };

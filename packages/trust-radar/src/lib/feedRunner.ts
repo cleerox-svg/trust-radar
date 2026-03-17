@@ -297,7 +297,8 @@ function shouldRunNow(config: FeedConfigRow, status: FeedStatusRow | undefined, 
   const lastPull = status.last_successful_pull;
   const lastRun = new Date(lastPull.includes('Z') || lastPull.includes('+') ? lastPull : lastPull + 'Z').getTime();
 
-  return now.getTime() - lastRun >= intervalMs;
+  // 60s tolerance: cron triggers may fire slightly before the exact interval boundary
+  return now.getTime() - lastRun >= intervalMs - 60_000;
 }
 
 function parseCronIntervalMs(cron: string): number {
