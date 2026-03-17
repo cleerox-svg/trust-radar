@@ -1052,6 +1052,26 @@ export default {
       ).run();
     } catch (e) { /* ignore */ }
 
+    // CF Scanner diagnostic — check config and env vars
+    try {
+      const cfConfig = await env.DB.prepare(
+        "SELECT feed_name, enabled, schedule_cron FROM feed_configs WHERE feed_name = 'cloudflare_scanner'"
+      ).first<{ feed_name: string; enabled: number; schedule_cron: string }>();
+      const cfStatus = await env.DB.prepare(
+        "SELECT health_status, last_successful_pull, last_failure FROM feed_status WHERE feed_name = 'cloudflare_scanner'"
+      ).first<{ health_status: string; last_successful_pull: string | null; last_failure: string | null }>();
+      const cfDiag = [
+        `config=${cfConfig ? `found(enabled=${cfConfig.enabled},cron=${cfConfig.schedule_cron})` : 'MISSING'}`,
+        `status=${cfStatus ? `${cfStatus.health_status}(last_ok=${cfStatus.last_successful_pull || 'never'},last_fail=${cfStatus.last_failure || 'never'})` : 'MISSING'}`,
+        `module=${feedModules['cloudflare_scanner'] ? 'registered' : 'NOT_REGISTERED'}`,
+        `account_id=${env.CF_ACCOUNT_ID ? 'set' : 'MISSING'}`,
+        `api_token=${env.CF_API_TOKEN ? 'set' : 'MISSING'}`,
+      ].join(', ');
+      await env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+      ).bind('diag_cf_' + Date.now(), 'CF SCANNER: ' + cfDiag).run();
+    } catch (e) { console.error("[cron] cf diagnostic error:", e); }
+
     console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());
     console.log("[cron] feedModules registered:", Object.keys(feedModules).join(", "));
     ctx.waitUntil(

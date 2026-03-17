@@ -3806,6 +3806,7 @@ async function viewAdmin(el) {
       <div class="adm-action-btn" onclick="navigate('/admin/users')"><div class="adm-action-icon">+</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-feeds"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
       <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F441}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
@@ -3955,6 +3956,33 @@ async function viewAdmin(el) {
   }
   setupDashTrigger('adm-dash-feeds', '/feeds/trigger-all');
   setupDashTrigger('adm-dash-agents', '/agents/trigger-all');
+
+  // Backfill button with result message
+  const bfBtn = document.getElementById('adm-dash-backfill');
+  if (bfBtn) {
+    bfBtn.addEventListener('click', async () => {
+      if (bfBtn.classList.contains('dash-pending')) return;
+      const icon = bfBtn.querySelector('.adm-action-icon');
+      const desc = bfBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      bfBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      try {
+        const res = await api('/admin/backfill-safe-domains', { method: 'POST' });
+        bfBtn.classList.remove('dash-pending');
+        bfBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `Processed ${res.data?.brands_processed ?? 0} brands, added ${res.data?.domains_added ?? 0} domains`;
+      } catch (err) {
+        bfBtn.classList.remove('dash-pending');
+        bfBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+      }
+      setTimeout(() => { bfBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
+    });
+  }
 
   window._viewCleanup = () => { if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; } };
 }
