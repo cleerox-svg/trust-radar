@@ -3,7 +3,7 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 /**
  * CISA Known Exploited Vulnerabilities — Daily catalog.
  * No API key required.
- * Stores the most recent 50 KEVs as intelligence entries in agent_outputs
+ * Stores the most recent 50 KEVs as insight entries in agent_outputs
  * so the Observer agent can reference them in daily briefings.
  * Schedule: daily at 6 AM UTC.
  */
@@ -23,23 +23,30 @@ interface KevEntry {
 export const cisa_kev: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
-    console.log(`[cisa_kev] fetching: ${feedUrl}`);
+    console.log(`[cisa_kev] ingest() called — feedUrl=${feedUrl}`);
 
-    const res = await fetch(feedUrl, {
-      headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
-      signal: AbortSignal.timeout(30000),
-    });
-    console.log(`[cisa_kev] response: HTTP ${res.status}`);
+    let res: Response;
+    try {
+      res = await fetch(feedUrl, {
+        headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
+      });
+    } catch (fetchErr) {
+      console.error(`[cisa_kev] fetch threw:`, fetchErr);
+      throw new Error(`CISA KEV fetch failed: ${fetchErr}`);
+    }
+    console.log(`[cisa_kev] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`CISA KEV HTTP ${res.status}`);
 
-    const body = await res.json() as {
-      title?: string;
-      catalogVersion?: string;
-      vulnerabilities?: KevEntry[];
-    };
+    let body: { title?: string; catalogVersion?: string; vulnerabilities?: KevEntry[] };
+    try {
+      body = await res.json() as typeof body;
+    } catch (jsonErr) {
+      console.error(`[cisa_kev] JSON parse error:`, jsonErr);
+      throw new Error(`CISA KEV JSON parse failed: ${jsonErr}`);
+    }
 
     const vulns = body.vulnerabilities ?? [];
-    console.log(`[cisa_kev] parsed ${vulns.length} total vulnerabilities`);
+    console.log(`[cisa_kev] parsed ${vulns.length} total vulnerabilities, catalogVersion=${body.catalogVersion}`);
 
     // Sort by dateAdded descending, take most recent 50
     const recent = vulns
@@ -48,11 +55,12 @@ export const cisa_kev: FeedModule = {
 
     // Check what we already stored to avoid duplicates
     const lastDigest = await ctx.env.DB.prepare(
-      "SELECT summary FROM agent_outputs WHERE agent_id = 'sentinel' AND type = 'intelligence' AND summary LIKE 'CISA KEV%' ORDER BY created_at DESC LIMIT 1"
+      "SELECT summary FROM agent_outputs WHERE agent_id = 'sentinel' AND type = 'insight' AND summary LIKE 'CISA KEV%' ORDER BY created_at DESC LIMIT 1"
     ).first<{ summary: string }>();
 
-    // Only write a new entry if the newest CVE is different from last digest
     const newestCve = recent[0]?.cveID ?? "none";
+    console.log(`[cisa_kev] newestCve=${newestCve}, lastDigest=${lastDigest ? 'exists' : 'null'}`);
+
     if (lastDigest?.summary?.includes(newestCve)) {
       console.log(`[cisa_kev] no new KEVs since last digest (newest: ${newestCve})`);
       return { itemsFetched: recent.length, itemsNew: 0, itemsDuplicate: recent.length, itemsError: 0 };
@@ -79,9 +87,11 @@ export const cisa_kev: FeedModule = {
       description: v.shortDescription,
     })));
 
-    await ctx.env.DB.prepare(
-      "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at) VALUES (?, 'sentinel', 'intelligence', ?, 'high', ?, datetime('now'))"
+    // Use type='insight' — matches agent_outputs CHECK constraint
+    const insertResult = await ctx.env.DB.prepare(
+      "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at) VALUES (?, 'sentinel', 'insight', ?, 'high', ?, datetime('now'))"
     ).bind('kev_' + Date.now(), summary, details).run();
+    console.log(`[cisa_kev] insert result: changes=${insertResult.meta.changes}`);
 
     console.log(`[cisa_kev] done: stored ${recent.length} KEVs, newest=${newestCve}`);
     return { itemsFetched: recent.length, itemsNew: 1, itemsDuplicate: 0, itemsError: 0 };

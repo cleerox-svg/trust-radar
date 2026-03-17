@@ -180,7 +180,11 @@ export async function runFeed(
       }
     }
 
-    return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
+    // Re-throw so callers (handleTriggerFeed) can distinguish success from failure.
+    // runAllFeeds uses Promise.allSettled, so this won't break the coordinator.
+    const feedError = new Error(`Feed ${config.feed_name} failed: ${errorMsg}`);
+    (feedError as Error & { feedResult: FeedResult }).feedResult = { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
+    throw feedError;
   }
 }
 
