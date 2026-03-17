@@ -58,6 +58,7 @@ import {
   handleBrandProviders, handleBrandCampaigns, handleBrandStats,
   handleGetBrandAnalysis, handleGenerateBrandAnalysis,
   handleBrandDeepScan,
+  handleCleanFalsePositives,
 } from "./handlers/brands";
 import {
   handleListSafeDomains, handleAddSafeDomain, handleBulkAddSafeDomains, handleDeleteSafeDomain,
@@ -656,6 +657,12 @@ router.post("/api/brands/:id/deep-scan", async (request: Request & { params: Rec
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleBrandDeepScan(request, env, request.params["id"] ?? "");
+});
+
+router.post("/api/brands/:id/clean-false-positives", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCleanFalsePositives(request, env, request.params["id"] ?? "");
 });
 
 // ─── Brand Safe Domains (Known/Owned Allowlist) ─────────────

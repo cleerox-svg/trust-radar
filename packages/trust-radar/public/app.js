@@ -185,6 +185,7 @@ async function render() {
     const mainEl = document.querySelector('.main');
     if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(0,212,255,.15);font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>');
     startFeedStatusUpdater();
+    _initUserMenu();
     // Auto-scroll active nav pill into view on mobile
     requestAnimationFrame(() => {
       const activeNav = document.querySelector('.topbar-nav a.active') || document.querySelector('.admin-nav-pills .admin-np.active');
@@ -236,6 +237,33 @@ function getUserInitials(u) {
   return 'U';
 }
 
+function _initUserMenu() {
+  const menu = document.getElementById('user-menu');
+  if (!menu) return;
+  // Click avatar to toggle
+  menu.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
+  // Click outside to close
+  document.addEventListener('click', () => menu.classList.remove('open'));
+  // Escape key to close
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') menu.classList.remove('open'); });
+  // Theme toggle
+  const themeRow = document.getElementById('theme-toggle-row');
+  if (themeRow) {
+    themeRow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('tr-theme', next); } catch {}
+    });
+  }
+  // Apply saved theme
+  try {
+    const saved = localStorage.getItem('tr-theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  } catch {}
+}
+
 function renderTopbar() {
   const u = currentUser;
   const initials = getUserInitials(u);
@@ -260,12 +288,15 @@ function renderTopbar() {
       <div class="feed-status"><span class="dot" id="feed-dot"></span><span id="feed-count">--</span> feeds</div>
       <div class="live-tag">LIVE</div>
       ${isAdmin ? '<a href="/admin" class="admin-gear" onclick="event.preventDefault(); navigate(\'/admin\');" title="Admin Panel">\u2699</a>' : ''}
-      <div class="user-menu" onclick="event.stopPropagation(); this.classList.toggle('open')">
+      <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
           <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
+          <div class="dropdown-divider"></div>
+          <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
           ${isAdmin ? '<a href="/admin" onclick="event.stopPropagation(); navigate(\'/admin\'); return false;">Admin Panel</a>' : ''}
+          <div class="dropdown-divider"></div>
           <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
         </div>
       </div>
@@ -1556,8 +1587,8 @@ async function viewBrandDetail(el, params) {
           <div class="detail-header-stats">
             <div class="header-stat"><div class="header-stat-val" style="color:var(--threat-critical)">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${trendColor}">${(stats.trend_pct || 0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7-day trend</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${campaigns.length}</div><div class="header-stat-label">Active campaigns</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.countries || locationsRes?.totalCountries || locations.length}</div><div class="header-stat-label">Countries</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.provider_count || providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
           </div>
         </div>
         ${trustRingHtml}
@@ -1601,21 +1632,21 @@ async function viewBrandDetail(el, params) {
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
         <div class="detail-rcol">
-          <div class="panel"><div class="phead"><span>Threat Locations</span><span class="badge">${locations.length} countries</span></div><div class="panel-body"><div id="brand-mini-map" class="mini-map"></div></div></div>
+          <div class="panel"><div class="phead"><span>Threat Locations</span><span class="badge">${locationsRes?.totalCountries || locations.length} countries</span></div><div class="panel-body"><div id="brand-mini-map" class="mini-map"></div></div></div>
           <div class="panel"><div class="phead"><span>Hosting Providers</span></div><div class="panel-body padded" id="brand-prov-bars">${providers.length ?
             providers.map((p, i) => {
               const cnt = p.count || p.threat_count || 0;
               const pct = maxProv > 0 ? Math.round(cnt / maxProv * 100) : 0;
               return `<div class="pbar-row"><span class="pbar-lbl">${p.name || p.provider_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
             }).join('') :
-            '<div class="empty-state"><div class="message">No provider data<br><span style="font-size:10px;color:var(--text-tertiary)">Run Geo Backfill in Admin to enrich</span></div></div>'
+            '<div class="empty-state"><div class="message">No provider data yet<br><span style="font-size:10px;color:var(--text-tertiary)">Providers appear after geo enrichment resolves threat IPs</span></div></div>'
           }</div></div>
           <div class="panel"><div class="phead"><span>Active Campaigns</span><span class="badge">${campaigns.length}</span></div><div class="panel-body padded">${campaigns.length ?
             campaigns.map(c => `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card-sm">
               <div class="ccard-name">${c.name}</div>
               <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span style="color:var(--blue-primary)">${c.brand_count || 1}</span> brands</span><span style="color:var(--text-tertiary)">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
             </a>`).join('') :
-            '<div class="empty-state"><div class="message">No campaigns associated<br><span style="font-size:10px;color:var(--text-tertiary)">Run Strategist agent to cluster threats</span></div></div>'
+            '<div class="empty-state"><div class="message">No campaigns detected<br><span style="font-size:10px;color:var(--text-tertiary)">Campaigns are created when the Strategist agent clusters related threats</span></div></div>'
           }</div></div>
         </div>
       </div>
@@ -1657,12 +1688,14 @@ async function viewBrandDetail(el, params) {
       } else {
         html += '<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px">No safe domains configured. Add domains owned by this brand to prevent false positive alerts.</div>';
       }
+      html += `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">Use <code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px">*.brand.com</code> to mark all subdomains as safe</div>`;
       html += `<div style="display:flex;gap:8px;align-items:center">
         <div id="safe-add-form" style="display:flex;gap:6px;flex:1">
-          <input type="text" id="safe-domain-input" placeholder="subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
+          <input type="text" id="safe-domain-input" placeholder="*.brand.com or subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
           <button class="filter-pill" id="safe-add-btn" style="font-size:11px">Add</button>
         </div>
         <button class="filter-pill" id="safe-csv-btn" style="font-size:11px">&#8593; Upload CSV</button>
+        <button class="filter-pill" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(0,229,160,.3);color:var(--positive)" title="Remove active threats matching safe domains">Clean FP</button>
       </div>`;
       body.innerHTML = html;
 
@@ -1704,6 +1737,32 @@ async function viewBrandDetail(el, params) {
         csvBtn.addEventListener('click', () => {
           const modal = document.getElementById('csv-upload-modal');
           if (modal) modal.style.display = 'flex';
+        });
+      }
+
+      // Wire clean false positives button
+      const cleanFpBtn = document.getElementById('safe-clean-fp-btn');
+      if (cleanFpBtn) {
+        cleanFpBtn.addEventListener('click', async () => {
+          cleanFpBtn.disabled = true;
+          cleanFpBtn.textContent = 'Cleaning...';
+          try {
+            const res = await api(`/brands/${brandId}/clean-false-positives`, { method: 'POST' });
+            if (res?.success && res.data) {
+              showToast(`Cleaned ${res.data.cleaned} false positives (checked ${res.data.checked} threats)`, 'success');
+              if (res.data.cleaned > 0) {
+                // Refresh threats list
+                const refreshed = await api(`/brands/${brandId}/threats?status=active&limit=50`).catch(() => null);
+                if (refreshed?.data) {
+                  allThreats.length = 0;
+                  allThreats.push(...refreshed.data);
+                  renderBrandThreats();
+                }
+              }
+            }
+          } catch (err) { showToast(err.message, 'error'); }
+          cleanFpBtn.disabled = false;
+          cleanFpBtn.textContent = 'Clean FP';
         });
       }
     }
@@ -2279,14 +2338,14 @@ async function viewProviderDetail(el, params) {
       <div class="detail-grid">
         <div class="panel" id="prov-threats-panel"></div>
         <div class="detail-rcol" style="display:flex;flex-direction:column;gap:16px">
-          <div class="panel"><div class="phead"><span>Target Locations</span><span class="badge" id="prov-loc-ct">${locations.length} countries</span></div><div class="panel-body"><div id="prov-mini-map" class="mini-map"></div></div></div>
+          <div class="panel"><div class="phead"><span>Target Locations</span><span class="badge" id="prov-loc-ct">${locationsRes?.totalCountries || locations.length} countries</span></div><div class="panel-body"><div id="prov-mini-map" class="mini-map"></div></div></div>
           <div class="panel"><div class="phead"><span>Brands Targeted</span></div><div class="panel-body padded" id="prov-brand-bars">${brands.length ?
             brands.map((b, i) => {
               const cnt = b.count || b.threat_count || 0;
               const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
               return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
             }).join('') :
-            '<div class="empty-state"><div class="message">No brand data</div></div>'
+            '<div class="empty-state"><div class="message">No brand data yet<br><span style="font-size:10px;color:var(--text-tertiary)">Brand links appear after threat-brand matching runs</span></div></div>'
           }</div></div>
           <div class="panel"><div class="phead"><span>AI Assessment</span></div><div class="panel-body padded" id="prov-ai-insight"></div></div>
         </div>
@@ -2846,7 +2905,7 @@ async function viewCampaignDetail(el, params) {
         const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
         return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${brandColors[i] || brandColors[4]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
       }).join('') :
-      '<div class="empty-state"><div class="message">No brands</div></div>'
+      '<div class="empty-state"><div class="message">No brands linked yet<br><span style="font-size:10px;color:var(--text-tertiary)">Brands appear after threat-brand matching</span></div></div>'
     }</div></div>
           <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Stats</span></div><div class="padded">
             <div class="infra-stat"><span class="infra-stat-label">TLD Distribution</span><span class="infra-stat-val">${Object.entries(tldDist).map(([t, v]) => `${t}: ${v}`).join(', ') || '\u2014'}</span></div>

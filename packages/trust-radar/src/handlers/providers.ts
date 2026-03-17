@@ -252,7 +252,11 @@ export async function handleProviderTimeline(request: Request, env: Env, provide
       GROUP BY date(created_at) ORDER BY period ASC
     `).bind(decodeURIComponent(providerId)).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const results = rows.results as Array<{ period: string; count: number }>;
+    const labels = results.map(r => r.period);
+    const values = results.map(r => r.count);
+
+    return json({ success: true, data: { labels, values } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -263,12 +267,14 @@ export async function handleProviderLocations(request: Request, env: Env, provid
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT country_code, COUNT(*) AS count, lat, lng
-      FROM threats WHERE hosting_provider_id = ? AND country_code IS NOT NULL
+      SELECT country_code, COUNT(*) AS count,
+             AVG(CAST(lat AS REAL)) AS lat, AVG(CAST(lng AS REAL)) AS lng
+      FROM threats WHERE hosting_provider_id = ? AND country_code IS NOT NULL AND country_code NOT IN ('XX','PRIV')
       GROUP BY country_code ORDER BY count DESC
     `).bind(decodeURIComponent(providerId)).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const mappable = rows.results.filter((r: Record<string, unknown>) => r.lat != null && r.lng != null);
+    return json({ success: true, data: mappable, totalCountries: rows.results.length }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

@@ -180,7 +180,11 @@ export async function handleCampaignTimeline(request: Request, env: Env, campaig
       GROUP BY date(created_at) ORDER BY period ASC
     `).bind(campaignId).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const results = rows.results as Array<{ period: string; count: number }>;
+    const labels = results.map(r => r.period);
+    const values = results.map(r => r.count);
+
+    return json({ success: true, data: { labels, values } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

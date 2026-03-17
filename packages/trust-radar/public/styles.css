@@ -26,6 +26,25 @@
   --transition-normal: 200ms ease;
 }
 
+/* ─── Light Mode ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-void: #f0f2f5;
+  --bg-surface: #ffffff;
+  --bg-panel: #f8f9fb;
+  --bg-elevated: #eef1f5;
+  --bg-body: #f0f2f5;
+  --bg-card: #ffffff;
+  --text-primary: #1a2030;
+  --text-secondary: #5a6a80;
+  --text-tertiary: #8a96a8;
+  --blue-border: rgba(0,140,200,0.15);
+  --blue-border-bright: rgba(0,140,200,0.30);
+  --border: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .topbar { background: #ffffff; border-bottom: 1px solid rgba(0,0,0,0.06); }
+[data-theme="light"] .panel { background: #ffffff; border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] body { background: #f0f2f5; }
+
 /* ─── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 14px; -webkit-font-smoothing: antialiased; }
@@ -108,10 +127,29 @@ input, select, textarea { font-family: inherit; }
 .user-dropdown {
   position: absolute; top: 100%; right: 0; margin-top: 8px;
   background: var(--bg-surface); border: 1px solid var(--blue-border-bright);
-  border-radius: var(--radius); min-width: 160px; padding: 4px;
-  display: none; z-index: 200;
+  border-radius: var(--radius); min-width: 180px; padding: 4px;
+  opacity: 0; transform: translateY(-4px); pointer-events: none;
+  transition: opacity 150ms ease, transform 150ms ease;
+  z-index: 200;
 }
-.user-menu.open .user-dropdown { display: block; }
+.user-menu.open .user-dropdown { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.user-dropdown .dropdown-divider { height: 1px; background: var(--blue-border); margin: 4px 0; }
+.theme-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; font-size: 11px; color: var(--text-secondary); cursor: pointer;
+  border-radius: 4px; transition: background var(--transition-fast);
+}
+.theme-toggle-row:hover { background: var(--bg-elevated); }
+.theme-toggle-switch {
+  width: 28px; height: 16px; border-radius: 8px; background: var(--bg-elevated);
+  border: 1px solid var(--blue-border-bright); position: relative; transition: background 200ms ease;
+}
+.theme-toggle-switch .toggle-knob {
+  width: 12px; height: 12px; border-radius: 50%; background: var(--blue-primary);
+  position: absolute; top: 1px; left: 1px; transition: left 200ms ease;
+}
+[data-theme="light"] .theme-toggle-switch { background: var(--blue-primary); }
+[data-theme="light"] .theme-toggle-switch .toggle-knob { left: 13px; background: #fff; }
 .user-dropdown a {
   display: block; padding: 8px 12px; font-size: 12px; color: var(--text-secondary);
   border-radius: 4px; transition: background var(--transition-fast);
