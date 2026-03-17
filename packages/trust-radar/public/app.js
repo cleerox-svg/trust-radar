@@ -8,9 +8,13 @@ function getAccessToken() { return accessToken; }
 function setAccessToken(token) { accessToken = token; }
 function isAuthenticated() { return !!accessToken; }
 
-// Register service worker for PWA
+// Unregister any existing service worker and clear caches
+// (SW was caching stale files across deploys, breaking mobile)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(reg => reg.unregister());
+  });
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 }
 
 // Parse token from auth callback hash fragment
