@@ -13,9 +13,15 @@ const CINS_URL = "https://cinsscore.com/list/ci-badguys.txt";
 export const cins_army: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || CINS_URL;
-    console.log(`[cins_army] fetching: ${url}`);
-    const res = await fetch(url);
-    console.log(`[cins_army] response: HTTP ${res.status}`);
+    console.log(`[cins_army] ingest() called — url=${url}`);
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { "User-Agent": "trust-radar/2.0" } });
+    } catch (fetchErr) {
+      console.error(`[cins_army] fetch threw:`, fetchErr);
+      throw new Error(`CINS Army fetch failed: ${fetchErr}`);
+    }
+    console.log(`[cins_army] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`CINS Army HTTP ${res.status}`);
 
     const text = await res.text();

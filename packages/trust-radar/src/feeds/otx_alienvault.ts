@@ -11,28 +11,40 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 export const otx_alienvault: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "https://otx.alienvault.com/api/v1/pulses/activity";
-    console.log(`[otx] fetching: ${feedUrl}`);
+    console.log(`[otx] ingest() called — feedUrl=${feedUrl}`);
 
-    const res = await fetch(feedUrl, {
-      headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
-      signal: AbortSignal.timeout(30000),
-    });
-    console.log(`[otx] response: HTTP ${res.status}`);
+    let res: Response;
+    try {
+      res = await fetch(feedUrl, {
+        headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
+      });
+    } catch (fetchErr) {
+      console.error(`[otx] fetch threw:`, fetchErr);
+      throw new Error(`OTX fetch failed: ${fetchErr}`);
+    }
+    console.log(`[otx] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`OTX HTTP ${res.status}`);
 
-    const body = await res.json() as {
+    let body: {
       results?: Array<{
         name?: string;
         tags?: string[];
-        indicators?: Array<{
-          type: string;
-          indicator: string;
-        }>;
+        indicators?: Array<{ type: string; indicator: string }>;
       }>;
     };
+    try {
+      body = await res.json() as typeof body;
+    } catch (jsonErr) {
+      console.error(`[otx] JSON parse error:`, jsonErr);
+      throw new Error(`OTX JSON parse failed: ${jsonErr}`);
+    }
 
     const pulses = body.results ?? [];
     console.log(`[otx] parsed ${pulses.length} pulses`);
+    if (pulses.length > 0) {
+      const first = pulses[0]!;
+      console.log(`[otx] sample pulse: name="${first.name}", tags=${JSON.stringify(first.tags?.slice(0, 5))}, indicators=${first.indicators?.length ?? 0}`);
+    }
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
     let total = 0;
@@ -41,7 +53,6 @@ export const otx_alienvault: FeedModule = {
       if (total >= 200) break;
       const tags = (pulse.tags ?? []).map(t => t.toLowerCase());
 
-      // Determine threat_type from pulse tags
       let threatType: "phishing" | "malware_distribution" | "c2" = "malware_distribution";
       if (tags.some(t => t.includes("phishing"))) threatType = "phishing";
       else if (tags.some(t => t.includes("c2") || t.includes("c&c") || t.includes("command"))) threatType = "c2";
@@ -51,7 +62,6 @@ export const otx_alienvault: FeedModule = {
         const iocType = ind.type;
         const iocValue = ind.indicator;
 
-        // Only process domains, URLs, and IPv4 addresses
         if (iocType !== "domain" && iocType !== "URL" && iocType !== "IPv4") continue;
 
         try {
