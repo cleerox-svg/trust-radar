@@ -177,6 +177,11 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
       `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
        VALUES (?, ?, ?, ?, 'auto_detected')`
     ).bind(crypto.randomUUID(), brand.id, "www." + domain, userId).run();
+    // Also add wildcard for all subdomains
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+       VALUES (?, ?, ?, ?, 'auto_detected')`
+    ).bind(crypto.randomUUID(), brand.id, "*." + domain, userId).run();
 
     // ─── Step A: Retroactive domain-based threat linking (free, no AI) ───
     const keyword = domain.split(".")[0]!; // e.g. "docusign.com" → "docusign"
@@ -241,7 +246,9 @@ export async function handleGetBrand(request: Request, env: Env, brandId: string
                SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) AS phishing,
                SUM(CASE WHEN threat_type = 'typosquatting' THEN 1 ELSE 0 END) AS typosquatting,
                SUM(CASE WHEN threat_type = 'impersonation' THEN 1 ELSE 0 END) AS impersonation,
-               SUM(CASE WHEN threat_type = 'credential_harvesting' THEN 1 ELSE 0 END) AS credential
+               SUM(CASE WHEN threat_type = 'credential_harvesting' THEN 1 ELSE 0 END) AS credential,
+               COUNT(DISTINCT CASE WHEN country_code IS NOT NULL AND country_code NOT IN ('XX','PRIV') THEN country_code END) AS countries,
+               COUNT(DISTINCT hosting_provider_id) AS provider_count
         FROM threats WHERE target_brand_id = ?
       `).bind(brandId).first(),
       env.DB.prepare(`
@@ -293,12 +300,16 @@ export async function handleBrandThreatLocations(request: Request, env: Env, bra
       SELECT country_code, COUNT(*) AS count,
              AVG(CAST(lat AS REAL)) AS lat, AVG(CAST(lng AS REAL)) AS lng
       FROM threats
-      WHERE target_brand_id = ? AND country_code IS NOT NULL AND lat IS NOT NULL AND lng IS NOT NULL
+      WHERE target_brand_id = ? AND country_code IS NOT NULL AND country_code NOT IN ('XX','PRIV')
       GROUP BY country_code
       ORDER BY count DESC
     `).bind(brandId).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    // Split into mappable (has lat/lng) and count-only
+    const mappable = rows.results.filter((r: Record<string, unknown>) => r.lat != null && r.lng != null);
+    const totalCountries = rows.results.length;
+
+    return json({ success: true, data: mappable, totalCountries }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -548,6 +559,34 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
     }
 
     return json({ success: true, data: { scanned: threats.length, newly_linked: newlyLinked, message: newlyLinked > 0 ? `Found ${newlyLinked} additional threats` : "No new matches found" } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/brands/:id/clean-false-positives
+export async function handleCleanFalsePositives(request: Request, env: Env, brandId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { loadSafeDomainSet, isSafeDomain } = await import("../lib/safeDomains");
+    const safeSet = await loadSafeDomainSet(env.DB);
+
+    const threats = await env.DB.prepare(
+      `SELECT id, malicious_domain FROM threats
+       WHERE target_brand_id = ? AND status = 'active' AND malicious_domain IS NOT NULL`,
+    ).bind(brandId).all<{ id: string; malicious_domain: string }>();
+
+    let cleaned = 0;
+    for (const t of threats.results) {
+      if (isSafeDomain(t.malicious_domain, safeSet)) {
+        await env.DB.prepare(
+          "UPDATE threats SET status = 'remediated', confidence_score = 0 WHERE id = ?",
+        ).bind(t.id).run();
+        cleaned++;
+      }
+    }
+
+    return json({ success: true, data: { cleaned, checked: threats.results.length } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

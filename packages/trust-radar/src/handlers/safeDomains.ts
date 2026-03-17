@@ -3,26 +3,32 @@
 import { json } from "../lib/cors";
 import type { Env } from "../types";
 
-/** Clean a domain string: strip protocol, path, www., trailing dots, lowercase, trim */
+/** Clean a domain string: strip protocol, path, www., trailing dots, lowercase, trim.
+ *  Preserves wildcard prefix (*.) for wildcard entries. */
 function cleanDomain(raw: string): string {
-  return raw
+  let d = raw
     .trim()
     .toLowerCase()
     .replace(/^https?:\/\//, "")
     .replace(/^ftp:\/\//, "")
-    .replace(/^www\./, "")
     .replace(/\/.*$/, "")
     .replace(/\.$/, "")
     .trim();
+  // Don't strip www. from wildcards
+  if (!d.startsWith("*.")) {
+    d = d.replace(/^www\./, "");
+  }
+  return d;
 }
 
-/** Validate that a cleaned string looks like a valid domain */
+/** Validate that a cleaned string looks like a valid domain (supports wildcard prefix *.) */
 function isValidDomain(d: string): boolean {
   if (!d || d.length < 3) return false;
   if (!d.includes(".")) return false;
   if (/\s/.test(d)) return false;
-  // Only valid domain characters
-  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d);
+  // Allow wildcard prefix
+  const toCheck = d.startsWith("*.") ? d.slice(2) : d;
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(toCheck);
 }
 
 // GET /api/brands/:id/safe-domains
