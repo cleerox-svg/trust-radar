@@ -1,5 +1,5 @@
--- Cloudflare Radar feed setup: scanner + email security
--- Columns cf_scan_id, cf_verdict, cf_categories already exist on threats table
+-- Cloudflare Radar feed setup (retry): register feeds + index
+-- Columns cf_scan_id, cf_verdict, cf_categories already exist on threats
 
 -- ─── Index for CF Scanner polling ───────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_threats_cf_scan ON threats(cf_scan_id) WHERE cf_scan_id IS NOT NULL;
