@@ -320,13 +320,13 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
-    const period = url.searchParams.get("period") ?? "30d";
+    const period = url.searchParams.get("period") ?? "7d";
 
-    let bucket = "date(created_at)";
-    let since = "datetime('now', '-30 days')";
-    if (period === "7d") since = "datetime('now', '-7 days')";
-    else if (period === "90d") { since = "datetime('now', '-90 days')"; bucket = "strftime('%Y-%W', created_at)"; }
-    else if (period === "1y") { since = "datetime('now', '-1 year')"; bucket = "strftime('%Y-%m', created_at)"; }
+    let bucket = "strftime('%Y-%m-%dT%H:00', created_at)";
+    let since = "datetime('now', '-7 days')";
+    if (period === "24h") { since = "datetime('now', '-1 day')"; }
+    else if (period === "30d") { since = "datetime('now', '-30 days')"; bucket = "date(created_at)"; }
+    else if (period === "90d") { since = "datetime('now', '-90 days')"; bucket = "date(created_at)"; }
 
     const rows = await env.DB.prepare(`
       SELECT ${bucket} AS period, COUNT(*) AS count,

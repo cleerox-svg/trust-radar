@@ -324,10 +324,15 @@ function renderAdminTopbar(activePath) {
     </nav>
     <div class="topbar-right">
       <a href="/observatory" onclick="navigate('/observatory'); return false;" class="admin-back-link">\u2190 <span class="back-text">Observatory</span></a>
-      <div class="user-menu" onclick="event.stopPropagation(); this.classList.toggle('open')">
+      <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
           <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
+          <div class="dropdown-divider"></div>
+          <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
+          <a href="/observatory" onclick="event.stopPropagation(); navigate('/observatory'); return false;">Analyst View</a>
+          <div class="dropdown-divider"></div>
           <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
         </div>
       </div>
@@ -1652,7 +1657,7 @@ async function viewBrandDetail(el, params) {
       </div>
       <div>
         <div class="chart-head"><div class="chart-title">Threat Timeline</div><div class="period-selector" id="brand-timeline-period">
-          <button class="period-btn active" data-period="7d">7D</button><button class="period-btn" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button><button class="period-btn" data-period="1y">1Y</button>
+          <button class="period-btn" data-period="24h">24H</button><button class="period-btn active" data-period="7d">7D</button><button class="period-btn" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button>
         </div></div>
         <div class="chart-wrap"><canvas id="brand-timeline-chart"></canvas></div>
       </div>`;
@@ -2033,7 +2038,7 @@ async function viewBrandDetail(el, params) {
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { const [d, t] = l.split('T'); return t || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
             y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
           }
         }
@@ -2351,7 +2356,9 @@ async function viewProviderDetail(el, params) {
         </div>
       </div>
       <div>
-        <div class="chart-head"><div class="chart-title">Threat Trend</div></div>
+        <div class="chart-head"><div class="chart-title">Threat Trend</div><div class="period-selector" id="prov-timeline-period">
+          <button class="period-btn" data-period="24h">24H</button><button class="period-btn active" data-period="7d">7D</button><button class="period-btn" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button>
+        </div></div>
         <div class="chart-legend" id="prov-chart-legend"></div>
         <div class="chart-wrap"><canvas id="prov-timeline-chart"></canvas></div>
       </div>`;
@@ -2459,27 +2466,15 @@ async function viewProviderDetail(el, params) {
       }, 50);
     }
 
-    // ── 3-dataset timeline chart (current 30d, prev 30d, 60-90d ago) ──
-    document.getElementById('prov-chart-legend').innerHTML = `
-      <div class="legend-item"><div class="legend-swatch" style="background:#00d4ff"></div>Last 30 days</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#ff6b35"></div>Previous 30 days</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:var(--text-tertiary);opacity:.5"></div>60\u201390 days ago</div>`;
-
+    // ── Timeline chart with period selector ──
     if (_provDetailChart) { _provDetailChart.destroy(); _provDetailChart = null; }
-    const timeline = timelineRes?.data || {};
-    if (timeline.labels?.length && typeof Chart !== 'undefined') {
-      const allVals = timeline.values || [];
-      const labels30 = timeline.labels.slice(-30);
-      const d30 = allVals.slice(-30);
-      const prev30 = allVals.length >= 60 ? allVals.slice(-60, -30) : d30.map(() => null);
-      const old30 = allVals.length >= 90 ? allVals.slice(-90, -60) : d30.map(() => null);
-
+    function renderProvTimeline(tl) {
+      if (_provDetailChart) { _provDetailChart.destroy(); _provDetailChart = null; }
+      if (!tl?.labels?.length || typeof Chart === 'undefined') return;
       _provDetailChart = new Chart(document.getElementById('prov-timeline-chart'), {
         type: 'line',
-        data: { labels: labels30, datasets: [
-          { label: 'Last 30d', data: d30, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)', fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2 },
-          { label: 'Prev 30d', data: prev30, borderColor: '#ff6b35', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 3] },
-          { label: '60-90d ago', data: old30, borderColor: 'rgba(122,139,168,0.3)', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 1, borderDash: [2, 4] }
+        data: { labels: tl.labels, datasets: [
+          { label: 'Threats', data: tl.values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)', fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2 }
         ] },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -2490,16 +2485,30 @@ async function viewProviderDetail(el, params) {
               backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
               titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
               bodyFont: { family: "'IBM Plex Mono'", size: 11 },
-              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6
+              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
+              displayColors: false,
+              callbacks: { label: i => i.parsed.y + ' threats' }
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
             y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
           }
         }
       });
     }
+    renderProvTimeline(timelineRes?.data);
+
+    document.getElementById('prov-timeline-period')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.period-btn');
+      if (!btn) return;
+      document.querySelectorAll('#prov-timeline-period .period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      try {
+        const tlRes = await api(`/providers/${encodeURIComponent(params.id)}/timeline?period=${btn.dataset.period}`);
+        renderProvTimeline(tlRes?.data);
+      } catch {}
+    });
 
     // Cleanup
     window._viewCleanup = () => {
@@ -2916,7 +2925,9 @@ async function viewCampaignDetail(el, params) {
         </div>
       </div>
 
-      <div class="chart-head"><div class="chart-title">Campaign Activity Timeline</div></div>
+      <div class="chart-head"><div class="chart-title">Campaign Activity Timeline</div><div class="period-selector" id="camp-timeline-period">
+        <button class="period-btn" data-period="24h">24H</button><button class="period-btn active" data-period="7d">7D</button><button class="period-btn" data-period="30d">30D</button><button class="period-btn" data-period="90d">90D</button>
+      </div></div>
       <div class="chart-wrap"><canvas id="camp-timeline-chart"></canvas></div>`;
 
     // ── Draw infrastructure graph on canvas with Bezier connections ──
@@ -2938,47 +2949,56 @@ async function viewCampaignDetail(el, params) {
       }
     }, 100);
 
-    // ── Timeline chart — line type with fill (not bar) ──
+    // ── Timeline chart with period selector ──
     if (_campDetailChart) { _campDetailChart.destroy(); _campDetailChart = null; }
-    const timeline = timelineRes?.data || {};
-    if (timeline.labels?.length && typeof Chart !== 'undefined') {
-      // Resolve severity color to a raw rgba string for Chart.js fill
-      const sevColorMap = { critical: '255,59,92', high: '255,107,53', medium: '255,182,39' };
-      const rawColor = sevColorMap[sev] || '255,59,92';
-      const borderColor = `rgb(${rawColor})`;
-      const bgColor = `rgba(${rawColor},0.06)`;
+    const sevColorMap = { critical: '255,59,92', high: '255,107,53', medium: '255,182,39' };
+    const rawColor = sevColorMap[sev] || '255,59,92';
 
-      setTimeout(() => {
-        const ctx2 = document.getElementById('camp-timeline-chart');
-        if (!ctx2) return;
-        _campDetailChart = new Chart(ctx2, {
-          type: 'line',
-          data: { labels: timeline.labels, datasets: [{
-            label: 'Threats', data: timeline.values,
-            borderColor, backgroundColor: bgColor,
-            fill: true, tension: 0.35, pointRadius: 0,
-            pointHoverRadius: 5, borderWidth: 2
-          }] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
-                titleFont: { family: "'Chakra Petch'", size: 11 },
-                bodyFont: { family: "'IBM Plex Mono'", size: 11 },
-                titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6, displayColors: false
-              }
-            },
-            scales: {
-              x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
-              y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+    function renderCampTimeline(tl) {
+      if (_campDetailChart) { _campDetailChart.destroy(); _campDetailChart = null; }
+      if (!tl?.labels?.length || typeof Chart === 'undefined') return;
+      const ctx2 = document.getElementById('camp-timeline-chart');
+      if (!ctx2) return;
+      _campDetailChart = new Chart(ctx2, {
+        type: 'line',
+        data: { labels: tl.labels, datasets: [{
+          label: 'Threats', data: tl.values,
+          borderColor: `rgb(${rawColor})`, backgroundColor: `rgba(${rawColor},0.06)`,
+          fill: true, tension: 0.35, pointRadius: 0,
+          pointHoverRadius: 5, borderWidth: 2
+        }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
+              titleFont: { family: "'Chakra Petch'", size: 11 },
+              bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6, displayColors: false,
+              callbacks: { label: i => i.parsed.y + ' threats' }
             }
+          },
+          scales: {
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
           }
-        });
-      }, 150);
+        }
+      });
     }
+    setTimeout(() => renderCampTimeline(timelineRes?.data), 150);
+
+    document.getElementById('camp-timeline-period')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.period-btn');
+      if (!btn) return;
+      document.querySelectorAll('#camp-timeline-period .period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      try {
+        const tlRes = await api(`/campaigns/${params.id}/timeline?period=${btn.dataset.period}`);
+        renderCampTimeline(tlRes?.data);
+      } catch {}
+    });
 
     // Cleanup
     window._viewCleanup = () => {

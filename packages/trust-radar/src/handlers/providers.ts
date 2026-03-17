@@ -241,15 +241,17 @@ export async function handleProviderBrands(request: Request, env: Env, providerI
 export async function handleProviderTimeline(request: Request, env: Env, providerId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const period = new URL(request.url).searchParams.get("period") ?? "30d";
-    let since = "datetime('now', '-30 days')";
-    if (period === "7d") since = "datetime('now', '-7 days')";
-    else if (period === "90d") since = "datetime('now', '-90 days')";
+    const period = new URL(request.url).searchParams.get("period") ?? "7d";
+    let bucket = "strftime('%Y-%m-%dT%H:00', created_at)";
+    let since = "datetime('now', '-7 days')";
+    if (period === "24h") { since = "datetime('now', '-1 day')"; }
+    else if (period === "30d") { since = "datetime('now', '-30 days')"; bucket = "date(created_at)"; }
+    else if (period === "90d") { since = "datetime('now', '-90 days')"; bucket = "date(created_at)"; }
 
     const rows = await env.DB.prepare(`
-      SELECT date(created_at) AS period, COUNT(*) AS count
+      SELECT ${bucket} AS period, COUNT(*) AS count
       FROM threats WHERE hosting_provider_id = ? AND created_at >= ${since}
-      GROUP BY date(created_at) ORDER BY period ASC
+      GROUP BY ${bucket} ORDER BY period ASC
     `).bind(decodeURIComponent(providerId)).all();
 
     const results = rows.results as Array<{ period: string; count: number }>;
