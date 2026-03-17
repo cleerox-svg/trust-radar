@@ -21,6 +21,7 @@ import { enrichBrands } from "./brandDetect";
 export interface EnrichmentResult {
   dnsResolved: number;
   geoEnriched: number;
+  domainRanksChecked: number;
   whoisEnriched: number;
   brandsMatched: number;
   providersUpserted: number;
@@ -34,6 +35,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
   const result: EnrichmentResult = {
     dnsResolved: 0,
     geoEnriched: 0,
+    domainRanksChecked: 0,
     whoisEnriched: 0,
     brandsMatched: 0,
     providersUpserted: 0,
@@ -233,6 +235,79 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     console.log(`[enrich] Stage 4 complete: ${result.brandsMatched} brands matched`);
   } catch (err) {
     console.error("[enrich] Stage 4 brand detection failed:", err);
+  }
+
+  // ─── Stage 4b: Cloudflare Domain Ranking ────────────────────
+  // Check ambiguous threats (confidence 30-70) against CF Radar ranking.
+  // Ranked in top 100K → likely legitimate, lower confidence.
+  // Unranked → more suspicious, boost slightly.
+  if (env.CF_API_TOKEN) {
+    try {
+      const ambiguous = await env.DB.prepare(
+        `SELECT id, malicious_domain FROM threats
+         WHERE cf_rank IS NULL
+           AND malicious_domain IS NOT NULL
+           AND confidence_score BETWEEN 30 AND 70
+         LIMIT 5`,
+      ).all<{ id: string; malicious_domain: string }>();
+
+      console.log(`[enrich] Stage 4b Domain Rank: ${ambiguous.results.length} ambiguous threats to check`);
+
+      for (const row of ambiguous.results) {
+        try {
+          const res = await fetch(
+            `https://api.cloudflare.com/client/v4/radar/ranking/domain/${row.malicious_domain}`,
+            {
+              headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, Accept: "application/json" },
+              signal: AbortSignal.timeout(5000),
+            },
+          );
+
+          if (!res.ok) {
+            // 404 = domain not ranked (good — probably suspicious)
+            if (res.status === 404) {
+              await env.DB.prepare(
+                "UPDATE threats SET cf_rank = 0 WHERE id = ?",
+              ).bind(row.id).run();
+              // Unranked domain in ambiguous range → slight boost
+              await env.DB.prepare(
+                "UPDATE threats SET confidence_score = MIN(confidence_score + 5, 100) WHERE id = ?",
+              ).bind(row.id).run();
+              result.domainRanksChecked++;
+            }
+            continue;
+          }
+
+          const data = await res.json() as {
+            success: boolean;
+            result?: { details_0?: { categories?: Array<{ name: string }>; top?: { rank?: number; bucket?: string } } };
+          };
+
+          const rank = data.result?.details_0?.top?.rank ?? 0;
+          await env.DB.prepare(
+            "UPDATE threats SET cf_rank = ? WHERE id = ?",
+          ).bind(rank, row.id).run();
+
+          // Ranked in top 100K → likely legitimate, lower confidence
+          if (rank > 0 && rank <= 100000) {
+            await env.DB.prepare(
+              "UPDATE threats SET confidence_score = MAX(confidence_score - 15, 0) WHERE id = ?",
+            ).bind(row.id).run();
+            console.log(`[enrich] ${row.malicious_domain} ranked #${rank} — lowered confidence`);
+          }
+
+          result.domainRanksChecked++;
+        } catch (err) {
+          console.error(`[enrich] domain rank check failed for ${row.malicious_domain}:`, err);
+        }
+
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      console.log(`[enrich] Stage 4b complete: ${result.domainRanksChecked} domain ranks checked`);
+    } catch (err) {
+      console.error("[enrich] Stage 4b domain ranking failed:", err);
+    }
   }
 
   // ─── Stage 5: Sync hosting_providers counts ───────────────────

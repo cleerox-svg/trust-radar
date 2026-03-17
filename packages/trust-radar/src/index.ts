@@ -1031,7 +1031,7 @@ export default {
           try {
             const { runEnrichmentPipeline } = await import("./lib/enrichment");
             const enrichResult = await runEnrichmentPipeline(env);
-            console.log(`[cron] enrichment: dns=${enrichResult.dnsResolved}, geo=${enrichResult.geoEnriched}, whois=${enrichResult.whoisEnriched}, brands=${enrichResult.brandsMatched}`);
+            console.log(`[cron] enrichment: dns=${enrichResult.dnsResolved}, geo=${enrichResult.geoEnriched}, whois=${enrichResult.whoisEnriched}, brands=${enrichResult.brandsMatched}, ranks=${enrichResult.domainRanksChecked}`);
           } catch (err) {
             console.error("[cron] enrichment error:", err);
           }
