@@ -17,6 +17,9 @@ export interface Env {
   ABUSECH_AUTH_KEY: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  // Cloudflare Radar
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────

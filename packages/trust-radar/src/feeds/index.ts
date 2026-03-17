@@ -13,6 +13,8 @@ import { nrd_hagezi } from "./nrd_hagezi";
 import { dshield } from "./dshield";
 import { cins_army } from "./cins_army";
 import { sslbl } from "./sslbl";
+import { cloudflare_scanner } from "./cloudflare_scanner";
+import { cloudflare_email } from "./cloudflare_email";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -31,4 +33,6 @@ export const feedModules: Record<string, FeedModule> = {
   dshield,
   cins_army,
   sslbl,
+  cloudflare_scanner,
+  cloudflare_email,
 };
