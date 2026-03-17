@@ -72,6 +72,18 @@ export const cloudflare_scanner: FeedModule = {
     const accountId = ctx.env.CF_ACCOUNT_ID;
     const token = ctx.env.CF_API_TOKEN;
 
+    console.log(`[cf_scanner] starting, account_id=${accountId ? 'set' : 'MISSING'}, token=${token ? 'set' : 'MISSING'}`);
+
+    // Write diagnostic to agent_outputs for visibility in UI
+    try {
+      await ctx.env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))",
+      ).bind(
+        'diag_cf_scanner_' + Date.now(),
+        `CF Scanner: account_id=${accountId ? 'set' : 'MISSING'}, token=${token ? 'set' : 'MISSING'}`,
+      ).run();
+    } catch { /* non-fatal */ }
+
     if (!accountId || !token) {
       console.warn("[cf_scanner] CF_ACCOUNT_ID or CF_API_TOKEN not configured — skipping");
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
