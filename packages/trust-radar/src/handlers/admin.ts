@@ -405,21 +405,21 @@ export async function handleBackfillSafeDomains(request: Request, env: Env): Pro
       // Add exact domain
       const r1 = await env.DB.prepare(
         `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
-         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+         VALUES (?, ?, ?, NULL, 'auto_detected')`,
       ).bind(crypto.randomUUID(), brand.id, domain).run();
       if (r1.meta?.changes) domainsAdded++;
 
       // Add www variant
       const r2 = await env.DB.prepare(
         `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
-         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+         VALUES (?, ?, ?, NULL, 'auto_detected')`,
       ).bind(crypto.randomUUID(), brand.id, "www." + domain).run();
       if (r2.meta?.changes) domainsAdded++;
 
       // Add wildcard
       const r3 = await env.DB.prepare(
         `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
-         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+         VALUES (?, ?, ?, NULL, 'auto_detected')`,
       ).bind(crypto.randomUUID(), brand.id, "*." + domain).run();
       if (r3.meta?.changes) domainsAdded++;
     }
