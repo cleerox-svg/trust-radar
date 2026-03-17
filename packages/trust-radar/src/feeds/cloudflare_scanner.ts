@@ -96,10 +96,22 @@ export const cloudflare_scanner: FeedModule = {
       `SELECT id, malicious_url FROM threats
        WHERE cf_scan_id IS NULL
          AND malicious_url IS NOT NULL
-         AND created_at > datetime('now', '-24 hours')
-       ORDER BY confidence_score ASC
+       ORDER BY created_at DESC
        LIMIT 10`,
     ).all<{ id: string; malicious_url: string }>();
+
+    // Diagnostic: log how many the query found
+    try {
+      const eligible = await ctx.env.DB.prepare(
+        `SELECT COUNT(*) as c FROM threats WHERE cf_scan_id IS NULL AND malicious_url IS NOT NULL`
+      ).first<{ c: number }>();
+      await ctx.env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+      ).bind(
+        'diag_cf_phase1_' + Date.now(),
+        `CF Scanner Phase 1: query returned ${toScan.results.length} threats to submit (${eligible?.c ?? '?'} total eligible)`,
+      ).run();
+    } catch { /* non-fatal */ }
 
     console.log(`[cf_scanner] Phase 1: ${toScan.results.length} URLs to submit`);
 
