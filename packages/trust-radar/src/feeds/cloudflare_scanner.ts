@@ -77,12 +77,19 @@ async function cfFetch<T>(accountId: string, token: string, path: string, init?:
 
 export const cloudflare_scanner: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    // FIRST LINE diagnostic — proves ingest() was called
+    try {
+      await ctx.env.DB.prepare(
+        "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+      ).bind('diag_cf_called_' + Date.now(), 'CF Scanner ingest() called at ' + new Date().toISOString()).run();
+    } catch { /* non-fatal */ }
+
     const accountId = ctx.env.CF_ACCOUNT_ID;
     const token = ctx.env.CF_API_TOKEN;
 
     console.log(`[cf_scanner] starting, account_id=${accountId ? 'set' : 'MISSING'}, token=${token ? 'set' : 'MISSING'}`);
 
-    // Write diagnostic to agent_outputs for visibility in UI
+    // Write credential diagnostic
     try {
       await ctx.env.DB.prepare(
         "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))",

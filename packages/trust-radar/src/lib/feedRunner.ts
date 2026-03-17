@@ -228,6 +228,21 @@ export async function runAllFeeds(
     if (!shouldRun) {
       console.log(`[feedRunner] SKIP ${config.feed_name}: shouldRunNow=false (last_pull=${status?.last_successful_pull}, cron=${config.schedule_cron})`);
       feedsSkipped++;
+
+      // Write persistent diagnostic for CF scanner skips
+      if (config.feed_name === 'cloudflare_scanner') {
+        const intervalMs = parseCronIntervalMs(config.schedule_cron);
+        const lastRun = status?.last_successful_pull ? new Date(status.last_successful_pull + 'Z').getTime() : null;
+        const elapsed = lastRun ? now.getTime() - lastRun : null;
+        try {
+          await env.DB.prepare(
+            "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+          ).bind(
+            'diag_cf_skip_' + Date.now(),
+            `CF Scanner SKIPPED by shouldRunNow: last_pull=${status?.last_successful_pull || 'NULL'}, interval=${intervalMs}ms (${intervalMs / 60000}min), elapsed=${elapsed !== null ? elapsed + 'ms (' + Math.round(elapsed / 60000) + 'min)' : 'N/A'}, now=${now.toISOString()}`,
+          ).run();
+        } catch { /* non-fatal */ }
+      }
       continue;
     }
 
@@ -269,7 +284,9 @@ function shouldRunNow(config: FeedConfigRow, status: FeedStatusRow | undefined, 
 
   // Parse interval from cron: "*/5 * * * *" → 5 min, "0 * * * *" → 60 min, "0 */12 * * *" → 720 min
   const intervalMs = parseCronIntervalMs(config.schedule_cron);
-  const lastRun = new Date(status.last_successful_pull).getTime();
+  // Append 'Z' if missing — SQLite datetime('now') omits timezone, JS would parse as local
+  const lastPull = status.last_successful_pull;
+  const lastRun = new Date(lastPull.includes('Z') || lastPull.includes('+') ? lastPull : lastPull + 'Z').getTime();
 
   return now.getTime() - lastRun >= intervalMs;
 }
