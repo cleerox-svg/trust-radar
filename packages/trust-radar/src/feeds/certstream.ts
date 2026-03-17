@@ -2,6 +2,7 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
+import { createNotification } from "../lib/notifications";
 
 /** Common homoglyph substitutions for brand matching */
 const HOMOGLYPHS: Record<string, string[]> = {
@@ -85,6 +86,9 @@ export const certstream: FeedModule = {
     console.log(`[ct_logs] parsed ${items.length} certificates`);
     const suspiciousPatterns = /(?:paypal|apple|google|microsoft|amazon|netflix|bank|login|secure|verify|account|update|signin|support)/i;
 
+    // Track brand threats for batched notifications
+    const brandThreatCounts = new Map<string, { name: string; count: number; lastDomain: string }>();
+
     for (const cert of items) {
       try {
         const domain = cert.common_name ?? cert.name_value?.split("\n")[0];
@@ -111,6 +115,14 @@ export const certstream: FeedModule = {
           });
           await markSeen(ctx.env, "domain", domain);
           itemsNew++;
+          // Track for batched notification
+          const brandName = brands.results.find(b => b.id === matchedBrand.id)?.name ?? matchedBrand.keyword;
+          const prev = brandThreatCounts.get(matchedBrand.id);
+          brandThreatCounts.set(matchedBrand.id, {
+            name: brandName,
+            count: (prev?.count ?? 0) + 1,
+            lastDomain: domain,
+          });
           continue;
         }
 
@@ -136,6 +148,28 @@ export const certstream: FeedModule = {
       } catch (e) {
         itemsError++;
         if (itemsError <= 3) console.error(`[ct_logs] item error: ${e}`);
+      }
+    }
+
+    // Send batched brand threat notifications (rate-limited: 1 per brand per hour)
+    for (const [brandId, info] of brandThreatCounts) {
+      try {
+        const title = info.count === 1
+          ? `New threat: ${info.lastDomain}`
+          : `${info.count} new typosquats targeting ${info.name}`;
+        const message = info.count === 1
+          ? `${info.name} typosquat detected: ${info.lastDomain}`
+          : `${info.count} new typosquats detected targeting ${info.name}`;
+        await createNotification(ctx.env.DB, {
+          type: 'brand_threat',
+          severity: 'high',
+          title,
+          message,
+          link: `/brands/${brandId}`,
+          metadata: { brand_id: brandId, count: info.count },
+        });
+      } catch (e) {
+        console.error(`[ct_logs] notification error for brand ${brandId}:`, e);
       }
     }
 

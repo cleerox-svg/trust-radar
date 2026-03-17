@@ -12,6 +12,7 @@
 
 import type { Env } from "../types";
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "../feeds/types";
+import { createNotification } from "./notifications";
 
 // ─── Deduplication ───────────────────────────────────────────────
 
@@ -145,6 +146,11 @@ export async function runFeed(
        WHERE id = ?`
     ).bind(errorMsg, durationMs, pullId).run();
 
+    // Check previous status for transition notification
+    const prevStatus = await env.DB.prepare(
+      `SELECT health_status FROM feed_status WHERE feed_name = ?`
+    ).bind(config.feed_name).first<{ health_status: string }>();
+
     // Update feed_status to degraded
     await env.DB.prepare(
       `UPDATE feed_status SET
@@ -152,6 +158,22 @@ export async function runFeed(
          health_status = 'degraded'
        WHERE feed_name = ?`
     ).bind(config.feed_name).run();
+
+    // Notify only on status CHANGE (healthy → degraded)
+    if (prevStatus?.health_status === 'healthy') {
+      try {
+        await createNotification(env.DB, {
+          type: 'feed_health',
+          severity: 'high',
+          title: `Feed degraded: ${config.display_name}`,
+          message: `${config.display_name} returned errors. Check Admin → Feeds.`,
+          link: '/admin/feeds',
+          metadata: { feed_name: config.feed_name },
+        });
+      } catch (e) {
+        console.error(`[runFeed] notification error:`, e);
+      }
+    }
 
     return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
   }
