@@ -137,7 +137,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     const ips = needsGeo.map((r) => r.ip_address);
 
     try {
-      const geoMap = await batchGeoLookup(ips, env.CACHE);
+      const { results: geoMap } = await batchGeoLookup(ips, env.CACHE);
       console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {

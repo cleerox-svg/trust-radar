@@ -334,7 +334,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats`);
 
       const ips = batch.results.map((r) => r.ip_address);
-      const geoMap = await batchGeoLookup(ips);
+      const { results: geoMap } = await batchGeoLookup(ips);
 
       for (const row of batch.results) {
         const geo = geoMap.get(row.ip_address);
