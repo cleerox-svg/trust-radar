@@ -388,3 +388,47 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
+
+// POST /api/admin/backfill-safe-domains
+export async function handleBackfillSafeDomains(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brands = await env.DB.prepare(
+      "SELECT id, canonical_domain FROM brands WHERE canonical_domain IS NOT NULL",
+    ).all<{ id: string; canonical_domain: string }>();
+
+    let domainsAdded = 0;
+    for (const brand of brands.results) {
+      const domain = brand.canonical_domain;
+      if (!domain) continue;
+
+      // Add exact domain
+      const r1 = await env.DB.prepare(
+        `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+      ).bind(crypto.randomUUID(), brand.id, domain).run();
+      if (r1.meta?.changes) domainsAdded++;
+
+      // Add www variant
+      const r2 = await env.DB.prepare(
+        `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+      ).bind(crypto.randomUUID(), brand.id, "www." + domain).run();
+      if (r2.meta?.changes) domainsAdded++;
+
+      // Add wildcard
+      const r3 = await env.DB.prepare(
+        `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
+         VALUES (?, ?, ?, 'system', 'auto_detected')`,
+      ).bind(crypto.randomUUID(), brand.id, "*." + domain).run();
+      if (r3.meta?.changes) domainsAdded++;
+    }
+
+    return json({
+      success: true,
+      data: { brands_processed: brands.results.length, domains_added: domainsAdded },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}

@@ -9,7 +9,7 @@ import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo } from "./handlers/admin";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillSafeDomains } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
@@ -876,6 +876,11 @@ router.post("/api/admin/backfill-geo", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleBackfillGeo(request, env);
+});
+router.post("/api/admin/backfill-safe-domains", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBackfillSafeDomains(request, env);
 });
 
 // ─── Data Export ─────────────────────────────────────────────

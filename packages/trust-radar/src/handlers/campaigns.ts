@@ -65,7 +65,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
 
     if (!campaign) return json({ success: false, error: "Campaign not found" }, 404, origin);
 
-    const [brandBreakdown, providerBreakdown] = await Promise.all([
+    const [brandBreakdown, providerBreakdown, liveStats] = await Promise.all([
       env.DB.prepare(`
         SELECT target_brand_id AS brand_id, b.name AS brand_name, COUNT(*) AS count
         FROM threats t LEFT JOIN brands b ON b.id = t.target_brand_id
@@ -81,11 +81,28 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
         WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL
         GROUP BY t.hosting_provider_id ORDER BY count DESC
       `).bind(campaignId).all(),
+      env.DB.prepare(`
+        SELECT COUNT(*) AS threat_count,
+               COUNT(DISTINCT target_brand_id) AS brand_count,
+               COUNT(DISTINCT hosting_provider_id) AS provider_count,
+               COUNT(DISTINCT malicious_domain) AS domain_count,
+               COUNT(DISTINCT ip_address) AS ip_count
+        FROM threats WHERE campaign_id = ?
+      `).bind(campaignId).first(),
     ]);
 
     return json({
       success: true,
-      data: { ...campaign, brand_breakdown: brandBreakdown.results, provider_breakdown: providerBreakdown.results },
+      data: {
+        ...campaign,
+        threat_count: liveStats?.threat_count ?? (campaign as Record<string, unknown>).threat_count ?? 0,
+        brand_count: liveStats?.brand_count ?? (campaign as Record<string, unknown>).brand_count ?? 0,
+        provider_count: liveStats?.provider_count ?? (campaign as Record<string, unknown>).provider_count ?? 0,
+        domain_count: liveStats?.domain_count ?? 0,
+        ip_count: liveStats?.ip_count ?? 0,
+        brand_breakdown: brandBreakdown.results,
+        provider_breakdown: providerBreakdown.results,
+      },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
@@ -172,12 +189,20 @@ export async function handleCampaignBrands(request: Request, env: Env, campaignI
 export async function handleCampaignTimeline(request: Request, env: Env, campaignId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    const url = new URL(request.url);
+    const period = url.searchParams.get("period") ?? "7d";
+    let bucket = "strftime('%Y-%m-%dT%H:00', created_at)";
+    let since = "datetime('now', '-7 days')";
+    if (period === "24h") { since = "datetime('now', '-1 day')"; }
+    else if (period === "30d") { since = "datetime('now', '-30 days')"; bucket = "date(created_at)"; }
+    else if (period === "90d") { since = "datetime('now', '-90 days')"; bucket = "date(created_at)"; }
+
     const rows = await env.DB.prepare(`
-      SELECT date(created_at) AS period, COUNT(*) AS count,
+      SELECT ${bucket} AS period, COUNT(*) AS count,
              SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) AS phishing,
              SUM(CASE WHEN threat_type = 'typosquatting' THEN 1 ELSE 0 END) AS typosquatting
-      FROM threats WHERE campaign_id = ?
-      GROUP BY date(created_at) ORDER BY period ASC
+      FROM threats WHERE campaign_id = ? AND created_at >= ${since}
+      GROUP BY ${bucket} ORDER BY period ASC
     `).bind(campaignId).all();
 
     const results = rows.results as Array<{ period: string; count: number }>;
