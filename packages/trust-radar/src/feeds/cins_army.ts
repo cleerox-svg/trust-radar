@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 const CINS_URL = "https://cinsscore.com/list/ci-badguys.txt";
 
@@ -14,13 +15,9 @@ export const cins_army: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || CINS_URL;
     console.log(`[cins_army] ingest() called — url=${url}`);
-    let res: Response;
-    try {
-      res = await fetch(url, { headers: { "User-Agent": "trust-radar/2.0" } });
-    } catch (fetchErr) {
-      console.error(`[cins_army] fetch threw:`, fetchErr);
-      throw new Error(`CINS Army fetch failed: ${fetchErr}`);
-    }
+    const res = await diagnosticFetch(ctx.env.DB, "cins_army", url, {
+      headers: { "User-Agent": "trust-radar/2.0" },
+    });
     console.log(`[cins_army] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`CINS Army HTTP ${res.status}`);
 

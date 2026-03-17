@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /**
  * AlienVault OTX — Public pulse activity feed.
@@ -13,15 +14,9 @@ export const otx_alienvault: FeedModule = {
     const feedUrl = "https://otx.alienvault.com/api/v1/pulses/activity";
     console.log(`[otx] ingest() called — feedUrl=${feedUrl}`);
 
-    let res: Response;
-    try {
-      res = await fetch(feedUrl, {
-        headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
-      });
-    } catch (fetchErr) {
-      console.error(`[otx] fetch threw:`, fetchErr);
-      throw new Error(`OTX fetch failed: ${fetchErr}`);
-    }
+    const res = await diagnosticFetch(ctx.env.DB, "otx_alienvault", feedUrl, {
+      headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
+    });
     console.log(`[otx] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`OTX HTTP ${res.status}`);
 

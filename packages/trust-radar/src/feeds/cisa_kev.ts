@@ -1,4 +1,5 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
+import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /**
  * CISA Known Exploited Vulnerabilities — Daily catalog.
@@ -25,15 +26,9 @@ export const cisa_kev: FeedModule = {
     const feedUrl = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
     console.log(`[cisa_kev] ingest() called — feedUrl=${feedUrl}`);
 
-    let res: Response;
-    try {
-      res = await fetch(feedUrl, {
-        headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
-      });
-    } catch (fetchErr) {
-      console.error(`[cisa_kev] fetch threw:`, fetchErr);
-      throw new Error(`CISA KEV fetch failed: ${fetchErr}`);
-    }
+    const res = await diagnosticFetch(ctx.env.DB, "cisa_kev", feedUrl, {
+      headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
+    });
     console.log(`[cisa_kev] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`CISA KEV HTTP ${res.status}`);
 
