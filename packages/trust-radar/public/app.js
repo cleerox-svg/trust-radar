@@ -477,6 +477,16 @@ document.addEventListener('click', () => {
   }
 });
 
+// ─── Expose functions used by inline handlers to global scope ───
+// (app.js is loaded as a module, so functions are not global by default)
+window.navigate = navigate;
+window.toggleNotifDropdown = toggleNotifDropdown;
+window.markNotifRead = markNotifRead;
+window.markAllNotifRead = markAllNotifRead;
+window.openNotifPreferences = openNotifPreferences;
+window.saveNotifPreferences = saveNotifPreferences;
+window.handleBrowserNotifToggle = handleBrowserNotifToggle;
+
 // ─── Shared Components ──────────────────────────────────────────
 
 function getUserInitials(u) {
@@ -696,6 +706,7 @@ async function logout() {
   currentUser = null;
   window.location.href = '/login';
 }
+window.logout = logout;
 
 // ─── View: Root (public landing / redirect) ────────────────────
 async function viewRootRedirect(el) {
