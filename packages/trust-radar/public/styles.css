@@ -2425,6 +2425,144 @@ a.campaign-card:hover { text-decoration: none; }
   .pub-hero-title { font-size: 26px; }
   .pub-hero-cta { flex-direction: column; align-items: center; }
   .pub-btn-lg { font-size: 12px; padding: 12px 24px; }
+  .pub-detect-grid { grid-template-columns: 1fr; }
+  .pub-feeds-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Threat Detection Grid ────────────────────────────────────── */
+.pub-detect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.pub-detect-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  transition: border-color var(--transition-fast);
+}
+.pub-detect-card:hover { border-color: var(--blue-border-bright); }
+.pub-detect-icon { flex-shrink: 0; margin-top: 2px; }
+.pub-detect-body { flex: 1; min-width: 0; }
+.pub-detect-label { font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 3px; }
+.pub-detect-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 6px; }
+.pub-detect-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+
+/* ─── Pipeline Step Enhancements ───────────────────────────────── */
+.pub-step-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pub-step-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  background: rgba(0,212,255,0.08);
+  border: 1px solid var(--blue-border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+.pub-step-agents { display: flex; gap: 12px; margin-top: 10px; }
+.pub-step-agent {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--ac, var(--blue-primary));
+  color: var(--ac, var(--blue-primary));
+  font-size: 14px;
+}
+.pub-step-demo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.pub-step-threat {
+  color: var(--threat-critical);
+  padding: 4px 10px;
+  background: rgba(255,59,92,0.08);
+  border-radius: 4px;
+  border: 1px solid rgba(255,59,92,0.2);
+}
+.pub-step-match {
+  color: var(--positive);
+  padding: 4px 10px;
+  background: rgba(0,229,160,0.08);
+  border-radius: 4px;
+  border: 1px solid rgba(0,229,160,0.2);
+}
+
+/* ─── Feed Sources Grid ────────────────────────────────────────── */
+.pub-feeds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.pub-feed-card {
+  padding: 14px 18px;
+  background: var(--bg-panel);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius);
+  transition: border-color var(--transition-fast);
+}
+.pub-feed-card:hover { border-color: var(--blue-border-bright); }
+.pub-feed-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pub-feed-card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pub-feed-card-name { font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--text-primary); flex: 1; }
+.pub-feed-type-badge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pub-feed-card-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+.pub-feed-card-stat { font-size: 10px; color: var(--blue-primary); font-family: var(--font-mono); margin-top: 6px; }
+
+/* ─── Assessment Enhancements ──────────────────────────────────── */
+.pub-assess-types {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+}
+.pub-assess-type-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(0,212,255,0.05);
+}
+.pub-assess-type-row:last-child { border-bottom: none; }
+
+/* ─── Footer Stats ─────────────────────────────────────────────── */
+.pub-footer-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.pub-footer-stats strong {
+  color: var(--blue-primary);
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 768px) {
+  .pub-detect-grid { grid-template-columns: 1fr 1fr; }
+  .pub-feeds-grid { grid-template-columns: 1fr; }
+  .pub-footer-stats { flex-direction: column; align-items: center; gap: 8px; }
 }
 
 /* ─── Notification Bell & Dropdown ─────────────────────────────── */

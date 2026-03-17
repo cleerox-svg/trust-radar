@@ -12,26 +12,48 @@ import type { Env } from "../types";
 export async function handlePublicStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const [threats, brands, providers, campaigns, certsToday, classifiedToday, latestInsight] = await Promise.all([
+    const [
+      totalThreats, activeThreats, brandsMonitored, activeFeeds,
+      campaigns, countries, certsToday, classifiedToday,
+      latestInsight, providers, typeCounts,
+    ] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE status = 'active' OR status IS NULL").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(*) as n FROM brands").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(DISTINCT hosting_provider_id) as n FROM threats WHERE hosting_provider_id IS NOT NULL").first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as n FROM monitored_brands WHERE status = 'active'").first<{ n: number }>(),
+      env.DB.prepare(
+        `SELECT COUNT(*) as n FROM feed_status
+         WHERE health_status IN ('healthy', 'degraded')
+         AND feed_name NOT IN (SELECT feed_name FROM feed_configs WHERE enabled = 0)`
+      ).first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM campaigns").first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(DISTINCT country_code) as n FROM threats WHERE country_code IS NOT NULL AND country_code != 'XX'").first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE created_at >= date('now')").first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE confidence_score IS NOT NULL AND created_at >= date('now')").first<{ n: number }>(),
       env.DB.prepare("SELECT summary FROM agent_outputs WHERE agent_id = 'observer' ORDER BY created_at DESC LIMIT 1").first<{ summary: string }>(),
+      env.DB.prepare("SELECT COUNT(DISTINCT hosting_provider_id) as n FROM threats WHERE hosting_provider_id IS NOT NULL").first<{ n: number }>(),
+      env.DB.prepare(
+        `SELECT threat_type, COUNT(*) as count FROM threats
+         WHERE threat_type IS NOT NULL
+         GROUP BY threat_type ORDER BY count DESC`
+      ).all<{ threat_type: string; count: number }>(),
     ]);
 
     return json({
       success: true,
       data: {
-        active_threats: threats?.n ?? 0,
-        brands_tracked: brands?.n ?? 0,
-        providers_mapped: providers?.n ?? 0,
+        total_threats: totalThreats?.n ?? 0,
+        active_threats: activeThreats?.n ?? 0,
+        brands_monitored: brandsMonitored?.n ?? 0,
+        active_feeds: activeFeeds?.n ?? 0,
         threat_campaigns: campaigns?.n ?? 0,
+        countries: countries?.n ?? 0,
         certificates_today: certsToday?.n ?? 0,
         threats_classified_today: classifiedToday?.n ?? 0,
+        providers_mapped: providers?.n ?? 0,
         latest_insight_summary: latestInsight?.summary?.slice(0, 80) ?? "",
+        threat_types: typeCounts?.results ?? [],
+        // Legacy aliases
+        brands_tracked: brandsMonitored?.n ?? 0,
       },
     }, 200, origin);
   } catch (err) {
@@ -54,6 +76,29 @@ export async function handlePublicGeo(request: Request, env: Env): Promise<Respo
        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
        ORDER BY created_at DESC LIMIT 500`
     ).all<{ lat: number; lng: number; severity: string }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── GET /api/v1/public/feeds ────────────────────────────────────
+
+export async function handlePublicFeeds(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT fc.feed_name, fc.display_name, fc.description, fs.health_status,
+              fs.records_ingested_today
+       FROM feed_configs fc
+       JOIN feed_status fs ON fc.feed_name = fs.feed_name
+       WHERE fc.enabled = 1
+       ORDER BY fs.records_ingested_today DESC`
+    ).all<{
+      feed_name: string; display_name: string; description: string;
+      health_status: string; records_ingested_today: number;
+    }>();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
@@ -87,28 +132,66 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
     const keyword = domain.split(".")[0]!;
     const brandName = keyword.charAt(0).toUpperCase() + keyword.slice(1);
 
-    // Query threats matching this keyword
-    const [threatResult, providerResult, campaignResult] = await Promise.all([
-      env.DB.prepare(
-        `SELECT COUNT(*) as threat_count FROM threats
-         WHERE malicious_url LIKE ? OR malicious_domain LIKE ?`
-      ).bind(`%${keyword}%`, `%${keyword}%`).first<{ threat_count: number }>(),
-      env.DB.prepare(
-        `SELECT COUNT(DISTINCT hosting_provider_id) as provider_count FROM threats
-         WHERE (malicious_url LIKE ? OR malicious_domain LIKE ?) AND hosting_provider_id IS NOT NULL`
-      ).bind(`%${keyword}%`, `%${keyword}%`).first<{ provider_count: number }>(),
-      env.DB.prepare(
-        `SELECT COUNT(DISTINCT id) as campaign_count FROM campaigns
-         WHERE name LIKE ? OR id IN (
-           SELECT DISTINCT campaign_id FROM threats
-           WHERE campaign_id IS NOT NULL AND (malicious_url LIKE ? OR malicious_domain LIKE ?)
-         )`
-      ).bind(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`).first<{ campaign_count: number }>(),
-    ]);
+    // Check if this brand is monitored
+    const monitoredBrand = await env.DB.prepare(
+      `SELECT b.id, b.name FROM brands b
+       JOIN monitored_brands mb ON mb.brand_id = b.id
+       WHERE mb.status = 'active' AND (b.canonical_domain = ? OR b.name LIKE ?)
+       LIMIT 1`
+    ).bind(domain, `%${keyword}%`).first<{ id: string; name: string }>();
 
-    const threatCount = threatResult?.threat_count ?? 0;
-    const providerCount = providerResult?.provider_count ?? 0;
-    const campaignCount = campaignResult?.campaign_count ?? 0;
+    let threatCount: number, providerCount: number, campaignCount: number;
+    let isMonitored = false;
+    let threatTypes: { threat_type: string; count: number }[] = [];
+
+    if (monitoredBrand) {
+      // Brand is monitored — show REAL data
+      isMonitored = true;
+      const [tc, pc, cc, tt] = await Promise.all([
+        env.DB.prepare(
+          `SELECT COUNT(*) as c FROM threats WHERE target_brand_id = ?`
+        ).bind(monitoredBrand.id).first<{ c: number }>(),
+        env.DB.prepare(
+          `SELECT COUNT(DISTINCT hosting_provider_id) as c FROM threats
+           WHERE target_brand_id = ? AND hosting_provider_id IS NOT NULL`
+        ).bind(monitoredBrand.id).first<{ c: number }>(),
+        env.DB.prepare(
+          `SELECT COUNT(DISTINCT campaign_id) as c FROM threats
+           WHERE target_brand_id = ? AND campaign_id IS NOT NULL`
+        ).bind(monitoredBrand.id).first<{ c: number }>(),
+        env.DB.prepare(
+          `SELECT threat_type, COUNT(*) as count FROM threats
+           WHERE target_brand_id = ? AND threat_type IS NOT NULL
+           GROUP BY threat_type ORDER BY count DESC`
+        ).bind(monitoredBrand.id).all<{ threat_type: string; count: number }>(),
+      ]);
+      threatCount = tc?.c ?? 0;
+      providerCount = pc?.c ?? 0;
+      campaignCount = cc?.c ?? 0;
+      threatTypes = tt?.results ?? [];
+    } else {
+      // Not monitored — keyword-based scan
+      const [tc, pc, cc] = await Promise.all([
+        env.DB.prepare(
+          `SELECT COUNT(*) as c FROM threats
+           WHERE malicious_url LIKE ? OR malicious_domain LIKE ?`
+        ).bind(`%${keyword}%`, `%${keyword}%`).first<{ c: number }>(),
+        env.DB.prepare(
+          `SELECT COUNT(DISTINCT hosting_provider_id) as c FROM threats
+           WHERE (malicious_url LIKE ? OR malicious_domain LIKE ?) AND hosting_provider_id IS NOT NULL`
+        ).bind(`%${keyword}%`, `%${keyword}%`).first<{ c: number }>(),
+        env.DB.prepare(
+          `SELECT COUNT(DISTINCT id) as c FROM campaigns
+           WHERE name LIKE ? OR id IN (
+             SELECT DISTINCT campaign_id FROM threats
+             WHERE campaign_id IS NOT NULL AND (malicious_url LIKE ? OR malicious_domain LIKE ?)
+           )`
+        ).bind(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`).first<{ c: number }>(),
+      ]);
+      threatCount = tc?.c ?? 0;
+      providerCount = pc?.c ?? 0;
+      campaignCount = cc?.c ?? 0;
+    }
 
     // Calculate trust score
     const trustScore = Math.max(0, 100 - threatCount * 2);
@@ -120,12 +203,11 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
     const aiResult = await callHaikuRaw(
       env,
       "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Trust Radar by name.",
-      `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.`,
+      `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}`,
     );
     if (aiResult.success && aiResult.text) {
       assessmentText = aiResult.text;
     } else {
-      // Rule-based fallback
       if (threatCount === 0) {
         assessmentText = `No active threats were detected targeting ${brandName}. This is a positive signal, but continuous monitoring is recommended as new phishing domains and impersonation attacks emerge daily.`;
       } else if (threatCount < 10) {
@@ -142,7 +224,7 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).bind(
       assessmentId, domain, trustScore, grade, assessmentText,
-      JSON.stringify({ threat_count: threatCount, provider_count: providerCount, campaign_count: campaignCount }),
+      JSON.stringify({ threat_count: threatCount, provider_count: providerCount, campaign_count: campaignCount, threat_types: threatTypes }),
       ip,
     ).run();
 
@@ -151,12 +233,14 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
       data: {
         assessment_id: assessmentId,
         domain,
-        brand_name: brandName,
+        brand_name: monitoredBrand?.name ?? brandName,
         trust_score: trustScore,
         grade,
         threat_count: threatCount,
         provider_count: providerCount,
         campaign_count: campaignCount,
+        threat_types: threatTypes,
+        is_monitored: isMonitored,
         assessment_text: assessmentText,
         assessed_at: new Date().toISOString(),
       },
