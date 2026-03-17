@@ -122,14 +122,19 @@ export async function runFeed(
     ).bind(result.itemsNew, result.itemsDuplicate + result.itemsError, durationMs, pullId).run();
     console.log(`[runFeed] ${config.feed_name}: pull_history updated, changes=${pullUpdate.meta.changes}`);
 
-    // Update feed_status
+    // Ensure feed_status row exists (INSERT OR IGNORE), then update
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES (?, 'healthy')"
+    ).bind(config.feed_name).run();
+
+    // Update feed_status: only set healthy if records were ingested
     const statusUpdate = await env.DB.prepare(
       `UPDATE feed_status SET
          last_successful_pull = datetime('now'),
          records_ingested_today = records_ingested_today + ?,
-         health_status = 'healthy'
+         health_status = CASE WHEN ? > 0 THEN 'healthy' ELSE health_status END
        WHERE feed_name = ?`
-    ).bind(result.itemsNew, config.feed_name).run();
+    ).bind(result.itemsNew, result.itemsFetched, config.feed_name).run();
     console.log(`[runFeed] ${config.feed_name}: feed_status updated, changes=${statusUpdate.meta.changes}`);
 
     return result;

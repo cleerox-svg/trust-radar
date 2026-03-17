@@ -15,6 +15,9 @@ import { cins_army } from "./cins_army";
 import { sslbl } from "./sslbl";
 import { cloudflare_scanner } from "./cloudflare_scanner";
 import { cloudflare_email } from "./cloudflare_email";
+import { otx_alienvault } from "./otx_alienvault";
+import { cisa_kev } from "./cisa_kev";
+import { malwarebazaar } from "./malwarebazaar";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -35,4 +38,7 @@ export const feedModules: Record<string, FeedModule> = {
   sslbl,
   cloudflare_scanner,
   cloudflare_email,
+  otx_alienvault,
+  cisa_kev,
+  malwarebazaar,
 };
