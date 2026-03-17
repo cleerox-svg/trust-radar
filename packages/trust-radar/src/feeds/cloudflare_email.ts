@@ -27,6 +27,9 @@ const EMAIL_ENDPOINTS = [
 export const cloudflare_email: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const token = ctx.env.CF_API_TOKEN;
+
+    console.log(`[cf_email] starting, token=${token ? 'set' : 'MISSING'}`);
+
     if (!token) {
       console.warn("[cf_email] CF_API_TOKEN not configured — skipping");
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
