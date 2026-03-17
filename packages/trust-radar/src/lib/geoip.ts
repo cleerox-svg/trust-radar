@@ -156,17 +156,15 @@ function parseIpinfoResponse(ip: string, data: IpinfoResponse): GeoIPResult | nu
 
 /**
  * Batch-resolve IPs to geo data via ipinfo.io.
- * - Filters out private/bogon IPs before making API calls
- * - Checks monthly usage budget in KV before proceeding
- * - Only treats HTTP 429 as rate limiting (not bogon/DNS nulls)
- * - Processes sequentially to avoid race conditions
+ * Returns { results, attempted } so callers know which IPs were actually looked up.
  */
 export async function batchGeoLookup(
   ips: string[],
   kv?: KVNamespace,
-): Promise<Map<string, GeoIPResult>> {
+): Promise<{ results: Map<string, GeoIPResult>; attempted: Set<string> }> {
   const results = new Map<string, GeoIPResult>();
-  if (ips.length === 0) return results;
+  const attempted = new Set<string>();
+  if (ips.length === 0) return { results, attempted };
 
   // Filter out private/bogon IPs — they waste quota
   const publicIps = [...new Set(ips)].filter(ip => !isPrivateIP(ip));
@@ -177,7 +175,7 @@ export async function batchGeoLookup(
 
   if (publicIps.length === 0) {
     console.log(`[geoip] No public IPs to look up after filtering`);
-    return results;
+    return { results, attempted };
   }
 
   // Check monthly budget
@@ -185,7 +183,7 @@ export async function batchGeoLookup(
     const usage = await getGeoUsage(kv);
     if (usage >= GEO_MONTHLY_LIMIT) {
       console.warn(`[geoip] Monthly budget exhausted: ${usage}/${GEO_MONTHLY_LIMIT} — skipping all lookups`);
-      return results;
+      return { results, attempted };
     }
     const remaining = GEO_MONTHLY_LIMIT - usage;
     console.log(`[geoip] Monthly usage: ${usage}/${GEO_MONTHLY_LIMIT} (${remaining} remaining)`);
@@ -200,6 +198,7 @@ export async function batchGeoLookup(
   // Process sequentially — no concurrency needed at batch size 5
   for (let i = 0; i < batch.length; i++) {
     const ip = batch[i]!;
+    attempted.add(ip);
     const { geo, rateLimited } = await lookupSingleIP(ip);
 
     if (rateLimited) {
@@ -228,10 +227,10 @@ export async function batchGeoLookup(
 
   if (results.size > 0) {
     const sample = results.values().next().value;
-    console.log(`[geoip] Sample: ip=${sample?.ip} country=${sample?.countryCode} org=${sample?.org} asn=${sample?.as}`);
+    console.log(`[geoip] Sample: ip=${sample?.ip} country=${sample?.countryCode} lat=${sample?.lat} lng=${sample?.lng} org=${sample?.org} asn=${sample?.as}`);
   }
 
-  return results;
+  return { results, attempted };
 }
 
 /**
@@ -285,20 +284,28 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promis
   }
 
   const ips = publicRows.map((r) => r.ip_address);
-  const geoMap = await batchGeoLookup(ips, kv);
+  const { results: geoMap, attempted } = await batchGeoLookup(ips, kv);
+
+  console.log(`[geo] batchGeoLookup returned: ${geoMap.size} results, ${attempted.size} attempted out of ${ips.length} submitted`);
 
   for (const row of publicRows) {
     const geo = geoMap.get(row.ip_address);
+
     if (!geo) {
-      // Mark as 'XX' (unknown) so this IP doesn't block the queue
-      try {
-        await db.prepare(
-          "UPDATE threats SET country_code = 'XX' WHERE id = ? AND country_code IS NULL"
-        ).bind(row.id).run();
-        result.skippedNoResult++;
-        console.log(`[geo] no result for ${row.ip_address} (${row.id}) — marked XX`);
-      } catch (err) {
-        result.errors.push(`mark-xx ${row.id}: ${err}`);
+      // Only mark XX for IPs that were actually looked up and returned nothing.
+      // IPs that weren't attempted (over the cap) should stay in queue for next cycle.
+      if (attempted.has(row.ip_address)) {
+        try {
+          await db.prepare(
+            "UPDATE threats SET country_code = 'XX' WHERE id = ? AND country_code IS NULL"
+          ).bind(row.id).run();
+          result.skippedNoResult++;
+          console.log(`[geo] no result for ${row.ip_address} (${row.id}) — marked XX`);
+        } catch (err) {
+          result.errors.push(`mark-xx ${row.id}: ${err}`);
+        }
+      } else {
+        console.log(`[geo] ${row.ip_address} (${row.id}) not attempted (over cap) — will retry next cycle`);
       }
       continue;
     }
@@ -322,6 +329,7 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promis
         geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
       ).run();
       result.enriched++;
+      console.log(`[geo] enriched ${row.ip_address} (${row.id}): country=${geo.countryCode} lat=${geo.lat} lng=${geo.lng}`);
     } catch (err) {
       console.error(`[geoip] update failed for ${row.id}:`, err);
       result.errors.push(`update ${row.id}: ${err}`);
