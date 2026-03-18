@@ -1382,6 +1382,84 @@ async function viewObservatory(el) {
   let _brandFocusCache = {};
   let currentLayers = [];
 
+  // ── Particle state ───────────────────────────────────────────────
+  let _particles = [];
+  let _particleFrame = null;
+  let _particleArcs = [];
+
+  // Great-circle interpolation: returns [lon, lat] at fraction t (0→1)
+  function _gcInterp(lon0, lat0, lon1, lat1, t) {
+    const R = Math.PI / 180, D = 180 / Math.PI;
+    const p1 = lat0 * R, l1 = lon0 * R, p2 = lat1 * R, l2 = lon1 * R;
+    const x1 = Math.cos(p1)*Math.cos(l1), y1 = Math.cos(p1)*Math.sin(l1), z1 = Math.sin(p1);
+    const x2 = Math.cos(p2)*Math.cos(l2), y2 = Math.cos(p2)*Math.sin(l2), z2 = Math.sin(p2);
+    const dot = Math.min(1, Math.max(-1, x1*x2 + y1*y2 + z1*z2));
+    const omega = Math.acos(dot);
+    if (omega < 1e-6) return [lon0, lat0];
+    const s = Math.sin(omega);
+    const a = Math.sin((1-t)*omega)/s, b = Math.sin(t*omega)/s;
+    const x = a*x1+b*x2, y = a*y1+b*y2, z = a*z1+b*z2;
+    return [Math.atan2(y,x)*D, Math.atan2(z, Math.sqrt(x*x+y*y))*D];
+  }
+
+  function _initParticles(arcs) {
+    _particleArcs = arcs;
+    _particles = [];
+    arcs.forEach((arc, fi) => {
+      if (!arc.sourcePosition || !arc.targetPosition) return;
+      const n = Math.max(2, Math.ceil((arc.volume || 1) * 0.8));
+      for (let i = 0; i < n; i++) {
+        _particles.push({
+          arc: fi,
+          t: Math.random(),
+          speed: 0.0012 + Math.random() * 0.0018,
+          size: 2.5 + (arc.volume || 1) * 0.25,
+          color: _typeColor(arc.threat_type, 220),
+        });
+      }
+    });
+  }
+
+  function _stopParticleLoop() {
+    if (_particleFrame) { cancelAnimationFrame(_particleFrame); _particleFrame = null; }
+  }
+
+  function _startParticleLoop() {
+    _stopParticleLoop();
+    if (_particles.length === 0) return;
+    function loop() {
+      _particles.forEach(p => {
+        p.t += p.speed;
+        if (p.t > 1.05) p.t = -0.05;
+      });
+      const glowData = [], trailData = [], coreData = [], centerData = [];
+      _particles.forEach(p => {
+        const arc = _particleArcs[p.arc];
+        if (!arc) return;
+        const tc    = Math.max(0, Math.min(1, p.t));
+        const trailT = Math.max(0, Math.min(1, p.t - 0.04));
+        const [lon,  lat]  = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], tc);
+        const [tlon, tlat] = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], trailT);
+        const col3 = p.color.slice(0,3);
+        glowData.push(  { pos:[lon,lat],   col:[...col3, 38],  r:p.size*4.5 });
+        trailData.push( { pos:[tlon,tlat], col:[...col3, 80],  r:p.size*0.9 });
+        coreData.push(  { pos:[lon,lat],   col:[...col3, 220], r:p.size*2.5 });
+        centerData.push({ pos:[lon,lat],   col:[255,255,255,178], r:p.size   });
+      });
+      if (deckgl) {
+        deckgl.setProps({ layers: [
+          ...currentLayers,
+          new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:4,  radiusMaxPixels:20 }),
+          new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
+          new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:12 }),
+          new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:1,  radiusMaxPixels:4  }),
+        ]});
+      }
+      _particleFrame = requestAnimationFrame(loop);
+    }
+    _particleFrame = requestAnimationFrame(loop);
+  }
+
   // ── Color helpers ────────────────────────────────────────────────
   function _typeColor(type, alpha) {
     const a = alpha !== undefined ? alpha : 200;
@@ -1507,6 +1585,7 @@ async function viewObservatory(el) {
 
   // ── Map update dispatcher ────────────────────────────────────────
   function updateMap() {
+    _stopParticleLoop();
     stopRadar();
     if      (currentMode === 1) renderMultiStream();
     else if (currentMode === 2) renderLiveFeed();
@@ -1608,6 +1687,8 @@ async function viewObservatory(el) {
         radiusMinPixels: 2, radiusMaxPixels: 8,
       }),
     ]);
+    _initParticles(arcData);
+    _startParticleLoop();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -1729,6 +1810,8 @@ async function viewObservatory(el) {
         pickable: true,
       }),
     ]);
+    _initParticles(top15);
+    _startParticleLoop();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -1862,6 +1945,8 @@ async function viewObservatory(el) {
           characterSet: 'auto',
         }),
       ]);
+      _initParticles(bArcs);
+      _startParticleLoop();
     }
 
     showBrand(currentBrandIdx);
@@ -1878,6 +1963,7 @@ async function viewObservatory(el) {
   const HQ_POS = [-79.38, 43.65]; // Trust Radar HQ — Toronto, Canada
 
   function stopRadar() {
+    _stopParticleLoop();
     if (radarFrame) { cancelAnimationFrame(radarFrame); radarFrame = null; }
     if (brandCycleTimer) { clearInterval(brandCycleTimer); brandCycleTimer = null; }
     const rc = document.querySelector('.radar-canvas');
@@ -2138,6 +2224,7 @@ async function viewObservatory(el) {
     if (livePoller)      clearInterval(livePoller);
     if (brandCycleTimer) clearInterval(brandCycleTimer);
     if (_obsPoller)      clearInterval(_obsPoller);
+    _stopParticleLoop();
     stopRadar();
     if (deckgl) { try { deckgl.finalize(); } catch {} deckgl = null; }
     _obsMap = null;
