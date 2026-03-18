@@ -151,6 +151,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         severity: row.severity ?? "low",
         source_region: row.source_country ?? "Unknown",
         target_brand: row.target_brand ?? "Unknown",
+        brand_name: row.target_brand ?? null,
         volume: row.volume,
       };
     });

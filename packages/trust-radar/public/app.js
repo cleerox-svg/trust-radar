@@ -1432,7 +1432,7 @@ async function viewObservatory(el) {
   let livePoller = null;
   let radarFrame = null;
   let deckgl = null;
-  let currentViewState = { longitude: 0, latitude: 25, zoom: 2.2, pitch: 35, bearing: 0 };
+  let currentViewState = { longitude: 10, latitude: 25, zoom: 2.2, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
@@ -1442,9 +1442,69 @@ async function viewObservatory(el) {
   let _particleFrame = null;
   let _particleArcs = [];
 
-  // Linear interpolation along screen-space line (matches LineLayer path exactly)
-  function _gcInterp(lon0, lat0, lon1, lat1, t) {
-    return [lon0 + (lon1 - lon0) * t, lat0 + (lat1 - lat0) * t];
+  // ── Brand HQ coordinates for arc targeting ───────────────────────
+  const BRAND_HQ = {
+    'amazon':           { lat: 47.6062, lng: -122.3321 },
+    'apple':            { lat: 37.3349, lng: -122.0090 },
+    'google':           { lat: 37.4220, lng: -122.0841 },
+    'microsoft':        { lat: 47.6395, lng: -122.1283 },
+    'facebook':         { lat: 37.4848, lng: -122.1484 },
+    'instagram':        { lat: 37.4848, lng: -122.1484 },
+    'netflix':          { lat: 37.2580, lng: -121.9531 },
+    'docusign':         { lat: 37.5202, lng: -122.2554 },
+    'adobe':            { lat: 37.3309, lng: -121.8939 },
+    'coinbase':         { lat: 37.7749, lng: -122.4194 },
+    'disney':           { lat: 34.0577, lng: -118.1764 },
+    'lowes':            { lat: 35.4069, lng: -80.8412  },
+    'roblox':           { lat: 37.7749, lng: -122.4194 },
+    'whatsapp':         { lat: 37.4848, lng: -122.1484 },
+    'standard chartered': { lat: 51.5074, lng: -0.1278 },
+    'paypal':           { lat: 37.3769, lng: -121.9222 },
+    'chase':            { lat: 40.7580, lng: -73.9855  },
+    'bank of america':  { lat: 35.2271, lng: -80.8431  },
+    'wells fargo':      { lat: 37.7749, lng: -122.4194 },
+    'dhl':              { lat: 50.9375, lng: 6.9603    },
+  };
+
+  function _brandHQCoords(brandName) {
+    if (!brandName) return null;
+    const key = brandName.toLowerCase().trim();
+    return BRAND_HQ[key] ?? null;
+  }
+
+  // Quadratic bezier curve — bows NORTH on flat 2-D map
+  function computeBezierPath(srcLng, srcLat, tgtLng, tgtLat, segments = 30) {
+    const midLng = (srcLng + tgtLng) / 2;
+    const midLat = (srcLat + tgtLat) / 2;
+    const dist = Math.sqrt(Math.pow(tgtLng - srcLng, 2) + Math.pow(tgtLat - srcLat, 2));
+    const controlLng = midLng;
+    const controlLat = midLat + dist * 0.3;
+    const path = [];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const t2 = t * t;
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      path.push([
+        mt2 * srcLng + 2 * mt * t * controlLng + t2 * tgtLng,
+        mt2 * srcLat + 2 * mt * t * controlLat + t2 * tgtLat,
+      ]);
+    }
+    return path;
+  }
+
+  // Bezier interpolation for particles — matches computeBezierPath curve exactly
+  function _bezierInterp(srcLng, srcLat, tgtLng, tgtLat, t) {
+    const midLng = (srcLng + tgtLng) / 2;
+    const midLat = (srcLat + tgtLat) / 2;
+    const dist = Math.sqrt(Math.pow(tgtLng - srcLng, 2) + Math.pow(tgtLat - srcLat, 2));
+    const controlLng = midLng;
+    const controlLat = midLat + dist * 0.3;
+    const mt = 1 - t;
+    return [
+      mt * mt * srcLng + 2 * mt * t * controlLng + t * t * tgtLng,
+      mt * mt * srcLat + 2 * mt * t * controlLat + t * t * tgtLat,
+    ];
   }
 
   function _initParticles(arcs) {
@@ -1452,13 +1512,14 @@ async function viewObservatory(el) {
     _particles = [];
     arcs.forEach((arc, fi) => {
       if (!arc.sourcePosition || !arc.targetPosition) return;
-      const n = Math.max(2, Math.ceil((arc.volume || 1) * 1.5));
+      // Min 3 per arc; ~0.5 per unit of volume
+      const n = Math.max(3, Math.ceil((arc.volume || 1) * 0.5));
       for (let i = 0; i < n; i++) {
         _particles.push({
           arc: fi,
           t: Math.random(),
-          speed: (0.0012 + Math.random() * 0.0018) * 0.8,   // 80% of original speed
-          size: 2.5 + (arc.volume || 1) * 0.25,
+          // ~3–4 seconds per full traverse at 60 fps  (1 / (3.5 * 60) ≈ 0.0048)
+          speed: 0.004 + Math.random() * 0.002,
           color: _typeColor(arc.threat_type, 220),
         });
       }
@@ -1473,34 +1534,41 @@ async function viewObservatory(el) {
     _stopParticleLoop();
     if (_particles.length === 0) return;
     function loop() {
+      // Advance positions
       _particles.forEach(p => {
         p.t += p.speed;
         if (p.t > 1.05) p.t = -0.05;
       });
-      const glowData = [], trailData = [], coreData = [], centerData = [];
-      _particles.forEach(p => {
-        const arc = _particleArcs[p.arc];
-        if (!arc) return;
-        const tc    = Math.max(0, Math.min(1, p.t));
-        const trailT = Math.max(0, Math.min(1, p.t - 0.04));
-        const [lon,  lat]  = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], tc);
-        const [tlon, tlat] = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], trailT);
-        const col3 = p.color.slice(0,3);
-        glowData.push(  { pos:[lon,lat],   col:[...col3, 50],  r:p.size*9   });
-        trailData.push( { pos:[tlon,tlat], col:[...col3, 100], r:p.size*1.8 });
-        coreData.push(  { pos:[lon,lat],   col:[...col3, 230], r:p.size*5   });
-        centerData.push({ pos:[lon,lat],   col:[255,255,255,230], r:p.size*2 });
-      });
-      _curParticleLayers = [
-        new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:8,   getFillColor:d=>d.col }),
-        new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:5,   getFillColor:d=>d.col }),
-        new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:3,   getFillColor:d=>d.col }),
-        new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:1.5, getFillColor:d=>d.col }),
-      ];
-      // Preserve base layer visibility; honour _particlesVisible toggle flag.
+
       if (deckgl) {
         const base = deckgl.props.layers.filter(l => !l.id.startsWith('p-'));
-        deckgl.setProps({ layers: _particlesVisible ? [...base, ..._curParticleLayers] : base });
+        if (!_particlesVisible) {
+          // Particles hidden — keep base layers only, skip rendering work
+          deckgl.setProps({ layers: base });
+          _particleFrame = requestAnimationFrame(loop);
+          return;
+        }
+
+        const glowData = [], coreData = [];
+        _particles.forEach(p => {
+          const arc = _particleArcs[p.arc];
+          if (!arc) return;
+          const tc = Math.max(0, Math.min(1, p.t));
+          const [lon, lat] = _bezierInterp(
+            arc.sourcePosition[0], arc.sourcePosition[1],
+            arc.targetPosition[0], arc.targetPosition[1], tc
+          );
+          // Outer glow: 10px cyan at 30% opacity
+          glowData.push({ pos: [lon, lat], col: [0, 212, 255, 77] });
+          // Core dot: 4px bright white
+          coreData.push({ pos: [lon, lat], col: [255, 255, 255, 255] });
+        });
+
+        _curParticleLayers = [
+          new deck.ScatterplotLayer({ id: 'p-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 10, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'p-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius:  4, getFillColor: d => d.col }),
+        ];
+        deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
       }
       _particleFrame = requestAnimationFrame(loop);
     }
@@ -1597,7 +1665,18 @@ async function viewObservatory(el) {
       const allNodes = nodesRes?.data || [];
       const allArcs  = arcsRes?.data  || [];
       nodeData = allNodes.filter(n => activeSeverities.has(n.top_severity || 'low'));
-      arcData  = allArcs.filter(a => activeSeverities.has(a.severity || 'low'));
+      arcData  = allArcs
+        .filter(a => activeSeverities.has(a.severity || 'low'))
+        .map(a => {
+          // Override target with precise brand HQ if we know the brand
+          const hq = _brandHQCoords(a.brand_name || a.target_brand);
+          const tgt = hq ? [hq.lng, hq.lat] : a.targetPosition;
+          return {
+            ...a,
+            targetPosition: tgt,
+            bezierPath: computeBezierPath(a.sourcePosition[0], a.sourcePosition[1], tgt[0], tgt[1]),
+          };
+        });
 
       // DEBUG: dump raw arc positions to verify data structure
       console.table(arcData.slice(0, 5).map(a => ({
@@ -1685,35 +1764,26 @@ async function viewObservatory(el) {
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Arcs (glow pass — wide, semi-transparent)
-      new deck.ArcLayer({
+      // Bezier paths — glow pass (wide, 15% opacity)
+      new deck.PathLayer({
         id: 'arcs-glow',
         data: arcData,
-        getSourcePosition: d => d.sourcePosition,
-        getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 40),
-        getTargetColor: d => _typeColor(d.threat_type, 40),
-        getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
-        getHeight: 0.3,
-        greatCircle: false,
+        getPath: d => d.bezierPath,
+        getColor: d => _typeColor(d.threat_type, 38),
+        getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.3 + 2)),
         widthUnits: 'pixels',
-        widthMinPixels: 2, widthMaxPixels: 12,
+        widthMinPixels: 2, widthMaxPixels: 6,
       }),
-      // Arcs (core pass — sharp, bright)
-      new deck.ArcLayer({
+      // Bezier paths — core pass (thin, 40% opacity)
+      new deck.PathLayer({
         id: 'arcs',
         data: arcData,
-        getSourcePosition: d => d.sourcePosition,
-        getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 220),
-        getTargetColor: d => _typeColor(d.threat_type, 220),
-        getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
-        getHeight: 0.3,
-        greatCircle: false,
+        getPath: d => d.bezierPath,
+        getColor: d => _typeColor(d.threat_type, 102),
+        getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
         widthUnits: 'pixels',
-        widthMinPixels: 1, widthMaxPixels: 6,
+        widthMinPixels: 1, widthMaxPixels: 2,
         pickable: true,
-        transitions: { getSourceColor: 300, getTargetColor: 300 },
       }),
       // Target nodes (pulsing destination rings)
       new deck.ScatterplotLayer({
@@ -1780,33 +1850,25 @@ async function viewObservatory(el) {
     const top15 = arcData.slice(0, 15);
 
     setLayers([
-      // Arcs (thick glow pass)
-      new deck.ArcLayer({
+      // Bezier paths — glow pass (thick, 15% opacity)
+      new deck.PathLayer({
         id: 'corridor-glow',
         data: top15,
-        getSourcePosition: d => d.sourcePosition,
-        getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 50),
-        getTargetColor: d => _typeColor(d.threat_type, 50),
-        getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
-        getHeight: 0.3,
-        greatCircle: false,
+        getPath: d => d.bezierPath,
+        getColor: d => _typeColor(d.threat_type, 38),
+        getWidth: d => Math.max(4, Math.min(8, (d.volume || 1) * 0.5 + 3)),
         widthUnits: 'pixels',
-        widthMinPixels: 4, widthMaxPixels: 24,
+        widthMinPixels: 3, widthMaxPixels: 10,
       }),
-      // Arcs (sharp core)
-      new deck.ArcLayer({
+      // Bezier paths — core pass (sharp)
+      new deck.PathLayer({
         id: 'corridors',
         data: top15,
-        getSourcePosition: d => d.sourcePosition,
-        getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 230),
-        getTargetColor: d => _typeColor(d.threat_type, 230),
-        getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
-        getHeight: 0.3,
-        greatCircle: false,
+        getPath: d => d.bezierPath,
+        getColor: d => _typeColor(d.threat_type, 102),
+        getWidth: d => Math.max(2, Math.min(4, (d.volume || 1) * 0.3)),
         widthUnits: 'pixels',
-        widthMinPixels: 2, widthMaxPixels: 12,
+        widthMinPixels: 1, widthMaxPixels: 4,
         pickable: true,
       }),
       // Source labels
@@ -1906,7 +1968,17 @@ async function viewObservatory(el) {
       if (!bArcs) {
         try {
           const res = await api(`/observatory/brand-arcs?brand_id=${bid}&period=${currentPeriod}`).catch(() => null);
-          bArcs = res?.data || [];
+          const raw = res?.data || [];
+          // Precompute bezier paths; override target with brand HQ if known
+          const brandHQ = _brandHQCoords(brand.name);
+          bArcs = raw.map(a => {
+            const tgt = brandHQ ? [brandHQ.lng, brandHQ.lat] : a.targetPosition;
+            return {
+              ...a,
+              targetPosition: tgt,
+              bezierPath: computeBezierPath(a.sourcePosition[0], a.sourcePosition[1], tgt[0], tgt[1]),
+            };
+          });
           _brandFocusCache[bid] = bArcs;
         } catch { bArcs = []; }
       }
@@ -1941,33 +2013,25 @@ async function viewObservatory(el) {
           lineWidthMinPixels: 2, stroked: true,
           radiusMinPixels: 8, radiusMaxPixels: 40,
         }),
-        // Arcs (glow pass)
-        new deck.ArcLayer({
+        // Bezier paths — glow pass (15% opacity)
+        new deck.PathLayer({
           id: 'brand-arcs-glow',
           data: bArcs,
-          getSourcePosition: d => d.sourcePosition,
-          getTargetPosition: d => d.targetPosition,
-          getSourceColor: d => _typeColor(d.threat_type, 50),
-          getTargetColor: d => _typeColor(d.threat_type, 50),
-          getWidth: d => Math.max(3, d.volume * 1.5),
-          getHeight: 0.3,
-          greatCircle: false,
+          getPath: d => d.bezierPath,
+          getColor: d => _typeColor(d.threat_type, 38),
+          getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.4 + 2)),
           widthUnits: 'pixels',
-          widthMinPixels: 2, widthMaxPixels: 12,
+          widthMinPixels: 2, widthMaxPixels: 8,
         }),
-        // Arcs (core pass)
-        new deck.ArcLayer({
+        // Bezier paths — core pass (40% opacity)
+        new deck.PathLayer({
           id: 'brand-arcs',
           data: bArcs,
-          getSourcePosition: d => d.sourcePosition,
-          getTargetPosition: d => d.targetPosition,
-          getSourceColor: d => _typeColor(d.threat_type, 220),
-          getTargetColor: d => _typeColor(d.threat_type, 220),
-          getWidth: d => Math.max(1, d.volume * 0.8),
-          getHeight: 0.3,
-          greatCircle: false,
+          getPath: d => d.bezierPath,
+          getColor: d => _typeColor(d.threat_type, 102),
+          getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
           widthUnits: 'pixels',
-          widthMinPixels: 1, widthMaxPixels: 8,
+          widthMinPixels: 1, widthMaxPixels: 2,
           pickable: true,
         }),
         // Source nodes
@@ -2263,15 +2327,16 @@ async function viewObservatory(el) {
       btn.classList.toggle('active');
       const isActive = btn.classList.contains('active');
       if (!deckgl) return;
-      if (layer === 'particles') _particlesVisible = isActive;
-      const allIds = deckgl.props.layers.map(l => l.id); console.log('[Observatory] All layer IDs:', JSON.stringify(allIds));
+      if (layer === 'particles') {
+        // rAF loop reads _particlesVisible each frame — no layer manipulation needed here
+        _particlesVisible = isActive;
+        return;
+      }
       const updatedLayers = deckgl.props.layers.map(l => {
         const id = l.id || '';
         let shouldToggle = false;
-        if (layer === 'beams'     && (id.includes('arc') || id.includes('corridor') || id.includes('brand-arc'))) shouldToggle = true;
-        if (layer === 'nodes'     && (id.includes('node') || id.includes('target') || id.includes('bloom') || id.includes('xhair') || id.includes('radar'))) shouldToggle = true;
-        // p-* layers are managed by the rAF loop; _particlesVisible controls them there
-        if (layer === 'particles' && id.startsWith('p-')) shouldToggle = true;
+        if (layer === 'beams' && (id.includes('arc') || id.includes('corridor') || id.includes('brand-arc'))) shouldToggle = true;
+        if (layer === 'nodes' && (id.includes('node') || id.includes('target') || id.includes('bloom') || id.includes('xhair') || id.includes('radar'))) shouldToggle = true;
         if (!shouldToggle) return l;
         try { return l.clone({ visible: isActive }); }
         catch (_) { return new l.constructor({ ...l.props, visible: isActive }); }
