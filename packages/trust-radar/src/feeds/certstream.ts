@@ -3,6 +3,7 @@ import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 import { createNotification } from "../lib/notifications";
+import { isKnownBrandDomain, calculateSuspicionScore } from "../lib/threatScoring";
 
 /** Common homoglyph substitutions for brand matching */
 const HOMOGLYPHS: Record<string, string[]> = {
@@ -97,10 +98,24 @@ export const certstream: FeedModule = {
         // Skip domains in the safe/owned allowlist
         if (isSafeDomain(domain, safeSet)) continue;
 
+        // ─── Skip domains owned by known brands ────────────────
+        if (isKnownBrandDomain(domain.toLowerCase())) continue;
+
         // ─── Check against monitored brands (typosquatting) ───
         const matchedBrand = matchMonitoredBrand(domain.toLowerCase(), brandKeywords);
         if (matchedBrand) {
+          // Calculate suspicion score — only flag if >= 30
+          const suspicionScore = calculateSuspicionScore(
+            domain.toLowerCase(),
+            matchedBrand.keyword,
+            matchedBrand.isHomoglyph,
+          );
+          if (suspicionScore < 30) continue;
+
           if (await isDuplicate(ctx.env, "domain", domain)) { itemsDuplicate++; continue; }
+
+          // Map confidence from suspicion: 30-40 → 40, 41-60 → 55, 61+ → 70
+          const confidence = suspicionScore >= 60 ? 70 : suspicionScore >= 40 ? 55 : 40;
 
           await insertThreat(ctx.env.DB, {
             id: threatId("ct_logs", "domain", domain),
@@ -110,8 +125,8 @@ export const certstream: FeedModule = {
             malicious_domain: domain,
             target_brand_id: matchedBrand.id,
             ioc_value: domain,
-            severity: "high",
-            confidence_score: 75,
+            severity: confidence >= 60 ? "high" : "medium",
+            confidence_score: confidence,
           });
           await markSeen(ctx.env, "domain", domain);
           itemsNew++;
@@ -182,14 +197,16 @@ export const certstream: FeedModule = {
 function matchMonitoredBrand(
   domain: string,
   brands: Array<{ id: string; keyword: string; domain: string }>,
-): { id: string; keyword: string } | null {
+): { id: string; keyword: string; isHomoglyph: boolean } | null {
   for (const brand of brands) {
     // Skip if this IS the brand's canonical domain
     if (domain === brand.domain) continue;
+    // Skip subdomains of the brand's canonical domain
+    if (domain.endsWith("." + brand.domain)) continue;
     if (brand.keyword.length < 3) continue;
 
     // Direct substring match
-    if (domain.includes(brand.keyword)) return brand;
+    if (domain.includes(brand.keyword)) return { ...brand, isHomoglyph: false };
 
     // Homoglyph variant matching
     for (let i = 0; i < brand.keyword.length; i++) {
@@ -198,7 +215,7 @@ function matchMonitoredBrand(
       if (subs) {
         for (const sub of subs) {
           const variant = brand.keyword.slice(0, i) + sub + brand.keyword.slice(i + 1);
-          if (domain.includes(variant)) return brand;
+          if (domain.includes(variant)) return { ...brand, isHomoglyph: true };
         }
       }
     }

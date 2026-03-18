@@ -13,6 +13,7 @@
 import type { Env } from "../types";
 import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "../feeds/types";
 import { createNotification } from "./notifications";
+import { calculateConfidence, calculateSeverity, reclassifyThreatType } from "./threatScoring";
 
 // ─── Deduplication ───────────────────────────────────────────────
 
@@ -37,6 +38,21 @@ export async function markSeen(env: Env, iocType: string, iocValue: string): Pro
 // ─── Threat Insertion (v2 schema) ────────────────────────────────
 
 export async function insertThreat(db: D1Database, threat: ThreatRow): Promise<void> {
+  // Apply heuristic reclassification (first-pass before AI Analyst)
+  const reclassified = reclassifyThreatType(
+    threat.threat_type,
+    threat.malicious_url ?? null,
+    threat.malicious_domain ?? null,
+  );
+  const threatType = reclassified ?? threat.threat_type;
+
+  // Apply confidence score calibration if not set by the feed
+  const confidence = threat.confidence_score ??
+    calculateConfidence(threat.source_feed, threatType, !!threat.target_brand_id);
+
+  // Derive severity from confidence if not set by the feed
+  const severity = threat.severity ?? calculateSeverity(confidence);
+
   await db.prepare(
     `INSERT OR IGNORE INTO threats
        (id, source_feed, threat_type, malicious_url, malicious_domain,
@@ -48,7 +64,7 @@ export async function insertThreat(db: D1Database, threat: ThreatRow): Promise<v
   ).bind(
     threat.id,
     threat.source_feed,
-    threat.threat_type,
+    threatType,
     threat.malicious_url,
     threat.malicious_domain,
     threat.target_brand_id ?? null,
@@ -58,10 +74,10 @@ export async function insertThreat(db: D1Database, threat: ThreatRow): Promise<v
     threat.country_code ?? null,
     threat.registrar ?? null,
     threat.status ?? "active",
-    threat.confidence_score ?? null,
+    confidence,
     threat.campaign_id ?? null,
     threat.ioc_value ?? null,
-    threat.severity ?? null,
+    severity,
   ).run();
 }
 
