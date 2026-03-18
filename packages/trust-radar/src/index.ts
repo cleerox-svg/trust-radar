@@ -76,6 +76,7 @@ import {
   handleTrendTLDs, handleTrendTypes, handleTrendCompare,
 } from "./handlers/trends";
 import { handleLatestInsights } from "./handlers/insights";
+import { handleBrandReport } from "./handlers/reports";
 import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
@@ -661,6 +662,12 @@ router.post("/api/brands/:id/deep-scan", async (request: Request & { params: Rec
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleBrandDeepScan(request, env, request.params["id"] ?? "");
+});
+
+router.get("/api/brands/:id/report", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandReport(request, env, request.params["id"] ?? "");
 });
 
 router.post("/api/brands/:id/clean-false-positives", async (request: Request & { params: Record<string, string> }, env: Env) => {
