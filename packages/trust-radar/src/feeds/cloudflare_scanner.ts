@@ -156,6 +156,18 @@ export const cloudflare_scanner: FeedModule = {
             `CF Scanner first submit: url=${row.malicious_url}, HTTP ${status}, success=${resp?.success ?? 'null'}, uuid=${resp?.result?.uuid ?? 'NONE'}, errors=${JSON.stringify(resp?.errors ?? []).slice(0, 200)}, body=${raw.slice(0, 300)}`,
           ).run();
         } catch { /* non-fatal */ }
+
+        // Abort entire batch on auth errors — don't waste 49 more failed calls
+        if (status === 403 || status === 401) {
+          const errMsg = `CF Scanner: API token lacks URL Scanner permission (HTTP ${status}). Add Account > URL Scanner > Edit to your CF_API_TOKEN.`;
+          console.error(`[cf_scanner] ${errMsg}`);
+          try {
+            await ctx.env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, 'high', datetime('now'))"
+            ).bind('diag_cf_auth_' + Date.now(), errMsg).run();
+          } catch { /* non-fatal */ }
+          return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 1 };
+        }
       }
 
       if (resp?.success && resp.result?.uuid) {

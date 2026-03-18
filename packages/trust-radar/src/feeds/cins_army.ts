@@ -1,14 +1,15 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
-import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 const CINS_URL = "https://cinsscore.com/list/ci-badguys.txt";
+const SAMPLE_SIZE = 200;
+const BATCH_SIZE = 50;
 
 /**
  * CINS Army — Verified malicious IP addresses from honeypot network.
- * Enriches existing threats and stores new IPs that match existing data.
- * Limits new entries to 200 per pull.
+ * Samples 200 IPs per cycle and batch-inserts them (4 batches of 50).
+ * Uses INSERT OR IGNORE so DB-level dedup handles collisions.
  * Schedule: daily.
  */
 export const cins_army: FeedModule = {
@@ -29,79 +30,54 @@ export const cins_army: FeedModule = {
     if (!res.ok) throw new Error(`CINS Army HTTP ${res.status}`);
 
     const text = await res.text();
-    const ips = text.split("\n").map((l) => l.trim()).filter((l) => l && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(l));
+    const allIps = text.split("\n").map((l) => l.trim()).filter((l) => l && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(l));
 
-    // DB diagnostic: parsed count + first IP
+    // Sample 200 random IPs from the full list
+    const ips = sample(allIps, SAMPLE_SIZE);
+
+    // DB diagnostic: parsed count
     try {
       await db.prepare(
         "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-      ).bind('diag_cins_parsed_' + Date.now(), `CINS Army parsed ${ips.length} IPs, first=${ips[0] ?? 'NONE'}, attempting inserts...`).run();
+      ).bind('diag_cins_parsed_' + Date.now(), `CINS Army parsed ${allIps.length} IPs, sampled ${ips.length}, first=${ips[0] ?? 'NONE'}, batch inserting...`).run();
     } catch { /* non-fatal */ }
 
-    let itemsNew = 0, itemsDuplicate = 0, itemsError = 0, itemsEnriched = 0;
+    // Batch INSERT OR IGNORE — 4 batches of 50
+    let itemsNew = 0;
     let firstError: string | null = null;
-    let firstInsertLogged = false;
-    const MAX_NEW = 200;
 
-    for (const ip of ips) {
+    for (let i = 0; i < ips.length; i += BATCH_SIZE) {
+      const batch = ips.slice(i, i + BATCH_SIZE);
+      const stmts = batch.map(ip =>
+        db.prepare(
+          `INSERT OR IGNORE INTO threats
+            (id, source_feed, threat_type, malicious_url, malicious_domain,
+             ip_address, ioc_value, severity, confidence_score, status,
+             first_seen, last_seen, created_at)
+           VALUES (?, 'cins_army', 'malicious_ip', NULL, NULL,
+                   ?, ?, 'medium', 75, 'active',
+                   datetime('now'), datetime('now'), datetime('now'))`
+        ).bind(threatId("cins_army", "ip", ip), ip, ip)
+      );
+
       try {
-        const existing = await db.prepare(
-          "SELECT id, confidence_score FROM threats WHERE ip_address = ? LIMIT 1"
-        ).bind(ip).first<{ id: string; confidence_score: number | null }>();
-
-        if (existing) {
-          const newScore = Math.max(existing.confidence_score ?? 0, 80);
-          await db.prepare(
-            "UPDATE threats SET confidence_score = ?, last_seen = datetime('now') WHERE id = ?"
-          ).bind(newScore, existing.id).run();
-          itemsEnriched++;
-          itemsDuplicate++;
-          continue;
-        }
-
-        if (itemsNew >= MAX_NEW) continue;
-        if (await isDuplicate(ctx.env, "ip", ip)) { itemsDuplicate++; continue; }
-
-        const tid = threatId("cins_army", "ip", ip);
-        await insertThreat(db, {
-          id: tid,
-          source_feed: "cins_army",
-          threat_type: "malicious_ip",
-          malicious_url: null,
-          malicious_domain: null,
-          ip_address: ip,
-          ioc_value: ip,
-          severity: "medium",
-          confidence_score: 75,
-        });
-        await markSeen(ctx.env, "ip", ip);
-        itemsNew++;
-
-        // Log first successful insert
-        if (!firstInsertLogged) {
-          firstInsertLogged = true;
-          try {
-            await db.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('diag_cins_insert_' + Date.now(), `CINS Army first insert SUCCESS: ip=${ip}, id=${tid}`).run();
-          } catch { /* non-fatal */ }
-        }
+        const results = await db.batch(stmts);
+        const batchNew = results.reduce((sum, r) => sum + (r.meta.changes ?? 0), 0);
+        itemsNew += batchNew;
       } catch (e) {
-        itemsError++;
         if (!firstError) firstError = String(e);
-        // Log first insert error to DB
-        if (itemsError === 1) {
-          try {
-            await db.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, severity, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, 'high', datetime('now'))"
-            ).bind('diag_cins_err_' + Date.now(), `CINS Army first insert ERROR: ip=${ip}, error=${String(e).slice(0, 300)}`).run();
-          } catch { /* non-fatal */ }
-        }
       }
     }
 
+    // Mark sampled IPs as seen in KV (fire-and-forget, non-blocking)
+    const kvPromises = ips.slice(0, itemsNew > 0 ? ips.length : 0).map(ip => {
+      const key = `dedup:ip:${ip}`;
+      return ctx.env.CACHE.put(key, "1", { expirationTtl: 86400 }).catch(() => {});
+    });
+    await Promise.all(kvPromises);
+
     // Summary diagnostic to DB
-    const summary = `CINS Army done: total=${ips.length}, new=${itemsNew}, enriched=${itemsEnriched}, dup=${itemsDuplicate}, err=${itemsError}` +
+    const summary = `CINS Army done: total_parsed=${allIps.length}, sampled=${ips.length}, inserted=${itemsNew}, ignored=${ips.length - itemsNew}` +
       (firstError ? `, first_error=${firstError.slice(0, 200)}` : '');
     console.log(`[cins_army] ${summary}`);
     try {
@@ -110,6 +86,18 @@ export const cins_army: FeedModule = {
       ).bind('diag_cins_done_' + Date.now(), summary).run();
     } catch { /* non-fatal */ }
 
-    return { itemsFetched: ips.length, itemsNew, itemsDuplicate, itemsError };
+    return { itemsFetched: allIps.length, itemsNew, itemsDuplicate: ips.length - itemsNew, itemsError: firstError ? 1 : 0 };
   },
 };
+
+/** Fisher-Yates shuffle, return first n elements */
+function sample<T>(arr: T[], n: number): T[] {
+  const copy = arr.slice();
+  const len = copy.length;
+  const limit = Math.min(n, len);
+  for (let i = 0; i < limit; i++) {
+    const j = i + Math.floor(Math.random() * (len - i));
+    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+  }
+  return copy.slice(0, limit);
+}
