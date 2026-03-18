@@ -1314,7 +1314,7 @@ async function viewPublicSite(el, params) {
   window._viewCleanup = () => { clearInterval(statsInterval); };
 }
 
-// ─── View: Observatory (Step 8) ─────────────────────────────
+// ─── View: Observatory (Step 8) — deck.gl + MapLibre GL ─────
 let _obsMap = null;
 let _obsPoller = null;
 
@@ -1333,44 +1333,824 @@ async function viewObservatory(el) {
     <div class="hud-corners"><div class="hud-corner tl"></div><div class="hud-corner tr"></div><div class="hud-corner bl"></div><div class="hud-corner br"></div></div>
     <div class="scan-line"></div>
     <div class="utc-clock" id="utc-clock"></div>
-    <div class="country-tooltip" id="country-tooltip"><div class="ct-name" id="ct-name"></div><div id="ct-rows"></div></div>
     <div class="stat-bar-overlay" id="stat-bar"></div>
-    <div class="severity-legend">
-      <div class="sl-row"><div class="sl-dot" style="background:var(--threat-critical)"></div>Critical (8+)</div>
-      <div class="sl-row"><div class="sl-dot" style="background:var(--threat-high)"></div>High (5-7)</div>
-      <div class="sl-row"><div class="sl-dot" style="background:var(--threat-medium)"></div>Medium (3-4)</div>
-      <div class="sl-row"><div class="sl-dot" style="background:var(--blue-primary)"></div>Low (&lt;3)</div>
+    <div class="obs-mode-selector" id="obs-mode-selector">
+      <button class="obs-mode-btn active" data-mode="1" title="Multi-Stream">⟿</button>
+      <button class="obs-mode-btn" data-mode="2" title="Live Feed">▶</button>
+      <button class="obs-mode-btn" data-mode="3" title="Corridors">═</button>
+      <button class="obs-mode-btn" data-mode="4" title="Brand Focus">◉</button>
+      <button class="obs-mode-btn" data-mode="5" title="Radar Sweep">◠</button>
+    </div>
+    <div class="obs-time-filter" id="obs-time-filter">
+      <button class="obs-tf-btn" data-period="24h">24H</button>
+      <button class="obs-tf-btn active" data-period="7d">7D</button>
+      <button class="obs-tf-btn" data-period="30d">30D</button>
+      <button class="obs-tf-btn" data-period="all">ALL</button>
+    </div>
+    <div class="obs-sev-filter" id="obs-sev-filter">
+      <button class="obs-sev-btn active" data-sev="critical"><span class="obs-sev-dot" style="background:#ff3b5c"></span>Critical</button>
+      <button class="obs-sev-btn active" data-sev="high"><span class="obs-sev-dot" style="background:#ff6b35"></span>High</button>
+      <button class="obs-sev-btn active" data-sev="medium"><span class="obs-sev-dot" style="background:#ffb627"></span>Medium</button>
+      <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#00d4ff"></span>Low</button>
+    </div>
+    <button class="obs-fullscreen-btn" id="obs-fullscreen-btn" title="Toggle Fullscreen">⛶</button>
+    <div class="obs-ticker" id="obs-ticker"></div>
+    <div class="obs-brand-overlay" id="obs-brand-overlay" style="display:none">
+      <div class="obs-brand-name" id="obs-brand-name"></div>
+      <div class="obs-brand-stats" id="obs-brand-stats"></div>
     </div>
   </div>`;
 
-  // Local time clock
+  // ── Clock ────────────────────────────────────────────────────────
   const clockEl = document.getElementById('utc-clock');
   const _tzAbbr = Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value || 'LOCAL';
   function _updateClock() { clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + _tzAbbr; }
   _updateClock();
   const clockInterval = setInterval(_updateClock, 1000);
 
-  // Initialize Leaflet map
-  const map = L.map('obs-map', { zoomControl: false, attributionControl: false }).setView([40, -30], 3);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 18 }).addTo(map);
-  L.control.zoom({ position: 'topleft' }).addTo(map);
-  _obsMap = map;
+  // ── deck.gl state ────────────────────────────────────────────────
+  let currentMode = 1;
+  let currentPeriod = '7d';
+  let activeSeverities = new Set(['critical', 'high', 'medium', 'low']);
+  let arcData = [], nodeData = [], liveData = [], brandList = [];
+  let currentBrandIdx = 0;
+  let brandCycleTimer = null;
+  let livePoller = null;
+  let radarFrame = null;
+  let deckgl = null;
+  let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
+  let _brandFocusCache = {};
+  let currentLayers = [];
 
-  let _obsPulseInterval = null;
+  // ── Color helpers ────────────────────────────────────────────────
+  function _typeColor(type, alpha) {
+    const a = alpha !== undefined ? alpha : 200;
+    const map = {
+      phishing:             [255, 45,  85,  a],
+      malware_distribution: [255, 107, 53,  a],
+      c2:                   [179, 136, 255, a],
+      typosquatting:        [255, 182, 39,  a],
+      scanning:             [0,   212, 255, a],
+      credential_harvesting:[255, 45,  85,  a],
+      impersonation:        [255, 107, 53,  a],
+    };
+    return map[type] || [0, 212, 255, a];
+  }
+  function _typeColorHex(type) {
+    const map = {
+      phishing: '#ff2d55', malware_distribution: '#ff6b35',
+      c2: '#b388ff', typosquatting: '#ffb627',
+      scanning: '#00d4ff', credential_harvesting: '#ff2d55',
+      impersonation: '#ff6b35',
+    };
+    return map[type] || '#00d4ff';
+  }
+  function _sevColor(sev, alpha) {
+    const a = alpha !== undefined ? alpha : 200;
+    if (sev === 'critical') return [255, 59,  92,  a];
+    if (sev === 'high')     return [255, 107, 53,  a];
+    if (sev === 'medium')   return [255, 182, 39,  a];
+    return [0, 212, 255, a];
+  }
+  function _periodToHours(p) {
+    if (p === '24h') return 24;
+    if (p === '7d')  return 168;
+    if (p === '30d') return 720;
+    return 8760;
+  }
 
+  // ── Arc height: taller for longer distances ───────────────────────
+  function _arcHeight(d) {
+    const dx = (d.targetPosition[0] - d.sourcePosition[0]);
+    const dy = (d.targetPosition[1] - d.sourcePosition[1]);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    return Math.min(0.9, 0.08 + dist * 0.005);
+  }
+
+  // ── Initialize deck.gl ───────────────────────────────────────────
+  function initDeck() {
+    if (typeof deck === 'undefined') {
+      console.warn('[Observatory] deck.gl not loaded');
+      return;
+    }
+    const container = document.getElementById('obs-map');
+    if (!container) return;
+
+    deckgl = new deck.DeckGL({
+      container,
+      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      initialViewState: currentViewState,
+      controller: true,
+      layers: [],
+      onViewStateChange: ({ viewState }) => { currentViewState = viewState; },
+      getTooltip: ({ object }) => {
+        if (!object) return null;
+        if (object.volume != null && object.sourcePosition) {
+          return {
+            html: `<div class="deck-tooltip"><strong>${object.threat_type || 'threat'}</strong><span>Volume: ${object.volume} · ${object.severity || ''}</span></div>`,
+            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(0,212,255,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
+          };
+        }
+        if (object.threat_count != null) {
+          return {
+            html: `<div class="deck-tooltip"><strong>${object.top_threat_type || 'threats'}</strong><span>${object.threat_count} threats · ${object.top_severity || ''}</span></div>`,
+            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(0,212,255,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
+          };
+        }
+        return null;
+      },
+    });
+    _obsMap = deckgl;
+  }
+
+  // ── Set layers helper ────────────────────────────────────────────
+  function setLayers(layers) {
+    currentLayers = layers;
+    if (deckgl) deckgl.setProps({ layers });
+  }
+
+  // ── Data fetching ────────────────────────────────────────────────
+  async function fetchData() {
+    try {
+      const [nodesRes, arcsRes, statsRes] = await Promise.all([
+        api(`/observatory/nodes?period=${currentPeriod}`).catch(() => null),
+        api(`/observatory/arcs?period=${currentPeriod}&limit=50`).catch(() => null),
+        api(`/observatory/stats?period=${currentPeriod}`).catch(() => null),
+      ]);
+
+      const allNodes = nodesRes?.data || [];
+      const allArcs  = arcsRes?.data  || [];
+      nodeData = allNodes.filter(n => activeSeverities.has(n.top_severity || 'low'));
+      arcData  = allArcs.filter(a  => activeSeverities.has(a.severity    || 'low'));
+
+      const s = statsRes?.data || {};
+      document.getElementById('stat-bar').innerHTML = [
+        renderStatChip('⚠', 'threats',   s.threats_mapped    || 0, 'Threats Mapped',      null),
+        renderStatChip('🌍', 'countries', s.countries         || 0, 'Countries',           null),
+        renderStatChip('🎯', 'campaigns', s.active_campaigns  || 0, 'Active Campaigns',    null),
+        renderStatChip('⭐', 'brands',    s.brands_monitored  || 0, 'Brands Monitored',    null),
+      ].join('');
+
+      updateMap();
+    } catch (err) {
+      console.error('[Observatory] fetchData:', err);
+    }
+  }
+
+  async function fetchLive() {
+    try {
+      const res = await api('/observatory/live').catch(() => null);
+      liveData = res?.data || [];
+      updateTicker();
+    } catch {}
+  }
+
+  // ── Map update dispatcher ────────────────────────────────────────
+  function updateMap() {
+    stopRadar();
+    if      (currentMode === 1) renderMultiStream();
+    else if (currentMode === 2) renderLiveFeed();
+    else if (currentMode === 3) renderCorridors();
+    else if (currentMode === 4) renderBrandFocus();
+    else if (currentMode === 5) renderRadarSweep();
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // MODE 1 — MULTI-STREAM
+  // ────────────────────────────────────────────────────────────────
+  function renderMultiStream() {
+    if (!deckgl) return;
+    document.getElementById('obs-brand-overlay').style.display = 'none';
+    document.getElementById('obs-ticker').style.display = 'none';
+
+    // Deduplicate target nodes
+    const targetSet = {};
+    arcData.forEach(a => { const k = a.targetPosition.join(','); if (!targetSet[k]) targetSet[k] = a; });
+    const targetNodes = Object.values(targetSet);
+
+    setLayers([
+      // Node bloom (outer glow ring)
+      new deck.ScatterplotLayer({
+        id: 'nodes-bloom',
+        data: nodeData,
+        getPosition: d => [d.lng, d.lat],
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 15000,
+        getFillColor: d => _sevColor(d.top_severity, 18),
+        radiusMinPixels: 10, radiusMaxPixels: 80,
+      }),
+      // Node mid glow
+      new deck.ScatterplotLayer({
+        id: 'nodes-glow',
+        data: nodeData,
+        getPosition: d => [d.lng, d.lat],
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 8000,
+        getFillColor: d => _sevColor(d.top_severity, 40),
+        radiusMinPixels: 6, radiusMaxPixels: 50,
+      }),
+      // Source nodes (solid core)
+      new deck.ScatterplotLayer({
+        id: 'nodes',
+        data: nodeData,
+        getPosition: d => [d.lng, d.lat],
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4000,
+        getFillColor: d => _sevColor(d.top_severity, 200),
+        getLineColor: d => _sevColor(d.top_severity, 255),
+        lineWidthMinPixels: 1, stroked: true, filled: true,
+        radiusMinPixels: 3, radiusMaxPixels: 28,
+        pickable: true,
+        transitions: { getFillColor: 300, getRadius: 300 },
+      }),
+      // Arcs (glow pass — wide, semi-transparent)
+      new deck.ArcLayer({
+        id: 'arcs-glow',
+        data: arcData,
+        getSourcePosition: d => d.sourcePosition,
+        getTargetPosition: d => d.targetPosition,
+        getSourceColor: d => _typeColor(d.threat_type, 40),
+        getTargetColor: d => _typeColor(d.threat_type, 15),
+        getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
+        getHeight: _arcHeight,
+        greatCircle: true,
+        widthMinPixels: 2, widthMaxPixels: 12,
+      }),
+      // Arcs (core pass — sharp, bright)
+      new deck.ArcLayer({
+        id: 'arcs',
+        data: arcData,
+        getSourcePosition: d => d.sourcePosition,
+        getTargetPosition: d => d.targetPosition,
+        getSourceColor: d => _typeColor(d.threat_type, 220),
+        getTargetColor: d => _typeColor(d.threat_type, 80),
+        getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
+        getHeight: _arcHeight,
+        greatCircle: true,
+        widthMinPixels: 1, widthMaxPixels: 6,
+        pickable: true,
+        transitions: { getSourceColor: 300 },
+      }),
+      // Target nodes (pulsing destination rings)
+      new deck.ScatterplotLayer({
+        id: 'targets-ring',
+        data: targetNodes,
+        getPosition: d => d.targetPosition,
+        getRadius: 20000,
+        getFillColor: [255, 255, 255, 8],
+        getLineColor: [255, 255, 255, 60],
+        lineWidthMinPixels: 1, stroked: true,
+        radiusMinPixels: 4, radiusMaxPixels: 22,
+      }),
+      new deck.ScatterplotLayer({
+        id: 'targets',
+        data: targetNodes,
+        getPosition: d => d.targetPosition,
+        getRadius: 6000,
+        getFillColor: [255, 255, 255, 60],
+        radiusMinPixels: 2, radiusMaxPixels: 8,
+      }),
+    ]);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // MODE 2 — LIVE FEED  (same arcs + animated ticker)
+  // ────────────────────────────────────────────────────────────────
+  function renderLiveFeed() {
+    if (!deckgl) return;
+    document.getElementById('obs-brand-overlay').style.display = 'none';
+    document.getElementById('obs-ticker').style.display = 'block';
+    renderMultiStream();
+    updateTicker();
+  }
+
+  function updateTicker() {
+    const ticker = document.getElementById('obs-ticker');
+    if (!ticker || liveData.length === 0) return;
+    const items = liveData.map(t =>
+      `<span class="ticker-item"><span class="ticker-dot" style="background:${_typeColorHex(t.threat_type)}"></span>${t.malicious_domain || t.ioc_value || 'unknown'} <span class="ticker-arrow">→</span> ${t.threat_type} <span class="ticker-arrow">→</span> ${t.country_code || '??'} <span class="ticker-arrow">·</span> ${t.created_at ? new Date(t.created_at).toLocaleTimeString() : ''}</span>`
+    ).join('&nbsp;&nbsp;');
+    ticker.innerHTML = `<div class="ticker-inner">${items}&nbsp;&nbsp;&nbsp;&nbsp;${items}</div>`;
+    ticker.style.display = 'block';
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // MODE 3 — CORRIDORS  (thick glowing bands, top 15 routes)
+  // ────────────────────────────────────────────────────────────────
+  function renderCorridors() {
+    if (!deckgl) return;
+    document.getElementById('obs-brand-overlay').style.display = 'none';
+    document.getElementById('obs-ticker').style.display = 'none';
+
+    const top15 = arcData.slice(0, 15);
+
+    setLayers([
+      // Thick glow pass
+      new deck.ArcLayer({
+        id: 'corridor-glow',
+        data: top15,
+        getSourcePosition: d => d.sourcePosition,
+        getTargetPosition: d => d.targetPosition,
+        getSourceColor: d => _typeColor(d.threat_type, 50),
+        getTargetColor: d => _typeColor(d.threat_type, 20),
+        getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
+        getHeight: _arcHeight,
+        greatCircle: true,
+        widthMinPixels: 4, widthMaxPixels: 24,
+      }),
+      // Sharp core
+      new deck.ArcLayer({
+        id: 'corridors',
+        data: top15,
+        getSourcePosition: d => d.sourcePosition,
+        getTargetPosition: d => d.targetPosition,
+        getSourceColor: d => _typeColor(d.threat_type, 230),
+        getTargetColor: d => _typeColor(d.threat_type, 150),
+        getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
+        getHeight: _arcHeight,
+        greatCircle: true,
+        widthMinPixels: 2, widthMaxPixels: 12,
+        pickable: true,
+      }),
+      // Source labels
+      new deck.TextLayer({
+        id: 'corridor-src-labels',
+        data: top15,
+        getPosition: d => d.sourcePosition,
+        getText: d => d.source_region || '',
+        getSize: 11,
+        getColor: [200, 210, 225, 200],
+        getPixelOffset: [0, -16],
+        fontFamily: '"IBM Plex Mono", monospace',
+        background: true,
+        getBackgroundColor: [6, 10, 24, 200],
+        backgroundPadding: [4, 2],
+        characterSet: 'auto',
+      }),
+      // Target labels
+      new deck.TextLayer({
+        id: 'corridor-tgt-labels',
+        data: top15,
+        getPosition: d => d.targetPosition,
+        getText: d => d.target_brand || '',
+        getSize: 11,
+        getColor: [255, 59, 92, 220],
+        getPixelOffset: [0, -16],
+        fontFamily: '"IBM Plex Mono", monospace',
+        background: true,
+        getBackgroundColor: [6, 10, 24, 200],
+        backgroundPadding: [4, 2],
+        characterSet: 'auto',
+      }),
+      // Volume labels at midpoints
+      new deck.TextLayer({
+        id: 'corridor-vol',
+        data: top15,
+        getPosition: d => [
+          (d.sourcePosition[0] + d.targetPosition[0]) / 2,
+          (d.sourcePosition[1] + d.targetPosition[1]) / 2,
+        ],
+        getText: d => `×${d.volume}`,
+        getSize: 10,
+        getColor: [255, 255, 255, 180],
+        fontFamily: '"IBM Plex Mono", monospace',
+        background: true,
+        getBackgroundColor: [6, 10, 24, 200],
+        backgroundPadding: [4, 2],
+        characterSet: 'auto',
+      }),
+      // Source/target nodes
+      new deck.ScatterplotLayer({
+        id: 'corridor-nodes',
+        data: nodeData.slice(0, 40),
+        getPosition: d => [d.lng, d.lat],
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4000,
+        getFillColor: d => _sevColor(d.top_severity, 180),
+        getLineColor: d => _sevColor(d.top_severity, 255),
+        lineWidthMinPixels: 1, stroked: true,
+        radiusMinPixels: 3, radiusMaxPixels: 22,
+        pickable: true,
+      }),
+    ]);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // MODE 4 — BRAND FOCUS  (cycles top 5 brands every 8s)
+  // ────────────────────────────────────────────────────────────────
+  async function renderBrandFocus() {
+    if (!deckgl) return;
+    document.getElementById('obs-ticker').style.display = 'none';
+
+    if (brandList.length === 0) {
+      try {
+        const res = await api('/brands?sort=threats&limit=5').catch(() => null);
+        brandList = res?.data?.brands || res?.data || [];
+      } catch {}
+    }
+    if (brandList.length === 0) {
+      document.getElementById('obs-brand-overlay').style.display = 'none';
+      return;
+    }
+
+    async function showBrand(idx) {
+      const brand = brandList[idx % brandList.length];
+      if (!brand) return;
+
+      const overlay  = document.getElementById('obs-brand-overlay');
+      const nameEl   = document.getElementById('obs-brand-name');
+      const statsEl  = document.getElementById('obs-brand-stats');
+      overlay.style.display = 'block';
+      nameEl.textContent = `${(brand.name || '').toUpperCase()} — UNDER ATTACK`;
+
+      const bid = brand.brand_id || brand.id;
+      let bArcs = _brandFocusCache[bid];
+      if (!bArcs) {
+        try {
+          const res = await api(`/observatory/brand-arcs?brand_id=${bid}&period=${currentPeriod}`).catch(() => null);
+          bArcs = res?.data || [];
+          _brandFocusCache[bid] = bArcs;
+        } catch { bArcs = []; }
+      }
+
+      const srcCount     = new Set(bArcs.map(a => a.sourcePosition?.join(','))).size;
+      const countryCount = new Set(bArcs.map(a => a.country_code).filter(Boolean)).size;
+      const totalVol     = bArcs.reduce((s, a) => s + (a.volume || 1), 0);
+      statsEl.textContent = `${srcCount} attack sources · ${totalVol} threats · ${countryCount} countries`;
+
+      const targetPos = bArcs[0]?.targetPosition || [-74.0, 40.7];
+
+      setLayers([
+        // Crosshair outer ring
+        new deck.ScatterplotLayer({
+          id: 'brand-xhair-outer',
+          data: [{ pos: targetPos }],
+          getPosition: d => d.pos,
+          getRadius: 120000,
+          getFillColor: [255, 59, 92, 8],
+          getLineColor: [255, 59, 92, 80],
+          lineWidthMinPixels: 1, stroked: true,
+          radiusMinPixels: 30, radiusMaxPixels: 120,
+        }),
+        // Crosshair inner ring (pulsing effect via second layer offset)
+        new deck.ScatterplotLayer({
+          id: 'brand-xhair-inner',
+          data: [{ pos: targetPos }],
+          getPosition: d => d.pos,
+          getRadius: 40000,
+          getFillColor: [255, 59, 92, 20],
+          getLineColor: [255, 59, 92, 200],
+          lineWidthMinPixels: 2, stroked: true,
+          radiusMinPixels: 8, radiusMaxPixels: 40,
+        }),
+        // Arcs glow
+        new deck.ArcLayer({
+          id: 'brand-arcs-glow',
+          data: bArcs,
+          getSourcePosition: d => d.sourcePosition,
+          getTargetPosition: d => d.targetPosition,
+          getSourceColor: d => _typeColor(d.threat_type, 50),
+          getTargetColor: [255, 59, 92, 30],
+          getWidth: d => Math.max(3, d.volume * 1.5),
+          getHeight: _arcHeight,
+          greatCircle: true,
+          widthMinPixels: 2,
+        }),
+        // Arcs core
+        new deck.ArcLayer({
+          id: 'brand-arcs',
+          data: bArcs,
+          getSourcePosition: d => d.sourcePosition,
+          getTargetPosition: d => d.targetPosition,
+          getSourceColor: d => _typeColor(d.threat_type, 220),
+          getTargetColor: [255, 59, 92, 200],
+          getWidth: d => Math.max(1, d.volume * 0.8),
+          getHeight: _arcHeight,
+          greatCircle: true,
+          widthMinPixels: 1, widthMaxPixels: 8,
+          pickable: true,
+        }),
+        // Source nodes
+        new deck.ScatterplotLayer({
+          id: 'brand-sources-glow',
+          data: bArcs,
+          getPosition: d => d.sourcePosition,
+          getRadius: 20000,
+          getFillColor: d => _typeColor(d.threat_type, 25),
+          radiusMinPixels: 5, radiusMaxPixels: 20,
+        }),
+        new deck.ScatterplotLayer({
+          id: 'brand-sources',
+          data: bArcs,
+          getPosition: d => d.sourcePosition,
+          getRadius: 7000,
+          getFillColor: d => _typeColor(d.threat_type, 200),
+          getLineColor: [255, 255, 255, 80],
+          stroked: true, lineWidthMinPixels: 1,
+          radiusMinPixels: 3, radiusMaxPixels: 12,
+          pickable: true,
+        }),
+        // Source city labels
+        new deck.TextLayer({
+          id: 'brand-src-labels',
+          data: bArcs,
+          getPosition: d => d.sourcePosition,
+          getText: d => d.source_region || '',
+          getSize: 10,
+          getColor: [200, 210, 225, 180],
+          getPixelOffset: [0, -15],
+          fontFamily: '"IBM Plex Mono", monospace',
+          background: true,
+          getBackgroundColor: [6, 10, 24, 190],
+          backgroundPadding: [3, 2],
+          characterSet: 'auto',
+        }),
+      ]);
+    }
+
+    showBrand(currentBrandIdx);
+    if (brandCycleTimer) clearInterval(brandCycleTimer);
+    brandCycleTimer = setInterval(() => {
+      currentBrandIdx = (currentBrandIdx + 1) % Math.max(1, brandList.length);
+      showBrand(currentBrandIdx);
+    }, 8000);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // MODE 5 — RADAR SWEEP  (rotating sweep from HQ + illumination)
+  // ────────────────────────────────────────────────────────────────
+  const HQ_POS = [-79.38, 43.65]; // Trust Radar HQ — Toronto, Canada
+
+  function stopRadar() {
+    if (radarFrame) { cancelAnimationFrame(radarFrame); radarFrame = null; }
+    if (brandCycleTimer) { clearInterval(brandCycleTimer); brandCycleTimer = null; }
+    const rc = document.querySelector('.radar-canvas');
+    if (rc) rc.remove();
+  }
+
+  function renderRadarSweep() {
+    if (!deckgl) return;
+    document.getElementById('obs-brand-overlay').style.display = 'none';
+    document.getElementById('obs-ticker').style.display = 'none';
+
+    // Range rings via large stroked scatter points
+    const rings = [2000000, 5000000, 10000000]; // meters
+    setLayers([
+      ...rings.map((r, i) => new deck.ScatterplotLayer({
+        id: `radar-ring-${i}`,
+        data: [{ pos: HQ_POS }],
+        getPosition: d => d.pos,
+        getRadius: r,
+        getFillColor: [0, 0, 0, 0],
+        getLineColor: [0, 212, 255, 25],
+        lineWidthMinPixels: 1,
+        stroked: true, filled: false,
+        radiusMinPixels: 30,
+      })),
+      // HQ glow
+      new deck.ScatterplotLayer({
+        id: 'radar-hq-glow',
+        data: [{ pos: HQ_POS }],
+        getPosition: d => d.pos,
+        getRadius: 80000,
+        getFillColor: [0, 212, 255, 15],
+        getLineColor: [0, 212, 255, 150],
+        lineWidthMinPixels: 2, stroked: true,
+        radiusMinPixels: 6,
+      }),
+      // Threat nodes (dim — will be lit by canvas sweep)
+      new deck.ScatterplotLayer({
+        id: 'radar-nodes',
+        data: nodeData,
+        getPosition: d => [d.lng, d.lat],
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 5000,
+        getFillColor: d => _sevColor(d.top_severity, 40),
+        getLineColor: d => _sevColor(d.top_severity, 70),
+        stroked: true, lineWidthMinPixels: 1,
+        radiusMinPixels: 2, radiusMaxPixels: 14,
+      }),
+    ]);
+
+    // Canvas sweep overlay
+    const mapWrap = document.getElementById('map-wrap');
+    let radarCanvas = document.createElement('canvas');
+    radarCanvas.className = 'radar-canvas';
+    radarCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+    mapWrap.appendChild(radarCanvas);
+
+    let sweepAngle = -Math.PI / 2; // start at top (north)
+    const illuminated = new Map(); // nodeIndex → opacity 0-1
+
+    function animateRadar() {
+      if (currentMode !== 5 || !deckgl) {
+        radarCanvas.remove();
+        return;
+      }
+      radarFrame = requestAnimationFrame(animateRadar);
+
+      radarCanvas.width  = mapWrap.offsetWidth;
+      radarCanvas.height = mapWrap.offsetHeight;
+      const ctx = radarCanvas.getContext('2d');
+      ctx.clearRect(0, 0, radarCanvas.width, radarCanvas.height);
+
+      // Project HQ using WebMercatorViewport
+      let hqScreen = null;
+      try {
+        const vp = new deck.WebMercatorViewport({
+          width: radarCanvas.width, height: radarCanvas.height,
+          longitude: currentViewState.longitude, latitude: currentViewState.latitude,
+          zoom: currentViewState.zoom, pitch: currentViewState.pitch || 0,
+          bearing: currentViewState.bearing || 0,
+        });
+        hqScreen = vp.project(HQ_POS);
+
+        // Draw sweep wedge
+        const sweepSpan = Math.PI / 9; // 20°
+        const maxR = Math.max(radarCanvas.width, radarCanvas.height) * 1.5;
+        const cx = hqScreen[0], cy = hqScreen[1];
+
+        // Fading trail wedge
+        for (let i = 6; i >= 0; i--) {
+          const trailAngle = sweepAngle - (sweepSpan * 0.15 * i);
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, maxR, trailAngle - sweepSpan * 0.15, trailAngle, false);
+          ctx.closePath();
+          const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.7);
+          const trailAlpha = Math.max(0, 0.18 - i * 0.025);
+          grd.addColorStop(0, `rgba(0,212,255,${trailAlpha})`);
+          grd.addColorStop(1, 'rgba(0,212,255,0)');
+          ctx.fillStyle = grd;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Leading edge glow wedge
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, maxR, sweepAngle - sweepSpan, sweepAngle, false);
+        ctx.closePath();
+        const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+        grd.addColorStop(0, 'rgba(0,212,255,0.30)');
+        grd.addColorStop(0.4, 'rgba(0,212,255,0.14)');
+        grd.addColorStop(1, 'rgba(0,212,255,0)');
+        ctx.fillStyle = grd;
+        ctx.fill();
+        ctx.restore();
+
+        // Leading edge line
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(sweepAngle) * maxR, cy + Math.sin(sweepAngle) * maxR);
+        ctx.strokeStyle = 'rgba(0,212,255,0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // HQ marker — pulsing dot
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 500);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10 + pulse * 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,212,255,${0.08 + pulse * 0.06})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,212,255,${0.7 + pulse * 0.3})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#00d4ff';
+        ctx.fill();
+        ctx.restore();
+
+        // Check node illumination & draw lit nodes on canvas
+        nodeData.forEach((node, i) => {
+          const ns = vp.project([node.lng, node.lat]);
+          if (!ns) return;
+          const dx = ns[0] - cx, dy = ns[1] - cy;
+          const nodeAngle = Math.atan2(dy, dx);
+          let diff = ((nodeAngle - sweepAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          if (diff > Math.PI) diff -= Math.PI * 2;
+          if (Math.abs(diff) < sweepSpan * 1.2) illuminated.set(i, 1.0);
+        });
+
+        illuminated.forEach((opacity, i) => {
+          if (opacity <= 0) { illuminated.delete(i); return; }
+          const node = nodeData[i];
+          const ns = vp.project([node.lng, node.lat]);
+          if (!ns) return;
+          const color = _sevColor(node.top_severity, 255);
+          ctx.save();
+          ctx.globalAlpha = opacity * 0.9;
+          ctx.beginPath();
+          ctx.arc(ns[0], ns[1], 7, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},0.25)`;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(ns[0], ns[1], 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+          ctx.fill();
+          ctx.restore();
+          illuminated.set(i, opacity - 0.007);
+        });
+
+      } catch (e) { /* viewport not ready yet */ }
+
+      sweepAngle += (Math.PI * 2) / (60 * 10); // full rotation in 10s at ~60fps
+      if (sweepAngle > Math.PI) sweepAngle -= Math.PI * 2;
+    }
+
+    radarFrame = requestAnimationFrame(animateRadar);
+  }
+
+  // ── Controls setup ───────────────────────────────────────────────
+  function setupControls() {
+    // Mode selector
+    document.querySelectorAll('.obs-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.obs-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = parseInt(btn.dataset.mode);
+        currentBrandIdx = 0;
+        stopRadar();
+        if (brandCycleTimer) { clearInterval(brandCycleTimer); brandCycleTimer = null; }
+        updateMap();
+        if (currentMode === 2) {
+          fetchLive();
+          if (livePoller) clearInterval(livePoller);
+          livePoller = setInterval(fetchLive, 10000);
+        } else {
+          if (livePoller) { clearInterval(livePoller); livePoller = null; }
+          document.getElementById('obs-ticker').style.display = 'none';
+        }
+      });
+    });
+
+    // Time filter
+    document.querySelectorAll('.obs-tf-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.obs-tf-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPeriod = btn.dataset.period;
+        _brandFocusCache = {};
+        fetchData();
+      });
+    });
+
+    // Severity filter
+    document.querySelectorAll('.obs-sev-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        const sev = btn.dataset.sev;
+        if (btn.classList.contains('active')) activeSeverities.add(sev);
+        else activeSeverities.delete(sev);
+        fetchData();
+      });
+    });
+
+    // Fullscreen
+    const fsBtn = document.getElementById('obs-fullscreen-btn');
+    if (fsBtn) {
+      fsBtn.addEventListener('click', () => {
+        const mapWrap = document.getElementById('map-wrap');
+        if (!document.fullscreenElement) {
+          mapWrap.requestFullscreen?.().catch(() => {});
+          fsBtn.title = 'Exit Fullscreen';
+          fsBtn.textContent = '⊡';
+        } else {
+          document.exitFullscreen?.();
+          fsBtn.title = 'Toggle Fullscreen';
+          fsBtn.textContent = '⛶';
+        }
+      });
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          fsBtn.textContent = '⛶';
+          fsBtn.title = 'Toggle Fullscreen';
+        }
+      });
+    }
+  }
+
+  // ── Cleanup ──────────────────────────────────────────────────────
   window._viewCleanup = () => {
     clearInterval(clockInterval);
-    if (_obsPulseInterval) clearInterval(_obsPulseInterval);
-    if (_obsPoller) clearInterval(_obsPoller);
-    if (_obsMap) { _obsMap.remove(); _obsMap = null; }
+    if (livePoller)      clearInterval(livePoller);
+    if (brandCycleTimer) clearInterval(brandCycleTimer);
+    if (_obsPoller)      clearInterval(_obsPoller);
+    stopRadar();
+    if (deckgl) { try { deckgl.finalize(); } catch {} deckgl = null; }
+    _obsMap = null;
     _obsPoller = null;
   };
 
+  // ── Boot ─────────────────────────────────────────────────────────
+  initDeck();
+  setupControls();
+
   try {
-    const [stats, clusters, flows, topBrands, worstProv, improvingProv, insights] = await Promise.all([
+    const [stats, topBrands, worstProv, improvingProv, insights] = await Promise.all([
       api('/dashboard/overview').catch(() => null),
-      api('/threats/geo-clusters').catch(() => null),
-      api('/threats/attack-flows').catch(() => null),
       api('/dashboard/top-brands?limit=10').catch(() => null),
       api('/dashboard/providers?sort=worst&limit=5').catch(() => null),
       api('/dashboard/providers?sort=improving&limit=3').catch(() => null),
@@ -1381,171 +2161,7 @@ async function viewObservatory(el) {
     const fc = document.getElementById('feed-count');
     if (fc) fc.textContent = d.feed_health?.active || 0;
 
-    // Stat bar chips
-    document.getElementById('stat-bar').innerHTML = [
-      renderStatChip('\u26a0', 'threats', d.active_threats || 0, 'Active Threats', d.threats_24h),
-      renderStatChip('\u2b50', 'brands', d.brands_tracked || 0, 'Brands Tracked', d.brands_new),
-      renderStatChip('\ud83c\udfe2', 'providers', d.providers_tracked || 0, 'Providers', d.providers_delta),
-      renderStatChip('\ud83c\udfaf', 'campaigns', d.active_campaigns || 0, 'Campaigns', d.campaigns_new),
-    ].join('');
-
-    // Heatmap layer
-    const clusterData = clusters?.data || [];
-    if (clusterData.length > 0) {
-      const heatPoints = [];
-      clusterData.forEach(c => {
-        const count = Math.max(1, Math.ceil(c.threat_count / 5));
-        for (let i = 0; i < count; i++) {
-          heatPoints.push([c.lat + (Math.random() - 0.5) * 3, c.lng + (Math.random() - 0.5) * 3, c.intensity || 0.5]);
-        }
-      });
-      L.heatLayer(heatPoints, {
-        radius: 25, blur: 20, maxZoom: 10, max: 1.0,
-        gradient: { 0.0: '#040810', 0.2: '#003366', 0.4: '#005f7a', 0.5: '#0091b3', 0.6: '#00d4ff', 0.75: '#ffb627', 0.85: '#ff6b35', 1.0: '#ff3b5c' }
-      }).addTo(map);
-    }
-
-    // Cluster markers + pulse ring layer group
-    const pulseRings = L.layerGroup().addTo(map);
-
-    clusterData.forEach(c => {
-      const color = c.intensity >= 0.8 ? '#ff3b5c' : c.intensity >= 0.5 ? '#ff6b35' : c.intensity >= 0.3 ? '#ffb627' : '#00d4ff';
-      const outerR = Math.max(8, Math.min(30, c.threat_count * 0.5));
-
-      // Outer ring (used for pulse animation)
-      const ring = L.circleMarker([c.lat, c.lng], { radius: outerR, color, fillColor: color, fillOpacity: 0.12, weight: 1, opacity: 0.4 });
-      ring._baseRadius = outerR;
-      ring.addTo(pulseRings);
-
-      // Inner bright core
-      const marker = L.circleMarker([c.lat, c.lng], { radius: Math.max(3, outerR * 0.4), color, fillColor: color, fillOpacity: 0.85, weight: 0.5, opacity: 1 }).addTo(map);
-
-      // Click popup (matches prototype: country name, threats, brands, type, providers)
-      const popupContent = `
-        <div class="popup-title">${c.country || c.country_code || 'Unknown'}</div>
-        <div class="popup-row"><span class="popup-label">Active threats</span><span class="popup-val" style="color:${color}">${(c.threat_count || 0).toLocaleString()}</span></div>
-        <div class="popup-row"><span class="popup-label">Brands targeted</span><span class="popup-val">${c.brands_targeted || 0}</span></div>
-        <div class="popup-row"><span class="popup-label">Top threat type</span><span class="popup-val">${c.top_threat_type || '-'}</span></div>
-        <div class="popup-row"><span class="popup-label">Hosting providers</span><span class="popup-val">${c.provider_count || 0}</span></div>
-      `;
-      marker.bindPopup(popupContent, { className: 'threat-popup' });
-
-      // Hover → sidebar country tooltip
-      marker.on('mouseover', () => {
-        const tt = document.getElementById('country-tooltip');
-        document.getElementById('ct-name').textContent = c.country || c.country_code || 'Unknown';
-        document.getElementById('ct-rows').innerHTML =
-          `<div class="ct-row"><span>Threats</span><span>${c.threat_count}</span></div>` +
-          `<div class="ct-row"><span>Brands</span><span>${c.brands_targeted || 0}</span></div>` +
-          `<div class="ct-row"><span>Type</span><span>${c.top_threat_type || '-'}</span></div>` +
-          `<div class="ct-row"><span>Providers</span><span>${c.provider_count || 0}</span></div>`;
-        tt.classList.add('visible');
-      });
-      marker.on('mouseout', () => document.getElementById('country-tooltip').classList.remove('visible'));
-    });
-
-    // Pulse animation — expand outer rings every 3s then revert (matches prototype)
-    _obsPulseInterval = setInterval(() => {
-      pulseRings.eachLayer(ring => {
-        const base = ring._baseRadius || ring.getRadius();
-        const expand = base * (1 + Math.random() * 0.3);
-        ring.setRadius(expand);
-        setTimeout(() => ring.setRadius(base), 1500);
-      });
-    }, 3000);
-
-    // Arc overlay (canvas)
-    const flowData = flows?.data || [];
-    if (flowData.length > 0) {
-      const ArcLayer = L.Layer.extend({
-        onAdd(m) {
-          this._map = m;
-          this._canvas = L.DomUtil.create('canvas', '');
-          this._canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:450;';
-          m.getPane('overlayPane').appendChild(this._canvas);
-          this._particles = [];
-          flowData.forEach((f, fi) => {
-            const count = Math.ceil((f.volume || 1) * 0.8);
-            for (let i = 0; i < count; i++) {
-              this._particles.push({ fi, t: Math.random(), speed: 0.002 + Math.random() * 0.003, size: 1.5 + (f.volume || 1) * 0.2 });
-            }
-          });
-          m.on('move zoom resize', this._reset, this);
-          this._reset();
-          this._animate();
-        },
-        onRemove(m) {
-          if (this._canvas.parentNode) this._canvas.parentNode.removeChild(this._canvas);
-          m.off('move zoom resize', this._reset, this);
-          if (this._frame) cancelAnimationFrame(this._frame);
-        },
-        _reset() {
-          const size = this._map.getSize();
-          this._canvas.width = size.x; this._canvas.height = size.y;
-          L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0, 0]));
-        },
-        _getColor(vol) { return vol >= 8 ? '#ff3b5c' : vol >= 5 ? '#ff6b35' : vol >= 3 ? '#ffb627' : '#00d4ff'; },
-        _animate() {
-          const ctx = this._canvas.getContext('2d');
-          ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-          const m = this._map;
-          const cpCache = [];
-          flowData.forEach((f, fi) => {
-            const op = m.latLngToContainerPoint([f.origin_lat, f.origin_lng]);
-            const tp = m.latLngToContainerPoint([f.target_lat, f.target_lng]);
-            const mx = (op.x + tp.x) / 2, my = (op.y + tp.y) / 2;
-            const dx = tp.x - op.x, dy = tp.y - op.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const offset = Math.min(120, dist * 0.3);
-            const cx = mx - (dy / dist) * offset, cy = my + (dx / dist) * offset;
-            cpCache[fi] = { op, tp, cx, cy };
-            const color = this._getColor(f.volume || 1);
-            ctx.beginPath(); ctx.moveTo(op.x, op.y); ctx.quadraticCurveTo(cx, cy, tp.x, tp.y);
-            ctx.strokeStyle = color + '26'; ctx.lineWidth = (f.volume || 1) * 0.22; ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(op.x, op.y); ctx.quadraticCurveTo(cx, cy, tp.x, tp.y);
-            ctx.strokeStyle = color + '59'; ctx.lineWidth = (f.volume || 1) * 0.11; ctx.stroke();
-            // Origin diamond
-            ctx.save(); ctx.translate(op.x, op.y); ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = color + '80'; ctx.fillRect(-3, -3, 6, 6); ctx.restore();
-            // Target crosshair
-            ctx.strokeStyle = color + '80'; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(tp.x - 5, tp.y); ctx.lineTo(tp.x + 5, tp.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(tp.x, tp.y - 5); ctx.lineTo(tp.x, tp.y + 5); ctx.stroke();
-            // Arrowhead
-            const angle = Math.atan2(tp.y - cy, tp.x - cx);
-            const aLen = 4 + (f.volume || 1) * 0.5;
-            ctx.beginPath(); ctx.moveTo(tp.x, tp.y);
-            ctx.lineTo(tp.x - aLen * Math.cos(angle - 0.4), tp.y - aLen * Math.sin(angle - 0.4));
-            ctx.moveTo(tp.x, tp.y);
-            ctx.lineTo(tp.x - aLen * Math.cos(angle + 0.4), tp.y - aLen * Math.sin(angle + 0.4));
-            ctx.strokeStyle = color + '99'; ctx.lineWidth = 1.5; ctx.stroke();
-          });
-          // Particles
-          this._particles.forEach(p => {
-            const cp = cpCache[p.fi];
-            if (!cp) return;
-            const t = p.t;
-            if (t >= 0 && t <= 1) {
-              const x = (1 - t) * (1 - t) * cp.op.x + 2 * (1 - t) * t * cp.cx + t * t * cp.tp.x;
-              const y = (1 - t) * (1 - t) * cp.op.y + 2 * (1 - t) * t * cp.cy + t * t * cp.tp.y;
-              const color = this._getColor(flowData[p.fi].volume || 1);
-              ctx.beginPath(); ctx.arc(x, y, p.size + 3, 0, Math.PI * 2);
-              ctx.fillStyle = color + '26'; ctx.fill();
-              ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2);
-              ctx.fillStyle = color + 'd9'; ctx.fill();
-              ctx.beginPath(); ctx.arc(x, y, p.size * 0.4, 0, Math.PI * 2);
-              ctx.fillStyle = '#ffffffb3'; ctx.fill();
-            }
-            p.t += p.speed;
-            if (p.t > 1.05) p.t = -0.05;
-          });
-          this._frame = requestAnimationFrame(() => this._animate());
-        }
-      });
-      new ArcLayer().addTo(map);
-    }
-
-    // Sidebar
+    // ── Sidebar (unchanged) ────────────────────────────────────────
     const sidebar = document.getElementById('obs-sidebar');
     if (sidebar) {
       const brandRows = (topBrands?.data || []).map((b, i) => {
@@ -1578,13 +2194,11 @@ async function viewObservatory(el) {
 
       const insightItems = (insights?.data || []).map(ins => {
         const colors = { sentinel: 'var(--blue-primary)', analyst: 'var(--positive)', cartographer: 'var(--threat-medium)', strategist: 'var(--negative)', observer: '#b388ff' };
-        // Build link from related brand or campaign
         let linkBrand = null;
         try { if (ins.related_brand_ids) { const ids = JSON.parse(ins.related_brand_ids); if (ids.length) linkBrand = ids[0]; } } catch {}
         const linkCampaign = ins.related_campaign_id || null;
         const href = linkBrand ? `/brands/${linkBrand}` : linkCampaign ? `/campaigns/${linkCampaign}` : null;
         const clickAttr = href ? `onclick="navigate('${href}'); return false;" style="cursor:pointer"` : '';
-        // Render summary with **bold** title support
         const text = (ins.summary_text || '').replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary)">$1</strong>');
         return `<div class="sidebar-insight" ${clickAttr}>
           <div class="si-top"><span class="si-agent" style="color:${colors[ins.agent_name] || 'var(--text-secondary)'}">${ins.agent_name}</span><span class="sev ${ins.severity}">${ins.severity}</span></div>
@@ -1594,39 +2208,53 @@ async function viewObservatory(el) {
 
       sidebar.innerHTML =
         renderPanel('Top Targeted Brands', (topBrands?.data || []).length, brandRows) +
-        renderPanel('Hosting Providers', null, (worstRows ? '<div class="sidebar-divider">Worst Actors</div>' + worstRows : '') + (improvingRows ? '<div class="sidebar-divider">Improving</div>' + improvingRows : '') || '<div class="empty-state"><div class="message">No data</div></div>') +
+        renderPanel('Hosting Providers', null,
+          (worstRows ? '<div class="sidebar-divider">Worst Actors</div>' + worstRows : '') +
+          (improvingRows ? '<div class="sidebar-divider">Improving</div>' + improvingRows : '') ||
+          '<div class="empty-state"><div class="message">No data</div></div>') +
         renderPanel('Agent Intelligence', (insights?.data || []).length, insightItems);
       _attachLogoFallbacks(sidebar);
     }
 
-    // Live polling
-    let lastPollTime = new Date().toISOString();
-    _obsPoller = setInterval(async () => {
-      try {
-        const recent = await api(`/threats/recent?since=${encodeURIComponent(lastPollTime)}&limit=10`);
-        if (recent?.data?.length > 0) {
-          lastPollTime = new Date().toISOString();
-          recent.data.forEach(t => {
-            if (t.lat && t.lng) {
-              const flash = L.circleMarker([t.lat, t.lng], { radius: 12, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.6, weight: 1, opacity: 0.8 }).addTo(map);
-              // Animate: expand radius and fade out (matches prototype spawnThreat)
-              let r = 12, o = 0.6;
-              const anim = setInterval(() => {
-                r += 1.5;
-                o -= 0.03;
-                if (o <= 0) { clearInterval(anim); map.removeLayer(flash); return; }
-                flash.setRadius(r);
-                flash.setStyle({ fillOpacity: o, opacity: o });
-              }, 50);
-            }
-          });
-        }
-      } catch { /* silent */ }
-    }, 15000);
-
+    // Store brand list for mode 4
+    brandList = topBrands?.data || [];
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Observatory load failed', 'error');
   }
+
+  // Fetch map data (nodes + arcs)
+  await fetchData();
+
+  // Live polling — flash new threats
+  let lastPollTime = new Date().toISOString();
+  _obsPoller = setInterval(async () => {
+    try {
+      const recent = await api(`/threats/recent?since=${encodeURIComponent(lastPollTime)}&limit=10`);
+      if (recent?.data?.length > 0) {
+        lastPollTime = new Date().toISOString();
+        if (deckgl && (currentMode === 1 || currentMode === 2)) {
+          const flashData = recent.data.filter(t => t.lat && t.lng);
+          if (flashData.length > 0) {
+            const flashId = 'flash-' + Date.now();
+            const flashLayer = new deck.ScatterplotLayer({
+              id: flashId,
+              data: flashData,
+              getPosition: d => [d.lng, d.lat],
+              getRadius: 40000,
+              getFillColor: [0, 212, 255, 60],
+              getLineColor: [0, 212, 255, 180],
+              stroked: true, lineWidthMinPixels: 2,
+              radiusMinPixels: 8,
+            });
+            setLayers([...currentLayers, flashLayer]);
+            setTimeout(() => {
+              setLayers(currentLayers.filter(l => l.id !== flashId));
+            }, 2500);
+          }
+        }
+      }
+    } catch { /* silent */ }
+  }, 15000);
 }
 
 // ─── View: Brands Hub (Step 9) ──────────────────────────────

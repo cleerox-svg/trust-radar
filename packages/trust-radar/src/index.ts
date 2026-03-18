@@ -5,6 +5,10 @@ import { feedModules } from "./feeds/index";
 import { handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback, handleRefreshToken, handleLogout, handleMe } from "./handlers/auth";
 import { handleScan, handleScanHistory } from "./handlers/scan";
 import { handleHeatmap } from "./handlers/heatmap";
+import {
+  handleObservatoryNodes, handleObservatoryArcs, handleObservatoryLive,
+  handleObservatoryBrandArcs, handleObservatoryStats,
+} from "./handlers/observatory";
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
@@ -140,6 +144,13 @@ router.get("/api/auth/me", async (request: Request, env: Env) => {
 
 // ─── Public Heatmap (unauthenticated) ────────────────────────
 router.get("/api/heatmap", (request: Request, env: Env) => handleHeatmap(request, env));
+
+// ─── Observatory (unauthenticated — public viz endpoints) ────
+router.get("/api/observatory/nodes",      (request: Request, env: Env) => handleObservatoryNodes(request, env));
+router.get("/api/observatory/arcs",       (request: Request, env: Env) => handleObservatoryArcs(request, env));
+router.get("/api/observatory/live",       (request: Request, env: Env) => handleObservatoryLive(request, env));
+router.get("/api/observatory/brand-arcs", (request: Request, env: Env) => handleObservatoryBrandArcs(request, env));
+router.get("/api/observatory/stats",      (request: Request, env: Env) => handleObservatoryStats(request, env));
 
 // ─── Public Scan (unauthenticated, rate-limited) ─────────────
 router.post("/api/scan/public", async (request: Request, env: Env) => {
