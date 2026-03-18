@@ -55,16 +55,17 @@ export async function handleScanBrandEmailSecurity(
   const origin = request.headers.get('Origin');
   try {
     const brand = await env.DB.prepare(
-      'SELECT id, canonical_domain FROM brands WHERE id = ?'
-    ).bind(brandId).first<{ id: number; canonical_domain: string }>();
+      'SELECT id, canonical_domain, name FROM brands WHERE id = ?'
+    ).bind(brandId).first<{ id: number; canonical_domain: string | null; name: string }>();
 
     if (!brand) {
       return json({ success: false, error: 'Brand not found' }, 404, origin);
     }
 
-    const domain = brand.canonical_domain;
+    // Fall back to lowercase name if canonical_domain is not set
+    const domain = brand.canonical_domain || brand.name.toLowerCase();
     if (!domain) {
-      return json({ success: false, error: 'Brand has no canonical domain' }, 400, origin);
+      return json({ success: false, error: 'Brand has no domain or name' }, 400, origin);
     }
 
     const result = await runEmailSecurityScan(domain);

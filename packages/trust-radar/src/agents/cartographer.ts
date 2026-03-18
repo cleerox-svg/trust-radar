@@ -13,6 +13,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
+import { createNotification } from "../lib/notifications";
 
 export const cartographerAgent: AgentModule = {
   name: "cartographer",
@@ -137,15 +138,31 @@ export const cartographerAgent: AgentModule = {
     let emailScanned = 0;
     let emailErrors = 0;
     try {
+      // Backfill canonical_domain from name for Tranco imports where domain is missing
+      await env.DB.prepare(`
+        UPDATE brands SET canonical_domain = LOWER(name)
+        WHERE source = 'tranco_import' AND (canonical_domain IS NULL OR canonical_domain = '')
+      `).run();
+
+      // Debug stats
+      const brandStats = await env.DB.prepare(`
+        SELECT COUNT(*) as total,
+          SUM(CASE WHEN canonical_domain IS NOT NULL AND canonical_domain != '' THEN 1 ELSE 0 END) as has_domain,
+          SUM(CASE WHEN email_security_scanned_at IS NOT NULL THEN 1 ELSE 0 END) as scanned
+        FROM brands WHERE monitoring_status = 'active'
+      `).first<{ total: number; has_domain: number; scanned: number }>();
+      console.log('[Cartographer] Email security brand stats:', JSON.stringify(brandStats));
+
+      // Include brands without canonical_domain by falling back to name
       const brandsToScan = await env.DB.prepare(`
-        SELECT b.id, b.canonical_domain AS domain
+        SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain, b.email_security_grade AS existing_grade
         FROM brands b
-        WHERE b.canonical_domain IS NOT NULL
+        WHERE (b.canonical_domain IS NOT NULL OR b.name IS NOT NULL)
           AND (b.email_security_scanned_at IS NULL
                OR b.email_security_scanned_at < datetime('now', '-7 days'))
         ORDER BY b.email_security_scanned_at ASC NULLS FIRST
         LIMIT 50
-      `).all<{ id: number; domain: string }>();
+      `).all<{ id: number; domain: string; existing_grade: string | null }>();
 
       for (const brand of brandsToScan.results) {
         try {
@@ -156,6 +173,24 @@ export const cartographerAgent: AgentModule = {
             SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now')
             WHERE id = ?
           `).bind(result.score, result.grade, brand.id).run();
+
+          // Detect grade changes and notify
+          if (brand.existing_grade && brand.existing_grade !== result.grade) {
+            const dropped = gradeOrder(result.grade) > gradeOrder(brand.existing_grade);
+            const brandName = await env.DB.prepare('SELECT name FROM brands WHERE id = ?')
+              .bind(brand.id).first<{ name: string }>();
+            try {
+              await createNotification(env.DB, {
+                type: 'email_security_change',
+                title: `${brandName?.name ?? brand.domain} email security ${dropped ? 'degraded' : 'improved'}`,
+                message: `Grade changed from ${brand.existing_grade} to ${result.grade}`,
+                severity: dropped ? 'high' : 'info',
+              });
+            } catch (notifErr) {
+              console.error('[cartographer] notification error:', notifErr);
+            }
+          }
+
           emailScanned++;
           itemsUpdated++;
         } catch (e) {
@@ -234,6 +269,10 @@ function computeHeuristicScore(
   else if (totalThreats > 100) score -= 10;
 
   return Math.max(0, Math.min(100, score));
+}
+
+function gradeOrder(g: string): number {
+  return ({ 'A+': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'F': 5 } as Record<string, number>)[g] ?? 6;
 }
 
 /**

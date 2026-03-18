@@ -1184,10 +1184,14 @@ async function viewPublicSite(el, params) {
     submitBtn.textContent = 'Scanning...';
 
     try {
-      const res = await fetch('/api/v1/public/assess', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain }),
-      }).then(r => r.json());
+      // Run threat assessment and email security scan in parallel
+      const [res, esRes] = await Promise.all([
+        fetch('/api/v1/public/assess', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain }),
+        }).then(r => r.json()).catch(() => null),
+        fetch(`/api/v1/public/email-security/${encodeURIComponent(domain)}`).then(r => r.json()).catch(() => null),
+      ]);
 
       document.getElementById('pub-assess-loading').style.display = 'none';
       submitBtn.disabled = false;
@@ -1248,12 +1252,9 @@ async function viewPublicSite(el, params) {
       `;
       document.getElementById('pub-assess-results').scrollIntoView({ behavior: 'smooth' });
 
-      // Fetch email security posture in parallel and append to results
-      fetch(`/api/v1/public/email-security/${encodeURIComponent(d.domain)}`)
-        .then(r => r.json())
-        .then(esRes => {
-          if (!esRes?.success || !esRes?.data) return;
-          const es = esRes.data;
+      // Render email security posture card (already fetched in parallel above)
+      if (esRes?.success && esRes?.data) {
+        const es = esRes.data;
           const esGradeColor = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'}[es.grade] || '#666';
           const esScore = es.score || 0;
           const dmarcStatus = es.dmarc?.exists ? `Policy: ${es.dmarc.policy || 'none'}` : 'Not configured';
@@ -1294,8 +1295,7 @@ async function viewPublicSite(el, params) {
 
           const resultsEl = document.getElementById('pub-assess-results');
           if (resultsEl) resultsEl.insertAdjacentHTML('beforeend', emailHtml);
-        })
-        .catch(() => { /* email security is best-effort */ });
+      }
 
       // Show lead capture form
       setTimeout(() => {
