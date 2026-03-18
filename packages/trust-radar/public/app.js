@@ -1444,32 +1444,41 @@ async function viewObservatory(el) {
 
   // ── Brand HQ coordinates for arc targeting ───────────────────────
   const BRAND_HQ = {
-    'amazon':           { lat: 47.6062, lng: -122.3321 },
-    'apple':            { lat: 37.3349, lng: -122.0090 },
-    'google':           { lat: 37.4220, lng: -122.0841 },
-    'microsoft':        { lat: 47.6395, lng: -122.1283 },
-    'facebook':         { lat: 37.4848, lng: -122.1484 },
-    'instagram':        { lat: 37.4848, lng: -122.1484 },
-    'netflix':          { lat: 37.2580, lng: -121.9531 },
-    'docusign':         { lat: 37.5202, lng: -122.2554 },
-    'adobe':            { lat: 37.3309, lng: -121.8939 },
-    'coinbase':         { lat: 37.7749, lng: -122.4194 },
-    'disney':           { lat: 34.0577, lng: -118.1764 },
-    'lowes':            { lat: 35.4069, lng: -80.8412  },
-    'roblox':           { lat: 37.7749, lng: -122.4194 },
-    'whatsapp':         { lat: 37.4848, lng: -122.1484 },
-    'standard chartered': { lat: 51.5074, lng: -0.1278 },
-    'paypal':           { lat: 37.3769, lng: -121.9222 },
-    'chase':            { lat: 40.7580, lng: -73.9855  },
-    'bank of america':  { lat: 35.2271, lng: -80.8431  },
-    'wells fargo':      { lat: 37.7749, lng: -122.4194 },
-    'dhl':              { lat: 50.9375, lng: 6.9603    },
+    'amazon':             { lat: 47.6062, lng: -122.3321 },
+    'apple':              { lat: 37.3349, lng: -122.0090 },
+    'google':             { lat: 37.4220, lng: -122.0841 },
+    'microsoft':          { lat: 47.6395, lng: -122.1283 },
+    'meta':               { lat: 37.4848, lng: -122.1484 },
+    'facebook':           { lat: 37.4848, lng: -122.1484 },
+    'instagram':          { lat: 37.4848, lng: -122.1484 },
+    'whatsapp':           { lat: 37.4848, lng: -122.1484 },
+    'netflix':            { lat: 37.2580, lng: -121.9531 },
+    'docusign':           { lat: 37.5202, lng: -122.2554 },
+    'adobe':              { lat: 37.3309, lng: -121.8939 },
+    'coinbase':           { lat: 37.7749, lng: -122.4194 },
+    'disney':             { lat: 34.0577, lng: -118.1764 },
+    "lowe's":             { lat: 35.4069, lng: -80.8412  },
+    'lowes':              { lat: 35.4069, lng: -80.8412  },
+    'roblox':             { lat: 37.7749, lng: -122.4194 },
+    'standard chartered': { lat: 51.5074, lng: -0.1278   },
+    'paypal':             { lat: 37.3769, lng: -121.9222 },
+    'chase':              { lat: 40.7580, lng: -73.9855  },
+    'bank of america':    { lat: 35.2271, lng: -80.8431  },
+    'wells fargo':        { lat: 37.7749, lng: -122.4194 },
+    'dhl':                { lat: 50.9375, lng: 6.9603    },
+    'walmart':            { lat: 36.3729, lng: -94.2088  },
+    'target':             { lat: 44.9778, lng: -93.2650  },
   };
 
-  function _brandHQCoords(brandName) {
+  // Fuzzy brand HQ lookup — exact match first, then partial/substring match
+  function findBrandHQ(brandName) {
     if (!brandName) return null;
-    const key = brandName.toLowerCase().trim();
-    return BRAND_HQ[key] ?? null;
+    const name = brandName.toLowerCase().trim();
+    if (BRAND_HQ[name]) return BRAND_HQ[name];
+    for (const [key, hq] of Object.entries(BRAND_HQ)) {
+      if (name.includes(key) || key.includes(name)) return hq;
+    }
+    return null;
   }
 
   // Quadratic bezier curve — bows NORTH on flat 2-D map
@@ -1669,7 +1678,7 @@ async function viewObservatory(el) {
         .filter(a => activeSeverities.has(a.severity || 'low'))
         .map(a => {
           // Override target with precise brand HQ if we know the brand
-          const hq = _brandHQCoords(a.brand_name || a.target_brand);
+          const hq = findBrandHQ(a.brand_name || a.target_brand);
           const tgt = hq ? [hq.lng, hq.lat] : a.targetPosition;
           return {
             ...a,
@@ -1678,13 +1687,11 @@ async function viewObservatory(el) {
           };
         });
 
-      // DEBUG: dump raw arc positions to verify data structure
-      console.table(arcData.slice(0, 5).map(a => ({
-        srcLng: a.sourcePosition?.[0],
-        srcLat: a.sourcePosition?.[1],
-        tgtLng: a.targetPosition?.[0],
-        tgtLat: a.targetPosition?.[1],
-      })));
+      // DEBUG: verify brand HQ matching
+      arcData.slice(0, 10).forEach(a => {
+        const raw = a.brand_name || a.target_brand;
+        console.log(`[Observatory] Arc: brand="${raw}" target=[${a.targetPosition?.[0]?.toFixed(2)}, ${a.targetPosition?.[1]?.toFixed(2)}] matched_hq=${!!findBrandHQ(raw)}`);
+      });
 
       const s = statsRes?.data || {};
       document.getElementById('stat-bar').innerHTML = [
@@ -1970,7 +1977,7 @@ async function viewObservatory(el) {
           const res = await api(`/observatory/brand-arcs?brand_id=${bid}&period=${currentPeriod}`).catch(() => null);
           const raw = res?.data || [];
           // Precompute bezier paths; override target with brand HQ if known
-          const brandHQ = _brandHQCoords(brand.name);
+          const brandHQ = findBrandHQ(brand.name);
           bArcs = raw.map(a => {
             const tgt = brandHQ ? [brandHQ.lng, brandHQ.lat] : a.targetPosition;
             return {
