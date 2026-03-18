@@ -4,6 +4,7 @@ import {
   Plus, Edit2, X, Check, UserCheck, Shield, Users, BarChart2,
   AlertTriangle, Flag, Database, RefreshCw, Mail, UserPlus,
   Activity, CheckCircle2, XCircle, Lock, Server, HardDrive, ExternalLink,
+  Clock, FileText,
 } from "lucide-react";
 import { admin, influencers as influencersApi, type AdminUser } from "../lib/api";
 import type { AdminStats, InfluencerProfile } from "../lib/types";
@@ -39,7 +40,7 @@ function PlatformAdminLink() {
   );
 }
 
-type Tab = "influencers" | "users" | "breakdown" | "health";
+type Tab = "influencers" | "users" | "breakdown" | "health" | "reports";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon?: React.ReactNode }) {
@@ -831,6 +832,7 @@ export default function AdminPage() {
     { id: "users",       label: "Users",          icon: <Users size={14} /> },
     { id: "breakdown",   label: "Platform Stats", icon: <BarChart2 size={14} /> },
     { id: "health",      label: "System Health",  icon: <Activity size={14} /> },
+    { id: "reports",     label: "Reports",        icon: <FileText size={14} /> },
   ];
 
   return (
@@ -885,6 +887,44 @@ export default function AdminPage() {
       {tab === "breakdown"   && !stats && !loadingStats && (
         <div className="text-center py-12 text-slate-500 text-sm">No stats available</div>
       )}
+      {tab === "reports"     && <ScheduledReportsStub />}
+    </div>
+  );
+}
+
+// ─── Scheduled Reports Stub ───────────────────────────────────────────────────
+function ScheduledReportsStub() {
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(109,64,237,0.1)", border: "1px solid rgba(109,64,237,0.2)" }}>
+            <Clock size={20} style={{ color: "var(--violet-400)" }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Scheduled Reports</h3>
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>Automatic weekly/monthly reports delivered to stakeholders</p>
+          </div>
+        </div>
+        <div className="rounded-lg p-8 text-center" style={{ background: "var(--surface-overlay)", border: "1px dashed var(--border-subtle)" }}>
+          <FileText size={32} className="mx-auto mb-3" style={{ color: "var(--text-tertiary)", opacity: 0.5 }} />
+          <p className="text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>Coming Soon</p>
+          <p className="text-xs" style={{ color: "var(--text-tertiary)", maxWidth: 400, margin: "0 auto" }}>
+            Automatic weekly and monthly threat intelligence reports delivered to stakeholders via email.
+            Configure recipients, schedule, and report format.
+          </p>
+        </div>
+      </div>
+      <div className="card p-6">
+        <div className="text-[10px] font-bold tracking-widest mb-4" style={{ color: "var(--text-tertiary)" }}>ON-DEMAND REPORTS</div>
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Generate brand threat intelligence reports from the Dashboard. Each monitored brand has a "Generate Report" button that opens a printable PDF-ready report.
+        </p>
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--violet-400)" }}>
+          <ExternalLink size={12} />
+          <span>Go to Dashboard to generate reports</span>
+        </div>
+      </div>
     </div>
   );
 }

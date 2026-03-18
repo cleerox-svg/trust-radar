@@ -369,6 +369,68 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   );
 }
 
+// ─── Brand Report Quick Access ────────────────────────────────────────────────
+function ReportQuickAccess() {
+  const [brands, setBrands] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [period, setPeriod] = React.useState("30d");
+
+  React.useEffect(() => {
+    fetch("/api/brands/monitored", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("imprsn8_token")}`, "Content-Type": "application/json" },
+    })
+      .then(r => r.json())
+      .then((j: { success: boolean; data?: Array<{ brand_id: string; brand_name: string }> }) => {
+        if (j.success && j.data) setBrands(j.data.map(b => ({ id: b.brand_id, name: b.brand_name })));
+      })
+      .catch(() => {});
+  }, []);
+
+  if (brands.length === 0) return null;
+
+  return (
+    <div className="card p-5 mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Flag size={14} style={{ color: "var(--violet-400)" }} />
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Brand Threat Reports</h3>
+        </div>
+        <select
+          value={period}
+          onChange={e => setPeriod(e.target.value)}
+          className="text-xs px-2 py-1 rounded"
+          style={{ background: "var(--surface-overlay)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }}
+        >
+          <option value="7d">7 Days</option>
+          <option value="30d">30 Days</option>
+          <option value="90d">90 Days</option>
+        </select>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {brands.map(b => (
+          <a
+            key={b.id}
+            href={`/report/${b.id}?period=${period}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: "var(--surface-overlay)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--violet-400)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >
+            <img src={`https://www.google.com/s2/favicons?domain=${b.name.toLowerCase()}.com&sz=16`} alt="" width={16} height={16} style={{ borderRadius: 3 }} />
+            {b.name}
+            <ArrowUpRight size={10} />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function Overview() {
   const { user, selectedInfluencer, setThreatCount } = useOutletContext<Ctx>();
@@ -488,6 +550,9 @@ export default function Overview() {
           accentColor="var(--green-400)"
         />
       </div>
+
+      {/* ── Brand Report Quick Access ─────────────────────────────── */}
+      <ReportQuickAccess />
 
       {/* ── Row 3: Activity Feed + Agent Quick Status ─────────────── */}
       <div className="flex flex-col lg:flex-row gap-5">

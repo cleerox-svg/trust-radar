@@ -25,6 +25,7 @@ const AgentsPanel       = lazy(() => import("./pages/AgentsPanel"));
 const Settings          = lazy(() => import("./pages/Settings"));
 const AdminPage         = lazy(() => import("./pages/AdminPage"));
 const BrandDashboard    = lazy(() => import("./pages/Dashboard"));
+const BrandReport       = lazy(() => import("./pages/BrandReport"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────
 function PageLoader() {
@@ -245,6 +246,11 @@ export default function App() {
         <Route path="/" element={<Suspense fallback={<PageLoader />}><ErrorBoundary><Home /></ErrorBoundary></Suspense>} />
         <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
         <Route path="/register" element={<Suspense fallback={<PageLoader />}><Register /></Suspense>} />
+
+        {/* Protected standalone pages (no shell) */}
+        <Route element={<RequireAuth />}>
+          <Route path="/report/:brandId" element={<Suspense fallback={<PageLoader />}><BrandReport /></Suspense>} />
+        </Route>
 
         {/* Protected shell */}
         <Route element={<RequireAuth />}>
