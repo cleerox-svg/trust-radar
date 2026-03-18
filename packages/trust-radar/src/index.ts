@@ -94,6 +94,13 @@ import {
   handlePublicEmailSecurity,
   handleEmailSecurityStats,
 } from "./handlers/emailSecurity";
+import {
+  handleGetDmarcOverview,
+  handleGetDmarcReports,
+  handleGetDmarcStats,
+  handleGetDmarcSources,
+} from "./handlers/dmarcReports";
+import { handleDmarcEmail } from "./dmarc-receiver";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
@@ -1057,6 +1064,29 @@ router.post("/api/email-security/scan/:brandId", async (request: Request & { par
   return handleScanBrandEmailSecurity(request, env, request.params["brandId"] ?? "");
 });
 
+// ─── DMARC Report endpoints ───────────────────────────────────
+// overview must be registered before :brandId to avoid route collision
+router.get("/api/dmarc-reports/overview", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetDmarcOverview(request, env);
+});
+router.get("/api/dmarc-reports/:brandId/stats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetDmarcStats(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/dmarc-reports/:brandId/sources", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetDmarcSources(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/dmarc-reports/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetDmarcReports(request, env, request.params["brandId"] ?? "");
+});
+
 // ─── Public API endpoints (no auth) ─────────────────────────
 router.get("/api/v1/public/stats", (request: Request, env: Env) => handlePublicStats(request, env));
 router.get("/api/v1/public/geo", (request: Request, env: Env) => handlePublicGeo(request, env));
@@ -1239,6 +1269,11 @@ export default {
         })
         .catch((err) => console.error("[cron] feed runner error:", err))
     );
+  },
+
+  async email(message: { from: string; to: string; headers: Headers; raw: ReadableStream<Uint8Array>; rawSize: number; setReject(r: string): void; forward(to: string, headers?: Headers): Promise<void> }, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Accept ALL emails — never reject/bounce (Google/Microsoft stop sending on bounces)
+    ctx.waitUntil(handleDmarcEmail(message, env));
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

@@ -2856,6 +2856,134 @@ async function viewBrandsHub(el) {
 }
 
 // ─── Email Security Card ─────────────────────────────────────
+// ─── DMARC CTA (3-state) ─────────────────────────────────────────
+function renderDmarcCta(dmarc) {
+  if (!dmarc.exists) {
+    // No DMARC at all — show full suggested record
+    return `<div class="email-cta">
+      <strong>No DMARC record — anyone can spoof this domain.</strong><br>
+      Add this DNS TXT record at <code>_dmarc.yourdomain.com</code> to start protecting it and receive spoofing intelligence in Trust Radar:<br>
+      <code style="display:block;margin-top:6px;word-break:break-all">v=DMARC1; p=none; rua=mailto:dmarc-rua@trustradar.ca</code>
+    </div>`;
+  }
+  const inTrustRadar = dmarc.record && dmarc.record.includes('trustradar.ca');
+  if (inTrustRadar) {
+    // Already reporting to Trust Radar
+    return `<div class="email-cta" style="border-color:var(--positive);background:rgba(0,229,160,.06)">
+      \u2705 <strong>DMARC reports are flowing to Trust Radar</strong> — spoofing intelligence will appear in the Email Intelligence panel below.
+    </div>`;
+  }
+  // Has DMARC but not reporting to Trust Radar
+  return `<div class="email-cta">
+    <strong>DMARC configured — add Trust Radar as a report receiver.</strong><br>
+    Append <code>mailto:dmarc-rua@trustradar.ca</code> to the <code>rua=</code> tag in your DMARC record to get full spoofing intelligence here.
+  </div>`;
+}
+
+// ─── Email Intelligence card (DMARC aggregate reports) ───────────
+function renderEmailIntelCard(stats, sources, brandId) {
+  const totals = stats?.totals;
+  const daily = stats?.daily || [];
+  const domain = stats?.domain || '';
+
+  // Empty state — no reports received yet
+  if (!totals || !totals.total_emails) {
+    const inTrustRadar = false; // handled by CTA in posture card
+    return `
+      <div class="panel" style="margin-bottom:16px">
+        <div class="phead"><span>\uD83D\uDCCA Email Intelligence</span><span class="badge">No data</span></div>
+        <div class="panel-body padded" style="font-size:12px;color:var(--text-secondary)">
+          <div style="margin-bottom:10px;color:var(--text-tertiary)">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
+          <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
+            <strong>Activate DMARC reporting:</strong><br>
+            Add <code>rua=mailto:dmarc-rua@trustradar.ca</code> to your DMARC DNS record.<br>
+            Google, Microsoft, and Yahoo will send daily reports showing every IP that sent email claiming to be this domain.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const passRate = totals.total_emails > 0 ? Math.round((totals.total_pass / totals.total_emails) * 100) : 0;
+  const failRate = 100 - passRate;
+  const passColor = passRate >= 90 ? '#00e5a0' : passRate >= 70 ? '#ffb627' : '#ff3b5c';
+
+  // Mini trend chart data (last 14 days)
+  const chartDays = daily.slice(0, 14).reverse();
+  const maxEmails = Math.max(...chartDays.map(d => d.email_count), 1);
+  const barChart = chartDays.length > 1 ? `
+    <div style="display:flex;align-items:flex-end;gap:2px;height:36px;margin:10px 0 4px">
+      ${chartDays.map(d => {
+        const h = Math.max(2, Math.round((d.email_count / maxEmails) * 36));
+        const fr = d.email_count > 0 ? d.fail_count / d.email_count : 0;
+        const c = fr > 0.3 ? '#ff3b5c' : fr > 0.1 ? '#ffb627' : '#00e5a0';
+        return `<div title="${d.date}: ${d.email_count} emails, ${d.fail_count} failed" style="flex:1;height:${h}px;background:${c};border-radius:1px;min-width:4px"></div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-tertiary)">
+      <span>${chartDays[0]?.date?.slice(5) || ''}</span><span>${chartDays[chartDays.length-1]?.date?.slice(5) || ''}</span>
+    </div>` : '';
+
+  // Top failing sources
+  const srcRows = (sources || []).slice(0, 5).map(s => {
+    const flag = s.country_code ? `\uD83C${String.fromCodePoint(0xDDE6 + (s.country_code.charCodeAt(0) - 65))}${String.fromCodePoint(0xDDE6 + (s.country_code.charCodeAt(1) - 65))}` : '\u{1F310}';
+    const label = s.org ? s.org.slice(0, 28) : s.source_ip;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <span style="font-family:var(--font-mono);color:var(--text-tertiary);min-width:100px">${s.source_ip}</span>
+      <span>${flag}</span>
+      <span style="flex:1;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+      <span style="color:var(--threat-high);font-weight:600;font-family:var(--font-mono)">${s.fail_messages.toLocaleString()}</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="phead">
+        <span>\uD83D\uDCCA Email Intelligence</span>
+        <span style="font-size:10px;color:var(--text-tertiary)">${totals.report_count} reports · ${totals.reporter_count} senders</span>
+      </div>
+      <div class="panel-body padded">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+            <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary)">${(totals.total_emails||0).toLocaleString()}</div>
+            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Emails analyzed</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+            <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:${passColor}">${passRate}%</div>
+            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Pass rate</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+            <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--threat-high)">${(totals.total_fail||0).toLocaleString()}</div>
+            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Failed DMARC</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+            <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--blue-primary)">${failRate}%</div>
+            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Fail rate</div>
+          </div>
+        </div>
+        ${barChart}
+        ${srcRows ? `
+          <div style="margin-top:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Top Spoofing Sources</div>
+            ${srcRows}
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
+async function loadEmailIntel(brandId) {
+  const wrap = document.getElementById('email-intel-wrap');
+  if (!wrap) return;
+  try {
+    const [statsRes, sourcesRes] = await Promise.all([
+      api(`/dmarc-reports/${brandId}/stats`).catch(() => null),
+      api(`/dmarc-reports/${brandId}/sources?limit=5`).catch(() => null),
+    ]);
+    wrap.innerHTML = renderEmailIntelCard(statsRes?.data, sourcesRes?.data, brandId);
+  } catch {
+    wrap.innerHTML = renderEmailIntelCard(null, null, brandId);
+  }
+}
+
 function renderEmailSecurityCard(es, brandId) {
   if (!es) return `
     <div class="panel email-security-card" style="margin-bottom:16px">
@@ -2921,8 +3049,7 @@ function renderEmailSecurityCard(es, brandId) {
             return `<div class="recommendation-item">${icon} ${r}</div>`;
           }).join('')}
         </div>` : ''}
-        ${dmarc.exists && !dmarc.reporting_enabled ? `<div class="email-cta"><strong>Want visibility into who's spoofing this domain?</strong><br>Add <code>rua=mailto:reports@trustradar.ca</code> to the DMARC record to receive aggregate reports through Trust Radar.</div>` : ''}
-        ${dmarc.exists && dmarc.reporting_enabled && !dmarc.record?.includes('trustradar.ca') ? `<div class="email-cta"><strong>Send DMARC reports to Trust Radar</strong><br>Add <code>mailto:reports@trustradar.ca</code> to the <code>rua</code> tag to get spoofing intelligence in this dashboard.</div>` : ''}
+        ${renderDmarcCta(dmarc)}
         <div style="font-size:10px;color:var(--text-tertiary);margin-top:12px">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
       </div>
     </div>`;
@@ -3086,6 +3213,9 @@ async function viewBrandDetail(el, params) {
       <div id="email-security-panel-wrap">
         ${renderEmailSecurityCard(emailSecRes?.data, params.id)}
       </div>
+      <div id="email-intel-wrap">
+        <div class="panel" style="margin-bottom:16px"><div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">Loading email intelligence\u2026</div></div>
+      </div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
         <div class="detail-rcol">
@@ -3114,6 +3244,7 @@ async function viewBrandDetail(el, params) {
         <div class="chart-wrap"><canvas id="brand-timeline-chart"></canvas></div>
       </div>`;
     _attachLogoFallbacks(el);
+    loadEmailIntel(params.id);
 
     // ─── Safe Domains panel rendering ───────────────────────
     const brandId = params.id;

@@ -209,14 +209,51 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] email security phase error:", e);
     }
 
-    // Phase 4: Aggregate provider threat stats across time periods
+    // Phase 4: Geo-enrich DMARC source IPs — up to 10 per cycle
+    let dmarcGeoEnriched = 0;
+    try {
+      const unenrichedIps = await env.DB.prepare(`
+        SELECT DISTINCT source_ip FROM dmarc_report_records
+        WHERE country_code IS NULL AND source_ip IS NOT NULL
+        LIMIT 10
+      `).all<{ source_ip: string }>();
+
+      if (unenrichedIps.results.length > 0) {
+        const { batchGeoLookup, isPrivateIP } = await import("../lib/geoip");
+        const ips = unenrichedIps.results.map(r => r.source_ip).filter(ip => !isPrivateIP(ip));
+        const { results: geoMap } = await batchGeoLookup(ips, env.CACHE);
+
+        for (const [ip, geo] of geoMap.entries()) {
+          await env.DB.prepare(`
+            UPDATE dmarc_report_records
+            SET country_code = ?, org = ?, asn = ?, lat = ?, lng = ?
+            WHERE source_ip = ? AND country_code IS NULL
+          `).bind(geo.countryCode, geo.org, geo.as, geo.lat, geo.lng, ip).run();
+          dmarcGeoEnriched++;
+        }
+
+        // Mark private/bogon IPs so they exit the queue
+        for (const { source_ip } of unenrichedIps.results) {
+          const { isPrivateIP: priv } = await import("../lib/geoip");
+          if (priv(source_ip)) {
+            await env.DB.prepare(
+              `UPDATE dmarc_report_records SET country_code = 'PRIV' WHERE source_ip = ? AND country_code IS NULL`
+            ).bind(source_ip).run();
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[cartographer] DMARC geo enrichment error:", e);
+    }
+
+    // Phase 5: Aggregate provider threat stats across time periods
     const statsCreated = await aggregateProviderStats(env);
     itemsCreated += statsCreated;
 
     // Emit diagnostic output so cartographer never shows 0 outputs silently
     outputs.push({
       type: "diagnostic",
-      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
       severity: providers.results.length === 0 ? "medium" : "info",
       details: {
         providers_with_threats: providers.results.length,
@@ -226,6 +263,7 @@ export const cartographerAgent: AgentModule = {
         stats_entries: statsCreated,
         email_security_scanned: emailScanned,
         email_security_errors: emailErrors,
+        dmarc_geo_enriched: dmarcGeoEnriched,
         threats_total_active: threatsTotal?.n ?? 0,
         threats_with_provider: threatsWithProvider?.n ?? 0,
         threats_without_provider_but_with_ip: threatsWithoutProvider?.n ?? 0,
