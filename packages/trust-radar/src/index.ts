@@ -87,6 +87,13 @@ import {
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
 } from "./handlers/notifications";
 import { handleListAuditLog, handleExportAuditLog } from "./handlers/audit";
+import {
+  handleGetEmailSecurity,
+  handleScanBrandEmailSecurity,
+  handleScanAllEmailSecurity,
+  handlePublicEmailSecurity,
+  handleEmailSecurityStats,
+} from "./handlers/emailSecurity";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
@@ -1028,6 +1035,28 @@ router.get("/ws/threats", async (request: Request, env: Env) => {
   return hub.fetch(request);
 });
 
+// ─── Email Security Posture ───────────────────────────────────
+router.get("/api/email-security/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleEmailSecurityStats(request, env);
+});
+router.get("/api/email-security/scan-all", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleScanAllEmailSecurity(request, env);
+});
+router.get("/api/email-security/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetEmailSecurity(request, env, request.params["brandId"] ?? "");
+});
+router.post("/api/email-security/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleScanBrandEmailSecurity(request, env, request.params["brandId"] ?? "");
+});
+
 // ─── Public API endpoints (no auth) ─────────────────────────
 router.get("/api/v1/public/stats", (request: Request, env: Env) => handlePublicStats(request, env));
 router.get("/api/v1/public/geo", (request: Request, env: Env) => handlePublicGeo(request, env));
@@ -1035,6 +1064,9 @@ router.get("/api/v1/public/feeds", (request: Request, env: Env) => handlePublicF
 router.post("/api/v1/public/assess", (request: Request, env: Env) => handlePublicAssess(request, env));
 router.post("/api/v1/public/leads", (request: Request, env: Env) => handlePublicLeadCapture(request, env));
 router.post("/api/v1/public/monitor", (request: Request, env: Env) => handlePublicMonitor(request, env));
+router.get("/api/v1/public/email-security/:domain", async (request: Request & { params: Record<string, string> }, env: Env) =>
+  handlePublicEmailSecurity(request, env, request.params["domain"] ?? "")
+);
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 // serve_directly=false means ALL requests hit the Worker, so we must

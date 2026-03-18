@@ -7,6 +7,17 @@ import { json } from "../lib/cors";
 import { analyzeWithHaiku, setHaikuCategory } from "../lib/haiku";
 import type { Env } from "../types";
 
+interface EmailSecuritySection {
+  score: number;
+  grade: string;
+  dmarc: { exists: boolean; policy: string | null; reporting_enabled: boolean };
+  spf: { exists: boolean; policy: string | null; too_many_lookups: boolean };
+  dkim: { exists: boolean; selectors_found: string[] };
+  mx: { exists: boolean; providers: string[] };
+  recommendations: string[];
+  scanned_at: string | null;
+}
+
 interface ReportData {
   reportId: string;
   generatedAt: string;
@@ -23,6 +34,7 @@ interface ReportData {
     hostingProviders: number;
     aiSummary: string;
   };
+  emailSecurity: EmailSecuritySection | null;
   threatBreakdown: {
     byType: Array<{ type: string; count: number }>;
     bySeverity: Array<{ severity: string; count: number }>;
@@ -62,7 +74,7 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
     const [
       statsRow, severityRows, typeRows, activeRow, remediatedRow,
       countryRows, campaignRows, providerRows, asnRows,
-      topThreats, timelineRows,
+      topThreats, timelineRows, emailSecRow,
     ] = await Promise.all([
       env.DB.prepare(`
         SELECT COUNT(*) AS total FROM threats
@@ -133,6 +145,22 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
         FROM threats WHERE target_brand_id = ? AND created_at >= ${since}
         GROUP BY date(created_at) ORDER BY period ASC
       `).bind(brandId).all<{ period: string; count: number; phishing: number; typosquatting: number; malware: number }>(),
+
+      // Latest email security scan for this brand
+      env.DB.prepare(`
+        SELECT dmarc_exists, dmarc_policy, dmarc_rua, spf_exists, spf_policy, spf_too_many_lookups,
+               dkim_exists, dkim_selectors_found, mx_exists, mx_providers,
+               email_security_score, email_security_grade, scanned_at
+        FROM email_security_scans WHERE brand_id = ?
+        ORDER BY scanned_at DESC LIMIT 1
+      `).bind(brandId).first<{
+        dmarc_exists: number; dmarc_policy: string | null; dmarc_rua: string | null;
+        spf_exists: number; spf_policy: string | null; spf_too_many_lookups: number;
+        dkim_exists: number; dkim_selectors_found: string | null;
+        mx_exists: number; mx_providers: string | null;
+        email_security_score: number; email_security_grade: string;
+        scanned_at: string;
+      }>(),
     ]);
 
     const totalThreats = statsRow?.total ?? 0;
@@ -196,6 +224,45 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
     const start = new Date(now.getTime() - days * 86400000);
     const periodLabel = `${start.toLocaleDateString("en-US", { month: "long", day: "numeric" })} – ${now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
+    // Build email security section
+    let emailSecurity: EmailSecuritySection | null = null;
+    if (emailSecRow) {
+      const safeJsonArr = (s: string | null): string[] => {
+        if (!s) return [];
+        try { return JSON.parse(s) as string[]; } catch { return []; }
+      };
+      const { generateRecommendations } = await import('../email-security');
+      emailSecurity = {
+        score: emailSecRow.email_security_score,
+        grade: emailSecRow.email_security_grade,
+        dmarc: {
+          exists: !!emailSecRow.dmarc_exists,
+          policy: emailSecRow.dmarc_policy,
+          reporting_enabled: !!emailSecRow.dmarc_rua,
+        },
+        spf: {
+          exists: !!emailSecRow.spf_exists,
+          policy: emailSecRow.spf_policy,
+          too_many_lookups: !!emailSecRow.spf_too_many_lookups,
+        },
+        dkim: {
+          exists: !!emailSecRow.dkim_exists,
+          selectors_found: safeJsonArr(emailSecRow.dkim_selectors_found),
+        },
+        mx: {
+          exists: !!emailSecRow.mx_exists,
+          providers: safeJsonArr(emailSecRow.mx_providers),
+        },
+        recommendations: generateRecommendations({
+          dmarc: { exists: !!emailSecRow.dmarc_exists, policy: emailSecRow.dmarc_policy, pct: null, rua: emailSecRow.dmarc_rua, ruf: null, raw: null },
+          spf: { exists: !!emailSecRow.spf_exists, policy: emailSecRow.spf_policy, includes: 0, tooManyLookups: !!emailSecRow.spf_too_many_lookups, raw: null },
+          dkim: { exists: !!emailSecRow.dkim_exists, selectorsFound: safeJsonArr(emailSecRow.dkim_selectors_found), raw: null },
+          mx: { exists: !!emailSecRow.mx_exists, providers: safeJsonArr(emailSecRow.mx_providers) },
+        }),
+        scanned_at: emailSecRow.scanned_at,
+      };
+    }
+
     const report: ReportData = {
       reportId: `RPT-${brandId.slice(0, 8)}-${Date.now().toString(36)}`,
       generatedAt: now.toISOString(),
@@ -210,6 +277,7 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
         trustScore, riskLevel, totalThreats, activeThreats, remediatedThreats,
         countriesInvolved, campaignsIdentified, hostingProviders, aiSummary,
       },
+      emailSecurity,
       threatBreakdown: {
         byType: typeRows.results,
         bySeverity: severityRows.results,
