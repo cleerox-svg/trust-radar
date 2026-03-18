@@ -1577,12 +1577,12 @@ async function viewObservatory(el) {
     return 8760;
   }
 
-  // ── Arc height: flat for ultra-long routes, gentle lift for shorter ones ──
-  // greatCircle:true handles routing. Cap height to prevent arcs flying off-screen.
+  // ── Arc height: screen-space interpolation (greatCircle:false) ───
   function _arcHeight(d) {
     const lngDiff = Math.abs(d.targetPosition[0] - d.sourcePosition[0]);
-    if (lngDiff > 120) return 0.05;  // trans-Pacific / trans-Atlantic: stay flat
-    return Math.min(0.15, Math.max(0.05, lngDiff * 0.001));
+    if (lngDiff > 150) return 0.4;   // long-distance arcs get more curve
+    if (lngDiff > 80)  return 0.3;
+    return Math.min(0.3, Math.max(0.15, lngDiff * 0.003));
   }
 
   // ── Initialize deck.gl ───────────────────────────────────────────
@@ -1739,7 +1739,7 @@ async function viewObservatory(el) {
         getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
         getHeight: _arcHeight,
         getTilt: 0,
-        greatCircle: true,
+        greatCircle: false,
         getAutoHighlight: false,
         widthMinPixels: 2, widthMaxPixels: 12,
       }),
@@ -1754,7 +1754,7 @@ async function viewObservatory(el) {
         getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
         getHeight: _arcHeight,
         getTilt: 0,
-        greatCircle: true,
+        greatCircle: false,
         getAutoHighlight: false,
         widthMinPixels: 1, widthMaxPixels: 6,
         pickable: true,
@@ -1783,8 +1783,8 @@ async function viewObservatory(el) {
     // Debug: log arc layer props for first 3 arcs
     console.log('[Observatory] ARC LAYER PROPS:', {
       count: arcData.length,
-      greatCircle: true,
-      getHeight: '0.05 if lngDiff>120°, else 0.05–0.15',
+      greatCircle: false,
+      getHeight: '0.4 if lngDiff>150°, 0.3 if >80°, else 0.15–0.3',
       sample: arcData.slice(0, 3).map(d => ({
         source: d.sourcePosition,
         target: d.targetPosition,
@@ -1838,7 +1838,7 @@ async function viewObservatory(el) {
         getTargetColor: d => _typeColor(d.threat_type, 20),
         getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
         getHeight: _arcHeight,
-        greatCircle: true,
+        greatCircle: false,
         widthMinPixels: 4, widthMaxPixels: 24,
       }),
       // Sharp core
@@ -1851,7 +1851,7 @@ async function viewObservatory(el) {
         getTargetColor: d => _typeColor(d.threat_type, 150),
         getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
         getHeight: _arcHeight,
-        greatCircle: true,
+        greatCircle: false,
         widthMinPixels: 2, widthMaxPixels: 12,
         pickable: true,
       }),
@@ -1997,7 +1997,7 @@ async function viewObservatory(el) {
           getTargetColor: [255, 59, 92, 30],
           getWidth: d => Math.max(3, d.volume * 1.5),
           getHeight: _arcHeight,
-          greatCircle: true,
+          greatCircle: false,
           widthMinPixels: 2,
         }),
         // Arcs core
@@ -2010,7 +2010,7 @@ async function viewObservatory(el) {
           getTargetColor: [255, 59, 92, 200],
           getWidth: d => Math.max(1, d.volume * 0.8),
           getHeight: _arcHeight,
-          greatCircle: true,
+          greatCircle: false,
           widthMinPixels: 1, widthMaxPixels: 8,
           pickable: true,
         }),
@@ -2299,23 +2299,23 @@ async function viewObservatory(el) {
       });
     });
 
-    // Layer toggles (Beams / Particles / Nodes)
-    document.querySelectorAll('.obs-lt-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.classList.toggle('active');
-        const layer = btn.dataset.layer;
-        const on = btn.classList.contains('active');
-        if (layer === 'beams')     _showBeams     = on;
-        if (layer === 'particles') _showParticles = on;
-        if (layer === 'nodes')     _showNodes     = on;
-        console.log('[Observatory] Toggle click: layer=' + layer + ' on=' + on
-          + ' | _showBeams=' + _showBeams
-          + ' _showParticles=' + _showParticles
-          + ' _showNodes=' + _showNodes
-          + ' | deckgl=' + !!deckgl
-          + ' _baseLayers=' + _baseLayers.length);
-        _applyLayers(true);
-      });
+    // Layer toggles — delegated on map-wrap so re-renders can't orphan listeners
+    document.getElementById('map-wrap').addEventListener('click', e => {
+      const toggle = e.target.closest('[data-layer]');
+      if (!toggle) return;
+      const layer = toggle.dataset.layer;
+      if (layer === 'beams')     _showBeams     = !_showBeams;
+      else if (layer === 'particles') _showParticles = !_showParticles;
+      else if (layer === 'nodes')     _showNodes     = !_showNodes;
+      toggle.classList.toggle('active');
+      console.log('[Observatory] Toggle: ' + layer + '='
+        + (layer === 'beams' ? _showBeams : layer === 'particles' ? _showParticles : _showNodes)
+        + ' | _showBeams=' + _showBeams
+        + ' _showParticles=' + _showParticles
+        + ' _showNodes=' + _showNodes
+        + ' | deckgl=' + !!deckgl
+        + ' _baseLayers=' + _baseLayers.length);
+      _applyLayers(true);
     });
 
     // Fullscreen
