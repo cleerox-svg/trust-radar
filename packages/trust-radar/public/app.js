@@ -1474,19 +1474,9 @@ async function viewObservatory(el) {
   let _particleFrame = null;
   let _particleArcs = [];
 
-  // Great-circle interpolation: returns [lon, lat] at fraction t (0→1)
+  // Linear interpolation along screen-space line (matches LineLayer path exactly)
   function _gcInterp(lon0, lat0, lon1, lat1, t) {
-    const R = Math.PI / 180, D = 180 / Math.PI;
-    const p1 = lat0 * R, l1 = lon0 * R, p2 = lat1 * R, l2 = lon1 * R;
-    const x1 = Math.cos(p1)*Math.cos(l1), y1 = Math.cos(p1)*Math.sin(l1), z1 = Math.sin(p1);
-    const x2 = Math.cos(p2)*Math.cos(l2), y2 = Math.cos(p2)*Math.sin(l2), z2 = Math.sin(p2);
-    const dot = Math.min(1, Math.max(-1, x1*x2 + y1*y2 + z1*z2));
-    const omega = Math.acos(dot);
-    if (omega < 1e-6) return [lon0, lat0];
-    const s = Math.sin(omega);
-    const a = Math.sin((1-t)*omega)/s, b = Math.sin(t*omega)/s;
-    const x = a*x1+b*x2, y = a*y1+b*y2, z = a*z1+b*z2;
-    return [Math.atan2(y,x)*D, Math.atan2(z, Math.sqrt(x*x+y*y))*D];
+    return [lon0 + (lon1 - lon0) * t, lat0 + (lat1 - lat0) * t];
   }
 
   function _initParticles(arcs) {
