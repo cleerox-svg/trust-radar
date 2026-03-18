@@ -1435,6 +1435,7 @@ async function viewObservatory(el) {
   let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
+  let _particlesVisible     = true;
 
   // ── Particle state ───────────────────────────────────────────────
   let _particles = [];
@@ -1496,10 +1497,10 @@ async function viewObservatory(el) {
         new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:3,   getFillColor:d=>d.col }),
         new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:1.5, getFillColor:d=>d.col }),
       ];
-      // Preserve base layer visibility by reading from deckgl — only swap particle layers.
+      // Preserve base layer visibility; honour _particlesVisible toggle flag.
       if (deckgl) {
         const base = deckgl.props.layers.filter(l => !l.id.startsWith('p-'));
-        deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
+        deckgl.setProps({ layers: _particlesVisible ? [...base, ..._curParticleLayers] : base });
       }
       _particleFrame = requestAnimationFrame(loop);
     }
@@ -1684,29 +1685,35 @@ async function viewObservatory(el) {
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Lines (glow pass — wide, semi-transparent)
-      new deck.LineLayer({
+      // Arcs (glow pass — wide, semi-transparent)
+      new deck.ArcLayer({
         id: 'arcs-glow',
         data: arcData,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getColor: d => _typeColor(d.threat_type, 40),
+        getSourceColor: d => _typeColor(d.threat_type, 40),
+        getTargetColor: d => _typeColor(d.threat_type, 40),
         getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
+        getHeight: 0.02,
+        greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
       }),
-      // Lines (core pass — sharp, bright)
-      new deck.LineLayer({
+      // Arcs (core pass — sharp, bright)
+      new deck.ArcLayer({
         id: 'arcs',
         data: arcData,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getColor: d => _typeColor(d.threat_type, 220),
+        getSourceColor: d => _typeColor(d.threat_type, 220),
+        getTargetColor: d => _typeColor(d.threat_type, 220),
         getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
+        getHeight: 0.02,
+        greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 6,
         pickable: true,
-        transitions: { getColor: 300 },
+        transitions: { getSourceColor: 300, getTargetColor: 300 },
       }),
       // Target nodes (pulsing destination rings)
       new deck.ScatterplotLayer({
@@ -1773,25 +1780,31 @@ async function viewObservatory(el) {
     const top15 = arcData.slice(0, 15);
 
     setLayers([
-      // Lines (thick glow pass)
-      new deck.LineLayer({
+      // Arcs (thick glow pass)
+      new deck.ArcLayer({
         id: 'corridor-glow',
         data: top15,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getColor: d => _typeColor(d.threat_type, 50),
+        getSourceColor: d => _typeColor(d.threat_type, 50),
+        getTargetColor: d => _typeColor(d.threat_type, 50),
         getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
+        getHeight: 0.02,
+        greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 4, widthMaxPixels: 24,
       }),
-      // Lines (sharp core)
-      new deck.LineLayer({
+      // Arcs (sharp core)
+      new deck.ArcLayer({
         id: 'corridors',
         data: top15,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getColor: d => _typeColor(d.threat_type, 230),
+        getSourceColor: d => _typeColor(d.threat_type, 230),
+        getTargetColor: d => _typeColor(d.threat_type, 230),
         getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
+        getHeight: 0.02,
+        greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
         pickable: true,
@@ -1928,25 +1941,31 @@ async function viewObservatory(el) {
           lineWidthMinPixels: 2, stroked: true,
           radiusMinPixels: 8, radiusMaxPixels: 40,
         }),
-        // Lines (glow pass)
-        new deck.LineLayer({
+        // Arcs (glow pass)
+        new deck.ArcLayer({
           id: 'brand-arcs-glow',
           data: bArcs,
           getSourcePosition: d => d.sourcePosition,
           getTargetPosition: d => d.targetPosition,
-          getColor: d => _typeColor(d.threat_type, 50),
+          getSourceColor: d => _typeColor(d.threat_type, 50),
+          getTargetColor: d => _typeColor(d.threat_type, 50),
           getWidth: d => Math.max(3, d.volume * 1.5),
+          getHeight: 0.02,
+          greatCircle: false,
           widthUnits: 'pixels',
           widthMinPixels: 2, widthMaxPixels: 12,
         }),
-        // Lines (core pass)
-        new deck.LineLayer({
+        // Arcs (core pass)
+        new deck.ArcLayer({
           id: 'brand-arcs',
           data: bArcs,
           getSourcePosition: d => d.sourcePosition,
           getTargetPosition: d => d.targetPosition,
-          getColor: d => _typeColor(d.threat_type, 220),
+          getSourceColor: d => _typeColor(d.threat_type, 220),
+          getTargetColor: d => _typeColor(d.threat_type, 220),
           getWidth: d => Math.max(1, d.volume * 0.8),
+          getHeight: 0.02,
+          greatCircle: false,
           widthUnits: 'pixels',
           widthMinPixels: 1, widthMaxPixels: 8,
           pickable: true,
@@ -2244,12 +2263,14 @@ async function viewObservatory(el) {
       btn.classList.toggle('active');
       const isActive = btn.classList.contains('active');
       if (!deckgl) return;
+      if (layer === 'particles') _particlesVisible = isActive;
       const updatedLayers = deckgl.props.layers.map(l => {
         const id = l.id || '';
         let shouldToggle = false;
         if (layer === 'beams'     && (id.includes('arc') || id.includes('corridor') || id.includes('brand-arc'))) shouldToggle = true;
         if (layer === 'nodes'     && (id.includes('node') || id.includes('target') || id.includes('bloom') || id.includes('xhair') || id.includes('radar'))) shouldToggle = true;
-        if (layer === 'particles' && (id.startsWith('p-'))) shouldToggle = true;
+        // p-* layers are managed by the rAF loop; _particlesVisible controls them there
+        if (layer === 'particles' && id.startsWith('p-')) shouldToggle = true;
         if (!shouldToggle) return l;
         try { return l.clone({ visible: isActive }); }
         catch (_) { return new l.constructor({ ...l.props, visible: isActive }); }
