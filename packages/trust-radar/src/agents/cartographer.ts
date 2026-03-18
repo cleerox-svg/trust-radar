@@ -12,6 +12,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { scoreProvider } from "../lib/haiku";
+import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 
 export const cartographerAgent: AgentModule = {
   name: "cartographer",
@@ -132,14 +133,56 @@ export const cartographerAgent: AgentModule = {
       }
     }
 
-    // Phase 3: Aggregate provider threat stats across time periods
+    // Phase 3: Email security posture scans — 50 brands per cycle, oldest first
+    let emailScanned = 0;
+    let emailErrors = 0;
+    try {
+      const brandsToScan = await env.DB.prepare(`
+        SELECT b.id, b.canonical_domain AS domain
+        FROM brands b
+        WHERE b.status = 'active'
+          AND b.canonical_domain IS NOT NULL
+          AND (b.email_security_scanned_at IS NULL
+               OR b.email_security_scanned_at < datetime('now', '-7 days'))
+        ORDER BY b.email_security_scanned_at ASC NULLS FIRST
+        LIMIT 50
+      `).all<{ id: number; domain: string }>();
+
+      for (const brand of brandsToScan.results) {
+        try {
+          const result = await runEmailSecurityScan(brand.domain);
+          await saveEmailSecurityScan(env.DB, brand.id, result);
+          await env.DB.prepare(`
+            UPDATE brands
+            SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now')
+            WHERE id = ?
+          `).bind(result.score, result.grade, brand.id).run();
+          emailScanned++;
+          itemsUpdated++;
+        } catch (e) {
+          console.error(`[cartographer] email security scan failed for ${brand.domain}:`, e);
+          emailErrors++;
+        }
+      }
+
+      outputs.push({
+        type: "diagnostic",
+        summary: `Email security: ${emailScanned} brands scanned, ${emailErrors} errors`,
+        severity: emailErrors > 5 ? "medium" : "info",
+        details: { email_scanned: emailScanned, email_errors: emailErrors },
+      });
+    } catch (e) {
+      console.error("[cartographer] email security phase error:", e);
+    }
+
+    // Phase 4: Aggregate provider threat stats across time periods
     const statsCreated = await aggregateProviderStats(env);
     itemsCreated += statsCreated;
 
     // Emit diagnostic output so cartographer never shows 0 outputs silently
     outputs.push({
       type: "diagnostic",
-      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
       severity: providers.results.length === 0 ? "medium" : "info",
       details: {
         providers_with_threats: providers.results.length,
@@ -147,6 +190,8 @@ export const cartographerAgent: AgentModule = {
         haiku_scored: haikuSuccessCount,
         heuristic_scored: haikuFailCount,
         stats_entries: statsCreated,
+        email_security_scanned: emailScanned,
+        email_security_errors: emailErrors,
         threats_total_active: threatsTotal?.n ?? 0,
         threats_with_provider: threatsWithProvider?.n ?? 0,
         threats_without_provider_but_with_ip: threatsWithoutProvider?.n ?? 0,

@@ -1248,6 +1248,55 @@ async function viewPublicSite(el, params) {
       `;
       document.getElementById('pub-assess-results').scrollIntoView({ behavior: 'smooth' });
 
+      // Fetch email security posture in parallel and append to results
+      fetch(`/api/v1/public/email-security/${encodeURIComponent(d.domain)}`)
+        .then(r => r.json())
+        .then(esRes => {
+          if (!esRes?.success || !esRes?.data) return;
+          const es = esRes.data;
+          const esGradeColor = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'}[es.grade] || '#666';
+          const esScore = es.score || 0;
+          const dmarcStatus = es.dmarc?.exists ? `Policy: ${es.dmarc.policy || 'none'}` : 'Not configured';
+          const spfStatus = es.spf?.exists ? (es.spf.policy || 'exists') : 'Not configured';
+          const dkimStatus = es.dkim?.exists ? `${(es.dkim.selectors_found || []).length} selector(s)` : 'Not detected';
+          const mxStatus = es.mx?.exists ? ((es.mx.providers || []).join(', ') || 'Active') : 'No mail servers';
+          const vulnerabilityWarning = esScore < 50
+            ? `<div class="pub-alert-bar pub-alert-danger">\u26A0 This domain has weak email security. Anyone could send emails pretending to be ${es.domain}.</div>`
+            : esScore < 75
+            ? `<div class="pub-alert-bar" style="background:rgba(255,182,39,.08);border-color:rgba(255,182,39,.3);color:#ffb627">\uD83D\uDCA1 Email security could be improved. Some spoofing protection gaps detected.</div>`
+            : '';
+          const esRecs = (es.recommendations || []).slice(0, 3).map(r => {
+            const icon = r.startsWith('CRITICAL') ? '\uD83D\uDD34' : r.startsWith('WARNING') ? '\uD83D\uDFE1' : r.startsWith('GOOD') ? '\uD83D\uDFE2' : r.startsWith('Excellent') ? '\uD83C\uDFC6' : '\uD83D\uDCA1';
+            return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px">${icon} ${r}</div>`;
+          }).join('');
+
+          const emailHtml = `
+            <div class="pub-results-card" style="margin-top:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div style="font-family:var(--font-display);font-size:15px;font-weight:700">\uD83D\uDCE7 Email Security Posture</div>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="background:${esGradeColor};color:#000;padding:4px 12px;border-radius:4px;font-weight:700;font-size:18px;font-family:var(--font-mono)">${es.grade}</span>
+                  <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span style="font-size:12px;color:var(--text-tertiary)">/100</span></span>
+                </div>
+              </div>
+              ${vulnerabilityWarning}
+              <div class="protocol-grid" style="margin:12px 0">
+                <div class="protocol-check ${es.dmarc?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.dmarc?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">DMARC</div><div class="protocol-detail">${dmarcStatus}</div></div>
+                <div class="protocol-check ${es.spf?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.spf?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">SPF</div><div class="protocol-detail">${spfStatus}</div></div>
+                <div class="protocol-check ${es.dkim?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.dkim?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">DKIM</div><div class="protocol-detail">${dkimStatus}</div></div>
+                <div class="protocol-check ${es.mx?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.mx?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">MX</div><div class="protocol-detail">${mxStatus}</div></div>
+              </div>
+              ${esRecs ? `<div style="margin-top:12px">${esRecs}</div>` : ''}
+              <div style="margin-top:16px;text-align:center">
+                <a href="/login" class="pub-btn pub-btn-primary" style="font-size:12px">Monitor This Domain \u2192</a>
+              </div>
+            </div>`;
+
+          const resultsEl = document.getElementById('pub-assess-results');
+          if (resultsEl) resultsEl.insertAdjacentHTML('beforeend', emailHtml);
+        })
+        .catch(() => { /* email security is best-effort */ });
+
       // Show lead capture form
       setTimeout(() => {
         const leadForm = document.getElementById('pub-lead-form');
@@ -2691,6 +2740,135 @@ async function viewBrandsHub(el) {
   });
 }
 
+// ─── Email Security Card ─────────────────────────────────────
+function renderEmailSecurityCard(es, brandId) {
+  if (!es) return `
+    <div class="panel email-security-card" style="margin-bottom:16px">
+      <div class="phead"><span>\uD83D\uDCE7 Email Security Posture</span>
+        <button class="filter-pill" style="font-size:10px" onclick="scanEmailSecurity('${brandId}')">Scan Now</button>
+      </div>
+      <div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">No email security scan available. Click "Scan Now" to check this domain's email authentication.</div>
+    </div>`;
+
+  const gradeColor = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'}[es.email_security_grade] || '#666';
+  const score = es.email_security_score || 0;
+  const grade = es.email_security_grade || 'F';
+  const dmarc = { exists: !!es.dmarc_exists, policy: es.dmarc_policy, reporting_enabled: !!es.dmarc_rua, record: es.dmarc_raw };
+  const spf = { exists: !!es.spf_exists, policy: es.spf_policy, too_many_lookups: !!es.spf_too_many_lookups, record: es.spf_raw };
+  const dkimSelectors = tryJson(es.dkim_selectors_found, []);
+  const dkim = { exists: !!es.dkim_exists, selectors_found: dkimSelectors };
+  const mxProviders = tryJson(es.mx_providers, []);
+  const mx = { exists: !!es.mx_exists, providers: mxProviders };
+
+  const recs = buildEmailRecs({ dmarc, spf, dkim, mx });
+
+  return `
+    <div class="panel email-security-card" style="margin-bottom:16px">
+      <div class="phead">
+        <span>\uD83D\uDCE7 Email Security Posture</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="email-grade" style="background:${gradeColor};color:#000;padding:3px 10px;border-radius:4px;font-weight:700;font-size:15px;font-family:var(--font-mono)">${grade}</span>
+          <button class="filter-pill" style="font-size:10px" onclick="scanEmailSecurity('${brandId}')">Re-scan</button>
+        </div>
+      </div>
+      <div class="panel-body padded">
+        <div class="email-score-bar">
+          <div class="score-label" style="font-size:11px;color:var(--text-secondary);min-width:140px">Email Security Score</div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${score}%;background:${gradeColor}"></div></div>
+          <span class="score-value" style="font-family:var(--font-mono);font-size:12px;color:${gradeColor};min-width:48px;text-align:right">${score}/100</span>
+        </div>
+        <div class="protocol-grid">
+          <div class="protocol-check ${dmarc.exists ? 'pass' : 'fail'}">
+            <div class="protocol-icon">${dmarc.exists ? '\u2705' : '\u274C'}</div>
+            <div class="protocol-name">DMARC</div>
+            <div class="protocol-detail">${dmarc.exists ? `Policy: ${dmarc.policy || 'none'}` : 'Not configured'}</div>
+          </div>
+          <div class="protocol-check ${spf.exists ? 'pass' : 'fail'}">
+            <div class="protocol-icon">${spf.exists ? '\u2705' : '\u274C'}</div>
+            <div class="protocol-name">SPF</div>
+            <div class="protocol-detail">${spf.exists ? (spf.policy || 'exists') : 'Not configured'}</div>
+          </div>
+          <div class="protocol-check ${dkim.exists ? 'pass' : 'fail'}">
+            <div class="protocol-icon">${dkim.exists ? '\u2705' : '\u274C'}</div>
+            <div class="protocol-name">DKIM</div>
+            <div class="protocol-detail">${dkim.exists ? `${dkim.selectors_found.length} selector(s)` : 'Not detected'}</div>
+          </div>
+          <div class="protocol-check ${mx.exists ? 'pass' : 'fail'}">
+            <div class="protocol-icon">${mx.exists ? '\u2705' : '\u274C'}</div>
+            <div class="protocol-name">MX</div>
+            <div class="protocol-detail">${mx.exists ? (mx.providers.join(', ') || 'Active') : 'No mail servers'}</div>
+          </div>
+        </div>
+        ${recs.length ? `<div class="email-recommendations">
+          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Recommendations</div>
+          ${recs.map(r => {
+            const icon = r.startsWith('CRITICAL') ? '\uD83D\uDD34' : r.startsWith('WARNING') ? '\uD83D\uDFE1' : r.startsWith('GOOD') ? '\uD83D\uDFE2' : r.startsWith('Excellent') ? '\uD83C\uDFC6' : '\uD83D\uDCA1';
+            return `<div class="recommendation-item">${icon} ${r}</div>`;
+          }).join('')}
+        </div>` : ''}
+        ${dmarc.exists && !dmarc.reporting_enabled ? `<div class="email-cta"><strong>Want visibility into who's spoofing this domain?</strong><br>Add <code>rua=mailto:reports@trustradar.ca</code> to the DMARC record to receive aggregate reports through Trust Radar.</div>` : ''}
+        ${dmarc.exists && dmarc.reporting_enabled && !dmarc.record?.includes('trustradar.ca') ? `<div class="email-cta"><strong>Send DMARC reports to Trust Radar</strong><br>Add <code>mailto:reports@trustradar.ca</code> to the <code>rua</code> tag to get spoofing intelligence in this dashboard.</div>` : ''}
+        <div style="font-size:10px;color:var(--text-tertiary);margin-top:12px">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
+      </div>
+    </div>`;
+}
+
+function tryJson(str, fallback) {
+  if (!str) return fallback;
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+function buildEmailRecs({ dmarc, spf, dkim, mx }) {
+  const recs = [];
+  if (!dmarc.exists) recs.push('CRITICAL: No DMARC record found. Anyone can send emails pretending to be your domain.');
+  else if (dmarc.policy === 'none') recs.push('WARNING: DMARC policy is set to "none" — spoofed emails are not being blocked. Upgrade to "quarantine" or "reject".');
+  else if (dmarc.policy === 'quarantine') recs.push('GOOD: DMARC quarantine is active. Consider upgrading to "reject" for full protection.');
+  if (dmarc.exists && !dmarc.reporting_enabled) recs.push('No DMARC aggregate reporting configured. You have no visibility into who is sending email as your domain.');
+  if (!spf.exists) recs.push('CRITICAL: No SPF record found. Email receivers cannot verify your authorized mail servers.');
+  else if (spf.policy === '~all' || spf.policy === '?all') recs.push('SPF soft-fail detected. Upgrade to "-all" (hard fail) for stronger protection.');
+  if (spf.too_many_lookups) recs.push('SPF record exceeds 10 DNS lookups — this causes SPF validation failures.');
+  if (!dkim.exists) recs.push('No DKIM signing detected (checked 20 common selectors). Email recipients cannot verify message integrity.');
+  if (!mx.exists) recs.push('No MX records found. This domain may not be configured to receive email.');
+  if (recs.length === 0) recs.push('Excellent! This domain has strong email authentication configured.');
+  return recs;
+}
+
+async function scanEmailSecurity(brandId) {
+  const wrap = document.getElementById('email-security-panel-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="panel" style="margin-bottom:16px"><div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">Scanning email security...</div></div>';
+  try {
+    const res = await api(`/email-security/scan/${brandId}`, { method: 'POST' });
+    if (res?.success && res.data) {
+      // Map live result to DB-style flat object
+      const d = res.data;
+      const flat = {
+        email_security_score: d.score,
+        email_security_grade: d.grade,
+        dmarc_exists: d.dmarc?.exists ? 1 : 0,
+        dmarc_policy: d.dmarc?.policy,
+        dmarc_rua: d.dmarc?.reporting_enabled ? 'configured' : null,
+        dmarc_raw: d.dmarc?.record,
+        spf_exists: d.spf?.exists ? 1 : 0,
+        spf_policy: d.spf?.policy,
+        spf_too_many_lookups: d.spf?.too_many_lookups ? 1 : 0,
+        dkim_exists: d.dkim?.exists ? 1 : 0,
+        dkim_selectors_found: JSON.stringify(d.dkim?.selectors_found || []),
+        mx_exists: d.mx?.exists ? 1 : 0,
+        mx_providers: JSON.stringify(d.mx?.providers || []),
+        scanned_at: d.scanned_at,
+      };
+      wrap.innerHTML = renderEmailSecurityCard(flat, brandId);
+    } else {
+      wrap.innerHTML = renderEmailSecurityCard(null, brandId);
+      showToast('Email security scan failed', 'error');
+    }
+  } catch (err) {
+    wrap.innerHTML = renderEmailSecurityCard(null, brandId);
+    showToast(err.message || 'Scan failed', 'error');
+  }
+}
+
 // ─── View: Brand Detail (Step 9) ────────────────────────────
 let _brandDetailMap = null;
 let _brandDetailChart = null;
@@ -2700,7 +2878,7 @@ const _brandThreatsPerPage = 15;
 async function viewBrandDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
-    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes, safeDomainsRes] = await Promise.all([
+    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes, safeDomainsRes, emailSecRes] = await Promise.all([
       api(`/brands/${params.id}`),
       api(`/brands/${params.id}/threats?status=active&limit=50`).catch(() => null),
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
@@ -2709,6 +2887,7 @@ async function viewBrandDetail(el, params) {
       api(`/brands/${params.id}/threats/timeline?period=7d`).catch(() => null),
       api(`/brands/${params.id}/analysis`).catch(() => null),
       api(`/brands/${params.id}/safe-domains`).catch(() => null),
+      api(`/email-security/${params.id}`).catch(() => null),
     ]);
     const b = brandRes?.data;
     if (!b) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
@@ -2788,6 +2967,9 @@ async function viewBrandDetail(el, params) {
             <button class="filter-pill" id="csv-upload-btn" style="background:var(--positive);color:var(--bg-body)" disabled>Upload</button>
           </div>
         </div>
+      </div>
+      <div id="email-security-panel-wrap">
+        ${renderEmailSecurityCard(emailSecRes?.data, params.id)}
       </div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
@@ -4534,15 +4716,30 @@ async function viewAdmin(el) {
     <div class="adm-grid-2">
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div></div></div>
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
+    </div>
+    <div class="adm-grid-2">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">\uD83D\uDCE7 Email Security Coverage</div><div class="adm-pbadge" id="adm-es-badge">-</div></div>
+        <div class="adm-padded" id="adm-es-grades"></div>
+        <div class="adm-padded" style="margin-top:8px">
+          <button class="filter-pill" style="font-size:11px" id="adm-scan-all-email">Scan All Brands</button>
+          <span id="adm-scan-all-status" style="font-size:11px;color:var(--text-tertiary);margin-left:8px"></span>
+        </div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">Bottom 10</div></div>
+        <div id="adm-es-worst" style="max-height:240px;overflow-y:auto;scrollbar-width:thin"></div>
+      </div>
     </div>`;
 
   try {
-    const [statsRes, feedsRes, eventsRes, leadsRes, agentsRes] = await Promise.all([
+    const [statsRes, feedsRes, eventsRes, leadsRes, agentsRes, emailStatsRes] = await Promise.all([
       api('/admin/stats').catch(() => null),
       api('/feeds').catch(() => null),
       api('/admin/audit?limit=15').catch(() => null),
       api('/admin/leads').catch(() => null),
       api('/agents').catch(() => null),
+      api('/email-security/stats').catch(() => null),
     ]);
     const stats = statsRes?.data || {};
     const feeds = feedsRes?.data || [];
@@ -4646,7 +4843,70 @@ async function viewAdmin(el) {
       return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04)"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color}">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} outputs</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div></div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
+    // Email Security stats
+    const esData = emailStatsRes?.data;
+    if (esData) {
+      const esBadgeEl = document.getElementById('adm-es-badge');
+      if (esBadgeEl) esBadgeEl.textContent = `${esData.total_scanned} scanned / ${esData.total_unscanned} pending`;
+
+      const gradeColors = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'};
+      const gradesEl = document.getElementById('adm-es-grades');
+      if (gradesEl && esData.grade_distribution?.length) {
+        const total = esData.grade_distribution.reduce((s, g) => s + g.count, 0) || 1;
+        gradesEl.innerHTML = `
+          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            ${esData.grade_distribution.map(g => {
+              const pct = Math.round(g.count / total * 100);
+              return `<div style="text-align:center;flex:1">
+                <div style="font-family:var(--font-mono);font-weight:700;color:${gradeColors[g.grade]||'#666'};font-size:14px">${g.count}</div>
+                <div style="height:4px;background:${gradeColors[g.grade]||'#666'};border-radius:2px;margin:3px 0;opacity:.7"></div>
+                <div style="font-size:10px;color:var(--text-tertiary)">${g.grade}</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+      } else if (gradesEl) {
+        gradesEl.innerHTML = '<div style="font-size:11px;color:var(--text-tertiary)">No email security scans yet. Click "Scan All Brands" to start.</div>';
+      }
+
+      const worstEl = document.getElementById('adm-es-worst');
+      if (worstEl && esData.worst_brands?.length) {
+        worstEl.innerHTML = esData.worst_brands.map(b => {
+          const gc = gradeColors[b.email_security_grade] || '#666';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(0,212,255,.04)">
+            <span style="font-family:var(--font-mono);font-size:11px;background:${gc};color:#000;padding:1px 6px;border-radius:3px;font-weight:700">${b.email_security_grade}</span>
+            <span style="flex:1;font-size:12px">${b.name}</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:${gc}">${b.email_security_score}</span>
+          </div>`;
+        }).join('');
+      } else if (worstEl) {
+        worstEl.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--text-tertiary)">No scan data yet</div>';
+      }
+    }
+
   } catch (err) { showToast(err.message, 'error'); }
+
+  // Scan all brands email security
+  document.getElementById('adm-scan-all-email')?.addEventListener('click', async () => {
+    const btn = document.getElementById('adm-scan-all-email');
+    const status = document.getElementById('adm-scan-all-status');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+    if (status) status.textContent = 'Scanning up to 50 brands...';
+    try {
+      const res = await api('/email-security/scan-all');
+      if (res?.success) {
+        if (status) status.textContent = `Done: ${res.data.scanned} scanned, ${res.data.errors} errors`;
+      } else {
+        if (status) status.textContent = res?.error || 'Failed';
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message || 'Error';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Scan All Brands';
+  });
 
   // Dashboard trigger buttons with spinner/checkmark feedback
   function setupDashTrigger(btnId, apiPath) {
