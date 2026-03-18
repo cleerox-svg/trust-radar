@@ -1391,6 +1391,10 @@ async function viewObservatory(el) {
   let _showBeams            = true;
   let _showNodes            = true;
   let _showParticles        = true;
+  // Isolated toggle state — ONLY written by the toggle click handler.
+  // _applyLayers and the particle loop read exclusively from here so
+  // 60fps rAF calls can never race with or overwrite toggle changes.
+  let _frozenToggleState    = { beams: true, particles: true, nodes: true };
 
   // Single source of truth: filters base layers, caches the result, and
   // calls deckgl.setProps. The particle loop reads _filteredBaseLayers
@@ -1400,19 +1404,17 @@ async function viewObservatory(el) {
     if (!deckgl) return;
     _filteredBaseLayers = _baseLayers.filter(l => {
       const id = l.id || '';
-      if (!_showBeams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
-      if (!_showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
+      if (!_frozenToggleState.beams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
+      if (!_frozenToggleState.nodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
       return true;
     });
-    const particleLayers = _showParticles ? _curParticleLayers : [];
+    const particleLayers = _frozenToggleState.particles ? _curParticleLayers : [];
     if (fromToggle) {
       console.log('[Observatory] _applyLayers (toggle):'
         + ' baseLayers=' + _baseLayers.length
         + ' visible=' + _filteredBaseLayers.length
         + ' particles=' + particleLayers.length
-        + ' | showBeams=' + _showBeams
-        + ' showNodes=' + _showNodes
-        + ' showParticles=' + _showParticles
+        + ' | frozenState=' + JSON.stringify(_frozenToggleState)
         + ' | visibleIds=[' + _filteredBaseLayers.map(l => l.id).join(',') + ']');
     }
     deckgl.setProps({ layers: [..._filteredBaseLayers, ...particleLayers] });
@@ -1488,11 +1490,12 @@ async function viewObservatory(el) {
         new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
         new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
       ];
-      // Use cached filtered base layers — do NOT call _applyLayers() here to
-      // avoid re-running the filter at 60fps and racing with toggle state.
+      // Use cached _filteredBaseLayers — never call _applyLayers() from rAF.
+      // Read particle visibility from _frozenToggleState which is only written
+      // by the toggle click handler, never by the animation loop.
       if (deckgl) deckgl.setProps({ layers: [
         ..._filteredBaseLayers,
-        ...(_showParticles ? _curParticleLayers : []),
+        ...(_frozenToggleState.particles ? _curParticleLayers : []),
       ] });
       _particleFrame = requestAnimationFrame(loop);
     }
@@ -1534,14 +1537,6 @@ async function viewObservatory(el) {
     if (p === '7d')  return 168;
     if (p === '30d') return 720;
     return 8760;
-  }
-
-  // ── Arc height: gentle screen-space curve (greatCircle:false) ────
-  function _arcHeight(d) {
-    const dist = Math.abs(d.targetPosition[0] - d.sourcePosition[0]);
-    if (dist > 150) return 0.15;
-    if (dist > 80)  return 0.1;
-    return Math.min(0.1, Math.max(0.05, dist * 0.001));
   }
 
   // ── Initialize deck.gl ───────────────────────────────────────────
@@ -1606,7 +1601,6 @@ async function viewObservatory(el) {
         srcLat: a.sourcePosition?.[1],
         tgtLng: a.targetPosition?.[0],
         tgtLat: a.targetPosition?.[1],
-        height: _arcHeight(a),
       })));
 
       const s = statsRes?.data || {};
@@ -1687,37 +1681,29 @@ async function viewObservatory(el) {
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Arcs (glow pass — wide, semi-transparent)
-      new deck.ArcLayer({
+      // Lines (glow pass — wide, semi-transparent)
+      new deck.LineLayer({
         id: 'arcs-glow',
         data: arcData,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 40),
-        getTargetColor: d => _typeColor(d.threat_type, 15),
+        getColor: d => _typeColor(d.threat_type, 40),
         getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
-        getHeight: _arcHeight,
-        getTilt: 0,
-        greatCircle: false,
-        getAutoHighlight: false,
+        widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
       }),
-      // Arcs (core pass — sharp, bright)
-      new deck.ArcLayer({
+      // Lines (core pass — sharp, bright)
+      new deck.LineLayer({
         id: 'arcs',
         data: arcData,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 220),
-        getTargetColor: d => _typeColor(d.threat_type, 80),
+        getColor: d => _typeColor(d.threat_type, 220),
         getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
-        getHeight: _arcHeight,
-        getTilt: 0,
-        greatCircle: false,
-        getAutoHighlight: false,
+        widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 6,
         pickable: true,
-        transitions: { getSourceColor: 300 },
+        transitions: { getColor: 300 },
       }),
       // Target nodes (pulsing destination rings)
       new deck.ScatterplotLayer({
@@ -1739,15 +1725,12 @@ async function viewObservatory(el) {
         radiusMinPixels: 2, radiusMaxPixels: 8,
       }),
     ]);
-    // Debug: log arc layer props for first 3 arcs
-    console.log('[Observatory] ARC LAYER PROPS:', {
+    // Debug: log line layer data for first 3 arcs
+    console.log('[Observatory] LINE LAYER DATA:', {
       count: arcData.length,
-      greatCircle: false,
-      getHeight: '0.15 if dist>150°, 0.1 if >80°, else 0.05–0.1',
       sample: arcData.slice(0, 3).map(d => ({
         source: d.sourcePosition,
         target: d.targetPosition,
-        height: _arcHeight(d),
       })),
     });
 
@@ -1787,30 +1770,26 @@ async function viewObservatory(el) {
     const top15 = arcData.slice(0, 15);
 
     setLayers([
-      // Thick glow pass
-      new deck.ArcLayer({
+      // Lines (thick glow pass)
+      new deck.LineLayer({
         id: 'corridor-glow',
         data: top15,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 50),
-        getTargetColor: d => _typeColor(d.threat_type, 20),
+        getColor: d => _typeColor(d.threat_type, 50),
         getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
-        getHeight: _arcHeight,
-        greatCircle: false,
+        widthUnits: 'pixels',
         widthMinPixels: 4, widthMaxPixels: 24,
       }),
-      // Sharp core
-      new deck.ArcLayer({
+      // Lines (sharp core)
+      new deck.LineLayer({
         id: 'corridors',
         data: top15,
         getSourcePosition: d => d.sourcePosition,
         getTargetPosition: d => d.targetPosition,
-        getSourceColor: d => _typeColor(d.threat_type, 230),
-        getTargetColor: d => _typeColor(d.threat_type, 150),
+        getColor: d => _typeColor(d.threat_type, 230),
         getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
-        getHeight: _arcHeight,
-        greatCircle: false,
+        widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
         pickable: true,
       }),
@@ -1946,30 +1925,26 @@ async function viewObservatory(el) {
           lineWidthMinPixels: 2, stroked: true,
           radiusMinPixels: 8, radiusMaxPixels: 40,
         }),
-        // Arcs glow
-        new deck.ArcLayer({
+        // Lines (glow pass)
+        new deck.LineLayer({
           id: 'brand-arcs-glow',
           data: bArcs,
           getSourcePosition: d => d.sourcePosition,
           getTargetPosition: d => d.targetPosition,
-          getSourceColor: d => _typeColor(d.threat_type, 50),
-          getTargetColor: [255, 59, 92, 30],
+          getColor: d => _typeColor(d.threat_type, 50),
           getWidth: d => Math.max(3, d.volume * 1.5),
-          getHeight: _arcHeight,
-          greatCircle: false,
-          widthMinPixels: 2,
+          widthUnits: 'pixels',
+          widthMinPixels: 2, widthMaxPixels: 12,
         }),
-        // Arcs core
-        new deck.ArcLayer({
+        // Lines (core pass)
+        new deck.LineLayer({
           id: 'brand-arcs',
           data: bArcs,
           getSourcePosition: d => d.sourcePosition,
           getTargetPosition: d => d.targetPosition,
-          getSourceColor: d => _typeColor(d.threat_type, 220),
-          getTargetColor: [255, 59, 92, 200],
+          getColor: d => _typeColor(d.threat_type, 220),
           getWidth: d => Math.max(1, d.volume * 0.8),
-          getHeight: _arcHeight,
-          greatCircle: false,
+          widthUnits: 'pixels',
           widthMinPixels: 1, widthMaxPixels: 8,
           pickable: true,
         }),
@@ -2263,15 +2238,19 @@ async function viewObservatory(el) {
       const toggle = e.target.closest('[data-layer]');
       if (!toggle) return;
       const layer = toggle.dataset.layer;
-      if (layer === 'beams')     _showBeams     = !_showBeams;
-      else if (layer === 'particles') _showParticles = !_showParticles;
-      else if (layer === 'nodes')     _showNodes     = !_showNodes;
+      if (layer === 'beams') {
+        _showBeams = !_showBeams;
+        _frozenToggleState.beams = _showBeams;
+      } else if (layer === 'particles') {
+        _showParticles = !_showParticles;
+        _frozenToggleState.particles = _showParticles;
+      } else if (layer === 'nodes') {
+        _showNodes = !_showNodes;
+        _frozenToggleState.nodes = _showNodes;
+      }
       toggle.classList.toggle('active');
-      console.log('[Observatory] Toggle: ' + layer + '='
-        + (layer === 'beams' ? _showBeams : layer === 'particles' ? _showParticles : _showNodes)
-        + ' | _showBeams=' + _showBeams
-        + ' _showParticles=' + _showParticles
-        + ' _showNodes=' + _showNodes
+      console.log('[Observatory] Toggle: ' + layer
+        + ' | frozenState=' + JSON.stringify(_frozenToggleState)
         + ' | deckgl=' + !!deckgl
         + ' _baseLayers=' + _baseLayers.length);
       _applyLayers(true);
