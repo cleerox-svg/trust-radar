@@ -1434,19 +1434,22 @@ async function viewObservatory(el) {
   let deckgl = null;
   let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
-  let currentLayers = [];
-  let _baseLayers   = [];
-  let showBeams     = true;
-  let showNodes     = true;
-  let showParticles = true;
+  let _baseLayers        = [];
+  let _curParticleLayers = [];
+  let _showBeams         = true;
+  let _showNodes         = true;
+  let _showParticles     = true;
 
-  function _filterLayers(layers) {
-    return layers.filter(l => {
+  // Single source of truth for all deck.gl layer updates.
+  function _applyLayers() {
+    if (!deckgl) return;
+    const visible = _baseLayers.filter(l => {
       const id = l.id || '';
-      if (!showBeams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
-      if (!showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
+      if (!_showBeams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
+      if (!_showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
       return true;
     });
+    deckgl.setProps({ layers: [...visible, ...(_showParticles ? _curParticleLayers : [])] });
   }
 
   // ── Particle state ───────────────────────────────────────────────
@@ -1513,15 +1516,13 @@ async function viewObservatory(el) {
         coreData.push(  { pos:[lon,lat],   col:[...col3, 230], r:p.size*5   });
         centerData.push({ pos:[lon,lat],   col:[255,255,255,230], r:p.size*2 });
       });
-      if (deckgl) {
-        const particleLayers = showParticles ? [
-          new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:6,  radiusMaxPixels:40 }),
-          new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:16 }),
-          new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
-          new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
-        ] : [];
-        deckgl.setProps({ layers: [...currentLayers, ...particleLayers] });
-      }
+      _curParticleLayers = [
+        new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:6,  radiusMaxPixels:40 }),
+        new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:16 }),
+        new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
+        new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
+      ];
+      _applyLayers();
       _particleFrame = requestAnimationFrame(loop);
     }
     _particleFrame = requestAnimationFrame(loop);
@@ -1564,27 +1565,13 @@ async function viewObservatory(el) {
     return 8760;
   }
 
-  // ── Arc routing: normalize target longitude to shortest path ─────
-  // Prevents arcs from wrapping the wrong way around the globe.
-  function _normalizeArcLng(arcs) {
-    return arcs.map(arc => {
-      if (!arc.sourcePosition || !arc.targetPosition) return arc;
-      const [sLng, sLat] = arc.sourcePosition;
-      let tLng = arc.targetPosition[0];
-      const tLat = arc.targetPosition[1];
-      const diff = tLng - sLng;
-      if (diff >  180) tLng -= 360;
-      if (diff < -180) tLng += 360;
-      return { ...arc, sourcePosition: [sLng, sLat], targetPosition: [tLng, tLat] };
-    });
-  }
-
-  // ── Arc height: taller for longer distances ───────────────────────
+  // ── Arc height: moderate lift; greatCircle:true handles routing ──
+  // dist is in degrees (chord approximation); clamp to 0.1–0.25 range.
   function _arcHeight(d) {
     const dx = (d.targetPosition[0] - d.sourcePosition[0]);
     const dy = (d.targetPosition[1] - d.sourcePosition[1]);
     const dist = Math.sqrt(dx * dx + dy * dy);
-    return Math.min(0.9, 0.08 + dist * 0.005);
+    return Math.min(0.25, Math.max(0.1, dist * 0.002));
   }
 
   // ── Initialize deck.gl ───────────────────────────────────────────
@@ -1625,14 +1612,8 @@ async function viewObservatory(el) {
 
   // ── Set layers helper ────────────────────────────────────────────
   function setLayers(layers) {
-    _baseLayers   = layers;
-    currentLayers = _filterLayers(layers);
-    if (deckgl) deckgl.setProps({ layers: currentLayers });
-  }
-
-  function _refreshLayers() {
-    currentLayers = _filterLayers(_baseLayers);
-    if (deckgl) deckgl.setProps({ layers: currentLayers });
+    _baseLayers = layers;
+    _applyLayers();
   }
 
   // ── Data fetching ────────────────────────────────────────────────
@@ -1647,7 +1628,7 @@ async function viewObservatory(el) {
       const allNodes = nodesRes?.data || [];
       const allArcs  = arcsRes?.data  || [];
       nodeData = allNodes.filter(n => activeSeverities.has(n.top_severity || 'low'));
-      arcData  = _normalizeArcLng(allArcs.filter(a => activeSeverities.has(a.severity || 'low')));
+      arcData  = allArcs.filter(a => activeSeverities.has(a.severity || 'low'));
 
       const s = statsRes?.data || {};
       document.getElementById('stat-bar').innerHTML = [
@@ -1775,6 +1756,18 @@ async function viewObservatory(el) {
         radiusMinPixels: 2, radiusMaxPixels: 8,
       }),
     ]);
+    // Debug: log arc layer props for first 3 arcs
+    console.log('[Observatory] ARC LAYER PROPS:', {
+      count: arcData.length,
+      greatCircle: true,
+      getHeight: '0.1–0.25 (clamped)',
+      sample: arcData.slice(0, 3).map(d => ({
+        source: d.sourcePosition,
+        target: d.targetPosition,
+        height: _arcHeight(d),
+      })),
+    });
+
     _initParticles(arcData);
     _startParticleLoop();
   }
@@ -1935,7 +1928,7 @@ async function viewObservatory(el) {
       if (!bArcs) {
         try {
           const res = await api(`/observatory/brand-arcs?brand_id=${bid}&period=${currentPeriod}`).catch(() => null);
-          bArcs = _normalizeArcLng(res?.data || []);
+          bArcs = res?.data || [];
           _brandFocusCache[bid] = bArcs;
         } catch { bArcs = []; }
       }
@@ -2288,10 +2281,10 @@ async function viewObservatory(el) {
         btn.classList.toggle('active');
         const layer = btn.dataset.layer;
         const on = btn.classList.contains('active');
-        if (layer === 'beams')     showBeams     = on;
-        if (layer === 'particles') showParticles = on;
-        if (layer === 'nodes')     showNodes     = on;
-        _refreshLayers();
+        if (layer === 'beams')     _showBeams     = on;
+        if (layer === 'particles') _showParticles = on;
+        if (layer === 'nodes')     _showNodes     = on;
+        _applyLayers();
       });
     });
 
@@ -2434,9 +2427,9 @@ async function viewObservatory(el) {
               stroked: true, lineWidthMinPixels: 2,
               radiusMinPixels: 8,
             });
-            setLayers([...currentLayers, flashLayer]);
+            setLayers([..._baseLayers, flashLayer]);
             setTimeout(() => {
-              setLayers(currentLayers.filter(l => l.id !== flashId));
+              setLayers(_baseLayers.filter(l => l.id !== flashId));
             }, 2500);
           }
         }
