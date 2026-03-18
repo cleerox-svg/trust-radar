@@ -140,8 +140,7 @@ export const cartographerAgent: AgentModule = {
       const brandsToScan = await env.DB.prepare(`
         SELECT b.id, b.canonical_domain AS domain
         FROM brands b
-        WHERE b.status = 'active'
-          AND b.canonical_domain IS NOT NULL
+        WHERE b.canonical_domain IS NOT NULL
           AND (b.email_security_scanned_at IS NULL
                OR b.email_security_scanned_at < datetime('now', '-7 days'))
         ORDER BY b.email_security_scanned_at ASC NULLS FIRST
