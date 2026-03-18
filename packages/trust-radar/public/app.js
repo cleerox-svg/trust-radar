@@ -1392,7 +1392,8 @@ async function viewObservatory(el) {
   let _showParticles     = true;
 
   // Single source of truth for all deck.gl layer updates.
-  function _applyLayers() {
+  // Pass fromToggle=true to emit a one-shot diagnostic log.
+  function _applyLayers(fromToggle = false) {
     if (!deckgl) return;
     const visible = _baseLayers.filter(l => {
       const id = l.id || '';
@@ -1400,7 +1401,18 @@ async function viewObservatory(el) {
       if (!_showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
       return true;
     });
-    deckgl.setProps({ layers: [...visible, ...(_showParticles ? _curParticleLayers : [])] });
+    const particleLayers = _showParticles ? _curParticleLayers : [];
+    if (fromToggle) {
+      console.log('[Observatory] _applyLayers (toggle):'
+        + ' baseLayers=' + _baseLayers.length
+        + ' visible=' + visible.length
+        + ' particles=' + particleLayers.length
+        + ' | showBeams=' + _showBeams
+        + ' showNodes=' + _showNodes
+        + ' showParticles=' + _showParticles
+        + ' | visibleIds=[' + visible.map(l => l.id).join(',') + ']');
+    }
+    deckgl.setProps({ layers: [...visible, ...particleLayers] });
   }
 
   // ── Particle state ───────────────────────────────────────────────
@@ -1516,13 +1528,12 @@ async function viewObservatory(el) {
     return 8760;
   }
 
-  // ── Arc height: moderate lift; greatCircle:true handles routing ──
-  // dist is in degrees (chord approximation); clamp to 0.1–0.25 range.
+  // ── Arc height: flat for ultra-long routes, gentle lift for shorter ones ──
+  // greatCircle:true handles routing. Cap height to prevent arcs flying off-screen.
   function _arcHeight(d) {
-    const dx = (d.targetPosition[0] - d.sourcePosition[0]);
-    const dy = (d.targetPosition[1] - d.sourcePosition[1]);
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    return Math.min(0.25, Math.max(0.1, dist * 0.002));
+    const lngDiff = Math.abs(d.targetPosition[0] - d.sourcePosition[0]);
+    if (lngDiff > 120) return 0.05;  // trans-Pacific / trans-Atlantic: stay flat
+    return Math.min(0.15, Math.max(0.05, lngDiff * 0.001));
   }
 
   // ── Initialize deck.gl ───────────────────────────────────────────
@@ -1669,7 +1680,9 @@ async function viewObservatory(el) {
         getTargetColor: d => _typeColor(d.threat_type, 15),
         getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
         getHeight: _arcHeight,
+        getTilt: 0,
         greatCircle: true,
+        getAutoHighlight: false,
         widthMinPixels: 2, widthMaxPixels: 12,
       }),
       // Arcs (core pass — sharp, bright)
@@ -1682,7 +1695,9 @@ async function viewObservatory(el) {
         getTargetColor: d => _typeColor(d.threat_type, 80),
         getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
         getHeight: _arcHeight,
+        getTilt: 0,
         greatCircle: true,
+        getAutoHighlight: false,
         widthMinPixels: 1, widthMaxPixels: 6,
         pickable: true,
         transitions: { getSourceColor: 300 },
@@ -1711,7 +1726,7 @@ async function viewObservatory(el) {
     console.log('[Observatory] ARC LAYER PROPS:', {
       count: arcData.length,
       greatCircle: true,
-      getHeight: '0.1–0.25 (clamped)',
+      getHeight: '0.05 if lngDiff>120°, else 0.05–0.15',
       sample: arcData.slice(0, 3).map(d => ({
         source: d.sourcePosition,
         target: d.targetPosition,
@@ -2235,7 +2250,13 @@ async function viewObservatory(el) {
         if (layer === 'beams')     _showBeams     = on;
         if (layer === 'particles') _showParticles = on;
         if (layer === 'nodes')     _showNodes     = on;
-        _applyLayers();
+        console.log('[Observatory] Toggle click: layer=' + layer + ' on=' + on
+          + ' | _showBeams=' + _showBeams
+          + ' _showParticles=' + _showParticles
+          + ' _showNodes=' + _showNodes
+          + ' | deckgl=' + !!deckgl
+          + ' _baseLayers=' + _baseLayers.length);
+        _applyLayers(true);
       });
     });
 
