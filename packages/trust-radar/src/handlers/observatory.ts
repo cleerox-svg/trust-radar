@@ -47,10 +47,12 @@ const BRAND_HQ: Record<string, [number, number]> = {
   default:      [-74.0,  40.7],   // New York, NY (fallback)
 };
 
+const FALLBACK_COORDS: [number, number] = [-74.0, 40.7]; // New York, NY
+
 function getBrandCoords(brandName: string | null): [number, number] {
-  if (!brandName) return BRAND_HQ.default;
+  if (!brandName) return FALLBACK_COORDS;
   const key = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return BRAND_HQ[key] ?? BRAND_HQ.default;
+  return BRAND_HQ[key] ?? FALLBACK_COORDS;
 }
 
 function periodToInterval(period: string): string {
