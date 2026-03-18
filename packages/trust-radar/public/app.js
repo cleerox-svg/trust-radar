@@ -1433,7 +1433,7 @@ async function viewObservatory(el) {
   let radarFrame = null;
   let deckgl = null;
   const _isMobile = window.innerWidth < 768;
-  let currentViewState = { longitude: 10, latitude: 20, zoom: _isMobile ? 1.0 : 2.2, pitch: 0, bearing: 0, minZoom: 0.5, maxZoom: 12 };
+  let currentViewState = { longitude: 10, latitude: 20, zoom: _isMobile ? 0.8 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
@@ -1480,6 +1480,15 @@ async function viewObservatory(el) {
       if (name.includes(key) || key.includes(name)) return hq;
     }
     return null;
+  }
+
+  // Zoom-scaled beam width — thin at world zoom, thicker when zoomed in
+  function _beamWidth(volume, base) {
+    const zoom = currentViewState.zoom ?? 2;
+    const w = Math.max(1, Math.min(base, (volume || 1) * 0.3));
+    if (zoom < 2) return w * 0.3;
+    if (zoom < 3) return w * 0.6;
+    return w;
   }
 
   // Quadratic bezier curve — bows NORTH on flat 2-D map
@@ -1772,23 +1781,23 @@ async function viewObservatory(el) {
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Bezier paths — glow pass (wide, 8% opacity)
+      // Bezier paths — glow pass (~4% opacity, zoom-scaled width)
       new deck.PathLayer({
         id: 'beam-glow-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 20),
-        getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.3 + 2)),
+        getColor: d => _typeColor(d.threat_type, 10),
+        getWidth: d => _beamWidth(d.volume, 6),
         widthUnits: 'pixels',
-        widthMinPixels: 2, widthMaxPixels: 6,
+        widthMinPixels: 1, widthMaxPixels: 4,
       }),
-      // Bezier paths — core pass (thin, 25% opacity)
+      // Bezier paths — core pass (~14% opacity, zoom-scaled width)
       new deck.PathLayer({
         id: 'beam-core-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 64),
-        getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
+        getColor: d => _typeColor(d.threat_type, 35),
+        getWidth: d => _beamWidth(d.volume, 2),
         widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 2,
         pickable: true,
@@ -1849,25 +1858,25 @@ async function viewObservatory(el) {
     const top15 = arcData.slice(0, 15);
 
     setLayers([
-      // Bezier paths — glow pass (thick, 8% opacity)
+      // Bezier paths — glow pass (~4% opacity, zoom-scaled width)
       new deck.PathLayer({
         id: 'beam-glow-corridor',
         data: top15,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 20),
-        getWidth: d => Math.max(4, Math.min(6, (d.volume || 1) * 0.5 + 3)),
+        getColor: d => _typeColor(d.threat_type, 10),
+        getWidth: d => _beamWidth(d.volume, 6),
         widthUnits: 'pixels',
-        widthMinPixels: 3, widthMaxPixels: 6,
+        widthMinPixels: 1, widthMaxPixels: 4,
       }),
-      // Bezier paths — core pass (25% opacity)
+      // Bezier paths — core pass (~14% opacity, zoom-scaled width)
       new deck.PathLayer({
         id: 'beam-core-corridor',
         data: top15,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 64),
-        getWidth: d => Math.max(2, Math.min(4, (d.volume || 1) * 0.3)),
+        getColor: d => _typeColor(d.threat_type, 35),
+        getWidth: d => _beamWidth(d.volume, 4),
         widthUnits: 'pixels',
-        widthMinPixels: 1, widthMaxPixels: 4,
+        widthMinPixels: 1, widthMaxPixels: 3,
         pickable: true,
       }),
       // Source labels
@@ -1875,7 +1884,7 @@ async function viewObservatory(el) {
         id: 'corridor-src-labels',
         data: top15,
         getPosition: d => d.sourcePosition,
-        getText: d => d.source_region || '',
+        getText: d => (d.source_region && d.source_region !== 'Unknown') ? d.source_region : '',
         getSize: 11,
         getColor: [200, 210, 225, 200],
         getPixelOffset: [0, -16],
@@ -1890,7 +1899,7 @@ async function viewObservatory(el) {
         id: 'corridor-tgt-labels',
         data: top15,
         getPosition: d => d.targetPosition,
-        getText: d => d.target_brand || '',
+        getText: d => (d.target_brand && d.target_brand !== 'Unknown') ? d.target_brand : '',
         getSize: 11,
         getColor: [255, 59, 92, 220],
         getPixelOffset: [0, -16],
@@ -2012,23 +2021,23 @@ async function viewObservatory(el) {
           lineWidthMinPixels: 2, stroked: true,
           radiusMinPixels: 8, radiusMaxPixels: 40,
         }),
-        // Bezier paths — glow pass (8% opacity)
+        // Bezier paths — glow pass (~4% opacity, zoom-scaled width)
         new deck.PathLayer({
           id: 'beam-glow-brand',
           data: bArcs,
           getPath: d => d.bezierPath,
-          getColor: d => _typeColor(d.threat_type, 20),
-          getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.4 + 2)),
+          getColor: d => _typeColor(d.threat_type, 10),
+          getWidth: d => _beamWidth(d.volume, 6),
           widthUnits: 'pixels',
-          widthMinPixels: 2, widthMaxPixels: 6,
+          widthMinPixels: 1, widthMaxPixels: 4,
         }),
-        // Bezier paths — core pass (25% opacity)
+        // Bezier paths — core pass (~14% opacity, zoom-scaled width)
         new deck.PathLayer({
           id: 'beam-core-brand',
           data: bArcs,
           getPath: d => d.bezierPath,
-          getColor: d => _typeColor(d.threat_type, 64),
-          getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
+          getColor: d => _typeColor(d.threat_type, 35),
+          getWidth: d => _beamWidth(d.volume, 2),
           widthUnits: 'pixels',
           widthMinPixels: 1, widthMaxPixels: 2,
           pickable: true,
@@ -2058,7 +2067,7 @@ async function viewObservatory(el) {
           id: 'brand-src-labels',
           data: bArcs,
           getPosition: d => d.sourcePosition,
-          getText: d => d.source_region || '',
+          getText: d => (d.source_region && d.source_region !== 'Unknown') ? d.source_region : '',
           getSize: 10,
           getColor: [200, 210, 225, 180],
           getPixelOffset: [0, -15],
