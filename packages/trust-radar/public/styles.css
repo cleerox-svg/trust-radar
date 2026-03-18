@@ -16,8 +16,8 @@
   --bg-panel: #0d1528;
   --bg-elevated: #111d35;
   --text-primary: #e8edf5;
-  --text-secondary: #7a8ba8;
-  --text-tertiary: #4a5a73;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary: rgba(255, 255, 255, 0.55);
   --font-display: 'Chakra Petch', sans-serif;
   --font-body: 'Outfit', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
@@ -3033,7 +3033,7 @@ a.campaign-card:hover { text-decoration: none; }
 
 .protocol-detail {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: 3px;
   word-break: break-word;
 }
