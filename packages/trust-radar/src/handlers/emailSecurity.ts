@@ -96,8 +96,7 @@ export async function handleScanAllEmailSecurity(
     const brandsToScan = await env.DB.prepare(`
       SELECT b.id, b.canonical_domain AS domain
       FROM brands b
-      WHERE b.status = 'active'
-        AND b.canonical_domain IS NOT NULL
+      WHERE b.canonical_domain IS NOT NULL
         AND (b.email_security_scanned_at IS NULL
              OR b.email_security_scanned_at < datetime('now', '-7 days'))
       ORDER BY b.email_security_scanned_at ASC NULLS FIRST
@@ -169,7 +168,7 @@ export async function handlePublicEmailSecurity(
 
     // If domain matches a monitored brand, persist to DB
     const brand = await env.DB.prepare(
-      "SELECT id FROM brands WHERE canonical_domain = ? AND status = 'active'"
+      "SELECT id FROM brands WHERE canonical_domain = ?"
     ).bind(domain).first<{ id: number }>();
 
     if (brand) {
@@ -209,19 +208,19 @@ export async function handleEmailSecurityStats(
 
       // Scanned total
       env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NOT NULL AND status = 'active'"
+        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NOT NULL"
       ).first<{ n: number }>(),
 
       // Unscanned count
       env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NULL AND status = 'active'"
+        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NULL"
       ).first<{ n: number }>(),
 
       // Worst-protected brands (bottom 10)
       env.DB.prepare(`
         SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade
         FROM brands b
-        WHERE b.email_security_score IS NOT NULL AND b.status = 'active'
+        WHERE b.email_security_score IS NOT NULL
         ORDER BY b.email_security_score ASC
         LIMIT 10
       `).all<{
@@ -241,7 +240,7 @@ export async function handleEmailSecurityStats(
     `).all<{ dmarc_policy: string | null; count: number }>();
 
     const avgRow = await env.DB.prepare(
-      "SELECT AVG(email_security_score) AS avg FROM brands WHERE email_security_score IS NOT NULL AND status = 'active'"
+      "SELECT AVG(email_security_score) AS avg FROM brands WHERE email_security_score IS NOT NULL"
     ).first<{ avg: number | null }>();
 
     return json({
