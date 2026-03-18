@@ -65,7 +65,7 @@ import {
 } from "./handlers/safeDomains";
 import {
   handlePublicStats, handlePublicGeo, handlePublicAssess, handlePublicLeadCapture,
-  handlePublicMonitor,
+  handlePublicMonitor, handlePublicFeeds,
 } from "./handlers/public";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
@@ -1020,6 +1020,7 @@ router.get("/ws/threats", async (request: Request, env: Env) => {
 // ─── Public API endpoints (no auth) ─────────────────────────
 router.get("/api/v1/public/stats", (request: Request, env: Env) => handlePublicStats(request, env));
 router.get("/api/v1/public/geo", (request: Request, env: Env) => handlePublicGeo(request, env));
+router.get("/api/v1/public/feeds", (request: Request, env: Env) => handlePublicFeeds(request, env));
 router.post("/api/v1/public/assess", (request: Request, env: Env) => handlePublicAssess(request, env));
 router.post("/api/v1/public/leads", (request: Request, env: Env) => handlePublicLeadCapture(request, env));
 router.post("/api/v1/public/monitor", (request: Request, env: Env) => handlePublicMonitor(request, env));

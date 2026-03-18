@@ -778,6 +778,36 @@ async function viewPublicSite(el, params) {
       statKey: 'latest_insight_summary', statLabel: '' },
   ];
 
+  // Threat category definitions with SVG icons
+  const threatCategories = [
+    { type: 'phishing', label: 'Phishing & Credential Harvesting', desc: 'Fake login pages designed to steal user credentials',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff3b5c" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/></svg>' },
+    { type: 'typosquatting', label: 'Brand Impersonation & Typosquatting', desc: 'Lookalike domains exploiting brand trust',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>' },
+    { type: 'malware', label: 'Malware Distribution URLs', desc: 'URLs serving malicious payloads and downloaders',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffb627" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l2 2"/></svg>' },
+    { type: 'c2', label: 'Command & Control Infrastructure', desc: 'C2 servers controlling compromised hosts',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' },
+    { type: 'botnet', label: 'Botnet Nodes', desc: 'Infected hosts participating in bot networks',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b388ff" stroke-width="1.5"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M7.5 17.5L10 13M16.5 17.5L14 13"/></svg>' },
+    { type: 'ssl_blacklist', label: 'Malicious SSL Certificates', desc: 'SSL certs associated with known malware',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00e5a0" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>' },
+    { type: 'scanner', label: 'Scanning & Reconnaissance', desc: 'Hosts performing network scans and probes',
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7a8ba8" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>' },
+  ];
+
+  // Feed type badges
+  const feedTypeBadge = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes('phish') || n.includes('openphish')) return { label: 'Phishing', color: '#ff3b5c' };
+    if (n.includes('urlhaus') || n.includes('malware') || n.includes('threatfox')) return { label: 'Malware', color: '#ffb627' };
+    if (n.includes('ssl') || n.includes('cert') || n.includes('ct_logs')) return { label: 'SSL', color: '#00e5a0' };
+    if (n.includes('cins') || n.includes('dshield') || n.includes('blocklist')) return { label: 'IP Intel', color: '#b388ff' };
+    if (n.includes('cloudflare')) return { label: 'Intel', color: '#00d4ff' };
+    if (n.includes('nrd') || n.includes('hagezi')) return { label: 'Domains', color: '#ff6b35' };
+    return { label: 'Intel', color: '#7a8ba8' };
+  };
+
   el.innerHTML = `
     ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" style="color:#00d4ff">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
 
@@ -786,8 +816,9 @@ async function viewPublicSite(el, params) {
       <div class="pub-nav-inner">
         <a href="/" class="pub-nav-logo">${logoSvg}</a>
         <div class="pub-nav-links">
-          <a href="#features">Features</a>
+          <a href="#detect">Detection</a>
           <a href="#agents">Agents</a>
+          <a href="#feeds">Feeds</a>
           <a href="#assessment">Assessment</a>
         </div>
         <div class="pub-nav-cta">
@@ -797,7 +828,7 @@ async function viewPublicSite(el, params) {
         <button class="pub-hamburger" id="pub-hamburger">\u2630</button>
       </div>
       <div class="pub-mobile-menu" id="pub-mobile-menu" style="display:none">
-        <a href="#features">Features</a><a href="#agents">Agents</a><a href="#assessment">Assessment</a>
+        <a href="#detect">Detection</a><a href="#agents">Agents</a><a href="#feeds">Feeds</a><a href="#assessment">Assessment</a>
         <a href="/login">Login</a><a href="#assessment" class="pub-btn pub-btn-primary" style="text-align:center">Sign Up</a>
       </div>
     </nav>
@@ -815,10 +846,10 @@ async function viewPublicSite(el, params) {
         </div>
       </div>
       <div class="pub-hero-stats" id="pub-hero-stats">
-        <span>\u26A0 <strong id="pub-stat-threats">--</strong> Active Threats</span>
-        <span>\u2605 <strong id="pub-stat-brands">--</strong> Brands Tracked</span>
-        <span>\u25C6 <strong id="pub-stat-providers">--</strong> Providers Mapped</span>
-        <span>\u2295 <strong id="pub-stat-campaigns">--</strong> Threat Campaigns</span>
+        <span><strong id="pub-stat-threats" class="pub-countup">--</strong> Threats Tracked</span>
+        <span><strong id="pub-stat-brands" class="pub-countup">--</strong> Brands Monitored</span>
+        <span><strong id="pub-stat-feeds" class="pub-countup">--</strong> Active Feeds</span>
+        <span><strong id="pub-stat-campaigns" class="pub-countup">--</strong> Campaigns Identified</span>
       </div>
     </section>
 
@@ -845,6 +876,24 @@ async function viewPublicSite(el, params) {
       <p class="pub-problem-cta">Trust Radar changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong style="color:#00d4ff">every five minutes</strong>.</p>
     </section>
 
+    <!-- WHAT WE DETECT -->
+    <section class="pub-section" id="detect">
+      <h2 class="pub-section-title">What We Detect</h2>
+      <p class="pub-section-sub">Beyond phishing \u2014 we identify the full spectrum of online threats targeting your brand and infrastructure.</p>
+      <div class="pub-detect-grid" id="pub-detect-grid">
+        ${threatCategories.map(c => `
+          <div class="pub-detect-card">
+            <div class="pub-detect-icon">${c.icon}</div>
+            <div class="pub-detect-body">
+              <div class="pub-detect-label">${c.label}</div>
+              <div class="pub-detect-desc">${c.desc}</div>
+              <div class="pub-detect-count" data-type="${c.type}">--</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
     <!-- AGENTS -->
     <section class="pub-section" id="agents">
       <h2 class="pub-section-title">Five AI Agents. One Mission.</h2>
@@ -869,25 +918,56 @@ async function viewPublicSite(el, params) {
       <div class="pub-steps">
         <div class="pub-step">
           <div class="pub-step-num">1</div>
-          <h3>We Watch</h3>
-          <p>Trust Radar ingests data from 8+ threat intelligence feeds every 5 minutes. Certificate Transparency logs, threat databases, botnet trackers, and more.</p>
+          <h3>Continuous Monitoring</h3>
+          <p><span id="pub-step-feed-count">14</span> threat intelligence feeds scan the internet 24/7 \u2014 phishing databases, malware distribution lists, certificate transparency logs, IP blocklists, and SSL blacklists.</p>
+          <div class="pub-step-badges">
+            <span class="pub-step-badge">abuse.ch</span><span class="pub-step-badge">SANS DShield</span>
+            <span class="pub-step-badge">PhishTank</span><span class="pub-step-badge">Cloudflare Radar</span>
+            <span class="pub-step-badge">CT Logs</span><span class="pub-step-badge">SSL Blacklist</span>
+          </div>
         </div>
         <div class="pub-step">
           <div class="pub-step-num">2</div>
-          <h3>We Analyze</h3>
-          <p>Five AI agents process every signal \u2014 classifying threats, matching brands, mapping infrastructure, correlating campaigns, and synthesizing intelligence.</p>
+          <h3>AI-Powered Analysis</h3>
+          <p>Five AI agents \u2014 <span style="color:#00d4ff">Sentinel</span>, <span style="color:#00e5a0">Analyst</span>, <span style="color:#ffb627">Cartographer</span>, <span style="color:#ff3b5c">Strategist</span>, and <span style="color:#b388ff">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
+          <div class="pub-step-agents">
+            <span class="pub-step-agent" style="--ac:#00d4ff">\u25C9</span>
+            <span class="pub-step-agent" style="--ac:#00e5a0">\u25C8</span>
+            <span class="pub-step-agent" style="--ac:#ffb627">\u25CE</span>
+            <span class="pub-step-agent" style="--ac:#ff3b5c">\u25C6</span>
+            <span class="pub-step-agent" style="--ac:#b388ff">\u25CB</span>
+          </div>
         </div>
         <div class="pub-step">
           <div class="pub-step-num">3</div>
-          <h3>We Alert</h3>
-          <p>Your brand\u2019s threat landscape is monitored continuously. When new attacks emerge, you know immediately \u2014 with full context and severity scoring.</p>
+          <h3>Brand Correlation</h3>
+          <p>Every threat is checked against monitored brands using domain matching, homoglyph detection, and certificate analysis. Typosquats are caught within minutes of registration.</p>
+          <div class="pub-step-demo">
+            <span class="pub-step-threat">paypal-secure.com</span>
+            <span style="color:var(--text-tertiary)">\u2192</span>
+            <span class="pub-step-match">Matched to PayPal</span>
+          </div>
+        </div>
+        <div class="pub-step">
+          <div class="pub-step-num">4</div>
+          <h3>Intelligence Delivery</h3>
+          <p>Campaigns are identified, infrastructure is mapped, and daily intelligence briefings are generated. Your security team gets actionable intelligence, not raw data.</p>
         </div>
         <div class="pub-step pub-step-coming">
-          <div class="pub-step-num">4</div>
+          <div class="pub-step-num">5</div>
           <span class="pub-coming-badge">Coming Soon</span>
           <h3>We Take Action</h3>
-          <p>Automated threat mitigation: domain takedown requests, hosting provider abuse reports, DNS sinkholing, and coordinated response.</p>
+          <p>Automated takedown requests, registrar notifications, and evidence preservation \u2014 turning intelligence into action.</p>
         </div>
+      </div>
+    </section>
+
+    <!-- FEED SOURCES -->
+    <section class="pub-section" id="feeds">
+      <h2 class="pub-section-title">Powered by <span id="pub-feed-total">14</span> Threat Intelligence Feeds</h2>
+      <p class="pub-section-sub">Real-time data from the world\u2019s leading threat intelligence sources. Every feed is monitored for health and freshness.</p>
+      <div class="pub-feeds-grid" id="pub-feeds-grid">
+        <div style="text-align:center;padding:32px;color:var(--text-tertiary)">Loading feeds...</div>
       </div>
     </section>
 
@@ -910,24 +990,15 @@ async function viewPublicSite(el, params) {
       <div id="pub-lead-form" style="display:none"></div>
     </section>
 
-    <!-- SOCIAL PROOF -->
-    <section class="pub-section pub-proof">
-      <h3 class="pub-proof-title">Powered by Open Intelligence</h3>
-      <div class="pub-proof-feeds">
-        <span class="pub-feed-badge">Certificate Transparency</span>
-        <span class="pub-feed-badge">PhishTank</span>
-        <span class="pub-feed-badge">OpenPhish</span>
-        <span class="pub-feed-badge">PhishDestroy</span>
-        <span class="pub-feed-badge">Feodo Tracker</span>
-        <span class="pub-feed-badge">APWG</span>
-      </div>
-      <p class="pub-proof-sub">Aggregating 8+ threat intelligence feeds \u2022 Processing 4,000+ signals daily \u2022 AI-powered by Anthropic Claude</p>
-    </section>
-
     <!-- CTA FOOTER -->
     <footer class="pub-footer">
       <div class="pub-footer-logo">${heroLogo}</div>
       <h2 class="pub-footer-title">Ready to protect your brand?</h2>
+      <div class="pub-footer-stats" id="pub-footer-stats">
+        <span>Tracking <strong id="pub-foot-threats">19,000+</strong> threats across <strong id="pub-foot-countries">35+</strong> countries</span>
+        <span>Powered by <strong id="pub-foot-feeds">14</strong> intelligence feeds</span>
+        <span>5 AI agents running continuously</span>
+      </div>
       <div class="pub-footer-cta">
         <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Get Your Free Assessment</a>
         <a href="mailto:hello@lrxradar.com" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
@@ -981,17 +1052,51 @@ async function viewPublicSite(el, params) {
     }
   } catch {}
 
+  // ─── Count-up animation helper ───
+  function animateCountUp(el, target, suffix) {
+    if (!el) return;
+    const duration = 1500;
+    const start = performance.now();
+    const from = 0;
+    function frame(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(from + (target - from) * eased);
+      el.textContent = current.toLocaleString() + (suffix || '');
+      if (progress < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ─── Intersection Observer for count-up ───
+  let statsAnimated = false;
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !statsAnimated) {
+        statsAnimated = true;
+        loadStats();
+      }
+    });
+  }, { threshold: 0.3 });
+  const heroStats = document.getElementById('pub-hero-stats');
+  if (heroStats) statsObserver.observe(heroStats);
+
   // ─── Live stats ───
+  let _pubStatsData = null;
   async function loadStats() {
     try {
       const res = await fetch('/api/v1/public/stats').then(r => r.json());
       const d = res?.data;
       if (!d) return;
-      const animate = (el, val) => { if (el) { el.textContent = (val || 0).toLocaleString(); el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'pub-pulse 2s ease-in-out'; } };
-      animate(document.getElementById('pub-stat-threats'), d.active_threats);
-      animate(document.getElementById('pub-stat-brands'), d.brands_tracked);
-      animate(document.getElementById('pub-stat-providers'), d.providers_mapped);
-      animate(document.getElementById('pub-stat-campaigns'), d.threat_campaigns);
+      _pubStatsData = d;
+
+      // Hero stats with count-up
+      const totalThreats = d.total_threats || d.active_threats || 0;
+      const roundedThreats = Math.floor(totalThreats / 1000) * 1000;
+      animateCountUp(document.getElementById('pub-stat-threats'), roundedThreats, '+');
+      animateCountUp(document.getElementById('pub-stat-brands'), d.brands_monitored || d.brands_tracked || 0, '');
+      animateCountUp(document.getElementById('pub-stat-feeds'), d.active_feeds || 14, '');
+      animateCountUp(document.getElementById('pub-stat-campaigns'), d.threat_campaigns || 0, '+');
 
       // Agent stats
       const agentStats = [d.certificates_today, d.threats_classified_today, d.providers_mapped, d.threat_campaigns, d.latest_insight_summary];
@@ -1004,10 +1109,61 @@ async function viewPublicSite(el, params) {
           el.innerHTML = '<span style="font-family:var(--font-mono);font-size:12px;color:' + a.color + '">' + (agentStats[i] || 0).toLocaleString() + '</span> <span style="font-size:10px;color:var(--text-tertiary)">' + a.statLabel + '</span>';
         }
       });
+
+      // Threat type counts in detect section
+      if (d.threat_types) {
+        const typeMap = {};
+        d.threat_types.forEach(t => { typeMap[t.threat_type] = t.count; });
+        document.querySelectorAll('.pub-detect-count').forEach(el => {
+          const type = el.dataset.type;
+          const count = typeMap[type] || 0;
+          el.textContent = count > 0 ? count.toLocaleString() + ' detected' : 'Monitoring';
+          el.style.color = count > 0 ? 'var(--blue-primary)' : 'var(--text-tertiary)';
+        });
+      }
+
+      // Footer stats
+      const footThreats = document.getElementById('pub-foot-threats');
+      if (footThreats) footThreats.textContent = roundedThreats.toLocaleString() + '+';
+      const footCountries = document.getElementById('pub-foot-countries');
+      if (footCountries) footCountries.textContent = (d.countries || 35) + '+';
+      const footFeeds = document.getElementById('pub-foot-feeds');
+      if (footFeeds) footFeeds.textContent = String(d.active_feeds || 14);
+
+      // Pipeline step feed count
+      const stepFc = document.getElementById('pub-step-feed-count');
+      if (stepFc) stepFc.textContent = String(d.active_feeds || 14);
+      const feedTotal = document.getElementById('pub-feed-total');
+      if (feedTotal) feedTotal.textContent = String(d.active_feeds || 14);
     } catch {}
   }
-  loadStats();
+  // Load immediately if hero is already in view
+  if (!statsAnimated) { statsAnimated = true; loadStats(); }
   const statsInterval = setInterval(loadStats, 60000);
+
+  // ─── Load feeds grid ───
+  async function loadFeeds() {
+    try {
+      const res = await fetch('/api/v1/public/feeds').then(r => r.json());
+      const feeds = res?.data || [];
+      const grid = document.getElementById('pub-feeds-grid');
+      if (!grid || !feeds.length) return;
+      grid.innerHTML = feeds.map(f => {
+        const badge = feedTypeBadge(f.feed_name);
+        const statusColor = f.health_status === 'healthy' ? '#00e5a0' : f.health_status === 'degraded' ? '#ffb627' : '#ff3b5c';
+        return `<div class="pub-feed-card">
+          <div class="pub-feed-card-header">
+            <span class="pub-feed-card-dot" style="background:${statusColor}"></span>
+            <span class="pub-feed-card-name">${f.display_name}</span>
+            <span class="pub-feed-type-badge" style="background:${badge.color}20;color:${badge.color}">${badge.label}</span>
+          </div>
+          <div class="pub-feed-card-desc">${f.description || ''}</div>
+          ${f.records_ingested_today > 0 ? `<div class="pub-feed-card-stat">${f.records_ingested_today.toLocaleString()} ingested today</div>` : ''}
+        </div>`;
+      }).join('');
+    } catch {}
+  }
+  loadFeeds();
 
   // ─── Assessment form ───
   const submitBtn = document.getElementById('pub-assess-submit');
@@ -1049,6 +1205,18 @@ async function viewPublicSite(el, params) {
       const circ = 2 * Math.PI * radius;
       const offset = circ * (1 - pct);
 
+      // Build threat types breakdown if available
+      let typesHtml = '';
+      if (d.threat_types && d.threat_types.length > 0) {
+        typesHtml = '<div class="pub-assess-types"><div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Threat Breakdown</div>' +
+          d.threat_types.map(t => `<div class="pub-assess-type-row"><span>${t.threat_type}</span><span style="color:var(--blue-primary);font-family:var(--font-mono)">${t.count}</span></div>`).join('') +
+          '</div>';
+      }
+
+      const monitoredNote = d.is_monitored
+        ? '<div style="font-size:11px;color:var(--positive);margin-top:8px">This brand is actively monitored by Trust Radar</div>'
+        : '<div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">This brand is not currently monitored. <a href="#" style="color:var(--blue-primary)">Add it to get continuous protection.</a></div>';
+
       document.getElementById('pub-assess-results').style.display = 'block';
       document.getElementById('pub-assess-results').innerHTML = `
         <div class="pub-results-card">
@@ -1073,6 +1241,8 @@ async function viewPublicSite(el, params) {
           </div>
           ${d.threat_count > 0 ? '<div class="pub-alert-bar pub-alert-danger">\u26A0 Your brand has active threats in the wild.</div>' : '<div class="pub-alert-bar pub-alert-safe">\u2713 No threats detected. Stay ahead by monitoring your brand.</div>'}
           <div class="pub-assess-text">${d.assessment_text}</div>
+          ${typesHtml}
+          ${monitoredNote}
         </div>
       `;
       document.getElementById('pub-assess-results').scrollIntoView({ behavior: 'smooth' });
