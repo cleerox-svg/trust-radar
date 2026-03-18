@@ -22,8 +22,8 @@ Get raw DMARC/SPF/DKIM failure data flowing into Trust Radar so we can show bran
 **How it works**:
 
 1. Set up email receiving on trustradar.ca via Cloudflare Email Routing
-2. Create a dedicated address: `dmarc-rua@trustradar.ca`
-3. Brand adds `rua=mailto:dmarc-rua@trustradar.ca` to their DMARC DNS record
+2. Create a dedicated address: `dmarc_rua@trustradar.ca`
+3. Brand adds `rua=mailto:dmarc_rua@trustradar.ca` to their DMARC DNS record
 4. Every major email provider (Google, Microsoft, Yahoo, Apple) sends daily XML reports to that address
 5. Our Worker receives the email, extracts the XML attachment, parses it, stores in D1
 6. Dashboard shows: "Yesterday, 47 unique IPs sent 3,200 emails claiming to be apple.com. 2,800 passed SPF/DKIM. 400 FAILED — here are the source IPs, their geolocations, and ASNs."
@@ -75,7 +75,7 @@ Get raw DMARC/SPF/DKIM failure data flowing into Trust Radar so we can show bran
 
 **Onboarding flow**: On the brand detail page's Email Security card:
 > "Want to see who's sending emails as your domain? Add this to your DMARC record:
-> `rua=mailto:dmarc-rua@trustradar.ca`
+> `rua=mailto:dmarc_rua@trustradar.ca`
 > We'll start showing spoofing data within 24-48 hours."
 
 **Cost**: $0 — Cloudflare Email Routing is free (25 routes), Email Workers included

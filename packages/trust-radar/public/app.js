@@ -2863,7 +2863,7 @@ function renderDmarcCta(dmarc) {
     return `<div class="email-cta">
       <strong>No DMARC record — anyone can spoof this domain.</strong><br>
       Add this DNS TXT record at <code>_dmarc.yourdomain.com</code> to start protecting it and receive spoofing intelligence in Trust Radar:<br>
-      <code style="display:block;margin-top:6px;word-break:break-all">v=DMARC1; p=none; rua=mailto:dmarc-rua@trustradar.ca</code>
+      <code style="display:block;margin-top:6px;word-break:break-all">v=DMARC1; p=none; rua=mailto:dmarc_rua@trustradar.ca</code>
     </div>`;
   }
   const inTrustRadar = dmarc.record && dmarc.record.includes('trustradar.ca');
@@ -2876,7 +2876,7 @@ function renderDmarcCta(dmarc) {
   // Has DMARC but not reporting to Trust Radar
   return `<div class="email-cta">
     <strong>DMARC configured — add Trust Radar as a report receiver.</strong><br>
-    Append <code>mailto:dmarc-rua@trustradar.ca</code> to the <code>rua=</code> tag in your DMARC record to get full spoofing intelligence here.
+    Append <code>mailto:dmarc_rua@trustradar.ca</code> to the <code>rua=</code> tag in your DMARC record to get full spoofing intelligence here.
   </div>`;
 }
 
@@ -2896,7 +2896,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
           <div style="margin-bottom:10px;color:var(--text-tertiary)">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
           <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
             <strong>Activate DMARC reporting:</strong><br>
-            Add <code>rua=mailto:dmarc-rua@trustradar.ca</code> to your DMARC DNS record.<br>
+            Add <code>rua=mailto:dmarc_rua@trustradar.ca</code> to your DMARC DNS record.<br>
             Google, Microsoft, and Yahoo will send daily reports showing every IP that sent email claiming to be this domain.
           </div>
         </div>
