@@ -136,6 +136,7 @@ export const cloudflare_scanner: FeedModule = {
 
     console.log(`[cf_scanner] Phase 1: ${toScan.results.length} URLs to submit`);
 
+    let firstSubmitLogged = false;
     for (const row of toScan.results) {
       const { parsed: resp, raw, status } = await cfFetch<CfScanSubmitResponse>(accountId, token, "/v2/scan", {
         method: "POST",
@@ -143,6 +144,19 @@ export const cloudflare_scanner: FeedModule = {
       });
 
       console.log(`[cf_scanner] submit response for ${row.malicious_url}: status=${status}, success=${resp?.success}, uuid=${resp?.result?.uuid ?? 'NONE'}, raw=${raw.slice(0, 200)}`);
+
+      // Log first submit response to DB no matter what — success or failure
+      if (!firstSubmitLogged) {
+        firstSubmitLogged = true;
+        try {
+          await ctx.env.DB.prepare(
+            "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+          ).bind(
+            'diag_cf_submit1_' + Date.now(),
+            `CF Scanner first submit: url=${row.malicious_url}, HTTP ${status}, success=${resp?.success ?? 'null'}, uuid=${resp?.result?.uuid ?? 'NONE'}, errors=${JSON.stringify(resp?.errors ?? []).slice(0, 200)}, body=${raw.slice(0, 300)}`,
+          ).run();
+        } catch { /* non-fatal */ }
+      }
 
       if (resp?.success && resp.result?.uuid) {
         const updateResult = await ctx.env.DB.prepare(
