@@ -538,7 +538,7 @@ async function extractCsvFromZip(buffer: ArrayBuffer): Promise<string | null> {
   }
   if (compressionMethod === 8) {
     const compressed = bytes.slice(dataOffset, dataOffset + compressedSize);
-    const ds = new DecompressionStream("raw");
+    const ds = new DecompressionStream("deflate-raw");
     const writer = ds.writable.getWriter();
     writer.write(compressed);
     writer.close();

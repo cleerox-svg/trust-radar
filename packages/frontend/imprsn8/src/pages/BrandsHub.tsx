@@ -7,8 +7,8 @@
  *   3. All Brands — full catalog with search/sort/pagination
  */
 
-import React, { useState, useMemo, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   Search, Shield, ShieldAlert, Eye, EyeOff, ChevronLeft, ChevronRight,
@@ -48,7 +48,7 @@ export default function BrandsHub() {
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const monitorMutation = useMutation({
@@ -126,14 +126,14 @@ export default function BrandsHub() {
             </div>
             <button
               onClick={() => addDomain && monitorMutation.mutate(addDomain)}
-              disabled={!addDomain || monitorMutation.isLoading}
+              disabled={!addDomain || monitorMutation.isPending}
               style={{
                 padding: "8px 20px", borderRadius: 8,
-                background: monitorMutation.isLoading ? "var(--surface-tertiary)" : "var(--accent-primary)",
+                background: monitorMutation.isPending ? "var(--surface-tertiary)" : "var(--accent-primary)",
                 color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
               }}
             >
-              {monitorMutation.isLoading ? "Adding..." : "Start Monitoring"}
+              {monitorMutation.isPending ? "Adding..." : "Start Monitoring"}
             </button>
           </div>
           {monitorMutation.isError && (
@@ -315,7 +315,7 @@ export default function BrandsHub() {
 
 // ─── Brand Row ───────────────────────────────────────────────────
 
-function BrandRow({ brand, onToggleMonitor }: { brand: BrandListItem; onToggleMonitor: () => void }) {
+function BrandRow({ brand, onToggleMonitor }: { brand: BrandListItem; onToggleMonitor: () => void }): React.ReactElement {
   const severity = brand.active_threats >= 10 ? "critical" :
     brand.active_threats >= 5 ? "high" :
     brand.active_threats > 0 ? "medium" : "none";
