@@ -2646,9 +2646,10 @@ async function viewBrandsHub(el) {
       const trendHtml = tp !== 0 ? `<span class="trend-pct ${trendDir}">${tp > 0 ? '+' : ''}${tp}%</span>` : '<span class="trend-pct" style="color:var(--text-tertiary)">—</span>';
       const risingHtml = b.rising ? '<div class="rising-badge">Rising</div>' : '';
       const sparkData = b.sparkline || [];
-      const gradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || '#3a3a3a';
+      const gradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const gradeTxt = b.email_security_grade || '—';
-      const gradeColor = b.email_security_grade ? '#000' : 'var(--text-tertiary)';
+      const gradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
+      const gradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
       return `<a href="/brands/${b.brand_id || b.id}" class="brand-card">
         ${risingHtml}
         <div class="brand-card-top">
@@ -2663,7 +2664,7 @@ async function viewBrandsHub(el) {
         <div class="brand-card-footer">
           <span class="type-pill ${b.top_threat_type || 'phishing'}">${b.top_threat_type || 'phishing'}</span>
           <span class="brand-domain">${b.canonical_domain || ''}</span>
-          <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${gradeBg};color:${gradeColor};padding:1px 5px;border-radius:3px;flex-shrink:0">${gradeTxt}</span>
+          <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${gradeBg};color:${gradeColor};padding:1px 5px;border-radius:3px;border:${gradeBorder};flex-shrink:0">${gradeTxt}</span>
         </div>
       </a>`;
     }).join('')}</div>`;
@@ -2695,15 +2696,16 @@ async function viewBrandsHub(el) {
       const color = tc > 0 ? _tColor(tc) : 'var(--positive)';
       const statusClass = tc > 0 ? 'active-threats' : b.status === 'new' ? 'new-status' : 'clean';
       const statusText = tc > 0 ? 'Active Threats' : b.status === 'new' ? 'New' : 'Clean';
-      const mGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || '#3a3a3a';
+      const mGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const mGradeTxt = b.email_security_grade || '—';
-      const mGradeColor = b.email_security_grade ? '#000' : 'var(--text-tertiary)';
+      const mGradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
+      const mGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
       return `<a href="/brands/${b.brand_id || b.id}" class="monitored-row" data-status="${statusClass}" data-name="${(b.name || '').toLowerCase()}">
         <div class="monitored-icon" style="color:${color}">${initials}</div>
         <div class="monitored-info"><div class="monitored-name">${b.name}</div><div class="monitored-domain">${b.canonical_domain || ''}</div></div>
         <div class="monitored-sector">${b.sector || ''}</div>
         <div class="monitored-threats" style="color:${color}">${tc}</div>
-        <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${mGradeBg};color:${mGradeColor};padding:1px 5px;border-radius:3px">${mGradeTxt}</span>
+        <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${mGradeBg};color:${mGradeColor};padding:1px 5px;border-radius:3px;border:${mGradeBorder}">${mGradeTxt}</span>
         <span class="status-badge ${statusClass}">${statusText}</span>
         <div class="monitored-meta">Since ${b.monitored_since ? b.monitored_since.slice(0, 10) : ''}</div>
       </a>`;
@@ -2763,9 +2765,10 @@ async function viewBrandsHub(el) {
       const t = b.trend_pct || 0;
       const trendDir = t >= 0 ? 'up' : 'down';
       const initials = _brandInitials(b.name);
-      const tGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || '#3a3a3a';
+      const tGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const tGradeTxt = b.email_security_grade || '—';
-      const tGradeColor = b.email_security_grade ? '#000' : 'var(--text-tertiary)';
+      const tGradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
+      const tGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
       html += `<tr data-id="${id}" data-name="${(b.name || '').toLowerCase()}" data-domain="${(b.canonical_domain || '').toLowerCase()}" data-sector="${b.sector || ''}">
         <td><span class="star-toggle ${mon ? 'on' : 'off'}">${mon ? '\u2605' : '\u2606'}</span></td>
         <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div style="font-weight:500">${b.name}</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${b.canonical_domain || ''}</div></div></a></td>
@@ -2773,7 +2776,7 @@ async function viewBrandsHub(el) {
         <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${color}">${tc}</span></td>
         <td>${t !== 0 ? `<span class="trend-pct ${trendDir}" style="font-size:11px">${t > 0 ? '+' : ''}${t}%</span>` : '<span style="font-size:11px;color:var(--text-tertiary)">—</span>'}</td>
         <td>${b.top_threat_type ? `<span class="type-pill ${b.top_threat_type}">${b.top_threat_type}</span>` : '-'}</td>
-        <td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${tGradeBg};color:${tGradeColor};padding:1px 5px;border-radius:3px">${tGradeTxt}</span></td>
+        <td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${tGradeBg};color:${tGradeColor};padding:1px 5px;border-radius:3px;border:${tGradeBorder}">${tGradeTxt}</span></td>
       </tr>`;
     });
     html += '</tbody></table></div>';
