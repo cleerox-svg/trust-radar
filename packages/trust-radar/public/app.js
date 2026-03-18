@@ -1592,6 +1592,15 @@ async function viewObservatory(el) {
       nodeData = allNodes.filter(n => activeSeverities.has(n.top_severity || 'low'));
       arcData  = allArcs.filter(a => activeSeverities.has(a.severity || 'low'));
 
+      // DEBUG: dump raw arc positions to verify data structure
+      console.table(arcData.slice(0, 5).map(a => ({
+        srcLng: a.sourcePosition?.[0],
+        srcLat: a.sourcePosition?.[1],
+        tgtLng: a.targetPosition?.[0],
+        tgtLat: a.targetPosition?.[1],
+        height: _arcHeight(a),
+      })));
+
       const s = statsRes?.data || {};
       document.getElementById('stat-bar').innerHTML = [
         renderStatChip('⚠', 'threats',   s.threats_mapped    || 0, 'Threats Mapped',      null),
@@ -2300,6 +2309,11 @@ async function viewObservatory(el) {
   // ── Boot ─────────────────────────────────────────────────────────
   initDeck();
   setupControls();
+
+  // DEBUG: verify toggle buttons exist in DOM and have event listeners attached
+  document.querySelectorAll('.obs-lt-btn').forEach(el =>
+    console.log('[Observatory] Toggle DOM:', el.textContent.trim(), '| data-layer:', el.dataset.layer, '| has onclick prop:', !!el.onclick, '| in document:', document.contains(el))
+  );
 
   try {
     const [stats, topBrands, worstProv, improvingProv, insights] = await Promise.all([
