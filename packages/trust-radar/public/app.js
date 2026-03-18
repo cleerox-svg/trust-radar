@@ -1432,7 +1432,8 @@ async function viewObservatory(el) {
   let livePoller = null;
   let radarFrame = null;
   let deckgl = null;
-  let currentViewState = { longitude: 10, latitude: 25, zoom: 2.2, pitch: 0, bearing: 0 };
+  const _isMobile = window.innerWidth < 768;
+  let currentViewState = { longitude: 10, latitude: 20, zoom: _isMobile ? 1.0 : 2.2, pitch: 0, bearing: 0, minZoom: 0.5, maxZoom: 12 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
@@ -1550,7 +1551,7 @@ async function viewObservatory(el) {
       });
 
       if (deckgl) {
-        const base = deckgl.props.layers.filter(l => !l.id.startsWith('p-'));
+        const base = deckgl.props.layers.filter(l => !l.id.startsWith('particle-'));
         if (!_particlesVisible) {
           // Particles hidden — keep base layers only, skip rendering work
           deckgl.setProps({ layers: base });
@@ -1567,15 +1568,15 @@ async function viewObservatory(el) {
             arc.sourcePosition[0], arc.sourcePosition[1],
             arc.targetPosition[0], arc.targetPosition[1], tc
           );
-          // Outer glow: 10px cyan at 30% opacity
-          glowData.push({ pos: [lon, lat], col: [0, 212, 255, 77] });
+          // Outer glow: 6px cyan at 15% opacity
+          glowData.push({ pos: [lon, lat], col: [0, 212, 255, 38] });
           // Core dot: 4px bright white
           coreData.push({ pos: [lon, lat], col: [255, 255, 255, 255] });
         });
 
         _curParticleLayers = [
-          new deck.ScatterplotLayer({ id: 'p-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 10, getFillColor: d => d.col }),
-          new deck.ScatterplotLayer({ id: 'p-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius:  4, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 6, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 4, getFillColor: d => d.col }),
         ];
         deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
       }
@@ -1771,22 +1772,22 @@ async function viewObservatory(el) {
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Bezier paths — glow pass (wide, 15% opacity)
+      // Bezier paths — glow pass (wide, 8% opacity)
       new deck.PathLayer({
-        id: 'arcs-glow',
+        id: 'beam-glow-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 38),
+        getColor: d => _typeColor(d.threat_type, 20),
         getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.3 + 2)),
         widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 6,
       }),
-      // Bezier paths — core pass (thin, 40% opacity)
+      // Bezier paths — core pass (thin, 25% opacity)
       new deck.PathLayer({
-        id: 'arcs',
+        id: 'beam-core-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 102),
+        getColor: d => _typeColor(d.threat_type, 64),
         getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
         widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 2,
@@ -1812,15 +1813,6 @@ async function viewObservatory(el) {
         radiusMinPixels: 2, radiusMaxPixels: 8,
       }),
     ]);
-    // Debug: log line layer data for first 3 arcs
-    console.log('[Observatory] LINE LAYER DATA:', {
-      count: arcData.length,
-      sample: arcData.slice(0, 3).map(d => ({
-        source: d.sourcePosition,
-        target: d.targetPosition,
-      })),
-    });
-
     _initParticles(arcData);
     _startParticleLoop();
   }
@@ -1857,22 +1849,22 @@ async function viewObservatory(el) {
     const top15 = arcData.slice(0, 15);
 
     setLayers([
-      // Bezier paths — glow pass (thick, 15% opacity)
+      // Bezier paths — glow pass (thick, 8% opacity)
       new deck.PathLayer({
-        id: 'corridor-glow',
+        id: 'beam-glow-corridor',
         data: top15,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 38),
-        getWidth: d => Math.max(4, Math.min(8, (d.volume || 1) * 0.5 + 3)),
+        getColor: d => _typeColor(d.threat_type, 20),
+        getWidth: d => Math.max(4, Math.min(6, (d.volume || 1) * 0.5 + 3)),
         widthUnits: 'pixels',
-        widthMinPixels: 3, widthMaxPixels: 10,
+        widthMinPixels: 3, widthMaxPixels: 6,
       }),
-      // Bezier paths — core pass (sharp)
+      // Bezier paths — core pass (25% opacity)
       new deck.PathLayer({
-        id: 'corridors',
+        id: 'beam-core-corridor',
         data: top15,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 102),
+        getColor: d => _typeColor(d.threat_type, 64),
         getWidth: d => Math.max(2, Math.min(4, (d.volume || 1) * 0.3)),
         widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 4,
@@ -1927,7 +1919,7 @@ async function viewObservatory(el) {
       }),
       // Source/target nodes
       new deck.ScatterplotLayer({
-        id: 'corridor-nodes',
+        id: 'nodes-corridor',
         data: nodeData.slice(0, 40),
         getPosition: d => [d.lng, d.lat],
         getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4000,
@@ -2000,7 +1992,7 @@ async function viewObservatory(el) {
       setLayers([
         // Crosshair outer ring
         new deck.ScatterplotLayer({
-          id: 'brand-xhair-outer',
+          id: 'target-xhair-outer',
           data: [{ pos: targetPos }],
           getPosition: d => d.pos,
           getRadius: 120000,
@@ -2011,7 +2003,7 @@ async function viewObservatory(el) {
         }),
         // Crosshair inner ring (pulsing effect via second layer offset)
         new deck.ScatterplotLayer({
-          id: 'brand-xhair-inner',
+          id: 'target-xhair-inner',
           data: [{ pos: targetPos }],
           getPosition: d => d.pos,
           getRadius: 40000,
@@ -2020,22 +2012,22 @@ async function viewObservatory(el) {
           lineWidthMinPixels: 2, stroked: true,
           radiusMinPixels: 8, radiusMaxPixels: 40,
         }),
-        // Bezier paths — glow pass (15% opacity)
+        // Bezier paths — glow pass (8% opacity)
         new deck.PathLayer({
-          id: 'brand-arcs-glow',
+          id: 'beam-glow-brand',
           data: bArcs,
           getPath: d => d.bezierPath,
-          getColor: d => _typeColor(d.threat_type, 38),
+          getColor: d => _typeColor(d.threat_type, 20),
           getWidth: d => Math.max(3, Math.min(6, (d.volume || 1) * 0.4 + 2)),
           widthUnits: 'pixels',
-          widthMinPixels: 2, widthMaxPixels: 8,
+          widthMinPixels: 2, widthMaxPixels: 6,
         }),
-        // Bezier paths — core pass (40% opacity)
+        // Bezier paths — core pass (25% opacity)
         new deck.PathLayer({
-          id: 'brand-arcs',
+          id: 'beam-core-brand',
           data: bArcs,
           getPath: d => d.bezierPath,
-          getColor: d => _typeColor(d.threat_type, 102),
+          getColor: d => _typeColor(d.threat_type, 64),
           getWidth: d => Math.max(1, Math.min(2, (d.volume || 1) * 0.3)),
           widthUnits: 'pixels',
           widthMinPixels: 1, widthMaxPixels: 2,
@@ -2043,7 +2035,7 @@ async function viewObservatory(el) {
         }),
         // Source nodes
         new deck.ScatterplotLayer({
-          id: 'brand-sources-glow',
+          id: 'nodes-brand-glow',
           data: bArcs,
           getPosition: d => d.sourcePosition,
           getRadius: 20000,
@@ -2051,7 +2043,7 @@ async function viewObservatory(el) {
           radiusMinPixels: 5, radiusMaxPixels: 20,
         }),
         new deck.ScatterplotLayer({
-          id: 'brand-sources',
+          id: 'nodes-brand',
           data: bArcs,
           getPosition: d => d.sourcePosition,
           getRadius: 7000,
@@ -2134,7 +2126,7 @@ async function viewObservatory(el) {
       }),
       // Threat nodes (dim — will be lit by canvas sweep)
       new deck.ScatterplotLayer({
-        id: 'radar-nodes',
+        id: 'nodes-radar',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
         getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 5000,
@@ -2339,11 +2331,12 @@ async function viewObservatory(el) {
         _particlesVisible = isActive;
         return;
       }
+      console.log('[Observatory] Toggle layers:', deckgl.props.layers.map(l => `${l.id}(vis:${l.props?.visible ?? true})`));
       const updatedLayers = deckgl.props.layers.map(l => {
         const id = l.id || '';
         let shouldToggle = false;
-        if (layer === 'beams' && (id.includes('arc') || id.includes('corridor') || id.includes('brand-arc'))) shouldToggle = true;
-        if (layer === 'nodes' && (id.includes('node') || id.includes('target') || id.includes('bloom') || id.includes('xhair') || id.includes('radar'))) shouldToggle = true;
+        if (layer === 'beams')   shouldToggle = id.startsWith('beam-');
+        if (layer === 'nodes')   shouldToggle = id.startsWith('node') || id.startsWith('target');
         if (!shouldToggle) return l;
         try { return l.clone({ visible: isActive }); }
         catch (_) { return new l.constructor({ ...l.props, visible: isActive }); }
