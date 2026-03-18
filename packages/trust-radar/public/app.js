@@ -1432,7 +1432,7 @@ async function viewObservatory(el) {
   let livePoller = null;
   let radarFrame = null;
   let deckgl = null;
-  let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
+  let currentViewState = { longitude: 0, latitude: 25, zoom: 2.2, pitch: 35, bearing: 0 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
@@ -1694,7 +1694,7 @@ async function viewObservatory(el) {
         getSourceColor: d => _typeColor(d.threat_type, 40),
         getTargetColor: d => _typeColor(d.threat_type, 40),
         getWidth: d => Math.max(3, Math.sqrt(d.volume || 1) * 2),
-        getHeight: 1,
+        getHeight: 0.3,
         greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
@@ -1708,7 +1708,7 @@ async function viewObservatory(el) {
         getSourceColor: d => _typeColor(d.threat_type, 220),
         getTargetColor: d => _typeColor(d.threat_type, 220),
         getWidth: d => Math.max(1, Math.sqrt(d.volume || 1) * 0.8),
-        getHeight: 1,
+        getHeight: 0.3,
         greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 1, widthMaxPixels: 6,
@@ -1789,7 +1789,7 @@ async function viewObservatory(el) {
         getSourceColor: d => _typeColor(d.threat_type, 50),
         getTargetColor: d => _typeColor(d.threat_type, 50),
         getWidth: d => Math.max(4, (d.volume || 1) * 2.5),
-        getHeight: 1,
+        getHeight: 0.3,
         greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 4, widthMaxPixels: 24,
@@ -1803,7 +1803,7 @@ async function viewObservatory(el) {
         getSourceColor: d => _typeColor(d.threat_type, 230),
         getTargetColor: d => _typeColor(d.threat_type, 230),
         getWidth: d => Math.max(2, (d.volume || 1) * 1.2),
-        getHeight: 1,
+        getHeight: 0.3,
         greatCircle: false,
         widthUnits: 'pixels',
         widthMinPixels: 2, widthMaxPixels: 12,
@@ -1950,7 +1950,7 @@ async function viewObservatory(el) {
           getSourceColor: d => _typeColor(d.threat_type, 50),
           getTargetColor: d => _typeColor(d.threat_type, 50),
           getWidth: d => Math.max(3, d.volume * 1.5),
-          getHeight: 1,
+          getHeight: 0.3,
           greatCircle: false,
           widthUnits: 'pixels',
           widthMinPixels: 2, widthMaxPixels: 12,
@@ -1964,7 +1964,7 @@ async function viewObservatory(el) {
           getSourceColor: d => _typeColor(d.threat_type, 220),
           getTargetColor: d => _typeColor(d.threat_type, 220),
           getWidth: d => Math.max(1, d.volume * 0.8),
-          getHeight: 1,
+          getHeight: 0.3,
           greatCircle: false,
           widthUnits: 'pixels',
           widthMinPixels: 1, widthMaxPixels: 8,
@@ -2264,6 +2264,7 @@ async function viewObservatory(el) {
       const isActive = btn.classList.contains('active');
       if (!deckgl) return;
       if (layer === 'particles') _particlesVisible = isActive;
+      const allIds = deckgl.props.layers.map(l => l.id); console.log('[Observatory] All layer IDs:', JSON.stringify(allIds));
       const updatedLayers = deckgl.props.layers.map(l => {
         const id = l.id || '';
         let shouldToggle = false;
