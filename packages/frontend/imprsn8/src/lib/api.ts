@@ -203,6 +203,49 @@ export const brandHealth = {
     api<BrandHealthScore>(`/brand-health-score${influencerId ? `?influencer_id=${influencerId}` : ""}`),
 };
 
+// ─── Brands Hub ───────────────────────────────────────────────
+
+export interface BrandListItem {
+  id: string;
+  name: string;
+  canonical_domain: string;
+  sector: string | null;
+  source: string | null;
+  first_seen: string;
+  threat_count: number;
+  active_threats: number;
+  last_threat_seen: string | null;
+  is_monitored: number;
+}
+
+export interface BrandTabCounts {
+  under_attack: number;
+  watchlist: number;
+  all: number;
+}
+
+export const brands = {
+  list: (params: { tab?: string; q?: string; sort?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.tab) qs.set("tab", params.tab);
+    if (params.q) qs.set("q", params.q);
+    if (params.sort) qs.set("sort", params.sort);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.offset) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return fetch(`${BASE}/brands${q ? `?${q}` : ""}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then((json: { success: boolean; data: BrandListItem[]; total: number; tabs: BrandTabCounts; error?: string }) => {
+        if (!json.success) throw new Error(json.error ?? "Failed");
+        return { data: json.data, total: json.total, tabs: json.tabs };
+      });
+  },
+  monitor: (data: { domain: string; name?: string; sector?: string }) =>
+    api<{ brand_id: string; domain: string; threats_linked: number }>("/brands/monitor", { method: "POST", body: JSON.stringify(data) }),
+  unmonitor: (brandId: string) =>
+    api<void>(`/brands/monitor/${brandId}`, { method: "DELETE" }),
+};
+
 // ─── Invite types ─────────────────────────────────────────────
 export interface InviteToken {
   id: string;

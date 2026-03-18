@@ -432,3 +432,249 @@ export async function handleBackfillSafeDomains(request: Request, env: Env): Pro
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
+
+// ─── POST /api/admin/import-tranco ──────────────────────────────
+
+const TRANCO_CSV_URL = "https://tranco-list.eu/top-1m.csv.zip";
+
+export async function handleImportTranco(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json().catch(() => null) as {
+      limit?: number;
+      min_rank?: number;
+      max_rank?: number;
+      sectors?: Record<string, string>;
+    } | null;
+
+    const limit = Math.min(body?.limit ?? 500, 2000);
+    const minRank = body?.min_rank ?? 1;
+    const maxRank = body?.max_rank ?? limit;
+
+    // Fetch Tranco CSV (rank,domain format)
+    const res = await fetch(TRANCO_CSV_URL);
+    if (!res.ok) throw new Error(`Tranco fetch failed: HTTP ${res.status}`);
+
+    // Tranco serves a zip — decompress it
+    const zipBuffer = await res.arrayBuffer();
+    const csvText = await extractCsvFromZip(zipBuffer);
+    if (!csvText) throw new Error("Failed to extract CSV from Tranco zip");
+
+    const lines = csvText.split("\n").filter(Boolean);
+    const candidates: Array<{ rank: number; domain: string }> = [];
+
+    for (const line of lines) {
+      const [rankStr, domain] = line.split(",");
+      if (!rankStr || !domain) continue;
+      const rank = parseInt(rankStr, 10);
+      if (rank < minRank || rank > maxRank) continue;
+      candidates.push({ rank, domain: domain.trim().toLowerCase() });
+      if (candidates.length >= limit) break;
+    }
+
+    // Filter out domains we already have
+    const existing = await env.DB.prepare(
+      "SELECT canonical_domain FROM brands"
+    ).all<{ canonical_domain: string }>();
+    const existingSet = new Set(existing.results.map(r => r.canonical_domain.toLowerCase()));
+
+    const toImport = candidates.filter(c => !existingSet.has(c.domain));
+    let imported = 0;
+    const skipped = candidates.length - toImport.length;
+
+    // Batch insert in groups of 50
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < toImport.length; i += BATCH_SIZE) {
+      const batch = toImport.slice(i, i + BATCH_SIZE);
+      const stmts = batch.map(c => {
+        const brandId = `brand_${c.domain.replace(/[^a-z0-9]+/g, "_")}`;
+        const name = extractBrandName(c.domain);
+        const sector = body?.sectors?.[c.domain] ?? null;
+        return env.DB.prepare(
+          `INSERT OR IGNORE INTO brands (id, name, canonical_domain, sector, source, first_seen, threat_count)
+           VALUES (?, ?, ?, ?, 'tranco', datetime('now'), 0)`
+        ).bind(brandId, name, c.domain, sector);
+      });
+      await env.DB.batch(stmts);
+      imported += batch.length;
+    }
+
+    return json({
+      success: true,
+      data: {
+        candidates: candidates.length,
+        imported,
+        skipped,
+        message: `Imported ${imported} brands from Tranco top ${maxRank} (${skipped} already existed)`,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+/** Extract brand name from domain: "amazon.com" → "Amazon", "bank-of-america.com" → "Bank Of America" */
+function extractBrandName(domain: string): string {
+  const base = domain.split(".")[0] ?? domain;
+  return base
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Minimal zip extraction — finds the first file and decompresses it */
+async function extractCsvFromZip(buffer: ArrayBuffer): Promise<string | null> {
+  const bytes = new Uint8Array(buffer);
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
+    return new TextDecoder().decode(buffer);
+  }
+  const compressionMethod = bytes[8]! | (bytes[9]! << 8);
+  const compressedSize = bytes[18]! | (bytes[19]! << 8) | (bytes[20]! << 16) | (bytes[21]! << 24);
+  const fileNameLen = bytes[26]! | (bytes[27]! << 8);
+  const extraLen = bytes[28]! | (bytes[29]! << 8);
+  const dataOffset = 30 + fileNameLen + extraLen;
+
+  if (compressionMethod === 0) {
+    return new TextDecoder().decode(bytes.slice(dataOffset, dataOffset + compressedSize));
+  }
+  if (compressionMethod === 8) {
+    const compressed = bytes.slice(dataOffset, dataOffset + compressedSize);
+    const ds = new DecompressionStream("raw");
+    const writer = ds.writable.getWriter();
+    writer.write(compressed);
+    writer.close();
+    const reader = ds.readable.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const totalLen = chunks.reduce((sum, c) => sum + c.length, 0);
+    const result = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const c of chunks) { result.set(c, offset); offset += c.length; }
+    return new TextDecoder().decode(result);
+  }
+  return null;
+}
+
+// ─── GET /api/admin/brands — Admin brand management ─────────────
+
+export async function handleAdminListBrands(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(200, parseInt(url.searchParams.get("limit") ?? "100", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const search = url.searchParams.get("q");
+    const source = url.searchParams.get("source");
+    const sort = url.searchParams.get("sort") ?? "threat_count";
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (search) { conditions.push("(b.name LIKE ? OR b.canonical_domain LIKE ?)"); params.push(`%${search}%`, `%${search}%`); }
+    if (source) { conditions.push("b.source = ?"); params.push(source); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const sortColumn = sort === "name" ? "b.name ASC" :
+      sort === "created" ? "b.first_seen DESC" :
+      sort === "threats" ? "threat_count DESC" : "threat_count DESC";
+
+    params.push(limit, offset);
+
+    const rows = await env.DB.prepare(`
+      SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
+             COUNT(t.id) AS threat_count,
+             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+             (SELECT COUNT(*) FROM monitored_brands mb WHERE mb.brand_id = b.id) AS is_monitored
+      FROM brands b
+      LEFT JOIN threats t ON t.target_brand_id = b.id
+      ${where}
+      GROUP BY b.id
+      ORDER BY ${sortColumn}
+      LIMIT ? OFFSET ?
+    `).bind(...params).all();
+
+    const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM brands b ${where}`)
+      .bind(...params.slice(0, -2)).first<{ n: number }>();
+
+    // Source breakdown
+    const sources = await env.DB.prepare(
+      "SELECT COALESCE(source, 'manual') AS source, COUNT(*) AS count FROM brands GROUP BY source"
+    ).all<{ source: string; count: number }>();
+
+    return json({
+      success: true,
+      data: rows.results,
+      total: total?.n ?? 0,
+      sources: sources.results,
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── POST /api/admin/brands/bulk-monitor — Bulk add to monitoring ─
+
+export async function handleBulkMonitor(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json().catch(() => null) as { brand_ids?: string[] } | null;
+    if (!body?.brand_ids?.length) return json({ success: false, error: "brand_ids required" }, 400, origin);
+
+    const ids = body.brand_ids.slice(0, 100); // cap at 100
+    let added = 0;
+
+    const stmts = ids.map(id =>
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, status)
+         VALUES (?, '__internal__', ?, 'active')`
+      ).bind(id, userId)
+    );
+
+    // Batch in groups of 50
+    for (let i = 0; i < stmts.length; i += 50) {
+      const batch = stmts.slice(i, i + 50);
+      const results = await env.DB.batch(batch);
+      added += results.reduce((sum, r) => sum + (r.meta?.changes ?? 0), 0);
+    }
+
+    return json({ success: true, data: { requested: ids.length, added } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── DELETE /api/admin/brands/bulk — Bulk delete brands ──────────
+
+export async function handleBulkDeleteBrands(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json().catch(() => null) as { brand_ids?: string[] } | null;
+    if (!body?.brand_ids?.length) return json({ success: false, error: "brand_ids required" }, 400, origin);
+
+    const ids = body.brand_ids.slice(0, 100);
+    let deleted = 0;
+
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const placeholders = batch.map(() => "?").join(",");
+      const result = await env.DB.prepare(
+        `DELETE FROM brands WHERE id IN (${placeholders})`
+      ).bind(...batch).run();
+      deleted += result.meta?.changes ?? 0;
+
+      // Also clean up monitored_brands
+      await env.DB.prepare(
+        `DELETE FROM monitored_brands WHERE brand_id IN (${placeholders})`
+      ).bind(...batch).run();
+    }
+
+    await audit(env, { action: "brands_bulk_delete", userId, resourceType: "brand", resourceId: ids.join(","), details: { count: deleted }, request });
+    return json({ success: true, data: { deleted } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
