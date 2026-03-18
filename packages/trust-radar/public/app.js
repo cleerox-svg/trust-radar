@@ -1385,40 +1385,7 @@ async function viewObservatory(el) {
   let deckgl = null;
   let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
-  let _baseLayers           = [];
-  let _filteredBaseLayers   = [];   // cached filtered base layers — updated by _applyLayers only
   let _curParticleLayers    = [];
-  let _showBeams            = true;
-  let _showNodes            = true;
-  let _showParticles        = true;
-  // Isolated toggle state — ONLY written by the toggle click handler.
-  // _applyLayers and the particle loop read exclusively from here so
-  // 60fps rAF calls can never race with or overwrite toggle changes.
-  let _frozenToggleState    = { beams: true, particles: true, nodes: true };
-
-  // Single source of truth: filters base layers, caches the result, and
-  // calls deckgl.setProps. The particle loop reads _filteredBaseLayers
-  // directly so it never re-runs the filter at 60fps.
-  // Pass fromToggle=true to emit a one-shot diagnostic log.
-  function _applyLayers(fromToggle = false) {
-    if (!deckgl) return;
-    _filteredBaseLayers = _baseLayers.filter(l => {
-      const id = l.id || '';
-      if (!_frozenToggleState.beams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
-      if (!_frozenToggleState.nodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
-      return true;
-    });
-    const particleLayers = _frozenToggleState.particles ? _curParticleLayers : [];
-    if (fromToggle) {
-      console.log('[Observatory] _applyLayers (toggle):'
-        + ' baseLayers=' + _baseLayers.length
-        + ' visible=' + _filteredBaseLayers.length
-        + ' particles=' + particleLayers.length
-        + ' | frozenState=' + JSON.stringify(_frozenToggleState)
-        + ' | visibleIds=[' + _filteredBaseLayers.map(l => l.id).join(',') + ']');
-    }
-    deckgl.setProps({ layers: [..._filteredBaseLayers, ...particleLayers] });
-  }
 
   // ── Particle state ───────────────────────────────────────────────
   let _particles = [];
@@ -1475,18 +1442,16 @@ async function viewObservatory(el) {
         centerData.push({ pos:[lon,lat],   col:[255,255,255,230], r:p.size*2 });
       });
       _curParticleLayers = [
-        new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:6,  radiusMaxPixels:40 }),
-        new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:16 }),
-        new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
-        new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
+        new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:8,   getFillColor:d=>d.col }),
+        new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:5,   getFillColor:d=>d.col }),
+        new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:3,   getFillColor:d=>d.col }),
+        new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, radiusUnits:'pixels', getRadius:1.5, getFillColor:d=>d.col }),
       ];
-      // Use cached _filteredBaseLayers — never call _applyLayers() from rAF.
-      // Read particle visibility from _frozenToggleState which is only written
-      // by the toggle click handler, never by the animation loop.
-      if (deckgl) deckgl.setProps({ layers: [
-        ..._filteredBaseLayers,
-        ...(_frozenToggleState.particles ? _curParticleLayers : []),
-      ] });
+      // Preserve base layer visibility by reading from deckgl — only swap particle layers.
+      if (deckgl) {
+        const base = deckgl.props.layers.filter(l => !l.id.startsWith('p-'));
+        deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
+      }
       _particleFrame = requestAnimationFrame(loop);
     }
     _particleFrame = requestAnimationFrame(loop);
@@ -1567,8 +1532,7 @@ async function viewObservatory(el) {
 
   // ── Set layers helper ────────────────────────────────────────────
   function setLayers(layers) {
-    _baseLayers = layers;
-    _applyLayers();
+    if (deckgl) deckgl.setProps({ layers });
   }
 
   // ── Data fetching ────────────────────────────────────────────────
@@ -2223,27 +2187,25 @@ async function viewObservatory(el) {
       });
     });
 
-    // Layer toggles — delegated on map-wrap so re-renders can't orphan listeners
+    // Layer toggles
     document.getElementById('map-wrap').addEventListener('click', e => {
-      const toggle = e.target.closest('[data-layer]');
-      if (!toggle) return;
-      const layer = toggle.dataset.layer;
-      if (layer === 'beams') {
-        _showBeams = !_showBeams;
-        _frozenToggleState.beams = _showBeams;
-      } else if (layer === 'particles') {
-        _showParticles = !_showParticles;
-        _frozenToggleState.particles = _showParticles;
-      } else if (layer === 'nodes') {
-        _showNodes = !_showNodes;
-        _frozenToggleState.nodes = _showNodes;
-      }
-      toggle.classList.toggle('active');
-      console.log('[Observatory] Toggle: ' + layer
-        + ' | frozenState=' + JSON.stringify(_frozenToggleState)
-        + ' | deckgl=' + !!deckgl
-        + ' _baseLayers=' + _baseLayers.length);
-      _applyLayers(true);
+      const btn = e.target.closest('[data-layer]');
+      if (!btn) return;
+      const layer = btn.dataset.layer;
+      btn.classList.toggle('active');
+      const isActive = btn.classList.contains('active');
+      if (!deckgl) return;
+      const updatedLayers = deckgl.props.layers.map(l => {
+        const id = l.id || '';
+        let shouldToggle = false;
+        if (layer === 'beams'     && (id.includes('arc') || id.includes('corridor') || id.includes('brand-arc'))) shouldToggle = true;
+        if (layer === 'nodes'     && (id.includes('node') || id.includes('target') || id.includes('bloom') || id.includes('xhair') || id.includes('radar'))) shouldToggle = true;
+        if (layer === 'particles' && (id.startsWith('p-'))) shouldToggle = true;
+        if (!shouldToggle) return l;
+        try { return l.clone({ visible: isActive }); }
+        catch (_) { return new l.constructor({ ...l.props, visible: isActive }); }
+      });
+      deckgl.setProps({ layers: updatedLayers });
     });
 
     // Fullscreen
@@ -2390,9 +2352,9 @@ async function viewObservatory(el) {
               stroked: true, lineWidthMinPixels: 2,
               radiusMinPixels: 8,
             });
-            setLayers([..._baseLayers, flashLayer]);
+            if (deckgl) deckgl.setProps({ layers: [...deckgl.props.layers, flashLayer] });
             setTimeout(() => {
-              setLayers(_baseLayers.filter(l => l.id !== flashId));
+              if (deckgl) deckgl.setProps({ layers: deckgl.props.layers.filter(l => l.id !== flashId) });
             }, 2500);
           }
         }
