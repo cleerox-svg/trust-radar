@@ -5,7 +5,7 @@
  * Respects per-user notification preferences.
  */
 
-type NotificationType = 'brand_threat' | 'campaign_escalation' | 'feed_health' | 'intelligence_digest' | 'agent_milestone';
+type NotificationType = 'brand_threat' | 'campaign_escalation' | 'feed_health' | 'intelligence_digest' | 'agent_milestone' | 'email_security_change';
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 interface CreateNotificationOpts {
@@ -25,6 +25,7 @@ const RATE_LIMITS: Record<NotificationType, string> = {
   feed_health: '-1 hour',
   intelligence_digest: '-24 hours',
   agent_milestone: '-1 hour',
+  email_security_change: '-6 hours',
 };
 
 export async function createNotification(db: D1Database, opts: CreateNotificationOpts): Promise<number> {

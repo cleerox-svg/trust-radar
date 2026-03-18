@@ -96,6 +96,29 @@ export const observerAgent: AgentModule = {
       ORDER BY created_at DESC LIMIT 10
     `).all<{ agent: string; summary: string }>();
 
+    // ─── Email security posture ───────────────────────────────────
+    const emailGradeDistribution = await env.DB.prepare(`
+      SELECT email_security_grade AS grade, COUNT(*) AS count
+      FROM brands
+      WHERE email_security_grade IS NOT NULL
+      GROUP BY email_security_grade
+      ORDER BY count DESC
+    `).all<{ grade: string; count: number }>();
+
+    const emailAtRiskBrands = await env.DB.prepare(`
+      SELECT b.name, b.email_security_grade, COUNT(t.id) AS threat_count
+      FROM brands b
+      JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
+      WHERE b.email_security_grade IN ('F', 'D')
+      GROUP BY b.id
+      ORDER BY threat_count DESC
+      LIMIT 5
+    `).all<{ name: string; email_security_grade: string; threat_count: number }>();
+
+    const totalEmailScanned = emailGradeDistribution.results.reduce((s, r) => s + r.count, 0);
+    const gradeDistStr = emailGradeDistribution.results.map(r => `${r.grade}: ${r.count}`).join(', ');
+    const emailSecurityContext = `Email Security: ${totalEmailScanned} brands scanned. Grade distribution: ${gradeDistStr || 'none yet'}. At-risk brands (weak email + active threats): ${emailAtRiskBrands.results.map(b => `${b.name} (${b.email_security_grade}, ${b.threat_count} threats)`).join(', ') || 'none'}.`;
+
     // ─── Send to Haiku for intelligence briefing ─────────────────
     const insightResult = await generateInsight(env, {
       period: "daily",
@@ -114,6 +137,7 @@ export const observerAgent: AgentModule = {
       type_distribution: typeBreakdown.results,
       recent_campaigns: recentCampaigns.results,
       agent_context: recentOutputs.results,
+      email_security_summary: emailSecurityContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -182,6 +206,17 @@ export const observerAgent: AgentModule = {
           severity: campaign.threat_count >= 10 ? "high" : "medium",
           details: { title: `Campaign: ${campaign.name}` },
           relatedCampaignId: campaign.id,
+        });
+      }
+
+      // Item: Email security posture
+      if (totalEmailScanned > 0) {
+        const atRisk = emailAtRiskBrands.results;
+        outputs.push({
+          type: 'insight',
+          summary: `**Email Security Posture** — ${emailSecurityContext}${atRisk.length > 0 ? ` Top at-risk: ${atRisk.map(b => `${b.name} (${b.email_security_grade})`).join(', ')}.` : ''}`,
+          severity: atRisk.length > 0 ? 'high' : 'info',
+          details: { title: 'Email Security Posture', grade_distribution: emailGradeDistribution.results, at_risk_brands: atRisk },
         });
       }
     }

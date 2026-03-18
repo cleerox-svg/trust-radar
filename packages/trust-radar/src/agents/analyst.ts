@@ -29,13 +29,13 @@ export const analystAgent: AgentModule = {
 
     // Get threats without brand assignment that rule-based detection missed
     const threats = await env.DB.prepare(
-      `SELECT id, malicious_url, malicious_domain, source_feed
+      `SELECT id, malicious_url, malicious_domain, source_feed, threat_type
        FROM threats
        WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL
        ORDER BY created_at DESC LIMIT 30`
     ).all<{
       id: string; malicious_url: string | null;
-      malicious_domain: string | null; source_feed: string;
+      malicious_domain: string | null; source_feed: string; threat_type: string;
     }>();
 
     console.log("[analyst] Threats without brand (target_brand_id IS NULL, domain NOT NULL):", threats.results.length);
@@ -170,6 +170,27 @@ export const analystAgent: AgentModule = {
           "UPDATE brands SET threat_count = threat_count + 1, last_threat_seen = datetime('now') WHERE id = ?"
         ).bind(brandId.id).run();
         itemsUpdated++;
+
+        // Factor email security into risk: escalate phishing to CRITICAL when brand has weak email security
+        const emailSec = await env.DB.prepare(
+          'SELECT email_security_grade, email_security_score FROM brands WHERE id = ?'
+        ).bind(brandId.id).first<{ email_security_grade: string | null; email_security_score: number | null }>();
+
+        if (emailSec?.email_security_grade && ['F', 'D'].includes(emailSec.email_security_grade)) {
+          if (threat.threat_type === 'phishing') {
+            await env.DB.prepare(
+              "UPDATE threats SET severity = 'critical' WHERE id = ?"
+            ).bind(threat.id).run();
+            console.log(`[analyst] Escalated threat ${threat.id} to CRITICAL: ${matchedBrand} has email security grade ${emailSec.email_security_grade}`);
+          }
+          outputs.push({
+            type: 'classification',
+            summary: `**Email Security Risk** — ${matchedBrand} has grade ${emailSec.email_security_grade}: weak spoofing protection increases phishing effectiveness. ${threat.threat_type === 'phishing' ? 'Threat escalated to CRITICAL.' : ''}`,
+            severity: 'high',
+            details: { brand: matchedBrand, email_security_grade: emailSec.email_security_grade, threat_type: threat.threat_type },
+            relatedBrandIds: [brandId.id],
+          });
+        }
       } catch (err) {
         console.error(`[analyst] update failed for ${threat.id}:`, err);
       }
