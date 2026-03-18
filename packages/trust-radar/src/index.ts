@@ -1199,16 +1199,21 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const response = await router
-      .fetch(request, env, ctx)
-      .catch((err: unknown) => {
-        console.error("Unhandled error:", err);
-        const origin = request.headers.get("Origin");
-        const message = err instanceof Error ? err.message : String(err);
-        return json({ success: false, error: "Internal server error", detail: message }, 500, origin);
-      });
-
-    // Apply security headers to all responses
-    return applySecurityHeaders(response);
+    try {
+      const response = await router.fetch(request, env, ctx);
+      return applySecurityHeaders(response);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error("Unhandled worker error:", err);
+      try {
+        await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind(
+          'err-' + Date.now(),
+          'WORKER ERROR: ' + err.message + ' | ' + (err.stack?.substring(0, 300) ?? '')
+        ).run();
+      } catch { /* DB write failed — don't mask the original error */ }
+      return new Response('Internal Server Error', { status: 500 });
+    }
   },
 };

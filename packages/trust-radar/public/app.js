@@ -77,6 +77,7 @@ const routes = [
   { path: '/observatory',           view: viewObservatory,     auth: true },
   { path: '/brands',               view: viewBrandsHub,       auth: true },
   { path: '/brands/:id',           view: viewBrandDetail,     auth: true },
+  { path: '/report/:id',           view: viewBrandReport,     auth: true },
   { path: '/providers',            view: viewProvidersHub,    auth: true },
   { path: '/providers/:id',        view: viewProviderDetail,  auth: true },
   { path: '/campaigns',            view: viewCampaignsHub,    auth: true },
@@ -3807,6 +3808,7 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-feeds"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-tranco"><div class="adm-action-icon">\u2b06</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import from Tranco top 1M</div></div>
       <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F441}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
@@ -3981,6 +3983,34 @@ async function viewAdmin(el) {
         if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
       }
       setTimeout(() => { bfBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
+    });
+  }
+
+  // Import Tranco button with result message
+  const trancoBtn = document.getElementById('adm-dash-tranco');
+  if (trancoBtn) {
+    trancoBtn.addEventListener('click', async () => {
+      if (trancoBtn.classList.contains('dash-pending')) return;
+      const icon = trancoBtn.querySelector('.adm-action-icon');
+      const desc = trancoBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      trancoBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      if (desc) desc.textContent = 'Downloading & importing...';
+      try {
+        const res = await api('/admin/import-tranco', { method: 'POST' });
+        trancoBtn.classList.remove('dash-pending');
+        trancoBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = res.data?.message || `Imported ${res.data?.imported ?? 0} brands`;
+      } catch (err) {
+        trancoBtn.classList.remove('dash-pending');
+        trancoBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+      }
+      setTimeout(() => { trancoBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 8000);
     });
   }
 
@@ -4626,6 +4656,143 @@ async function viewAdminAudit(el) {
   document.getElementById('adm-audit-detail-close')?.addEventListener('click', () => {
     document.getElementById('adm-audit-detail').style.display = 'none';
   });
+}
+
+// ─── Brand Report View ──────────────────────────────────────
+async function viewBrandReport(el, params) {
+  el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">Generating report...</div>';
+  try {
+    const res = await api(`/brands/${params.id}/report`);
+    const r = res?.data;
+    if (!r) { el.innerHTML = '<div class="empty-state"><div class="message">Report not found</div></div>'; return; }
+
+    const exec = r.executive || {};
+    const scoreColor = exec.trustScore >= 80 ? 'var(--positive)' : exec.trustScore >= 60 ? 'var(--threat-medium)' : exec.trustScore >= 40 ? 'var(--threat-high)' : 'var(--negative)';
+
+    const severityColors = { critical: 'var(--negative)', high: 'var(--threat-high)', medium: 'var(--threat-medium)', low: 'var(--positive)', info: 'var(--text-tertiary)' };
+
+    el.innerHTML = `
+      <div style="max-width:900px;margin:0 auto;padding:24px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <img src="${r.brand?.logo_url || ''}" alt="" style="width:32px;height:32px;border-radius:6px" onerror="this.style.display='none'">
+            <div>
+              <div style="font-size:20px;font-weight:700;font-family:var(--font-display)">${r.brand?.name || 'Brand Report'}</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="window.print()" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--surface-primary);color:var(--text-primary);cursor:pointer;font-size:12px">Print / PDF</button>
+            <a href="/brands/${params.id}" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--surface-primary);color:var(--text-primary);text-decoration:none;font-size:12px">Back to Brand</a>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Trust Score</div>
+            <div style="font-size:32px;font-weight:800;color:${scoreColor}">${exec.trustScore ?? '-'}</div>
+            <div style="font-size:11px;color:${scoreColor};font-weight:600">${exec.riskLevel || ''} Risk</div>
+          </div>
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Total Threats</div>
+            <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.totalThreats ?? 0}</div>
+            <div style="font-size:11px;color:var(--negative)">${exec.activeThreats ?? 0} active</div>
+          </div>
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Campaigns</div>
+            <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.campaignsIdentified ?? 0}</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">${exec.countriesInvolved ?? 0} countries</div>
+          </div>
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Remediated</div>
+            <div style="font-size:32px;font-weight:800;color:var(--positive)">${exec.remediatedThreats ?? 0}</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">${exec.hostingProviders ?? 0} providers</div>
+          </div>
+        </div>
+
+        <!-- AI Summary -->
+        <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;font-family:var(--font-display)">Executive Summary</div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${exec.aiSummary || 'No summary available.'}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <!-- Threat Breakdown by Type -->
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Threats by Type</div>
+            ${(r.threatBreakdown?.byType || []).map(t => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-size:12px;text-transform:capitalize">${t.type}</span>
+                <span style="font-size:12px;font-weight:600">${t.count}</span>
+              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No threats detected</div>'}
+          </div>
+
+          <!-- Threat Breakdown by Severity -->
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Threats by Severity</div>
+            ${(r.threatBreakdown?.bySeverity || []).map(s => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-size:12px;text-transform:capitalize;color:${severityColors[s.severity] || 'var(--text-primary)'}">${s.severity}</span>
+                <span style="font-size:12px;font-weight:600">${s.count}</span>
+              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No data</div>'}
+          </div>
+        </div>
+
+        <!-- Top Threats Table -->
+        <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Top Threats</div>
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>Domain/URL</th><th>Type</th><th>Severity</th><th>Status</th><th>First Seen</th></tr></thead>
+            <tbody>${(r.threatBreakdown?.topThreats || []).map(t => `
+              <tr>
+                <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.malicious_domain || t.malicious_url || '-'}</td>
+                <td><span class="type-pill">${t.threat_type || '-'}</span></td>
+                <td style="color:${severityColors[t.severity] || 'var(--text-primary)'};text-transform:capitalize">${t.severity || '-'}</td>
+                <td>${t.status || '-'}</td>
+                <td>${t.first_seen ? new Date(t.first_seen).toLocaleDateString() : '-'}</td>
+              </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary)">No threats</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <!-- Infrastructure: Top Providers -->
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Hosting Providers</div>
+            ${(r.infrastructure?.providers || []).slice(0, 8).map(p => `
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-size:12px">${p.name}</span>
+                <span style="font-size:11px;color:var(--text-tertiary)">${p.threat_count} threats (${p.active_count} active)</span>
+              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No provider data</div>'}
+          </div>
+
+          <!-- Campaigns -->
+          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Campaigns</div>
+            ${(r.campaigns || []).slice(0, 8).map(c => `
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-size:12px">${c.name}</span>
+                <span style="font-size:11px;color:var(--text-tertiary)">${c.threat_count} threats &middot; ${c.status}</span>
+              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No campaigns</div>'}
+          </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Recommendations</div>
+          <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:var(--text-secondary)">
+            ${(r.recommendations || []).map(rec => `<li>${rec}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div style="text-align:center;font-size:11px;color:var(--text-tertiary);padding:16px 0">
+          Generated ${r.generatedAt ? new Date(r.generatedAt).toLocaleString() : ''} &middot; ${r.reportId || ''}
+        </div>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = '<div class="empty-state"><div class="message">Failed to generate report: ' + (err.message || 'Unknown error') + '</div></div>';
+  }
 }
 
 // ─── Close user-menu dropdowns on outside click ─────────────
