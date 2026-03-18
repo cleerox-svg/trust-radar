@@ -592,6 +592,27 @@ a.sidebar-brand-row:hover, a.sidebar-provider-row:hover { text-decoration: none;
 .obs-sev-btn.active { color: var(--text-primary); border-color: rgba(255,255,255,0.1); }
 .obs-sev-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
+/* Layer visibility toggles */
+.obs-layer-toggle {
+  position: absolute; top: 88px; left: 50%; transform: translateX(-50%);
+  z-index: 20; display: flex; gap: 4px;
+  background: rgba(10,16,32,0.82); backdrop-filter: blur(12px);
+  border: 1px solid var(--blue-border); border-radius: 8px; padding: 4px 6px;
+}
+.obs-lt-btn {
+  padding: 3px 10px; border-radius: 5px;
+  border: 1px solid rgba(0,212,255,0.25);
+  background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 10px; font-family: var(--font-mono); letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+.obs-lt-btn:hover { color: var(--text-primary); border-color: rgba(0,212,255,0.5); }
+.obs-lt-btn.active {
+  background: rgba(0,212,255,0.12);
+  color: var(--blue-primary);
+  border-color: rgba(0,212,255,0.45);
+}
+
 /* Fullscreen button */
 .obs-fullscreen-btn {
   position: absolute; bottom: 12px; right: 12px; z-index: 20;

@@ -1353,6 +1353,11 @@ async function viewObservatory(el) {
       <button class="obs-sev-btn active" data-sev="medium"><span class="obs-sev-dot" style="background:#ffb627"></span>Medium</button>
       <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#00d4ff"></span>Low</button>
     </div>
+    <div class="obs-layer-toggle" id="obs-layer-toggle">
+      <button class="obs-lt-btn active" data-layer="beams">Beams</button>
+      <button class="obs-lt-btn active" data-layer="particles">Particles</button>
+      <button class="obs-lt-btn active" data-layer="nodes">Nodes</button>
+    </div>
     <button class="obs-fullscreen-btn" id="obs-fullscreen-btn" title="Toggle Fullscreen">⛶</button>
     <div class="obs-ticker" id="obs-ticker"></div>
     <div class="obs-brand-overlay" id="obs-brand-overlay" style="display:none">
@@ -1381,6 +1386,19 @@ async function viewObservatory(el) {
   let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
   let currentLayers = [];
+  let _baseLayers   = [];
+  let showBeams     = true;
+  let showNodes     = true;
+  let showParticles = true;
+
+  function _filterLayers(layers) {
+    return layers.filter(l => {
+      const id = l.id || '';
+      if (!showBeams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
+      if (!showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
+      return true;
+    });
+  }
 
   // ── Particle state ───────────────────────────────────────────────
   let _particles = [];
@@ -1407,12 +1425,12 @@ async function viewObservatory(el) {
     _particles = [];
     arcs.forEach((arc, fi) => {
       if (!arc.sourcePosition || !arc.targetPosition) return;
-      const n = Math.max(2, Math.ceil((arc.volume || 1) * 0.8));
+      const n = Math.max(2, Math.ceil((arc.volume || 1) * 1.5));
       for (let i = 0; i < n; i++) {
         _particles.push({
           arc: fi,
           t: Math.random(),
-          speed: 0.0012 + Math.random() * 0.0018,
+          speed: (0.0012 + Math.random() * 0.0018) * 0.8,   // 80% of original speed
           size: 2.5 + (arc.volume || 1) * 0.25,
           color: _typeColor(arc.threat_type, 220),
         });
@@ -1441,19 +1459,19 @@ async function viewObservatory(el) {
         const [lon,  lat]  = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], tc);
         const [tlon, tlat] = _gcInterp(arc.sourcePosition[0], arc.sourcePosition[1], arc.targetPosition[0], arc.targetPosition[1], trailT);
         const col3 = p.color.slice(0,3);
-        glowData.push(  { pos:[lon,lat],   col:[...col3, 38],  r:p.size*4.5 });
-        trailData.push( { pos:[tlon,tlat], col:[...col3, 80],  r:p.size*0.9 });
-        coreData.push(  { pos:[lon,lat],   col:[...col3, 220], r:p.size*2.5 });
-        centerData.push({ pos:[lon,lat],   col:[255,255,255,178], r:p.size   });
+        glowData.push(  { pos:[lon,lat],   col:[...col3, 50],  r:p.size*9   });
+        trailData.push( { pos:[tlon,tlat], col:[...col3, 100], r:p.size*1.8 });
+        coreData.push(  { pos:[lon,lat],   col:[...col3, 230], r:p.size*5   });
+        centerData.push({ pos:[lon,lat],   col:[255,255,255,230], r:p.size*2 });
       });
       if (deckgl) {
-        deckgl.setProps({ layers: [
-          ...currentLayers,
-          new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:4,  radiusMaxPixels:20 }),
-          new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
-          new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:12 }),
-          new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:1,  radiusMaxPixels:4  }),
-        ]});
+        const particleLayers = showParticles ? [
+          new deck.ScatterplotLayer({ id:'p-glow',   data:glowData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:6,  radiusMaxPixels:40 }),
+          new deck.ScatterplotLayer({ id:'p-trail',  data:trailData,  getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:3,  radiusMaxPixels:16 }),
+          new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
+          new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
+        ] : [];
+        deckgl.setProps({ layers: [...currentLayers, ...particleLayers] });
       }
       _particleFrame = requestAnimationFrame(loop);
     }
@@ -1495,6 +1513,21 @@ async function viewObservatory(el) {
     if (p === '7d')  return 168;
     if (p === '30d') return 720;
     return 8760;
+  }
+
+  // ── Arc routing: normalize target longitude to shortest path ─────
+  // Prevents arcs from wrapping the wrong way around the globe.
+  function _normalizeArcLng(arcs) {
+    return arcs.map(arc => {
+      if (!arc.sourcePosition || !arc.targetPosition) return arc;
+      const [sLng, sLat] = arc.sourcePosition;
+      let tLng = arc.targetPosition[0];
+      const tLat = arc.targetPosition[1];
+      const diff = tLng - sLng;
+      if (diff >  180) tLng -= 360;
+      if (diff < -180) tLng += 360;
+      return { ...arc, sourcePosition: [sLng, sLat], targetPosition: [tLng, tLat] };
+    });
   }
 
   // ── Arc height: taller for longer distances ───────────────────────
@@ -1543,8 +1576,14 @@ async function viewObservatory(el) {
 
   // ── Set layers helper ────────────────────────────────────────────
   function setLayers(layers) {
-    currentLayers = layers;
-    if (deckgl) deckgl.setProps({ layers });
+    _baseLayers   = layers;
+    currentLayers = _filterLayers(layers);
+    if (deckgl) deckgl.setProps({ layers: currentLayers });
+  }
+
+  function _refreshLayers() {
+    currentLayers = _filterLayers(_baseLayers);
+    if (deckgl) deckgl.setProps({ layers: currentLayers });
   }
 
   // ── Data fetching ────────────────────────────────────────────────
@@ -1559,7 +1598,7 @@ async function viewObservatory(el) {
       const allNodes = nodesRes?.data || [];
       const allArcs  = arcsRes?.data  || [];
       nodeData = allNodes.filter(n => activeSeverities.has(n.top_severity || 'low'));
-      arcData  = allArcs.filter(a  => activeSeverities.has(a.severity    || 'low'));
+      arcData  = _normalizeArcLng(allArcs.filter(a => activeSeverities.has(a.severity || 'low')));
 
       const s = statsRes?.data || {};
       document.getElementById('stat-bar').innerHTML = [
@@ -1847,7 +1886,7 @@ async function viewObservatory(el) {
       if (!bArcs) {
         try {
           const res = await api(`/observatory/brand-arcs?brand_id=${bid}&period=${currentPeriod}`).catch(() => null);
-          bArcs = res?.data || [];
+          bArcs = _normalizeArcLng(res?.data || []);
           _brandFocusCache[bid] = bArcs;
         } catch { bArcs = []; }
       }
@@ -2191,6 +2230,19 @@ async function viewObservatory(el) {
         if (btn.classList.contains('active')) activeSeverities.add(sev);
         else activeSeverities.delete(sev);
         fetchData();
+      });
+    });
+
+    // Layer toggles (Beams / Particles / Nodes)
+    document.querySelectorAll('.obs-lt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        const layer = btn.dataset.layer;
+        const on = btn.classList.contains('active');
+        if (layer === 'beams')     showBeams     = on;
+        if (layer === 'particles') showParticles = on;
+        if (layer === 'nodes')     showNodes     = on;
+        _refreshLayers();
       });
     });
 
