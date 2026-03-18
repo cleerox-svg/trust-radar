@@ -1385,17 +1385,20 @@ async function viewObservatory(el) {
   let deckgl = null;
   let currentViewState = { longitude: 0, latitude: 20, zoom: 1.5, pitch: 0, bearing: 0 };
   let _brandFocusCache = {};
-  let _baseLayers        = [];
-  let _curParticleLayers = [];
-  let _showBeams         = true;
-  let _showNodes         = true;
-  let _showParticles     = true;
+  let _baseLayers           = [];
+  let _filteredBaseLayers   = [];   // cached filtered base layers — updated by _applyLayers only
+  let _curParticleLayers    = [];
+  let _showBeams            = true;
+  let _showNodes            = true;
+  let _showParticles        = true;
 
-  // Single source of truth for all deck.gl layer updates.
+  // Single source of truth: filters base layers, caches the result, and
+  // calls deckgl.setProps. The particle loop reads _filteredBaseLayers
+  // directly so it never re-runs the filter at 60fps.
   // Pass fromToggle=true to emit a one-shot diagnostic log.
   function _applyLayers(fromToggle = false) {
     if (!deckgl) return;
-    const visible = _baseLayers.filter(l => {
+    _filteredBaseLayers = _baseLayers.filter(l => {
       const id = l.id || '';
       if (!_showBeams && /^arcs|^corridor-glow$|^corridors$|^brand-arcs/.test(id)) return false;
       if (!_showNodes && /node|bloom|^targets|xhair|^brand-sources|^radar-ring|^radar-hq/.test(id)) return false;
@@ -1405,14 +1408,14 @@ async function viewObservatory(el) {
     if (fromToggle) {
       console.log('[Observatory] _applyLayers (toggle):'
         + ' baseLayers=' + _baseLayers.length
-        + ' visible=' + visible.length
+        + ' visible=' + _filteredBaseLayers.length
         + ' particles=' + particleLayers.length
         + ' | showBeams=' + _showBeams
         + ' showNodes=' + _showNodes
         + ' showParticles=' + _showParticles
-        + ' | visibleIds=[' + visible.map(l => l.id).join(',') + ']');
+        + ' | visibleIds=[' + _filteredBaseLayers.map(l => l.id).join(',') + ']');
     }
-    deckgl.setProps({ layers: [...visible, ...particleLayers] });
+    deckgl.setProps({ layers: [..._filteredBaseLayers, ...particleLayers] });
   }
 
   // ── Particle state ───────────────────────────────────────────────
@@ -1485,7 +1488,12 @@ async function viewObservatory(el) {
         new deck.ScatterplotLayer({ id:'p-core',   data:coreData,   getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:5,  radiusMaxPixels:24 }),
         new deck.ScatterplotLayer({ id:'p-center', data:centerData, getPosition:d=>d.pos, getRadius:d=>d.r*1000, getFillColor:d=>d.col, radiusMinPixels:2,  radiusMaxPixels:8  }),
       ];
-      _applyLayers();
+      // Use cached filtered base layers — do NOT call _applyLayers() here to
+      // avoid re-running the filter at 60fps and racing with toggle state.
+      if (deckgl) deckgl.setProps({ layers: [
+        ..._filteredBaseLayers,
+        ...(_showParticles ? _curParticleLayers : []),
+      ] });
       _particleFrame = requestAnimationFrame(loop);
     }
     _particleFrame = requestAnimationFrame(loop);
@@ -1528,12 +1536,12 @@ async function viewObservatory(el) {
     return 8760;
   }
 
-  // ── Arc height: screen-space interpolation (greatCircle:false) ───
+  // ── Arc height: gentle screen-space curve (greatCircle:false) ────
   function _arcHeight(d) {
-    const lngDiff = Math.abs(d.targetPosition[0] - d.sourcePosition[0]);
-    if (lngDiff > 150) return 0.4;   // long-distance arcs get more curve
-    if (lngDiff > 80)  return 0.3;
-    return Math.min(0.3, Math.max(0.15, lngDiff * 0.003));
+    const dist = Math.abs(d.targetPosition[0] - d.sourcePosition[0]);
+    if (dist > 150) return 0.15;
+    if (dist > 80)  return 0.1;
+    return Math.min(0.1, Math.max(0.05, dist * 0.001));
   }
 
   // ── Initialize deck.gl ───────────────────────────────────────────
@@ -1735,7 +1743,7 @@ async function viewObservatory(el) {
     console.log('[Observatory] ARC LAYER PROPS:', {
       count: arcData.length,
       greatCircle: false,
-      getHeight: '0.4 if lngDiff>150°, 0.3 if >80°, else 0.15–0.3',
+      getHeight: '0.15 if dist>150°, 0.1 if >80°, else 0.05–0.1',
       sample: arcData.slice(0, 3).map(d => ({
         source: d.sourcePosition,
         target: d.targetPosition,
