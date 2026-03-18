@@ -228,6 +228,20 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
       ip,
     ).run();
 
+    // ─── Auto-add brand if it doesn't exist (from public assessment) ───
+    try {
+      const existingBrand = await env.DB.prepare(
+        "SELECT id FROM brands WHERE canonical_domain = ?"
+      ).bind(domain).first<{ id: string }>();
+      if (!existingBrand) {
+        const brandId = `brand_${domain.replace(/[^a-z0-9]+/g, "_")}`;
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO brands (id, name, canonical_domain, source, first_seen, threat_count)
+           VALUES (?, ?, ?, 'public_assess', datetime('now'), 0)`
+        ).bind(brandId, brandName, domain).run();
+      }
+    } catch { /* non-fatal — brand creation is best-effort */ }
+
     return json({
       success: true,
       data: {
@@ -300,6 +314,92 @@ export async function handlePublicLeadCapture(request: Request, env: Env): Promi
     ).bind(leadId, assessmentId, body.name, body.email, body.company, body.role ? `Role: ${body.role}` : null).run();
 
     return json({ success: true, data: { lead_id: leadId } }, 201, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── POST /api/v1/public/monitor ────────────────────────────────
+// Customer self-service: submit a domain for monitoring (creates brand + optional monitor)
+
+export async function handlePublicMonitor(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Rate limit: 5 per IP per hour
+    const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "unknown";
+    const rateLimitKey = `pub_monitor_${ip}`;
+    const currentCount = parseInt(await env.CACHE.get(rateLimitKey) || "0", 10);
+    if (currentCount >= 5) {
+      return json({ success: false, error: "Rate limit exceeded. Please try again in an hour." }, 429, origin);
+    }
+    await env.CACHE.put(rateLimitKey, String(currentCount + 1), { expirationTtl: 3600 });
+
+    const body = await request.json().catch(() => null) as {
+      domain?: string;
+      email?: string;
+      company?: string;
+    } | null;
+
+    if (!body?.domain) return json({ success: false, error: "domain required" }, 400, origin);
+
+    const domain = body.domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+    if (!domain || !domain.includes(".") || domain.includes("@")) {
+      return json({ success: false, error: "Please enter a valid domain" }, 400, origin);
+    }
+
+    const keyword = domain.split(".")[0]!;
+    const brandName = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+
+    // Find or create brand
+    let brand = await env.DB.prepare(
+      "SELECT id FROM brands WHERE canonical_domain = ?"
+    ).bind(domain).first<{ id: string }>();
+
+    if (!brand) {
+      const brandId = `brand_${domain.replace(/[^a-z0-9]+/g, "_")}`;
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO brands (id, name, canonical_domain, source, first_seen, threat_count)
+         VALUES (?, ?, ?, 'self_service', datetime('now'), 0)`
+      ).bind(brandId, brandName, domain).run();
+      brand = { id: brandId };
+    }
+
+    // Auto-add to monitored_brands
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, notes, status)
+       VALUES (?, '__internal__', 'self_service', ?, 'active')`
+    ).bind(brand.id, body.email ? `Self-service by ${body.email}` : "Self-service submission").run();
+
+    // Count existing threats
+    const threatCount = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM threats
+       WHERE malicious_url LIKE ? OR malicious_domain LIKE ?`
+    ).bind(`%${keyword}%`, `%${keyword}%`).first<{ n: number }>();
+
+    // Store lead if email provided
+    if (body.email && body.company) {
+      const leadId = `lead_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const assessmentId = `assess_monitor_${Date.now()}`;
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO assessments (id, domain, trust_score, grade, ip_address) VALUES (?, ?, 0, '?', ?)`
+      ).bind(assessmentId, domain, ip).run();
+      await env.DB.prepare(
+        `INSERT INTO leads (id, assessment_id, name, email, company, notes)
+         VALUES (?, ?, ?, ?, ?, 'Self-service monitor request')`
+      ).bind(leadId, assessmentId, body.company, body.email, body.company).run();
+    }
+
+    return json({
+      success: true,
+      data: {
+        brand_id: brand.id,
+        domain,
+        brand_name: brandName,
+        existing_threats: threatCount?.n ?? 0,
+        monitoring: true,
+        message: `${brandName} is now being monitored. We'll detect threats targeting this domain.`,
+      },
+    }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

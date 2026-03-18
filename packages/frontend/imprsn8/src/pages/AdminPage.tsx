@@ -40,7 +40,7 @@ function PlatformAdminLink() {
   );
 }
 
-type Tab = "influencers" | "users" | "breakdown" | "health" | "reports";
+type Tab = "influencers" | "users" | "breakdown" | "health" | "reports" | "brands";
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon?: React.ReactNode }) {
@@ -831,6 +831,7 @@ export default function AdminPage() {
     { id: "influencers", label: "Influencers",    icon: <UserCheck size={14} /> },
     { id: "users",       label: "Users",          icon: <Users size={14} /> },
     { id: "breakdown",   label: "Platform Stats", icon: <BarChart2 size={14} /> },
+    { id: "brands",      label: "Brands",         icon: <Database size={14} /> },
     { id: "health",      label: "System Health",  icon: <Activity size={14} /> },
     { id: "reports",     label: "Reports",        icon: <FileText size={14} /> },
   ];
@@ -887,7 +888,276 @@ export default function AdminPage() {
       {tab === "breakdown"   && !stats && !loadingStats && (
         <div className="text-center py-12 text-slate-500 text-sm">No stats available</div>
       )}
+      {tab === "brands"      && <BrandsManagementTab />}
       {tab === "reports"     && <ScheduledReportsStub />}
+    </div>
+  );
+}
+
+// ─── Brands Management Tab ────────────────────────────────────────────────────
+
+function BrandsManagementTab() {
+  const [brands, setBrands] = useState<Array<{
+    id: string; name: string; canonical_domain: string; sector: string | null;
+    source: string | null; first_seen: string; threat_count: number;
+    active_threats: number; is_monitored: number;
+  }>>([]);
+  const [total, setTotal] = useState(0);
+  const [sources, setSources] = useState<Array<{ source: string; count: number }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const [trancoLimit, setTrancoLimit] = useState(500);
+
+  const fetchBrands = () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (sourceFilter) params.set("source", sourceFilter);
+    params.set("limit", "50");
+    params.set("offset", String(offset));
+    fetch(`/api/admin/brands?${params}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("imprsn8_token")}`, "Content-Type": "application/json" },
+    })
+      .then(r => r.json())
+      .then((json: { success: boolean; data: typeof brands; total: number; sources: typeof sources }) => {
+        if (json.success) {
+          setBrands(json.data);
+          setTotal(json.total);
+          setSources(json.sources);
+        }
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchBrands(); }, [search, sourceFilter, offset]);
+
+  const handleImportTranco = () => {
+    setImporting(true);
+    setImportResult(null);
+    fetch("/api/admin/import-tranco", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${localStorage.getItem("imprsn8_token")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: trancoLimit }),
+    })
+      .then(r => r.json())
+      .then((json: { success: boolean; data?: { message: string }; error?: string }) => {
+        setImportResult(json.success ? json.data?.message ?? "Done" : json.error ?? "Failed");
+        if (json.success) fetchBrands();
+      })
+      .catch(e => setImportResult(String(e)))
+      .finally(() => setImporting(false));
+  };
+
+  const handleBulkMonitor = () => {
+    if (selected.size === 0) return;
+    fetch("/api/admin/brands/bulk-monitor", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${localStorage.getItem("imprsn8_token")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ brand_ids: [...selected] }),
+    })
+      .then(r => r.json())
+      .then(() => { setSelected(new Set()); fetchBrands(); });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === brands.length) setSelected(new Set());
+    else setSelected(new Set(brands.map(b => b.id)));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Import Section */}
+      <div className="card p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)" }}>
+            <Database size={20} style={{ color: "#3b82f6" }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Import Brands from Tranco</h3>
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>Bulk-import top domains from the Tranco popularity list</p>
+          </div>
+        </div>
+        <div className="flex items-end gap-3">
+          <div>
+            <label className="text-[10px] font-bold tracking-wider block mb-1" style={{ color: "var(--text-tertiary)" }}>TOP N DOMAINS</label>
+            <input
+              type="number"
+              value={trancoLimit}
+              onChange={e => setTrancoLimit(Math.min(2000, Math.max(10, parseInt(e.target.value) || 500)))}
+              className="px-3 py-1.5 rounded-md text-sm w-24"
+              style={{ background: "var(--surface-primary)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+            />
+          </div>
+          <button
+            onClick={handleImportTranco}
+            disabled={importing}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold"
+            style={{
+              background: importing ? "var(--surface-tertiary)" : "#3b82f6",
+              color: "#fff", border: "none", cursor: importing ? "wait" : "pointer",
+            }}
+          >
+            {importing ? "Importing..." : "Import from Tranco"}
+          </button>
+        </div>
+        {importResult && (
+          <p className="text-xs mt-3" style={{ color: importResult.includes("Failed") ? "var(--semantic-error)" : "var(--semantic-success)" }}>
+            {importResult}
+          </p>
+        )}
+      </div>
+
+      {/* Source breakdown */}
+      {sources.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => { setSourceFilter(""); setOffset(0); }}
+            className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+            style={{
+              background: !sourceFilter ? "var(--accent-primary)" : "var(--surface-tertiary)",
+              color: !sourceFilter ? "#fff" : "var(--text-tertiary)",
+              border: "none", cursor: "pointer",
+            }}
+          >
+            All ({total})
+          </button>
+          {sources.map(s => (
+            <button
+              key={s.source}
+              onClick={() => { setSourceFilter(s.source); setOffset(0); }}
+              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+              style={{
+                background: sourceFilter === s.source ? "var(--accent-primary)" : "var(--surface-tertiary)",
+                color: sourceFilter === s.source ? "#fff" : "var(--text-tertiary)",
+                border: "none", cursor: "pointer",
+              }}
+            >
+              {s.source} ({s.count})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search + Bulk actions */}
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOffset(0); }}
+          placeholder="Search brands..."
+          className="px-3 py-2 rounded-lg text-sm flex-1"
+          style={{ background: "var(--surface-primary)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)", maxWidth: 350 }}
+        />
+        {selected.size > 0 && (
+          <button
+            onClick={handleBulkMonitor}
+            className="px-4 py-2 rounded-lg text-xs font-semibold"
+            style={{ background: "var(--accent-primary)", color: "#fff", border: "none", cursor: "pointer" }}
+          >
+            Monitor Selected ({selected.size})
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: "var(--surface-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
+              <th className="p-3 text-left w-8">
+                <input type="checkbox" checked={selected.size === brands.length && brands.length > 0} onChange={toggleSelectAll} />
+              </th>
+              <th className="p-3 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-tertiary)" }}>Brand</th>
+              <th className="p-3 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-tertiary)" }}>Source</th>
+              <th className="p-3 text-right text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-tertiary)" }}>Threats</th>
+              <th className="p-3 text-right text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-tertiary)" }}>Active</th>
+              <th className="p-3 text-center text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-tertiary)" }}>Monitored</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr><td colSpan={6} className="p-6 text-center" style={{ color: "var(--text-tertiary)" }}>Loading...</td></tr>
+            )}
+            {!loading && brands.length === 0 && (
+              <tr><td colSpan={6} className="p-6 text-center" style={{ color: "var(--text-tertiary)" }}>No brands found</td></tr>
+            )}
+            {brands.map(b => (
+              <tr
+                key={b.id}
+                style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--surface-secondary)"}
+                onMouseLeave={e => e.currentTarget.style.background = ""}
+              >
+                <td className="p-3">
+                  <input type="checkbox" checked={selected.has(b.id)} onChange={() => toggleSelect(b.id)} />
+                </td>
+                <td className="p-3">
+                  <div className="font-semibold" style={{ color: "var(--text-primary)" }}>{b.name}</div>
+                  <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>{b.canonical_domain}</div>
+                </td>
+                <td className="p-3">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                    style={{
+                      background: b.source === "tranco" ? "rgba(59,130,246,0.1)" : "var(--surface-tertiary)",
+                      color: b.source === "tranco" ? "#3b82f6" : "var(--text-tertiary)",
+                    }}>
+                    {b.source ?? "manual"}
+                  </span>
+                </td>
+                <td className="p-3 text-right font-mono" style={{ color: "var(--text-primary)" }}>{b.threat_count}</td>
+                <td className="p-3 text-right font-mono" style={{ color: b.active_threats > 0 ? "var(--semantic-error)" : "var(--text-tertiary)" }}>
+                  {b.active_threats}
+                </td>
+                <td className="p-3 text-center">
+                  {b.is_monitored ? (
+                    <CheckCircle2 size={14} style={{ color: "var(--semantic-success)", margin: "0 auto" }} />
+                  ) : (
+                    <XCircle size={14} style={{ color: "var(--text-tertiary)", opacity: 0.3, margin: "0 auto" }} />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {total > 50 && (
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => setOffset(Math.max(0, offset - 50))}
+            disabled={offset === 0}
+            className="px-3 py-1 rounded text-xs"
+            style={{ background: "var(--surface-overlay)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)", opacity: offset === 0 ? 0.4 : 1 }}
+          >
+            Previous
+          </button>
+          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            {offset + 1}–{Math.min(offset + 50, total)} of {total}
+          </span>
+          <button
+            onClick={() => setOffset(offset + 50)}
+            disabled={offset + 50 >= total}
+            className="px-3 py-1 rounded text-xs"
+            style={{ background: "var(--surface-overlay)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)", opacity: offset + 50 >= total ? 0.4 : 1 }}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

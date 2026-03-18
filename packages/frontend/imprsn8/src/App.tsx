@@ -26,6 +26,7 @@ const Settings          = lazy(() => import("./pages/Settings"));
 const AdminPage         = lazy(() => import("./pages/AdminPage"));
 const BrandDashboard    = lazy(() => import("./pages/Dashboard"));
 const BrandReport       = lazy(() => import("./pages/BrandReport"));
+const BrandsHub         = lazy(() => import("./pages/BrandsHub"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────
 function PageLoader() {
@@ -263,6 +264,7 @@ export default function App() {
             <Route path="/settings"   element={<Settings />} />
             <Route path="/admin"      element={<AdminPage />} />
             <Route path="/brand"      element={<BrandDashboard />} />
+            <Route path="/brands"     element={<BrandsHub />} />
           </Route>
         </Route>
 

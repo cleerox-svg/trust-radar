@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Shield, AlertTriangle,
+  LayoutDashboard, Shield, AlertTriangle, ShieldCheck,
   Bot, User as UserIcon,
 } from "lucide-react";
 import type { User } from "../lib/types";
@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
     icon: <Shield size={20} />,
     items: [
       { path: "/threats",   label: "Threats",     icon: <AlertTriangle size={16} /> },
+      { path: "/brands",    label: "Brands Hub",  icon: <ShieldCheck size={16} />, socOnly: true },
       { path: "/accounts",  label: "Platforms",   icon: <Shield size={16} /> },
       { path: "/takedowns", label: "Takedowns",   icon: <Shield size={16} /> },
     ],

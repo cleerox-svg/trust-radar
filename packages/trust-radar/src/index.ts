@@ -9,7 +9,7 @@ import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillSafeDomains } from "./handlers/admin";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
@@ -64,7 +64,8 @@ import {
   handleListSafeDomains, handleAddSafeDomain, handleBulkAddSafeDomains, handleDeleteSafeDomain,
 } from "./handlers/safeDomains";
 import {
-  handlePublicStats, handlePublicGeo, handlePublicAssess, handlePublicLeadCapture, handlePublicFeeds,
+  handlePublicStats, handlePublicGeo, handlePublicAssess, handlePublicLeadCapture,
+  handlePublicMonitor, handlePublicFeeds,
 } from "./handlers/public";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
@@ -908,6 +909,26 @@ router.post("/api/admin/backfill-safe-domains", async (request: Request, env: En
   if (!isAuthContext(ctx)) return ctx;
   return handleBackfillSafeDomains(request, env);
 });
+router.post("/api/admin/import-tranco", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleImportTranco(request, env);
+});
+router.get("/api/admin/brands", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminListBrands(request, env);
+});
+router.post("/api/admin/brands/bulk-monitor", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBulkMonitor(request, env, ctx.userId);
+});
+router.post("/api/admin/brands/bulk-delete", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBulkDeleteBrands(request, env, ctx.userId);
+});
 
 // ─── Data Export ─────────────────────────────────────────────
 router.get("/api/export/scans", async (request: Request, env: Env) => {
@@ -1002,6 +1023,7 @@ router.get("/api/v1/public/geo", (request: Request, env: Env) => handlePublicGeo
 router.get("/api/v1/public/feeds", (request: Request, env: Env) => handlePublicFeeds(request, env));
 router.post("/api/v1/public/assess", (request: Request, env: Env) => handlePublicAssess(request, env));
 router.post("/api/v1/public/leads", (request: Request, env: Env) => handlePublicLeadCapture(request, env));
+router.post("/api/v1/public/monitor", (request: Request, env: Env) => handlePublicMonitor(request, env));
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 // serve_directly=false means ALL requests hit the Worker, so we must

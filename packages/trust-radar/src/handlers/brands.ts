@@ -43,7 +43,7 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
   }
 }
 
-// GET /api/brands
+// GET /api/brands?tab=under_attack|watchlist|all&q=search&sort=threats|name|recent&limit=50&offset=0
 export async function handleListBrands(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -52,32 +52,89 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
     const search = url.searchParams.get("q");
     const sector = url.searchParams.get("sector");
+    const tab = url.searchParams.get("tab") ?? "all";
+    const sort = url.searchParams.get("sort") ?? "threats";
 
     const conditions: string[] = [];
     const params: unknown[] = [];
+
+    // Tab filtering
+    if (tab === "under_attack") {
+      conditions.push("t_active.active_count > 0");
+    } else if (tab === "watchlist") {
+      conditions.push("mb.brand_id IS NOT NULL");
+    }
 
     if (search) { conditions.push("(b.name LIKE ? OR b.canonical_domain LIKE ?)"); params.push(`%${search}%`, `%${search}%`); }
     if (sector) { conditions.push("b.sector = ?"); params.push(sector); }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const sortClause = sort === "name" ? "b.name ASC" :
+      sort === "recent" ? "last_threat_seen DESC NULLS LAST" :
+      "threat_count DESC";
+
     params.push(limit, offset);
 
     const rows = await env.DB.prepare(`
-      SELECT b.id, b.name, b.canonical_domain, b.sector, b.first_seen,
+      SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
              COUNT(t.id) AS threat_count,
-             MAX(t.created_at) AS last_threat_seen
+             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+             MAX(t.created_at) AS last_threat_seen,
+             CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
+      LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
+      LEFT JOIN (
+        SELECT target_brand_id, COUNT(*) AS active_count
+        FROM threats WHERE status = 'active'
+        GROUP BY target_brand_id
+      ) t_active ON t_active.target_brand_id = b.id
       ${where}
       GROUP BY b.id
-      ORDER BY threat_count DESC
+      ORDER BY ${sortClause}
       LIMIT ? OFFSET ?
     `).bind(...params).all();
 
-    const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM brands b ${where}`)
+    // Total count for pagination
+    const totalQuery = `
+      SELECT COUNT(DISTINCT b.id) AS n
+      FROM brands b
+      LEFT JOIN threats t ON t.target_brand_id = b.id
+      LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
+      LEFT JOIN (
+        SELECT target_brand_id, COUNT(*) AS active_count
+        FROM threats WHERE status = 'active'
+        GROUP BY target_brand_id
+      ) t_active ON t_active.target_brand_id = b.id
+      ${where}
+    `;
+    const total = await env.DB.prepare(totalQuery)
       .bind(...params.slice(0, -2)).first<{ n: number }>();
 
-    return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
+    // Tab counts for the UI badges
+    const [underAttackCount, watchlistCount, allCount] = await Promise.all([
+      env.DB.prepare(
+        "SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE status = 'active' AND target_brand_id IS NOT NULL"
+      ).first<{ n: number }>(),
+      env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM monitored_brands"
+      ).first<{ n: number }>(),
+      env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM brands"
+      ).first<{ n: number }>(),
+    ]);
+
+    return json({
+      success: true,
+      data: rows.results,
+      total: total?.n ?? 0,
+      tabs: {
+        under_attack: underAttackCount?.n ?? 0,
+        watchlist: watchlistCount?.n ?? 0,
+        all: allCount?.n ?? 0,
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
