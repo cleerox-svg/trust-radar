@@ -119,6 +119,21 @@ export const observerAgent: AgentModule = {
     const gradeDistStr = emailGradeDistribution.results.map(r => `${r.grade}: ${r.count}`).join(', ');
     const emailSecurityContext = `Email Security: ${totalEmailScanned} brands scanned. Grade distribution: ${gradeDistStr || 'none yet'}. At-risk brands (weak email + active threats): ${emailAtRiskBrands.results.map(b => `${b.name} (${b.email_security_grade}, ${b.threat_count} threats)`).join(', ') || 'none'}.`;
 
+    // ─── Spam trap network summary ──────────────────────────────
+    let spamTrapContext = "";
+    try {
+      const trapSummary = await env.DB.prepare(`
+        SELECT COUNT(*) as total,
+          COUNT(DISTINCT spoofed_brand_id) as brands,
+          COUNT(DISTINCT sending_ip) as ips
+        FROM spam_trap_captures
+        WHERE captured_at > datetime('now', '-24 hours')
+      `).first<{ total: number; brands: number; ips: number }>();
+      if (trapSummary && trapSummary.total > 0) {
+        spamTrapContext = `Spam trap network: Caught ${trapSummary.total} emails targeting ${trapSummary.brands} brands from ${trapSummary.ips} unique IPs in the last 24 hours.`;
+      }
+    } catch { /* spam trap tables may not exist yet */ }
+
     // ─── Send to Haiku for intelligence briefing ─────────────────
     const insightResult = await generateInsight(env, {
       period: "daily",
@@ -138,6 +153,7 @@ export const observerAgent: AgentModule = {
       recent_campaigns: recentCampaigns.results,
       agent_context: recentOutputs.results,
       email_security_summary: emailSecurityContext,
+      spam_trap_summary: spamTrapContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {

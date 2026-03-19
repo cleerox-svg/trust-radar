@@ -193,6 +193,19 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
       campaignCount = cc?.c ?? 0;
     }
 
+    // Check spam trap data for this brand
+    let spamTrapCount = 0;
+    let spamTrapIps = 0;
+    try {
+      const trapData = await env.DB.prepare(`
+        SELECT COUNT(*) as count, COUNT(DISTINCT sending_ip) as ips
+        FROM spam_trap_captures
+        WHERE spoofed_domain = ? AND captured_at > datetime('now', '-30 days')
+      `).bind(domain).first<{ count: number; ips: number }>();
+      spamTrapCount = trapData?.count ?? 0;
+      spamTrapIps = trapData?.ips ?? 0;
+    } catch { /* spam trap tables may not exist yet */ }
+
     // Calculate trust score
     const trustScore = Math.max(0, 100 - threatCount * 2);
     const grade = trustScore >= 90 ? "A" : trustScore >= 80 ? "B" : trustScore >= 70 ? "C" : trustScore >= 60 ? "D" : "F";
@@ -203,7 +216,7 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
     const aiResult = await callHaikuRaw(
       env,
       "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Trust Radar by name.",
-      `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}`,
+      `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}${spamTrapCount > 0 ? ` Our trap network intercepted ${spamTrapCount} spoofed emails impersonating this domain from ${spamTrapIps} unique IPs in the last 30 days.` : ""}`,
     );
     if (aiResult.success && aiResult.text) {
       assessmentText = aiResult.text;
@@ -256,6 +269,7 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
         threat_types: threatTypes,
         is_monitored: isMonitored,
         assessment_text: assessmentText,
+        spam_trap: spamTrapCount > 0 ? { emails_caught: spamTrapCount, unique_ips: spamTrapIps } : null,
         assessed_at: new Date().toISOString(),
       },
     }, 200, origin);
