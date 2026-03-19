@@ -1363,16 +1363,23 @@ export default {
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      // Honeypot pages only serve from lrxradar.com
       const url = new URL(request.url);
+
+      // Canonical-host redirect: www → non-www (preserves path + query).
+      // Skip API routes so OAuth callbacks are never intercepted.
+      if (
+        (url.hostname === "www.trustradar.ca" || url.hostname === "www.lrxradar.com") &&
+        !url.pathname.startsWith("/api/")
+      ) {
+        const canonical = url.hostname === "www.trustradar.ca" ? "trustradar.ca" : "lrxradar.com";
+        return Response.redirect(`https://${canonical}${url.pathname}${url.search}`, 301);
+      }
+
+      // Honeypot pages only serve from lrxradar.com
       if (url.hostname === "lrxradar.com" || url.hostname === "www.lrxradar.com") {
         const honeypotPages = ["/contact", "/team", "/careers", "/about"];
         if (honeypotPages.includes(url.pathname)) {
           return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1)));
-        }
-        // Default: redirect to trustradar.ca
-        if (!url.pathname.startsWith("/api/") && url.pathname !== "/health") {
-          return Response.redirect(`https://trustradar.ca${url.pathname}${url.search}`, 301);
         }
       }
 
