@@ -36,7 +36,7 @@ export const cartographerAgent: AgentModule = {
     // Phase 1: Geo-enrich any threats missing location data
     try {
       const { enrichThreatsGeo } = await import("../lib/geoip");
-      const enrichResult = await enrichThreatsGeo(env.DB, env.CACHE);
+      const enrichResult = await enrichThreatsGeo(env.DB, env.CACHE, env.IPINFO_TOKEN);
       itemsUpdated += enrichResult.enriched;
     } catch (err) {
       console.error("[cartographer] geo enrichment error:", err);
@@ -221,7 +221,7 @@ export const cartographerAgent: AgentModule = {
       if (unenrichedIps.results.length > 0) {
         const { batchGeoLookup, isPrivateIP } = await import("../lib/geoip");
         const ips = unenrichedIps.results.map(r => r.source_ip).filter(ip => !isPrivateIP(ip));
-        const { results: geoMap } = await batchGeoLookup(ips, env.CACHE);
+        const { results: geoMap } = await batchGeoLookup(ips, env.CACHE, env.IPINFO_TOKEN);
 
         for (const [ip, geo] of geoMap.entries()) {
           await env.DB.prepare(`

@@ -355,7 +355,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       console.log(`[backfill-geo] Round ${round}/${MAX_ROUNDS}...`);
-      const result = await enrichThreatsGeo(env.DB, env.CACHE);
+      const result = await enrichThreatsGeo(env.DB, env.CACHE, env.IPINFO_TOKEN);
 
       totalEnriched += result.enriched;
       totalSkippedPrivate += result.skippedPrivate;

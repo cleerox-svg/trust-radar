@@ -20,6 +20,8 @@ export interface Env {
   // Cloudflare Radar
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
+  // GeoIP
+  IPINFO_TOKEN?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────
