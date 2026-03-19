@@ -77,6 +77,16 @@ function normalizeBrand(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+/** Brand names that are too generic — common URL fragments that cause false positives. */
+const GENERIC_BRAND_NAMES = new Set([
+  "www", "one", "bit", "dns", "app", "web", "api", "cdn", "dev", "net", "goo",
+]);
+
+/** Returns true if a normalized brand name should be skipped for fuzzy matching. */
+function isGenericBrand(normalized: string): boolean {
+  return /^\d+$/.test(normalized) || GENERIC_BRAND_NAMES.has(normalized);
+}
+
 /**
  * Load all brands from DB.
  */
@@ -101,7 +111,8 @@ function matchBrand(domain: string, brands: BrandRow[]): string | null {
   // Strategy 2: Domain contains brand name as substring
   for (const brand of brands) {
     const brandLower = normalizeBrand(brand.name);
-    if (brandLower.length >= 3 && lower.includes(brandLower)) return brand.id;
+    if (brandLower.length < 4 || isGenericBrand(brandLower)) continue;
+    if (lower.includes(brandLower)) return brand.id;
   }
 
   return null;
@@ -128,22 +139,24 @@ export function fuzzyMatchBrand(haystacks: string[], brands: BrandRow[]): string
     // Strategy 2: Direct substring match (brand name in haystack)
     for (const brand of brands) {
       const brandLower = normalizeBrand(brand.name);
-      if (brandLower.length >= 3 && lower.includes(brandLower)) return brand.id;
+      if (brandLower.length < 4 || isGenericBrand(brandLower)) continue;
+      if (lower.includes(brandLower)) return brand.id;
     }
 
     // Strategy 3: Strip obfuscation words and hyphens, then substring match
     const cleaned = stripObfuscation(lower);
     for (const brand of brands) {
       const brandLower = normalizeBrand(brand.name);
-      if (brandLower.length >= 3 && cleaned.includes(brandLower)) return brand.id;
+      if (brandLower.length < 4 || isGenericBrand(brandLower)) continue;
+      if (cleaned.includes(brandLower)) return brand.id;
     }
 
-    // Strategy 4: Levenshtein on individual segments
+    // Strategy 4: Levenshtein on individual segments (require length >= 5)
     const segs = segments(raw);
     for (const seg of segs) {
       for (const brand of brands) {
         const brandLower = normalizeBrand(brand.name);
-        if (brandLower.length < 3) continue;
+        if (brandLower.length < 5 || isGenericBrand(brandLower)) continue;
         // Only compare segments of similar length to avoid false positives
         if (Math.abs(seg.length - brandLower.length) > 2) continue;
         if (levenshtein(seg, brandLower) <= 2) return brand.id;

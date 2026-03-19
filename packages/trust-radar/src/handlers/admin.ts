@@ -323,6 +323,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     const BATCH_SIZE = 50;
     const MAX_PER_CALL = 500;
     let processed = 0;
+    const errors: string[] = [];
 
     while (processed < MAX_PER_CALL) {
       batchNum++;
@@ -340,11 +341,28 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats (${processed}/${MAX_PER_CALL})`);
 
       const ips = batch.results.map((r) => r.ip_address);
-      const { results: geoMap } = await batchGeoLookup(ips);
+      console.log(`[backfill-geo] Batch ${batchNum} IPs:`, ips.slice(0, 5).join(', '), ips.length > 5 ? `... (${ips.length} total)` : '');
 
+      let geoMap: Map<string, any>;
+      try {
+        const geoResult = await batchGeoLookup(ips);
+        geoMap = geoResult.results;
+        console.log(`[backfill-geo] Geo API returned ${geoMap.size} results for ${ips.length} IPs`);
+      } catch (geoErr) {
+        const msg = geoErr instanceof Error ? geoErr.message : String(geoErr);
+        console.error(`[backfill-geo] Geo API call failed for batch ${batchNum}:`, msg);
+        errors.push(`Batch ${batchNum} geo lookup failed: ${msg}`);
+        processed += batch.results.length;
+        continue;
+      }
+
+      let batchMisses = 0;
       for (const row of batch.results) {
         const geo = geoMap.get(row.ip_address);
-        if (!geo) continue;
+        if (!geo) {
+          batchMisses++;
+          continue;
+        }
 
         try {
           const providerName = normalizeProvider(geo.isp, geo.org);
@@ -365,8 +383,13 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
           ).bind(geo.countryCode, geo.as, geo.lat, geo.lng, providerId, row.id).run();
           enriched++;
         } catch (err) {
-          console.error(`[backfill-geo] update failed for ${row.id}:`, err);
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[backfill-geo] update failed for ${row.id} (ip=${row.ip_address}):`, msg);
+          errors.push(`Update ${row.id} (${row.ip_address}): ${msg}`);
         }
+      }
+      if (batchMisses > 0) {
+        console.log(`[backfill-geo] Batch ${batchNum}: ${batchMisses}/${batch.results.length} IPs had no geo result`);
       }
 
       // 1-second delay between batches for rate limiting
@@ -389,7 +412,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
 
     return json({
       success: true,
-      data: { total, enriched, remaining, providersUpserted, batches: batchNum },
+      data: { total, enriched, remaining, providersUpserted, batches: batchNum, errors: errors.length > 0 ? errors.slice(0, 20) : undefined },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
