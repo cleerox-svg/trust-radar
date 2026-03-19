@@ -662,6 +662,57 @@ function HealthRow({ label, value, mono = false }: { label: string; value: React
   );
 }
 
+function BackfillGeoButton() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ enriched: number; remaining: number } | null>(null);
+  const [error, setError] = useState("");
+
+  async function run() {
+    setRunning(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/backfill-geo", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("imprsn8_token")}` },
+      });
+      const json = await res.json() as { success: boolean; data?: { enriched: number; remaining: number }; error?: string };
+      if (json.success && json.data) {
+        setResult(json.data);
+      } else {
+        setError(json.error ?? "Failed");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="soc-card flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-2">
+        <RefreshCw size={14} className="text-gold" />
+        <span className="font-semibold text-slate-200 text-sm">Geo Backfill</span>
+        <span className="text-[10px] text-slate-500">Enrich up to 500 IPs per click</span>
+      </div>
+      <button
+        onClick={run}
+        disabled={running}
+        className="btn-gold flex items-center gap-1.5 !py-1.5 !px-3 !text-xs ml-auto"
+      >
+        <RefreshCw size={12} className={running ? "animate-spin" : ""} />
+        {running ? "Enriching…" : "Backfill Geo"}
+      </button>
+      {result && (
+        <span className="text-xs font-mono" style={{ color: result.remaining > 0 ? "var(--gold-400)" : "var(--semantic-success)" }}>
+          {result.enriched} enriched · {result.remaining} remaining
+        </span>
+      )}
+      {error && <span className="text-xs text-red-400">{error}</span>}
+    </div>
+  );
+}
+
 function HealthTab() {
   const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -729,6 +780,9 @@ function HealthTab() {
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
+
+      {/* Geo Backfill */}
+      <BackfillGeoButton />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 

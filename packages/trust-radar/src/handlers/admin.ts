@@ -313,25 +313,30 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     const total = totalRow?.n ?? 0;
 
     if (total === 0) {
-      return json({ success: true, data: { message: "No threats need geo enrichment", total: 0, enriched: 0 } }, 200, origin);
+      return json({ success: true, data: { message: "No threats need geo enrichment", total: 0, enriched: 0, remaining: 0 } }, 200, origin);
     }
 
     let enriched = 0;
     let providersUpserted = 0;
     let batchNum = 0;
     const BATCH_SIZE = 50;
+    const MAX_PER_CALL = 500;
+    let processed = 0;
 
-    while (true) {
+    while (processed < MAX_PER_CALL) {
       batchNum++;
+      const batchLimit = Math.min(BATCH_SIZE, MAX_PER_CALL - processed);
       const batch = await env.DB.prepare(
         `SELECT id, ip_address FROM threats
          WHERE ip_address IS NOT NULL AND (lat IS NULL OR country_code IS NULL OR hosting_provider_id IS NULL)
+         ORDER BY created_at DESC
          LIMIT ?`
-      ).bind(BATCH_SIZE).all<{ id: string; ip_address: string }>();
+      ).bind(batchLimit).all<{ id: string; ip_address: string }>();
 
       if (batch.results.length === 0) break;
+      processed += batch.results.length;
 
-      console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats`);
+      console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats (${processed}/${MAX_PER_CALL})`);
 
       const ips = batch.results.map((r) => r.ip_address);
       const { results: geoMap } = await batchGeoLookup(ips);
@@ -364,7 +369,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       }
 
       // 1-second delay between batches for rate limiting
-      if (batch.results.length === BATCH_SIZE) {
+      if (batch.results.length === batchLimit) {
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
@@ -378,11 +383,12 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       `).run();
     } catch { /* non-critical */ }
 
-    console.log(`[backfill-geo] Done: ${enriched} enriched, ${providersUpserted} providers upserted`);
+    const remaining = Math.max(0, total - enriched);
+    console.log(`[backfill-geo] Done: ${enriched} enriched, ${providersUpserted} providers upserted, ${remaining} remaining`);
 
     return json({
       success: true,
-      data: { total, enriched, providersUpserted, batches: batchNum },
+      data: { total, enriched, remaining, providersUpserted, batches: batchNum },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
