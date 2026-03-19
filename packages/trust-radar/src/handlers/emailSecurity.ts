@@ -217,16 +217,18 @@ export async function handleEmailSecurityStats(
         "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NULL"
       ).first<{ n: number }>(),
 
-      // Worst-protected brands (bottom 10)
+      // Worst-protected brands (all F/D/C grades, up to 200)
       env.DB.prepare(`
-        SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade
+        SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade,
+               (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.status = 'active') AS active_threats
         FROM brands b
-        WHERE b.email_security_score IS NOT NULL
+        WHERE b.email_security_score IS NOT NULL AND b.email_security_grade IN ('F', 'D', 'C')
         ORDER BY b.email_security_score ASC
-        LIMIT 10
+        LIMIT 200
       `).all<{
         id: string; name: string; canonical_domain: string;
         email_security_score: number; email_security_grade: string;
+        active_threats: number;
       }>(),
     ]);
 
