@@ -53,6 +53,12 @@ interface ReportData {
     asns: Array<{ asn: string; count: number }>;
   };
   timeline: Array<{ period: string; count: number; phishing: number; typosquatting: number; malware: number }>;
+  spamTrapEvidence: {
+    totalCatches: number;
+    topSourceIps: Array<{ ip: string; count: number; country_code: string | null }>;
+    sampleSubjects: string[];
+    authFailBreakdown: { spfFail: number; dkimFail: number; dmarcFail: number };
+  } | null;
   recommendations: string[];
 }
 
@@ -162,6 +168,45 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
         scanned_at: string;
       }>(),
     ]);
+
+    // ─── Spam trap evidence ──────────────────────────────────
+    let spamTrapEvidence: ReportData["spamTrapEvidence"] = null;
+    try {
+      const trapTotal = await env.DB.prepare(
+        "SELECT COUNT(*) as c FROM spam_trap_captures WHERE spoofed_brand_id = ?"
+      ).bind(brandId).first<{ c: number }>();
+      if (trapTotal && trapTotal.c > 0) {
+        const [topIps, subjects, authFails] = await Promise.all([
+          env.DB.prepare(`
+            SELECT sending_ip as ip, COUNT(*) as count, country_code
+            FROM spam_trap_captures WHERE spoofed_brand_id = ? AND sending_ip IS NOT NULL
+            GROUP BY sending_ip ORDER BY count DESC LIMIT 5
+          `).bind(brandId).all<{ ip: string; count: number; country_code: string | null }>(),
+          env.DB.prepare(`
+            SELECT DISTINCT subject FROM spam_trap_captures
+            WHERE spoofed_brand_id = ? AND subject IS NOT NULL AND subject != ''
+            ORDER BY captured_at DESC LIMIT 5
+          `).bind(brandId).all<{ subject: string }>(),
+          env.DB.prepare(`
+            SELECT
+              SUM(CASE WHEN spf_result = 'fail' THEN 1 ELSE 0 END) as spf_fail,
+              SUM(CASE WHEN dkim_result = 'fail' THEN 1 ELSE 0 END) as dkim_fail,
+              SUM(CASE WHEN dmarc_result = 'fail' THEN 1 ELSE 0 END) as dmarc_fail
+            FROM spam_trap_captures WHERE spoofed_brand_id = ?
+          `).bind(brandId).first<{ spf_fail: number; dkim_fail: number; dmarc_fail: number }>(),
+        ]);
+        spamTrapEvidence = {
+          totalCatches: trapTotal.c,
+          topSourceIps: topIps.results,
+          sampleSubjects: subjects.results.map(s => s.subject),
+          authFailBreakdown: {
+            spfFail: authFails?.spf_fail ?? 0,
+            dkimFail: authFails?.dkim_fail ?? 0,
+            dmarcFail: authFails?.dmarc_fail ?? 0,
+          },
+        };
+      }
+    } catch { /* spam trap tables may not exist yet */ }
 
     const totalThreats = statsRow?.total ?? 0;
     const activeThreats = activeRow?.n ?? 0;
@@ -290,6 +335,7 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
         asns: asnRows.results,
       },
       timeline: timelineRows.results,
+      spamTrapEvidence,
       recommendations,
     };
 
