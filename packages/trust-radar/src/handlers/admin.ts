@@ -5,7 +5,7 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
-import { batchGeoLookup, normalizeProvider, upsertHostingProvider } from "../lib/geoip";
+import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo } from "../lib/geoip";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
@@ -87,7 +87,7 @@ const UpdateUserSchema = z.object({
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  const [users, threats, sessions] = await Promise.all([
+  const [users, threats, sessions, sentinelBacklog, analystBacklog, cartoBacklog, strategistBacklog, observerLastRun] = await Promise.all([
     env.DB.prepare(
       `SELECT COUNT(*) AS total,
               SUM(CASE WHEN role = 'super_admin' THEN 1 ELSE 0 END) AS super_admins,
@@ -105,6 +105,22 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
     env.DB.prepare(
       "SELECT COUNT(*) AS active_sessions FROM sessions WHERE expires_at > datetime('now') AND revoked_at IS NULL",
     ).first<{ active_sessions: number }>(),
+    // Agent backlogs
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', '-1 hour')",
+    ).first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND severity IS NULL",
+    ).first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND ip_address IS NOT NULL AND lat IS NULL",
+    ).first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND campaign_id IS NULL AND threat_type IN ('phishing','typosquatting')",
+    ).first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT MAX(completed_at) AS last_run FROM agent_jobs WHERE agent_id = 'observer' AND status = 'completed'",
+    ).first<{ last_run: string | null }>().catch(() => null),
   ]);
 
   return json({
@@ -120,6 +136,13 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
       },
       threats: { total: threats?.total ?? 0, active: threats?.active_threats ?? 0 },
       sessions: { active: sessions?.active_sessions ?? 0 },
+      agent_backlogs: {
+        sentinel: sentinelBacklog?.n ?? 0,
+        analyst: analystBacklog?.n ?? 0,
+        cartographer: cartoBacklog?.n ?? 0,
+        strategist: strategistBacklog?.n ?? 0,
+        observer_last_run: observerLastRun?.last_run ?? null,
+      },
     },
   }, 200, origin);
 }
@@ -308,93 +331,50 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
   const origin = request.headers.get("Origin");
 
   try {
+    // Count total pending before starting
     const totalRow = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM threats WHERE ip_address IS NOT NULL AND (lat IS NULL OR country_code IS NULL OR hosting_provider_id IS NULL)"
+      "SELECT COUNT(*) AS n FROM threats WHERE ip_address IS NOT NULL AND country_code IS NULL"
     ).first<{ n: number }>();
-    const total = totalRow?.n ?? 0;
+    const totalPending = totalRow?.n ?? 0;
 
-    if (total === 0) {
+    if (totalPending === 0) {
       return json({ success: true, data: { message: "No threats need geo enrichment", total: 0, enriched: 0, remaining: 0 } }, 200, origin);
     }
 
-    let enriched = 0;
-    let providersUpserted = 0;
-    let batchNum = 0;
-    const BATCH_SIZE = 50;
-    const MAX_PER_CALL = 500;
-    let processed = 0;
-    const errors: string[] = [];
+    console.log(`[backfill-geo] Starting: ${totalPending} threats pending geo enrichment`);
 
-    while (processed < MAX_PER_CALL) {
-      batchNum++;
-      const batchLimit = Math.min(BATCH_SIZE, MAX_PER_CALL - processed);
-      const batch = await env.DB.prepare(
-        `SELECT id, ip_address FROM threats
-         WHERE ip_address IS NOT NULL AND (lat IS NULL OR country_code IS NULL OR hosting_provider_id IS NULL)
-         ORDER BY created_at DESC
-         LIMIT ?`
-      ).bind(batchLimit).all<{ id: string; ip_address: string }>();
+    // Call the SAME enrichThreatsGeo function the Cartographer uses.
+    // Each call processes up to 10 threats (5 actual IP lookups due to ipinfo cap).
+    // Loop multiple rounds to make meaningful progress per click.
+    let totalEnriched = 0;
+    let totalSkippedPrivate = 0;
+    let totalSkippedNoResult = 0;
+    const allErrors: string[] = [];
+    const sampleIps: string[] = [];
+    const MAX_ROUNDS = 20;  // 20 rounds × 5 IPs = up to 100 IPs per click
 
-      if (batch.results.length === 0) break;
-      processed += batch.results.length;
+    for (let round = 1; round <= MAX_ROUNDS; round++) {
+      console.log(`[backfill-geo] Round ${round}/${MAX_ROUNDS}...`);
+      const result = await enrichThreatsGeo(env.DB, env.CACHE);
 
-      console.log(`[backfill-geo] Batch ${batchNum}: ${batch.results.length} threats (${processed}/${MAX_PER_CALL})`);
+      totalEnriched += result.enriched;
+      totalSkippedPrivate += result.skippedPrivate;
+      totalSkippedNoResult += result.skippedNoResult;
+      allErrors.push(...result.errors);
 
-      const ips = batch.results.map((r) => r.ip_address);
-      console.log(`[backfill-geo] Batch ${batchNum} IPs:`, ips.slice(0, 5).join(', '), ips.length > 5 ? `... (${ips.length} total)` : '');
+      console.log(`[backfill-geo] Round ${round}: enriched=${result.enriched}, private=${result.skippedPrivate}, noResult=${result.skippedNoResult}, total_selected=${result.total}`);
 
-      let geoMap: Map<string, any>;
-      try {
-        const geoResult = await batchGeoLookup(ips);
-        geoMap = geoResult.results;
-        console.log(`[backfill-geo] Geo API returned ${geoMap.size} results for ${ips.length} IPs`);
-      } catch (geoErr) {
-        const msg = geoErr instanceof Error ? geoErr.message : String(geoErr);
-        console.error(`[backfill-geo] Geo API call failed for batch ${batchNum}:`, msg);
-        errors.push(`Batch ${batchNum} geo lookup failed: ${msg}`);
-        processed += batch.results.length;
-        continue;
+      // Collect sample IPs from first round for debugging
+      if (round === 1 && result.total === 0) {
+        console.log(`[backfill-geo] No threats selected in first round — nothing to do`);
+        break;
       }
 
-      let batchMisses = 0;
-      for (const row of batch.results) {
-        const geo = geoMap.get(row.ip_address);
-        if (!geo) {
-          batchMisses++;
-          continue;
-        }
+      if (result.total === 0) break; // No more threats to process
 
-        try {
-          const providerName = normalizeProvider(geo.isp, geo.org);
-          let providerId: string | null = null;
-          if (providerName) {
-            providerId = await upsertHostingProvider(env.DB, providerName, geo.as, geo.countryCode);
-            providersUpserted++;
-          }
-
-          await env.DB.prepare(
-            `UPDATE threats SET
-               country_code = COALESCE(country_code, ?),
-               asn = COALESCE(asn, ?),
-               lat = COALESCE(lat, ?),
-               lng = COALESCE(lng, ?),
-               hosting_provider_id = COALESCE(hosting_provider_id, ?)
-             WHERE id = ?`
-          ).bind(geo.countryCode, geo.as, geo.lat, geo.lng, providerId, row.id).run();
-          enriched++;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[backfill-geo] update failed for ${row.id} (ip=${row.ip_address}):`, msg);
-          errors.push(`Update ${row.id} (${row.ip_address}): ${msg}`);
-        }
-      }
-      if (batchMisses > 0) {
-        console.log(`[backfill-geo] Batch ${batchNum}: ${batchMisses}/${batch.results.length} IPs had no geo result`);
-      }
-
-      // 1-second delay between batches for rate limiting
-      if (batch.results.length === batchLimit) {
-        await new Promise((r) => setTimeout(r, 1000));
+      // Rate-limit pause between rounds
+      if (round < MAX_ROUNDS) {
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 
@@ -407,14 +387,22 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       `).run();
     } catch { /* non-critical */ }
 
-    const remaining = Math.max(0, total - enriched);
-    console.log(`[backfill-geo] Done: ${enriched} enriched, ${providersUpserted} providers upserted, ${remaining} remaining`);
+    const remaining = Math.max(0, totalPending - totalEnriched - totalSkippedPrivate - totalSkippedNoResult);
+    console.log(`[backfill-geo] Done: enriched=${totalEnriched}, skippedPrivate=${totalSkippedPrivate}, skippedNoResult=${totalSkippedNoResult}, remaining=${remaining}, errors=${allErrors.length}`);
 
     return json({
       success: true,
-      data: { total, enriched, remaining, providersUpserted, batches: batchNum, errors: errors.length > 0 ? errors.slice(0, 20) : undefined },
+      data: {
+        total: totalPending,
+        enriched: totalEnriched,
+        remaining,
+        skippedPrivate: totalSkippedPrivate,
+        skippedNoResult: totalSkippedNoResult,
+        errors: allErrors.length > 0 ? allErrors.slice(0, 20) : undefined,
+      },
     }, 200, origin);
   } catch (err) {
+    console.error(`[backfill-geo] Fatal error:`, err);
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }

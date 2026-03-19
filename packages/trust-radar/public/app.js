@@ -4980,20 +4980,31 @@ async function viewAgents(el) {
 
 // ─── View: Admin Dashboard (Step 14) ────────────────────────
 let _adminFeedChart = null;
+// Quick rescan a single brand's email security from admin widgets
+async function scanBrand(brandId) {
+  try {
+    showToast('Scanning...', 'info');
+    await api(`/email-security/scan/${brandId}`, { method: 'POST' });
+    showToast('Scan complete', 'success');
+  } catch (err) {
+    showToast('Scan failed: ' + (err.message || 'unknown error'), 'error');
+  }
+}
+
 async function viewAdmin(el) {
   el.innerHTML = `
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
-      <div class="adm-action-btn" onclick="navigate('/admin/users')"><div class="adm-action-icon">+</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-feeds"><div class="adm-action-icon">\u21bb</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-tranco"><div class="adm-action-icon">\u2b06</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import from Tranco top 1M</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich up to 500 IPs per click</div></div>
-      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 500 unlinked threats</div></div>
-      <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
-      <div class="adm-action-btn" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F441}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/admin/users')"><div class="adm-action-icon">\u{1F464}</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-feeds"><div class="adm-action-icon">\u{1F504}</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #b388ff" id="adm-dash-agents"><div class="adm-action-icon">\u{1F9E0}</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00a8ff" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ffb627" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import from Tranco top 1M</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 500 unlinked threats</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
@@ -5013,8 +5024,10 @@ async function viewAdmin(el) {
         </div>
       </div>
       <div class="adm-panel">
-        <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">Bottom 10</div></div>
+        <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">-</div></div>
+        <div style="padding:8px 12px;display:flex;gap:4px;border-bottom:1px solid var(--blue-border)" id="adm-es-grade-tabs"></div>
         <div id="adm-es-worst" style="max-height:240px;overflow-y:auto;scrollbar-width:thin"></div>
+        <div style="padding:6px 12px;border-top:1px solid var(--blue-border);text-align:right" id="adm-es-worst-footer"></div>
       </div>
     </div>`;
 
@@ -5118,15 +5131,26 @@ async function viewAdmin(el) {
     document.getElementById('adm-pipeline').innerHTML = pipeStages.map(s => `<div class="adm-pipe-stage"><div class="adm-pipe-v" style="color:${s.color}">${s.count}</div><div class="adm-pipe-l">${s.label}</div></div>`).join('');
     document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span style="font-family:var(--font-mono);color:var(--text-secondary)">--</span> \u00b7 Conversion rate: <span style="font-family:var(--font-mono);color:var(--positive)">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
 
-    // Agent summary
+    // Agent summary with backlog stats
     const agentBadge = document.getElementById('adm-agent-badge');
     const agentActive = agents.filter(a => a.status === 'active').length;
     if (agentBadge) agentBadge.textContent = `${agentActive}/${agents.length} operational`;
+    const backlogs = stats.agent_backlogs || {};
+    const backlogMap = {
+      sentinel: { val: backlogs.sentinel ?? 0, label: 'new threats/hr' },
+      analyst: { val: backlogs.analyst ?? 0, label: 'unclassified' },
+      cartographer: { val: backlogs.cartographer ?? 0, label: 'pending geo' },
+      strategist: { val: backlogs.strategist ?? 0, label: 'unlinked' },
+      observer: { val: null, label: backlogs.observer_last_run ? (() => { const m = Math.round((Date.now() - new Date(backlogs.observer_last_run + 'Z').getTime()) / 60000); return m < 60 ? `Last briefing: ${m}m ago` : `Last briefing: ${Math.round(m/60)}h ago`; })() : 'No briefings yet' },
+    };
     document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
       const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
       const dotColor = a.status === 'active' ? 'var(--positive)' : a.status === 'error' ? 'var(--negative)' : a.status === 'degraded' ? 'var(--threat-medium)' : 'var(--blue-primary)';
       const dotAnim = a.status === 'active' ? 'animation:pulse 2s ease-in-out infinite' : a.status === 'degraded' ? 'animation:pulse 1.5s ease-in-out infinite' : '';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04)"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color}">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} outputs</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div></div>`;
+      const bl = backlogMap[a.name] || backlogMap[a.agent_id];
+      const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
+      const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04);flex-wrap:wrap"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // Email Security stats
@@ -5156,17 +5180,68 @@ async function viewAdmin(el) {
       }
 
       const worstEl = document.getElementById('adm-es-worst');
-      if (worstEl && esData.worst_brands?.length) {
-        worstEl.innerHTML = esData.worst_brands.map(b => {
-          const gc = gradeColors[b.email_security_grade] || '#666';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(0,212,255,.04)">
-            <span style="font-family:var(--font-mono);font-size:11px;background:${gc};color:#000;padding:1px 6px;border-radius:3px;font-weight:700">${b.email_security_grade}</span>
-            <span style="flex:1;font-size:12px">${b.name}</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:${gc}">${b.email_security_score}</span>
-          </div>`;
-        }).join('');
+      const worstBrands = esData.worst_brands || [];
+      const worstBadge = document.getElementById('adm-es-worst-badge');
+      const tabsEl = document.getElementById('adm-es-grade-tabs');
+      const footerEl = document.getElementById('adm-es-worst-footer');
+
+      if (worstEl && worstBrands.length) {
+        // Grade counts for tabs
+        const gradeCounts = { F: 0, D: 0, C: 0 };
+        worstBrands.forEach(b => { if (gradeCounts[b.email_security_grade] !== undefined) gradeCounts[b.email_security_grade]++; });
+        if (worstBadge) worstBadge.textContent = `${worstBrands.length} brands`;
+
+        let activeFilter = 'all';
+
+        function renderWorstTabs() {
+          if (!tabsEl) return;
+          tabsEl.innerHTML = ['F','D','C','all'].map(g => {
+            const count = g === 'all' ? worstBrands.length : (gradeCounts[g] || 0);
+            const active = activeFilter === g;
+            const gc = g === 'all' ? '#00d4ff' : (gradeColors[g] || '#666');
+            return `<button data-esg="${g}" style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid ${active ? gc : 'var(--blue-border)'};background:${active ? gc+'22' : 'transparent'};color:${active ? gc : 'var(--text-tertiary)'};cursor:pointer">${g === 'all' ? 'All' : g} <span style="font-size:9px;opacity:.7">${count}</span></button>`;
+          }).join('');
+          tabsEl.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => { activeFilter = btn.dataset.esg; renderWorstTabs(); renderWorstList(); });
+          });
+        }
+
+        function renderWorstList() {
+          const filtered = activeFilter === 'all' ? worstBrands : worstBrands.filter(b => b.email_security_grade === activeFilter);
+          worstEl.innerHTML = filtered.map(b => {
+            const gc = gradeColors[b.email_security_grade] || '#666';
+            const atRisk = b.email_security_grade === 'F' && (b.active_threats || 0) > 0;
+            return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(0,212,255,.04)">
+              <span style="font-family:var(--font-mono);font-size:10px;background:${gc};color:#000;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0">${b.email_security_grade}</span>
+              <span style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${b.canonical_domain || ''}">${b.name}</span>
+              ${atRisk ? '<span style="font-family:var(--font-mono);font-size:8px;background:rgba(255,59,92,.2);color:var(--negative);padding:1px 4px;border-radius:2px;font-weight:600;flex-shrink:0">AT RISK</span>' : ''}
+              <span style="font-family:var(--font-mono);font-size:10px;color:${gc};flex-shrink:0">${b.email_security_score}</span>
+              <button onclick="event.stopPropagation();scanBrand('${b.id}')" style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--blue-border);background:transparent;color:var(--text-secondary);cursor:pointer;flex-shrink:0">Scan</button>
+            </div>`;
+          }).join('') || '<div style="padding:12px;font-size:11px;color:var(--text-tertiary)">No brands for this grade</div>';
+        }
+
+        // CSV export
+        if (footerEl) {
+          footerEl.innerHTML = '<a href="#" id="adm-es-export-csv" style="font-size:10px;color:var(--blue-primary);text-decoration:none;font-family:var(--font-mono)">Export CSV</a>';
+          document.getElementById('adm-es-export-csv')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const csv = 'Grade,Name,Domain,Score,Active Threats\n' + worstBrands.map(b =>
+              `${b.email_security_grade},"${(b.name||'').replace(/"/g,'""')}","${b.canonical_domain||''}",${b.email_security_score},${b.active_threats||0}`
+            ).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'worst_email_security.csv'; a.click();
+            URL.revokeObjectURL(url);
+          });
+        }
+
+        renderWorstTabs();
+        renderWorstList();
       } else if (worstEl) {
         worstEl.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--text-tertiary)">No scan data yet</div>';
+        if (tabsEl) tabsEl.style.display = 'none';
+        if (footerEl) footerEl.style.display = 'none';
       }
     }
 
@@ -5291,7 +5366,7 @@ async function viewAdmin(el) {
         geoBtn.classList.remove('dash-pending');
         geoBtn.classList.add('dash-ok');
         if (icon) icon.textContent = '\u2713';
-        if (desc) desc.textContent = `${res.data?.enriched ?? 0} enriched \u00b7 ${res.data?.remaining ?? 0} remaining`;
+        if (desc) desc.textContent = `${res.data?.enriched ?? 0} enriched \u00b7 ${res.data?.skippedPrivate ?? 0} private \u00b7 ${res.data?.remaining ?? 0} remaining`;
       } catch (err) {
         geoBtn.classList.remove('dash-pending');
         geoBtn.classList.add('dash-fail');
