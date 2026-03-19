@@ -1441,7 +1441,7 @@ async function viewObservatory(el) {
   let radarFrame = null;
   let deckgl = null;
   const _isMobile = window.innerWidth < 768;
-  let currentViewState = { longitude: _isMobile ? -20 : 10, latitude: _isMobile ? 40 : 25, zoom: _isMobile ? 1.2 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
+  let currentViewState = { longitude: _isMobile ? -20 : 10, latitude: _isMobile ? 40 : 25, zoom: _isMobile ? 0.8 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
