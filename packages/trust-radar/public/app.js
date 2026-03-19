@@ -91,6 +91,7 @@ const routes = [
   { path: '/admin/api-keys',       view: viewAdminApiKeys,    auth: true, admin: true },
   { path: '/admin/agent-config',   view: viewAdminAgentConfig, auth: true, admin: true },
   { path: '/admin/audit',          view: viewAdminAudit,      auth: true, admin: true },
+  { path: '/admin/spam-trap',     view: viewAdminSpamTrap,   auth: true, admin: true },
   { path: '/login',                view: viewLogin,           auth: false },
   { path: '/auth/callback',        view: viewAuthCallback,    auth: false },
   { path: '/auth/error',           view: viewAuthError,       auth: false },
@@ -583,6 +584,7 @@ function renderAdminTopbar(activePath) {
     { href: '/admin/api-keys', label: 'API Keys' },
     { href: '/admin/agent-config', label: 'Agent Config' },
     { href: '/admin/audit', label: 'Audit Log' },
+    { href: '/admin/spam-trap', label: 'Spam Trap' },
   ];
   return `<div class="topbar admin-topbar">
     <div class="topbar-logo"><svg class="tr-logo-mark" width="200" height="32" viewBox="0 0 200 32"><g transform="translate(16,16)"><path d="M-2.2,-14 A14,14 0 0,1 8.2,-11.3" stroke="#00d4ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M10.4,-8.2 A14,14 0 0,1 13.8,2.6" stroke="#00e5a0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M12.6,6 A14,14 0 0,1 2.6,13.8" stroke="#ffb627" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-0.6,14 A14,14 0 0,1 -12.6,6" stroke="#ff3b5c" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-13.8,2.6 A14,14 0 0,1 -6.7,-12.3" stroke="#b388ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-13" stroke="#00d4ff" stroke-width=".8" opacity=".35"/></g><circle cx="2.7" cy="-8.6" r="1.5" fill="#00d4ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="0.3s" repeatCount="indefinite"/></circle><circle cx="8.6" cy="0" r="1.5" fill="#00e5a0" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="1.5s" repeatCount="indefinite"/></circle><circle cx="2.7" cy="8.6" r="1.5" fill="#ffb627" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="2.7s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="5" r="1.5" fill="#ff3b5c" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="3.9s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="-5" r="1.5" fill="#b388ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="5.1s" repeatCount="indefinite"/></circle><circle cx="0" cy="0" r="2.5" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1"/><circle cx="0" cy="0" r="1.2" fill="#00d4ff"/></g><text class="tr-wordmark" x="36" y="21" font-family="'Chakra Petch',sans-serif" font-weight="700" font-size="16" letter-spacing="2" fill="#e8edf5">TRUST <tspan fill="#00d4ff">RADAR</tspan></text></svg></div>
@@ -1402,6 +1404,11 @@ async function viewObservatory(el) {
       <button class="obs-sev-btn active" data-sev="medium"><span class="obs-sev-dot" style="background:#ffb627"></span>Medium</button>
       <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#00d4ff"></span>Low</button>
     </div>
+    <div class="obs-source-filter" id="obs-source-filter" style="position:absolute;bottom:56px;left:12px;display:flex;gap:4px;z-index:10">
+      <button class="obs-sev-btn active" data-source="all">All Sources</button>
+      <button class="obs-sev-btn" data-source="feeds">Feeds</button>
+      <button class="obs-sev-btn" data-source="spam_trap" style="color:#F59E0B">Spam Trap</button>
+    </div>
     <div class="obs-layer-toggle" id="obs-layer-toggle">
       <button class="obs-lt-btn active" data-layer="beams">Beams</button>
       <button class="obs-lt-btn active" data-layer="particles">Particles</button>
@@ -1426,6 +1433,7 @@ async function viewObservatory(el) {
   let currentMode = 1;
   let currentPeriod = '7d';
   let activeSeverities = new Set(['critical', 'high', 'medium', 'low']);
+  let currentSourceFilter = 'all';
   let arcData = [], nodeData = [], liveData = [], brandList = [];
   let currentBrandIdx = 0;
   let brandCycleTimer = null;
@@ -1675,10 +1683,11 @@ async function viewObservatory(el) {
   // ── Data fetching ────────────────────────────────────────────────
   async function fetchData() {
     try {
+      const srcParam = currentSourceFilter !== 'all' ? `&source_feed=${currentSourceFilter}` : '';
       const [nodesRes, arcsRes, statsRes] = await Promise.all([
-        api(`/observatory/nodes?period=${currentPeriod}`).catch(() => null),
-        api(`/observatory/arcs?period=${currentPeriod}&limit=50`).catch(() => null),
-        api(`/observatory/stats?period=${currentPeriod}`).catch(() => null),
+        api(`/observatory/nodes?period=${currentPeriod}${srcParam}`).catch(() => null),
+        api(`/observatory/arcs?period=${currentPeriod}&limit=50${srcParam}`).catch(() => null),
+        api(`/observatory/stats?period=${currentPeriod}${srcParam}`).catch(() => null),
       ]);
 
       const allNodes = nodesRes?.data || [];
@@ -2317,12 +2326,22 @@ async function viewObservatory(el) {
     });
 
     // Severity filter
-    document.querySelectorAll('.obs-sev-btn').forEach(btn => {
+    document.querySelectorAll('#obs-sev-filter .obs-sev-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
         const sev = btn.dataset.sev;
         if (btn.classList.contains('active')) activeSeverities.add(sev);
         else activeSeverities.delete(sev);
+        fetchData();
+      });
+    });
+
+    // Source filter (All Sources / Feeds / Spam Trap)
+    document.querySelectorAll('#obs-source-filter .obs-sev-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#obs-source-filter .obs-sev-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSourceFilter = btn.dataset.source;
         fetchData();
       });
     });
@@ -3233,6 +3252,7 @@ async function viewBrandDetail(el, params) {
       <div id="email-intel-wrap">
         <div class="panel" style="margin-bottom:16px"><div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">Loading email intelligence\u2026</div></div>
       </div>
+      <div id="spam-trap-intel-wrap"></div>
       <div class="detail-grid">
         <div class="panel" id="brand-threats-panel"></div>
         <div class="detail-rcol">
@@ -3262,6 +3282,7 @@ async function viewBrandDetail(el, params) {
       </div>`;
     _attachLogoFallbacks(el);
     loadEmailIntel(params.id);
+    loadSpamTrapIntel(params.id);
 
     // ─── Safe Domains panel rendering ───────────────────────
     const brandId = params.id;
@@ -6031,6 +6052,186 @@ async function viewBrandReport(el, params) {
   } catch (err) {
     el.innerHTML = '<div class="empty-state"><div class="message">Failed to generate report: ' + (err.message || 'Unknown error') + '</div></div>';
   }
+}
+
+// ─── Spam Trap Intelligence Card (Brand Detail) ─────────────
+async function loadSpamTrapIntel(brandId) {
+  const wrap = document.getElementById('spam-trap-intel-wrap');
+  if (!wrap) return;
+  try {
+    const res = await api(`/spam-trap/captures/brand/${brandId}`).catch(() => null);
+    const d = res?.data;
+    if (!d || d.total === 0) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
+      <div class="panel" style="margin-bottom:16px">
+        <div class="phead"><span>Spam Trap Intelligence</span><span class="badge" style="background:rgba(245,158,11,.15);color:#F59E0B">${d.total} caught</span></div>
+        <div class="panel-body padded">
+          <div style="display:flex;gap:24px;margin-bottom:12px">
+            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.total}</div><div style="font-size:10px;color:var(--text-tertiary)">Spoofed emails caught</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.unique_ips}</div><div style="font-size:10px;color:var(--text-tertiary)">Unique source IPs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:${d.auth_fail_pct > 80 ? 'var(--negative)' : 'var(--text-primary)'}">${d.auth_fail_pct}%</div><div style="font-size:10px;color:var(--text-tertiary)">Auth failure rate</div></div>
+          </div>
+          ${(d.recent || []).map(c => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
+              <span style="font-family:var(--font-mono);color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</span>
+              <span style="color:var(--text-tertiary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.subject || '').substring(0, 60)}</span>
+              <span>SPF:<span style="color:${c.spf_result === 'fail' ? 'var(--negative)' : 'var(--positive)'}">${c.spf_result || '-'}</span></span>
+              <span>DKIM:<span style="color:${c.dkim_result === 'fail' ? 'var(--negative)' : 'var(--positive)'}">${c.dkim_result || '-'}</span></span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  } catch {
+    wrap.innerHTML = '';
+  }
+}
+
+// ─── Admin Spam Trap Tab ─────────────────────────────────────
+async function viewAdminSpamTrap(el) {
+  el.innerHTML = `
+    ${renderAdminTopbar('/admin/spam-trap')}
+    <div class="admin-content" style="max-width:1200px;margin:0 auto;padding:20px">
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Spam Trap Command Center</div>
+    <div class="adm-metrics" id="st-metrics"></div>
+    <div class="adm-grid-2">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Trap Health</div></div>
+        <div class="adm-padded" id="st-health">Loading...</div>
+        <div class="adm-padded" style="margin-top:8px">
+          <button class="filter-pill" id="st-deploy-seeds" style="font-size:11px">Deploy Initial Seeds</button>
+        </div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Seed Campaigns</div></div>
+        <div id="st-campaigns" style="max-height:300px;overflow-y:auto">Loading...</div>
+        <div class="adm-padded" style="margin-top:8px">
+          <button class="filter-pill" id="st-run-strategist" style="font-size:11px">Run Strategist</button>
+        </div>
+      </div>
+    </div>
+    <div class="adm-panel" style="margin-top:16px">
+      <div class="adm-phead"><div class="adm-ptitle">Recent Captures</div><div class="adm-pbadge" id="st-total-badge">-</div></div>
+      <div id="st-captures" style="max-height:400px;overflow-y:auto">Loading...</div>
+    </div>
+    <div class="adm-grid-2" style="margin-top:16px">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Daily Catch Chart (30d)</div></div>
+        <div class="adm-chart-wrap"><canvas id="st-daily-chart"></canvas></div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Top Spoofing Sources</div></div>
+        <div id="st-sources" style="max-height:300px;overflow-y:auto">Loading...</div>
+      </div>
+    </div>
+    </div>`;
+
+  let _stChart = null;
+
+  try {
+    const [statsRes, capturesRes, campaignsRes, sourcesRes] = await Promise.all([
+      api('/spam-trap/stats').catch(() => null),
+      api('/spam-trap/captures?limit=20').catch(() => null),
+      api('/spam-trap/campaigns').catch(() => null),
+      api('/spam-trap/sources').catch(() => null),
+    ]);
+
+    const s = statsRes?.data?.stats || {};
+    const daily = statsRes?.data?.daily || [];
+    const health = statsRes?.data?.health || [];
+    const captures = capturesRes?.data || [];
+    const campaigns = campaignsRes?.data || [];
+    const sources = sourcesRes?.data || [];
+    const totalCaptures = capturesRes?.total || s.total_captures || 0;
+
+    // Stats cards
+    document.getElementById('st-metrics').innerHTML = `
+      <div class="adm-metric"><div class="adm-metric-val">${s.total_captures || 0}</div><div class="adm-metric-label">Captured</div><div class="adm-metric-sub">+${s.last_24h || 0} 24h</div></div>
+      <div class="adm-metric"><div class="adm-metric-val">${s.brands_spoofed || 0}</div><div class="adm-metric-label">Brands Spoofed</div></div>
+      <div class="adm-metric"><div class="adm-metric-val">${s.unique_ips || 0}</div><div class="adm-metric-label">Unique IPs</div></div>
+      <div class="adm-metric"><div class="adm-metric-val">${s.auth_fail_rate || 0}%</div><div class="adm-metric-label">Auth Fail Rate</div></div>`;
+
+    document.getElementById('st-total-badge').textContent = totalCaptures;
+
+    // Trap health
+    const channelIcons = { generic: '\u25cb', brand: '\u25c9', spider: '\u25cc', paste: '\u25ce', honeypot: '\u25cf', employee: '\u25ca' };
+    document.getElementById('st-health').innerHTML = health.length
+      ? health.map(h => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span>${channelIcons[h.channel] || '\u25cb'}</span><span style="flex:1;text-transform:capitalize">${h.channel}</span><span style="font-weight:700">${h.count} active</span></div>`).join('')
+      : '<div style="color:var(--text-tertiary);font-size:12px">No seed addresses deployed yet</div>';
+
+    // Campaigns
+    document.getElementById('st-campaigns').innerHTML = campaigns.length
+      ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Name</th><th>Channel</th><th>Catches</th><th>Status</th></tr></thead><tbody>${campaigns.map(c => `<tr><td>${c.name}</td><td>${c.channel}</td><td>${c.total_catches}</td><td><span style="color:${c.status === 'active' ? 'var(--positive)' : 'var(--text-tertiary)'}">${c.status}</span></td></tr>`).join('')}</tbody></table></div>`
+      : '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px">No campaigns yet</div>';
+
+    // Recent captures
+    document.getElementById('st-captures').innerHTML = captures.length
+      ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>From</th><th>Brand</th><th>SPF</th><th>DKIM</th><th>DMARC</th><th>Category</th><th>Severity</th><th>Time</th></tr></thead><tbody>${captures.map(c => {
+          const authColor = r => r === 'fail' ? 'var(--negative)' : r === 'pass' ? 'var(--positive)' : 'var(--text-tertiary)';
+          return `<tr>
+            <td style="font-family:var(--font-mono);font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</td>
+            <td>${c.spoofed_domain || '-'}</td>
+            <td style="color:${authColor(c.spf_result)}">${c.spf_result || '-'}</td>
+            <td style="color:${authColor(c.dkim_result)}">${c.dkim_result || '-'}</td>
+            <td style="color:${authColor(c.dmarc_result)}">${c.dmarc_result || '-'}</td>
+            <td>${c.category || '-'}</td>
+            <td><span class="severity-pill ${c.severity}">${c.severity || '-'}</span></td>
+            <td style="font-size:10px;color:var(--text-tertiary)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
+          </tr>`;
+        }).join('')}</tbody></table></div>`
+      : '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:12px">No captures yet — deploy initial seeds to start catching emails</div>';
+
+    // Top sources
+    document.getElementById('st-sources').innerHTML = sources.length
+      ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>IP</th><th>Emails</th><th>Brands Hit</th><th>Country</th><th>ASN</th><th>Last Seen</th></tr></thead><tbody>${sources.slice(0, 20).map(s => `<tr>
+          <td style="font-family:var(--font-mono);font-size:10px">${s.sending_ip}</td>
+          <td>${s.emails_caught}</td>
+          <td>${s.brands_hit}</td>
+          <td>${s.country_code || '-'}</td>
+          <td style="font-size:10px">${s.asn || '-'}</td>
+          <td style="font-size:10px;color:var(--text-tertiary)">${(s.last_seen || '').slice(0, 16).replace('T', ' ')}</td>
+        </tr>`).join('')}</tbody></table></div>`
+      : '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px">No source data yet</div>';
+
+    // Daily chart
+    if (daily.length && typeof Chart !== 'undefined') {
+      const ctx = document.getElementById('st-daily-chart');
+      if (ctx) {
+        _stChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: daily.map(d => d.date?.slice(5) || ''),
+            datasets: [
+              { label: 'Phishing', data: daily.map(d => d.phishing || 0), backgroundColor: 'rgba(255,59,92,.7)' },
+              { label: 'Spam', data: daily.map(d => d.spam || 0), backgroundColor: 'rgba(0,212,255,.5)' },
+              { label: 'Malware', data: daily.map(d => d.malware || 0), backgroundColor: 'rgba(255,107,53,.7)' },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8899aa', font: { size: 10 } } } }, scales: { x: { stacked: true, ticks: { color: '#667788', font: { size: 9 } }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#667788', font: { size: 9 } }, grid: { color: 'rgba(100,120,140,.1)' } } } },
+        });
+      }
+    }
+  } catch (err) {
+    document.getElementById('st-metrics').innerHTML = `<div style="color:var(--negative)">Failed to load: ${err.message}</div>`;
+  }
+
+  // Button handlers
+  document.getElementById('st-deploy-seeds')?.addEventListener('click', async () => {
+    const btn = document.getElementById('st-deploy-seeds');
+    btn.textContent = 'Deploying...'; btn.disabled = true;
+    try {
+      const res = await api('/spam-trap/seed/initial', { method: 'POST' });
+      btn.textContent = `Deployed ${res?.data?.addresses_created || 0} addresses`;
+    } catch (e) { btn.textContent = 'Failed: ' + e.message; }
+  });
+
+  document.getElementById('st-run-strategist')?.addEventListener('click', async () => {
+    const btn = document.getElementById('st-run-strategist');
+    btn.textContent = 'Running...'; btn.disabled = true;
+    try {
+      await api('/spam-trap/strategist/run', { method: 'POST' });
+      btn.textContent = 'Complete! Refresh to see results.';
+    } catch (e) { btn.textContent = 'Failed: ' + e.message; }
+  });
 }
 
 // ─── Close user-menu dropdowns on outside click ─────────────

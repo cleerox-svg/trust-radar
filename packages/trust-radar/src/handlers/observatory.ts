@@ -69,6 +69,8 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
+  const sourceFeed = url.searchParams.get("source_feed");
+  const sourceFilter = sourceFeed ? ` AND source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
 
   try {
     const rows = await env.DB.prepare(`
@@ -86,7 +88,7 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
       FROM threats
       WHERE lat IS NOT NULL AND lng IS NOT NULL
         AND status = 'active'
-        AND created_at > datetime('now', '${interval}')
+        AND created_at > datetime('now', '${interval}')${sourceFilter}
       GROUP BY ROUND(lat, 1), ROUND(lng, 1)
       ORDER BY threat_count DESC
       LIMIT 200
@@ -110,6 +112,8 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const period = url.searchParams.get("period") ?? "7d";
   const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
   const interval = periodToInterval(period);
+  const sourceFeed = url.searchParams.get("source_feed");
+  const sourceFilter = sourceFeed ? ` AND t.source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
 
   try {
     const rows = await env.DB.prepare(`
@@ -126,7 +130,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       LEFT JOIN brands b ON b.id = t.target_brand_id
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
         AND t.status = 'active'
-        AND t.created_at > datetime('now', '${interval}')
+        AND t.created_at > datetime('now', '${interval}')${sourceFilter}
       GROUP BY ROUND(t.lat, 1), ROUND(t.lng, 1), t.threat_type, t.target_brand_id
       ORDER BY volume DESC
       LIMIT ${limit}
@@ -166,6 +170,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 // Returns 20 most recent active threats with full geo data
 export async function handleObservatoryLive(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const url = new URL(request.url);
+  const sourceFeed = url.searchParams.get("source_feed");
+  const sourceFilter = sourceFeed ? ` AND t.source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
 
   try {
     const rows = await env.DB.prepare(`
@@ -184,7 +191,7 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       FROM threats t
       LEFT JOIN brands b ON b.id = t.target_brand_id
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
-        AND t.status = 'active'
+        AND t.status = 'active'${sourceFilter}
       ORDER BY t.created_at DESC
       LIMIT 20
     `).all<{
@@ -272,20 +279,22 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
+  const sourceFeed = url.searchParams.get("source_feed");
+  const sf = sourceFeed ? ` AND source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
 
   try {
     const [threats, countries, campaigns, brands] = await Promise.all([
       env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', '${interval}')`
+        `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
       ).first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT COUNT(DISTINCT country_code) AS n FROM threats WHERE lat IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')`
+        `SELECT COUNT(DISTINCT country_code) AS n FROM threats WHERE lat IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
       ).first<{ n: number }>(),
       env.DB.prepare(
         `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
       ).first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')`
+        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
       ).first<{ n: number }>(),
     ]);
 

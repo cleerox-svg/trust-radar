@@ -304,6 +304,11 @@ document.getElementById('scanForm').addEventListener('submit', function(e){
 // Allow Enter key on domain input
 document.getElementById('domainInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();document.getElementById('scanForm').dispatchEvent(new Event('submit'));}});
 </script>
+<!-- Trust Radar monitoring -->
+<div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
+  <a href="mailto:spider-pub-footer@trustradar.ca">contact us</a>
+  <a href="mailto:spider-pub-meta@trustradar.ca">support</a>
+</div>
 </body>
 </html>`;
 }

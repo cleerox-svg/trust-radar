@@ -101,6 +101,14 @@ import {
   handleGetDmarcSources,
 } from "./handlers/dmarcReports";
 import { handleDmarcEmail } from "./dmarc-receiver";
+import { handleSpamTrapEmail } from "./spam-trap";
+import { serveHoneypotPage } from "./honeypot";
+import {
+  handleSpamTrapStats, handleSpamTrapCaptures, handleSpamTrapCapturesByBrand,
+  handleSpamTrapSources, handleSpamTrapCampaigns, handleCreateSpamTrapCampaign,
+  handleExecuteSpamTrapCampaign, handleUpdateSpamTrapCampaign,
+  handleSpamTrapAddresses, handleInitialSeed, handleRunStrategist,
+} from "./handlers/spamTrap";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
@@ -972,6 +980,63 @@ router.get("/api/export/alerts", async (request: Request, env: Env) => {
   return handleExportAlerts(request, env);
 });
 
+// ─── Spam Trap ────────────────────────────────────────────────
+router.get("/api/spam-trap/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapStats(request, env);
+});
+router.get("/api/spam-trap/captures", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapCaptures(request, env);
+});
+router.get("/api/spam-trap/captures/brand/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapCapturesByBrand(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/spam-trap/sources", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapSources(request, env);
+});
+router.get("/api/spam-trap/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapCampaigns(request, env);
+});
+router.post("/api/spam-trap/campaigns", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateSpamTrapCampaign(request, env);
+});
+router.post("/api/spam-trap/campaigns/:id/execute", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleExecuteSpamTrapCampaign(request, env, request.params["id"] ?? "");
+});
+router.put("/api/spam-trap/campaigns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateSpamTrapCampaign(request, env, request.params["id"] ?? "");
+});
+router.get("/api/spam-trap/addresses", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapAddresses(request, env);
+});
+router.post("/api/spam-trap/seed/initial", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleInitialSeed(request, env);
+});
+router.post("/api/spam-trap/strategist/run", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRunStrategist(request, env);
+});
+
 // ─── Public Homepage ──────────────────────────────────────────
 router.get("/", () =>
   new Response(renderHomepage(), {
@@ -1247,6 +1312,17 @@ export default {
               }
             }
 
+            // Seed Strategist runs daily at 6am UTC
+            if (hour === 6 && minute < 5) {
+              try {
+                const { seedStrategistAgent } = await import("./agents/seed-strategist");
+                const result = await executeAgent(env, seedStrategistAgent, {}, "cron", "scheduled");
+                console.log(`[cron] agent seed_strategist: ${result.status}`);
+              } catch (ssErr) {
+                console.error("[cron] seed strategist error:", ssErr);
+              }
+            }
+
             // Daily snapshots — run at midnight UTC, or if none exist yet (bootstrap)
             try {
               const { generateDailySnapshots } = await import("./lib/snapshots");
@@ -1273,11 +1349,33 @@ export default {
 
   async email(message: { from: string; to: string; headers: Headers; raw: ReadableStream<Uint8Array>; rawSize: number; setReject(r: string): void; forward(to: string, headers?: Headers): Promise<void> }, env: Env, ctx: ExecutionContext): Promise<void> {
     // Accept ALL emails — never reject/bounce (Google/Microsoft stop sending on bounces)
-    ctx.waitUntil(handleDmarcEmail(message, env));
+    const to = message.to;
+
+    // Route DMARC reports to existing handler
+    if (to === "dmarc_rua@trustradar.ca") {
+      ctx.waitUntil(handleDmarcEmail(message, env));
+      return;
+    }
+
+    // Everything else goes to spam trap
+    ctx.waitUntil(handleSpamTrapEmail(message as any, env));
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
+      // Honeypot pages only serve from lrxradar.com
+      const url = new URL(request.url);
+      if (url.hostname === "lrxradar.com") {
+        const honeypotPages = ["/contact", "/team", "/careers", "/about"];
+        if (honeypotPages.includes(url.pathname)) {
+          return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1)));
+        }
+        // Default: redirect to trustradar.ca
+        if (!url.pathname.startsWith("/api/") && url.pathname !== "/health") {
+          return Response.redirect("https://trustradar.ca", 301);
+        }
+      }
+
       const response = await router.fetch(request, env, ctx);
       return applySecurityHeaders(response);
     } catch (e: unknown) {
