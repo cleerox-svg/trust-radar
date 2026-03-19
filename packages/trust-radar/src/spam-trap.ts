@@ -161,12 +161,14 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
 // ─── Trap Address Parser ───────────────────────────────────────────
 
 export function parseTrapAddress(address: string): TrapInfo {
-  const [local, domain] = address.split("@");
+  const parts = address.split("@");
+  const local = parts[0] ?? "";
+  const domain = parts[1] ?? "";
 
   // Brand traps: apple-support@trustradar.ca, amazon-billing@trustradar.ca
   const brandTrapMatch = local.match(/^([\w]+)-(support|billing|account|verify|security|id|help|sign)$/);
   if (brandTrapMatch) {
-    return { domain, channel: "brand", campaignId: null, brandTarget: brandTrapMatch[1] };
+    return { domain, channel: "brand", campaignId: null, brandTarget: brandTrapMatch[1] ?? null };
   }
 
   // Spider traps: spider-pub-footer-0318@lrxradar.com
@@ -177,7 +179,7 @@ export function parseTrapAddress(address: string): TrapInfo {
   // Paste traps: paste-c012-amz-0318@lrxradar.com
   const pasteMatch = local.match(/^paste-c(\d+)/);
   if (pasteMatch) {
-    return { domain, channel: "paste", campaignId: parseInt(pasteMatch[1]), brandTarget: null };
+    return { domain, channel: "paste", campaignId: parseInt(pasteMatch[1] ?? "0"), brandTarget: null };
   }
 
   // Honeypot traps: honey-team-003@lrxradar.com
@@ -206,23 +208,23 @@ export function parseAuthenticationResults(header: string): AuthResults {
 
   // SPF
   const spfMatch = header.match(/spf=(\w+)/i);
-  if (spfMatch) result.spf = spfMatch[1].toLowerCase();
+  if (spfMatch) result.spf = (spfMatch[1] ?? "").toLowerCase();
   const spfDomainMatch = header.match(/spf=\w+[^;]*domain[:\s]+of\s+(\S+)/i) ||
                           header.match(/spf=\w+[^;]*\(.*?domain:?\s*(\S+)/i);
-  if (spfDomainMatch) result.spfDomain = spfDomainMatch[1].replace(/[)]/g, "");
+  if (spfDomainMatch) result.spfDomain = (spfDomainMatch[1] ?? "").replace(/[)]/g, "");
 
   // DKIM
   const dkimMatch = header.match(/dkim=(\w+)/i);
-  if (dkimMatch) result.dkim = dkimMatch[1].toLowerCase();
+  if (dkimMatch) result.dkim = (dkimMatch[1] ?? "").toLowerCase();
   const dkimDomainMatch = header.match(/dkim=\w+[^;]*header\.[dis]=@?(\S+)/i);
-  if (dkimDomainMatch) result.dkimDomain = dkimDomainMatch[1].replace(/[;)]/g, "");
+  if (dkimDomainMatch) result.dkimDomain = (dkimDomainMatch[1] ?? "").replace(/[;)]/g, "");
 
   // DMARC
   const dmarcMatch = header.match(/dmarc=(\w+)/i);
-  if (dmarcMatch) result.dmarc = dmarcMatch[1].toLowerCase();
+  if (dmarcMatch) result.dmarc = (dmarcMatch[1] ?? "").toLowerCase();
   const dispMatch = header.match(/dmarc=\w+[^;]*dis=(\w+)/i) ||
                     header.match(/dmarc=\w+[^;]*\(.*?dis[=:](\w+)/i);
-  if (dispMatch) result.dmarcDisposition = dispMatch[1].toLowerCase();
+  if (dispMatch) result.dmarcDisposition = (dispMatch[1] ?? "").toLowerCase();
 
   return result;
 }
@@ -387,7 +389,7 @@ export function extractDomain(emailOrUrl: string): string {
     const url = emailOrUrl.startsWith("http") ? emailOrUrl : `https://${emailOrUrl}`;
     return new URL(url).hostname.toLowerCase();
   } catch {
-    return emailOrUrl.toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+    return emailOrUrl.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] ?? "";
   }
 }
 
@@ -410,16 +412,16 @@ function extractAttachmentInfo(raw: ArrayBuffer): Array<{ filename: string; sha2
   const boundaryMatch = text.match(/boundary="?([^"\r\n]+)"?/i);
   if (!boundaryMatch) return [];
 
-  const parts = text.split(`--${boundaryMatch[1]}`);
+  const parts = text.split(`--${boundaryMatch[1] ?? ""}`);
   for (const part of parts) {
     const fnMatch = part.match(/filename="?([^"\r\n]+)"?/i);
     const ctMatch = part.match(/Content-Type:\s*([^\r\n;]+)/i);
     if (fnMatch && ctMatch) {
-      const contentType = ctMatch[1].trim();
+      const contentType = (ctMatch[1] ?? "").trim();
       if (contentType.startsWith("text/")) continue;
 
       attachments.push({
-        filename: fnMatch[1].trim(),
+        filename: (fnMatch[1] ?? "").trim(),
         sha256: "",
         size: part.length,
         contentType,

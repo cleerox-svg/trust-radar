@@ -6,7 +6,7 @@
  */
 
 export function serveHoneypotPage(page: string): Response {
-  const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
 
   const pages: Record<string, { title: string; content: string; email: string }> = {
     contact: {
@@ -31,7 +31,11 @@ export function serveHoneypotPage(page: string): Response {
     },
   };
 
-  const p = pages[page] || pages.contact;
+  const p = pages[page] ?? pages["contact"] ?? {
+    title: "Contact Us \u2014 LRX Radar",
+    email: `honey-contact-${date}@lrxradar.com`,
+    content: "For general inquiries, reach out to our team.",
+  };
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -39,7 +43,7 @@ export function serveHoneypotPage(page: string): Response {
 <style>body{font-family:system-ui;max-width:600px;margin:60px auto;color:#333;padding:0 20px}
 h1{font-size:24px}a{color:#0066cc}.footer{margin-top:40px;padding-top:20px;border-top:1px solid #eee;font-size:13px;color:#999}</style></head>
 <body>
-<h1>${p.title.split("\u2014")[0].trim()}</h1>
+<h1>${(p.title.split("\u2014")[0] ?? p.title).trim()}</h1>
 <p>${p.content}</p>
 <p>Email: <a href="mailto:${p.email}">${p.email}</a></p>
 <div class="footer">

@@ -2,7 +2,6 @@ import { corsHeaders } from "../lib/cors";
 import type { Env } from "../types";
 
 function csvResponse(csv: string, filename: string, origin: string | null): Response {
-  const allowed = origin ?? "https://trustradar.ca";
   return new Response(csv, {
     status: 200,
     headers: {

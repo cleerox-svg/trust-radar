@@ -7,7 +7,7 @@
  */
 
 export function generateSpiderTraps(domain: string = "lrxradar.com"): string {
-  const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
   const traps = [
     `spider-pub-footer-${date}`,
     `spider-pub-meta-${date}`,
@@ -18,9 +18,9 @@ export function generateSpiderTraps(domain: string = "lrxradar.com"): string {
   return `
     <!-- Trust Radar monitoring -->
     <div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
-      <a href="mailto:${traps[0]}@${domain}">contact us</a>
-      <a href="mailto:${traps[1]}@${domain}">support</a>
+      <a href="mailto:${traps[0] ?? ""}@${domain}">contact us</a>
+      <a href="mailto:${traps[1] ?? ""}@${domain}">support</a>
     </div>
-    <meta name="reply-to" content="${traps[2]}@${domain}">
+    <meta name="reply-to" content="${traps[2] ?? ""}@${domain}">
   `.trim();
 }
