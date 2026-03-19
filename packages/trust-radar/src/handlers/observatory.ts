@@ -62,6 +62,14 @@ function periodToInterval(period: string): string {
   return "-7 days"; // default 7d
 }
 
+function buildSourceFilter(sourceFeed: string | null, alias?: string): string {
+  if (!sourceFeed) return "";
+  const col = alias ? `${alias}.source_feed` : "source_feed";
+  if (sourceFeed === "feeds") return ` AND ${col} != 'spam_trap'`;
+  if (sourceFeed === "spam_trap") return ` AND ${col} = 'spam_trap'`;
+  return ` AND ${col} = '${sourceFeed.replace(/'/g, "")}'`;
+}
+
 // ── GET /api/observatory/nodes ─────────────────────────────────────────────────
 // Returns threat hotspot clusters for ScatterplotLayer
 export async function handleObservatoryNodes(request: Request, env: Env): Promise<Response> {
@@ -69,8 +77,7 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
-  const sourceFeed = url.searchParams.get("source_feed");
-  const sourceFilter = sourceFeed ? ` AND source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
+  const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
     const rows = await env.DB.prepare(`
@@ -112,8 +119,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const period = url.searchParams.get("period") ?? "7d";
   const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
   const interval = periodToInterval(period);
-  const sourceFeed = url.searchParams.get("source_feed");
-  const sourceFilter = sourceFeed ? ` AND t.source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
+  const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
     const rows = await env.DB.prepare(`
@@ -171,8 +177,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 export async function handleObservatoryLive(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
-  const sourceFeed = url.searchParams.get("source_feed");
-  const sourceFilter = sourceFeed ? ` AND t.source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
+  const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
     const rows = await env.DB.prepare(`
@@ -279,8 +284,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
-  const sourceFeed = url.searchParams.get("source_feed");
-  const sf = sourceFeed ? ` AND source_feed = '${sourceFeed.replace(/'/g, "")}'` : "";
+  const sf = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
     const [threats, countries, campaigns, brands] = await Promise.all([

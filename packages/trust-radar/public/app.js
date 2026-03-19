@@ -6089,7 +6089,6 @@ async function loadSpamTrapIntel(brandId) {
 // ─── Admin Spam Trap Tab ─────────────────────────────────────
 async function viewAdminSpamTrap(el) {
   el.innerHTML = `
-    ${renderAdminTopbar('/admin/spam-trap')}
     <div class="admin-content" style="max-width:1200px;margin:0 auto;padding:20px">
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Spam Trap Command Center</div>
     <div class="adm-metrics" id="st-metrics"></div>
