@@ -192,6 +192,13 @@ export function parseTrapAddress(address: string): TrapInfo {
     return { domain, channel: "employee", campaignId: null, brandTarget: null };
   }
 
+  // Seed traps: info-cp01@trustradar.ca, admin-wh01@trustradar.ca, etc.
+  const seedMatch = local.match(/^[\w]+-([a-z]{2})\d+$/);
+  if (seedMatch) {
+    const channelMap: Record<string, string> = { cp: "contact_page", wh: "whois", fp: "forum", ps: "paste", bd: "directory", hp: "honeypot", gp: "github" };
+    return { domain, channel: channelMap[seedMatch[1]!] || "seed", campaignId: null, brandTarget: null };
+  }
+
   // Generic traps: admin@, info@, support@, etc.
   return { domain, channel: "generic", campaignId: null, brandTarget: null };
 }
