@@ -1380,11 +1380,12 @@ export default {
         return Response.redirect(`https://${canonical}${url.pathname}${url.search}`, 301);
       }
 
-      // Honeypot pages only serve from lrxradar.com
-      if (url.hostname === "lrxradar.com" || url.hostname === "www.lrxradar.com") {
+      // Honeypot pages serve from lrxradar.com and trustradar.ca
+      if (["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
         const honeypotPages = ["/contact", "/team", "/careers", "/about"];
         if (honeypotPages.includes(url.pathname)) {
-          return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1)));
+          const serveDomain = url.hostname.replace(/^www\./, "");
+          return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1), serveDomain));
         }
       }
 
