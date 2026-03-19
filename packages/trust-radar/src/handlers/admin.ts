@@ -5,7 +5,7 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
-import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo } from "../lib/geoip";
+import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo, PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
@@ -333,7 +333,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
   try {
     // Count total pending before starting
     const totalRow = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM threats WHERE ip_address IS NOT NULL AND country_code IS NULL"
+      `SELECT COUNT(*) AS n FROM threats WHERE ip_address IS NOT NULL AND country_code IS NULL ${PRIVATE_IP_SQL_FILTER}`
     ).first<{ n: number }>();
     const totalPending = totalRow?.n ?? 0;
 
