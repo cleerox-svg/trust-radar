@@ -128,7 +128,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
      WHERE ip_address IS NOT NULL
        AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)
      ORDER BY CASE WHEN target_brand_id IS NOT NULL THEN 0 ELSE 1 END, created_at DESC
-     LIMIT 5`,
+     LIMIT 25`,
   ).all<{ id: string; ip_address: string; target_brand_id: string | null }>();
 
   const needsGeo = needsGeoRows.results;
