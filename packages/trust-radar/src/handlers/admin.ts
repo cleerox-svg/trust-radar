@@ -395,6 +395,99 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
   }
 }
 
+// POST /api/admin/backfill-brand-match
+export async function handleBackfillBrandMatch(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    // Load monitored brands
+    const brandRows = await env.DB.prepare(
+      "SELECT id, name, canonical_domain FROM brands",
+    ).all<{ id: string; name: string; canonical_domain: string }>();
+
+    const brands = brandRows.results;
+    if (brands.length === 0) {
+      return json({ success: true, data: { matched: 0, pending: 0, message: "No brands in database" } }, 200, origin);
+    }
+
+    // Count total pending
+    const pendingRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR ioc_value IS NOT NULL)",
+    ).first<{ n: number }>();
+    const totalPending = pendingRow?.n ?? 0;
+
+    if (totalPending === 0) {
+      return json({ success: true, data: { matched: 0, pending: 0 } }, 200, origin);
+    }
+
+    // Fetch 500 unlinked threats, newest first
+    const rows = await env.DB.prepare(
+      `SELECT id, malicious_domain, ioc_value FROM threats
+       WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR ioc_value IS NOT NULL)
+       ORDER BY created_at DESC
+       LIMIT 500`,
+    ).all<{ id: string; malicious_domain: string | null; ioc_value: string | null }>();
+
+    let matched = 0;
+
+    for (const row of rows.results) {
+      const haystack = (row.malicious_domain ?? row.ioc_value ?? "").toLowerCase();
+      if (!haystack) continue;
+
+      const strippedHaystack = haystack.replace(/^www\./, "");
+      let brandId: string | null = null;
+
+      // Strategy 1: exact canonical domain match
+      for (const brand of brands) {
+        if (strippedHaystack === brand.canonical_domain.toLowerCase()) {
+          brandId = brand.id;
+          break;
+        }
+      }
+
+      // Strategy 2: brand name substring match (min 3 chars)
+      if (!brandId) {
+        for (const brand of brands) {
+          const brandLower = brand.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (brandLower.length >= 3 && haystack.includes(brandLower)) {
+            brandId = brand.id;
+            break;
+          }
+        }
+      }
+
+      if (!brandId) continue;
+
+      try {
+        await env.DB.prepare(
+          "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL",
+        ).bind(brandId, row.id).run();
+
+        await env.DB.prepare(
+          `UPDATE brands SET
+             threat_count = threat_count + 1,
+             last_threat_seen = datetime('now')
+           WHERE id = ?`,
+        ).bind(brandId).run();
+
+        matched++;
+      } catch (err) {
+        console.error(`[backfill-brand-match] update failed for ${row.id}:`, err);
+      }
+    }
+
+    const pending = Math.max(0, totalPending - rows.results.length);
+    console.log(`[backfill-brand-match] Done: ${matched} matched out of ${rows.results.length} checked, ${pending} remaining`);
+
+    return json({
+      success: true,
+      data: { matched, checked: rows.results.length, pending },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // POST /api/admin/backfill-safe-domains
 export async function handleBackfillSafeDomains(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
