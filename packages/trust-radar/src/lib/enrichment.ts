@@ -133,13 +133,13 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
 
   const needsGeo = needsGeoRows.results;
   const brandedCount = needsGeo.filter(r => r.target_brand_id).length;
-  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats (${brandedCount} branded + ${needsGeo.length - brandedCount} unbranded)`);
+  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats selected (${brandedCount} branded + ${needsGeo.length - brandedCount} unbranded), token present: ${!!env.IPINFO_TOKEN}`);
 
   if (needsGeo.length > 0) {
     const ips = needsGeo.map((r) => r.ip_address);
 
     try {
-      const { results: geoMap } = await batchGeoLookup(ips, env.CACHE);
+      const { results: geoMap } = await batchGeoLookup(ips, env.CACHE, env.IPINFO_TOKEN);
       console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {

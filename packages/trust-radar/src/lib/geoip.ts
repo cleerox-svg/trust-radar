@@ -76,15 +76,19 @@ async function incrementGeoUsage(kv: KVNamespace, count: number): Promise<number
 
 // ─── Single IP Lookup ───────────────────────────────────────────────
 
+let _rawLogCount = 0;
+
 interface LookupResult {
   geo: GeoIPResult | null;
   rateLimited: boolean;
 }
 
-async function lookupSingleIP(ip: string): Promise<LookupResult> {
+async function lookupSingleIP(ip: string, token?: string): Promise<LookupResult> {
   try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetch(`https://ipinfo.io/${ip}/json`, {
-      headers: { Accept: "application/json" },
+      headers,
       signal: AbortSignal.timeout(5000),
     });
 
@@ -100,6 +104,11 @@ async function lookupSingleIP(ip: string): Promise<LookupResult> {
     }
 
     const bodyText = await res.text();
+    // Log raw response for first 3 IPs to diagnose API issues
+    if (_rawLogCount < 3) {
+      console.log(`[geoip] RAW response for ${ip}: ${bodyText.slice(0, 500)}`);
+      _rawLogCount++;
+    }
     const data = JSON.parse(bodyText) as IpinfoResponse;
     console.log(`[geoip] lookup ${ip}: HTTP ${res.status} loc=${data.loc ?? 'MISSING'} country=${data.country ?? 'MISSING'} org=${(data.org ?? 'MISSING').slice(0, 60)} bogon=${data.bogon ?? false}`);
     if (data.bogon) {
@@ -161,6 +170,7 @@ function parseIpinfoResponse(ip: string, data: IpinfoResponse): GeoIPResult | nu
 export async function batchGeoLookup(
   ips: string[],
   kv?: KVNamespace,
+  token?: string,
 ): Promise<{ results: Map<string, GeoIPResult>; attempted: Set<string> }> {
   const results = new Map<string, GeoIPResult>();
   const attempted = new Set<string>();
@@ -189,9 +199,10 @@ export async function batchGeoLookup(
     console.log(`[geoip] Monthly usage: ${usage}/${GEO_MONTHLY_LIMIT} (${remaining} remaining)`);
   }
 
-  // Cap to 5 per cycle
-  const batch = publicIps.slice(0, 5);
-  console.log(`[geoip] Looking up ${batch.length} IPs via ipinfo.io (${publicIps.length} eligible, capped at 5)`);
+  // Cap per cycle: 5 without token, 50 with token
+  const capPerCycle = token ? 50 : 5;
+  const batch = publicIps.slice(0, capPerCycle);
+  console.log(`[geoip] Looking up ${batch.length} IPs via ipinfo.io (${publicIps.length} eligible, capped at ${capPerCycle}, token=${!!token})`);
 
   let successCount = 0;
 
@@ -199,7 +210,7 @@ export async function batchGeoLookup(
   for (let i = 0; i < batch.length; i++) {
     const ip = batch[i]!;
     attempted.add(ip);
-    const { geo, rateLimited } = await lookupSingleIP(ip);
+    const { geo, rateLimited } = await lookupSingleIP(ip, token);
 
     if (rateLimited) {
       console.warn(`[geoip] HTTP 429 — stopping batch (${i} of ${batch.length} completed)`);
@@ -245,20 +256,23 @@ export interface GeoEnrichResult {
   errors: string[];
 }
 
-export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promise<GeoEnrichResult> {
+export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?: string): Promise<GeoEnrichResult> {
   const result: GeoEnrichResult = { enriched: 0, total: 0, skippedPrivate: 0, skippedNoResult: 0, errors: [] };
+
+  console.log(`[geo] token present: ${!!token}`);
 
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL
        AND country_code IS NULL
-     LIMIT 10`
+     ORDER BY created_at DESC
+     LIMIT 100`
   ).all<{ id: string; ip_address: string }>();
 
   result.total = rows.results.length;
   if (result.total === 0) return result;
 
-  console.log(`[geo] enrichThreatsGeo: ${result.total} threats selected`);
+  console.log(`[geo] enrichThreatsGeo: ${result.total} threats selected for geo enrichment`);
 
   // Pre-filter: mark private/bogon IPs as 'PRIV' so they exit the queue
   const publicRows: typeof rows.results = [];
@@ -284,7 +298,8 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace): Promis
   }
 
   const ips = publicRows.map((r) => r.ip_address);
-  const { results: geoMap, attempted } = await batchGeoLookup(ips, kv);
+  console.log(`[geo] Submitting ${ips.length} public IPs to batchGeoLookup`);
+  const { results: geoMap, attempted } = await batchGeoLookup(ips, kv, token);
 
   console.log(`[geo] batchGeoLookup returned: ${geoMap.size} results, ${attempted.size} attempted out of ${ips.length} submitted`);
 
