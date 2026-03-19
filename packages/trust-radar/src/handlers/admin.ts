@@ -6,6 +6,7 @@ import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
 import { batchGeoLookup, normalizeProvider, upsertHostingProvider } from "../lib/geoip";
+import { fuzzyMatchBrand } from "../lib/brandDetect";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -412,7 +413,7 @@ export async function handleBackfillBrandMatch(request: Request, env: Env): Prom
 
     // Count total pending
     const pendingRow = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR ioc_value IS NOT NULL)",
+      "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)",
     ).first<{ n: number }>();
     const totalPending = pendingRow?.n ?? 0;
 
@@ -422,40 +423,22 @@ export async function handleBackfillBrandMatch(request: Request, env: Env): Prom
 
     // Fetch 500 unlinked threats, newest first
     const rows = await env.DB.prepare(
-      `SELECT id, malicious_domain, ioc_value FROM threats
-       WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR ioc_value IS NOT NULL)
+      `SELECT id, malicious_domain, malicious_url, ioc_value FROM threats
+       WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)
        ORDER BY created_at DESC
        LIMIT 500`,
-    ).all<{ id: string; malicious_domain: string | null; ioc_value: string | null }>();
+    ).all<{ id: string; malicious_domain: string | null; malicious_url: string | null; ioc_value: string | null }>();
 
     let matched = 0;
 
     for (const row of rows.results) {
-      const haystack = (row.malicious_domain ?? row.ioc_value ?? "").toLowerCase();
-      if (!haystack) continue;
+      // Build haystacks from all available fields
+      const haystacks = [row.malicious_domain, row.malicious_url, row.ioc_value].filter(
+        (v): v is string => v != null && v.length > 0,
+      );
+      if (haystacks.length === 0) continue;
 
-      const strippedHaystack = haystack.replace(/^www\./, "");
-      let brandId: string | null = null;
-
-      // Strategy 1: exact canonical domain match
-      for (const brand of brands) {
-        if (strippedHaystack === brand.canonical_domain.toLowerCase()) {
-          brandId = brand.id;
-          break;
-        }
-      }
-
-      // Strategy 2: brand name substring match (min 3 chars)
-      if (!brandId) {
-        for (const brand of brands) {
-          const brandLower = brand.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (brandLower.length >= 3 && haystack.includes(brandLower)) {
-            brandId = brand.id;
-            break;
-          }
-        }
-      }
-
+      const brandId = fuzzyMatchBrand(haystacks, brands);
       if (!brandId) continue;
 
       try {
