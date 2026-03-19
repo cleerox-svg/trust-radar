@@ -4990,6 +4990,8 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-agents"><div class="adm-action-icon">\u25c8</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
       <div class="adm-action-btn adm-dash-trigger" id="adm-dash-tranco"><div class="adm-action-icon">\u2b06</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import from Tranco top 1M</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich up to 500 IPs per click</div></div>
+      <div class="adm-action-btn adm-dash-trigger" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 500 unlinked threats</div></div>
       <div class="adm-action-btn" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u229e</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F441}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
@@ -5270,6 +5272,60 @@ async function viewAdmin(el) {
         if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
       }
       setTimeout(() => { trancoBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 8000);
+    });
+  }
+
+  // Backfill Geo button with result message
+  const geoBtn = document.getElementById('adm-dash-geo');
+  if (geoBtn) {
+    geoBtn.addEventListener('click', async () => {
+      if (geoBtn.classList.contains('dash-pending')) return;
+      const icon = geoBtn.querySelector('.adm-action-icon');
+      const desc = geoBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      geoBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      try {
+        const res = await api('/admin/backfill-geo', { method: 'POST' });
+        geoBtn.classList.remove('dash-pending');
+        geoBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `${res.data?.enriched ?? 0} enriched \u00b7 ${res.data?.remaining ?? 0} remaining`;
+      } catch (err) {
+        geoBtn.classList.remove('dash-pending');
+        geoBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+      }
+      setTimeout(() => { geoBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
+    });
+  }
+
+  // Match Brands button with result message
+  const brandBtn = document.getElementById('adm-dash-brand-match');
+  if (brandBtn) {
+    brandBtn.addEventListener('click', async () => {
+      if (brandBtn.classList.contains('dash-pending')) return;
+      const icon = brandBtn.querySelector('.adm-action-icon');
+      const desc = brandBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      brandBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      try {
+        const res = await api('/admin/backfill-brand-match', { method: 'POST' });
+        brandBtn.classList.remove('dash-pending');
+        brandBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `${res.data?.matched ?? 0} matched \u00b7 ${res.data?.pending ?? 0} pending`;
+      } catch (err) {
+        brandBtn.classList.remove('dash-pending');
+        brandBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+      }
+      setTimeout(() => { brandBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
     });
   }
 
