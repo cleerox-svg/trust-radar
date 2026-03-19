@@ -1004,11 +1004,11 @@ async function viewPublicSite(el, params) {
       </div>
       <div class="pub-footer-cta">
         <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Get Your Free Assessment</a>
-        <a href="mailto:hello@lrxradar.com" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
+        <a href="mailto:hello@trustradar.ca" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
       </div>
       <div class="pub-footer-legal">
         <div>\u00A9 2026 LRX Enterprises Inc. \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>
-        <div>lrxradar.com</div>
+        <div>trustradar.ca</div>
         <div class="pub-footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></div>
       </div>
     </footer>

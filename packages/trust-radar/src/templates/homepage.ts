@@ -1,4 +1,7 @@
+import { generateSpiderTraps } from "../seeders/spider-injector";
+
 export function renderHomepage(): string {
+  const spiderTraps = generateSpiderTraps("trustradar.ca");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,7 +165,7 @@ export function renderHomepage(): string {
 
 <footer class="pub-footer">
   <div class="footer-logo">TRUST <span>RADAR</span></div>
-  <div class="footer-text">AI-powered threat intelligence by LRX &middot; lrxradar.com</div>
+  <div class="footer-text">AI-powered threat intelligence by LRX &middot; trustradar.ca</div>
 </footer>
 
 <script>
@@ -304,11 +307,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e){
 // Allow Enter key on domain input
 document.getElementById('domainInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();document.getElementById('scanForm').dispatchEvent(new Event('submit'));}});
 </script>
-<!-- Trust Radar monitoring -->
-<div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
-  <a href="mailto:spider-pub-footer@trustradar.ca">contact us</a>
-  <a href="mailto:spider-pub-meta@trustradar.ca">support</a>
-</div>
+${spiderTraps}
 </body>
 </html>`;
 }

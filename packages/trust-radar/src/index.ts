@@ -1365,14 +1365,14 @@ export default {
     try {
       // Honeypot pages only serve from lrxradar.com
       const url = new URL(request.url);
-      if (url.hostname === "lrxradar.com") {
+      if (url.hostname === "lrxradar.com" || url.hostname === "www.lrxradar.com") {
         const honeypotPages = ["/contact", "/team", "/careers", "/about"];
         if (honeypotPages.includes(url.pathname)) {
           return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1)));
         }
         // Default: redirect to trustradar.ca
         if (!url.pathname.startsWith("/api/") && url.pathname !== "/health") {
-          return Response.redirect("https://trustradar.ca", 301);
+          return Response.redirect(`https://trustradar.ca${url.pathname}${url.search}`, 301);
         }
       }
 
