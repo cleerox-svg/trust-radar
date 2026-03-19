@@ -256,6 +256,20 @@ export interface GeoEnrichResult {
   errors: string[];
 }
 
+/** SQL WHERE clauses to exclude private/bogon IP ranges at the query level. */
+export const PRIVATE_IP_SQL_FILTER = `
+  AND ip_address NOT LIKE '10.%'
+  AND ip_address NOT LIKE '192.168.%'
+  AND ip_address NOT LIKE '172.16.%'
+  AND ip_address NOT LIKE '172.17.%'
+  AND ip_address NOT LIKE '172.18.%'
+  AND ip_address NOT LIKE '172.19.%'
+  AND ip_address NOT LIKE '172.2_.%'
+  AND ip_address NOT LIKE '172.3_.%'
+  AND ip_address NOT LIKE '127.%'
+  AND ip_address NOT LIKE '0.%'
+  AND ip_address NOT LIKE '100.64.%'`;
+
 export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?: string): Promise<GeoEnrichResult> {
   const result: GeoEnrichResult = { enriched: 0, total: 0, skippedPrivate: 0, skippedNoResult: 0, errors: [] };
 
@@ -265,6 +279,7 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL
        AND country_code IS NULL
+       ${PRIVATE_IP_SQL_FILTER}
      ORDER BY created_at DESC
      LIMIT 100`
   ).all<{ id: string; ip_address: string }>();

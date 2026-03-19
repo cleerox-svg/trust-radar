@@ -14,7 +14,7 @@
 
 import type { Env } from "../types";
 import { batchResolve } from "./dns";
-import { batchGeoLookup, normalizeProvider, upsertHostingProvider, isPrivateIP, getGeoUsage } from "./geoip";
+import { batchGeoLookup, normalizeProvider, upsertHostingProvider, isPrivateIP, getGeoUsage, PRIVATE_IP_SQL_FILTER } from "./geoip";
 import { batchRDAPLookup } from "./whois";
 import { enrichBrands } from "./brandDetect";
 
@@ -127,6 +127,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     `SELECT id, ip_address, target_brand_id FROM threats
      WHERE ip_address IS NOT NULL
        AND (country_code IS NULL OR asn IS NULL OR hosting_provider_id IS NULL OR lat IS NULL)
+       ${PRIVATE_IP_SQL_FILTER}
      ORDER BY CASE WHEN target_brand_id IS NOT NULL THEN 0 ELSE 1 END, created_at DESC
      LIMIT 100`,
   ).all<{ id: string; ip_address: string; target_brand_id: string | null }>();
