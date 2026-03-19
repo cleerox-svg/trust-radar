@@ -1405,9 +1405,9 @@ async function viewObservatory(el) {
       <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#00d4ff"></span>Low</button>
     </div>
     <div class="obs-source-filter" id="obs-source-filter" style="position:absolute;bottom:56px;left:12px;display:flex;gap:4px;z-index:10">
-      <button class="obs-sev-btn active" data-source="all">All Sources</button>
-      <button class="obs-sev-btn" data-source="feeds">Feeds</button>
-      <button class="obs-sev-btn" data-source="spam_trap" style="color:#F59E0B">Spam Trap</button>
+      <button class="obs-sev-btn active" data-source="all"><span class="obs-src-dot" style="background:var(--text-secondary)"></span><span class="obs-src-text">All Sources</span></button>
+      <button class="obs-sev-btn" data-source="feeds"><span class="obs-src-dot" style="background:var(--blue-primary)"></span><span class="obs-src-text">Feeds</span></button>
+      <button class="obs-sev-btn" data-source="spam_trap" style="color:#F59E0B"><span class="obs-src-dot" style="background:#F59E0B"></span><span class="obs-src-text">Spam Trap</span></button>
     </div>
     <div class="obs-layer-toggle" id="obs-layer-toggle">
       <button class="obs-lt-btn active" data-layer="beams">Beams</button>
@@ -1441,7 +1441,7 @@ async function viewObservatory(el) {
   let radarFrame = null;
   let deckgl = null;
   const _isMobile = window.innerWidth < 768;
-  let currentViewState = { longitude: 10, latitude: 20, zoom: _isMobile ? 0.8 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
+  let currentViewState = { longitude: _isMobile ? -20 : 10, latitude: _isMobile ? 40 : 25, zoom: _isMobile ? 1.2 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
