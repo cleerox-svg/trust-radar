@@ -27,7 +27,7 @@ export function applySecurityHeaders(response: Response): Response {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com https://cdn.jsdelivr.net https://unpkg.com",
     "font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com",
     "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://www.google.com https://*.google.com https://t3.gstatic.com https://*.gstatic.com",
-    "connect-src 'self' wss: https://lrxradar.com https://api.lrxradar.com https://accounts.google.com https://oauth2.googleapis.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com https://cloudflareinsights.com",
+    "connect-src 'self' wss: https://trustradar.ca https://lrxradar.com https://accounts.google.com https://oauth2.googleapis.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com https://cloudflareinsights.com",
     "worker-src 'self' blob:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
