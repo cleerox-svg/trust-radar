@@ -4889,6 +4889,7 @@ function agentIcon(agentId, size = 24) {
     cartographer: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="14" stroke="currentColor" stroke-width="1.5"/><ellipse cx="18" cy="18" rx="7" ry="14" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="18" x2="32" y2="18" stroke="currentColor" stroke-width="1.2"/><path d="M6 11H30M6 25H30" stroke="currentColor" stroke-width="0.8" opacity="0.5"/></svg>`,
     strategist: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1"/><line x1="25" y1="11" x2="21" y2="15" stroke="currentColor" stroke-width="1"/><line x1="11" y1="25" x2="15" y2="21" stroke="currentColor" stroke-width="1"/><line x1="25" y1="25" x2="21" y2="21" stroke="currentColor" stroke-width="1"/><line x1="11" y1="10" x2="25" y2="10" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/><line x1="8" y1="13" x2="8" y2="23" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/></svg>`,
     observer: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><polyline points="2,18 6,18 8,10 10,26 12,14 14,22 16,18 18,8 20,28 22,16 24,20 26,18 30,18 34,18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+    prospector: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="1.5"/><line x1="23" y1="23" x2="32" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="16" y1="6" x2="16" y2="10" stroke="currentColor" stroke-width="1" opacity="0.4"/><line x1="16" y1="22" x2="16" y2="26" stroke="currentColor" stroke-width="1" opacity="0.4"/></svg>`,
   };
   return icons[agentId] || icons.sentinel;
 }
@@ -4900,6 +4901,7 @@ const AGENT_META = {
   cartographer: { iconClass: 'cartographer', color: '#f59e0b', role: 'Infrastructure Mapping & Provider Scoring' },
   strategist: { iconClass: 'strategist', color: '#f87171', role: 'Campaign Correlation & Clustering' },
   observer: { iconClass: 'observer', color: '#a78bfa', role: 'Trend Analysis & Intelligence Synthesis' },
+  prospector: { iconClass: 'prospector', color: '#F59E0B', role: 'Sales Intelligence & Lead Generation' },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -5351,6 +5353,7 @@ async function viewAdmin(el) {
       cartographer: { val: backlogs.cartographer ?? 0, label: 'pending geo' },
       strategist: { val: backlogs.strategist ?? 0, label: 'unlinked' },
       observer: { val: null, label: backlogs.observer_last_run ? (() => { const m = Math.round((Date.now() - new Date(backlogs.observer_last_run + 'Z').getTime()) / 60000); return m < 60 ? `Last briefing: ${m}m ago` : `Last briefing: ${Math.round(m/60)}h ago`; })() : 'No briefings yet' },
+      prospector: { val: null, label: backlogs.prospector_leads ?? 'Weekly sales intelligence' },
     };
     document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
       const aid = a.agent_id || a.name;

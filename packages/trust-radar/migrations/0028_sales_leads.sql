@@ -57,10 +57,10 @@ CREATE TABLE IF NOT EXISTS sales_leads (
   FOREIGN KEY (brand_id) REFERENCES brands(id)
 );
 
-CREATE INDEX idx_leads_status ON sales_leads(status);
-CREATE INDEX idx_leads_score ON sales_leads(prospect_score);
-CREATE INDEX idx_leads_brand ON sales_leads(brand_id);
-CREATE INDEX idx_leads_created ON sales_leads(created_at);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_status ON sales_leads(status);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_score ON sales_leads(prospect_score);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_brand ON sales_leads(brand_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_created ON sales_leads(created_at);
 
 CREATE TABLE IF NOT EXISTS lead_activity_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,4 +72,4 @@ CREATE TABLE IF NOT EXISTS lead_activity_log (
   FOREIGN KEY (lead_id) REFERENCES sales_leads(id)
 );
 
-CREATE INDEX idx_lead_activity_lead ON lead_activity_log(lead_id);
+CREATE INDEX IF NOT EXISTS idx_lead_activity_lead ON lead_activity_log(lead_id);
