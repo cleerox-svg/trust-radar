@@ -632,6 +632,11 @@ export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
     usage.agent_calls += 1;
     await env.CACHE.put(`haiku_usage_${today}`, JSON.stringify(usage), { expirationTtl: 86400 * 31 });
 
+    // Track attribution-specific calls separately (used by cron Step 4 guard)
+    const attrKey = `ai_attr_calls_${today}`;
+    const prevAttrCalls = parseInt(await env.CACHE.get(attrKey) || '0', 10);
+    await env.CACHE.put(attrKey, String(prevAttrCalls + 1), { expirationTtl: 86400 * 2 });
+
     const textBlock = apiRes.content?.find(b => b.type === 'text');
     if (!textBlock) return result;
 
