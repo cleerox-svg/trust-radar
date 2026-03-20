@@ -2887,6 +2887,7 @@ async function viewBrandsHub(el) {
     if (!tab || !tab.dataset.tab) return;
     document.querySelectorAll('#brands-tabs .sub-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
+    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     _brandsSubTab = tab.dataset.tab;
     document.getElementById('brands-content').innerHTML = 'Loading...';
     if (_brandsSubTab === 'top-targeted') await loadTopTargeted(_brandsPeriod);
@@ -3949,6 +3950,7 @@ async function viewProvidersHub(el) {
     if (!tab || !tab.dataset.tab) return;
     document.querySelectorAll('#prov-tabs .sub-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
+    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     _provSubTab = tab.dataset.tab;
     document.getElementById('prov-content').innerHTML = 'Loading...';
     if (_provSubTab === 'worst') await loadWorst(_provPeriod);
@@ -4279,6 +4281,7 @@ async function viewCampaignsHub(el) {
     if (!tab || !tab.dataset.tab) return;
     document.querySelectorAll('#camp-tabs .sub-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
+    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     document.getElementById('camp-content').innerHTML = 'Loading...';
     await loadCampaigns(tab.dataset.tab);
   });
