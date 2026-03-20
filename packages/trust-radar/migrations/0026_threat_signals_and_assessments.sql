@@ -18,12 +18,12 @@ CREATE TABLE IF NOT EXISTS threat_signals (
   FOREIGN KEY (threat_match_id) REFERENCES threats(id)
 );
 
-CREATE INDEX idx_signals_source ON threat_signals(source);
-CREATE INDEX idx_signals_indicator ON threat_signals(indicator);
-CREATE INDEX idx_signals_brand ON threat_signals(brand_match_id);
-CREATE INDEX idx_signals_type ON threat_signals(signal_type);
-CREATE INDEX idx_signals_severity ON threat_signals(severity);
-CREATE INDEX idx_signals_processed ON threat_signals(is_processed);
+CREATE INDEX IF NOT EXISTS idx_signals_source ON threat_signals(source);
+CREATE INDEX IF NOT EXISTS idx_signals_indicator ON threat_signals(indicator);
+CREATE INDEX IF NOT EXISTS idx_signals_brand ON threat_signals(brand_match_id);
+CREATE INDEX IF NOT EXISTS idx_signals_type ON threat_signals(signal_type);
+CREATE INDEX IF NOT EXISTS idx_signals_severity ON threat_signals(severity);
+CREATE INDEX IF NOT EXISTS idx_signals_processed ON threat_signals(is_processed);
 
 -- Phase 3: brand_threat_assessments table for correlation snapshots
 CREATE TABLE IF NOT EXISTS brand_threat_assessments (
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS brand_threat_assessments (
   FOREIGN KEY (brand_id) REFERENCES brands(id)
 );
 
-CREATE INDEX idx_assessments_brand ON brand_threat_assessments(brand_id);
-CREATE INDEX idx_assessments_risk ON brand_threat_assessments(risk_level);
-CREATE INDEX idx_assessments_date ON brand_threat_assessments(assessed_at);
-CREATE INDEX idx_assessments_score ON brand_threat_assessments(composite_risk_score);
+CREATE INDEX IF NOT EXISTS idx_assessments_brand ON brand_threat_assessments(brand_id);
+CREATE INDEX IF NOT EXISTS idx_assessments_risk ON brand_threat_assessments(risk_level);
+CREATE INDEX IF NOT EXISTS idx_assessments_date ON brand_threat_assessments(assessed_at);
+CREATE INDEX IF NOT EXISTS idx_assessments_score ON brand_threat_assessments(composite_risk_score);
