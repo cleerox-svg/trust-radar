@@ -119,7 +119,7 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
       "SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND campaign_id IS NULL AND threat_type IN ('phishing','typosquatting')",
     ).first<{ n: number }>(),
     env.DB.prepare(
-      "SELECT MAX(completed_at) AS last_run FROM agent_jobs WHERE agent_id = 'observer' AND status = 'completed'",
+      "SELECT MAX(created_at) AS last_run FROM agent_outputs WHERE agent_id = 'observer' AND type != 'diagnostic'",
     ).first<{ last_run: string | null }>().catch(() => null),
   ]);
 

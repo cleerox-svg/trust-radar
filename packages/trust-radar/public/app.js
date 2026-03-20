@@ -57,18 +57,60 @@ async function api(path, options = {}) {
   return res.json();
 }
 
+let _refreshAttempts = 0;
+let _refreshInFlight = null;
+let _refreshInvalidLogged = false;
+
 async function refreshToken() {
-  try {
-    const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data.success && data.data?.token) {
-      setAccessToken(data.data.token);
-      currentUser = data.data.user;
-      return true;
-    }
+  // Prevent concurrent refresh calls — reuse in-flight promise
+  if (_refreshInFlight) return _refreshInFlight;
+
+  _refreshAttempts++;
+  if (_refreshAttempts > 2) {
+    console.warn('[auth] refresh failed 3+ times, clearing auth');
+    clearAuth();
     return false;
-  } catch { return false; }
+  }
+
+  _refreshInFlight = (async () => {
+    try {
+      const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+      if (!res.ok) {
+        // On 401 from refresh — clear token, don't retry
+        if (res.status === 401) {
+          if (!_refreshInvalidLogged) {
+            console.warn('[auth] refresh_invalid — session expired');
+            _refreshInvalidLogged = true;
+          }
+          clearAuth();
+          return false;
+        }
+        return false;
+      }
+      const data = await res.json();
+      if (data.success && data.data?.token) {
+        setAccessToken(data.data.token);
+        currentUser = data.data.user;
+        _refreshAttempts = 0; // Reset on success
+        _refreshInvalidLogged = false;
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      _refreshInFlight = null;
+    }
+  })();
+
+  return _refreshInFlight;
+}
+
+function clearAuth() {
+  accessToken = null;
+  currentUser = null;
+  localStorage.removeItem('imprsn8_token');
+  localStorage.removeItem('imprsn8_user');
 }
 
 // ─── Router ─────────────────────────────────────────────────────
@@ -5461,18 +5503,17 @@ async function viewAdmin(el) {
     });
   }
 
-  // Automation status strip
+  // Automation status strip — uses data already fetched above (stats, agents, emailStatsRes)
   try {
-    const [geoRemaining, brandPending, emailPending, attrRemaining] = await Promise.all([
-      api('/admin/stats').then(r => r.data?.threats_needing_geo ?? '-').catch(() => '-'),
-      env.DB ? '-' : api('/admin/stats').then(r => '-').catch(() => '-'),
-      api('/email-security/stats').then(r => {
-        const total = r.data?.total_brands ?? 0;
-        const scanned = r.data?.scanned_brands ?? total;
-        return total - scanned;
-      }).catch(() => '-'),
-      '-',
-    ]);
+    const geoRemaining = stats.agent_backlogs?.cartographer ?? '-';
+    const brandPending = stats.agent_backlogs?.strategist ?? '-';
+    const emailPending = emailStatsRes?.data?.total_unscanned ?? '-';
+    const lastCronOutput = agents.reduce((latest, a) => {
+      if (!a.last_output_at) return latest;
+      if (!latest) return a.last_output_at;
+      return a.last_output_at > latest ? a.last_output_at : latest;
+    }, null);
+    const lastCron = lastCronOutput ? timeAgo(lastCronOutput) : '-';
     const statusEl = document.getElementById('adm-automation-status');
     if (statusEl) {
       const pill = (label, value, color) =>
@@ -5482,11 +5523,11 @@ async function viewAdmin(el) {
           <span style="color:var(--text-tertiary)">${value}</span>
         </div>`;
       statusEl.innerHTML =
-        pill('Geo Enrichment', 'Auto', '#00e5a0') +
-        pill('Brand Matching', 'Auto', '#ff6b6b') +
-        pill('Email Security', 'Auto', '#00a8ff') +
+        pill('Geo Enrichment', `Auto \u00b7 ${geoRemaining} remaining`, '#00e5a0') +
+        pill('Brand Matching', `Auto \u00b7 ${brandPending} pending`, '#ff6b6b') +
+        pill('Email Security', `Auto \u00b7 ${emailPending} pending`, '#00a8ff') +
         pill('AI Attribution', 'Auto', '#8b5cf6') +
-        pill('Tranco Import', 'Daily 6am', '#ffb627');
+        pill('Last Cron', lastCron, '#ffb627');
     }
   } catch { /* ok */ }
 
