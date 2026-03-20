@@ -1251,247 +1251,250 @@ export default {
 
     console.log("[cron] === CRON TRIGGERED ===", new Date().toISOString());
     console.log("[cron] feedModules registered:", Object.keys(feedModules).join(", "));
-    ctx.waitUntil(
-      runAllFeeds(env, feedModules)
-        .then(async (r) => {
-          console.log(`[cron] feeds: ${r.feedsRun} run, ${r.totalNew} new items, ${r.feedsFailed} failed, ${r.feedsSkipped} skipped`);
+    ctx.waitUntil((async () => {
+      // ─── Step 1: Feed ingestion ────────────────────────────────
+      let feedResult = { feedsRun: 0, totalNew: 0, feedsFailed: 0, feedsSkipped: 0 };
+      try {
+        feedResult = await runAllFeeds(env, feedModules);
+        console.log(`[cron] feeds: ${feedResult.feedsRun} run, ${feedResult.totalNew} new items, ${feedResult.feedsFailed} failed, ${feedResult.feedsSkipped} skipped`);
+      } catch (err) {
+        console.error("[cron] feed runner error:", err);
+      }
 
-          // Run enrichment pipeline after ingestion
-          try {
-            const { runEnrichmentPipeline } = await import("./lib/enrichment");
-            const enrichResult = await runEnrichmentPipeline(env);
-            console.log(`[cron] enrichment: dns=${enrichResult.dnsResolved}, geo=${enrichResult.geoEnriched}, whois=${enrichResult.whoisEnriched}, brands=${enrichResult.brandsMatched}, ranks=${enrichResult.domainRanksChecked}`);
-          } catch (err) {
-            console.error("[cron] enrichment error:", err);
+      // ─── Enrichment pipeline (runs independently) ─────────────
+      try {
+        const { runEnrichmentPipeline } = await import("./lib/enrichment");
+        const enrichResult = await runEnrichmentPipeline(env);
+        console.log(`[cron] enrichment: dns=${enrichResult.dnsResolved}, geo=${enrichResult.geoEnriched}, whois=${enrichResult.whoisEnriched}, brands=${enrichResult.brandsMatched}, ranks=${enrichResult.domainRanksChecked}`);
+      } catch (err) {
+        console.error("[cron] enrichment error:", err);
+      }
+
+      // ─── Step 2: Auto brand match backfill (2 rounds) ─────────
+      console.log('[cron] Step 2: brand match backfill starting');
+      try {
+        const { runBrandMatchBackfill } = await import("./handlers/admin");
+        const pendingRow = await env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)"
+        ).first<{ n: number }>();
+        const step2Pending = pendingRow?.n ?? 0;
+        console.log(`[cron] Step 2: pending=${step2Pending}`);
+        let totalBrandMatched = 0;
+        if (step2Pending > 0) {
+          for (let i = 0; i < 2; i++) {
+            const bf = await runBrandMatchBackfill(env);
+            totalBrandMatched += bf.matched;
+            if (bf.pending === 0 || bf.checked === 0) break;
           }
+        }
+        const step2Msg = `CRON STEP 2: brand-match completed, pending=${step2Pending}, matched=${totalBrandMatched}`;
+        console.log(`[cron] ${step2Msg}`);
+        await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_2_' + Date.now(), step2Msg).run();
+      } catch (err) {
+        const step2Err = `CRON STEP 2 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[cron] ${step2Err}`);
+        try { await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_2_err_' + Date.now(), step2Err).run(); } catch { /* ok */ }
+      }
 
-          // ─── Step 2: Auto brand match backfill (2 rounds) ─────────
-          console.log('[cron] Step 2: brand match backfill starting');
+      // ─── Step 3: Auto email security scan (10 brands/cycle) ──
+      console.log('[cron] Step 3: email security scan starting');
+      try {
+        const pendingEmail = await env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM brands WHERE email_security_scanned_at IS NULL AND canonical_domain IS NOT NULL"
+        ).first<{ n: number }>();
+        const step3Pending = pendingEmail?.n ?? 0;
+        console.log(`[cron] Step 3: pending=${step3Pending}`);
+        let scanned = 0;
+        if (step3Pending > 0) {
+          const { runEmailSecurityScan, saveEmailSecurityScan } = await import("./email-security");
+          const brandsToScan = await env.DB.prepare(`
+            SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain
+            FROM brands b
+            LEFT JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
+            WHERE b.email_security_scanned_at IS NULL
+              AND (b.canonical_domain IS NOT NULL OR b.name IS NOT NULL)
+            GROUP BY b.id
+            ORDER BY COUNT(t.id) DESC
+            LIMIT 10
+          `).all<{ id: number; domain: string }>();
+          console.log(`[cron] Step 3: ${brandsToScan.results.length} brands to scan`);
+          for (const brand of brandsToScan.results) {
+            try {
+              const scanResult = await runEmailSecurityScan(brand.domain);
+              await saveEmailSecurityScan(env.DB, brand.id, scanResult);
+              await env.DB.prepare(
+                "UPDATE brands SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now') WHERE id = ?"
+              ).bind(scanResult.score, scanResult.grade, brand.id).run();
+              scanned++;
+            } catch (e) {
+              console.error(`[cron] Step 3 scan failed for ${brand.domain}:`, e instanceof Error ? e.message : String(e));
+            }
+          }
+        }
+        const step3Msg = `CRON STEP 3: email-security completed, pending=${step3Pending}, scanned=${scanned}`;
+        console.log(`[cron] ${step3Msg}`);
+        await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_3_' + Date.now(), step3Msg).run();
+      } catch (err) {
+        const step3Err = `CRON STEP 3 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[cron] ${step3Err}`);
+        try { await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_3_err_' + Date.now(), step3Err).run(); } catch { /* ok */ }
+      }
+
+      // ─── Step 4: Auto AI attribution (1 batch of 50) ─────────
+      console.log('[cron] Step 4: AI attribution starting');
+      try {
+        const unmatchedCount = await env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')"
+        ).first<{ n: number }>();
+        const step4Unmatched = unmatchedCount?.n ?? 0;
+        console.log(`[cron] Step 4: unmatched=${step4Unmatched}`);
+        let step4Result = `skipped (unmatched=${step4Unmatched} <= 500)`;
+        if (step4Unmatched > 500) {
+          const { getDailyUsage } = await import("./lib/haiku");
+          const todayUsage = await getDailyUsage(env);
+          console.log(`[cron] Step 4: daily Haiku calls=${todayUsage.calls}`);
+          if (todayUsage.calls < 50) {
+            const { runAiAttribution } = await import("./handlers/admin");
+            const attrResult = await runAiAttribution(env, 50);
+            step4Result = `attributed=${attrResult.attributed}, calls=${attrResult.calls}, cost=~$${attrResult.costUsd.toFixed(4)}`;
+          } else {
+            step4Result = `skipped (daily Haiku calls=${todayUsage.calls} >= 50)`;
+          }
+        }
+        const step4Msg = `CRON STEP 4: ai-attribution completed, ${step4Result}`;
+        console.log(`[cron] ${step4Msg}`);
+        await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_4_' + Date.now(), step4Msg).run();
+      } catch (err) {
+        const step4Err = `CRON STEP 4 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[cron] ${step4Err}`);
+        try { await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_4_err_' + Date.now(), step4Err).run(); } catch { /* ok */ }
+      }
+
+      // ─── AI Agents (run independently of feed success) ────────
+      try {
+        const { agentModules: allAgents } = await import("./agents/index");
+        const { executeAgent } = await import("./lib/agentRunner");
+
+        // Event-triggered agents (run on every ingestion with new data)
+        if (feedResult.totalNew > 0) {
+          const mod = allAgents["sentinel"];
+          if (mod) {
+            const result = await executeAgent(env, mod, { newItems: feedResult.totalNew }, "cron", "event");
+            console.log(`[cron] agent sentinel: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
+          }
+        }
+
+        // Scheduled agents (run based on time — every Nth invocation)
+        const now = new Date();
+        const hour = now.getUTCHours();
+        const minute = now.getUTCMinutes();
+
+        // Analyst trigger diagnostics
+        const analystApiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+        const analystKeySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
+        const analystShouldRun = minute % 15 < 5;
+        console.log(`[cron] analyst check: minute=${minute}, minute%15=${minute % 15}, shouldRun=${analystShouldRun}, apiKey=${analystKeySource}:${analystApiKey ? "truthy(" + analystApiKey.slice(0, 10) + "...)" : "FALSY"}`);
+
+        // Analyst runs every 15 minutes
+        if (analystShouldRun) {
+          const mod = allAgents["analyst"];
+          if (mod) {
+            console.log(`[cron] analyst: TRIGGERING (module found)`);
+            const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+            console.log(`[cron] agent analyst: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}, updated=${result.result.itemsUpdated}` : ""}`);
+          } else {
+            console.error(`[cron] analyst: module NOT found in allAgents — keys: ${Object.keys(allAgents).join(", ")}`);
+          }
+        }
+
+        // Strategist + Cartographer run every 6 hours (0, 6, 12, 18)
+        if (hour % 6 === 0 && minute < 5) {
+          for (const name of ["strategist", "cartographer"] as const) {
+            const mod = allAgents[name];
+            if (mod) {
+              const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+              console.log(`[cron] agent ${name}: ${result.status}`);
+            }
+          }
+        }
+
+        // Observer runs daily at midnight UTC
+        if (hour === 0 && minute < 5) {
+          const mod = allAgents["observer"];
+          if (mod) {
+            const result = await executeAgent(env, mod, {}, "cron", "scheduled");
+            console.log(`[cron] agent observer: ${result.status}`);
+          }
+        }
+
+        // Seed Strategist + Daily Tranco Import — runs daily at 6am UTC
+        if (hour === 6 && minute < 5) {
+          // Step 5: Daily Tranco brand import
           try {
-            const { runBrandMatchBackfill } = await import("./handlers/admin");
-            const pendingRow = await env.DB.prepare(
-              "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)"
-            ).first<{ n: number }>();
-            const step2Pending = pendingRow?.n ?? 0;
-            console.log(`[cron] Step 2: pending=${step2Pending}`);
-            let totalBrandMatched = 0;
-            if (step2Pending > 0) {
-              for (let i = 0; i < 2; i++) {
+            const { handleImportTranco, runBrandMatchBackfill } = await import("./handlers/admin");
+            const fakeReq = new Request('https://localhost/api/admin/import-tranco', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ limit: 10000 }),
+            });
+            const trancoRes = await handleImportTranco(fakeReq, env);
+            const trancoData = await trancoRes.json() as { success: boolean; data?: { imported: number; message: string } };
+            console.log(`[cron] daily tranco: ${trancoData.data?.message ?? 'unknown'}`);
+            // Run 5 rounds of brand matching after import
+            if (trancoData.data?.imported && trancoData.data.imported > 0) {
+              let postImportMatched = 0;
+              for (let i = 0; i < 5; i++) {
                 const bf = await runBrandMatchBackfill(env);
-                totalBrandMatched += bf.matched;
+                postImportMatched += bf.matched;
                 if (bf.pending === 0 || bf.checked === 0) break;
               }
+              console.log(`[cron] post-tranco brand match: ${postImportMatched} matched`);
             }
-            const step2Msg = `CRON STEP 2: brand-match completed, pending=${step2Pending}, matched=${totalBrandMatched}`;
-            console.log(`[cron] ${step2Msg}`);
-            await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_2_' + Date.now(), step2Msg).run();
-          } catch (err) {
-            const step2Err = `CRON STEP 2 FAILED: ${err instanceof Error ? err.message : String(err)}`;
-            console.error(`[cron] ${step2Err}`);
-            try { await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_2_err_' + Date.now(), step2Err).run(); } catch { /* ok */ }
+          } catch (trancoErr) {
+            console.error("[cron] daily tranco import error:", trancoErr);
           }
 
-          // ─── Step 3: Auto email security scan (10 brands/cycle) ──
-          console.log('[cron] Step 3: email security scan starting');
           try {
-            const pendingEmail = await env.DB.prepare(
-              "SELECT COUNT(*) AS n FROM brands WHERE email_security_scanned_at IS NULL AND canonical_domain IS NOT NULL"
-            ).first<{ n: number }>();
-            const step3Pending = pendingEmail?.n ?? 0;
-            console.log(`[cron] Step 3: pending=${step3Pending}`);
-            let scanned = 0;
-            if (step3Pending > 0) {
-              const { runEmailSecurityScan, saveEmailSecurityScan } = await import("./email-security");
-              const brandsToScan = await env.DB.prepare(`
-                SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain
-                FROM brands b
-                LEFT JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
-                WHERE b.email_security_scanned_at IS NULL
-                  AND (b.canonical_domain IS NOT NULL OR b.name IS NOT NULL)
-                GROUP BY b.id
-                ORDER BY COUNT(t.id) DESC
-                LIMIT 10
-              `).all<{ id: number; domain: string }>();
-              console.log(`[cron] Step 3: ${brandsToScan.results.length} brands to scan`);
-              for (const brand of brandsToScan.results) {
-                try {
-                  const scanResult = await runEmailSecurityScan(brand.domain);
-                  await saveEmailSecurityScan(env.DB, brand.id, scanResult);
-                  await env.DB.prepare(
-                    "UPDATE brands SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now') WHERE id = ?"
-                  ).bind(scanResult.score, scanResult.grade, brand.id).run();
-                  scanned++;
-                } catch (e) {
-                  console.error(`[cron] Step 3 scan failed for ${brand.domain}:`, e instanceof Error ? e.message : String(e));
-                }
-              }
-            }
-            const step3Msg = `CRON STEP 3: email-security completed, pending=${step3Pending}, scanned=${scanned}`;
-            console.log(`[cron] ${step3Msg}`);
-            await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_3_' + Date.now(), step3Msg).run();
-          } catch (err) {
-            const step3Err = `CRON STEP 3 FAILED: ${err instanceof Error ? err.message : String(err)}`;
-            console.error(`[cron] ${step3Err}`);
-            try { await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_3_err_' + Date.now(), step3Err).run(); } catch { /* ok */ }
+            const { seedStrategistAgent } = await import("./agents/seed-strategist");
+            const result = await executeAgent(env, seedStrategistAgent, {}, "cron", "scheduled");
+            console.log(`[cron] agent seed_strategist: ${result.status}`);
+          } catch (ssErr) {
+            console.error("[cron] seed strategist error:", ssErr);
           }
+        }
 
-          // ─── Step 4: Auto AI attribution (1 batch of 50) ─────────
-          console.log('[cron] Step 4: AI attribution starting');
-          try {
-            const unmatchedCount = await env.DB.prepare(
-              "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')"
-            ).first<{ n: number }>();
-            const step4Unmatched = unmatchedCount?.n ?? 0;
-            console.log(`[cron] Step 4: unmatched=${step4Unmatched}`);
-            let step4Result = `skipped (unmatched=${step4Unmatched} <= 500)`;
-            if (step4Unmatched > 500) {
-              const { getDailyUsage } = await import("./lib/haiku");
-              const todayUsage = await getDailyUsage(env);
-              console.log(`[cron] Step 4: daily Haiku calls=${todayUsage.calls}`);
-              if (todayUsage.calls < 50) {
-                const { runAiAttribution } = await import("./handlers/admin");
-                const attrResult = await runAiAttribution(env, 50);
-                step4Result = `attributed=${attrResult.attributed}, calls=${attrResult.calls}, cost=~$${attrResult.costUsd.toFixed(4)}`;
-              } else {
-                step4Result = `skipped (daily Haiku calls=${todayUsage.calls} >= 50)`;
-              }
-            }
-            const step4Msg = `CRON STEP 4: ai-attribution completed, ${step4Result}`;
-            console.log(`[cron] ${step4Msg}`);
-            await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_4_' + Date.now(), step4Msg).run();
-          } catch (err) {
-            const step4Err = `CRON STEP 4 FAILED: ${err instanceof Error ? err.message : String(err)}`;
-            console.error(`[cron] ${step4Err}`);
-            try { await env.DB.prepare(
-              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
-            ).bind('cron_step_4_err_' + Date.now(), step4Err).run(); } catch { /* ok */ }
+        // Daily snapshots — run at midnight UTC, or if none exist yet (bootstrap)
+        try {
+          const { generateDailySnapshots } = await import("./lib/snapshots");
+          const today = new Date().toISOString().slice(0, 10);
+          const hasSnapshotToday = await env.DB.prepare(
+            "SELECT COUNT(*) as n FROM daily_snapshots WHERE date = ?"
+          ).bind(today).first<{ n: number }>();
+
+          if (hour === 0 && minute < 5 || (hasSnapshotToday?.n ?? 0) === 0) {
+            console.log(`[cron] generating daily snapshots (hour=${hour}, existing=${hasSnapshotToday?.n ?? 0})`);
+            const snapResult = await generateDailySnapshots(env.DB, today);
+            console.log(`[cron] snapshots: brands=${snapResult.brandSnapshots}, providers=${snapResult.providerSnapshots}`);
           }
-
-          // Auto-trigger v2 AI agents after ingestion + enrichment
-          try {
-            const { agentModules: allAgents } = await import("./agents/index");
-            const { executeAgent } = await import("./lib/agentRunner");
-
-            // Event-triggered agents (run on every ingestion with new data)
-            if (r.totalNew > 0) {
-              const mod = allAgents["sentinel"];
-              if (mod) {
-                const result = await executeAgent(env, mod, { newItems: r.totalNew }, "cron", "event");
-                console.log(`[cron] agent sentinel: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}` : ""}`);
-              }
-            }
-
-            // Scheduled agents (run based on time — every Nth invocation)
-            const now = new Date();
-            const hour = now.getUTCHours();
-            const minute = now.getUTCMinutes();
-
-            // Analyst trigger diagnostics
-            const analystApiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-            const analystKeySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
-            const analystShouldRun = minute % 15 < 5;
-            console.log(`[cron] analyst check: minute=${minute}, minute%15=${minute % 15}, shouldRun=${analystShouldRun}, apiKey=${analystKeySource}:${analystApiKey ? "truthy(" + analystApiKey.slice(0, 10) + "...)" : "FALSY"}`);
-
-            // Analyst runs every 15 minutes
-            if (analystShouldRun) {
-              const mod = allAgents["analyst"];
-              if (mod) {
-                console.log(`[cron] analyst: TRIGGERING (module found)`);
-                const result = await executeAgent(env, mod, {}, "cron", "scheduled");
-                console.log(`[cron] agent analyst: ${result.status}${result.result ? `, processed=${result.result.itemsProcessed}, updated=${result.result.itemsUpdated}` : ""}`);
-              } else {
-                console.error(`[cron] analyst: module NOT found in allAgents — keys: ${Object.keys(allAgents).join(", ")}`);
-              }
-            }
-
-            // Strategist + Cartographer run every 6 hours (0, 6, 12, 18)
-            if (hour % 6 === 0 && minute < 5) {
-              for (const name of ["strategist", "cartographer"] as const) {
-                const mod = allAgents[name];
-                if (mod) {
-                  const result = await executeAgent(env, mod, {}, "cron", "scheduled");
-                  console.log(`[cron] agent ${name}: ${result.status}`);
-                }
-              }
-            }
-
-            // Observer runs daily at midnight UTC
-            if (hour === 0 && minute < 5) {
-              const mod = allAgents["observer"];
-              if (mod) {
-                const result = await executeAgent(env, mod, {}, "cron", "scheduled");
-                console.log(`[cron] agent observer: ${result.status}`);
-              }
-            }
-
-            // Seed Strategist + Daily Tranco Import — runs daily at 6am UTC
-            if (hour === 6 && minute < 5) {
-              // Step 5: Daily Tranco brand import
-              try {
-                const { handleImportTranco, runBrandMatchBackfill } = await import("./handlers/admin");
-                const fakeReq = new Request('https://localhost/api/admin/import-tranco', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ limit: 10000 }),
-                });
-                const trancoRes = await handleImportTranco(fakeReq, env);
-                const trancoData = await trancoRes.json() as { success: boolean; data?: { imported: number; message: string } };
-                console.log(`[cron] daily tranco: ${trancoData.data?.message ?? 'unknown'}`);
-                // Run 5 rounds of brand matching after import
-                if (trancoData.data?.imported && trancoData.data.imported > 0) {
-                  let postImportMatched = 0;
-                  for (let i = 0; i < 5; i++) {
-                    const bf = await runBrandMatchBackfill(env);
-                    postImportMatched += bf.matched;
-                    if (bf.pending === 0 || bf.checked === 0) break;
-                  }
-                  console.log(`[cron] post-tranco brand match: ${postImportMatched} matched`);
-                }
-              } catch (trancoErr) {
-                console.error("[cron] daily tranco import error:", trancoErr);
-              }
-
-              try {
-                const { seedStrategistAgent } = await import("./agents/seed-strategist");
-                const result = await executeAgent(env, seedStrategistAgent, {}, "cron", "scheduled");
-                console.log(`[cron] agent seed_strategist: ${result.status}`);
-              } catch (ssErr) {
-                console.error("[cron] seed strategist error:", ssErr);
-              }
-            }
-
-            // Daily snapshots — run at midnight UTC, or if none exist yet (bootstrap)
-            try {
-              const { generateDailySnapshots } = await import("./lib/snapshots");
-              const today = new Date().toISOString().slice(0, 10);
-              const hasSnapshotToday = await env.DB.prepare(
-                "SELECT COUNT(*) as n FROM daily_snapshots WHERE date = ?"
-              ).bind(today).first<{ n: number }>();
-
-              if (hour === 0 && minute < 5 || (hasSnapshotToday?.n ?? 0) === 0) {
-                console.log(`[cron] generating daily snapshots (hour=${hour}, existing=${hasSnapshotToday?.n ?? 0})`);
-                const snapResult = await generateDailySnapshots(env.DB, today);
-                console.log(`[cron] snapshots: brands=${snapResult.brandSnapshots}, providers=${snapResult.providerSnapshots}`);
-              }
-            } catch (err) {
-              console.error("[cron] snapshot error:", err);
-            }
-          } catch (err) {
-            console.error("[cron] agent auto-trigger error:", err);
-          }
-        })
-        .catch((err) => console.error("[cron] feed runner error:", err))
-    );
+        } catch (err) {
+          console.error("[cron] snapshot error:", err);
+        }
+      } catch (err) {
+        console.error("[cron] agent auto-trigger error:", err);
+      }
+    })());
   },
 
   async email(message: { from: string; to: string; headers: Headers; raw: ReadableStream<Uint8Array>; rawSize: number; setReject(r: string): void; forward(to: string, headers?: Headers): Promise<void> }, env: Env, ctx: ExecutionContext): Promise<void> {
