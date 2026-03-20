@@ -45,8 +45,8 @@ export type UserRole = "super_admin" | "admin" | "analyst" | "client";
 export type UserStatus = "active" | "suspended" | "deactivated";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
 
-export type AgentId = "sentinel" | "analyst" | "cartographer" | "strategist" | "observer";
-export type AgentOutputType = "insight" | "classification" | "correlation" | "score" | "trend_report";
+export type AgentId = "sentinel" | "analyst" | "cartographer" | "strategist" | "observer" | "prospector";
+export type AgentOutputType = "insight" | "classification" | "correlation" | "score" | "trend_report" | "diagnostic";
 export type RunStatus = "success" | "partial" | "failed";
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal_sent" | "converted" | "closed_lost";

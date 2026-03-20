@@ -1,0 +1,237 @@
+/**
+ * Sales Leads Admin API — CRUD endpoints for Prospector-generated leads.
+ */
+
+import { json } from "../lib/cors";
+import type { Env } from "../types";
+
+// ─── List all sales leads (paginated, filterable) ────────────────
+
+export async function handleListSalesLeads(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status");
+    const pitchAngle = url.searchParams.get("pitch_angle");
+    const minScore = url.searchParams.get("min_score");
+    const maxScore = url.searchParams.get("max_score");
+    const sort = url.searchParams.get("sort") || "score";
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (status) { conditions.push("status = ?"); params.push(status); }
+    if (pitchAngle) { conditions.push("pitch_angle = ?"); params.push(pitchAngle); }
+    if (minScore) { conditions.push("prospect_score >= ?"); params.push(parseFloat(minScore)); }
+    if (maxScore) { conditions.push("prospect_score <= ?"); params.push(parseFloat(maxScore)); }
+
+    const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+    const orderBy = sort === "date" ? "created_at DESC" : sort === "status" ? "status, prospect_score DESC" : "prospect_score DESC";
+
+    const rows = await env.DB.prepare(
+      `SELECT * FROM sales_leads${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all();
+
+    const total = await env.DB.prepare(
+      `SELECT COUNT(*) as n FROM sales_leads${where}`
+    ).bind(...params).first<{ n: number }>();
+
+    // Pipeline stats
+    const stats = await env.DB.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
+        SUM(CASE WHEN status = 'researched' THEN 1 ELSE 0 END) as researched_count,
+        SUM(CASE WHEN status = 'outreach_drafted' THEN 1 ELSE 0 END) as drafted_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent_count,
+        SUM(CASE WHEN status = 'responded' THEN 1 ELSE 0 END) as responded_count,
+        SUM(CASE WHEN status = 'meeting_booked' THEN 1 ELSE 0 END) as meeting_count,
+        SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count,
+        SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined_count
+      FROM sales_leads
+    `).first();
+
+    return json({ success: true, data: { leads: rows.results, total: total?.n ?? 0, stats } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Get single lead detail ──────────────────────────────────────
+
+export async function handleGetSalesLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const lead = await env.DB.prepare("SELECT * FROM sales_leads WHERE id = ?").bind(id).first();
+    if (!lead) return json({ success: false, error: "Lead not found" }, 404, origin);
+    return json({ success: true, data: lead }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Update lead (edit outreach, notes, etc.) ────────────────────
+
+export async function handleUpdateSalesLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as Record<string, unknown>;
+    const allowed = [
+      "status", "notes", "outreach_variant_1", "outreach_variant_2",
+      "outreach_selected", "outreach_channel", "target_name", "target_title",
+      "target_email", "target_linkedin",
+    ];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    for (const key of allowed) {
+      if (key in body) {
+        updates.push(`${key} = ?`);
+        values.push(body[key]);
+      }
+    }
+    if (updates.length === 0) return json({ success: false, error: "No valid updates" }, 400, origin);
+
+    updates.push("updated_at = datetime('now')");
+    values.push(id);
+
+    await env.DB.prepare(`UPDATE sales_leads SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
+
+    // Log activity
+    await env.DB.prepare(
+      "INSERT INTO lead_activity_log (lead_id, activity_type, details_json, performed_by, created_at) VALUES (?, 'updated', ?, 'admin', datetime('now'))"
+    ).bind(id, JSON.stringify(body)).run();
+
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Status transition endpoints ─────────────────────────────────
+
+async function transitionStatus(
+  env: Env, id: string, newStatus: string,
+  extraUpdates: string[] = [], extraValues: unknown[] = [],
+  origin: string | null = null,
+): Promise<Response> {
+  try {
+    const sets = [`status = ?`, `updated_at = datetime('now')`, ...extraUpdates];
+    const vals = [newStatus, ...extraValues, id];
+    await env.DB.prepare(`UPDATE sales_leads SET ${sets.join(", ")} WHERE id = ?`).bind(...vals).run();
+
+    await env.DB.prepare(
+      "INSERT INTO lead_activity_log (lead_id, activity_type, details_json, performed_by, created_at) VALUES (?, ?, ?, 'admin', datetime('now'))"
+    ).bind(id, `status_${newStatus}`, JSON.stringify({ new_status: newStatus })).run();
+
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+export async function handleApproveLead(request: Request, env: Env, id: string): Promise<Response> {
+  return transitionStatus(env, id, "approved", [], [], request.headers.get("Origin"));
+}
+
+export async function handleSendLead(request: Request, env: Env, id: string): Promise<Response> {
+  return transitionStatus(env, id, "sent", ["outreach_sent_at = datetime('now')"], [], request.headers.get("Origin"));
+}
+
+export async function handleRespondLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { sentiment?: string };
+    return transitionStatus(env, id, "responded",
+      ["response_received_at = datetime('now')", "response_sentiment = ?"],
+      [body.sentiment ?? "neutral"], origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+export async function handleBookLead(request: Request, env: Env, id: string): Promise<Response> {
+  return transitionStatus(env, id, "meeting_booked", ["meeting_booked_at = datetime('now')"], [], request.headers.get("Origin"));
+}
+
+export async function handleConvertLead(request: Request, env: Env, id: string): Promise<Response> {
+  return transitionStatus(env, id, "converted", [], [], request.headers.get("Origin"));
+}
+
+export async function handleDeclineLead(request: Request, env: Env, id: string): Promise<Response> {
+  return transitionStatus(env, id, "declined", [], [], request.headers.get("Origin"));
+}
+
+export async function handleDeleteSalesLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    await env.DB.prepare("DELETE FROM lead_activity_log WHERE lead_id = ?").bind(id).run();
+    await env.DB.prepare("DELETE FROM sales_leads WHERE id = ?").bind(id).run();
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Activity log for a lead ─────────────────────────────────────
+
+export async function handleLeadActivity(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(
+      "SELECT * FROM lead_activity_log WHERE lead_id = ? ORDER BY created_at DESC LIMIT 50"
+    ).bind(id).all();
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Pipeline stats ──────────────────────────────────────────────
+
+export async function handleSalesLeadStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const pipeline = await env.DB.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
+        SUM(CASE WHEN status = 'researched' THEN 1 ELSE 0 END) as researched_count,
+        SUM(CASE WHEN status = 'outreach_drafted' THEN 1 ELSE 0 END) as drafted_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent_count,
+        SUM(CASE WHEN status = 'responded' THEN 1 ELSE 0 END) as responded_count,
+        SUM(CASE WHEN status = 'meeting_booked' THEN 1 ELSE 0 END) as meeting_count,
+        SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count,
+        SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined_count
+      FROM sales_leads
+    `).first();
+
+    const weekly = await env.DB.prepare(`
+      SELECT
+        SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as identified_7d,
+        SUM(CASE WHEN outreach_sent_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as sent_7d,
+        SUM(CASE WHEN response_received_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as responded_7d
+      FROM sales_leads
+    `).first();
+
+    const sentTotal = (pipeline as Record<string, number>)?.sent_count ?? 0;
+    const respondedTotal = (pipeline as Record<string, number>)?.responded_count ?? 0;
+    const convertedTotal = (pipeline as Record<string, number>)?.converted_count ?? 0;
+
+    return json({
+      success: true,
+      data: {
+        pipeline,
+        weekly,
+        response_rate: sentTotal > 0 ? Math.round((respondedTotal / sentTotal) * 100) : 0,
+        conversion_rate: sentTotal > 0 ? Math.round((convertedTotal / sentTotal) * 100) : 0,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
