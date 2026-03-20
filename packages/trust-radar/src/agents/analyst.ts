@@ -9,6 +9,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { inferBrand } from "../lib/haiku";
 import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
+import { correlateBrandThreats } from "../brand-threat-correlator";
 
 export const analystAgent: AgentModule = {
   name: "analyst",
@@ -215,6 +216,75 @@ export const analystAgent: AgentModule = {
         }
       } catch (err) {
         console.error(`[analyst] update failed for ${threat.id}:`, err);
+      }
+    }
+
+    // ─── Phase 3: Brand threat correlation escalation ──────────
+    // After processing threats, run correlation for brands with new matches
+    const matchedBrandIds = new Set<string>();
+    for (const threat of threats.results) {
+      const brandRow = await env.DB.prepare(
+        "SELECT target_brand_id FROM threats WHERE id = ?"
+      ).bind(threat.id).first<{ target_brand_id: string | null }>();
+      if (brandRow?.target_brand_id) matchedBrandIds.add(brandRow.target_brand_id);
+    }
+
+    for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
+      try {
+        const assessment = await correlateBrandThreats(env, bid);
+        if (!assessment) continue;
+
+        // Escalation: PhishTank + no DMARC
+        if (assessment.phishtank_active_urls > 0 && (!assessment.dmarc_policy || assessment.dmarc_policy === "none")) {
+          outputs.push({
+            type: "classification",
+            summary: `**Active Phishing + No DMARC** — ${assessment.brand_name} has ${assessment.phishtank_active_urls} active phishing URLs with DMARC policy "${assessment.dmarc_policy ?? "missing"}". Immediate enforcement recommended.`,
+            severity: "critical",
+            details: {
+              brand: assessment.brand_name,
+              phishtank_urls: assessment.phishtank_active_urls,
+              dmarc_policy: assessment.dmarc_policy,
+              risk_score: assessment.composite_risk_score,
+            },
+            relatedBrandIds: [bid],
+          });
+        }
+
+        // Escalation: AI-generated phishing detected
+        if (assessment.ai_generated_phishing_detected) {
+          outputs.push({
+            type: "classification",
+            summary: `**AI-Generated Threat Detected** — ${assessment.ai_phishing_count_30d} AI-generated phishing attempts targeting ${assessment.brand_name} in the last 30 days.`,
+            severity: "high",
+            details: {
+              brand: assessment.brand_name,
+              ai_phishing_count: assessment.ai_phishing_count_30d,
+              risk_score: assessment.composite_risk_score,
+            },
+            relatedBrandIds: [bid],
+          });
+        }
+
+        // Escalation: Risk score spike (check previous assessment)
+        const prev = await env.DB.prepare(
+          "SELECT composite_risk_score FROM brand_threat_assessments WHERE brand_id = ? ORDER BY assessed_at DESC LIMIT 1"
+        ).bind(bid).first<{ composite_risk_score: number }>();
+        if (prev && assessment.composite_risk_score - prev.composite_risk_score >= 20) {
+          outputs.push({
+            type: "classification",
+            summary: `**Risk Score Spike** — ${assessment.brand_name} risk score jumped from ${prev.composite_risk_score} to ${assessment.composite_risk_score} (+${assessment.composite_risk_score - prev.composite_risk_score} points).`,
+            severity: "high",
+            details: {
+              brand: assessment.brand_name,
+              previous_score: prev.composite_risk_score,
+              current_score: assessment.composite_risk_score,
+              risk_factors: assessment.risk_factors,
+            },
+            relatedBrandIds: [bid],
+          });
+        }
+      } catch (corrErr) {
+        console.error(`[analyst] correlation check failed for brand ${bid}:`, corrErr);
       }
     }
 
