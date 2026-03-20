@@ -113,6 +113,12 @@ import {
   handleExecuteSpamTrapCampaign, handleUpdateSpamTrapCampaign,
   handleSpamTrapAddresses, handleInitialSeed, handleRunStrategist,
 } from "./handlers/spamTrap";
+import {
+  handleListSalesLeads, handleGetSalesLead, handleUpdateSalesLead,
+  handleApproveLead, handleSendLead, handleRespondLead,
+  handleBookLead, handleConvertLead, handleDeclineLead,
+  handleDeleteSalesLead, handleLeadActivity, handleSalesLeadStats,
+} from "./handlers/salesLeads";
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
@@ -804,6 +810,68 @@ router.patch("/api/admin/leads/:id", async (request: Request & { params: Record<
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleUpdateLead(request, env, request.params["id"] ?? "");
+});
+
+// ─── Sales Leads (Prospector) ─────────────────────────────
+router.get("/api/admin/sales-leads", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListSalesLeads(request, env);
+});
+router.get("/api/admin/sales-leads/stats", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSalesLeadStats(request, env);
+});
+router.get("/api/admin/sales-leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetSalesLead(request, env, request.params["id"] ?? "");
+});
+router.patch("/api/admin/sales-leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateSalesLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/approve", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleApproveLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/send", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSendLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/respond", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRespondLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/book", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBookLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/convert", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleConvertLead(request, env, request.params["id"] ?? "");
+});
+router.post("/api/admin/sales-leads/:id/decline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeclineLead(request, env, request.params["id"] ?? "");
+});
+router.delete("/api/admin/sales-leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteSalesLead(request, env, request.params["id"] ?? "");
+});
+router.get("/api/admin/sales-leads/:id/activity", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleLeadActivity(request, env, request.params["id"] ?? "");
 });
 
 // ─── Agents ────────────────────────────────────────────────
@@ -1656,6 +1724,19 @@ export default {
             console.log(`[cron] agent seed_strategist: ${result.status}`);
           } catch (ssErr) {
             console.error("[cron] seed strategist error:", ssErr);
+          }
+        }
+
+        // Prospector agent — weekly (KV throttle ensures once per 7 days)
+        if (hour === 3 && minute < 5) {
+          const prospectorMod = allAgents["prospector"];
+          if (prospectorMod) {
+            try {
+              const result = await executeAgent(env, prospectorMod, {}, "cron", "scheduled");
+              console.log(`[cron] agent prospector: ${result.status}${result.result ? `, identified=${result.result.itemsProcessed}, outreach=${result.result.itemsCreated}` : ""}`);
+            } catch (prospErr) {
+              console.error("[cron] prospector error:", prospErr);
+            }
           }
         }
 

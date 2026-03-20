@@ -14,7 +14,8 @@ export type AgentName =
   | "analyst"
   | "cartographer"
   | "strategist"
-  | "observer";
+  | "observer"
+  | "prospector";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
@@ -106,6 +107,7 @@ export const AGENT_DEFINITIONS: Array<{
   { name: "cartographer", displayName: "Cartographer", description: "Infrastructure mapping & provider reputation scoring", color: "#34D399", trigger: "scheduled", requiresApproval: false },
   { name: "strategist", displayName: "Strategist", description: "Campaign correlation & clustering intelligence", color: "#F472B6", trigger: "scheduled", requiresApproval: false },
   { name: "observer", displayName: "Observer", description: "Trend analysis & daily intelligence synthesis", color: "#FBBF24", trigger: "scheduled", requiresApproval: false },
+  { name: "prospector", displayName: "Prospector", description: "Sales intelligence & lead generation", color: "#F59E0B", trigger: "scheduled", requiresApproval: false },
 ];
 
 // ─── Run Execution ──────────────────────────────────────────────
