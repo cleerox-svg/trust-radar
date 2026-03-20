@@ -162,6 +162,16 @@ function matchRoute(pathname) {
   return null;
 }
 
+// Scroll active tab into view for mobile horizontal-scrollable tab rows
+function scrollActiveTabIntoView(containerSel) {
+  requestAnimationFrame(() => {
+    const container = document.querySelector(containerSel);
+    if (!container) return;
+    const active = container.querySelector('.active');
+    if (active) active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  });
+}
+
 function navigate(path, replace = false) {
   if (replace) history.replaceState(null, '', path);
   else history.pushState(null, '', path);
@@ -2680,6 +2690,8 @@ async function viewBrandsHub(el) {
     </div>
     <div style="padding:20px 24px" id="brands-content">Loading...</div>`;
 
+  scrollActiveTabIntoView('#brands-tabs');
+
   // Aggregate stats — populated from API
   api('/brands/stats').then(res => {
     const s = res?.data || {};
@@ -3837,6 +3849,8 @@ async function viewProvidersHub(el) {
     </div>
     <div style="padding:20px 0" id="prov-content">Loading...</div>`;
 
+  scrollActiveTabIntoView('#prov-tabs');
+
   // Aggregate stats
   api('/providers/stats').then(res => {
     const s = res?.data || {};
@@ -4935,7 +4949,7 @@ async function viewAgents(el) {
     grid.innerHTML = agents.map(a => {
       const aid = a.agent_id || a.name;
       const meta = AGENT_META[a.name] || AGENT_META[aid] || { iconClass: 'sentinel', color: '#22d3ee', role: a.description || '' };
-      const emptySegs = Array(20).fill(`<div class="activity-seg" style="background:${meta.color};opacity:0.05"></div>`).join('');
+      const emptySegs = Array(12).fill(`<div class="activity-seg" style="background:${meta.color};opacity:0.05"></div>`).join('');
       return `<div class="agent-card" data-agent="${aid}">
         <div class="agent-status-dot ${a.status || 'idle'}"></div>
         <div class="agent-header">
@@ -4952,9 +4966,10 @@ async function viewAgents(el) {
       </div>`;
     }).join('');
 
-    // Fill activity bars with time-based buckets (20 × 72min = 24h)
-    const BUCKET_COUNT = 20;
-    const BUCKET_MS = 72 * 60 * 1000; // 72 minutes
+    // Fill activity bars with time-based buckets (12 × 2h = 24h)
+    // Uses count-based opacity so busy periods glow brighter
+    const BUCKET_COUNT = 12;
+    const BUCKET_MS = 2 * 60 * 60 * 1000; // 2 hours
     const nowMs = Date.now();
     const dayAgoMs = nowMs - 24 * 60 * 60 * 1000;
     for (const a of agents) {
@@ -4967,17 +4982,19 @@ async function viewAgents(el) {
           const ts = new Date(o.created_at.endsWith('Z') ? o.created_at : o.created_at + 'Z').getTime();
           return ts >= dayAgoMs;
         });
-        const buckets = new Array(BUCKET_COUNT).fill(false);
+        const buckets = new Array(BUCKET_COUNT).fill(0);
         for (const o of outputs) {
           const ts = new Date(o.created_at.endsWith('Z') ? o.created_at : o.created_at + 'Z').getTime();
           const idx = Math.floor((ts - dayAgoMs) / BUCKET_MS);
-          if (idx >= 0 && idx < BUCKET_COUNT) buckets[idx] = true;
+          if (idx >= 0 && idx < BUCKET_COUNT) buckets[idx]++;
         }
+        const maxCount = Math.max(...buckets, 1);
         const barEl = document.getElementById(`activity-bar-${aid}`);
         if (barEl) {
-          barEl.innerHTML = buckets.map(filled =>
-            `<div class="activity-seg" style="background:${meta.color};opacity:${filled ? 0.7 : 0.05}"></div>`
-          ).join('');
+          barEl.innerHTML = buckets.map(count => {
+            const opacity = count > 0 ? 0.2 + 0.6 * (count / maxCount) : 0.05;
+            return `<div class="activity-seg" style="background:${meta.color};opacity:${opacity}"></div>`;
+          }).join('');
         }
       } catch { /* ok */ }
     }
