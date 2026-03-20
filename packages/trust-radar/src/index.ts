@@ -1266,11 +1266,13 @@ export default {
           }
 
           // ─── Step 2: Auto brand match backfill (2 rounds) ─────────
+          console.log('[cron] Step 2: brand match backfill starting');
           try {
             const { runBrandMatchBackfill } = await import("./handlers/admin");
             const pendingRow = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)"
             ).first<{ n: number }>();
+            console.log(`[cron] Step 2: pending=${pendingRow?.n ?? 0}`);
             if ((pendingRow?.n ?? 0) > 0) {
               let totalBrandMatched = 0;
               for (let i = 0; i < 2; i++) {
@@ -1278,17 +1280,21 @@ export default {
                 totalBrandMatched += bf.matched;
                 if (bf.pending === 0 || bf.checked === 0) break;
               }
-              console.log(`[cron] auto brand-match: ${totalBrandMatched} matched, ${(pendingRow?.n ?? 0) - totalBrandMatched} remaining`);
+              console.log(`[cron] Step 2 done: ${totalBrandMatched} matched, ${(pendingRow?.n ?? 0) - totalBrandMatched} remaining`);
+            } else {
+              console.log('[cron] Step 2 skipped: no pending threats');
             }
           } catch (err) {
-            console.error("[cron] auto brand-match error:", err);
+            console.error("[cron] Step 2 brand-match failed:", err instanceof Error ? err.message : String(err));
           }
 
           // ─── Step 3: Auto email security scan (10 brands/cycle) ──
+          console.log('[cron] Step 3: email security scan starting');
           try {
             const pendingEmail = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM brands WHERE email_security_scanned_at IS NULL AND canonical_domain IS NOT NULL"
             ).first<{ n: number }>();
+            console.log(`[cron] Step 3: pending=${pendingEmail?.n ?? 0}`);
             if ((pendingEmail?.n ?? 0) > 0) {
               const { runEmailSecurityScan, saveEmailSecurityScan } = await import("./email-security");
               const brandsToScan = await env.DB.prepare(`
@@ -1301,6 +1307,7 @@ export default {
                 ORDER BY COUNT(t.id) DESC
                 LIMIT 10
               `).all<{ id: number; domain: string }>();
+              console.log(`[cron] Step 3: ${brandsToScan.results.length} brands to scan`);
               let scanned = 0;
               for (const brand of brandsToScan.results) {
                 try {
@@ -1311,33 +1318,40 @@ export default {
                   ).bind(scanResult.score, scanResult.grade, brand.id).run();
                   scanned++;
                 } catch (e) {
-                  console.error(`[cron] email scan failed for ${brand.domain}:`, e);
+                  console.error(`[cron] Step 3 scan failed for ${brand.domain}:`, e instanceof Error ? e.message : String(e));
                 }
               }
-              console.log(`[cron] auto email-security: ${scanned} scanned, ${(pendingEmail?.n ?? 0) - scanned} remaining`);
+              console.log(`[cron] Step 3 done: ${scanned} scanned, ${(pendingEmail?.n ?? 0) - scanned} remaining`);
+            } else {
+              console.log('[cron] Step 3 skipped: no pending brands');
             }
           } catch (err) {
-            console.error("[cron] auto email-security error:", err);
+            console.error("[cron] Step 3 email-security failed:", err instanceof Error ? err.message : String(err));
           }
 
           // ─── Step 4: Auto AI attribution (1 batch of 50) ─────────
+          console.log('[cron] Step 4: AI attribution starting');
           try {
             const unmatchedCount = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')"
             ).first<{ n: number }>();
+            console.log(`[cron] Step 4: unmatched=${unmatchedCount?.n ?? 0}`);
             if ((unmatchedCount?.n ?? 0) > 500) {
               const { getDailyUsage } = await import("./lib/haiku");
               const todayUsage = await getDailyUsage(env);
+              console.log(`[cron] Step 4: daily Haiku calls=${todayUsage.calls}`);
               if (todayUsage.calls < 50) {
                 const { runAiAttribution } = await import("./handlers/admin");
                 const attrResult = await runAiAttribution(env, 50);
-                console.log(`[cron] auto ai-attribution: ${attrResult.attributed} attributed, ${attrResult.calls} calls, ~$${attrResult.costUsd.toFixed(4)}`);
+                console.log(`[cron] Step 4 done: ${attrResult.attributed} attributed, ${attrResult.calls} calls, ~$${attrResult.costUsd.toFixed(4)}`);
               } else {
-                console.log(`[cron] ai-attribution skipped: daily Haiku calls=${todayUsage.calls} >= 50`);
+                console.log(`[cron] Step 4 skipped: daily Haiku calls=${todayUsage.calls} >= 50`);
               }
+            } else {
+              console.log(`[cron] Step 4 skipped: unmatched=${unmatchedCount?.n ?? 0} <= 500`);
             }
           } catch (err) {
-            console.error("[cron] auto ai-attribution error:", err);
+            console.error("[cron] Step 4 ai-attribution failed:", err instanceof Error ? err.message : String(err));
           }
 
           // Auto-trigger v2 AI agents after ingestion + enrichment

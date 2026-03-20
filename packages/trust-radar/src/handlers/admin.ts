@@ -829,6 +829,29 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       imported += batch.length;
     }
 
+    // Clean up false positive brands — short/generic names that aren't real brands
+    try {
+      const GENERIC_NAMES = ['www','one','bit','dns','app','web','api','cdn','dev','net','goo','pages','forms','mail','blog','shop','host','info','link','news','data','live','play','docs','home','code','test','help','chat','free','plus','labs'];
+      // Delete brands with very short names (<=3 chars) that were just imported from Tranco
+      await env.DB.prepare(
+        `DELETE FROM brands WHERE source = 'tranco' AND LENGTH(name) <= 3 AND threat_count = 0`
+      ).run();
+      // Delete purely numeric names
+      await env.DB.prepare(
+        `DELETE FROM brands WHERE source = 'tranco' AND threat_count = 0
+         AND name GLOB '[0-9]*' AND name NOT GLOB '*[a-zA-Z]*'`
+      ).run();
+      // Delete generic names
+      for (const generic of GENERIC_NAMES) {
+        await env.DB.prepare(
+          `DELETE FROM brands WHERE source = 'tranco' AND threat_count = 0 AND LOWER(name) = ?`
+        ).bind(generic).run();
+      }
+      console.log('[import-tranco] cleaned up false positive brands');
+    } catch (cleanupErr) {
+      console.error('[import-tranco] cleanup error:', cleanupErr);
+    }
+
     // Auto-run brand match backfill (10 rounds) to link existing threats to newly imported brands
     let backfillMatched = 0;
     if (imported > 0) {
