@@ -4930,22 +4930,12 @@ async function viewAgents(el) {
       <div class="agg-card"><div class="agg-val" style="color:var(--text-accent)">${totalOutputs}</div><div class="agg-lbl">Outputs (24h)</div><div class="agg-sub">Insights + classifications</div></div>
       <div class="agg-card"><div class="agg-val" style="color:${totalErrors > 0 ? 'var(--negative)' : 'var(--positive)'}">${totalErrors}</div><div class="agg-lbl">Errors (24h)</div><div class="agg-sub">${totalErrors === 0 ? 'All systems nominal' : 'Attention needed'}</div></div>`;
 
-    // Agent cards
+    // Agent cards — render shells first, fill activity bars after
     const grid = document.getElementById('agent-grid');
     grid.innerHTML = agents.map(a => {
       const aid = a.agent_id || a.name;
       const meta = AGENT_META[a.name] || AGENT_META[aid] || { iconClass: 'sentinel', color: '#22d3ee', role: a.description || '' };
-      const outputs20 = a.recent_outputs || [];
-      const maxOut = Math.max(...outputs20.map(o => 1), 1);
-      const totalSegs = 20;
-      const segs = [];
-      for (let i = 0; i < totalSegs; i++) {
-        if (i < outputs20.length) {
-          segs.push(`<div class="activity-seg" style="background:${meta.color};opacity:0.7"></div>`);
-        } else {
-          segs.push(`<div class="activity-seg" style="background:${meta.color};opacity:0.05"></div>`);
-        }
-      }
+      const emptySegs = Array(20).fill(`<div class="activity-seg" style="background:${meta.color};opacity:0.05"></div>`).join('');
       return `<div class="agent-card" data-agent="${aid}">
         <div class="agent-status-dot ${a.status || 'idle'}"></div>
         <div class="agent-header">
@@ -4958,9 +4948,39 @@ async function viewAgents(el) {
           <div class="agent-stat"><div class="agent-stat-val" style="color:${(a.error_count_24h || 0) > 0 ? 'var(--negative)' : ''}">${a.error_count_24h || 0}</div><div class="agent-stat-label">Errors</div></div>
         </div>
         <div class="agent-last"><span>Last output</span><span>${relativeTime(a.last_output_at)}</span></div>
-        <div class="activity-bar">${segs.reverse().join('')}</div>
+        <div class="activity-bar" id="activity-bar-${aid}">${emptySegs}</div>
       </div>`;
     }).join('');
+
+    // Fill activity bars with time-based buckets (20 × 72min = 24h)
+    const BUCKET_COUNT = 20;
+    const BUCKET_MS = 72 * 60 * 1000; // 72 minutes
+    const nowMs = Date.now();
+    const dayAgoMs = nowMs - 24 * 60 * 60 * 1000;
+    for (const a of agents) {
+      const aid = a.agent_id || a.name;
+      const meta = AGENT_META[a.name] || AGENT_META[aid] || { color: '#22d3ee' };
+      try {
+        const outRes = await api(`/agents/${aid}/outputs?limit=200`).catch(() => null);
+        const outputs = (outRes?.data || []).filter(o => {
+          if (!o.created_at) return false;
+          const ts = new Date(o.created_at.endsWith('Z') ? o.created_at : o.created_at + 'Z').getTime();
+          return ts >= dayAgoMs;
+        });
+        const buckets = new Array(BUCKET_COUNT).fill(false);
+        for (const o of outputs) {
+          const ts = new Date(o.created_at.endsWith('Z') ? o.created_at : o.created_at + 'Z').getTime();
+          const idx = Math.floor((ts - dayAgoMs) / BUCKET_MS);
+          if (idx >= 0 && idx < BUCKET_COUNT) buckets[idx] = true;
+        }
+        const barEl = document.getElementById(`activity-bar-${aid}`);
+        if (barEl) {
+          barEl.innerHTML = buckets.map(filled =>
+            `<div class="activity-seg" style="background:${meta.color};opacity:${filled ? 0.7 : 0.05}"></div>`
+          ).join('');
+        }
+      } catch { /* ok */ }
+    }
 
     // Pipeline Automation strip
     try {
