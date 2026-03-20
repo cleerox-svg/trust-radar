@@ -7,11 +7,22 @@ export const phishtank: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "http://data.phishtank.com/data/online-valid.json";
     console.log(`[phishtank] fetching: ${feedUrl}`);
-    const res = await fetch(feedUrl, {
-      headers: { "User-Agent": "trust-radar/2.0" },
-    });
-    console.log(`[phishtank] response: HTTP ${res.status}`);
-    if (!res.ok) throw new Error(`PhishTank HTTP ${res.status}`);
+    let res: Response;
+    try {
+      res = await fetch(feedUrl, {
+        headers: { "User-Agent": "trust-radar/2.0" },
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (fetchErr) {
+      console.error(`[phishtank] fetch error:`, fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
+      throw new Error(`PhishTank fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+    }
+    console.log(`[phishtank] response: HTTP ${res.status}, content-type=${res.headers.get('content-type')}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[phishtank] HTTP ${res.status}: ${body.slice(0, 200)}`);
+      throw new Error(`PhishTank HTTP ${res.status}: ${body.slice(0, 100)}`);
+    }
 
     const data = await res.json() as Array<{
       phish_id: number; url: string; phish_detail_url?: string;

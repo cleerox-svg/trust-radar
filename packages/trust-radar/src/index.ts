@@ -1272,20 +1272,27 @@ export default {
             const pendingRow = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)"
             ).first<{ n: number }>();
-            console.log(`[cron] Step 2: pending=${pendingRow?.n ?? 0}`);
-            if ((pendingRow?.n ?? 0) > 0) {
-              let totalBrandMatched = 0;
+            const step2Pending = pendingRow?.n ?? 0;
+            console.log(`[cron] Step 2: pending=${step2Pending}`);
+            let totalBrandMatched = 0;
+            if (step2Pending > 0) {
               for (let i = 0; i < 2; i++) {
                 const bf = await runBrandMatchBackfill(env);
                 totalBrandMatched += bf.matched;
                 if (bf.pending === 0 || bf.checked === 0) break;
               }
-              console.log(`[cron] Step 2 done: ${totalBrandMatched} matched, ${(pendingRow?.n ?? 0) - totalBrandMatched} remaining`);
-            } else {
-              console.log('[cron] Step 2 skipped: no pending threats');
             }
+            const step2Msg = `CRON STEP 2: brand-match completed, pending=${step2Pending}, matched=${totalBrandMatched}`;
+            console.log(`[cron] ${step2Msg}`);
+            await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_2_' + Date.now(), step2Msg).run();
           } catch (err) {
-            console.error("[cron] Step 2 brand-match failed:", err instanceof Error ? err.message : String(err));
+            const step2Err = `CRON STEP 2 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+            console.error(`[cron] ${step2Err}`);
+            try { await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_2_err_' + Date.now(), step2Err).run(); } catch { /* ok */ }
           }
 
           // ─── Step 3: Auto email security scan (10 brands/cycle) ──
@@ -1294,8 +1301,10 @@ export default {
             const pendingEmail = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM brands WHERE email_security_scanned_at IS NULL AND canonical_domain IS NOT NULL"
             ).first<{ n: number }>();
-            console.log(`[cron] Step 3: pending=${pendingEmail?.n ?? 0}`);
-            if ((pendingEmail?.n ?? 0) > 0) {
+            const step3Pending = pendingEmail?.n ?? 0;
+            console.log(`[cron] Step 3: pending=${step3Pending}`);
+            let scanned = 0;
+            if (step3Pending > 0) {
               const { runEmailSecurityScan, saveEmailSecurityScan } = await import("./email-security");
               const brandsToScan = await env.DB.prepare(`
                 SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain
@@ -1308,7 +1317,6 @@ export default {
                 LIMIT 10
               `).all<{ id: number; domain: string }>();
               console.log(`[cron] Step 3: ${brandsToScan.results.length} brands to scan`);
-              let scanned = 0;
               for (const brand of brandsToScan.results) {
                 try {
                   const scanResult = await runEmailSecurityScan(brand.domain);
@@ -1321,12 +1329,18 @@ export default {
                   console.error(`[cron] Step 3 scan failed for ${brand.domain}:`, e instanceof Error ? e.message : String(e));
                 }
               }
-              console.log(`[cron] Step 3 done: ${scanned} scanned, ${(pendingEmail?.n ?? 0) - scanned} remaining`);
-            } else {
-              console.log('[cron] Step 3 skipped: no pending brands');
             }
+            const step3Msg = `CRON STEP 3: email-security completed, pending=${step3Pending}, scanned=${scanned}`;
+            console.log(`[cron] ${step3Msg}`);
+            await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_3_' + Date.now(), step3Msg).run();
           } catch (err) {
-            console.error("[cron] Step 3 email-security failed:", err instanceof Error ? err.message : String(err));
+            const step3Err = `CRON STEP 3 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+            console.error(`[cron] ${step3Err}`);
+            try { await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_3_err_' + Date.now(), step3Err).run(); } catch { /* ok */ }
           }
 
           // ─── Step 4: Auto AI attribution (1 batch of 50) ─────────
@@ -1335,23 +1349,32 @@ export default {
             const unmatchedCount = await env.DB.prepare(
               "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')"
             ).first<{ n: number }>();
-            console.log(`[cron] Step 4: unmatched=${unmatchedCount?.n ?? 0}`);
-            if ((unmatchedCount?.n ?? 0) > 500) {
+            const step4Unmatched = unmatchedCount?.n ?? 0;
+            console.log(`[cron] Step 4: unmatched=${step4Unmatched}`);
+            let step4Result = `skipped (unmatched=${step4Unmatched} <= 500)`;
+            if (step4Unmatched > 500) {
               const { getDailyUsage } = await import("./lib/haiku");
               const todayUsage = await getDailyUsage(env);
               console.log(`[cron] Step 4: daily Haiku calls=${todayUsage.calls}`);
               if (todayUsage.calls < 50) {
                 const { runAiAttribution } = await import("./handlers/admin");
                 const attrResult = await runAiAttribution(env, 50);
-                console.log(`[cron] Step 4 done: ${attrResult.attributed} attributed, ${attrResult.calls} calls, ~$${attrResult.costUsd.toFixed(4)}`);
+                step4Result = `attributed=${attrResult.attributed}, calls=${attrResult.calls}, cost=~$${attrResult.costUsd.toFixed(4)}`;
               } else {
-                console.log(`[cron] Step 4 skipped: daily Haiku calls=${todayUsage.calls} >= 50`);
+                step4Result = `skipped (daily Haiku calls=${todayUsage.calls} >= 50)`;
               }
-            } else {
-              console.log(`[cron] Step 4 skipped: unmatched=${unmatchedCount?.n ?? 0} <= 500`);
             }
+            const step4Msg = `CRON STEP 4: ai-attribution completed, ${step4Result}`;
+            console.log(`[cron] ${step4Msg}`);
+            await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_4_' + Date.now(), step4Msg).run();
           } catch (err) {
-            console.error("[cron] Step 4 ai-attribution failed:", err instanceof Error ? err.message : String(err));
+            const step4Err = `CRON STEP 4 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+            console.error(`[cron] ${step4Err}`);
+            try { await env.DB.prepare(
+              "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+            ).bind('cron_step_4_err_' + Date.now(), step4Err).run(); } catch { /* ok */ }
           }
 
           // Auto-trigger v2 AI agents after ingestion + enrichment

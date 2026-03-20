@@ -143,12 +143,13 @@ export async function runFeed(
       "INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES (?, 'healthy')"
     ).bind(config.feed_name).run();
 
-    // Update feed_status: only set healthy if records were ingested
+    // Update feed_status: only set healthy if records were ingested, clear error
     const statusUpdate = await env.DB.prepare(
       `UPDATE feed_status SET
          last_successful_pull = datetime('now'),
          records_ingested_today = records_ingested_today + ?,
-         health_status = CASE WHEN ? > 0 THEN 'healthy' ELSE health_status END
+         health_status = CASE WHEN ? > 0 THEN 'healthy' ELSE health_status END,
+         last_error = NULL
        WHERE feed_name = ?`
     ).bind(result.itemsNew, result.itemsFetched, config.feed_name).run();
     console.log(`[runFeed] ${config.feed_name}: feed_status updated, changes=${statusUpdate.meta.changes}`);
@@ -172,13 +173,14 @@ export async function runFeed(
       `SELECT health_status FROM feed_status WHERE feed_name = ?`
     ).bind(config.feed_name).first<{ health_status: string }>();
 
-    // Update feed_status to degraded
+    // Update feed_status to degraded with error message
     await env.DB.prepare(
       `UPDATE feed_status SET
          last_failure = datetime('now'),
-         health_status = 'degraded'
+         health_status = 'degraded',
+         last_error = ?
        WHERE feed_name = ?`
-    ).bind(config.feed_name).run();
+    ).bind(errorMsg.slice(0, 500), config.feed_name).run();
 
     // Notify only on status CHANGE (healthy → degraded)
     if (prevStatus?.health_status === 'healthy') {
