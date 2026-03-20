@@ -87,7 +87,7 @@ const UpdateUserSchema = z.object({
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
-  const [users, threats, sessions, sentinelBacklog, analystBacklog, cartoBacklog, strategistBacklog, observerLastRun] = await Promise.all([
+  const [users, threats, sessions, sentinelBacklog, analystBacklog, cartoBacklog, strategistBacklog, observerLastRun, aiAttrPending, trancoCount] = await Promise.all([
     env.DB.prepare(
       `SELECT COUNT(*) AS total,
               SUM(CASE WHEN role = 'super_admin' THEN 1 ELSE 0 END) AS super_admins,
@@ -121,6 +121,12 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
     env.DB.prepare(
       "SELECT MAX(created_at) AS last_run FROM agent_outputs WHERE agent_id = 'observer' AND type != 'diagnostic'",
     ).first<{ last_run: string | null }>().catch(() => null),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')",
+    ).first<{ n: number }>().catch(() => null),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM brands",
+    ).first<{ n: number }>().catch(() => null),
   ]);
 
   return json({
@@ -143,6 +149,8 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
         strategist: strategistBacklog?.n ?? 0,
         observer_last_run: observerLastRun?.last_run ?? null,
       },
+      ai_attribution_pending: aiAttrPending?.n ?? 0,
+      tranco_brand_count: trancoCount?.n ?? 0,
     },
   }, 200, origin);
 }
