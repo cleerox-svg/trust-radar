@@ -95,6 +95,10 @@ import {
   handleEmailSecurityStats,
 } from "./handlers/emailSecurity";
 import {
+  handleGetThreatAssessment, handleGetThreatAssessmentHistory,
+  handleThreatFeedStats,
+} from "./handlers/threatAssessment";
+import {
   handleGetDmarcOverview,
   handleGetDmarcReports,
   handleGetDmarcStats,
@@ -1275,6 +1279,23 @@ router.post("/api/email-security/scan/:brandId", async (request: Request & { par
   return handleScanBrandEmailSecurity(request, env, request.params["brandId"] ?? "");
 });
 
+// ─── Threat Assessment ────────────────────────────────────────
+router.get("/api/brand/:brandId/threat-assessment/history", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetThreatAssessmentHistory(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/brand/:brandId/threat-assessment", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetThreatAssessment(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/threat-feeds/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleThreatFeedStats(request, env);
+});
+
 // ─── DMARC Report endpoints ───────────────────────────────────
 // overview must be registered before :brandId to avoid route collision
 router.get("/api/dmarc-reports/overview", async (request: Request, env: Env) => {
@@ -1518,6 +1539,24 @@ export default {
         ).bind('cron_step_4_err_' + Date.now(), step4Err).run(); } catch { /* ok */ }
       }
 
+      // ─── Step 5: Threat Feed Sync (PhishTank, URLhaus signals) ──
+      console.log('[cron] Step 5: threat feed sync starting');
+      try {
+        const { runThreatFeedSync } = await import("./threat-feeds");
+        const syncResult = await runThreatFeedSync(env);
+        const step5Msg = `CRON STEP 5: threat-feed-sync completed, phishtank=${syncResult.phishtank.matched}/${syncResult.phishtank.fetched}, urlhaus=${syncResult.urlhaus.matched}/${syncResult.urlhaus.fetched}`;
+        console.log(`[cron] ${step5Msg}`);
+        await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_5_' + Date.now(), step5Msg).run();
+      } catch (err) {
+        const step5Err = `CRON STEP 5 FAILED: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[cron] ${step5Err}`);
+        try { await env.DB.prepare(
+          "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
+        ).bind('cron_step_5_err_' + Date.now(), step5Err).run(); } catch { /* ok */ }
+      }
+
       // ─── AI Agents (run independently of feed success) ────────
       try {
         const { agentModules: allAgents } = await import("./agents/index");
@@ -1572,6 +1611,15 @@ export default {
           if (mod) {
             const result = await executeAgent(env, mod, {}, "cron", "scheduled");
             console.log(`[cron] agent observer: ${result.status}`);
+          }
+
+          // Daily brand threat assessments (Phase 3)
+          try {
+            const { runDailyAssessments } = await import("./brand-threat-correlator");
+            const assessResult = await runDailyAssessments(env);
+            console.log(`[cron] daily assessments: assessed=${assessResult.brandsAssessed}, high_risk=${assessResult.highRiskBrands}, spikes=${assessResult.scoreSpikes}`);
+          } catch (err) {
+            console.error("[cron] daily assessments error:", err);
           }
         }
 

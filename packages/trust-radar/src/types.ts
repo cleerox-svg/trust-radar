@@ -22,6 +22,9 @@ export interface Env {
   CF_API_TOKEN?: string;
   // GeoIP
   IPINFO_TOKEN?: string;
+  // Threat intelligence feeds (optional)
+  ABUSEIPDB_API_KEY?: string;
+  HIBP_API_KEY?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────

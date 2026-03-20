@@ -134,6 +134,51 @@ export const observerAgent: AgentModule = {
       }
     } catch { /* spam trap tables may not exist yet */ }
 
+    // ─── Threat feed signals (from threat_signals table) ──────────
+    let threatFeedContext = "";
+    try {
+      const feedSignals24h = await env.DB.prepare(`
+        SELECT source, COUNT(*) as count
+        FROM threat_signals
+        WHERE created_at >= datetime('now', '-24 hours')
+        GROUP BY source
+        ORDER BY count DESC
+      `).all<{ source: string; count: number }>();
+
+      const feedMatches24h = await env.DB.prepare(`
+        SELECT COUNT(*) as n FROM threat_signals
+        WHERE brand_match_id IS NOT NULL AND created_at >= datetime('now', '-24 hours')
+      `).first<{ n: number }>();
+
+      if (feedSignals24h.results.length > 0) {
+        const feedBreakdown = feedSignals24h.results.map(r => `${r.source}: ${r.count}`).join(", ");
+        threatFeedContext = `Threat feed signals (24h): ${feedBreakdown}. Brand matches: ${feedMatches24h?.n ?? 0}.`;
+      }
+    } catch { /* threat_signals table may not exist yet */ }
+
+    // ─── High-risk brand assessments ─────────────────────────────
+    let highRiskContext = "";
+    try {
+      const highRiskBrands = await env.DB.prepare(`
+        SELECT bta.brand_id, b.name, bta.composite_risk_score, bta.risk_level, bta.threat_summary
+        FROM brand_threat_assessments bta
+        JOIN brands b ON b.id = bta.brand_id
+        WHERE bta.composite_risk_score > 60
+          AND bta.assessed_at >= datetime('now', '-48 hours')
+        ORDER BY bta.composite_risk_score DESC
+        LIMIT 5
+      `).all<{
+        brand_id: string; name: string; composite_risk_score: number;
+        risk_level: string; threat_summary: string | null;
+      }>();
+
+      if (highRiskBrands.results.length > 0) {
+        highRiskContext = `High-risk brands: ${highRiskBrands.results.map(b =>
+          `${b.name} (score: ${b.composite_risk_score}, ${b.risk_level})`
+        ).join(", ")}.`;
+      }
+    } catch { /* brand_threat_assessments table may not exist yet */ }
+
     // ─── Send to Haiku for intelligence briefing ─────────────────
     const insightResult = await generateInsight(env, {
       period: "daily",
@@ -154,6 +199,8 @@ export const observerAgent: AgentModule = {
       agent_context: recentOutputs.results,
       email_security_summary: emailSecurityContext,
       spam_trap_summary: spamTrapContext,
+      threat_feed_summary: threatFeedContext,
+      high_risk_brands_summary: highRiskContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -222,6 +269,16 @@ export const observerAgent: AgentModule = {
           severity: campaign.threat_count >= 10 ? "high" : "medium",
           details: { title: `Campaign: ${campaign.name}` },
           relatedCampaignId: campaign.id,
+        });
+      }
+
+      // Item: Threat feed signals
+      if (threatFeedContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Threat Feed Intelligence** — ${threatFeedContext}${highRiskContext ? ` ${highRiskContext}` : ''}`,
+          severity: highRiskContext ? 'high' : 'info',
+          details: { title: 'Threat Feed Intelligence' },
         });
       }
 
@@ -312,6 +369,8 @@ export const observerAgent: AgentModule = {
             recent_campaigns: recentCampaigns.results,
             email_security_summary: emailSecurityContext,
             spam_trap_summary: spamTrapContext,
+            threat_feed_summary: threatFeedContext,
+            high_risk_brands_summary: highRiskContext,
           });
 
           if (weeklyResult.success && weeklyResult.data?.items?.length) {
