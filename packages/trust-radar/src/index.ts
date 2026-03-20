@@ -1358,15 +1358,15 @@ export default {
         console.log(`[cron] Step 4: unmatched=${step4Unmatched}`);
         let step4Result = `skipped (unmatched=${step4Unmatched} <= 500)`;
         if (step4Unmatched > 500) {
-          const { getDailyUsage } = await import("./lib/haiku");
-          const todayUsage = await getDailyUsage(env);
-          console.log(`[cron] Step 4: daily Haiku calls=${todayUsage.calls}`);
-          if (todayUsage.calls < 50) {
+          const today = new Date().toISOString().slice(0, 10);
+          const attrCallsToday = parseInt(await env.CACHE.get(`ai_attr_calls_${today}`) || '0', 10);
+          console.log(`[cron] Step 4: attribution calls today=${attrCallsToday}`);
+          if (attrCallsToday < 20) {
             const { runAiAttribution } = await import("./handlers/admin");
             const attrResult = await runAiAttribution(env, 50);
-            step4Result = `attributed=${attrResult.attributed}, calls=${attrResult.calls}, cost=~$${attrResult.costUsd.toFixed(4)}`;
+            step4Result = `attributed=${attrResult.attributed}, calls=${attrResult.calls}, cost=~$${attrResult.costUsd.toFixed(4)}, daily_attr_calls=${attrCallsToday + attrResult.calls}`;
           } else {
-            step4Result = `skipped (daily Haiku calls=${todayUsage.calls} >= 50)`;
+            step4Result = `skipped (attribution calls today=${attrCallsToday} >= 20)`;
           }
         }
         const step4Msg = `CRON STEP 4: ai-attribution completed, ${step4Result}`;
