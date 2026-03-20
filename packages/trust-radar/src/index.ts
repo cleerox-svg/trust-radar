@@ -112,6 +112,37 @@ import {
 import type { Env } from "./types";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
+// ─── Honeypot Domain Server ─────────────────────────────────
+async function serveHoneypotDomain(url: URL, env: Env): Promise<Response> {
+  const hostname = url.hostname;
+  const path = url.pathname;
+
+  // Route mapping: / → index, /contact → contact, /team → team
+  const pageMap: Record<string, string> = {
+    "/": "index", "/contact": "contact", "/team": "team", "/about": "team",
+    "/robots.txt": "robots", "/sitemap.xml": "sitemap",
+  };
+  const page = pageMap[path];
+  if (!page) return new Response("Not Found", { status: 404 });
+
+  const kvKey = `honeypot-site:${hostname}:${page}`;
+  const content = await env.CACHE.get(kvKey);
+  if (!content) return new Response("Not Found", { status: 404 });
+
+  const contentType = page === "sitemap"
+    ? "application/xml"
+    : page === "robots"
+      ? "text/plain"
+      : "text/html";
+
+  return new Response(content, {
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
+
 const router = Router();
 
 // ─── CORS preflight ───────────────────────────────────────────
@@ -1047,6 +1078,111 @@ router.post("/api/spam-trap/strategist/run", async (request: Request, env: Env) 
   return handleRunStrategist(request, env);
 });
 
+// ─── Honeypot Site Generator ─────────────────────────────────
+router.post("/api/admin/honeypot/generate", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+
+  const body = await request.json() as {
+    hostname: string;
+    businessName: string;
+    businessType: string;
+    city: string;
+    seedCount?: number;
+  };
+
+  if (!body.hostname || !body.businessName || !body.businessType || !body.city) {
+    return Response.json({ success: false, error: "Missing required fields: hostname, businessName, businessType, city" }, { status: 400 });
+  }
+
+  const seedCount = body.seedCount || 5;
+
+  try {
+    const { generateTrapAddresses, generateTeamMembers, generateHoneypotSite } = await import("./honeypot-generator");
+
+    // Generate trap addresses
+    const traps = generateTrapAddresses(body.hostname, seedCount);
+    const trapAddresses = traps.map(t => ({
+      address: t.address,
+      role: t.role,
+    }));
+
+    // Generate team members using a subset of trap addresses
+    const teamMembers = generateTeamMembers(body.hostname, trapAddresses, Math.min(seedCount, 5));
+
+    // Generate site HTML via Haiku
+    const site = await generateHoneypotSite(env, {
+      hostname: body.hostname,
+      businessName: body.businessName,
+      businessType: body.businessType,
+      city: body.city,
+      trapAddresses,
+      teamMembers,
+    });
+
+    // Store pages in KV
+    await Promise.all([
+      env.CACHE.put(`honeypot-site:${body.hostname}:index`, site.index, { expirationTtl: 86400 * 365 }),
+      env.CACHE.put(`honeypot-site:${body.hostname}:contact`, site.contact, { expirationTtl: 86400 * 365 }),
+      env.CACHE.put(`honeypot-site:${body.hostname}:team`, site.team, { expirationTtl: 86400 * 365 }),
+      env.CACHE.put(`honeypot-site:${body.hostname}:sitemap`, site.sitemap, { expirationTtl: 86400 * 365 }),
+      env.CACHE.put(`honeypot-site:${body.hostname}:robots`, site.robots, { expirationTtl: 86400 * 365 }),
+    ]);
+
+    // Add hostname to honeypot domains list
+    const existingDomains = await env.CACHE.get("honeypot:domains").then(
+      v => v ? JSON.parse(v) as string[] : [],
+    ).catch(() => [] as string[]);
+    if (!existingDomains.includes(body.hostname)) {
+      existingDomains.push(body.hostname);
+      await env.CACHE.put("honeypot:domains", JSON.stringify(existingDomains), { expirationTtl: 86400 * 365 });
+    }
+
+    // Create seed campaign
+    const campaignId = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO seed_campaigns (id, name, channel, status, addresses_seeded, created_at)
+       VALUES (?, ?, 'honeypot', 'active', ?, datetime('now'))`
+    ).bind(campaignId, `Honeypot: ${body.hostname}`, seedCount).run();
+
+    // Insert seed addresses
+    for (const trap of traps) {
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO seed_addresses (address, domain, channel, campaign_id, is_active, seeded_at, total_catches)
+         VALUES (?, ?, 'honeypot', ?, 1, datetime('now'), 0)`
+      ).bind(trap.address, body.hostname, campaignId).run();
+    }
+
+    // Audit log
+    try {
+      await env.AUDIT_DB.prepare(
+        `INSERT INTO audit_log (id, user_id, action, resource_type, resource_id, outcome, details, ip_address, timestamp)
+         VALUES (?, ?, 'honeypot_generate', 'honeypot', ?, 'success', ?, ?, datetime('now'))`
+      ).bind(
+        crypto.randomUUID(),
+        ctx.userId,
+        body.hostname,
+        JSON.stringify({ seedCount, businessName: body.businessName }),
+        request.headers.get("CF-Connecting-IP") || "unknown",
+      ).run();
+    } catch { /* non-fatal */ }
+
+    return Response.json({
+      success: true,
+      data: {
+        hostname: body.hostname,
+        pages: ["index", "contact", "team", "sitemap", "robots"],
+        seedAddresses: traps.map(t => t.address),
+        campaignId,
+        teamMembers: teamMembers.map(m => ({ name: m.name, title: m.title, email: m.email })),
+      },
+    });
+  } catch (err) {
+    console.error("[honeypot-generate] error:", err);
+    return Response.json({ success: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
+});
+
 // ─── Public Homepage ──────────────────────────────────────────
 router.get("/", () =>
   new Response(renderHomepage(), {
@@ -1523,6 +1659,19 @@ export default {
       ) {
         const canonical = url.hostname === "www.trustradar.ca" ? "trustradar.ca" : "lrxradar.com";
         return Response.redirect(`https://${canonical}${url.pathname}${url.search}`, 301);
+      }
+
+      // Honeypot domain routing — serve KV-stored sites for throwaway domains
+      // For each honeypot domain, add to wrangler.toml:
+      //   { pattern = "example-business.xyz", custom_domain = true },
+      const knownDomains = ["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"];
+      if (!knownDomains.includes(url.hostname)) {
+        const honeypotDomains = await env.CACHE.get("honeypot:domains").then(
+          v => v ? JSON.parse(v) as string[] : [],
+        ).catch(() => [] as string[]);
+        if (honeypotDomains.includes(url.hostname)) {
+          return applySecurityHeaders(await serveHoneypotDomain(url, env));
+        }
       }
 
       // Honeypot pages serve from lrxradar.com and trustradar.ca
