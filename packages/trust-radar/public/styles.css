@@ -3368,10 +3368,6 @@ a.campaign-card:hover { text-decoration: none; }
   .topbar-nav a { min-height: 44px; display: inline-flex; align-items: center; }
   .pgn-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .period-btn { min-height: 44px; }
-  .obs-tf-btn { min-height: 44px; padding: 8px 14px; }
-  .obs-sev-btn { min-height: 44px; padding: 6px 12px; }
-  .obs-lt-btn { min-height: 44px; padding: 6px 12px; }
-  .obs-mode-btn { width: 44px; height: 44px; }
   .brand-card, .provider-card, .campaign-card, .agent-card { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .sidebar-brand-row, .sidebar-provider-row { min-height: 44px; }
 }
