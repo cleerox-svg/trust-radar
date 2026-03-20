@@ -6,7 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 # ─── Routes ──────────────────────────────────────────────────
 routes = [
   { pattern = "lrxradar.com", custom_domain = true },
-  { pattern = "www.lrxradar.com", custom_domain = true }
+  { pattern = "www.lrxradar.com", custom_domain = true },
+  { pattern = "trustradar.ca", custom_domain = true },
+  { pattern = "www.trustradar.ca", custom_domain = true }
 ]
 
 # ─── Static Assets (SPA frontend) ────────────────────────────
