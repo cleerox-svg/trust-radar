@@ -47,7 +47,7 @@
 
 /* ─── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   font-family: var(--font-body);
   background: var(--bg-void);
@@ -63,7 +63,7 @@ button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
 /* ─── Layout ────────────────────────────────────────────────── */
-#app { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-surface); }
+#app { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-surface); overflow-x: hidden; }
 .main { flex: 1; padding: 20px 24px; max-width: 1440px; margin: 0 auto; width: 100%; }
 
 /* ─── Topbar ────────────────────────────────────────────────── */
@@ -559,6 +559,10 @@ a.sidebar-brand-row:hover, a.sidebar-provider-row:hover { text-decoration: none;
   border-color: var(--blue-primary);
   box-shadow: 0 0 8px rgba(0,212,255,0.3);
 }
+
+/* Filter toggle — divider in mode selector */
+.obs-mode-divider { height: 1px; background: var(--blue-border); margin: 2px 0; }
+.obs-filters-toggle.active { background: rgba(0,212,255,0.12); color: var(--blue-primary); }
 
 /* Time filter — horizontal pills below mode selector */
 .obs-time-filter {
@@ -3303,8 +3307,8 @@ a.campaign-card:hover { text-decoration: none; }
 
   /* Observatory map height */
   .observatory-layout .main { height: 45vh; min-height: 200px; }
-  .obs-time-filter { left: 4px; right: 4px; transform: none; }
-  .obs-sev-filter { left: 4px; right: 4px; transform: none; flex-wrap: wrap; }
+  .obs-time-filter { max-width: calc(100% - 50px); }
+  .obs-sev-filter { max-width: calc(100% - 16px); flex-wrap: wrap; }
   .obs-mode-selector { right: 4px; }
 
   /* Modals full-width */
@@ -3334,9 +3338,9 @@ a.campaign-card:hover { text-decoration: none; }
   .all-brands-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   /* Observatory controls stacking */
-  .obs-time-filter { left: 8px; right: 8px; transform: none; justify-content: center; flex-wrap: wrap; }
-  .obs-sev-filter { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; }
-  .obs-layer-toggle { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; }
+  .obs-time-filter { max-width: calc(100% - 50px); }
+  .obs-sev-filter { max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center; }
+  .obs-layer-toggle { max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center; }
 
   /* Trend chart minimum height */
   .chart-container canvas { min-height: 220px; }

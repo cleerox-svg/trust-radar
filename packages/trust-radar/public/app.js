@@ -1438,6 +1438,8 @@ async function viewObservatory(el) {
     <div class="utc-clock" id="utc-clock"></div>
     <div class="stat-bar-overlay" id="stat-bar"></div>
     <div class="obs-mode-selector" id="obs-mode-selector">
+      <button class="obs-mode-btn obs-filters-toggle" id="obs-filters-toggle" title="Toggle Filters">☰</button>
+      <div class="obs-mode-divider"></div>
       <button class="obs-mode-btn active" data-mode="1" title="Multi-Stream">⟿</button>
       <button class="obs-mode-btn" data-mode="2" title="Live Feed">▶</button>
       <button class="obs-mode-btn" data-mode="3" title="Corridors">═</button>
@@ -2345,10 +2347,22 @@ async function viewObservatory(el) {
 
   // ── Controls setup ───────────────────────────────────────────────
   function setupControls() {
+    // Filter toggle button
+    const filtersToggle = document.getElementById('obs-filters-toggle');
+    if (filtersToggle) {
+      filtersToggle.addEventListener('click', () => {
+        const targets = ['obs-time-filter', 'obs-sev-filter', 'obs-layer-toggle'];
+        const els = targets.map(id => document.getElementById(id)).filter(Boolean);
+        const hidden = els.some(el => el.style.display === 'none');
+        els.forEach(el => el.style.display = hidden ? '' : 'none');
+        filtersToggle.classList.toggle('active', hidden);
+      });
+    }
+
     // Mode selector
-    document.querySelectorAll('.obs-mode-btn').forEach(btn => {
+    document.querySelectorAll('.obs-mode-btn[data-mode]').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.obs-mode-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.obs-mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = parseInt(btn.dataset.mode);
         currentBrandIdx = 0;
