@@ -407,75 +407,87 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
   }
 }
 
+// Core brand-match backfill logic — returns { matched, checked, pending }
+export async function runBrandMatchBackfill(env: Env): Promise<{ matched: number; checked: number; pending: number }> {
+  const brandRows = await env.DB.prepare(
+    "SELECT id, name, canonical_domain FROM brands",
+  ).all<{ id: string; name: string; canonical_domain: string }>();
+
+  const brands = brandRows.results;
+  if (brands.length === 0) return { matched: 0, checked: 0, pending: 0 };
+
+  const pendingRow = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)",
+  ).first<{ n: number }>();
+  const totalPending = pendingRow?.n ?? 0;
+
+  if (totalPending === 0) return { matched: 0, checked: 0, pending: 0 };
+
+  const rows = await env.DB.prepare(
+    `SELECT id, malicious_domain, malicious_url, ioc_value FROM threats
+     WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)
+     ORDER BY created_at DESC
+     LIMIT 500`,
+  ).all<{ id: string; malicious_domain: string | null; malicious_url: string | null; ioc_value: string | null }>();
+
+  let matched = 0;
+
+  for (const row of rows.results) {
+    const haystacks = [row.malicious_domain, row.malicious_url, row.ioc_value].filter(
+      (v): v is string => v != null && v.length > 0,
+    );
+    if (haystacks.length === 0) continue;
+
+    const brandId = fuzzyMatchBrand(haystacks, brands);
+    if (!brandId) continue;
+
+    try {
+      await env.DB.prepare(
+        "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL",
+      ).bind(brandId, row.id).run();
+
+      await env.DB.prepare(
+        `UPDATE brands SET
+           threat_count = threat_count + 1,
+           last_threat_seen = datetime('now')
+         WHERE id = ?`,
+      ).bind(brandId).run();
+
+      matched++;
+    } catch (err) {
+      console.error(`[backfill-brand-match] update failed for ${row.id}:`, err);
+    }
+  }
+
+  const pending = Math.max(0, totalPending - rows.results.length);
+  console.log(`[backfill-brand-match] Done: ${matched} matched out of ${rows.results.length} checked, ${pending} remaining`);
+  return { matched, checked: rows.results.length, pending };
+}
+
 // POST /api/admin/backfill-brand-match
 export async function handleBackfillBrandMatch(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
   try {
-    // Load monitored brands
-    const brandRows = await env.DB.prepare(
-      "SELECT id, name, canonical_domain FROM brands",
-    ).all<{ id: string; name: string; canonical_domain: string }>();
+    const body = await request.json().catch(() => null) as { rounds?: number } | null;
+    const rounds = Math.min(Math.max(body?.rounds ?? 1, 1), 20);
 
-    const brands = brandRows.results;
-    if (brands.length === 0) {
-      return json({ success: true, data: { matched: 0, pending: 0, message: "No brands in database" } }, 200, origin);
+    let totalMatched = 0;
+    let totalChecked = 0;
+    let lastPending = 0;
+
+    for (let i = 0; i < rounds; i++) {
+      const result = await runBrandMatchBackfill(env);
+      totalMatched += result.matched;
+      totalChecked += result.checked;
+      lastPending = result.pending;
+      console.log(`[backfill-brand-match] Round ${i + 1}/${rounds}: matched=${result.matched}, checked=${result.checked}, pending=${result.pending}`);
+      if (result.pending === 0 || result.checked === 0) break;
     }
-
-    // Count total pending
-    const pendingRow = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)",
-    ).first<{ n: number }>();
-    const totalPending = pendingRow?.n ?? 0;
-
-    if (totalPending === 0) {
-      return json({ success: true, data: { matched: 0, pending: 0 } }, 200, origin);
-    }
-
-    // Fetch 500 unlinked threats, newest first
-    const rows = await env.DB.prepare(
-      `SELECT id, malicious_domain, malicious_url, ioc_value FROM threats
-       WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)
-       ORDER BY created_at DESC
-       LIMIT 500`,
-    ).all<{ id: string; malicious_domain: string | null; malicious_url: string | null; ioc_value: string | null }>();
-
-    let matched = 0;
-
-    for (const row of rows.results) {
-      // Build haystacks from all available fields
-      const haystacks = [row.malicious_domain, row.malicious_url, row.ioc_value].filter(
-        (v): v is string => v != null && v.length > 0,
-      );
-      if (haystacks.length === 0) continue;
-
-      const brandId = fuzzyMatchBrand(haystacks, brands);
-      if (!brandId) continue;
-
-      try {
-        await env.DB.prepare(
-          "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL",
-        ).bind(brandId, row.id).run();
-
-        await env.DB.prepare(
-          `UPDATE brands SET
-             threat_count = threat_count + 1,
-             last_threat_seen = datetime('now')
-           WHERE id = ?`,
-        ).bind(brandId).run();
-
-        matched++;
-      } catch (err) {
-        console.error(`[backfill-brand-match] update failed for ${row.id}:`, err);
-      }
-    }
-
-    const pending = Math.max(0, totalPending - rows.results.length);
-    console.log(`[backfill-brand-match] Done: ${matched} matched out of ${rows.results.length} checked, ${pending} remaining`);
 
     return json({
       success: true,
-      data: { matched, checked: rows.results.length, pending },
+      data: { matched: totalMatched, checked: totalChecked, pending: lastPending, rounds },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
@@ -540,7 +552,7 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       sectors?: Record<string, string>;
     } | null;
 
-    const limit = Math.min(body?.limit ?? 500, 2000);
+    const limit = Math.min(body?.limit ?? 10000, 10000);
     const minRank = body?.min_rank ?? 1;
     const maxRank = body?.max_rank ?? limit;
 
@@ -561,7 +573,11 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       if (!rankStr || !domain) continue;
       const rank = parseInt(rankStr, 10);
       if (rank < minRank || rank > maxRank) continue;
-      candidates.push({ rank, domain: domain.trim().toLowerCase() });
+      const cleanDomain = domain.trim().toLowerCase();
+      const baseName = cleanDomain.split(".")[0] ?? "";
+      // Skip short names (< 4 chars) and purely numeric domains
+      if (baseName.length < 4 || /^\d+$/.test(baseName)) continue;
+      candidates.push({ rank, domain: cleanDomain });
       if (candidates.length >= limit) break;
     }
 
@@ -592,13 +608,25 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       imported += batch.length;
     }
 
+    // Auto-run brand match backfill (10 rounds) to link existing threats to newly imported brands
+    let backfillMatched = 0;
+    if (imported > 0) {
+      for (let i = 0; i < 10; i++) {
+        const bf = await runBrandMatchBackfill(env);
+        backfillMatched += bf.matched;
+        console.log(`[import-tranco] backfill round ${i + 1}/10: matched=${bf.matched}, pending=${bf.pending}`);
+        if (bf.pending === 0 || bf.checked === 0) break;
+      }
+    }
+
     return json({
       success: true,
       data: {
         candidates: candidates.length,
         imported,
         skipped,
-        message: `Imported ${imported} brands from Tranco top ${maxRank} (${skipped} already existed)`,
+        backfillMatched,
+        message: `Imported ${imported} brands from Tranco top ${maxRank} (${skipped} already existed, ${backfillMatched} threats backfill-matched)`,
       },
     }, 200, origin);
   } catch (err) {

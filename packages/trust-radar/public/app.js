@@ -5000,9 +5000,9 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-feeds"><div class="adm-action-icon">\u{1F504}</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #b388ff" id="adm-dash-agents"><div class="adm-action-icon">\u{1F9E0}</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00a8ff" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ffb627" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import from Tranco top 1M</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ffb627" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 500 unlinked threats</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
@@ -5389,7 +5389,7 @@ async function viewAdmin(el) {
       brandBtn.classList.add('dash-pending');
       if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
       try {
-        const res = await api('/admin/backfill-brand-match', { method: 'POST' });
+        const res = await api('/admin/backfill-brand-match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rounds: 10 }) });
         brandBtn.classList.remove('dash-pending');
         brandBtn.classList.add('dash-ok');
         if (icon) icon.textContent = '\u2713';
