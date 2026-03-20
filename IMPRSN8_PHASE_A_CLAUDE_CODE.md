@@ -5,7 +5,7 @@
 
 ## Context
 
-`packages/imprsn8` is a Cloudflare Worker SPA inside the `cleerox-svg/trust-radar` monorepo. The backend is substantially complete — 40+ routes covering auth, influencers, threats, takedowns, agents, feeds, invites, compliance, campaigns, and socials are all wired in `src/index.ts`. The D1 database has 18 applied migrations.
+`packages/imprsn8` is a Cloudflare Worker SPA inside the `cleerox-svg/trust-radar` monorepo. The backend is substantially complete — 35+ routes covering auth, influencers, threats, takedowns, agents, feeds, invites, compliance, campaigns, and socials are all wired in `src/index.ts`. The D1 database has 18 applied migrations.
 
 **What broke:** The UI template layer (`src/templates/homepage.ts` and `src/templates/dashboard.ts`) was previously coupled to Trust Radar's design system and must be completely replaced. There may also be broken imports or stale references in handler files.
 
@@ -19,9 +19,9 @@ The `public/index.html` file is the old broken UI remnant. It must be replaced w
 1. Audits the full `src/` tree for broken imports, compile errors, and stale Trust Radar references
 2. Replaces `public/index.html` with a clean redirect shell
 3. Rebuilds the homepage template with imprsn8's new design identity
-4. Rebuilds the dashboard template — full SPA with role-aware views (super_admin, talent_manager, influencer)
+4. Rebuilds the dashboard template — full SPA with role-aware views (admin, staff, soc, influencer)
 5. Verifies invite token logic is time-limited
-6. Does NOT modify the router (`index.ts`), handler files, middleware, or migrations unless fixing a compile error
+6. Does NOT modify the router (`index.ts`), middleware, or migrations unless fixing a compile error. Handler files may only be modified for type fixes or to add the `auto_action_enabled` field to `handleUpdateProfile`.
 
 ---
 
@@ -36,10 +36,13 @@ npx tsc --noEmit 2>&1 | head -80
 List all TypeScript errors. Then:
 
 ```bash
-grep -r "trust-radar\|lrx-radar\|TrustRadar\|trustRadar" src/ --include="*.ts"
+grep -r "trust-radar\|lrx-radar\|TrustRadar\|trustRadar\|lrxradar\|LRX_" src/ --include="*.ts"
 ```
 
-List any stale cross-package references.
+List any stale cross-package references. Known items to flag:
+- `src/lib/cors.ts` includes `lrxradar.com` origins in ALLOWED_ORIGINS
+- `src/types.ts` has `LRX_API_URL` and `LRX_API_KEY` in the Env interface
+- These are Trust Radar integration points — note them for future cleanup but do not modify in this phase
 
 ```bash
 ls src/
@@ -47,12 +50,11 @@ ls src/handlers/
 ls src/lib/
 ls src/middleware/
 ls src/templates/
-ls src/types/
 ```
 
-Report the full directory tree of `src/`. For each directory, note whether files exist or are missing based on what `index.ts` imports:
+Report the full directory tree of `src/`. Verify all required files exist (all handler files, lib files, middleware, templates, and types are already present in the codebase — no stubs should be needed).
 
-**Required handler files (from router imports):**
+**Required files (from router imports):**
 - `src/handlers/auth.ts` — handleRegister, handleLogin, handleMe, handleUpdateProfile
 - `src/handlers/admin.ts` — handleAdminListUsers, handleAdminUpdateUser
 - `src/handlers/influencers.ts` — handleListInfluencers, handleGetInfluencer, handleCreateInfluencer, handleUpdateInfluencer
@@ -72,26 +74,27 @@ Report the full directory tree of `src/`. For each directory, note whether files
 - `src/lib/cors.ts` — handleOptions, json
 - `src/lib/feedRunner.ts` — runDueFeeds
 - `src/middleware/auth.ts` — requireAuth, requireAdmin, isAuthContext
-- `src/types/index.ts` (or `src/types.ts`) — Env type
+- `src/types.ts` — Env type and all domain interfaces
 - `src/templates/homepage.ts` — renderImprsn8Homepage
 - `src/templates/dashboard.ts` — renderImprsn8Dashboard
 
-For any file that is **missing**, create a stub that exports the required named exports returning a 501 Not Implemented JSON response. This unblocks compilation without touching existing working handlers.
-
 For any TypeScript errors in **existing** handler files, fix them minimally — type corrections only, no logic changes.
+
+**Known type bug to fix:** In `src/handlers/invites.ts`, the `handleDirectCreate` function has `plan: "influencer" as "free"` — this incorrectly casts the role name as a plan tier. Change to `plan: "free"` (the actual plan value being used in the INSERT).
 
 ---
 
 ## Step 2 — Public Assets Cleanup
 
-Check what exists in the `public/` directory:
+Create the `public/` directory if it doesn't exist, then add `index.html`:
 
 ```bash
+mkdir -p public/
 ls public/
 cat public/index.html 2>/dev/null || echo "FILE MISSING"
 ```
 
-**Regardless of what's there**, replace `public/index.html` with the following clean redirect shell. This file is served by `env.ASSETS` for any URL that doesn't match `/`, `/dashboard`, or `/api/*`. Its only job is to redirect to `/dashboard` so deep-linked URLs don't 404 or load stale code:
+**Regardless of what's there**, create (or replace) `public/index.html` with the following clean redirect shell. This file is served by `env.ASSETS` for any URL that doesn't match `/`, `/dashboard`, or `/api/*`. Its only job is to redirect to `/dashboard` so deep-linked URLs don't 404 or load stale code:
 
 ```html
 <!DOCTYPE html>
@@ -117,19 +120,15 @@ If any other files exist in `public/` (old JS bundles, CSS, etc.) that belong to
 
 ## Step 3 — Invite Token Audit
 
-Open `src/handlers/invites.ts`. Verify:
+Open `src/handlers/invites.ts` and `src/handlers/auth.ts`. Verify the following are all present (they should already be implemented — confirm, do not modify):
 
-1. `handleCreateInvite` generates a token with an `expires_at` timestamp. If it does NOT set an expiry, update it to set expiry to **72 hours** from creation: `Date.now() + 72 * 60 * 60 * 1000`
+1. **Expiry on creation:** `handleCreateInvite` generates a cryptographically secure token (32 random bytes → 64-char hex) with a configurable `expires_at` timestamp (1-30 days, default 7 days). This is already implemented via `expires_days * 86_400_000`.
 
-2. `handleValidateInvite` checks that `expires_at > Date.now()` AND `used_at IS NULL`. If either check is missing, add it and return:
-   ```json
-   { "success": false, "error": "Invite link has expired or already been used" }
-   ```
-   with status 410.
+2. **Validation checks:** `handleValidateInvite` checks both `used_at` (rejects with 410 if already used) and `expires_at < now` (rejects with 410 if expired). Both checks are already present.
 
-3. After a user registers via invite, `handleRegister` (or the invite flow) must mark the token as used by setting `used_at = Date.now()`.
+3. **Mark as used on registration:** `handleRegister` in `src/handlers/auth.ts` validates the invite token (checking `used_at` and `expires_at`), then after successful user creation marks it used via `UPDATE invite_tokens SET used_at = datetime('now'), used_by_user_id = ? WHERE id = ?`. This is already implemented.
 
-Do not change anything else in the invite handlers.
+**No changes should be needed.** If any of these checks are missing, add them. Do not change anything else in the invite handlers.
 
 ---
 
@@ -218,7 +217,7 @@ The SPA:
 1. On load: calls `GET /api/auth/me` with Bearer token from `localStorage.getItem('imprsn8_token')`
 2. If 401: redirects to `/` (homepage) with `?login=1` query param which triggers the login modal
 3. On success: reads `user.role` and renders the appropriate view
-4. Role views: `super_admin` and `talent_manager` see the **Roster view** by default. `influencer` sees their **Profile view**.
+4. Role views: `admin` and `staff` see the **Roster view** by default. `soc` sees the **Signals view** by default. `influencer` sees their **Profile view**.
 
 ### Login Flow (on homepage)
 
@@ -235,23 +234,32 @@ Same sidebar + main layout as the UI concept. Use identical CSS variables and fo
 
 **Sidebar nav items by role:**
 
-`super_admin`:
+> **Note:** The codebase defines `UserRole = "influencer" | "staff" | "soc" | "admin"` in `src/types.ts`. All role checks in the SPA must use these exact values from the `user.role` field returned by `GET /api/auth/me`.
+
+`admin`:
 - ⬡ Roster
 - ◈ Signals (badge: unread count)
-- ◉ Operations (badge: pending HITL count)
+- ◉ Operations (badge: draft/submitted HITL count)
 - ⊡ Influencers
-- ⊞ Managers
+- ⊞ Staff
 - ⊕ Invites
 - ◷ Scan History
 - ⊘ Reports
 - ⊙ Settings
 
-`talent_manager`:
+`staff`:
 - ⬡ My Roster
 - ◈ Signals (badge)
 - ◉ Operations (badge)
 - ◷ Scan History
 - ⊘ Reports
+
+`soc` (Security Operations Center analyst):
+- ◈ Signals (badge: unread count)
+- ◉ Operations (badge)
+- ⊡ Threats
+- ◷ Scan History
+- ⊘ Compliance
 
 `influencer`:
 - ◈ My Threats
@@ -261,7 +269,7 @@ Same sidebar + main layout as the UI concept. Use identical CSS variables and fo
 
 ### Views to implement:
 
-**1. Roster View** (`super_admin` + `talent_manager` default)
+**1. Roster View** (`admin` + `staff` default)
 
 Fetches: `GET /api/overview` + `GET /api/influencers`
 
@@ -270,7 +278,7 @@ Layout:
 - Active scan bar (if any scan job is running — poll `GET /api/agents/runs` every 30s)
 - Tab bar: All Clients / At Risk / Pending Action / Monitoring
 - Influencer dossier cards (see design below)
-- Right column: Live Signal Feed (`GET /api/threats?limit=10&sort=recent`) + Operations Queue (`GET /api/takedowns?status=pending`)
+- Right column: Live Signal Feed (`GET /api/threats?limit=10&sort=recent`) + Operations Queue (`GET /api/takedowns?status=draft`)
 
 **Influencer Dossier Card design:**
 - Avatar with animated ring (threat-ring for CRITICAL, slow-spin aurora for safe)
@@ -289,7 +297,7 @@ Sections:
 - Tab bar: Threats / Accounts / Actions / History
 - Threats tab: filterable list by platform + tier, each threat shows handle, platform, risk score, AI reasoning snippet, status pill, action button
 - Accounts tab: verified accounts grid with platform, handle, follower count, last verified date. "+ Add Account" button calls `POST /api/accounts`
-- Actions tab: takedown pipeline — pending / submitted / resolved columns (kanban-style)
+- Actions tab: takedown pipeline — draft / submitted / resolved columns (kanban-style)
 - History tab: scan job timeline
 
 **3. Signals View**
@@ -307,7 +315,9 @@ Full-width feed of threat signals. Each row:
 
 **4. Operations View (HITL Queue)**
 
-Fetches: `GET /api/takedowns?status=pending`
+Fetches: `GET /api/takedowns?status=draft` (also show `status=submitted` items)
+
+> **Note:** The `TakedownStatus` type uses `"draft" | "submitted" | "acknowledged" | "in_review" | "resolved" | "rejected"`. There is no "pending" status. The HITL queue should show `draft` (awaiting first approval) and `submitted` (awaiting platform response) items.
 
 Each operation card:
 - Icon by action type (report 🚩 / dmca ⚖️ / legal 📋)
@@ -322,23 +332,24 @@ Fetches: `GET /api/auth/me` + `GET /api/threats` (scoped to their influencer_id 
 
 Layout (single column, no roster):
 - Header: their name, avatar, "Your Identity Score" ring (brand health score)
-- **Auto-Action toggle**: "Let my team handle everything" — calls `PATCH /api/profile` with `{ auto_action_enabled: true/false }`. When ON: shows "Your talent manager reviews all actions." When OFF: shows "You review actions before they're submitted."
+- **Auto-Action toggle**: "Let my team handle everything" — calls `PATCH /api/profile` with `{ auto_action_enabled: true/false }`. When ON: shows "Your staff manager reviews all actions." When OFF: shows "You review actions before they're submitted."
+  > **Requires handler change:** `handleUpdateProfile` in `src/handlers/auth.ts` currently only accepts `display_name`, `bio`, `username`. Add `auto_action_enabled: z.boolean().optional()` to its `UpdateSchema` and persist it to the users table. A migration to add the `auto_action_enabled` column may also be needed.
 - Threat summary: counts by tier with aurora-colored progress bars
 - Recent threats list (simplified — handle, platform, risk score, status)
 - "Mark Safe" button on each threat → `PATCH /api/threats/:id` with `{ status: "dismissed" }`
 - My Accounts section: list of their verified accounts + "+ Add Account" button
-- If no talent manager assigned: show a soft callout "Connect with a talent manager to unlock full protection and automated takedowns."
+- If no staff manager assigned: show a soft callout "Connect with a talent manager to unlock full protection and automated takedowns."
 
-**6. Invites View** (`super_admin` only)
+**6. Invites View** (`admin` only)
 
 Fetches: `GET /api/admin/invites`
 
 Table: Token (DM Mono, truncated) / Role / Intended For / Created / Expires / Status (active/expired/used) / Revoke button
 
 "+ Create Invite" button → modal:
-- Fields: Role (select: talent_manager / influencer) / Intended for (name/email, optional note) / Assign to Influencer (select, only shown if role = influencer)
-- On create: calls `POST /api/admin/invites` → shows the generated invite URL to copy: `https://imprsn8.com/?invite=TOKEN`
-- Token expires in 72 hours (enforced server-side)
+- Fields: Role (select: staff / influencer) / Intended for (name/email, optional note) / Assign to Influencer (select — required, as invites are always linked to an influencer profile)
+- On create: calls `POST /api/admin/invites` → shows the generated invite URL to copy: `https://imprsn8.com/register?invite=TOKEN`
+- Token expires per admin-configured duration (1-30 days, default 7 days — enforced server-side via `expires_days` param)
 
 ---
 
@@ -378,13 +389,14 @@ Confirm deploy succeeds. Do not verify live domain — just confirm Wrangler rep
 ## Constraints
 
 - **DO NOT** modify `src/index.ts` (the router) except to fix a TypeScript compile error
-- **DO NOT** modify any migration files
+- **DO NOT** modify any migration files (a new migration may be added for `auto_action_enabled` column if needed)
 - **DO NOT** change the `wrangler.toml`
 - **DO NOT** add new npm dependencies without noting them — the project uses `itty-router` and standard Web APIs
 - **DO NOT** connect any UI logic to Trust Radar routes or Trust Radar domain
 - All new UI code uses vanilla JS in `<script>` tags — no React, no Vite, no bundler
 - All fonts loaded from Google Fonts CDN in the HTML `<head>`
-- All colors and typography must match the design spec in Steps 3 and 4 exactly — this is a distinct product with its own identity, not a reskin of Trust Radar
+- All colors and typography must match the design spec in Steps 4 and 5 exactly — this is a distinct product with its own identity, not a reskin of Trust Radar
+- All role values in the SPA must use the actual `UserRole` type: `"influencer" | "staff" | "soc" | "admin"` — do not use `super_admin` or `talent_manager`
 
 ---
 
@@ -392,10 +404,12 @@ Confirm deploy succeeds. Do not verify live domain — just confirm Wrangler rep
 
 | File | Action |
 |---|---|
-| `public/index.html` | Replace with redirect shell, delete all other public/ files |
+| `public/index.html` | Create directory if needed, add redirect shell, delete any other public/ files |
 | `src/templates/homepage.ts` | Full replacement |
 | `src/templates/dashboard.ts` | Full replacement |
-| `src/handlers/*.ts` (missing stubs) | Create stubs for any missing files |
+| `src/handlers/auth.ts` | Add `auto_action_enabled` to `handleUpdateProfile` schema |
+| `src/handlers/invites.ts` | Fix `signJWT` type bug (`plan: "influencer"` → `plan: "free"`) |
 | `src/handlers/*.ts` (existing, compile errors) | Minimal type fixes only |
-| `src/handlers/invites.ts` | Verify/add 72hr expiry + used_at logic |
+| `src/handlers/invites.ts` | Verify expiry + used_at logic (already implemented — no changes expected) |
+| `migrations/` | Add migration for `auto_action_enabled` column if needed |
 | All other files | Read-only — no modifications |
