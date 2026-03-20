@@ -13,7 +13,7 @@ import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
 import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands } from "./handlers/admin";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
@@ -947,6 +947,11 @@ router.post("/api/admin/backfill-safe-domains", async (request: Request, env: En
   if (!isAuthContext(ctx)) return ctx;
   return handleBackfillSafeDomains(request, env);
 });
+router.post("/api/admin/backfill-ai-attribution", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBackfillAiAttribution(request, env);
+});
 router.post("/api/admin/import-tranco", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
@@ -1260,6 +1265,81 @@ export default {
             console.error("[cron] enrichment error:", err);
           }
 
+          // ─── Step 2: Auto brand match backfill (2 rounds) ─────────
+          try {
+            const { runBrandMatchBackfill } = await import("./handlers/admin");
+            const pendingRow = await env.DB.prepare(
+              "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL OR ioc_value IS NOT NULL)"
+            ).first<{ n: number }>();
+            if ((pendingRow?.n ?? 0) > 0) {
+              let totalBrandMatched = 0;
+              for (let i = 0; i < 2; i++) {
+                const bf = await runBrandMatchBackfill(env);
+                totalBrandMatched += bf.matched;
+                if (bf.pending === 0 || bf.checked === 0) break;
+              }
+              console.log(`[cron] auto brand-match: ${totalBrandMatched} matched, ${(pendingRow?.n ?? 0) - totalBrandMatched} remaining`);
+            }
+          } catch (err) {
+            console.error("[cron] auto brand-match error:", err);
+          }
+
+          // ─── Step 3: Auto email security scan (10 brands/cycle) ──
+          try {
+            const pendingEmail = await env.DB.prepare(
+              "SELECT COUNT(*) AS n FROM brands WHERE email_security_scanned_at IS NULL AND canonical_domain IS NOT NULL"
+            ).first<{ n: number }>();
+            if ((pendingEmail?.n ?? 0) > 0) {
+              const { runEmailSecurityScan, saveEmailSecurityScan } = await import("./email-security");
+              const brandsToScan = await env.DB.prepare(`
+                SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain
+                FROM brands b
+                LEFT JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
+                WHERE b.email_security_scanned_at IS NULL
+                  AND (b.canonical_domain IS NOT NULL OR b.name IS NOT NULL)
+                GROUP BY b.id
+                ORDER BY COUNT(t.id) DESC
+                LIMIT 10
+              `).all<{ id: number; domain: string }>();
+              let scanned = 0;
+              for (const brand of brandsToScan.results) {
+                try {
+                  const scanResult = await runEmailSecurityScan(brand.domain);
+                  await saveEmailSecurityScan(env.DB, brand.id, scanResult);
+                  await env.DB.prepare(
+                    "UPDATE brands SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now') WHERE id = ?"
+                  ).bind(scanResult.score, scanResult.grade, brand.id).run();
+                  scanned++;
+                } catch (e) {
+                  console.error(`[cron] email scan failed for ${brand.domain}:`, e);
+                }
+              }
+              console.log(`[cron] auto email-security: ${scanned} scanned, ${(pendingEmail?.n ?? 0) - scanned} remaining`);
+            }
+          } catch (err) {
+            console.error("[cron] auto email-security error:", err);
+          }
+
+          // ─── Step 4: Auto AI attribution (1 batch of 50) ─────────
+          try {
+            const unmatchedCount = await env.DB.prepare(
+              "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id IS NULL AND threat_type IN ('phishing','credential_harvesting','typosquatting','impersonation')"
+            ).first<{ n: number }>();
+            if ((unmatchedCount?.n ?? 0) > 500) {
+              const { getDailyUsage } = await import("./lib/haiku");
+              const todayUsage = await getDailyUsage(env);
+              if (todayUsage.calls < 50) {
+                const { runAiAttribution } = await import("./handlers/admin");
+                const attrResult = await runAiAttribution(env, 50);
+                console.log(`[cron] auto ai-attribution: ${attrResult.attributed} attributed, ${attrResult.calls} calls, ~$${attrResult.costUsd.toFixed(4)}`);
+              } else {
+                console.log(`[cron] ai-attribution skipped: daily Haiku calls=${todayUsage.calls} >= 50`);
+              }
+            }
+          } catch (err) {
+            console.error("[cron] auto ai-attribution error:", err);
+          }
+
           // Auto-trigger v2 AI agents after ingestion + enrichment
           try {
             const { agentModules: allAgents } = await import("./agents/index");
@@ -1317,8 +1397,33 @@ export default {
               }
             }
 
-            // Seed Strategist runs daily at 6am UTC
+            // Seed Strategist + Daily Tranco Import — runs daily at 6am UTC
             if (hour === 6 && minute < 5) {
+              // Step 5: Daily Tranco brand import
+              try {
+                const { handleImportTranco, runBrandMatchBackfill } = await import("./handlers/admin");
+                const fakeReq = new Request('https://localhost/api/admin/import-tranco', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ limit: 10000 }),
+                });
+                const trancoRes = await handleImportTranco(fakeReq, env);
+                const trancoData = await trancoRes.json() as { success: boolean; data?: { imported: number; message: string } };
+                console.log(`[cron] daily tranco: ${trancoData.data?.message ?? 'unknown'}`);
+                // Run 5 rounds of brand matching after import
+                if (trancoData.data?.imported && trancoData.data.imported > 0) {
+                  let postImportMatched = 0;
+                  for (let i = 0; i < 5; i++) {
+                    const bf = await runBrandMatchBackfill(env);
+                    postImportMatched += bf.matched;
+                    if (bf.pending === 0 || bf.checked === 0) break;
+                  }
+                  console.log(`[cron] post-tranco brand match: ${postImportMatched} matched`);
+                }
+              } catch (trancoErr) {
+                console.error("[cron] daily tranco import error:", trancoErr);
+              }
+
               try {
                 const { seedStrategistAgent } = await import("./agents/seed-strategist");
                 const result = await executeAgent(env, seedStrategistAgent, {}, "cron", "scheduled");

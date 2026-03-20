@@ -365,7 +365,73 @@ export const strategistAgent: AgentModule = {
       });
     }
 
-    console.log(`[strategist] done: processed=${itemsProcessed}, created=${itemsCreated}, updated=${itemsUpdated}, ipClusters=${ipClusters.results.length}, regClusters=${registrarClusters.results.length}`);
+    // ─── Coordination detection via Haiku ─────────────────────────
+    let coordinationFound = 0;
+    try {
+      const activeCampaigns = await env.DB.prepare(
+        `SELECT c.id, c.name, c.threat_count,
+                GROUP_CONCAT(DISTINCT t.target_brand_id) as brand_ids,
+                GROUP_CONCAT(DISTINCT t.hosting_provider_id) as provider_ids
+         FROM campaigns c
+         LEFT JOIN threats t ON t.campaign_id = c.id
+         WHERE c.status = 'active'
+         GROUP BY c.id
+         ORDER BY c.threat_count DESC LIMIT 20`
+      ).all<{ id: string; name: string; threat_count: number; brand_ids: string | null; provider_ids: string | null }>();
+
+      if (activeCampaigns.results.length >= 5) {
+        const blocked = await checkCostGuard(env, false);
+        if (!blocked) {
+          const campaignSummary = activeCampaigns.results.map(c => ({
+            id: c.id, name: c.name, threats: c.threat_count,
+            brands: c.brand_ids?.split(',').filter(Boolean).length ?? 0,
+            providers: c.provider_ids?.split(',').filter(Boolean).length ?? 0,
+          }));
+
+          const { callHaikuRaw } = await import("../lib/haiku");
+          const coordResult = await callHaikuRaw(env,
+            "You detect coordinated phishing attack patterns. Reply ONLY with valid JSON array, no markdown.",
+            `Given these active phishing campaigns with their target brands and hosting providers:\n${JSON.stringify(campaignSummary)}\nIdentify any that appear coordinated (same actor, infrastructure reuse, timing patterns). Reply JSON array: [{campaign_ids: string[], coordination_type: string, confidence: "high"|"medium", evidence: string}]. Empty array if none.`
+          );
+
+          if (coordResult.success && coordResult.text) {
+            const jsonMatch = coordResult.text.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const coordinations = JSON.parse(jsonMatch[0]) as Array<{
+                campaign_ids: string[]; coordination_type: string; confidence: string; evidence: string;
+              }>;
+              for (const coord of coordinations) {
+                if (coord.confidence !== 'high' && coord.confidence !== 'medium') continue;
+                coordinationFound++;
+                outputs.push({
+                  type: "correlation",
+                  summary: `**Coordinated Attack Detected** — ${coord.coordination_type}: ${coord.campaign_ids.length} campaigns appear linked. ${coord.evidence}`,
+                  severity: "high",
+                  details: {
+                    campaign_ids: coord.campaign_ids,
+                    coordination_type: coord.coordination_type,
+                    confidence: coord.confidence,
+                  },
+                });
+                // Store as agent_output type='correlation'
+                await env.DB.prepare(
+                  `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
+                   VALUES (?, 'strategist', 'correlation', ?, 'high', ?, datetime('now'))`
+                ).bind(
+                  crypto.randomUUID(),
+                  `Coordinated: ${coord.coordination_type} — ${coord.campaign_ids.length} campaigns`,
+                  JSON.stringify(coord),
+                ).run();
+              }
+            }
+          }
+        }
+      }
+    } catch (coordErr) {
+      console.error("[strategist] coordination detection error:", coordErr);
+    }
+
+    console.log(`[strategist] done: processed=${itemsProcessed}, created=${itemsCreated}, updated=${itemsUpdated}, ipClusters=${ipClusters.results.length}, regClusters=${registrarClusters.results.length}, coordinations=${coordinationFound}`);
 
     return {
       itemsProcessed,
