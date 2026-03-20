@@ -347,17 +347,19 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
         providerId = await upsertHostingProvider(db, providerName, geo.as, geo.countryCode);
       }
 
-      await db.prepare(
+      console.log(`[geoip] Writing to DB:`, { id: row.id, ip: row.ip_address, lat: geo.lat, lng: geo.lng, country: geo.countryCode, asn: geo.as, providerId });
+      const dbResult = await db.prepare(
         `UPDATE threats SET
-          country_code = COALESCE(country_code, ?),
-          asn = COALESCE(asn, ?),
-          hosting_provider_id = COALESCE(hosting_provider_id, ?),
-          lat = COALESCE(lat, ?),
-          lng = COALESCE(lng, ?)
+          country_code = COALESCE(?, country_code),
+          asn = COALESCE(?, asn),
+          hosting_provider_id = COALESCE(?, hosting_provider_id),
+          lat = COALESCE(?, lat),
+          lng = COALESCE(?, lng)
         WHERE id = ?`
       ).bind(
         geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
       ).run();
+      console.log(`[geoip] DB result:`, JSON.stringify(dbResult.meta));
       result.enriched++;
       console.log(`[geo] enriched ${row.ip_address} (${row.id}): country=${geo.countryCode} lat=${geo.lat} lng=${geo.lng}`);
     } catch (err) {
