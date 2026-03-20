@@ -664,7 +664,7 @@ function renderStatCard(icon, iconClass, value, label, trend) {
 }
 
 function renderPanel(title, badge, body) {
-  const badgeHtml = badge !== undefined ? `<span class="badge">${badge}</span>` : '';
+  const badgeHtml = badge != null ? `<span class="badge">${badge}</span>` : '';
   return `<div class="panel"><div class="phead">${title}${badgeHtml}</div><div class="panel-body">${body}</div></div>`;
 }
 
@@ -1483,7 +1483,7 @@ async function viewObservatory(el) {
   let radarFrame = null;
   let deckgl = null;
   const _isMobile = window.innerWidth < 768;
-  let currentViewState = { longitude: _isMobile ? -20 : 10, latitude: _isMobile ? 40 : 25, zoom: _isMobile ? 0.8 : 2.2, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
+  let currentViewState = { longitude: _isMobile ? -20 : 15, latitude: _isMobile ? 40 : 25, zoom: _isMobile ? 0.8 : 1.8, pitch: 0, bearing: 0, minZoom: 0, maxZoom: 12 };
   let _brandFocusCache = {};
   let _curParticleLayers    = [];
   let _particlesVisible     = true;
@@ -4900,10 +4900,19 @@ async function viewAgents(el) {
     const totalJobs = agents.reduce((s, a) => s + (a.jobs_24h || 0), 0);
     const totalOutputs = agents.reduce((s, a) => s + (a.outputs_24h || 0), 0);
     const totalErrors = agents.reduce((s, a) => s + (a.error_count_24h || 0), 0);
-    const activeCount = agents.filter(a => a.status === 'active').length;
+    // Agent is operational if: status === 'active' OR has outputs in last 24h OR last_run within 2h
+    const now = Date.now();
+    const isOperational = (a) => {
+      if (a.status === 'active') return true;
+      if ((a.outputs_24h || 0) > 0) return true;
+      if (a.last_output_at) { const age = now - new Date(a.last_output_at).getTime(); if (age < 2 * 60 * 60 * 1000) return true; }
+      if (a.last_run_at) { const age = now - new Date(a.last_run_at).getTime(); if (age < 2 * 60 * 60 * 1000) return true; }
+      return false;
+    };
+    const activeCount = agents.filter(isOperational).length;
 
     document.getElementById('agents-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${activeCount}/${agents.length}</div><div class="agg-lbl">Agents operational</div><div class="agg-sub">${agents.filter(a => a.status === 'idle').length} idle</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${activeCount}/${agents.length}</div><div class="agg-lbl">Agents operational</div><div class="agg-sub">${agents.filter(a => !isOperational(a)).length} idle</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${totalJobs}</div><div class="agg-lbl">Jobs (24h)</div><div class="agg-sub">Analysis runs completed</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--text-accent)">${totalOutputs}</div><div class="agg-lbl">Outputs (24h)</div><div class="agg-sub">Insights + classifications</div></div>
       <div class="agg-card"><div class="agg-val" style="color:${totalErrors > 0 ? 'var(--negative)' : 'var(--positive)'}">${totalErrors}</div><div class="agg-lbl">Errors (24h)</div><div class="agg-sub">${totalErrors === 0 ? 'All systems nominal' : 'Attention needed'}</div></div>`;
@@ -5076,15 +5085,7 @@ async function viewAdmin(el) {
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
-    <div id="adm-automation-status" style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"></div>
-    <div class="adm-grid-2">
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div id="adm-events" style="max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
-    </div>
-    <div class="adm-grid-2">
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div></div></div>
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
-    </div>
+    <div id="adm-automation-status"></div>
     <div class="adm-grid-2">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">\uD83D\uDCE7 Email Security Coverage</div><div class="adm-pbadge" id="adm-es-badge">-</div></div>
@@ -5094,12 +5095,20 @@ async function viewAdmin(el) {
           <span id="adm-scan-all-status" style="font-size:11px;color:var(--text-tertiary);margin-left:8px"></span>
         </div>
       </div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
+    </div>
+    <div class="adm-grid-2">
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div></div></div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">-</div></div>
         <div style="padding:8px 12px;display:flex;gap:4px;border-bottom:1px solid var(--blue-border)" id="adm-es-grade-tabs"></div>
         <div id="adm-es-worst" style="max-height:240px;overflow-y:auto;scrollbar-width:thin"></div>
         <div style="padding:6px 12px;border-top:1px solid var(--blue-border);text-align:right" id="adm-es-worst-footer"></div>
       </div>
+    </div>
+    <div class="adm-grid-2">
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div style="display:flex;justify-content:flex-end;padding:4px 8px"><button id="adm-events-noise-toggle" style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--blue-border);background:transparent;color:var(--text-tertiary);cursor:pointer">Show all</button></div><div id="adm-events" style="max-height:400px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
     </div>`;
 
   try {
@@ -5180,14 +5189,36 @@ async function viewAdmin(el) {
       return `<div class="adm-feed-row"><div class="adm-feed-dot ${st}"></div><div class="adm-feed-name">${f.display_name || f.feed_name}</div><div class="adm-feed-last">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</div><div class="adm-feed-count">${(f.records_ingested_today || 0).toLocaleString()} today</div></div>`;
     }).join('');
 
-    // Events
+    // Events — deduplicated + noise toggle
     const evBadge = document.getElementById('adm-events-badge');
-    if (evBadge) evBadge.textContent = `Last ${events.length}`;
     const evIcons = { login: { cls: 'auth', icon: '\u25c8' }, login_failed: { cls: 'feed-err', icon: '\u25c8' }, feed_run: { cls: 'feed', icon: '\u21bb' }, feed_error: { cls: 'feed-err', icon: '\u26a0' }, config_change: { cls: 'config', icon: '\u229e' }, role_change: { cls: 'user', icon: '+' }, invitation: { cls: 'user', icon: '+' }, lead_update: { cls: 'lead', icon: '\u25c9' } };
-    document.getElementById('adm-events').innerHTML = events.map(e => {
-      const ev = evIcons[e.action] || evIcons.login;
-      return `<div class="adm-event-row"><div class="adm-ev-icon ${ev.cls}">${ev.icon}</div><div class="adm-ev-body"><div class="adm-ev-text">${e.summary || e.action || ''} <strong>${e.resource_type || ''}</strong></div><div class="adm-ev-time">${e.timestamp ? relativeTime(Math.round((Date.now() - new Date(e.timestamp).getTime()) / 60000)) : ''}</div></div><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></div>`;
-    }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No recent events</div>';
+    const NOISE_ACTIONS = ['refresh_invalid', 'token_refresh', 'session_check'];
+    let _evHideNoise = true;
+    function deduplicateEvents(arr) {
+      const groups = [];
+      for (const e of arr) {
+        const key = (e.action || '') + '|' + (e.outcome || '');
+        const last = groups[groups.length - 1];
+        if (last && last.key === key) { last.count++; last.lastTs = last.lastTs || e.timestamp; }
+        else groups.push({ key, event: e, count: 1, firstTs: e.timestamp, lastTs: e.timestamp });
+      }
+      return groups;
+    }
+    function renderEvents() {
+      let filtered = _evHideNoise ? events.filter(e => !NOISE_ACTIONS.includes(e.action)) : events;
+      const groups = deduplicateEvents(filtered);
+      if (evBadge) evBadge.textContent = `${groups.length} events`;
+      const toggleBtn = document.getElementById('adm-events-noise-toggle');
+      if (toggleBtn) toggleBtn.textContent = _evHideNoise ? 'Show all' : 'Hide noise';
+      document.getElementById('adm-events').innerHTML = groups.map(g => {
+        const e = g.event;
+        const ev = evIcons[e.action] || evIcons.login;
+        const countBadge = g.count > 1 ? `<span style="font-family:var(--font-mono);font-size:9px;background:rgba(0,212,255,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px;margin-left:4px">\u00d7${g.count}</span>` : '';
+        return `<div class="adm-event-row"><div class="adm-ev-icon ${ev.cls}">${ev.icon}</div><div class="adm-ev-body"><div class="adm-ev-text">${e.summary || e.action || ''} <strong>${e.resource_type || ''}</strong>${countBadge}</div><div class="adm-ev-time">${e.timestamp ? relativeTime(Math.round((Date.now() - new Date(e.timestamp).getTime()) / 60000)) : ''}</div></div><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></div>`;
+      }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No recent events</div>';
+    }
+    renderEvents();
+    document.getElementById('adm-events-noise-toggle')?.addEventListener('click', () => { _evHideNoise = !_evHideNoise; renderEvents(); });
 
     // Pipeline
     const pipeStages = [
@@ -5503,31 +5534,47 @@ async function viewAdmin(el) {
     });
   }
 
-  // Automation status strip — uses data already fetched above (stats, agents, emailStatsRes)
+  // Automation status strip — animated pills
   try {
-    const geoRemaining = stats.agent_backlogs?.cartographer ?? '-';
-    const brandPending = stats.agent_backlogs?.strategist ?? '-';
-    const emailPending = emailStatsRes?.data?.total_unscanned ?? '-';
-    const lastCronOutput = agents.reduce((latest, a) => {
-      if (!a.last_output_at) return latest;
-      if (!latest) return a.last_output_at;
-      return a.last_output_at > latest ? a.last_output_at : latest;
-    }, null);
-    const lastCron = lastCronOutput ? timeAgo(lastCronOutput) : '-';
+    const geoRemaining = stats.agent_backlogs?.cartographer ?? 0;
+    const brandPending = stats.agent_backlogs?.strategist ?? 0;
+    const emailPending = emailStatsRes?.data?.total_unscanned ?? 0;
+    const aiPending = stats.ai_attribution_pending ?? 0;
+    const trancoCount = stats.tranco_brand_count ?? 0;
     const statusEl = document.getElementById('adm-automation-status');
     if (statusEl) {
-      const pill = (label, value, color) =>
-        `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:${color}15;border:1px solid ${color}30;font-size:11px">
-          <span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>
-          <span style="color:var(--text-secondary);font-weight:600">${label}</span>
-          <span style="color:var(--text-tertiary)">${value}</span>
+      const dotClass = (v) => typeof v === 'number' ? (v > 1000 ? 'pill-dot-red' : v > 100 ? 'pill-dot-amber' : 'pill-dot-green') : 'pill-dot-green';
+      statusEl.innerHTML = `
+        <div class="auto-pill" data-pipeline="geo">
+          <span class="pill-icon">\uD83C\uDF0D</span>
+          <span class="pill-label">Geo Enrichment</span>
+          <span class="pill-value" data-target="${geoRemaining}">${geoRemaining} remaining \u00b7 auto</span>
+          <span class="pill-dot ${dotClass(geoRemaining)}"></span>
+        </div>
+        <div class="auto-pill" data-pipeline="brand">
+          <span class="pill-icon">\uD83C\uDFAF</span>
+          <span class="pill-label">Brand Matching</span>
+          <span class="pill-value" data-target="${brandPending}">${brandPending} pending \u00b7 auto</span>
+          <span class="pill-dot ${dotClass(brandPending)}"></span>
+        </div>
+        <div class="auto-pill" data-pipeline="email">
+          <span class="pill-icon">\uD83D\uDCE7</span>
+          <span class="pill-label">Email Security</span>
+          <span class="pill-value" data-target="${emailPending}">${emailPending} pending \u00b7 10/cycle</span>
+          <span class="pill-dot ${dotClass(emailPending)}"></span>
+        </div>
+        <div class="auto-pill" data-pipeline="ai">
+          <span class="pill-icon">\uD83E\uDD16</span>
+          <span class="pill-label">AI Attribution</span>
+          <span class="pill-value" data-target="${aiPending}">${aiPending} remaining</span>
+          <span class="pill-dot ${dotClass(aiPending)}"></span>
+        </div>
+        <div class="auto-pill" data-pipeline="tranco">
+          <span class="pill-icon">\uD83D\uDCE5</span>
+          <span class="pill-label">Tranco</span>
+          <span class="pill-value">${trancoCount.toLocaleString()} brands \u00b7 daily</span>
+          <span class="pill-dot pill-dot-green"></span>
         </div>`;
-      statusEl.innerHTML =
-        pill('Geo Enrichment', `Auto \u00b7 ${geoRemaining} remaining`, '#00e5a0') +
-        pill('Brand Matching', `Auto \u00b7 ${brandPending} pending`, '#ff6b6b') +
-        pill('Email Security', `Auto \u00b7 ${emailPending} pending`, '#00a8ff') +
-        pill('AI Attribution', 'Auto', '#8b5cf6') +
-        pill('Last Cron', lastCron, '#ffb627');
     }
   } catch { /* ok */ }
 
@@ -6098,63 +6145,147 @@ async function viewAdminAgentConfig(el) {
 
 // ─── View: Admin Audit Log (Step 18c) ──────────────────────
 async function viewAdminAudit(el) {
+  const AUDIT_CATEGORIES = {
+    Auth: ['login', 'logout', 'refresh_invalid', 'token_refresh'],
+    Admin: ['backfill_geo', 'match_brands', 'import_brands', 'run_ai_analysis', 'force_feed_pull', 'invite_user'],
+    Feeds: ['feed_pull', 'feed_error', 'feed_enabled', 'feed_config'],
+    Agents: ['agent_trigger', 'agent_output', 'agent_error'],
+    System: ['session_check', 'cron_run', 'migration', 'config_change', 'data_export'],
+  };
+  function actionCategory(action) {
+    for (const [cat, actions] of Object.entries(AUDIT_CATEGORIES)) {
+      if (actions.includes(action)) return cat;
+    }
+    return 'System';
+  }
+  function deriveDetails(e) {
+    if (e.details && typeof e.details === 'object' && Object.keys(e.details).length > 0) {
+      const d = e.details;
+      if (d.message) return d.message;
+      if (d.enriched !== undefined) return `enriched ${d.enriched} IPs, ${d.remaining ?? '?'} remaining`;
+      if (d.matched !== undefined) return `matched ${d.matched} threats, ${d.pending ?? '?'} pending`;
+      if (d.imported !== undefined) return `imported ${d.imported} brands from Tranco`;
+      if (d.feeds !== undefined) return `triggered ${d.feeds} feeds`;
+      return JSON.stringify(d).slice(0, 80);
+    }
+    if (e.metadata && typeof e.metadata === 'object' && Object.keys(e.metadata).length > 0) {
+      return JSON.stringify(e.metadata).slice(0, 80);
+    }
+    const hints = {
+      login: `from ${e.ip_address || 'unknown IP'}`,
+      refresh_invalid: 'token expired, session ended',
+      backfill_geo: 'geo enrichment triggered',
+      match_brands: 'brand matching triggered',
+      force_feed_pull: 'all feeds triggered',
+      run_ai_analysis: 'triggered all agents',
+      import_brands: 'brand import triggered',
+    };
+    return hints[e.action] || '-';
+  }
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Audit Log</div>
       <a href="/api/v1/admin/audit/export?since=${new Date(Date.now() - 30 * 86400000).toISOString()}" class="adm-btn adm-btn-primary" target="_blank">Export CSV</a>
     </div>
+    <div style="margin-bottom:12px">
+      <input class="adm-search" id="adm-audit-search" placeholder="Search by action, user, or IP..." style="width:100%;max-width:400px">
+    </div>
     <div class="adm-controls" style="margin-bottom:16px">
       <select class="adm-sel" id="adm-audit-user"><option value="">All Users</option></select>
       <select class="adm-sel" id="adm-audit-action"><option value="">All Actions</option><option value="login">Login</option><option value="login_failed">Login Failed</option><option value="role_change">Role Change</option><option value="invitation">Invitation</option><option value="feed_config">Feed Config</option><option value="config_change">Config Change</option><option value="data_export">Data Export</option></select>
       <select class="adm-sel" id="adm-audit-outcome"><option value="">All Outcomes</option><option value="success">Success</option><option value="failure">Failure</option><option value="denied">Denied</option></select>
+      <select class="adm-sel" id="adm-audit-category"><option value="">All Categories</option><option value="Auth">Auth</option><option value="Admin" selected>Admin</option><option value="Feeds">Feeds</option><option value="Agents">Agents</option><option value="System">System</option></select>
     </div>
-    <div class="adm-panel" id="adm-audit-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
-    <div class="adm-panel" id="adm-audit-detail" style="margin-top:16px;display:none"><div class="adm-phead"><div class="adm-ptitle">Event Details</div><button class="adm-action-btn" id="adm-audit-detail-close">Close</button></div><div class="adm-padded" id="adm-audit-detail-content"></div></div>`;
+    <div class="adm-panel" id="adm-audit-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>`;
 
   let allEntries = [];
   let allUsers = [];
+  let _expandedIdx = -1;
+  let _searchTerm = '';
+
+  function deduplicateAuditEntries(entries) {
+    const groups = [];
+    for (const e of entries) {
+      const key = (e.action || '') + '|' + (e.outcome || '');
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) {
+        last.count++;
+        last.lastTs = e.timestamp;
+      } else {
+        groups.push({ key, entries: [e], event: e, count: 1, firstTs: e.timestamp, lastTs: e.timestamp });
+      }
+    }
+    return groups;
+  }
 
   function renderAuditTable(entries) {
     if (!entries.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No audit entries found</div>';
-    return `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>Resource ID</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${entries.map((e, i) => `<tr data-aidx="${i}" style="cursor:pointer"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-'}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${e.resource_type || '-'}</td><td style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${e.resource_id ? e.resource_id.slice(0, 12) : '-'}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>`).join('')}</tbody></table></div>`;
+    const groups = deduplicateAuditEntries(entries);
+    return `<div class="adm-table-scroll" style="max-height:600px;overflow-y:auto"><table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Category</th><th>Details</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${groups.map((g, i) => {
+      const e = g.event;
+      const cat = actionCategory(e.action);
+      const details = deriveDetails(e);
+      const countBadge = g.count > 1 ? ` <span style="font-family:var(--font-mono);font-size:9px;background:rgba(0,212,255,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px">\u00d7${g.count}</span>` : '';
+      const timeRange = g.count > 1 && g.firstTs && g.lastTs ? g.firstTs.slice(11, 16) + '\u2013' + g.lastTs.slice(11, 16) : (e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-');
+      const isExpanded = _expandedIdx === i;
+      let expandHtml = '';
+      if (isExpanded) {
+        expandHtml = `<tr><td colspan="7" style="padding:12px;background:rgba(0,212,255,.03);border-left:2px solid var(--blue-primary)"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;font-family:var(--font-mono)">
+          <div><span style="color:var(--text-tertiary)">Full timestamp:</span> ${e.timestamp || '-'}</div>
+          <div><span style="color:var(--text-tertiary)">IP:</span> ${e.ip_address || '-'}</div>
+          <div><span style="color:var(--text-tertiary)">User agent:</span> ${e.user_agent || e.details?.user_agent || '-'}</div>
+          <div><span style="color:var(--text-tertiary)">Resource:</span> ${e.resource_type || '-'} ${e.resource_id || ''}</div>
+        </div>${e.details ? `<pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-top:8px;padding:8px;background:rgba(0,0,0,.2);border-radius:4px">${JSON.stringify(e.details, null, 2)}</pre>` : ''}</td></tr>`;
+      }
+      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(0,212,255,.05)' : ''}"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td style="font-size:10px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>${expandHtml}`;
+    }).join('')}</tbody></table></div>`;
   }
 
-  function filterAudit() {
+  function getFiltered() {
     const user = document.getElementById('adm-audit-user')?.value || '';
     const action = document.getElementById('adm-audit-action')?.value || '';
     const outcome = document.getElementById('adm-audit-outcome')?.value || '';
-    const filtered = allEntries.filter(e => {
+    const category = document.getElementById('adm-audit-category')?.value || '';
+    return allEntries.filter(e => {
       if (user && e.user_id !== user) return false;
       if (action && e.action !== action) return false;
       if (outcome && e.outcome !== outcome) return false;
+      if (category && actionCategory(e.action) !== category) return false;
+      if (_searchTerm) {
+        const s = _searchTerm.toLowerCase();
+        const hay = ((e.action || '') + ' ' + (e.user_name || e.user_email || '') + ' ' + (e.ip_address || '') + ' ' + deriveDetails(e)).toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
       return true;
     });
-    document.getElementById('adm-audit-table').innerHTML = renderAuditTable(filtered);
+  }
+
+  function filterAudit() {
+    _expandedIdx = -1;
+    document.getElementById('adm-audit-table').innerHTML = renderAuditTable(getFiltered());
     bindAuditRows();
   }
 
   function bindAuditRows() {
-    document.querySelectorAll('#adm-audit-table tr[data-aidx]').forEach(tr => {
+    document.querySelectorAll('#adm-audit-table tr[data-gidx]').forEach(tr => {
       tr.addEventListener('click', () => {
-        const idx = parseInt(tr.dataset.aidx);
-        const entry = allEntries[idx];
-        if (!entry) return;
-        const detailPanel = document.getElementById('adm-audit-detail');
-        detailPanel.style.display = 'block';
-        document.getElementById('adm-audit-detail-content').innerHTML = `<pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto">${JSON.stringify(entry.details || entry, null, 2)}</pre>`;
+        const idx = parseInt(tr.dataset.gidx);
+        _expandedIdx = _expandedIdx === idx ? -1 : idx;
+        document.getElementById('adm-audit-table').innerHTML = renderAuditTable(getFiltered());
+        bindAuditRows();
       });
     });
   }
 
   try {
     const [auditRes, usersRes] = await Promise.all([
-      api('/admin/audit?limit=50').catch(() => null),
+      api('/admin/audit?limit=200').catch(() => null),
       api('/admin/users').catch(() => null),
     ]);
     allEntries = auditRes?.data || [];
     allUsers = usersRes?.data?.users || usersRes?.data || [];
 
-    // Populate user filter
     const userSel = document.getElementById('adm-audit-user');
     allUsers.forEach(u => {
       const opt = document.createElement('option');
@@ -6163,15 +6294,18 @@ async function viewAdminAudit(el) {
       userSel?.appendChild(opt);
     });
 
-    document.getElementById('adm-audit-table').innerHTML = renderAuditTable(allEntries);
-    bindAuditRows();
+    // Default filter is "Admin" (set via selected attribute above)
+    filterAudit();
   } catch (err) { showToast(err.message, 'error'); }
 
   document.getElementById('adm-audit-user')?.addEventListener('change', filterAudit);
   document.getElementById('adm-audit-action')?.addEventListener('change', filterAudit);
   document.getElementById('adm-audit-outcome')?.addEventListener('change', filterAudit);
-  document.getElementById('adm-audit-detail-close')?.addEventListener('click', () => {
-    document.getElementById('adm-audit-detail').style.display = 'none';
+  document.getElementById('adm-audit-category')?.addEventListener('change', filterAudit);
+  let _auditSearchTimer = null;
+  document.getElementById('adm-audit-search')?.addEventListener('input', (ev) => {
+    clearTimeout(_auditSearchTimer);
+    _auditSearchTimer = setTimeout(() => { _searchTerm = ev.target.value; filterAudit(); }, 300);
   });
 }
 
