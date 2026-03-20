@@ -965,7 +965,7 @@ function BrandsManagementTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
-  const [trancoLimit, setTrancoLimit] = useState(500);
+  const [trancoLimit, setTrancoLimit] = useState(10000);
 
   const fetchBrands = () => {
     setLoading(true);
@@ -1050,7 +1050,7 @@ function BrandsManagementTab() {
             <input
               type="number"
               value={trancoLimit}
-              onChange={e => setTrancoLimit(Math.min(2000, Math.max(10, parseInt(e.target.value) || 500)))}
+              onChange={e => setTrancoLimit(Math.min(10000, Math.max(10, parseInt(e.target.value) || 10000)))}
               className="px-3 py-1.5 rounded-md text-sm w-24"
               style={{ background: "var(--surface-primary)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
             />
