@@ -3197,3 +3197,72 @@ a.campaign-card:hover { text-decoration: none; }
 .audit-cat-agents { background: rgba(255,182,39,.1); color: #ffb627; }
 .audit-cat-system { background: rgba(102,119,136,.15); color: #7a8ba8; }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE UI FIXES — Phases 2-4
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Fix 2: Brand & Provider Cards — responsive grid ─────── */
+@media (min-width: 481px) and (max-width: 768px) {
+  .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .brand-card { padding: 14px; }
+  .brand-threat-val { font-size: 22px; }
+  .provider-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .provider-card { padding: 14px; }
+  .provider-threat-val { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .brand-card { min-height: 140px; }
+  .provider-card { min-height: 140px; }
+}
+
+/* ─── Fix 3: Sub-tabs — mobile horizontal scroll ─────────── */
+@media (max-width: 768px) {
+  .sub-tabs {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 0 16px;
+    flex-wrap: nowrap;
+    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  }
+  .sub-tabs::-webkit-scrollbar { display: none; }
+  .sub-tab { white-space: nowrap; flex-shrink: 0; font-size: 10px; padding: 10px 14px 8px; }
+  .sub-tab-actions { flex-shrink: 0; padding-left: 8px; }
+  .period-btn { font-size: 9px; padding: 3px 8px; }
+
+  /* Agg stat cards: horizontal scroll on mobile */
+  .agg-stats {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; flex-wrap: nowrap; padding: 0 16px 12px;
+    -webkit-mask-image: linear-gradient(to right, black 92%, transparent 100%);
+    mask-image: linear-gradient(to right, black 92%, transparent 100%);
+  }
+  .agg-stats::-webkit-scrollbar { display: none; }
+  .agg-card { flex: 0 0 auto; min-width: 140px; padding: 12px; }
+  .agg-val { font-size: 18px; }
+  .agg-lbl { font-size: 9px; }
+
+  /* Admin nav pills: horizontal scroll */
+  .admin-nav-pills {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; flex-wrap: nowrap;
+    -webkit-mask-image: linear-gradient(to right, black 88%, transparent 100%);
+    mask-image: linear-gradient(to right, black 88%, transparent 100%);
+  }
+  .admin-nav-pills::-webkit-scrollbar { display: none; }
+}
+
+/* ─── Fix 4: Audit Log — mobile filter layout ────────────── */
+@media (max-width: 768px) {
+  .adm-controls {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .adm-sel { width: 100%; font-size: 11px; }
+  .adm-search { width: 100% !important; max-width: none !important; }
+}
+@media (max-width: 480px) {
+  .adm-controls {
+    grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .adm-sel { font-size: 10px; padding: 8px 8px; min-height: 36px; }
+}
+
