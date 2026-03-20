@@ -81,6 +81,15 @@ export const cartographerAgent: AgentModule = {
         threatTypes[row.threat_type] = row.count;
       }
 
+      // Cross-reference campaigns for repeat offender detection
+      const campaignStats = await env.DB.prepare(
+        `SELECT COUNT(DISTINCT t.campaign_id) as campaign_count
+         FROM threats t
+         WHERE t.hosting_provider_id = ? AND t.campaign_id IS NOT NULL`
+      ).bind(provider.id).first<{ campaign_count: number }>();
+      const campaignCount = campaignStats?.campaign_count ?? 0;
+      const repeatOffender = campaignCount >= 3;
+
       // Try Haiku scoring
       const result = await scoreProvider(env, {
         name: provider.name,
@@ -103,13 +112,15 @@ export const cartographerAgent: AgentModule = {
 
         outputs.push({
           type: "score",
-          summary: `${provider.name}: reputation ${reputationScore}/100 — ${result.data.reasoning}`,
+          summary: `${provider.name}: reputation ${reputationScore}/100${repeatOffender ? ' [REPEAT OFFENDER]' : ''} — ${result.data.reasoning}`,
           severity: reputationScore < 30 ? "critical" : reputationScore < 50 ? "high" : reputationScore < 70 ? "medium" : "info",
           details: {
             provider: provider.name,
             score: reputationScore,
             risk_factors: result.data.risk_factors,
             response_assessment: result.data.response_assessment,
+            campaign_count: campaignCount,
+            repeat_offender: repeatOffender,
           },
           relatedProviderIds: [provider.id],
         });
@@ -122,6 +133,8 @@ export const cartographerAgent: AgentModule = {
           provider.total_threat_count,
           provider.avg_response_time,
         );
+        // Penalize repeat offenders (3+ campaigns)
+        if (repeatOffender) reputationScore = Math.max(0, reputationScore - 15);
       }
 
       try {

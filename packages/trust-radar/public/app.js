@@ -4819,12 +4819,28 @@ const AGENT_META = {
 let _selectedAgent = null;
 let _agentHealthChart = null;
 
-function relativeTime(minutes) {
-  if (!minutes && minutes !== 0) return '-';
+function relativeTime(val) {
+  if (!val && val !== 0) return '-';
+  // If it's a date string (contains '-' or ':'), convert to minutes
+  if (typeof val === 'string' && (val.includes('-') || val.includes(':'))) {
+    return timeAgo(val);
+  }
+  const minutes = val;
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${Math.round(minutes)}m ago`;
   if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
   return `${Math.round(minutes / 1440)}d ago`;
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return 'never';
+  const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+  if (isNaN(d.getTime())) return 'unknown';
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
 }
 
 async function viewAgents(el) {
@@ -4902,6 +4918,14 @@ async function viewAgents(el) {
       const outputs = outputsRes?.data || [];
       const health = healthRes?.data || {};
 
+      // Find latest attribution output for this agent
+      const latestOutput = outputs[0];
+      const latestSummary = latestOutput?.summary ? latestOutput.summary.replace(/\*\*/g, '').substring(0, 80) : null;
+
+      // Check for weekly intel (Observer) or correlation count (Strategist)
+      const weeklyIntel = outputs.find(o => o.type === 'weekly_intel');
+      const correlations = outputs.filter(o => o.type === 'correlation').length;
+
       const detail = document.getElementById('agent-detail');
       detail.classList.add('visible');
       detail.innerHTML = `
@@ -4910,6 +4934,9 @@ async function viewAgents(el) {
           <div class="dh-info">
             <div class="dh-name">${agent?.display_name || agentId} <span class="status-label ${agent?.status || 'idle'}">${agent?.status || 'idle'}</span></div>
             <div class="dh-desc">${agent?.description || meta.role}</div>
+            ${latestSummary ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Last: ${latestSummary}${latestOutput?.created_at ? ' · ' + timeAgo(latestOutput.created_at) : ''}</div>` : ''}
+            ${agentId === 'strategist' && correlations > 0 ? `<div style="font-size:10px;color:#F472B6;margin-top:2px">${correlations} correlation${correlations > 1 ? 's' : ''} detected</div>` : ''}
+            ${agentId === 'observer' && weeklyIntel ? `<div style="font-size:10px;color:#FBBF24;margin-top:2px">Weekly intel report available</div>` : ''}
           </div>
           <div class="dh-stats">
             <div class="dhs"><div class="dhs-val">${agent?.schedule || '-'}</div><div class="dhs-label">Schedule</div></div>
@@ -4924,7 +4951,7 @@ async function viewAgents(el) {
               <div class="output-meta">
                 <span class="output-type ${o.type || ''}">${o.type || 'output'}</span>
                 ${o.severity ? `<span class="output-sev ${o.severity}">${o.severity}</span>` : ''}
-                <span class="output-time">${o.created_at ? relativeTime(Math.round((Date.now() - new Date(o.created_at).getTime()) / 60000)) : ''}</span>
+                <span class="output-time">${o.created_at ? timeAgo(o.created_at) : ''}</span>
               </div>
               <div class="output-text">${o.summary || o.summary_text || ''}</div>
               ${o.related_entities?.length ? `<div class="output-entities">${o.related_entities.map(e => `<span class="output-entity">${typeof e === 'string' ? e : e.name || ''}</span>`).join('')}</div>` : ''}
@@ -5003,9 +5030,11 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ffb627" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #8b5cf6" id="adm-dash-ai-attr"><div class="adm-action-icon">\u{1F916}</div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
+    <div id="adm-automation-status" style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"></div>
     <div class="adm-grid-2">
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div id="adm-events" style="max-height:440px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
@@ -5403,6 +5432,63 @@ async function viewAdmin(el) {
       setTimeout(() => { brandBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
     });
   }
+
+  // AI Attribution button
+  const aiAttrBtn = document.getElementById('adm-dash-ai-attr');
+  if (aiAttrBtn) {
+    aiAttrBtn.addEventListener('click', async () => {
+      if (aiAttrBtn.classList.contains('dash-pending')) return;
+      const icon = aiAttrBtn.querySelector('.adm-action-icon');
+      const desc = aiAttrBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      aiAttrBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      if (desc) desc.textContent = 'Running Haiku attribution...';
+      try {
+        const res = await api('/admin/backfill-ai-attribution', { method: 'POST' });
+        aiAttrBtn.classList.remove('dash-pending');
+        aiAttrBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `${res.data?.attributed ?? 0} attributed \u00b7 ${res.data?.calls ?? 0} calls \u00b7 ~$${(res.data?.costUsd ?? 0).toFixed(4)}`;
+      } catch (err) {
+        aiAttrBtn.classList.remove('dash-pending');
+        aiAttrBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+      }
+      setTimeout(() => { aiAttrBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
+    });
+  }
+
+  // Automation status strip
+  try {
+    const [geoRemaining, brandPending, emailPending, attrRemaining] = await Promise.all([
+      api('/admin/stats').then(r => r.data?.threats_needing_geo ?? '-').catch(() => '-'),
+      env.DB ? '-' : api('/admin/stats').then(r => '-').catch(() => '-'),
+      api('/email-security/stats').then(r => {
+        const total = r.data?.total_brands ?? 0;
+        const scanned = r.data?.scanned_brands ?? total;
+        return total - scanned;
+      }).catch(() => '-'),
+      '-',
+    ]);
+    const statusEl = document.getElementById('adm-automation-status');
+    if (statusEl) {
+      const pill = (label, value, color) =>
+        `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:${color}15;border:1px solid ${color}30;font-size:11px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>
+          <span style="color:var(--text-secondary);font-weight:600">${label}</span>
+          <span style="color:var(--text-tertiary)">${value}</span>
+        </div>`;
+      statusEl.innerHTML =
+        pill('Geo Enrichment', 'Auto', '#00e5a0') +
+        pill('Brand Matching', 'Auto', '#ff6b6b') +
+        pill('Email Security', 'Auto', '#00a8ff') +
+        pill('AI Attribution', 'Auto', '#8b5cf6') +
+        pill('Tranco Import', 'Daily 6am', '#ffb627');
+    }
+  } catch { /* ok */ }
 
   window._viewCleanup = () => { if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; } };
 }

@@ -87,6 +87,21 @@ export const analystAgent: AgentModule = {
         brandNames,
       );
 
+      // Derive attack classification from available signals
+      const domain = threat.malicious_domain ?? '';
+      const url = threat.malicious_url ?? '';
+      const attackVector = url.includes('login') || url.includes('signin') || url.includes('password') || domain.includes('login')
+        ? 'credential_theft'
+        : threat.threat_type === 'malware_distribution' ? 'malware'
+        : domain.includes('redirect') || url.includes('redirect') ? 'redirect'
+        : 'scam';
+      const targetAudience = domain.includes('gov') || domain.includes('.mil') ? 'government'
+        : domain.includes('crypto') || domain.includes('wallet') || domain.includes('nft') ? 'crypto'
+        : domain.includes('enterprise') || domain.includes('corp') ? 'enterprise'
+        : 'consumer';
+      const sophistication = (domain.length > 30 || url.includes('?')) && !domain.includes('free')
+        ? 'high' : domain.includes('free') || domain.includes('giveaway') ? 'low' : 'medium';
+
       // On FIRST call, write diagnostic directly to agent_outputs for D1 querying
       if (itemsProcessed === 1) {
         const diagSummary = `ANTHROPIC_API_KEY set=${!!env.ANTHROPIC_API_KEY}, LRX_API_KEY set=${!!env.LRX_API_KEY}, key_prefix=${apiKey ? apiKey.slice(0, 8) + "..." : "NONE"}, haiku_success=${result.success}, haiku_error=${result.error ?? "none"}, domain=${threat.malicious_domain}`;
@@ -187,7 +202,14 @@ export const analystAgent: AgentModule = {
             type: 'classification',
             summary: `**Email Security Risk** — ${matchedBrand} has grade ${emailSec.email_security_grade}: weak spoofing protection increases phishing effectiveness. ${threat.threat_type === 'phishing' ? 'Threat escalated to CRITICAL.' : ''}`,
             severity: 'high',
-            details: { brand: matchedBrand, email_security_grade: emailSec.email_security_grade, threat_type: threat.threat_type },
+            details: {
+              brand: matchedBrand,
+              email_security_grade: emailSec.email_security_grade,
+              threat_type: threat.threat_type,
+              attack_vector: attackVector,
+              target_audience: targetAudience,
+              sophistication,
+            },
             relatedBrandIds: [brandId.id],
           });
         }
@@ -218,6 +240,7 @@ export const analystAgent: AgentModule = {
         anthropicKeySource: keySource,
         anthropicApiConfigured: !!apiKey,
         model,
+        enhanced_fields: ['attack_vector', 'target_audience', 'sophistication'],
       },
     });
 

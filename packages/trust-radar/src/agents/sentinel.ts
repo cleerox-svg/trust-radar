@@ -191,14 +191,60 @@ export const sentinelAgent: AgentModule = {
       },
     });
 
-    console.log("[sentinel] agentOutputs to persist:", outputs.length, "entries");
+    // ─── APT pattern detection (if batch >= 10 threats) ─────────
+    let aptHits = 0;
+    if (itemsProcessed >= 10) {
+      try {
+        const recentDomains = threats.results
+          .filter(t => t.malicious_domain)
+          .map(t => t.malicious_domain)
+          .slice(0, 30);
+        if (recentDomains.length >= 10) {
+          const { callHaikuRaw } = await import("../lib/haiku");
+          const aptResult = await callHaikuRaw(env,
+            "You detect state-sponsored phishing patterns. Reply ONLY with valid JSON array, no markdown.",
+            `Given these new threat domains: ${JSON.stringify(recentDomains)}. Do any match known state-sponsored phishing patterns (typosquats of government/military/financial domains)? Reply JSON: [{domain, apt_pattern, confidence: "high"|"medium"|"low", notes}]. Only include high/medium confidence. Empty array if none.`
+          );
+          if (aptResult.success && aptResult.text) {
+            if (aptResult.tokens_used) totalTokens += aptResult.tokens_used;
+            const jsonMatch = aptResult.text.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const hits = JSON.parse(jsonMatch[0]) as Array<{
+                domain: string; apt_pattern: string; confidence: string; notes: string;
+              }>;
+              for (const hit of hits) {
+                if (hit.confidence !== 'high' && hit.confidence !== 'medium') continue;
+                aptHits++;
+                // Escalate matching threats
+                const matchingThreat = threats.results.find(t => t.malicious_domain === hit.domain);
+                if (matchingThreat) {
+                  await env.DB.prepare(
+                    "UPDATE threats SET severity = 'critical' WHERE id = ? AND severity != 'critical'"
+                  ).bind(matchingThreat.id).run();
+                }
+                outputs.push({
+                  type: "classification",
+                  summary: `**APT Pattern Detected** — ${hit.domain} matches ${hit.apt_pattern} pattern (${hit.confidence} confidence). ${hit.notes}`,
+                  severity: "critical",
+                  details: { domain: hit.domain, apt_pattern: hit.apt_pattern, confidence: hit.confidence },
+                });
+              }
+            }
+          }
+        }
+      } catch (aptErr) {
+        console.error("[sentinel] APT detection error:", aptErr);
+      }
+    }
+
+    console.log(`[sentinel] agentOutputs to persist: ${outputs.length} entries, apt_hits=${aptHits}`);
     console.log("[sentinel] === DONE ===");
 
     return {
       itemsProcessed,
       itemsCreated: 0,
       itemsUpdated,
-      output: { classified: itemsUpdated, impersonationsFound },
+      output: { classified: itemsUpdated, impersonationsFound, aptHits },
       model,
       tokensUsed: totalTokens,
       agentOutputs: outputs,

@@ -494,6 +494,227 @@ export async function handleBackfillBrandMatch(request: Request, env: Env): Prom
   }
 }
 
+// ─── AI Attribution (Haiku-powered batch brand attribution) ────
+
+const GENERIC_HOSTING_DOMAINS = [
+  'gitbook.io', 'github.io', 'pages.dev', 'netlify.app',
+  'vercel.app', 'glitch.me', 'weebly.com', 'wordpress.com',
+  'blogspot.com', 'herokuapp.com', 'firebaseapp.com', 'web.app',
+];
+
+function extractSignal(domain: string | null, url: string | null): string | null {
+  if (!domain && !url) return null;
+  const d = domain || '';
+  // Check if it's on a generic hosting domain
+  for (const generic of GENERIC_HOSTING_DOMAINS) {
+    if (d.endsWith('.' + generic) || d === generic) {
+      const subdomain = d.replace('.' + generic, '');
+      if (subdomain.length >= 5 && /[a-z]/.test(subdomain)) return subdomain;
+      return null; // Too short or purely numeric
+    }
+  }
+  if (!d || d.length < 4) return null;
+  return d;
+}
+
+export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
+  attributed: number; skipped: number; calls: number; costUsd: number; cached: number;
+}> {
+  const result = { attributed: 0, skipped: 0, calls: 0, costUsd: 0, cached: 0 };
+
+  // Fetch unattributed threats with domain signals
+  const rows = await env.DB.prepare(
+    `SELECT id, malicious_domain, malicious_url, ioc_value FROM threats
+     WHERE target_brand_id IS NULL
+       AND (malicious_domain IS NOT NULL OR malicious_url IS NOT NULL)
+       AND threat_type IN ('phishing', 'credential_harvesting', 'typosquatting', 'impersonation')
+     ORDER BY created_at DESC LIMIT ?`
+  ).bind(maxBatch * 3).all<{
+    id: string; malicious_domain: string | null; malicious_url: string | null; ioc_value: string | null;
+  }>();
+
+  if (rows.results.length === 0) return result;
+
+  // Group by signal for deduplication
+  const signalMap = new Map<string, { ids: string[]; url: string | null }>();
+  for (const row of rows.results) {
+    const signal = extractSignal(row.malicious_domain, row.malicious_url);
+    if (!signal) { result.skipped++; continue; }
+
+    const existing = signalMap.get(signal);
+    if (existing) {
+      existing.ids.push(row.id);
+    } else {
+      signalMap.set(signal, { ids: [row.id], url: row.malicious_url });
+    }
+  }
+
+  // Check KV cache for already-attributed signals
+  const uncachedSignals: Array<{ signal: string; ids: string[]; url: string | null }> = [];
+  for (const [signal, data] of signalMap) {
+    const cached = await env.CACHE.get('brand_attr_' + signal);
+    if (cached) {
+      result.cached++;
+      // Apply cached result
+      try {
+        const parsed = JSON.parse(cached) as { brand_id: string | null };
+        if (parsed.brand_id) {
+          for (const id of data.ids) {
+            await env.DB.prepare(
+              "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL"
+            ).bind(parsed.brand_id, id).run();
+          }
+          await env.DB.prepare(
+            "UPDATE brands SET threat_count = threat_count + ?, last_threat_seen = datetime('now') WHERE id = ?"
+          ).bind(data.ids.length, parsed.brand_id).run();
+          result.attributed += data.ids.length;
+        }
+      } catch { /* cache parse error, skip */ }
+      continue;
+    }
+    uncachedSignals.push({ signal, ids: data.ids, url: data.url });
+    if (uncachedSignals.length >= maxBatch) break;
+  }
+
+  if (uncachedSignals.length === 0) return result;
+
+  // Batch Haiku call
+  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+  if (!apiKey || apiKey.startsWith('lrx_')) return result;
+
+  const signals = uncachedSignals.map((s, i) => ({
+    id: i, signal: s.signal, full_url: s.url || s.signal,
+  }));
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
+        messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    result.calls++;
+    const apiRes = await res.json() as {
+      content: Array<{ type: string; text: string }>;
+      usage: { input_tokens: number; output_tokens: number };
+    };
+
+    // Estimate cost
+    const inputTokens = apiRes.usage?.input_tokens ?? 800;
+    const outputTokens = apiRes.usage?.output_tokens ?? 300;
+    result.costUsd = (inputTokens * 0.0000008 + outputTokens * 0.000004);
+
+    // Track usage in KV
+    const { getDailyUsage } = await import("../lib/haiku");
+    const today = new Date().toISOString().slice(0, 10);
+    const usage = await getDailyUsage(env, today);
+    usage.calls += 1;
+    usage.input_tokens += inputTokens;
+    usage.output_tokens += outputTokens;
+    usage.agent_calls += 1;
+    await env.CACHE.put(`haiku_usage_${today}`, JSON.stringify(usage), { expirationTtl: 86400 * 31 });
+
+    const textBlock = apiRes.content?.find(b => b.type === 'text');
+    if (!textBlock) return result;
+
+    // Parse JSON array from response
+    const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return result;
+
+    const attributions = JSON.parse(jsonMatch[0]) as Array<{
+      id: number; brand: string; confidence: 'high' | 'medium'; reason: string;
+    }>;
+
+    // Load all brands for matching
+    const allBrands = await env.DB.prepare(
+      "SELECT id, name FROM brands"
+    ).all<{ id: string; name: string }>();
+    const brandByName = new Map(allBrands.results.map(b => [b.name.toLowerCase(), b.id]));
+
+    for (const attr of attributions) {
+      if (!attr.brand || (attr.confidence !== 'high' && attr.confidence !== 'medium')) continue;
+      const signalEntry = uncachedSignals[attr.id];
+      if (!signalEntry) continue;
+
+      // Look up brand
+      let brandId = brandByName.get(attr.brand.toLowerCase());
+
+      // If not found and high confidence, create brand
+      if (!brandId && attr.confidence === 'high') {
+        const newId = `brand_${attr.brand.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+        try {
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO brands (id, name, canonical_domain, source, threat_count, first_seen)
+             VALUES (?, ?, ?, 'ai_attributed', 0, datetime('now'))`
+          ).bind(newId, attr.brand, signalEntry.signal).run();
+          brandId = newId;
+          brandByName.set(attr.brand.toLowerCase(), newId);
+        } catch { continue; }
+      }
+
+      if (!brandId) continue;
+
+      // Cache the result
+      await env.CACHE.put('brand_attr_' + signalEntry.signal, JSON.stringify({ brand_id: brandId }), { expirationTtl: 86400 * 30 });
+
+      // Apply to all threats with this signal
+      for (const threatId of signalEntry.ids) {
+        await env.DB.prepare(
+          "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL"
+        ).bind(brandId, threatId).run();
+      }
+      await env.DB.prepare(
+        "UPDATE brands SET threat_count = threat_count + ?, last_threat_seen = datetime('now') WHERE id = ?"
+      ).bind(signalEntry.ids.length, brandId).run();
+      result.attributed += signalEntry.ids.length;
+    }
+
+    // Cache null result for unmatched signals
+    for (const entry of uncachedSignals) {
+      const wasMatched = attributions.some(a => uncachedSignals[a.id]?.signal === entry.signal);
+      if (!wasMatched) {
+        await env.CACHE.put('brand_attr_' + entry.signal, JSON.stringify({ brand_id: null }), { expirationTtl: 86400 * 30 });
+      }
+    }
+  } catch (err) {
+    console.error('[ai-attribution] Haiku call failed:', err);
+  }
+
+  // Log to agent_outputs
+  try {
+    await env.DB.prepare(
+      `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, created_at)
+       VALUES (?, 'analyst', 'attribution', ?, 'info', datetime('now'))`
+    ).bind(
+      crypto.randomUUID(),
+      `AI Attribution: ${result.attributed} attributed, ${result.skipped} skipped, ${result.calls} calls, ~$${result.costUsd.toFixed(4)} USD`,
+    ).run();
+  } catch { /* ok */ }
+
+  return result;
+}
+
+// POST /api/admin/backfill-ai-attribution
+export async function handleBackfillAiAttribution(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const result = await runAiAttribution(env, 50);
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // POST /api/admin/backfill-safe-domains
 export async function handleBackfillSafeDomains(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");

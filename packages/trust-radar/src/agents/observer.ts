@@ -254,6 +254,108 @@ export const observerAgent: AgentModule = {
       }
     }
 
+    // ─── Weekly Strategic Intelligence Report (Sunday 6am UTC) ───
+    const now = new Date();
+    const isSunday = now.getUTCDay() === 0;
+    const isMorning = now.getUTCHours() < 7;
+    let weeklyGenerated = false;
+
+    if (isSunday && isMorning) {
+      try {
+        // Check if we already generated one this week
+        const existingWeekly = await env.DB.prepare(
+          `SELECT COUNT(*) as n FROM agent_outputs
+           WHERE agent_id = 'observer' AND type = 'weekly_intel'
+           AND created_at >= datetime('now', '-6 days')`
+        ).first<{ n: number }>();
+
+        if ((existingWeekly?.n ?? 0) === 0) {
+          // Gather weekly data
+          const weeklyThreats = await env.DB.prepare(`
+            SELECT COUNT(*) as total,
+              SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+              SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
+            FROM threats WHERE created_at >= datetime('now', '-7 days')
+          `).first<{ total: number; critical: number; high: number }>();
+
+          const weeklyTopBrands = await env.DB.prepare(`
+            SELECT b.name, COUNT(*) as count
+            FROM threats t JOIN brands b ON t.target_brand_id = b.id
+            WHERE t.created_at >= datetime('now', '-7 days')
+            GROUP BY b.id ORDER BY count DESC LIMIT 5
+          `).all<{ name: string; count: number }>();
+
+          const weeklyTopSectors = await env.DB.prepare(`
+            SELECT b.sector, COUNT(*) as count
+            FROM threats t JOIN brands b ON t.target_brand_id = b.id
+            WHERE t.created_at >= datetime('now', '-7 days') AND b.sector IS NOT NULL
+            GROUP BY b.sector ORDER BY count DESC LIMIT 5
+          `).all<{ sector: string; count: number }>();
+
+          const newCampaigns = await env.DB.prepare(
+            `SELECT COUNT(*) as n FROM campaigns WHERE created_at >= datetime('now', '-7 days')`
+          ).first<{ n: number }>();
+
+          const { generateInsight: genInsight } = await import("../lib/haiku");
+          const weeklyResult = await genInsight(env, {
+            period: "weekly",
+            threats_summary: {
+              total_7d: weeklyThreats?.total ?? 0,
+              critical: weeklyThreats?.critical ?? 0,
+              high: weeklyThreats?.high ?? 0,
+              new_campaigns: newCampaigns?.n ?? 0,
+            },
+            top_brands: weeklyTopBrands.results,
+            top_providers: topProviders.results,
+            trend_data: { weekly_total: weeklyThreats?.total ?? 0 },
+            type_distribution: typeBreakdown.results,
+            recent_campaigns: recentCampaigns.results,
+            email_security_summary: emailSecurityContext,
+            spam_trap_summary: spamTrapContext,
+          });
+
+          if (weeklyResult.success && weeklyResult.data?.items?.length) {
+            if (weeklyResult.tokens_used) totalTokens += weeklyResult.tokens_used;
+            if (weeklyResult.model) model = weeklyResult.model;
+
+            const weeklyItems = weeklyResult.data.items;
+            const topSeverity = weeklyItems.some(i => i.severity === 'critical') ? 'critical'
+              : weeklyItems.some(i => i.severity === 'high') ? 'high' : 'medium';
+
+            // Combine into one weekly intel output
+            const weeklySummary = weeklyItems.map(i => `**${i.title}** — ${i.summary}`).join('\n\n');
+            outputs.push({
+              type: "insight",
+              summary: `**Weekly Strategic Intelligence Report**\n\n${weeklySummary}`,
+              severity: topSeverity as "critical" | "high" | "medium",
+              details: {
+                title: 'Weekly Strategic Intelligence Report',
+                type: 'weekly_intel',
+                top_brands: weeklyTopBrands.results,
+                top_sectors: weeklyTopSectors.results,
+                total_threats_7d: weeklyThreats?.total ?? 0,
+                new_campaigns: newCampaigns?.n ?? 0,
+              },
+            });
+            weeklyGenerated = true;
+
+            // Also save directly as type='weekly_intel' for easy querying
+            await env.DB.prepare(
+              `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
+               VALUES (?, 'observer', 'weekly_intel', ?, ?, ?, datetime('now'))`
+            ).bind(
+              crypto.randomUUID(),
+              `Weekly Intel: ${weeklyThreats?.total ?? 0} threats, ${newCampaigns?.n ?? 0} new campaigns, top target: ${weeklyTopBrands.results[0]?.name ?? 'none'}`,
+              topSeverity,
+              JSON.stringify({ items: weeklyItems, top_brands: weeklyTopBrands.results, top_sectors: weeklyTopSectors.results }),
+            ).run();
+          }
+        }
+      } catch (weeklyErr) {
+        console.error("[observer] weekly intel error:", weeklyErr);
+      }
+    }
+
     return {
       itemsProcessed: 1,
       itemsCreated: outputs.length,
@@ -262,6 +364,7 @@ export const observerAgent: AgentModule = {
         total_threats_24h: totalNow,
         change_percent: changePercent,
         insights_generated: outputs.length,
+        weekly_report_generated: weeklyGenerated,
       },
       model,
       tokensUsed: totalTokens,
