@@ -1435,8 +1435,8 @@ async function viewObservatory(el) {
       <button class="obs-mode-btn" data-mode="5" title="Radar Sweep">◠</button>
     </div>
     <div class="obs-time-filter" id="obs-time-filter">
-      <button class="obs-tf-btn" data-period="24h">24H</button>
-      <button class="obs-tf-btn active" data-period="7d">7D</button>
+      <button class="obs-tf-btn active" data-period="24h">24H</button>
+      <button class="obs-tf-btn" data-period="7d">7D</button>
       <button class="obs-tf-btn" data-period="30d">30D</button>
       <button class="obs-tf-btn" data-period="all">ALL</button>
     </div>
@@ -1473,7 +1473,7 @@ async function viewObservatory(el) {
 
   // ── deck.gl state ────────────────────────────────────────────────
   let currentMode = 1;
-  let currentPeriod = '7d';
+  let currentPeriod = '24h';
   let activeSeverities = new Set(['critical', 'high', 'medium', 'low']);
   let currentSourceFilter = 'all';
   let arcData = [], nodeData = [], liveData = [], brandList = [];
@@ -4850,13 +4850,25 @@ async function viewTrends(el) {
   window._viewCleanup = () => { if (_trendChart) { _trendChart.destroy(); _trendChart = null; } };
 }
 
+// ─── Agent Icon Helper (single source of truth) ─────────────
+function agentIcon(agentId, size = 24) {
+  const icons = {
+    sentinel: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="16" stroke="currentColor" stroke-width="1.2" opacity="0.3"/><circle cx="18" cy="18" r="10" stroke="currentColor" stroke-width="1.2" opacity="0.5"/><circle cx="18" cy="18" r="4" stroke="currentColor" stroke-width="1.5"/><line x1="18" y1="18" x2="28" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="28" cy="6" r="2.5" fill="currentColor"/></svg>`,
+    analyst: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="6" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="26" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="6" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="30" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="30" cy="18" r="2.5" stroke="currentColor" stroke-width="1.5"/><line x1="8.5" y1="10" x2="15.5" y2="6" stroke="currentColor" stroke-width="1"/><line x1="8.5" y1="10" x2="15.5" y2="18" stroke="currentColor" stroke-width="1"/><line x1="8.5" y1="26" x2="15.5" y2="18" stroke="currentColor" stroke-width="1"/><line x1="8.5" y1="26" x2="15.5" y2="30" stroke="currentColor" stroke-width="1"/><line x1="20.5" y1="6" x2="27.5" y2="18" stroke="currentColor" stroke-width="1"/><line x1="20.5" y1="18" x2="27.5" y2="18" stroke="currentColor" stroke-width="1"/><line x1="20.5" y1="30" x2="27.5" y2="18" stroke="currentColor" stroke-width="1"/></svg>`,
+    cartographer: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="14" stroke="currentColor" stroke-width="1.5"/><ellipse cx="18" cy="18" rx="7" ry="14" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="18" x2="32" y2="18" stroke="currentColor" stroke-width="1.2"/><path d="M6 11H30M6 25H30" stroke="currentColor" stroke-width="0.8" opacity="0.5"/></svg>`,
+    strategist: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1"/><line x1="25" y1="11" x2="21" y2="15" stroke="currentColor" stroke-width="1"/><line x1="11" y1="25" x2="15" y2="21" stroke="currentColor" stroke-width="1"/><line x1="25" y1="25" x2="21" y2="21" stroke="currentColor" stroke-width="1"/><line x1="11" y1="10" x2="25" y2="10" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/><line x1="8" y1="13" x2="8" y2="23" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/></svg>`,
+    observer: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><polyline points="2,18 6,18 8,10 10,26 12,14 14,22 16,18 18,8 20,28 22,16 24,20 26,18 30,18 34,18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+  };
+  return icons[agentId] || icons.sentinel;
+}
+
 // ─── View: Agents (Step 13) ─────────────────────────────────
 const AGENT_META = {
-  sentinel: { icon: '\u25ce', iconClass: 'sentinel', color: '#00d4ff', role: 'Certificate & Domain Surveillance' },
-  analyst: { icon: '\u25c8', iconClass: 'analyst', color: '#00e5a0', role: 'Threat Classification & Brand Matching' },
-  cartographer: { icon: '\u25c7', iconClass: 'cartographer', color: '#ffb627', role: 'Infrastructure Mapping & Provider Scoring' },
-  strategist: { icon: '\u25c6', iconClass: 'strategist', color: '#ff3b5c', role: 'Campaign Correlation & Clustering' },
-  observer: { icon: '\u25c9', iconClass: 'observer', color: '#b388ff', role: 'Trend Analysis & Intelligence Synthesis' },
+  sentinel: { iconClass: 'sentinel', color: '#22d3ee', role: 'Certificate & Domain Surveillance' },
+  analyst: { iconClass: 'analyst', color: '#4ade80', role: 'Threat Classification & Brand Matching' },
+  cartographer: { iconClass: 'cartographer', color: '#f59e0b', role: 'Infrastructure Mapping & Provider Scoring' },
+  strategist: { iconClass: 'strategist', color: '#f87171', role: 'Campaign Correlation & Clustering' },
+  observer: { iconClass: 'observer', color: '#a78bfa', role: 'Trend Analysis & Intelligence Synthesis' },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -4890,7 +4902,8 @@ async function viewAgents(el) {
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">AI Agent Operations</div>
     <div class="agg-stats" id="agents-agg"></div>
     <div class="agent-grid" id="agent-grid"></div>
-    <div class="agent-detail-panel" id="agent-detail"></div>`;
+    <div class="agent-detail-panel" id="agent-detail"></div>
+    <div id="agents-automation-strip" style="margin-top:24px"></div>`;
 
   try {
     const agentsRes = await api('/agents').catch(() => null);
@@ -4920,13 +4933,23 @@ async function viewAgents(el) {
     // Agent cards
     const grid = document.getElementById('agent-grid');
     grid.innerHTML = agents.map(a => {
-      const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { icon: '\u25cb', iconClass: 'sentinel', color: '#00d4ff', role: a.description || '' };
-      const activity = a.activity || Array(24).fill(0);
-      const maxAct = Math.max(...activity, 1);
-      return `<div class="agent-card" data-agent="${a.agent_id || a.name}">
+      const aid = a.agent_id || a.name;
+      const meta = AGENT_META[a.name] || AGENT_META[aid] || { iconClass: 'sentinel', color: '#22d3ee', role: a.description || '' };
+      const outputs20 = a.recent_outputs || [];
+      const maxOut = Math.max(...outputs20.map(o => 1), 1);
+      const totalSegs = 20;
+      const segs = [];
+      for (let i = 0; i < totalSegs; i++) {
+        if (i < outputs20.length) {
+          segs.push(`<div class="activity-seg" style="background:${meta.color};opacity:0.7"></div>`);
+        } else {
+          segs.push(`<div class="activity-seg" style="background:${meta.color};opacity:0.05"></div>`);
+        }
+      }
+      return `<div class="agent-card" data-agent="${aid}">
         <div class="agent-status-dot ${a.status || 'idle'}"></div>
         <div class="agent-header">
-          <div class="agent-icon ${meta.iconClass}">${meta.icon}</div>
+          <div class="agent-icon ${meta.iconClass}" style="color:${meta.color}">${agentIcon(aid, 28)}</div>
           <div class="agent-name-block"><div class="agent-name">${a.display_name || a.name}</div><div class="agent-role">${meta.role}</div></div>
         </div>
         <div class="agent-stats-row">
@@ -4935,12 +4958,43 @@ async function viewAgents(el) {
           <div class="agent-stat"><div class="agent-stat-val" style="color:${(a.error_count_24h || 0) > 0 ? 'var(--negative)' : ''}">${a.error_count_24h || 0}</div><div class="agent-stat-label">Errors</div></div>
         </div>
         <div class="agent-last"><span>Last output</span><span>${relativeTime(a.last_output_at)}</span></div>
-        <div class="activity-bar">${activity.map(v => {
-          const opacity = v > 0 ? 0.2 + (v / maxAct) * 0.8 : 0.05;
-          return `<div class="activity-seg" style="background:${meta.color};opacity:${opacity}"></div>`;
-        }).join('')}</div>
+        <div class="activity-bar">${segs.reverse().join('')}</div>
       </div>`;
     }).join('');
+
+    // Pipeline Automation strip
+    try {
+      const statsRes = await api('/admin/stats').catch(() => null);
+      const emailStatsRes = await api('/email-security/stats').catch(() => null);
+      const pStats = statsRes?.data || {};
+      const geoRemaining = pStats.agent_backlogs?.cartographer ?? 0;
+      const brandPending = pStats.agent_backlogs?.strategist ?? 0;
+      const emailPending = emailStatsRes?.data?.total_unscanned ?? 0;
+      const aiPending = pStats.ai_attribution_pending ?? 0;
+      const trancoCount = pStats.tranco_brand_count ?? 0;
+      const dotClass = (v) => typeof v === 'number' ? (v > 1000 ? 'pill-dot-red' : v > 100 ? 'pill-dot-amber' : 'pill-dot-green') : 'pill-dot-green';
+      const stripEl = document.getElementById('agents-automation-strip');
+      if (stripEl) {
+        const pills = [
+          { agent: 'sentinel', label: 'Geo Enrichment', value: `${geoRemaining} remaining \u00b7 auto`, count: geoRemaining },
+          { agent: 'analyst', label: 'Brand Matching', value: `${brandPending} pending \u00b7 auto`, count: brandPending },
+          { agent: 'cartographer', label: 'Email Security', value: `${emailPending} pending \u00b7 10/cycle`, count: emailPending },
+          { agent: 'observer', label: 'AI Attribution', value: `${aiPending} remaining`, count: aiPending },
+          { agent: 'strategist', label: 'Tranco', value: `${trancoCount.toLocaleString()} brands \u00b7 daily`, count: 0 },
+        ];
+        stripEl.innerHTML = `
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Pipeline Automation</div>
+          <div id="adm-automation-status">${pills.map(p => {
+            const meta = AGENT_META[p.agent] || { color: '#22d3ee' };
+            return `<div class="auto-pill" data-pipeline="${p.agent}">
+              <span class="pill-icon" style="color:${meta.color};display:flex;align-items:center">${agentIcon(p.agent, 18)}</span>
+              <span class="pill-label">${p.label}</span>
+              <span class="pill-value">${p.value}</span>
+              <span class="pill-dot ${dotClass(p.count)}"></span>
+            </div>`;
+          }).join('')}</div>`;
+      }
+    } catch { /* ok */ }
 
     // Click to expand detail
     grid.addEventListener('click', async (e) => {
@@ -4959,7 +5013,7 @@ async function viewAgents(el) {
       _selectedAgent = agentId;
 
       const agent = agents.find(a => (a.agent_id || a.name) === agentId);
-      const meta = AGENT_META[agentId] || AGENT_META[agent?.name] || { icon: '\u25cb', iconClass: 'sentinel', color: '#00d4ff', role: '' };
+      const meta = AGENT_META[agentId] || AGENT_META[agent?.name] || { iconClass: 'sentinel', color: '#22d3ee', role: '' };
 
       // Fetch outputs and health
       const [outputsRes, healthRes] = await Promise.all([
@@ -4981,7 +5035,7 @@ async function viewAgents(el) {
       detail.classList.add('visible');
       detail.innerHTML = `
         <div class="agent-detail-header">
-          <div class="dh-icon agent-icon ${meta.iconClass}">${meta.icon}</div>
+          <div class="dh-icon agent-icon ${meta.iconClass}" style="color:${meta.color}">${agentIcon(agentId, 32)}</div>
           <div class="dh-info">
             <div class="dh-name">${agent?.display_name || agentId} <span class="status-label ${agent?.status || 'idle'}">${agent?.status || 'idle'}</span></div>
             <div class="dh-desc">${agent?.description || meta.role}</div>
@@ -5085,7 +5139,6 @@ async function viewAdmin(el) {
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
-    <div id="adm-automation-status"></div>
     <div class="adm-grid-2">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">\uD83D\uDCE7 Email Security Coverage</div><div class="adm-pbadge" id="adm-es-badge">-</div></div>
@@ -5246,13 +5299,14 @@ async function viewAdmin(el) {
       observer: { val: null, label: backlogs.observer_last_run ? (() => { const m = Math.round((Date.now() - new Date(backlogs.observer_last_run + 'Z').getTime()) / 60000); return m < 60 ? `Last briefing: ${m}m ago` : `Last briefing: ${Math.round(m/60)}h ago`; })() : 'No briefings yet' },
     };
     document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
-      const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff' };
+      const aid = a.agent_id || a.name;
+      const meta = AGENT_META[a.name] || AGENT_META[aid] || { color: '#22d3ee' };
       const dotColor = a.status === 'active' ? 'var(--positive)' : a.status === 'error' ? 'var(--negative)' : a.status === 'degraded' ? 'var(--threat-medium)' : 'var(--blue-primary)';
       const dotAnim = a.status === 'active' ? 'animation:pulse 2s ease-in-out infinite' : a.status === 'degraded' ? 'animation:pulse 1.5s ease-in-out infinite' : '';
-      const bl = backlogMap[a.name] || backlogMap[a.agent_id];
+      const bl = backlogMap[a.name] || backlogMap[aid];
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04);flex-wrap:wrap"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // Email Security stats
@@ -5533,50 +5587,6 @@ async function viewAdmin(el) {
       setTimeout(() => { aiAttrBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
     });
   }
-
-  // Automation status strip — animated pills
-  try {
-    const geoRemaining = stats.agent_backlogs?.cartographer ?? 0;
-    const brandPending = stats.agent_backlogs?.strategist ?? 0;
-    const emailPending = emailStatsRes?.data?.total_unscanned ?? 0;
-    const aiPending = stats.ai_attribution_pending ?? 0;
-    const trancoCount = stats.tranco_brand_count ?? 0;
-    const statusEl = document.getElementById('adm-automation-status');
-    if (statusEl) {
-      const dotClass = (v) => typeof v === 'number' ? (v > 1000 ? 'pill-dot-red' : v > 100 ? 'pill-dot-amber' : 'pill-dot-green') : 'pill-dot-green';
-      statusEl.innerHTML = `
-        <div class="auto-pill" data-pipeline="geo">
-          <span class="pill-icon">\uD83C\uDF0D</span>
-          <span class="pill-label">Geo Enrichment</span>
-          <span class="pill-value" data-target="${geoRemaining}">${geoRemaining} remaining \u00b7 auto</span>
-          <span class="pill-dot ${dotClass(geoRemaining)}"></span>
-        </div>
-        <div class="auto-pill" data-pipeline="brand">
-          <span class="pill-icon">\uD83C\uDFAF</span>
-          <span class="pill-label">Brand Matching</span>
-          <span class="pill-value" data-target="${brandPending}">${brandPending} pending \u00b7 auto</span>
-          <span class="pill-dot ${dotClass(brandPending)}"></span>
-        </div>
-        <div class="auto-pill" data-pipeline="email">
-          <span class="pill-icon">\uD83D\uDCE7</span>
-          <span class="pill-label">Email Security</span>
-          <span class="pill-value" data-target="${emailPending}">${emailPending} pending \u00b7 10/cycle</span>
-          <span class="pill-dot ${dotClass(emailPending)}"></span>
-        </div>
-        <div class="auto-pill" data-pipeline="ai">
-          <span class="pill-icon">\uD83E\uDD16</span>
-          <span class="pill-label">AI Attribution</span>
-          <span class="pill-value" data-target="${aiPending}">${aiPending} remaining</span>
-          <span class="pill-dot ${dotClass(aiPending)}"></span>
-        </div>
-        <div class="auto-pill" data-pipeline="tranco">
-          <span class="pill-icon">\uD83D\uDCE5</span>
-          <span class="pill-label">Tranco</span>
-          <span class="pill-value">${trancoCount.toLocaleString()} brands \u00b7 daily</span>
-          <span class="pill-dot pill-dot-green"></span>
-        </div>`;
-    }
-  } catch { /* ok */ }
 
   window._viewCleanup = () => { if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; } };
 }
@@ -6068,11 +6078,12 @@ async function viewAdminAgentConfig(el) {
     const usage = usageRes?.data || {};
 
     document.getElementById('adm-agent-config-table').innerHTML = agents.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Agent</th><th>Status</th><th>Schedule</th><th>Last Run</th><th>Avg Duration</th><th>Success Rate</th><th>Outputs (24h)</th><th>Actions</th></tr></thead><tbody>${agents.map(a => {
-      const meta = AGENT_META[a.name] || AGENT_META[a.agent_id] || { color: '#00d4ff', icon: '\u25cb' };
-      const cfg = configs[a.agent_id || a.name] || {};
+      const aid = a.agent_id || a.name;
+      const meta = AGENT_META[a.name] || AGENT_META[aid] || { color: '#22d3ee' };
+      const cfg = configs[aid] || {};
       const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
       const avgDur = a.avg_duration_ms ? (a.avg_duration_ms / 1000).toFixed(1) + 's' : '-';
-      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;font-size:14px;background:${meta.color}15">${meta.icon}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
+      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // API usage section — KV-backed accurate per-day tracking
