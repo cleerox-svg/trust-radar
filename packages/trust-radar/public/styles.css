@@ -47,14 +47,16 @@
 
 /* ─── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
 body {
   font-family: var(--font-body);
   background: var(--bg-void);
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
+  overflow-x: hidden;
 }
+img, video, svg { max-width: 100%; height: auto; }
 a { color: var(--blue-primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { cursor: pointer; font-family: inherit; }
@@ -2118,14 +2120,14 @@ a.campaign-card:hover { text-decoration: none; }
   .agent-grid { grid-template-columns: 1fr 1fr; }
   .agent-detail-grid { grid-template-columns: 1fr; }
 
-  /* B) BRANDS — card grid */
-  .brand-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  /* B) BRANDS — 2-column grid (see also bottom section for compact mobile) */
+  .brand-grid { grid-template-columns: repeat(2, 1fr); }
 
-  /* C) PROVIDERS — card grid */
-  .provider-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  /* C) PROVIDERS — 2-column grid */
+  .provider-grid { grid-template-columns: repeat(2, 1fr); }
 
-  /* D) CAMPAIGNS — card grid */
-  .campaign-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  /* D) CAMPAIGNS — 2-column grid */
+  .campaign-grid { grid-template-columns: repeat(2, 1fr); }
 
   /* E) TRENDS — controls wrap */
   .trend-controls { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
@@ -2190,18 +2192,27 @@ a.campaign-card:hover { text-decoration: none; }
   .stat-chip .chip-value { font-size: 14px; }
   .stat-chip .chip-label { font-size: 8px; }
 
-  /* B) BRANDS — single column stack */
-  .brand-grid { grid-template-columns: 1fr; }
-  .brand-card { padding: 12px; }
-  .brand-card-name { font-size: 13px; }
+  /* B) BRANDS — 2-column compact cards */
+  .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 2px; }
+  .brand-card { padding: 10px; min-height: 140px; display: flex; flex-direction: column; }
+  .brand-card-top { gap: 8px; margin-bottom: 8px; }
+  .brand-rank { width: 20px; height: 20px; font-size: 11px; }
+  .brand-icon-lg { width: 28px; height: 28px; font-size: 10px; }
+  .brand-card-name { font-size: 12px; }
+  .brand-card-sector { font-size: 9px; }
+  .brand-threat-val { font-size: 20px; }
+  .brand-card-stats { gap: 6px; }
+  .brand-card-footer { margin-top: auto; padding-top: 6px; }
+  .type-pill { font-size: 7px; padding: 1px 5px; }
+  .rising-badge { font-size: 7px; padding: 1px 5px; top: 8px; right: 8px; }
 
-  /* C) PROVIDERS — single column stack */
-  .provider-grid { grid-template-columns: 1fr; }
-  .provider-card { padding: 12px; }
+  /* C) PROVIDERS — 2-column compact cards */
+  .provider-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 2px; }
+  .provider-card { padding: 10px; min-height: 140px; display: flex; flex-direction: column; }
 
-  /* D) CAMPAIGNS — single column stack */
-  .campaign-grid { grid-template-columns: 1fr; }
-  .campaign-card { padding: 12px; }
+  /* D) CAMPAIGNS — 2-column compact cards */
+  .campaign-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 2px; }
+  .campaign-card { padding: 10px; min-height: 140px; }
 
   /* E) TRENDS — stacked controls */
   .trend-controls { flex-direction: column; align-items: stretch; }
@@ -3198,10 +3209,10 @@ a.campaign-card:hover { text-decoration: none; }
 .audit-cat-system { background: rgba(102,119,136,.15); color: #7a8ba8; }
 
 /* ═══════════════════════════════════════════════════════════════
-   MOBILE UI FIXES — Phases 2-4
+   MOBILE UI FIXES
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Fix 2: Brand & Provider Cards — responsive grid ─────── */
+/* ─── Brand & Provider Cards — responsive grid ─────────────── */
 @media (min-width: 481px) and (max-width: 768px) {
   .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .brand-card { padding: 14px; }
@@ -3215,7 +3226,7 @@ a.campaign-card:hover { text-decoration: none; }
   .provider-card { min-height: 140px; }
 }
 
-/* ─── Fix 3: Sub-tabs — mobile horizontal scroll ─────────── */
+/* ─── Sub-tabs — mobile horizontal scroll ──────────────────── */
 @media (max-width: 768px) {
   .sub-tabs {
     overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -3251,7 +3262,7 @@ a.campaign-card:hover { text-decoration: none; }
   .admin-nav-pills::-webkit-scrollbar { display: none; }
 }
 
-/* ─── Fix 4: Audit Log — mobile filter layout ────────────── */
+/* ─── Audit Log — mobile filter layout ─────────────────────── */
 @media (max-width: 768px) {
   .adm-controls {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -3264,5 +3275,104 @@ a.campaign-card:hover { text-decoration: none; }
     grid-template-columns: 1fr 1fr; gap: 6px;
   }
   .adm-sel { font-size: 10px; padding: 8px 8px; min-height: 36px; }
+}
+
+/* ─── Safe Areas (notch, dynamic island, gesture bar) ──────── */
+@supports (padding: env(safe-area-inset-top)) {
+  .topbar { padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .main { padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right)); }
+  .toast-container { bottom: calc(20px + env(safe-area-inset-bottom)); right: calc(20px + env(safe-area-inset-right)); }
+}
+
+/* ─── Small phone (≤389px) — iPhone SE, Galaxy S compact ──── */
+@media (max-width: 389px) {
+  .main { padding: 12px 6px; }
+  .topbar { padding: 4px 6px; }
+  .topbar-logo .tr-logo-mark { width: 120px; height: 22px; }
+  .topbar-nav a { font-size: 8px; padding: 3px 6px; }
+
+  /* Cards go to 1-column on very small phones */
+  .brand-grid, .provider-grid, .campaign-grid { grid-template-columns: 1fr; }
+
+  /* Stat bar overlay: 2x2 with tighter spacing */
+  .stat-bar-overlay { gap: 3px; left: 4px; right: 4px; bottom: 4px; }
+  .stat-chip { padding: 4px 6px; gap: 4px; }
+  .stat-chip .chip-value { font-size: 12px; }
+  .stat-chip .chip-label { font-size: 7px; }
+  .stat-chip .chip-trend { display: none; }
+
+  /* Observatory map height */
+  .observatory-layout .main { height: 45vh; min-height: 200px; }
+  .obs-time-filter { left: 4px; right: 4px; transform: none; }
+  .obs-sev-filter { left: 4px; right: 4px; transform: none; flex-wrap: wrap; }
+  .obs-mode-selector { right: 4px; }
+
+  /* Modals full-width */
+  .modal { width: calc(100vw - 16px) !important; max-width: none; }
+
+  /* Agent grid */
+  .agent-grid { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Admin metrics 1 column on tiny screens */
+  .adm-metrics, .adm-actions { grid-template-columns: 1fr; }
+}
+
+/* ─── Phone Portrait Additions (≤479px) ───────────────────── */
+@media (max-width: 479px) {
+  /* Modal sizing */
+  .modal { width: calc(100vw - 24px) !important; max-width: none; }
+
+  /* Notification dropdown full width */
+  .notif-dropdown { width: calc(100vw - 24px); right: -8px; max-width: none; }
+
+  /* Sub-tabs compact */
+  .sub-tab { padding: 10px 14px 8px; font-size: 10px; }
+  .sub-tab-actions { padding-bottom: 2px; }
+  .sub-tab-actions .btn { font-size: 9px; padding: 6px 10px; }
+
+  /* Data table scroll wrapper */
+  .all-brands-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Observatory controls stacking */
+  .obs-time-filter { left: 8px; right: 8px; transform: none; justify-content: center; flex-wrap: wrap; }
+  .obs-sev-filter { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; }
+  .obs-layer-toggle { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; }
+
+  /* Trend chart minimum height */
+  .chart-container canvas { min-height: 220px; }
+
+  /* Admin filter rows wrap */
+  .adm-filter-row, .mon-controls { flex-wrap: wrap; gap: 8px; }
+  .search-input { width: 100%; }
+
+  /* Page header stacking */
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+  /* Pipeline automation pills full width */
+  .auto-pill { min-width: 100%; }
+
+  /* Admin lead slideout full screen */
+  .adm-lead-slideout { width: 100% !important; }
+}
+
+/* ─── Tablet Portrait (768-1023px) ────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .provider-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .campaign-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
+
+/* ─── Touch Targets — global minimum ─────────────────────── */
+@media (pointer: coarse) {
+  .sub-tab { min-height: 44px; display: inline-flex; align-items: center; }
+  .topbar-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+  .pgn-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .period-btn { min-height: 44px; }
+  .obs-tf-btn { min-height: 44px; padding: 8px 14px; }
+  .obs-sev-btn { min-height: 44px; padding: 6px 12px; }
+  .obs-lt-btn { min-height: 44px; padding: 6px 12px; }
+  .obs-mode-btn { width: 44px; height: 44px; }
+  .brand-card, .provider-card, .campaign-card, .agent-card { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .sidebar-brand-row, .sidebar-provider-row { min-height: 44px; }
 }
 
