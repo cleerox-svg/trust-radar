@@ -1990,8 +1990,10 @@ a.campaign-card:hover { text-decoration: none; }
   color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
 }
 .adm-vt-btn.active { background: var(--bg-elevated); color: var(--threat-medium); }
-#adm-kanban-view, #adm-table-view { display: none; }
-#adm-kanban-view.visible, #adm-table-view.visible { display: block; }
+#adm-kanban-view, #adm-table-view, #adm-pipeline-view { display: none; }
+#adm-kanban-view.visible, #adm-table-view.visible, #adm-pipeline-view.visible { display: block; }
+#adm-scan-view { display: none; }
+#adm-scan-view.visible { display: block; }
 
 /* Admin Kanban */
 .adm-kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: 500px; }
