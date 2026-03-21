@@ -1257,12 +1257,12 @@ router.get("/api/export/alerts", async (request: Request, env: Env) => {
   if (!isAuthContext(ctx)) return ctx;
   return handleExportAlerts(request, env);
 });
-router.get("/api/export/stix/:brandId", async (request: Request, env: Env) => {
+router.get("/api/export/stix/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleSTIXExport(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
-router.get("/api/export/stix/:brandId/indicators", async (request: Request, env: Env) => {
+router.get("/api/export/stix/:brandId/indicators", async (request: Request & { params: Record<string, string> }, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleSTIXIndicators(request, env, request.params["brandId"] ?? "", ctx.userId);
