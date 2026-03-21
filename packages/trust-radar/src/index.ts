@@ -10,9 +10,11 @@ import {
   handleObservatoryBrandArcs, handleObservatoryStats,
 } from "./handlers/observatory";
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
+import { renderLandingPage } from "./templates/landing";
 import { handleScanPage } from "./handlers/scanPage";
-import { handleStats, handleSourceMix, handleQualityTrend } from "./handlers/stats";
-import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
+import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
+import { handleHealthCheck } from "./handlers/health";
+import { handleSignals, handleIngestSignal } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
@@ -88,6 +90,9 @@ import {
 } from "./handlers/notifications";
 import { handleListAuditLog, handleExportAuditLog } from "./handlers/audit";
 import {
+  handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats,
+} from "./handlers/alerts";
+import {
   handleGetEmailSecurity,
   handleScanBrandEmailSecurity,
   handleScanAllEmailSecurity,
@@ -159,19 +164,7 @@ const router = Router();
 router.options("*", (request: Request) => handleOptions(request));
 
 // ─── Health / diagnostics ─────────────────────────────────────
-router.get("/health", (_request: Request, env: Env) =>
-  Response.json({
-    status: "ok",
-    service: "trust-radar",
-    ts: Date.now(),
-    bindings: {
-      DB: !!env.DB,
-      CACHE: !!env.CACHE,
-      JWT_SECRET: !!env.JWT_SECRET,
-      VIRUSTOTAL_API_KEY: !!env.VIRUSTOTAL_API_KEY,
-    },
-  })
-);
+router.get("/health", (request: Request, env: Env) => handleHealthCheck(request, env));
 
 // ─── Auth (Google OAuth) ──────────────────────────────────────
 router.get("/api/auth/login", async (request: Request, env: Env) => {
@@ -279,13 +272,27 @@ router.post("/api/signals", async (request: Request, env: Env) => {
   return handleIngestSignal(request, env, ctx.userId);
 });
 
-// ─── Alerts ───────────────────────────────────────────────────
-router.get("/api/alerts", (request: Request, env: Env) =>
-  handleAlerts(request, env)
-);
-router.post("/api/alerts/:id/ack", async (request: Request & { params: Record<string, string> }, env: Env) =>
-  handleAckAlert(request, env, request.params["id"] ?? "")
-);
+// ─── Alerts (unified pipeline) ───────────────────────────────
+router.get("/api/alerts/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAlertStats(request, env, ctx.userId);
+});
+router.get("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetAlert(request, env, request.params["id"] ?? "");
+});
+router.patch("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateAlert(request, env, request.params["id"] ?? "");
+});
+router.get("/api/alerts", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListAlerts(request, env, ctx.userId);
+});
 
 // ─── Admin ────────────────────────────────────────────────────
 router.get("/api/admin/stats", async (request: Request, env: Env) => {
@@ -1255,10 +1262,13 @@ router.post("/api/admin/honeypot/generate", async (request: Request, env: Env) =
   }
 });
 
-// ─── Public Homepage ──────────────────────────────────────────
+// ─── Public Landing Page (corporate site) ────────────────────
 router.get("/", () =>
-  new Response(renderHomepage(), {
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
+  new Response(renderLandingPage(), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=300, s-maxage=600",
+    },
   })
 );
 
@@ -1397,6 +1407,7 @@ router.post("/api/v1/public/monitor", (request: Request, env: Env) => handlePubl
 router.get("/api/v1/public/email-security/:domain", async (request: Request & { params: Record<string, string> }, env: Env) =>
   handlePublicEmailSecurity(request, env, request.params["domain"] ?? "")
 );
+router.get("/api/stats/public", (request: Request, env: Env) => handlePublicStatsV2(request, env));
 
 // ─── Static assets fallback (SPA) ────────────────────────────
 // serve_directly=false means ALL requests hit the Worker, so we must

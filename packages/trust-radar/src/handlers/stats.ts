@@ -71,6 +71,66 @@ export async function handleSourceMix(request: Request, env: Env): Promise<Respo
   }
 }
 
+const PUBLIC_STATS_CACHE_KEY = "public_stats_v1";
+const PUBLIC_STATS_TTL = 300; // 5 minutes
+
+export async function handlePublicStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    // Check KV cache first
+    const cached = await env.CACHE.get(PUBLIC_STATS_CACHE_KEY);
+    if (cached) {
+      return json(JSON.parse(cached), 200, origin);
+    }
+
+    const [
+      domainsMonitored,
+      threatsDetected,
+      threatsThisMonth,
+      aiAssessments,
+      emailScans,
+      feedsActive,
+    ] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) as n FROM monitored_brands WHERE status = 'active'")
+        .first<{ n: number }>()
+        .catch(() => ({ n: 0 })),
+      env.DB.prepare("SELECT COUNT(*) as n FROM threats")
+        .first<{ n: number }>(),
+      env.DB.prepare(
+        "SELECT COUNT(*) as n FROM threats WHERE created_at >= strftime('%Y-%m-01', 'now')"
+      ).first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as n FROM brand_threat_assessments")
+        .first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as n FROM email_security_scans")
+        .first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(*) as n FROM feed_configs WHERE enabled = 1")
+        .first<{ n: number }>(),
+    ]);
+
+    const body = {
+      success: true,
+      data: {
+        domains_monitored: domainsMonitored?.n ?? 0,
+        threats_detected: threatsDetected?.n ?? 0,
+        threats_this_month: threatsThisMonth?.n ?? 0,
+        ai_assessments: aiAssessments?.n ?? 0,
+        email_scans: emailScans?.n ?? 0,
+        feeds_active: feedsActive?.n ?? 0,
+      },
+    };
+
+    // Cache in KV for 5 minutes
+    await env.CACHE.put(PUBLIC_STATS_CACHE_KEY, JSON.stringify(body), {
+      expirationTtl: PUBLIC_STATS_TTL,
+    });
+
+    return json(body, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 export async function handleQualityTrend(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 

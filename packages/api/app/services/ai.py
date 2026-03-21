@@ -1,4 +1,7 @@
+import json
+
 from anthropic import AsyncAnthropic
+from anthropic.types import Message, TextBlock
 
 from app.config import get_settings
 from app.schemas.ai import (
@@ -9,6 +12,16 @@ from app.schemas.ai import (
     ScanInsightRequest,
     ScanInsightResponse,
 )
+
+
+
+def _extract_text(resp: Message) -> str:
+    """Extract text from the first TextBlock in an Anthropic response."""
+    for block in resp.content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return "{}"
+
 
 settings = get_settings()
 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -42,8 +55,7 @@ async def enhance_bio(req: EnhanceBioRequest) -> EnhanceBioResponse:
         temperature=0.7,
     )
 
-    import json
-    result = json.loads(resp.content[0].text or "{}")
+    result = json.loads(_extract_text(resp))
 
     return EnhanceBioResponse(
         original=req.text,
@@ -74,8 +86,7 @@ async def get_scan_insight(req: ScanInsightRequest) -> ScanInsightResponse:
         temperature=0.3,
     )
 
-    import json
-    result = json.loads(resp.content[0].text or "{}")
+    result = json.loads(_extract_text(resp))
 
     return ScanInsightResponse(
         summary=result.get("summary", ""),
@@ -104,8 +115,7 @@ async def generate_impression_report(req: ImpressionReportRequest) -> Impression
         temperature=0.5,
     )
 
-    import json
-    result = json.loads(resp.content[0].text or "{}")
+    result = json.loads(_extract_text(resp))
 
     return ImpressionReportResponse(
         overall_score=int(result.get("overall_score", 50)),
