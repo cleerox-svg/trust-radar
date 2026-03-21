@@ -1,0 +1,123 @@
+# Deployment
+
+Trust Radar deploys to Cloudflare Workers via GitHub Actions on push to `master`.
+
+## Architecture
+
+```
+GitHub Actions (CI/CD)
+├── deploy-radar.yml    → Cloudflare Workers (trust-radar)
+├── deploy-imprsn8.yml  → Cloudflare Workers (imprsn8)
+└── ci.yml              → TypeCheck all packages on PR/push
+```
+
+## Prerequisites
+
+- [Node.js 20+](https://nodejs.org/)
+- [pnpm](https://pnpm.io/) (workspace manager)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm install -g wrangler`)
+- Cloudflare account with Workers, D1, and KV access
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `CLOUDFLARE_API_TOKEN` | Wrangler deploy token | Yes |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | Yes |
+| `JWT_SECRET` | JWT signing secret | Yes |
+| `ANTHROPIC_API_KEY` | Claude Haiku API key | Yes |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Yes |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Yes |
+
+See `packages/trust-radar/wrangler.toml` for Worker bindings (D1, KV, R2).
+
+## Local Development
+
+```bash
+pnpm install
+pnpm dev                    # Start all workers locally (Miniflare)
+pnpm typecheck              # Type check all packages
+```
+
+Local dev uses Miniflare (Wrangler's local runtime) with local D1 SQLite databases.
+
+## Database Migrations
+
+Migrations are SQL files in `packages/trust-radar/migrations/`:
+
+```bash
+# Run locally
+npx wrangler d1 execute trust-radar-v2 --local --file=migrations/0030_social_monitoring.sql
+
+# Run in production
+npx wrangler d1 execute trust-radar-v2 --file=migrations/0030_social_monitoring.sql
+
+# Also run audit DB migrations when applicable
+npx wrangler d1 execute trust-radar-v2-audit --file=migrations/XXXX_audit.sql
+```
+
+Migrations are also run automatically by the deploy workflow.
+
+## Manual Deploy
+
+```bash
+cd packages/trust-radar
+npx wrangler deploy          # Deploy to production
+npx wrangler deploy --env staging  # Deploy to staging
+```
+
+## CI/CD Pipeline
+
+### ci.yml (on every PR and push to master)
+1. TypeCheck trust-radar and imprsn8 Workers
+2. TypeCheck and build frontend
+
+### deploy-radar.yml (on push to master, paths: `packages/trust-radar/**`)
+1. Type check
+2. Run D1 migrations (both DB and AUDIT_DB)
+3. Deploy via `wrangler deploy`
+
+### Cron Triggers
+
+Configured in `wrangler.toml`:
+```toml
+[triggers]
+crons = ["*/15 * * * *"]
+```
+
+The cron orchestrator (`src/cron/orchestrator.ts`) routes jobs by time:
+- Every 30 min: Threat feed scan
+- Every 6 hours: Social monitoring
+- Daily 06:00 UTC: Observer briefing
+- Every hour: Lookalike domain checks
+
+## KV Namespaces
+
+| Binding | Purpose |
+|---------|---------|
+| `CACHE` | Rate limiting, scan result caching, cron status |
+| `SESSIONS` | Session storage |
+
+## D1 Databases
+
+| Binding | Purpose |
+|---------|---------|
+| `DB` | Primary database (users, brands, threats, scans) |
+| `AUDIT_DB` | Audit log (data mutations) |
+
+## Domains
+
+| Domain | Environment |
+|--------|-------------|
+| `trustradar.ca` | Production |
+| `www.trustradar.ca` | Redirects to trustradar.ca |
+| `staging.trustradar.ca` | Staging |
+
+## Rollback
+
+Cloudflare Workers supports instant rollback via the dashboard or:
+```bash
+npx wrangler rollback
+```

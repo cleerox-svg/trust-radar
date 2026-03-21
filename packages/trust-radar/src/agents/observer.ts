@@ -115,9 +115,27 @@ export const observerAgent: AgentModule = {
       LIMIT 5
     `).all<{ name: string; email_security_grade: string; threat_count: number }>();
 
+    // ─── Email grade changes since last briefing ────────────────
+    const emailGradeChanges = await env.DB.prepare(`
+      SELECT b.name, b.email_security_grade AS current_grade,
+             ess.email_security_grade AS previous_grade
+      FROM brands b
+      JOIN email_security_scans ess ON ess.brand_id = b.id
+      WHERE b.email_security_grade IS NOT NULL
+        AND ess.email_security_grade IS NOT NULL
+        AND b.email_security_grade != ess.email_security_grade
+        AND ess.scanned_at < b.email_security_scanned_at
+        AND ess.scanned_at >= datetime('now', '-24 hours')
+      ORDER BY b.name
+      LIMIT 20
+    `).all<{ name: string; current_grade: string; previous_grade: string }>();
+
     const totalEmailScanned = emailGradeDistribution.results.reduce((s, r) => s + r.count, 0);
     const gradeDistStr = emailGradeDistribution.results.map(r => `${r.grade}: ${r.count}`).join(', ');
-    const emailSecurityContext = `Email Security: ${totalEmailScanned} brands scanned. Grade distribution: ${gradeDistStr || 'none yet'}. At-risk brands (weak email + active threats): ${emailAtRiskBrands.results.map(b => `${b.name} (${b.email_security_grade}, ${b.threat_count} threats)`).join(', ') || 'none'}.`;
+    const gradeChangesStr = emailGradeChanges.results.length > 0
+      ? ` Grade changes (last 24h): ${emailGradeChanges.results.map(c => `${c.name}: ${c.previous_grade} -> ${c.current_grade}`).join(', ')}.`
+      : '';
+    const emailSecurityContext = `Email Security: ${totalEmailScanned} brands scanned. Grade distribution: ${gradeDistStr || 'none yet'}.${gradeChangesStr} At-risk brands (weak email + active threats): ${emailAtRiskBrands.results.map(b => `${b.name} (${b.email_security_grade}, ${b.threat_count} threats)`).join(', ') || 'none'}.`;
 
     // ─── Spam trap network summary ──────────────────────────────
     let spamTrapContext = "";
@@ -285,11 +303,17 @@ export const observerAgent: AgentModule = {
       // Item: Email security posture
       if (totalEmailScanned > 0) {
         const atRisk = emailAtRiskBrands.results;
+        const changes = emailGradeChanges.results;
         outputs.push({
           type: 'insight',
           summary: `**Email Security Posture** — ${emailSecurityContext}${atRisk.length > 0 ? ` Top at-risk: ${atRisk.map(b => `${b.name} (${b.email_security_grade})`).join(', ')}.` : ''}`,
           severity: atRisk.length > 0 ? 'high' : 'info',
-          details: { title: 'Email Security Posture', grade_distribution: emailGradeDistribution.results, at_risk_brands: atRisk },
+          details: {
+            title: 'Email Security Posture',
+            grade_distribution: emailGradeDistribution.results,
+            at_risk_brands: atRisk,
+            grade_changes: changes,
+          },
         });
       }
     }
