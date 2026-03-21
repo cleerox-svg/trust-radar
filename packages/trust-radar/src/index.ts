@@ -48,6 +48,7 @@ import { requireAuth, requireAdmin, requireSuperAdmin, isAuthContext } from "./m
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
+import { handleSTIXExport, handleSTIXIndicators } from "./handlers/stixExport";
 import { handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders, handleGetProvider, handleProviderDrilldown, handleProviderBrands, handleProviderTimeline, handleProviderLocations } from "./handlers/providers";
 import {
   handleBrandScan, handleBrandScanHistory, handlePublicBrandScan,
@@ -1203,6 +1204,16 @@ router.get("/api/export/alerts", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleExportAlerts(request, env);
+});
+router.get("/api/export/stix/:brandId", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSTIXExport(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.get("/api/export/stix/:brandId/indicators", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSTIXIndicators(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
 // ─── Spam Trap ────────────────────────────────────────────────
