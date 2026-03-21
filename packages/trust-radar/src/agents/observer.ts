@@ -137,6 +137,128 @@ export const observerAgent: AgentModule = {
       : '';
     const emailSecurityContext = `Email Security: ${totalEmailScanned} brands scanned. Grade distribution: ${gradeDistStr || 'none yet'}.${gradeChangesStr} At-risk brands (weak email + active threats): ${emailAtRiskBrands.results.map(b => `${b.name} (${b.email_security_grade}, ${b.threat_count} threats)`).join(', ') || 'none'}.`;
 
+    // ─── Recent threat narratives ──────────────────────────────────
+    let narrativeContext = "";
+    try {
+      const recentNarratives = await env.DB.prepare(`
+        SELECT tn.title, tn.severity, tn.attack_stage, tn.summary, tn.signal_types,
+               tn.confidence, b.name AS brand_name
+        FROM threat_narratives tn
+        JOIN brands b ON b.id = tn.brand_id
+        WHERE tn.created_at >= datetime('now', '-24 hours') AND tn.status = 'active'
+        ORDER BY CASE tn.severity
+          WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4
+        END, tn.created_at DESC
+        LIMIT 10
+      `).all<{
+        title: string; severity: string; attack_stage: string; summary: string;
+        signal_types: string; confidence: number; brand_name: string;
+      }>();
+
+      if (recentNarratives.results.length > 0) {
+        narrativeContext = `Threat Narratives (last 24h): ${recentNarratives.results.length} generated. ` +
+          recentNarratives.results.map(n =>
+            `${n.brand_name}: "${n.title}" (${n.severity}, stage: ${n.attack_stage}, confidence: ${n.confidence}%)`
+          ).join("; ") + ".";
+      }
+    } catch { /* threat_narratives table may not exist yet */ }
+
+    // ─── Social monitoring findings summary ────────────────────────
+    let socialMonitorContext = "";
+    try {
+      const socialSummary = await env.DB.prepare(`
+        SELECT COUNT(*) as total,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
+          COUNT(DISTINCT platform) as platforms,
+          COUNT(DISTINCT brand_id) as brands
+        FROM social_monitor_results
+        WHERE found_at >= datetime('now', '-24 hours')
+      `).first<{ total: number; active: number; resolved: number; platforms: number; brands: number }>();
+
+      if (socialSummary && socialSummary.total > 0) {
+        const newImpersonations = await env.DB.prepare(`
+          SELECT smr.platform, smr.username, b.name AS brand_name, smr.similarity_score
+          FROM social_monitor_results smr
+          JOIN brands b ON b.id = smr.brand_id
+          WHERE smr.found_at >= datetime('now', '-24 hours') AND smr.status = 'active'
+          ORDER BY smr.similarity_score DESC
+          LIMIT 5
+        `).all<{ platform: string; username: string; brand_name: string; similarity_score: number }>();
+
+        socialMonitorContext = `Social Impersonation Monitoring (24h): ${socialSummary.total} findings across ${socialSummary.platforms} platforms targeting ${socialSummary.brands} brands. ` +
+          `Active: ${socialSummary.active}, Resolved: ${socialSummary.resolved}.`;
+        if (newImpersonations.results.length > 0) {
+          socialMonitorContext += ` Top impersonations: ${newImpersonations.results.map(s =>
+            `@${s.username} on ${s.platform} targeting ${s.brand_name} (${s.similarity_score}% match)`
+          ).join(", ")}.`;
+        }
+      }
+    } catch { /* social_monitor_results table may not exist yet */ }
+
+    // ─── Lookalike domain changes ────────────────────────────────
+    let lookalikeContext = "";
+    try {
+      const lookalikeSummary = await env.DB.prepare(`
+        SELECT COUNT(*) as total,
+          SUM(CASE WHEN registered = 1 THEN 1 ELSE 0 END) as registered,
+          SUM(CASE WHEN has_content = 1 THEN 1 ELSE 0 END) as with_content,
+          SUM(CASE WHEN mx_records IS NOT NULL AND mx_records != '' THEN 1 ELSE 0 END) as with_mx,
+          COUNT(DISTINCT brand_id) as brands
+        FROM lookalike_domains
+        WHERE created_at >= datetime('now', '-24 hours')
+      `).first<{ total: number; registered: number; with_content: number; with_mx: number; brands: number }>();
+
+      if (lookalikeSummary && lookalikeSummary.total > 0) {
+        const newRegistered = await env.DB.prepare(`
+          SELECT ld.domain, b.name AS brand_name
+          FROM lookalike_domains ld
+          JOIN brands b ON b.id = ld.brand_id
+          WHERE ld.created_at >= datetime('now', '-24 hours') AND ld.registered = 1
+          ORDER BY ld.created_at DESC
+          LIMIT 10
+        `).all<{ domain: string; brand_name: string }>();
+
+        lookalikeContext = `Lookalike Domains (24h): ${lookalikeSummary.total} checked, ${lookalikeSummary.registered} registered, ` +
+          `${lookalikeSummary.with_content} with content, ${lookalikeSummary.with_mx} with MX records, targeting ${lookalikeSummary.brands} brands.`;
+        if (newRegistered.results.length > 0) {
+          lookalikeContext += ` Newly registered: ${newRegistered.results.map(d =>
+            `${d.domain} (${d.brand_name})`
+          ).join(", ")}.`;
+        }
+      }
+    } catch { /* lookalike_domains table may not exist yet */ }
+
+    // ─── CT certificate findings ──────────────────────────────────
+    let ctCertContext = "";
+    try {
+      const ctSummary = await env.DB.prepare(`
+        SELECT COUNT(*) as total,
+          SUM(CASE WHEN suspicious = 1 THEN 1 ELSE 0 END) as suspicious,
+          COUNT(DISTINCT brand_id) as brands
+        FROM ct_certificates
+        WHERE not_before >= datetime('now', '-24 hours')
+      `).first<{ total: number; suspicious: number; brands: number }>();
+
+      if (ctSummary && ctSummary.suspicious > 0) {
+        const suspiciousCerts = await env.DB.prepare(`
+          SELECT ct.domain, ct.issuer, ct.san_count, b.name AS brand_name
+          FROM ct_certificates ct
+          JOIN brands b ON b.id = ct.brand_id
+          WHERE ct.suspicious = 1 AND ct.not_before >= datetime('now', '-24 hours')
+          ORDER BY ct.san_count DESC
+          LIMIT 5
+        `).all<{ domain: string; issuer: string; san_count: number; brand_name: string }>();
+
+        ctCertContext = `Certificate Transparency (24h): ${ctSummary.total} certificates observed, ${ctSummary.suspicious} suspicious across ${ctSummary.brands} brands.`;
+        if (suspiciousCerts.results.length > 0) {
+          ctCertContext += ` Suspicious: ${suspiciousCerts.results.map(c =>
+            `${c.domain} (issuer: ${c.issuer}, SANs: ${c.san_count}, brand: ${c.brand_name})`
+          ).join("; ")}.`;
+        }
+      }
+    } catch { /* ct_certificates table may not exist yet */ }
+
     // ─── Spam trap network summary ──────────────────────────────
     let spamTrapContext = "";
     try {
@@ -219,6 +341,10 @@ export const observerAgent: AgentModule = {
       spam_trap_summary: spamTrapContext,
       threat_feed_summary: threatFeedContext,
       high_risk_brands_summary: highRiskContext,
+      narrative_summary: narrativeContext,
+      social_monitor_summary: socialMonitorContext,
+      lookalike_domain_summary: lookalikeContext,
+      ct_certificate_summary: ctCertContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -297,6 +423,46 @@ export const observerAgent: AgentModule = {
           summary: `**Threat Feed Intelligence** — ${threatFeedContext}${highRiskContext ? ` ${highRiskContext}` : ''}`,
           severity: highRiskContext ? 'high' : 'info',
           details: { title: 'Threat Feed Intelligence' },
+        });
+      }
+
+      // Item: Threat narratives summary
+      if (narrativeContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Threat Narratives** — ${narrativeContext}`,
+          severity: narrativeContext.includes('CRITICAL') ? 'critical' : narrativeContext.includes('HIGH') ? 'high' : 'medium',
+          details: { title: 'Threat Narratives' },
+        });
+      }
+
+      // Item: Social impersonation findings
+      if (socialMonitorContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Social Impersonation Activity** — ${socialMonitorContext}`,
+          severity: 'medium',
+          details: { title: 'Social Impersonation Activity' },
+        });
+      }
+
+      // Item: Lookalike domain changes
+      if (lookalikeContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Lookalike Domain Activity** — ${lookalikeContext}`,
+          severity: lookalikeContext.includes('with content') ? 'high' : 'medium',
+          details: { title: 'Lookalike Domain Activity' },
+        });
+      }
+
+      // Item: CT certificate findings
+      if (ctCertContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Certificate Transparency Findings** — ${ctCertContext}`,
+          severity: 'medium',
+          details: { title: 'Certificate Transparency Findings' },
         });
       }
 
@@ -395,6 +561,10 @@ export const observerAgent: AgentModule = {
             spam_trap_summary: spamTrapContext,
             threat_feed_summary: threatFeedContext,
             high_risk_brands_summary: highRiskContext,
+            narrative_summary: narrativeContext,
+            social_monitor_summary: socialMonitorContext,
+            lookalike_domain_summary: lookalikeContext,
+            ct_certificate_summary: ctCertContext,
           });
 
           if (weeklyResult.success && weeklyResult.data?.items?.length) {

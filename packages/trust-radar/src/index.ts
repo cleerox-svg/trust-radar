@@ -48,6 +48,7 @@ import { requireAuth, requireAdmin, requireSuperAdmin, isAuthContext } from "./m
 import { rateLimit } from "./middleware/rateLimit";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleExportScans, handleExportSignals, handleExportAlerts } from "./handlers/export";
+import { handleSTIXExport, handleSTIXIndicators } from "./handlers/stixExport";
 import { handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders, handleGetProvider, handleProviderDrilldown, handleProviderBrands, handleProviderTimeline, handleProviderLocations } from "./handlers/providers";
 import {
   handleBrandScan, handleBrandScanHistory, handlePublicBrandScan,
@@ -140,6 +141,14 @@ import {
   handleListLookalikes, handleGenerateLookalikes,
   handleUpdateLookalike, handleScanLookalikes,
 } from "./handlers/lookalikeDomains";
+import {
+  handleListCertificates, handleCertStats,
+  handleUpdateCertificate, handleTriggerCTScan,
+} from "./handlers/ctMonitor";
+import {
+  handleListNarratives, handleGetNarrative,
+  handleGenerateNarrative, handleUpdateNarrative,
+} from "./handlers/narratives";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
@@ -885,6 +894,50 @@ router.post("/api/lookalikes/:brandId/scan", async (request: Request & { params:
   return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
+// ─── Certificate Transparency Monitoring ─────────────────────
+router.get("/api/ct/certificates/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCertificates(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.get("/api/ct/certificates/:brandId/stats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCertStats(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.patch("/api/ct/certificates/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateCertificate(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/ct/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerCTScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+
+// ─── Threat Narratives ──────────────────────────────────────
+router.get("/api/narratives/:brandId/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetNarrative(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/narratives/:brandId/generate", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGenerateNarrative(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.patch("/api/narratives/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateNarrative(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.get("/api/narratives/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListNarratives(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+
 // ─── Brand Exposure Engine ──────────────────────────────────
 router.post("/api/brand-scan", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
@@ -1203,6 +1256,16 @@ router.get("/api/export/alerts", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleExportAlerts(request, env);
+});
+router.get("/api/export/stix/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSTIXExport(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.get("/api/export/stix/:brandId/indicators", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSTIXIndicators(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
 // ─── Spam Trap ────────────────────────────────────────────────
