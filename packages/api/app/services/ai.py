@@ -4,14 +4,6 @@ from anthropic import AsyncAnthropic
 from anthropic.types import Message, TextBlock
 
 from app.config import get_settings
-
-
-def _extract_text(resp: Message) -> str:
-    """Extract text from the first TextBlock in an Anthropic response."""
-    for block in resp.content:
-        if isinstance(block, TextBlock):
-            return block.text
-    return "{}"
 from app.schemas.ai import (
     EnhanceBioRequest,
     EnhanceBioResponse,
@@ -20,6 +12,16 @@ from app.schemas.ai import (
     ScanInsightRequest,
     ScanInsightResponse,
 )
+
+
+
+def _extract_text(resp: Message) -> str:
+    """Extract text from the first TextBlock in an Anthropic response."""
+    for block in resp.content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return "{}"
+
 
 settings = get_settings()
 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
