@@ -19,6 +19,9 @@ import { renderBlogPage } from "./templates/blog";
 import { renderChangelogPage } from "./templates/changelog";
 import { renderContactPage } from "./templates/contact";
 import { renderNotFoundPage } from "./templates/not-found";
+import { renderPrivacyPage } from "./templates/privacy";
+import { renderTermsPage } from "./templates/terms";
+import { handleContactSubmission } from "./handlers/contact";
 import { handleScanReport } from "./handlers/scanReport";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
@@ -1516,6 +1519,13 @@ router.get("/security", htmlPage(renderSecurityPage));
 router.get("/blog", htmlPage(renderBlogPage));
 router.get("/changelog", htmlPage(renderChangelogPage));
 router.get("/contact", htmlPage(renderContactPage));
+router.get("/privacy", htmlPage(renderPrivacyPage));
+router.get("/terms", htmlPage(renderTermsPage));
+
+// ─── Contact Form Submission ──────────────────────────────────
+router.post("/api/contact", async (request: Request, env: Env) => {
+  return handleContactSubmission(request, env);
+});
 
 // ─── Public Brand Exposure Scan Page ──────────────────────────
 router.get("/scan", () =>
