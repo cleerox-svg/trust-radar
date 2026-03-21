@@ -34,6 +34,12 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
+  // Every 5 minutes: CT certificate monitoring (lightweight — polls crt.sh)
+  if (minute % 5 === 0) {
+    const result = await runJob('ct_monitor', () => runCTMonitor(env));
+    results.push(result);
+  }
+
   // Every hour (minute 15): Lookalike domain checks
   if (minute === 15) {
     const result = await runJob('lookalike_check', () => runLookalikeDomainCheck(env));
@@ -404,6 +410,11 @@ async function runObserverBriefing(env: Env): Promise<void> {
   } catch (err) {
     logger.error('observer_briefing_seed_strategist_error', { error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+async function runCTMonitor(env: Env): Promise<void> {
+  const { pollCertificates } = await import('../scanners/ct-monitor');
+  await pollCertificates(env);
 }
 
 async function runLookalikeDomainCheck(env: Env): Promise<void> {
