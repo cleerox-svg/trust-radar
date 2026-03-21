@@ -10,6 +10,7 @@ import {
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { renderLandingPage } from "./templates/landing";
 import { renderScanPage } from "./templates/scan";
+import { renderSocialDashboard } from "./templates/social-dashboard";
 import { handleScanReport } from "./handlers/scanReport";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
@@ -1485,6 +1486,13 @@ router.post("/assess", async (request: Request, env: Env) => {
 // ─── Public Assessment Results Page ────────────────────────────
 router.get("/assess/:id/results", (request: Request & { params: Record<string, string> }) =>
   new Response(renderAssessResults(request.params["id"] ?? ""), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })
+);
+
+// ─── Social Monitoring Dashboard ──────────────────────────────
+router.get("/dashboard/social", () =>
+  new Response(renderSocialDashboard(), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   })
 );
