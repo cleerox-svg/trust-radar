@@ -11,6 +11,17 @@ import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { renderLandingPage } from "./templates/landing";
 import { renderScanPage } from "./templates/scan";
 import { renderSocialDashboard } from "./templates/social-dashboard";
+import { renderPlatformPage } from "./templates/platform";
+import { renderAboutPage } from "./templates/about";
+import { renderPricingPage } from "./templates/pricing";
+import { renderSecurityPage } from "./templates/security";
+import { renderBlogPage } from "./templates/blog";
+import { renderChangelogPage } from "./templates/changelog";
+import { renderContactPage } from "./templates/contact";
+import { renderNotFoundPage } from "./templates/not-found";
+import { renderPrivacyPage } from "./templates/privacy";
+import { renderTermsPage } from "./templates/terms";
+import { handleContactSubmission } from "./handlers/contact";
 import { handleScanReport } from "./handlers/scanReport";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
@@ -1497,6 +1508,25 @@ router.get("/dashboard/social", () =>
   })
 );
 
+// ─── Corporate Site Pages ─────────────────────────────────────
+const htmlPage = (render: () => string) => () =>
+  new Response(render(), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300, s-maxage=600" } });
+
+router.get("/platform", htmlPage(renderPlatformPage));
+router.get("/about", htmlPage(renderAboutPage));
+router.get("/pricing", htmlPage(renderPricingPage));
+router.get("/security", htmlPage(renderSecurityPage));
+router.get("/blog", htmlPage(renderBlogPage));
+router.get("/changelog", htmlPage(renderChangelogPage));
+router.get("/contact", htmlPage(renderContactPage));
+router.get("/privacy", htmlPage(renderPrivacyPage));
+router.get("/terms", htmlPage(renderTermsPage));
+
+// ─── Contact Form Submission ──────────────────────────────────
+router.post("/api/contact", async (request: Request, env: Env) => {
+  return handleContactSubmission(request, env);
+});
+
 // ─── Public Brand Exposure Scan Page ──────────────────────────
 router.get("/scan", () =>
   new Response(renderScanPage(), {
@@ -1607,7 +1637,10 @@ router.all("*", async (request: Request, env: Env) => {
     return assetResponse;
   }
   // SPA fallback — serve index.html for client-side routes
-  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  const spaFallback = await env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  if (spaFallback.status !== 404) return spaFallback;
+  // Final fallback — styled 404 page
+  return new Response(renderNotFoundPage(), { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } });
 });
 
 export default {
@@ -1631,20 +1664,21 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Canonical-host redirect: www → non-www (preserves path + query).
+      // Canonical-host redirect: www → non-www + legacy domain → trustradar.ca
       // Skip API routes so OAuth callbacks are never intercepted.
       if (
-        (url.hostname === "www.trustradar.ca" || url.hostname === "www.lrxradar.com") &&
+        (url.hostname === "www.trustradar.ca" ||
+         url.hostname === "lrxradar.com" ||
+         url.hostname === "www.lrxradar.com") &&
         !url.pathname.startsWith("/api/")
       ) {
-        const canonical = url.hostname === "www.trustradar.ca" ? "trustradar.ca" : "trustradar.ca";
-        return Response.redirect(`https://${canonical}${url.pathname}${url.search}`, 301);
+        return Response.redirect(`https://trustradar.ca${url.pathname}${url.search}`, 301);
       }
 
       // Honeypot domain routing — serve KV-stored sites for throwaway domains
       // For each honeypot domain, add to wrangler.toml:
       //   { pattern = "example-business.xyz", custom_domain = true },
-      const knownDomains = ["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"];
+      const knownDomains = ["trustradar.ca", "www.trustradar.ca", "lrxradar.com", "www.lrxradar.com"];
       if (!knownDomains.includes(url.hostname)) {
         const honeypotDomains = await env.CACHE.get("honeypot:domains").then(
           v => v ? JSON.parse(v) as string[] : [],
@@ -1654,7 +1688,7 @@ export default {
         }
       }
 
-      // Honeypot pages serve from lrxradar.com and trustradar.ca
+      // Honeypot pages serve from trustradar.ca (and lrxradar.com for legacy trap compat)
       if (["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
         const honeypotPages = ["/contact", "/team", "/careers", "/about"];
         if (honeypotPages.includes(url.pathname)) {

@@ -2,7 +2,7 @@
  * Honeypot Pages — Serves realistic-looking pages with trap addresses.
  *
  * These pages contain visible email addresses and hidden spider traps.
- * Served from both trustradar.ca and lrxradar.com.
+ * Served from trustradar.ca (lrxradar.com retained for legacy trap compatibility).
  */
 
 export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Response {
