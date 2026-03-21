@@ -225,11 +225,26 @@ img { max-width: 100%; }
 .btn-primary {
   background: var(--accent);
   color: white;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transition: none;
+}
+.btn-primary:hover::after {
+  animation: shimmer 0.6s forwards;
+}
+@keyframes shimmer {
+  to { left: 120%; }
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 0 20px rgba(8,145,178,0.35);
   transform: translateY(-1px);
 }
 
@@ -406,6 +421,76 @@ img { max-width: 100%; }
 
 .hero-radar svg { width: 100%; height: 100%; }
 
+/* ── OBSERVATORY WATERMARK ── */
+.observatory-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.observatory-inner {
+  width: 90%;
+  max-width: 1100px;
+  opacity: 0;
+  filter: blur(0.5px);
+  transform: perspective(1200px) rotateX(8deg) rotateY(-3deg) scale(0.92);
+  animation: observatoryFadeIn 2s 0.5s forwards;
+}
+[data-theme="light"] .observatory-inner { opacity: 0; }
+[data-theme="dark"] .observatory-inner { opacity: 0; }
+@keyframes observatoryFadeIn {
+  to { opacity: 1; }
+}
+[data-theme="light"] .observatory-inner { --obs-opacity: 0.06; }
+[data-theme="dark"] .observatory-inner { --obs-opacity: 0.08; }
+.obs-dashboard {
+  opacity: var(--obs-opacity, 0.06);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 200px;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-primary);
+}
+.obs-stat-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: center;
+}
+.obs-stat-num { font-size: 1.5rem; font-weight: 700; font-family: var(--font-display); }
+.obs-stat-label { color: var(--text-tertiary); margin-top: 0.25rem; }
+.obs-chart {
+  grid-column: 1 / 4;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  height: 100px;
+}
+.obs-chart-label { font-weight: 600; margin-bottom: 0.5rem; }
+.obs-chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 60px; }
+.obs-bar { background: var(--accent); border-radius: 2px 2px 0 0; flex: 1; min-width: 8px; }
+.obs-gauge-wrap {
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+.obs-gauge-score { font-size: 2rem; font-weight: 800; font-family: var(--font-display); color: var(--accent); }
+.obs-gauge-grade { font-size: 0.8rem; color: var(--text-tertiary); }
+
 .radar-ring-light { fill: none; stroke: var(--border); stroke-width: 1; }
 .radar-ring-accent { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0.2; }
 
@@ -529,6 +614,25 @@ section {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   margin-bottom: 1rem;
+}
+
+/* ── ANIMATED GRADIENT DIVIDER ── */
+.tr-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--border) 20%, var(--accent) 50%, var(--border) 80%, transparent 100%);
+  border: none;
+  margin: 0;
+}
+.tr-divider-animated {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, transparent, var(--border), var(--accent), var(--border), transparent);
+  background-size: 200% 100%;
+  animation: dividerSlide 3s linear infinite;
+}
+@keyframes dividerSlide {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 .section-title {
@@ -1377,10 +1481,11 @@ section {
       </div>
     </a>
     <ul class="nav-links">
-      <li><a href="#platform">Platform</a></li>
+      <li><a href="/platform">Platform</a></li>
       <li><a href="#features">Features</a></li>
-      <li><a href="#about">About</a></li>
-      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="/about">About</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="/contact">Contact</a></li>
     </ul>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
@@ -1395,6 +1500,18 @@ section {
 <!-- ═══ HERO ═══ -->
 <section class="hero">
   <div class="hero-grid-bg"></div>
+  <!-- Observatory Watermark — ghosted dashboard behind hero -->
+  <div class="observatory-watermark">
+    <div class="observatory-inner">
+      <div class="obs-dashboard">
+        <div class="obs-stat-card"><div class="obs-stat-num" style="color:var(--red)">12</div><div class="obs-stat-label">Active Threats</div></div>
+        <div class="obs-stat-card"><div class="obs-stat-num" style="color:var(--green)">B+</div><div class="obs-stat-label">Email Grade</div></div>
+        <div class="obs-stat-card"><div class="obs-stat-num" style="color:var(--amber)">3</div><div class="obs-stat-label">Social Alerts</div></div>
+        <div class="obs-gauge-wrap"><svg viewBox="0 0 120 120" width="80" height="80"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="8"/><circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="8" stroke-dasharray="235 327" stroke-linecap="round" transform="rotate(-90 60 60)"/></svg><div class="obs-gauge-score">72</div><div class="obs-gauge-grade">Brand Score</div></div>
+        <div class="obs-chart"><div class="obs-chart-label">7-Day Threat Trend</div><div class="obs-chart-bars"><div class="obs-bar" style="height:35%"></div><div class="obs-bar" style="height:50%"></div><div class="obs-bar" style="height:40%"></div><div class="obs-bar" style="height:70%"></div><div class="obs-bar" style="height:55%"></div><div class="obs-bar" style="height:80%"></div><div class="obs-bar" style="height:65%"></div></div></div>
+      </div>
+    </div>
+  </div>
   <div class="container">
     <div class="hero-inner">
       <div class="hero-content">
@@ -1508,6 +1625,8 @@ section {
   </div>
 </div>
 
+<div class="tr-divider-animated"></div>
+
 <!-- ═══ PLATFORM ═══ -->
 <section class="platform-section" id="platform">
   <div class="container">
@@ -1561,6 +1680,8 @@ section {
     </div>
   </div>
 </section>
+
+<div class="tr-divider"></div>
 
 <!-- ═══ FEATURES ═══ -->
 <section class="feature-section" id="features">
@@ -1824,6 +1945,8 @@ section {
     </div>
   </div>
 </section>
+
+<div class="tr-divider-animated"></div>
 
 <!-- ═══ PRICING ═══ -->
 <section id="pricing">
