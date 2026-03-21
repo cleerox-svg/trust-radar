@@ -5951,6 +5951,21 @@ async function viewAdminFeeds(el) {
 }
 
 // ─── View: Admin Leads (Step 17) ────────────────────────────
+const SALES_STAGES = [
+  { key: 'new', label: 'New', color: 'var(--negative)' },
+  { key: 'researched', label: 'Researched', color: 'var(--threat-high)' },
+  { key: 'outreach_drafted', label: 'Drafted', color: 'var(--threat-medium)' },
+  { key: 'approved', label: 'Approved', color: 'var(--blue-primary)' },
+  { key: 'sent', label: 'Sent', color: 'var(--purple)' },
+  { key: 'responded', label: 'Replied', color: '#22d3ee' },
+  { key: 'meeting_booked', label: 'Meeting', color: '#34d399' },
+  { key: 'converted', label: 'Converted', color: 'var(--positive)' },
+  { key: 'declined', label: 'Declined', color: 'var(--text-tertiary)' },
+];
+const PITCH_LABELS = { urgent_exposure: 'Urgent Exposure', active_attack: 'Active Attack', email_security: 'Email Security', ai_threat: 'AI Threat', campaign_targeting: 'Campaign Targeting', brand_protection: 'Brand Protection' };
+const PITCH_COLORS = { urgent_exposure: 'var(--negative)', active_attack: 'var(--threat-high)', email_security: 'var(--threat-medium)', ai_threat: 'var(--purple)', campaign_targeting: '#22d3ee', brand_protection: 'var(--blue-primary)' };
+function prospectScoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 70 ? 'var(--blue-primary)' : s >= 50 ? 'var(--threat-medium)' : 'var(--negative)'; }
+
 const LEAD_STAGES = [
   { key: 'new', label: 'New', color: 'var(--negative)' },
   { key: 'contacted', label: 'Contacted', color: 'var(--threat-high)' },
@@ -5967,12 +5982,21 @@ async function viewAdminLeads(el) {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Lead Management</div>
       <div style="display:flex;align-items:center;gap:12px">
+        <div class="adm-view-toggle" id="adm-lead-tabs">
+          <button class="adm-vt-btn active" data-ltab="scan">Scan Leads</button>
+          <button class="adm-vt-btn" data-ltab="pipeline">Sales Pipeline</button>
+        </div>
+      </div>
+    </div>
+    <div id="adm-scan-view" class="visible">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <input class="adm-search" placeholder="Search leads..." id="adm-lead-search">
         <div class="adm-view-toggle"><button class="adm-vt-btn active" data-view="kanban">Kanban</button><button class="adm-vt-btn" data-view="table">Table</button></div>
       </div>
+      <div id="adm-kanban-view" class="visible"></div>
+      <div id="adm-table-view"></div>
     </div>
-    <div id="adm-kanban-view" class="visible"></div>
-    <div id="adm-table-view"></div>
+    <div id="adm-pipeline-view"></div>
     <div class="adm-slideout" id="adm-lead-slideout"><button class="adm-so-close" id="adm-lead-so-close">\u00d7</button><div id="adm-lead-so-content"></div></div>`;
 
   let allLeads = [];
@@ -6043,12 +6067,199 @@ async function viewAdminLeads(el) {
     renderTable();
   } catch (err) { showToast(err.message, 'error'); }
 
-  // View toggle
-  el.querySelectorAll('.adm-vt-btn').forEach(b => b.addEventListener('click', () => {
-    el.querySelectorAll('.adm-vt-btn').forEach(x => x.classList.remove('active'));
+  // Kanban/Table view toggle (within scan view)
+  document.getElementById('adm-scan-view')?.querySelectorAll('.adm-vt-btn').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('adm-scan-view')?.querySelectorAll('.adm-vt-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('adm-kanban-view')?.classList.toggle('visible', b.dataset.view === 'kanban');
     document.getElementById('adm-table-view')?.classList.toggle('visible', b.dataset.view === 'table');
+  }));
+
+  // ── Sales Pipeline view ────────────────────────────────────
+  let salesLeads = [];
+  let salesStats = {};
+
+  function renderSalesPipeline() {
+    const pv = document.getElementById('adm-pipeline-view');
+    if (!pv) return;
+    const ps = salesStats.pipeline || {};
+    const stageData = SALES_STAGES.map(s => ({ ...s, count: ps[s.key + '_count'] ?? 0 }));
+    const rr = salesStats.response_rate ?? 0;
+    const cr = salesStats.conversion_rate ?? 0;
+
+    pv.innerHTML = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+        ${stageData.map(s => `<div style="flex:1;min-width:80px;text-align:center;padding:8px 6px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:${s.color}">${s.count}</div><div style="font-size:9px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <div style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px;color:var(--text-secondary)">Response rate: <span style="font-family:var(--font-mono);font-weight:600;color:var(--blue-primary)">${rr}%</span></div>
+        <div style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px;color:var(--text-secondary)">Conversion rate: <span style="font-family:var(--font-mono);font-weight:600;color:var(--positive)">${cr}%</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <select class="adm-sel" id="sp-status-filter" style="min-width:120px"><option value="">All Statuses</option>${SALES_STAGES.map(s => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
+        <select class="adm-sel" id="sp-pitch-filter" style="min-width:120px"><option value="">All Pitch Angles</option>${Object.entries(PITCH_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+        <input class="adm-search" placeholder="Search company..." id="sp-search" style="flex:1;min-width:150px">
+      </div>
+      <div class="adm-panel"><div class="adm-table-scroll"><table class="adm-table" id="sp-table"><thead><tr><th>Company</th><th>Domain</th><th>Score</th><th>Pitch Angle</th><th>Target</th><th>Email Grade</th><th>Threats</th><th>Status</th><th>Created</th></tr></thead><tbody id="sp-tbody"></tbody></table></div></div>`;
+
+    renderSalesTable();
+
+    document.getElementById('sp-status-filter')?.addEventListener('change', renderSalesTable);
+    document.getElementById('sp-pitch-filter')?.addEventListener('change', renderSalesTable);
+    document.getElementById('sp-search')?.addEventListener('input', renderSalesTable);
+  }
+
+  function renderSalesTable() {
+    const statusF = document.getElementById('sp-status-filter')?.value || '';
+    const pitchF = document.getElementById('sp-pitch-filter')?.value || '';
+    const searchF = (document.getElementById('sp-search')?.value || '').toLowerCase();
+    const filtered = salesLeads.filter(l => {
+      if (statusF && l.status !== statusF) return false;
+      if (pitchF && l.pitch_angle !== pitchF) return false;
+      if (searchF && !(l.company_name || '').toLowerCase().includes(searchF) && !(l.company_domain || '').toLowerCase().includes(searchF)) return false;
+      return true;
+    });
+    const tbody = document.getElementById('sp-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = filtered.map(l => {
+      const sc = prospectScoreColor(l.prospect_score || 0);
+      const stage = SALES_STAGES.find(s => s.key === l.status) || { label: l.status, color: 'var(--text-tertiary)' };
+      const pc = PITCH_COLORS[l.pitch_angle] || 'var(--text-tertiary)';
+      const pl = PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-';
+      return `<tr data-slid="${l.id}" style="cursor:pointer"><td style="font-weight:500">${l.company_name || '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td style="font-size:11px">${l.target_name ? `${l.target_name}<br><span style="font-size:9px;color:var(--text-tertiary)">${l.target_title || ''}</span>` : '<span style="color:var(--text-tertiary)">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td style="font-family:var(--font-mono);font-size:11px">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-tertiary);padding:24px">No sales leads yet. The Prospector agent runs weekly.</td></tr>';
+    tbody.querySelectorAll('tr[data-slid]').forEach(r => r.addEventListener('click', () => openSalesLeadDetail(r.dataset.slid)));
+  }
+
+  async function openSalesLeadDetail(id) {
+    try {
+      const [leadRes, actRes] = await Promise.all([
+        api(`/admin/sales-leads/${id}`).catch(() => null),
+        api(`/admin/sales-leads/${id}/activity`).catch(() => null),
+      ]);
+      const l = leadRes?.data;
+      if (!l) return;
+      const activities = actRes?.data || [];
+      const sc = prospectScoreColor(l.prospect_score || 0);
+      const stage = SALES_STAGES.find(s => s.key === l.status) || { label: l.status, color: 'var(--text-tertiary)' };
+      const breakdown = (() => { try { return JSON.parse(l.score_breakdown_json || '{}'); } catch { return {}; } })();
+      const research = (() => { try { return JSON.parse(l.research_json || '{}'); } catch { return {}; } })();
+      const v1 = (() => { try { return JSON.parse(l.outreach_variant_1 || '{}'); } catch { return {}; } })();
+      const v2 = (() => { try { return JSON.parse(l.outreach_variant_2 || '{}'); } catch { return {}; } })();
+
+      document.getElementById('adm-lead-so-content').innerHTML = `
+        <div style="text-align:center;margin-bottom:16px">
+          <div class="adm-so-score-ring"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="213.6" stroke-dashoffset="${213.6 * (1 - (l.prospect_score || 0) / 170)}" stroke-linecap="round" transform="rotate(-90 40 40)"/></svg><div class="adm-so-score-val" style="color:${sc}">${l.prospect_score || 0}</div></div>
+          <div style="font-size:11px;color:${stage.color};font-weight:600;margin-top:4px">${stage.label}</div>
+        </div>
+
+        <div class="adm-so-section"><div class="adm-so-sect-title">Company</div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v" style="font-weight:500">${l.company_name || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Domain</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-size:11px">${l.company_domain || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Industry</span><span class="adm-so-row-v">${l.company_industry || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Size</span><span class="adm-so-row-v">${l.company_size || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">HQ</span><span class="adm-so-row-v">${l.company_hq || '-'}</span></div>
+        </div>
+
+        <div class="adm-so-section"><div class="adm-so-sect-title">Security Leader</div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v" style="font-weight:500">${l.target_name || 'Not found'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Title</span><span class="adm-so-row-v">${l.target_title || '-'}</span></div>
+          ${l.target_linkedin ? `<div class="adm-so-row"><span class="adm-so-row-l">LinkedIn</span><span class="adm-so-row-v"><a href="${l.target_linkedin}" target="_blank" style="font-size:11px">Profile</a></span></div>` : ''}
+          ${l.target_email ? `<div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-size:11px;color:var(--blue-primary)">${l.target_email}</span></div>` : ''}
+        </div>
+
+        <div class="adm-so-section"><div class="adm-so-sect-title">Platform Findings</div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Email Grade</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-weight:700;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Threats (30d)</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.threat_count_30d ?? 0}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Phishing URLs</span><span class="adm-so-row-v" style="font-family:var(--font-mono);color:${(l.phishing_urls_active||0)>0?'var(--negative)':'var(--text-secondary)'}">${l.phishing_urls_active ?? 0}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Trap Catches</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.trap_catches_30d ?? 0}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Risk Score</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.composite_risk_score ?? '-'}/100</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Pitch Angle</span><span class="adm-so-row-v" style="color:${PITCH_COLORS[l.pitch_angle]||'var(--text-secondary)'}">${PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-'}</span></div>
+          ${l.findings_summary ? `<div style="margin-top:8px;font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border)">${l.findings_summary}</div>` : ''}
+        </div>
+
+        ${Object.keys(breakdown).length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Score Breakdown</div>${Object.entries(breakdown).map(([k,v]) => `<div class="adm-so-row"><span class="adm-so-row-l" style="font-size:10px">${k.replace(/_/g,' ')}</span><span class="adm-so-row-v" style="font-family:var(--font-mono);color:var(--blue-primary)">+${v}</span></div>`).join('')}</div>` : ''}
+
+        ${v1.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 1 — Intelligence Briefing</div>
+          <div style="font-size:11px;color:var(--blue-primary);margin-bottom:4px">Subject: ${v1.subject}</div>
+          <div style="font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v1.body}</div>
+        </div>` : ''}
+        ${v2.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 2 — Peer Benchmark</div>
+          <div style="font-size:11px;color:var(--blue-primary);margin-bottom:4px">Subject: ${v2.subject}</div>
+          <div style="font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v2.body}</div>
+        </div>` : ''}
+
+        <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="sp-actions">
+            ${l.status === 'outreach_drafted' ? '<button class="adm-btn-sm" data-spa="approve" style="background:rgba(0,212,255,.1);color:var(--blue-primary);border-color:var(--blue-primary)">Approve</button>' : ''}
+            ${l.status === 'approved' ? '<button class="adm-btn-sm" data-spa="send" style="background:rgba(139,92,246,.1);color:var(--purple);border-color:var(--purple)">Mark Sent</button>' : ''}
+            ${l.status === 'sent' ? '<button class="adm-btn-sm" data-spa="respond" style="background:rgba(34,211,238,.1);color:#22d3ee;border-color:#22d3ee">Log Response</button>' : ''}
+            ${l.status === 'responded' ? '<button class="adm-btn-sm" data-spa="book" style="background:rgba(52,211,153,.1);color:#34d399;border-color:#34d399">Book Meeting</button>' : ''}
+            ${['responded','meeting_booked'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="convert" style="background:rgba(0,229,160,.1);color:var(--positive);border-color:var(--positive)">Convert</button>' : ''}
+            ${!['converted','declined'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="decline" style="background:rgba(255,59,92,.05);color:var(--negative);border-color:var(--negative)">Decline</button>' : ''}
+            <button class="adm-btn-sm" data-spa="delete" style="background:transparent;color:var(--text-tertiary);border-color:var(--text-tertiary)">Discard</button>
+          </div>
+        </div>
+
+        ${activities.length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Activity Timeline</div>${activities.map(a => `<div class="adm-note-item"><div class="adm-note-time">${a.created_at ? relativeTime(a.created_at) : '-'} \u00b7 <span class="adm-note-by">${a.performed_by || 'system'}</span></div><div class="adm-note-text" style="font-size:11px">${a.activity_type.replace(/_/g,' ')}</div></div>`).join('')}</div>` : ''}
+
+        <div class="adm-so-section"><div class="adm-so-sect-title">Notes</div>
+          <textarea class="adm-note-input" placeholder="Add notes..." id="sp-notes-input">${l.notes || ''}</textarea>
+          <button class="adm-btn-sm" id="sp-save-notes">Save Notes</button>
+        </div>`;
+
+      // Bind action buttons
+      document.getElementById('sp-actions')?.querySelectorAll('button[data-spa]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.spa;
+          if (action === 'delete' && !confirm('Discard this lead permanently?')) return;
+          if (action === 'decline' && !confirm('Decline this lead? It won\'t be re-prospected.')) return;
+          try {
+            if (action === 'delete') {
+              await api(`/admin/sales-leads/${id}`, { method: 'DELETE' });
+            } else {
+              await api(`/admin/sales-leads/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) });
+            }
+            showToast(`Lead ${action === 'delete' ? 'discarded' : action}`, 'success');
+            document.getElementById('adm-lead-slideout')?.classList.remove('open');
+            await loadSalesLeads();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+
+      // Save notes
+      document.getElementById('sp-save-notes')?.addEventListener('click', async () => {
+        const notes = document.getElementById('sp-notes-input')?.value;
+        try {
+          await api(`/admin/sales-leads/${id}`, { method: 'PATCH', body: JSON.stringify({ notes }) });
+          showToast('Notes saved', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+
+      document.getElementById('adm-lead-slideout').classList.add('open');
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function loadSalesLeads() {
+    try {
+      const [leadsRes, statsRes] = await Promise.all([
+        api('/admin/sales-leads').catch(() => null),
+        api('/admin/sales-leads/stats').catch(() => null),
+      ]);
+      salesLeads = leadsRes?.data?.leads || [];
+      salesStats = statsRes?.data || {};
+      renderSalesPipeline();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  // Tab switching: Scan Leads vs Sales Pipeline
+  document.getElementById('adm-lead-tabs')?.querySelectorAll('.adm-vt-btn').forEach(b => b.addEventListener('click', async () => {
+    document.getElementById('adm-lead-tabs')?.querySelectorAll('.adm-vt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const tab = b.dataset.ltab;
+    document.getElementById('adm-scan-view')?.classList.toggle('visible', tab === 'scan');
+    document.getElementById('adm-pipeline-view')?.classList.toggle('visible', tab === 'pipeline');
+    if (tab === 'pipeline' && salesLeads.length === 0) await loadSalesLeads();
   }));
 
   document.getElementById('adm-lead-so-close')?.addEventListener('click', () => document.getElementById('adm-lead-slideout')?.classList.remove('open'));
