@@ -11,6 +11,14 @@ import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { renderLandingPage } from "./templates/landing";
 import { renderScanPage } from "./templates/scan";
 import { renderSocialDashboard } from "./templates/social-dashboard";
+import { renderPlatformPage } from "./templates/platform";
+import { renderAboutPage } from "./templates/about";
+import { renderPricingPage } from "./templates/pricing";
+import { renderSecurityPage } from "./templates/security";
+import { renderBlogPage } from "./templates/blog";
+import { renderChangelogPage } from "./templates/changelog";
+import { renderContactPage } from "./templates/contact";
+import { renderNotFoundPage } from "./templates/not-found";
 import { handleScanReport } from "./handlers/scanReport";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
@@ -1497,6 +1505,18 @@ router.get("/dashboard/social", () =>
   })
 );
 
+// ─── Corporate Site Pages ─────────────────────────────────────
+const htmlPage = (render: () => string) => () =>
+  new Response(render(), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300, s-maxage=600" } });
+
+router.get("/platform", htmlPage(renderPlatformPage));
+router.get("/about", htmlPage(renderAboutPage));
+router.get("/pricing", htmlPage(renderPricingPage));
+router.get("/security", htmlPage(renderSecurityPage));
+router.get("/blog", htmlPage(renderBlogPage));
+router.get("/changelog", htmlPage(renderChangelogPage));
+router.get("/contact", htmlPage(renderContactPage));
+
 // ─── Public Brand Exposure Scan Page ──────────────────────────
 router.get("/scan", () =>
   new Response(renderScanPage(), {
@@ -1607,7 +1627,10 @@ router.all("*", async (request: Request, env: Env) => {
     return assetResponse;
   }
   // SPA fallback — serve index.html for client-side routes
-  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  const spaFallback = await env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  if (spaFallback.status !== 404) return spaFallback;
+  // Final fallback — styled 404 page
+  return new Response(renderNotFoundPage(), { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } });
 });
 
 export default {
