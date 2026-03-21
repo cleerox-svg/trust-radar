@@ -1,12 +1,14 @@
-name: Deploy — FastAPI (Railway)
+name: Deploy — FastAPI (Railway) [DEPRECATED]
 
+# DEPRECATED: FastAPI/Railway service is no longer used.
+# Both Workers call Anthropic API directly. This workflow is disabled.
+# To fully decommission, cancel the Railway service and remove packages/api/.
 on:
-  push:
-    branches: [master]
-    paths:
-      - "packages/api/**"
-      - ".github/workflows/deploy-api.yml"
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to confirm (service is deprecated)'
+        required: true
 
 concurrency:
   group: deploy-api-${{ github.ref }}
