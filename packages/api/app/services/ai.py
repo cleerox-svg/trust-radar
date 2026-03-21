@@ -1,3 +1,5 @@
+import json
+
 from anthropic import AsyncAnthropic
 
 from app.config import get_settings
@@ -42,7 +44,6 @@ async def enhance_bio(req: EnhanceBioRequest) -> EnhanceBioResponse:
         temperature=0.7,
     )
 
-    import json
     result = json.loads(resp.content[0].text or "{}")
 
     return EnhanceBioResponse(
@@ -74,7 +75,6 @@ async def get_scan_insight(req: ScanInsightRequest) -> ScanInsightResponse:
         temperature=0.3,
     )
 
-    import json
     result = json.loads(resp.content[0].text or "{}")
 
     return ScanInsightResponse(
@@ -104,7 +104,6 @@ async def generate_impression_report(req: ImpressionReportRequest) -> Impression
         temperature=0.5,
     )
 
-    import json
     result = json.loads(resp.content[0].text or "{}")
 
     return ImpressionReportResponse(
