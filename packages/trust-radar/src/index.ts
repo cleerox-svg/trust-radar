@@ -9,6 +9,8 @@ import {
 } from "./handlers/observatory";
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { renderLandingPage } from "./templates/landing";
+import { renderScanPage } from "./templates/scan";
+import { handleScanReport } from "./handlers/scanReport";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
 import { handleHealthCheck } from "./handlers/health";
@@ -215,6 +217,13 @@ router.get("/api/observatory/arcs",       (request: Request, env: Env) => handle
 router.get("/api/observatory/live",       (request: Request, env: Env) => handleObservatoryLive(request, env));
 router.get("/api/observatory/brand-arcs", (request: Request, env: Env) => handleObservatoryBrandArcs(request, env));
 router.get("/api/observatory/stats",      (request: Request, env: Env) => handleObservatoryStats(request, env));
+
+// ─── Brand Exposure Report (public, rate-limited) ─────────────
+router.post("/api/scan/report", async (request: Request, env: Env) => {
+  const limited = await rateLimit(request, env, "scan_report");
+  if (limited) return limited;
+  return handleScanReport(request, env);
+});
 
 // ─── Public Scan (unauthenticated, rate-limited) ─────────────
 router.post("/api/scan/public", async (request: Request, env: Env) => {
