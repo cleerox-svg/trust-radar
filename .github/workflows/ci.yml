@@ -62,25 +62,5 @@ jobs:
         working-directory: packages/frontend
         run: pnpm build
 
-  lint-api:
-    name: Lint API
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/api
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
-
-      - name: Ruff lint
-        run: ruff check app
-
-      - name: Mypy
-        run: mypy app --ignore-missing-imports
+  # lint-api job removed — packages/api (FastAPI/Railway) is deprecated.
+  # Both Workers call Anthropic API directly via src/lib/haiku.ts.

@@ -18,7 +18,7 @@ not_found_handling = "single-page-application"
 
 # ─── Cron Triggers (automated feed ingestion) ────────────────
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/15 * * * *"]
 
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
