@@ -1,5 +1,6 @@
 import { logger } from '../lib/logger';
 import { feedModules } from '../feeds/index';
+import { createAlert } from '../lib/alerts';
 import type { Env } from '../types';
 
 interface CronJobResult {
@@ -159,6 +160,76 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   } catch (err) {
     logger.error('threat_feed_scan_email_security_error', { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Email grade change detection — compare latest scan with previous grade
+  try {
+    const gradeChanges = await env.DB.prepare(`
+      SELECT b.id AS brand_id, b.name, b.email_security_grade AS current_grade,
+             ess.email_security_grade AS previous_grade
+      FROM brands b
+      JOIN email_security_scans ess ON ess.brand_id = b.id
+      WHERE b.email_security_grade IS NOT NULL
+        AND ess.email_security_grade IS NOT NULL
+        AND b.email_security_grade != ess.email_security_grade
+        AND ess.scanned_at < b.email_security_scanned_at
+        AND ess.scanned_at = (
+          SELECT MAX(e2.scanned_at) FROM email_security_scans e2
+          WHERE e2.brand_id = b.id AND e2.scanned_at < b.email_security_scanned_at
+        )
+    `).all<{ brand_id: string; name: string; current_grade: string; previous_grade: string }>();
+
+    for (const change of gradeChanges.results) {
+      // Check if we already created an alert for this grade transition recently
+      const existing = await env.DB.prepare(
+        `SELECT id FROM alerts
+         WHERE brand_id = ? AND alert_type = 'email_grade_change'
+           AND created_at >= datetime('now', '-24 hours')
+         LIMIT 1`
+      ).bind(change.brand_id).first<{ id: string }>();
+
+      if (existing) continue;
+
+      // Determine severity based on direction and resulting grade
+      const degraded = ['F', 'D'].includes(change.current_grade);
+      const severity = degraded ? 'HIGH' : 'MEDIUM';
+
+      // Look up the brand owner (user_id) for the alert
+      const brandOwner = await env.DB.prepare(
+        `SELECT user_id FROM brand_profiles WHERE brand_id = ? LIMIT 1`
+      ).bind(change.brand_id).first<{ user_id: string }>();
+
+      const userId = brandOwner?.user_id ?? 'system';
+
+      await createAlert(env.DB, {
+        brandId: change.brand_id,
+        userId,
+        alertType: 'email_grade_change',
+        severity: severity as 'HIGH' | 'MEDIUM',
+        title: `Email security grade changed: ${change.previous_grade} → ${change.current_grade}`,
+        summary: `${change.name} email security grade changed from ${change.previous_grade} to ${change.current_grade}.${degraded ? ' The domain now has weak spoofing protection — phishing attacks are more likely to succeed.' : ''}`,
+        details: {
+          brand_name: change.name,
+          previous_grade: change.previous_grade,
+          current_grade: change.current_grade,
+        },
+        sourceType: 'email_security_scan',
+      });
+
+      logger.info('email_grade_change_alert', {
+        brand_id: change.brand_id,
+        brand_name: change.name,
+        previous_grade: change.previous_grade,
+        current_grade: change.current_grade,
+        severity,
+      });
+    }
+
+    if (gradeChanges.results.length > 0) {
+      logger.info('email_grade_change_detection', { changes_detected: gradeChanges.results.length });
+    }
+  } catch (err) {
+    logger.error('email_grade_change_detection_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
   // AI attribution (1 batch of 50)
@@ -335,7 +406,7 @@ async function runObserverBriefing(env: Env): Promise<void> {
   }
 }
 
-async function runLookalikeDomainCheck(_env: Env): Promise<void> {
-  // Placeholder for Phase 4b — lookalike domain monitoring
-  logger.info('lookalike_check_skipped', { reason: 'not yet implemented' });
+async function runLookalikeDomainCheck(env: Env): Promise<void> {
+  const { checkLookalikeBatch } = await import('../scanners/lookalike-domains');
+  await checkLookalikeBatch(env);
 }
