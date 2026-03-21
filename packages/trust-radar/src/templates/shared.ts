@@ -73,15 +73,15 @@ export function renderFooter(): string {
           <li><a href="/platform">Platform</a></li>
           <li><a href="/pricing">Pricing</a></li>
           <li><a href="/scan">Free Scan</a></li>
-          <li><a href="#">Changelog</a></li>
+          <li><a href="/changelog">Changelog</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Resources</div>
         <ul>
           <li><a href="/blog">Blog</a></li>
-          <li><a href="#">Documentation</a></li>
-          <li><a href="#">API Reference</a></li>
+          <li><a href="/blog">Documentation</a></li>
+          <li><a href="/blog">API Reference</a></li>
           <li><a href="/security">Security</a></li>
         </ul>
       </div>
@@ -90,8 +90,8 @@ export function renderFooter(): string {
         <ul>
           <li><a href="/about">About</a></li>
           <li><a href="/contact">Contact</a></li>
-          <li><a href="#">Careers</a></li>
-          <li><a href="#">Partners</a></li>
+          <li><a href="/contact">Careers</a></li>
+          <li><a href="/contact">Partners</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -99,7 +99,7 @@ export function renderFooter(): string {
         <ul>
           <li><a href="/privacy">Privacy</a></li>
           <li><a href="/terms">Terms</a></li>
-          <li><a href="#">DPA</a></li>
+          <li><a href="/privacy">DPA</a></li>
         </ul>
       </div>
     </div>

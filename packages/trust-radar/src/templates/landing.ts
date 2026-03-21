@@ -1466,7 +1466,7 @@ section {
 <!-- ═══ NAV ═══ -->
 <nav class="nav">
   <div class="nav-inner">
-    <a href="#" class="nav-brand">
+    <a href="/" class="nav-brand">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
         <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
         <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
@@ -1482,9 +1482,10 @@ section {
     </a>
     <ul class="nav-links">
       <li><a href="/platform">Platform</a></li>
-      <li><a href="#features">Features</a></li>
-      <li><a href="/about">About</a></li>
       <li><a href="/pricing">Pricing</a></li>
+      <li><a href="/about">About</a></li>
+      <li><a href="/security">Security</a></li>
+      <li><a href="/blog">Blog</a></li>
       <li><a href="/contact">Contact</a></li>
     </ul>
     <div class="nav-right">
@@ -2048,7 +2049,7 @@ section {
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand-block">
-        <a href="#" class="nav-brand" style="margin-bottom:0.5rem">
+        <a href="/" class="nav-brand" style="margin-bottom:0.5rem">
           <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
             <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
             <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
@@ -2064,40 +2065,40 @@ section {
       <div class="footer-col">
         <div class="footer-col-title">Platform</div>
         <ul>
-          <li><a href="#">Threat Detection</a></li>
-          <li><a href="#">Email Security</a></li>
-          <li><a href="#">Social Monitoring</a></li>
-          <li><a href="#">AI Agents</a></li>
-          <li><a href="#">Free Scan</a></li>
+          <li><a href="/platform">Threat Detection</a></li>
+          <li><a href="/platform#email-security">Email Security</a></li>
+          <li><a href="/platform#social-monitoring">Social Monitoring</a></li>
+          <li><a href="/platform#ai-agents">AI Agents</a></li>
+          <li><a href="/scan">Free Scan</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Company</div>
         <ul>
-          <li><a href="#">About</a></li>
-          <li><a href="#">Blog</a></li>
-          <li><a href="#">Careers</a></li>
-          <li><a href="#">Contact</a></li>
-          <li><a href="#">Press</a></li>
+          <li><a href="/about">About</a></li>
+          <li><a href="/blog">Blog</a></li>
+          <li><a href="/contact">Careers</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href="/blog">Press</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Resources</div>
         <ul>
-          <li><a href="#">Documentation</a></li>
-          <li><a href="#">API Reference</a></li>
-          <li><a href="#">Status Page</a></li>
-          <li><a href="#">Changelog</a></li>
-          <li><a href="#">Security</a></li>
+          <li><a href="/blog">Documentation</a></li>
+          <li><a href="/blog">API Reference</a></li>
+          <li><a href="/changelog">Status Page</a></li>
+          <li><a href="/changelog">Changelog</a></li>
+          <li><a href="/security">Security</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Legal</div>
         <ul>
-          <li><a href="#">Privacy Policy</a></li>
-          <li><a href="#">Terms of Service</a></li>
-          <li><a href="#">Data Processing</a></li>
-          <li><a href="#">Responsible Disclosure</a></li>
+          <li><a href="/privacy">Privacy Policy</a></li>
+          <li><a href="/terms">Terms of Service</a></li>
+          <li><a href="/privacy">Data Processing</a></li>
+          <li><a href="/security">Responsible Disclosure</a></li>
         </ul>
       </div>
     </div>
