@@ -1625,7 +1625,7 @@ router.get("/api/stats/public", (request: Request, env: Env) => handlePublicStat
 // ─── Static assets fallback (SPA) ────────────────────────────
 // serve_directly=false means ALL requests hit the Worker, so we must
 // serve static assets here. Try the exact path first; if Assets returns
-// 404, fall back to index.html for SPA client-side routing.
+// 404, fall back to dashboard.html for SPA client-side routing.
 router.all("*", async (request: Request, env: Env) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
@@ -1636,8 +1636,8 @@ router.all("*", async (request: Request, env: Env) => {
   if (assetResponse.status !== 404) {
     return assetResponse;
   }
-  // SPA fallback — serve index.html for client-side routes
-  const spaFallback = await env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  // SPA fallback — serve dashboard.html for client-side routes
+  const spaFallback = await env.ASSETS.fetch(new Request(new URL("/dashboard.html", request.url).toString()));
   if (spaFallback.status !== 404) return spaFallback;
   // Final fallback — styled 404 page
   return new Response(renderNotFoundPage(), { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } });
