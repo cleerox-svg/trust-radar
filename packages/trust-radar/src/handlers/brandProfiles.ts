@@ -2,6 +2,8 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
+import { generateAndStoreLookalikes } from "../scanners/lookalike-domains";
+import { logger } from "../lib/logger";
 import type { Env } from "../types";
 
 // ─── Tier limits ─────────────────────────────────────────────
@@ -112,6 +114,23 @@ export async function handleCreateBrand(request: Request, env: Env, userId: stri
     const profile = await env.DB.prepare(
       "SELECT * FROM brand_profiles WHERE id = ?"
     ).bind(id).first();
+
+    // Auto-generate lookalike domain permutations for continuous monitoring
+    try {
+      const lookalikeCount = await generateAndStoreLookalikes(env, id, domain);
+      logger.info("brand_onboarding_lookalikes", {
+        brand_id: id,
+        domain,
+        permutations_generated: lookalikeCount,
+      });
+    } catch (err) {
+      // Non-fatal: log and continue — brand creation should still succeed
+      logger.error("brand_onboarding_lookalikes_error", {
+        brand_id: id,
+        domain,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     return json({ success: true, data: profile }, 201, origin);
   } catch (err) {

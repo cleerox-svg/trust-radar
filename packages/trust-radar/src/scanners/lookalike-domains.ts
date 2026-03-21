@@ -217,7 +217,7 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
           sourceType: 'lookalike_scanner',
           sourceId: row.id,
           aiAssessment: aiAssessment || undefined,
-          aiRecommendations: threatLevel === 'CRITICAL' || threatLevel === 'HIGH'
+          aiRecommendations: (['CRITICAL', 'HIGH'] as string[]).includes(threatLevel)
             ? [
                 'Investigate the domain for brand impersonation content',
                 'Consider filing a UDRP complaint or takedown request',

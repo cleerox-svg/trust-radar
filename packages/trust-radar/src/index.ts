@@ -76,6 +76,9 @@ import {
   handleGetHandles as handleGetBrandHandles,
 } from "./handlers/brandProfiles";
 import {
+  handleSocialOverview, handleBrandSocialMonitor, handleSocialAlerts, handleTriggerSocialScan,
+} from "./handlers/socialMonitor";
+import {
   handleListSafeDomains, handleAddSafeDomain, handleBulkAddSafeDomains, handleDeleteSafeDomain,
 } from "./handlers/safeDomains";
 import {
@@ -133,6 +136,10 @@ import {
   handleBookLead, handleConvertLead, handleDeclineLead,
   handleDeleteSalesLead, handleLeadActivity, handleSalesLeadStats,
 } from "./handlers/salesLeads";
+import {
+  handleListLookalikes, handleGenerateLookalikes,
+  handleUpdateLookalike, handleScanLookalikes,
+} from "./handlers/lookalikeDomains";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
@@ -832,6 +839,50 @@ router.get("/api/brand-profiles/:id/handles", async (request: Request & { params
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleGetBrandHandles(request, env, request.params["id"] ?? "", ctx.userId);
+});
+
+// ─── Social Monitoring ──────────────────────────────────────
+router.get("/api/social/monitor", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSocialOverview(request, env, ctx.userId);
+});
+router.get("/api/social/monitor/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBrandSocialMonitor(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.get("/api/social/alerts", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSocialAlerts(request, env, ctx.userId);
+});
+router.post("/api/social/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerSocialScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+
+// ─── Lookalike Domain Monitoring ─────────────────────────────
+router.get("/api/lookalikes/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.post("/api/lookalikes/:brandId/generate", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGenerateLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.patch("/api/lookalikes/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateLookalike(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/lookalikes/:brandId/scan", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────

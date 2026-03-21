@@ -366,9 +366,9 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   }
 }
 
-async function runSocialMonitor(_env: Env): Promise<void> {
-  // Placeholder for Phase 3b — social monitoring pipeline
-  logger.info('social_monitor_skipped', { reason: 'not yet implemented' });
+async function runSocialMonitor(env: Env): Promise<void> {
+  const { runSocialMonitorBatch } = await import('../scanners/social-monitor');
+  await runSocialMonitorBatch(env);
 }
 
 async function runObserverBriefing(env: Env): Promise<void> {
