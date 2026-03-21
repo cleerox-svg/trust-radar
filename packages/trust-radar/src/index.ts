@@ -14,7 +14,7 @@ import { renderLandingPage } from "./templates/landing";
 import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
 import { handleHealthCheck } from "./handlers/health";
-import { handleSignals, handleAlerts, handleAckAlert, handleIngestSignal } from "./handlers/signals";
+import { handleSignals, handleIngestSignal } from "./handlers/signals";
 import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
@@ -272,13 +272,27 @@ router.post("/api/signals", async (request: Request, env: Env) => {
   return handleIngestSignal(request, env, ctx.userId);
 });
 
-// ─── Alerts ───────────────────────────────────────────────────
-router.get("/api/alerts", (request: Request, env: Env) =>
-  handleAlerts(request, env)
-);
-router.post("/api/alerts/:id/ack", async (request: Request & { params: Record<string, string> }, env: Env) =>
-  handleAckAlert(request, env, request.params["id"] ?? "")
-);
+// ─── Alerts (unified pipeline) ───────────────────────────────
+router.get("/api/alerts/stats", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAlertStats(request, env, ctx.userId);
+});
+router.get("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetAlert(request, env, request.params["id"] ?? "");
+});
+router.patch("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateAlert(request, env, request.params["id"] ?? "");
+});
+router.get("/api/alerts", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListAlerts(request, env, ctx.userId);
+});
 
 // ─── Admin ────────────────────────────────────────────────────
 router.get("/api/admin/stats", async (request: Request, env: Env) => {
