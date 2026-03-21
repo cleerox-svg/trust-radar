@@ -35,7 +35,7 @@ bucket_name = "imprsn8-assets"
 # ─── Environment variables ────────────────────────────────────
 [vars]
 ENVIRONMENT = "production"
-LRX_API_URL = "https://api.lrx.io"
+LRX_API_URL = "https://api.lrx.io"  # DEPRECATED — FastAPI backend is deprecated
 
 # ─── Cron Triggers — data feed auto-pulls ────────────────────
 # Runs every 30 minutes; the scheduled handler checks which feeds

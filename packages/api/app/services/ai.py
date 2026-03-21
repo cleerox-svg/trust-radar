@@ -1,4 +1,4 @@
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
 from app.config import get_settings
 from app.schemas.ai import (
@@ -11,8 +11,8 @@ from app.schemas.ai import (
 )
 
 settings = get_settings()
-client = AsyncOpenAI(api_key=settings.openai_api_key)
-MODEL = "gpt-4o-mini"
+client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+MODEL = "claude-haiku-4-5-20251001"
 
 
 async def enhance_bio(req: EnhanceBioRequest) -> EnhanceBioResponse:
@@ -34,15 +34,16 @@ async def enhance_bio(req: EnhanceBioRequest) -> EnhanceBioResponse:
         "Return JSON: {enhanced: string, improvements: string[]}"
     )
 
-    resp = await client.chat.completions.create(
+    resp = await client.messages.create(
         model=MODEL,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
-        response_format={"type": "json_object"},
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": user_msg}],
         temperature=0.7,
     )
 
     import json
-    result = json.loads(resp.choices[0].message.content or "{}")
+    result = json.loads(resp.content[0].text or "{}")
 
     return EnhanceBioResponse(
         original=req.text,
@@ -65,15 +66,16 @@ async def get_scan_insight(req: ScanInsightRequest) -> ScanInsightResponse:
         "Return JSON: {summary: string, explanation: string, recommendations: string[]}"
     )
 
-    resp = await client.chat.completions.create(
+    resp = await client.messages.create(
         model=MODEL,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
-        response_format={"type": "json_object"},
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": user_msg}],
         temperature=0.3,
     )
 
     import json
-    result = json.loads(resp.choices[0].message.content or "{}")
+    result = json.loads(resp.content[0].text or "{}")
 
     return ScanInsightResponse(
         summary=result.get("summary", ""),
@@ -94,15 +96,16 @@ async def generate_impression_report(req: ImpressionReportRequest) -> Impression
         "key_strengths: string[], priority_improvements: string[], summary: string}"
     )
 
-    resp = await client.chat.completions.create(
+    resp = await client.messages.create(
         model=MODEL,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
-        response_format={"type": "json_object"},
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": user_msg}],
         temperature=0.5,
     )
 
     import json
-    result = json.loads(resp.choices[0].message.content or "{}")
+    result = json.loads(resp.content[0].text or "{}")
 
     return ImpressionReportResponse(
         overall_score=int(result.get("overall_score", 50)),

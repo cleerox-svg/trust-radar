@@ -1786,7 +1786,7 @@ export default {
         (url.hostname === "www.trustradar.ca" || url.hostname === "www.lrxradar.com") &&
         !url.pathname.startsWith("/api/")
       ) {
-        const canonical = url.hostname === "www.trustradar.ca" ? "trustradar.ca" : "lrxradar.com";
+        const canonical = url.hostname === "www.trustradar.ca" ? "trustradar.ca" : "trustradar.ca";
         return Response.redirect(`https://${canonical}${url.pathname}${url.search}`, 301);
       }
 

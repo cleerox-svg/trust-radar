@@ -2,10 +2,10 @@
  * Honeypot Pages — Serves realistic-looking pages with trap addresses.
  *
  * These pages contain visible email addresses and hidden spider traps.
- * Served from both lrxradar.com and trustradar.ca.
+ * Served from both trustradar.ca and lrxradar.com.
  */
 
-export function serveHoneypotPage(page: string, domain = "lrxradar.com"): Response {
+export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Response {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
   const isTrustRadar = domain === "trustradar.ca";
   const brandName = isTrustRadar ? "Trust Radar" : "LRX Radar";
@@ -24,7 +24,7 @@ export function serveHoneypotPage(page: string, domain = "lrxradar.com"): Respon
       title: `Contact Us \u2014 ${brandName}`,
       email: isTrustRadar
         ? trustRadarSeeds["contact"]!
-        : `honey-contact-${date}@lrxradar.com`,
+        : `honey-contact-${date}@trustradar.ca`,
       content: isTrustRadar
         ? "Have questions about our threat intelligence platform? Get in touch with our team."
         : "For general inquiries, reach out to our team.",
@@ -33,21 +33,21 @@ export function serveHoneypotPage(page: string, domain = "lrxradar.com"): Respon
       title: `Our Team \u2014 ${brandName}`,
       email: isTrustRadar
         ? trustRadarSeeds["team"]!
-        : `honey-team-${date}@lrxradar.com`,
+        : `honey-team-${date}@trustradar.ca`,
       content: `Meet the team behind ${brandName}.`,
     },
     careers: {
       title: `Careers \u2014 ${brandName}`,
       email: isTrustRadar
         ? trustRadarSeeds["careers"]!
-        : `honey-careers-${date}@lrxradar.com`,
+        : `honey-careers-${date}@trustradar.ca`,
       content: "We are always looking for talented individuals.",
     },
     about: {
       title: `About \u2014 ${brandName}`,
       email: isTrustRadar
         ? trustRadarSeeds["about"]!
-        : `honey-about-${date}@lrxradar.com`,
+        : `honey-about-${date}@trustradar.ca`,
       content: `${brandName} provides real-time threat intelligence and brand protection solutions.`,
     },
   };

@@ -18,7 +18,7 @@ const TIERS = ["starter", "pro", "enterprise"] as const;
 function PlatformAdminLink() {
   return (
     <a
-      href="https://lrxradar.com/admin"
+      href="https://trustradar.ca/admin"
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"

@@ -2,7 +2,7 @@
   "name": "trust-radar",
   "version": "1.0.0",
   "private": true,
-  "description": "Trust Radar — URL & domain trust scoring (lrxradar.com)",
+  "description": "Trust Radar — URL & domain trust scoring (trustradar.ca)",
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",

@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 10080  # 7 days
 
-    # OpenAI
-    openai_api_key: str = ""
+    # Anthropic
+    anthropic_api_key: str = ""
 
     # Redis
     redis_url: str = "redis://localhost:6379"
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
 
     # CORS
-    allowed_origins: str = "https://lrxradar.com,https://imprsn8.com,http://localhost:3000"
+    allowed_origins: str = "https://trustradar.ca,https://imprsn8.com,http://localhost:3000"
 
     # Sentry
     sentry_dsn: str = ""

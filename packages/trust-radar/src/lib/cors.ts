@@ -1,8 +1,6 @@
 const ALLOWED_ORIGINS = [
   "https://trustradar.ca",
   "https://www.trustradar.ca",
-  "https://lrxradar.com",
-  "https://www.lrxradar.com",
   "https://imprsn8.com",
   "https://www.imprsn8.com",
   "http://localhost:3000",

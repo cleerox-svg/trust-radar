@@ -107,7 +107,7 @@ Format your response as JSON:
       "channel": "paste",
       "name": "campaign name",
       "target_brands": ["brand_id"],
-      "addresses": ["email@lrxradar.com"],
+      "addresses": ["email@trustradar.ca"],
       "seed_location": "pastebin",
       "reasoning": "..."
     }

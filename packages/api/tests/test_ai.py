@@ -1,6 +1,6 @@
 """Tests for AI endpoints.
 
-These tests mock the OpenAI client to avoid real API calls.
+These tests mock the Anthropic client to avoid real API calls.
 """
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,25 +14,23 @@ settings = get_settings()
 INTERNAL_KEY = settings.internal_api_key or "test-key"
 
 
-def _make_openai_response(content: dict) -> MagicMock:
-    msg = MagicMock()
-    msg.content = json.dumps(content)
-    choice = MagicMock()
-    choice.message = msg
+def _make_anthropic_response(content: dict) -> MagicMock:
+    text_block = MagicMock()
+    text_block.text = json.dumps(content)
     resp = MagicMock()
-    resp.choices = [choice]
+    resp.content = [text_block]
     return resp
 
 
 @pytest.mark.asyncio
 async def test_enhance_bio(client: AsyncClient) -> None:
-    mock_resp = _make_openai_response({
+    mock_resp = _make_anthropic_response({
         "enhanced": "Senior Software Engineer with 10 years of full-stack experience.",
         "improvements": ["Added seniority level", "Quantified experience"],
     })
 
     with patch("app.services.ai.client") as mock_client:
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_resp)
+        mock_client.messages.create = AsyncMock(return_value=mock_resp)
         resp = await client.post(
             "/api/ai/enhance-bio",
             json={"text": "I am a software engineer with experience in many things.", "platform": "linkedin", "tone": "professional"},
@@ -48,14 +46,14 @@ async def test_enhance_bio(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_scan_insight(client: AsyncClient) -> None:
-    mock_resp = _make_openai_response({
+    mock_resp = _make_anthropic_response({
         "summary": "This URL appears safe.",
         "explanation": "High trust score with no detected issues.",
         "recommendations": ["No action required."],
     })
 
     with patch("app.services.ai.client") as mock_client:
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_resp)
+        mock_client.messages.create = AsyncMock(return_value=mock_resp)
         resp = await client.post(
             "/api/ai/scan-insight",
             json={"url": "https://example.com", "trust_score": 95, "risk_level": "safe", "flags": []},
@@ -71,7 +69,7 @@ async def test_scan_insight(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_impression_report(client: AsyncClient) -> None:
-    mock_resp = _make_openai_response({
+    mock_resp = _make_anthropic_response({
         "overall_score": 78,
         "trend": "improving",
         "key_strengths": ["Clear communication"],
@@ -80,7 +78,7 @@ async def test_impression_report(client: AsyncClient) -> None:
     })
 
     with patch("app.services.ai.client") as mock_client:
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_resp)
+        mock_client.messages.create = AsyncMock(return_value=mock_resp)
         resp = await client.post(
             "/api/ai/impression-report",
             json={"analyses": [{"score": 78, "type": "bio"}], "time_period_days": 30},

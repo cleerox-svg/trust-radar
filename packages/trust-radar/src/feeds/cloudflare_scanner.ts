@@ -1,4 +1,5 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
+import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 
 /**
  * Cloudflare Radar URL Scanner — Two-phase feed.
@@ -134,10 +135,25 @@ export const cloudflare_scanner: FeedModule = {
       ).run();
     } catch { /* non-fatal */ }
 
-    console.log(`[cf_scanner] Phase 1: ${toScan.results.length} URLs to submit`);
+    // Filter out threats whose URL domain is in the safe domain allowlist
+    const safeSet = await loadSafeDomainSet(ctx.env.DB);
+    const filteredToScan = toScan.results.filter((row) => {
+      try {
+        const domain = new URL(row.malicious_url).hostname;
+        if (isSafeDomain(domain, safeSet)) {
+          console.log(`[cf_scanner] skipping safe domain: ${domain} (threat ${row.id})`);
+          return false;
+        }
+      } catch (e) {
+        console.warn(`[cf_scanner] failed to parse URL for safe-domain check: ${row.malicious_url}`, e);
+      }
+      return true;
+    });
+
+    console.log(`[cf_scanner] Phase 1: ${filteredToScan.length} URLs to submit (${toScan.results.length - filteredToScan.length} safe-domain URLs skipped)`);
 
     let firstSubmitLogged = false;
-    for (const row of toScan.results) {
+    for (const row of filteredToScan) {
       const { parsed: resp, raw, status } = await cfFetch<CfScanSubmitResponse>(accountId, token, "/v2/scan", {
         method: "POST",
         body: JSON.stringify({ url: row.malicious_url, visibility: "Unlisted" }),
