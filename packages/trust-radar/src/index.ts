@@ -141,6 +141,10 @@ import {
   handleListLookalikes, handleGenerateLookalikes,
   handleUpdateLookalike, handleScanLookalikes,
 } from "./handlers/lookalikeDomains";
+import {
+  handleListCertificates, handleCertStats,
+  handleUpdateCertificate, handleTriggerCTScan,
+} from "./handlers/ctMonitor";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
@@ -884,6 +888,28 @@ router.post("/api/lookalikes/:brandId/scan", async (request: Request & { params:
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+
+// ─── Certificate Transparency Monitoring ─────────────────────
+router.get("/api/ct/certificates/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListCertificates(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.get("/api/ct/certificates/:brandId/stats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCertStats(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.patch("/api/ct/certificates/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateCertificate(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/ct/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTriggerCTScan(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────
