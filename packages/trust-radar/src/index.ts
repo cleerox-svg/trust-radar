@@ -134,6 +134,7 @@ import {
   handleDeleteSalesLead, handleLeadActivity, handleSalesLeadStats,
 } from "./handlers/salesLeads";
 import type { Env } from "./types";
+import { handleScheduled } from "./cron/orchestrator";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 
 // ─── Honeypot Domain Server ─────────────────────────────────
