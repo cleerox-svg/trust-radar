@@ -6,7 +6,7 @@
  * for tracking which trap caught which spammer.
  */
 
-export function generateSpiderTraps(domain: string = "lrxradar.com"): string {
+export function generateSpiderTraps(domain: string = "trustradar.ca"): string {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
   const traps = [
     `spider-pub-footer-${date}`,

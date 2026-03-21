@@ -59,7 +59,7 @@ cd packages/trust-radar && pnpm dev
 | **Backend** | Cloudflare Workers (TypeScript) |
 | **Database** | Cloudflare D1 (SQLite) |
 | **Storage** | Cloudflare R2 |
-| **AI** | Claude Haiku (via Railway FastAPI) |
+| **AI** | Claude Haiku (direct Anthropic API) |
 | **DNS/CDN** | Cloudflare |
 
 ---

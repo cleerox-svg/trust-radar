@@ -9,12 +9,12 @@ describe("corsHeaders", () => {
 
   it("defaults to first allowed origin for unknown origins", () => {
     const headers = corsHeaders("https://evil.com");
-    expect(headers["Access-Control-Allow-Origin"]).toBe("https://lrxradar.com");
+    expect(headers["Access-Control-Allow-Origin"]).toBe("https://trustradar.ca");
   });
 
   it("defaults to first allowed origin for null origin", () => {
     const headers = corsHeaders(null);
-    expect(headers["Access-Control-Allow-Origin"]).toBe("https://lrxradar.com");
+    expect(headers["Access-Control-Allow-Origin"]).toBe("https://trustradar.ca");
   });
 
   it("includes required CORS methods", () => {

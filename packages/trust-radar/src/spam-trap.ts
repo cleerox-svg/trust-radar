@@ -1,7 +1,7 @@
 /**
  * Spam Trap Email Receiver
  *
- * Processes all non-DMARC emails arriving at trustradar.ca and lrxradar.com.
+ * Processes all non-DMARC emails arriving at trustradar.ca (and lrxradar.com for backwards compat).
  * Extracts authentication signals, IOCs, brand matches, and creates threat records.
  * This is Trust Radar's proprietary data source.
  *
@@ -171,23 +171,23 @@ export function parseTrapAddress(address: string): TrapInfo {
     return { domain, channel: "brand", campaignId: null, brandTarget: brandTrapMatch[1] ?? null };
   }
 
-  // Spider traps: spider-pub-footer-0318@lrxradar.com
+  // Spider traps: spider-pub-footer-0318@trustradar.ca
   if (local.startsWith("spider-")) {
     return { domain, channel: "spider", campaignId: null, brandTarget: null };
   }
 
-  // Paste traps: paste-c012-amz-0318@lrxradar.com
+  // Paste traps: paste-c012-amz-0318@trustradar.ca
   const pasteMatch = local.match(/^paste-c(\d+)/);
   if (pasteMatch) {
     return { domain, channel: "paste", campaignId: parseInt(pasteMatch[1] ?? "0"), brandTarget: null };
   }
 
-  // Honeypot traps: honey-team-003@lrxradar.com
+  // Honeypot traps: honey-team-003@trustradar.ca
   if (local.startsWith("honey-")) {
     return { domain, channel: "honeypot", campaignId: null, brandTarget: null };
   }
 
-  // Employee traps: james.wilson@lrxradar.com, ceo@lrxradar.com
+  // Employee traps: james.wilson@trustradar.ca, ceo@trustradar.ca
   if (local.includes(".") || ["ceo", "cfo", "cto", "hr", "finance"].includes(local)) {
     return { domain, channel: "employee", campaignId: null, brandTarget: null };
   }
