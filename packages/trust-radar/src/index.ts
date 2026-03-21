@@ -67,6 +67,15 @@ import {
   handleCleanFalsePositives,
 } from "./handlers/brands";
 import {
+  handleCreateBrand as handleCreateBrandProfile,
+  handleListBrands as handleListBrandProfiles,
+  handleGetBrand as handleGetBrandProfile,
+  handleUpdateBrand as handleUpdateBrandProfile,
+  handleDeleteBrand as handleDeleteBrandProfile,
+  handleUpdateHandles as handleUpdateBrandHandles,
+  handleGetHandles as handleGetBrandHandles,
+} from "./handlers/brandProfiles";
+import {
   handleListSafeDomains, handleAddSafeDomain, handleBulkAddSafeDomains, handleDeleteSafeDomain,
 } from "./handlers/safeDomains";
 import {
@@ -778,6 +787,43 @@ router.delete("/api/brands/:id/safe-domains/:domainId", async (request: Request 
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleDeleteSafeDomain(request, env, request.params["id"] ?? "", request.params["domainId"] ?? "");
+});
+
+// ─── Brand Profiles (Social Monitoring) ─────────────────────
+router.post("/api/brand-profiles", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateBrandProfile(request, env, ctx.userId);
+});
+router.get("/api/brand-profiles", async (request: Request, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListBrandProfiles(request, env, ctx.userId);
+});
+router.get("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.patch("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.delete("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDeleteBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/brand-profiles/:id/handles", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateBrandHandles(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.get("/api/brand-profiles/:id/handles", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrandHandles(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────

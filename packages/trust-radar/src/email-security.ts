@@ -103,10 +103,13 @@ const COMMON_DKIM_SELECTORS = [
   'smtp', 'mail', 'email',
   'dkim', 's1', 's2',
   'mandrill', 'amazonses', 'cm',
-  'proofpoint', 'pp', 'pphosted',
-  'mimecast', 'mimecast20190104',
-  'everlytickey1', 'turbo-smtp',
+  'proofpoint', 'pp', 'pphosted', 'pps',
+  'mimecast', 'mimecast20190104', 'mc1',
+  'everlytickey1', 'everlytickey2', 'turbo-smtp',
   'zendesk1', 'zendesk2',
+  's1024', 's2048',              // Generic 1024/2048-bit selectors
+  'sc1',                         // SparkPost
+  'smtp2go',                     // SMTP2GO
 ];
 
 export interface DkimResult {
@@ -147,9 +150,12 @@ const MX_PROVIDERS: Record<string, string> = {
   'googlemail.com': 'Google Workspace',
   'outlook.com': 'Microsoft 365',
   'protection.outlook.com': 'Microsoft 365',
+  'microsoft.com': 'Microsoft 365',
   'pphosted.com': 'Proofpoint',
+  'proofpoint.com': 'Proofpoint',
   'mimecast.com': 'Mimecast',
   'barracudanetworks.com': 'Barracuda',
+  'barracuda.com': 'Barracuda',
   'messagelabs.com': 'Symantec',
   'iphmx.com': 'Cisco',
   'fireeyecloud.com': 'FireEye/Trellix',
@@ -158,6 +164,15 @@ const MX_PROVIDERS: Record<string, string> = {
   'zoho.com': 'Zoho',
   'mx.cloudflare.net': 'Cloudflare',
 };
+
+/** Enterprise providers that always sign with DKIM (may use custom/rotating selectors) */
+const ENTERPRISE_DKIM_PROVIDERS = [
+  'Google Workspace',
+  'Microsoft 365',
+  'Proofpoint',
+  'Mimecast',
+  'Barracuda',
+];
 
 export interface MxResult {
   exists: boolean;
@@ -215,6 +230,10 @@ export function calculateEmailSecurityScore(scan: EmailSecurityScanInput): { sco
   // DKIM (20 points max)
   if (scan.dkim.exists) {
     score += 20;
+  } else if (scan.mx.providers.some(p => ENTERPRISE_DKIM_PROVIDERS.includes(p))) {
+    // Enterprise providers always sign with DKIM but may use custom/rotating
+    // selectors we can't guess — award partial credit.
+    score += 10;
   }
 
   // MX (10 points max)
@@ -263,7 +282,12 @@ export function generateRecommendations(scan: EmailSecurityScanInput): string[] 
   }
 
   if (!scan.dkim.exists) {
-    recs.push('No DKIM signing detected (checked 20 common selectors). Email recipients cannot verify message integrity.');
+    const hasEnterpriseMx = scan.mx.providers.some(p => ENTERPRISE_DKIM_PROVIDERS.includes(p));
+    if (hasEnterpriseMx) {
+      recs.push('No DKIM selector found, but an enterprise email provider was detected — DKIM is likely configured with a custom or rotating selector.');
+    } else {
+      recs.push('No DKIM signing detected (checked common selectors). Email recipients cannot verify message integrity.');
+    }
   }
 
   if (!scan.mx.exists) {
