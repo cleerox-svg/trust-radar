@@ -145,6 +145,10 @@ import {
   handleListCertificates, handleCertStats,
   handleUpdateCertificate, handleTriggerCTScan,
 } from "./handlers/ctMonitor";
+import {
+  handleListNarratives, handleGetNarrative,
+  handleGenerateNarrative, handleUpdateNarrative,
+} from "./handlers/narratives";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
@@ -910,6 +914,28 @@ router.post("/api/ct/scan/:brandId", async (request: Request & { params: Record<
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTriggerCTScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+
+// ─── Threat Narratives ──────────────────────────────────────
+router.get("/api/narratives/:brandId/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetNarrative(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.post("/api/narratives/:brandId/generate", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGenerateNarrative(request, env, request.params["brandId"] ?? "", ctx.userId);
+});
+router.patch("/api/narratives/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateNarrative(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.get("/api/narratives/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListNarratives(request, env, request.params["brandId"] ?? "", ctx.userId);
 });
 
 // ─── Brand Exposure Engine ──────────────────────────────────

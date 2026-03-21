@@ -311,6 +311,10 @@ export async function generateInsight(
     spam_trap_summary?: string;
     threat_feed_summary?: string;
     high_risk_brands_summary?: string;
+    narrative_summary?: string;
+    social_monitor_summary?: string;
+    lookalike_domain_summary?: string;
+    ct_certificate_summary?: string;
   },
 ): Promise<HaikuResponse<{ items: HaikuBriefingItem[] }>> {
   const systemPrompt = `You are a senior threat intelligence analyst at a security operations center. Based on the data provided, write 3-5 intelligence briefing items. Each item must have:
