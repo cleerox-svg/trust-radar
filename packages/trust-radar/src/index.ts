@@ -1375,6 +1375,13 @@ router.get("/assess/:id/results", (request: Request & { params: Record<string, s
   })
 );
 
+// ─── Public Brand Exposure Scan Page ──────────────────────────
+router.get("/scan", () =>
+  new Response(renderScanPage(), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })
+);
+
 // ─── Public Scan Result Page (legacy) ─────────────────────────
 router.get("/scan/:id", (request: Request & { params: Record<string, string> }, env: Env) =>
   handleScanPage(request, env, request.params["id"] ?? "")
