@@ -5891,6 +5891,8 @@ async function viewAdmin(el) {
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #8b5cf6" id="adm-dash-ai-attr"><div class="adm-action-icon">\u{1F916}</div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #22d3ee" id="adm-dash-social"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #06b6d4" id="adm-dash-social-10x"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
@@ -6341,6 +6343,74 @@ async function viewAdmin(el) {
         if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
       }
       setTimeout(() => { aiAttrBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 5000);
+    });
+  }
+
+  // Social Discovery button
+  const socialBtn = document.getElementById('adm-dash-social');
+  if (socialBtn) {
+    socialBtn.addEventListener('click', async () => {
+      if (socialBtn.classList.contains('dash-pending')) return;
+      const icon = socialBtn.querySelector('.adm-action-icon');
+      const desc = socialBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      socialBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      if (desc) desc.textContent = 'Discovering social profiles...';
+      try {
+        const res = await api('/admin/discover-social-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 50 }) });
+        socialBtn.classList.remove('dash-pending');
+        socialBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `Processed ${res.data?.brands_processed ?? 0} brands, found ${res.data?.profiles_found ?? 0} profiles`;
+        showToast(`Processed ${res.data?.brands_processed ?? 0} brands, found ${res.data?.profiles_found ?? 0} profiles`, 'success');
+      } catch (err) {
+        socialBtn.classList.remove('dash-pending');
+        socialBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = 'Failed: ' + (err.message || 'unknown error');
+        showToast('Social discovery failed: ' + (err.message || 'unknown error'), 'error');
+      }
+      setTimeout(() => { socialBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 8000);
+    });
+  }
+
+  // Social Discovery 10x button
+  const social10xBtn = document.getElementById('adm-dash-social-10x');
+  if (social10xBtn) {
+    social10xBtn.addEventListener('click', async () => {
+      if (social10xBtn.classList.contains('dash-pending')) return;
+      const icon = social10xBtn.querySelector('.adm-action-icon');
+      const desc = social10xBtn.querySelector('.adm-action-desc');
+      const origIcon = icon?.textContent;
+      const origDesc = desc?.textContent;
+      social10xBtn.classList.add('dash-pending');
+      if (icon) icon.innerHTML = '<span class="dash-spinner"></span>';
+      let totalProfiles = 0;
+      try {
+        for (let i = 1; i <= 10; i++) {
+          if (desc) desc.textContent = `Running batch ${i}/10...`;
+          const res = await api('/admin/discover-social-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 50 }) });
+          const found = res.data?.profiles_found ?? 0;
+          totalProfiles += found;
+          showToast(`Batch ${i}/10 complete: ${found} profiles found`, 'info');
+          if (desc) desc.textContent = `Batch ${i}/10 done \u00b7 ${totalProfiles} total profiles`;
+          if (i < 10) await new Promise(r => setTimeout(r, 15000));
+        }
+        social10xBtn.classList.remove('dash-pending');
+        social10xBtn.classList.add('dash-ok');
+        if (icon) icon.textContent = '\u2713';
+        if (desc) desc.textContent = `All 10 batches complete \u00b7 ${totalProfiles} total profiles discovered`;
+        showToast(`All 10 batches complete! ${totalProfiles} total profiles discovered`, 'success');
+      } catch (err) {
+        social10xBtn.classList.remove('dash-pending');
+        social10xBtn.classList.add('dash-fail');
+        if (icon) icon.textContent = '\u2717';
+        if (desc) desc.textContent = `Failed at batch \u00b7 ${totalProfiles} profiles found so far`;
+        showToast('Social discovery 10x failed: ' + (err.message || 'unknown error'), 'error');
+      }
+      setTimeout(() => { social10xBtn.classList.remove('dash-ok', 'dash-fail'); if (icon) icon.textContent = origIcon; if (desc) desc.textContent = origDesc; }, 10000);
     });
   }
 
