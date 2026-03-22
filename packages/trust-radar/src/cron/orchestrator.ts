@@ -22,14 +22,16 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
-  // Every 6 hours (minute 0, hours 0/6/12/18): Social monitoring + AI assessment
+  // Every 6 hours (minute 0, hours 0/6/12/18): Social monitoring
   if (minute === 0 && hour % 6 === 0) {
     const result = await runJob('social_monitor', () => runSocialMonitor(env));
     results.push(result);
 
-    // AI-enrich open social results that lack assessment
-    const assessResult = await runJob('social_assessment', () => runSocialAssessment(env));
-    results.push(assessResult);
+    // After social monitor batch completes, run AI assessment on new findings
+    const { runSentinelSocialAssessment } = await import('../agents/sentinel');
+    await runSentinelSocialAssessment(env).catch(err =>
+      logger.error('cron_sentinel_social_failed', { error: String(err) })
+    );
   }
 
   // Daily at 06:00 UTC: Observer briefing + threat narratives
@@ -383,17 +385,6 @@ async function runThreatFeedScan(env: Env): Promise<void> {
 async function runSocialMonitor(env: Env): Promise<void> {
   const { runSocialMonitorBatch } = await import('../scanners/social-monitor');
   await runSocialMonitorBatch(env);
-}
-
-async function runSocialAssessment(env: Env): Promise<void> {
-  const { runSentinelSocialAssessment } = await import('../agents/sentinel');
-  const result = await runSentinelSocialAssessment(env);
-  logger.info('social_assessment_complete', {
-    processed: result.processed,
-    assessed: result.assessed,
-    escalated: result.escalated,
-    tokens_used: result.tokensUsed,
-  });
 }
 
 async function runObserverBriefing(env: Env): Promise<void> {
