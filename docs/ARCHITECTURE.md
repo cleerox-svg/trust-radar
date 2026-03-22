@@ -28,17 +28,13 @@ trust-radar/
 │   │   │   ├── spam-trap.ts        → Spam trap email handler
 │   │   │   ├── honeypot.ts         → Honeypot page server
 │   │   │   └── types.ts            → Shared TypeScript types
-│   │   ├── migrations/             → D1 SQL migrations (0001-0029)
+│   │   ├── migrations/             → D1 SQL migrations (0001–0035+)
 │   │   ├── public/                 → Static SPA assets (built frontend)
 │   │   └── wrangler.toml           → Worker configuration
 │   ├── imprsn8/            → Social brand protection Worker
 │   │   ├── src/                    → imprsn8 Worker source
 │   │   ├── migrations/             → imprsn8 D1 migrations
 │   │   └── wrangler.toml
-│   ├── frontend/           → React/TypeScript SPA
-│   │   └── src/                    → Frontend application source
-│   └── api/                → FastAPI backend (Railway)
-│       └── app/                    → Python API application
 ├── prototypes/             → UI design specifications (HTML mockups)
 ├── docs/                   → Platform documentation
 ├── .github/workflows/      → CI/CD pipelines
@@ -101,7 +97,7 @@ Trust Radar uses two D1 databases:
 
 ### Schema Overview
 
-Migrations are in `packages/trust-radar/migrations/` (29 migration files). Key tables:
+Migrations are in `packages/trust-radar/migrations/` (35+ migration files). Key tables:
 
 - `threats` — Core threat intelligence records (URL, domain, IP, severity, source)
 - `brands` — Monitored brands with canonical domains and threat counts
@@ -114,10 +110,19 @@ Migrations are in `packages/trust-radar/migrations/` (29 migration files). Key t
 - `spam_trap_captures` — Spam trap catch records
 - `notifications` — User notification queue
 - `sales_leads` — Prospector-generated sales leads
+- `social_monitor_results` — Social monitoring scan results
+- `social_monitor_schedule` — Social monitoring job scheduling
+- `brand_profiles` — Brand profile definitions
+- `lookalike_domains` — Detected lookalike/typosquat domains
+- `ct_certificates` — Certificate Transparency log entries
+- `threat_narratives` — AI-generated threat narrative summaries
+- `contact_submissions` — Inbound contact form submissions
+- `alerts` — Alert rules and delivery tracking
+- `organizations` — Multi-tenant organization records
 
 ### Migration Naming
 
-Migrations follow the pattern `XXXX_description.sql` with sequential numbering (0001 through 0029).
+Migrations follow the pattern `XXXX_description.sql` with sequential numbering (0001 through 0035+).
 
 ## Caching: Cloudflare KV
 
