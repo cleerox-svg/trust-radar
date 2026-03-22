@@ -78,10 +78,12 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
 
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
+             b.official_handles,
              COUNT(t.id) AS threat_count,
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              MAX(t.created_at) AS last_threat_seen,
-             CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored
+             CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored,
+             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
       LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
@@ -90,6 +92,12 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
         FROM threats WHERE status = 'active'
         GROUP BY target_brand_id
       ) t_active ON t_active.target_brand_id = b.id
+      LEFT JOIN (
+        SELECT brand_id, COUNT(*) AS imp_count
+        FROM social_profiles
+        WHERE classification = 'impersonation' AND status = 'active'
+        GROUP BY brand_id
+      ) sp_imp ON sp_imp.brand_id = b.id
       ${where}
       GROUP BY b.id
       ORDER BY ${sortClause}
@@ -155,9 +163,17 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
 
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.sector, b.canonical_domain,
-             COUNT(t.id) AS threat_count
+             b.official_handles,
+             COUNT(t.id) AS threat_count,
+             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
       JOIN threats t ON t.target_brand_id = b.id AND t.created_at >= ${since}
+      LEFT JOIN (
+        SELECT brand_id, COUNT(*) AS imp_count
+        FROM social_profiles
+        WHERE classification = 'impersonation' AND status = 'active'
+        GROUP BY brand_id
+      ) sp_imp ON sp_imp.brand_id = b.id
       GROUP BY b.id
       ORDER BY threat_count DESC
       LIMIT ?
@@ -175,11 +191,19 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
   try {
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.first_seen,
+             b.official_handles,
              COUNT(t.id) AS threat_count,
-             MAX(t.created_at) AS last_threat_seen
+             MAX(t.created_at) AS last_threat_seen,
+             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM monitored_brands mb
       JOIN brands b ON b.id = mb.brand_id
       LEFT JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
+      LEFT JOIN (
+        SELECT brand_id, COUNT(*) AS imp_count
+        FROM social_profiles
+        WHERE classification = 'impersonation' AND status = 'active'
+        GROUP BY brand_id
+      ) sp_imp ON sp_imp.brand_id = b.id
       GROUP BY b.id
       ORDER BY threat_count DESC
     `).all();

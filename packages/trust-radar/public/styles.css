@@ -3426,3 +3426,167 @@ a.campaign-card:hover { text-decoration: none; }
 .type-pill.youtube  { background: rgba(255,0,0,.08); color: #ff3b5b; border-color: rgba(255,59,59,.2); }
 .type-pill.github   { background: rgba(122,139,168,.12); color: var(--text-secondary); border-color: rgba(122,139,168,.2); }
 
+/* ─── Social Profiles Panel ────────────────────────────────── */
+.social-panel-header { display: flex; align-items: center; gap: 8px; flex: 1; }
+.social-panel-actions { display: flex; gap: 6px; margin-left: auto; }
+.social-sub-tabs { display: flex; gap: 4px; padding: 0 16px 12px; border-bottom: 1px solid var(--blue-border); }
+.social-sub-tab {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--blue-border);
+  background: none; color: var(--text-tertiary); cursor: pointer; transition: all 0.15s;
+}
+.social-sub-tab:hover { border-color: var(--blue-border-bright); color: var(--text-primary); }
+.social-sub-tab.active { background: rgba(0,212,255,0.1); border-color: var(--blue-primary); color: var(--blue-primary); }
+.social-profiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; padding: 16px; }
+.social-profile-card {
+  background: var(--bg-panel); border: 1px solid var(--blue-border);
+  border-radius: 8px; padding: 14px; transition: all 0.2s; position: relative;
+}
+.social-profile-card:hover { border-color: var(--blue-border-bright); background: var(--bg-elevated); }
+.social-profile-card.suspicious { border-color: rgba(255,182,39,0.3); }
+.social-profile-card.impersonation { border-color: rgba(255,59,92,0.3); }
+.social-card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.social-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; border: 1px solid var(--blue-border);
+  background: var(--bg-elevated); overflow: hidden;
+}
+.social-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.social-card-info { flex: 1; min-width: 0; }
+.social-card-handle {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.social-card-name { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+.social-card-bio {
+  font-size: 10px; color: var(--text-tertiary); margin-top: 4px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.social-card-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); margin-top: 6px;
+}
+.social-card-meta span { white-space: nowrap; }
+.social-ai-badge {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
+  font-family: var(--font-mono); font-size: 10px; padding: 3px 8px;
+  border-radius: 4px; background: rgba(0,229,160,0.08); color: var(--positive);
+  border: 1px solid rgba(0,229,160,0.15);
+}
+.social-ai-badge.suspicious {
+  background: rgba(255,182,39,0.08); color: var(--threat-medium);
+  border-color: rgba(255,182,39,0.15);
+}
+.social-ai-badge.impersonation {
+  background: rgba(255,59,92,0.08); color: var(--negative);
+  border-color: rgba(255,59,92,0.15);
+}
+.social-card-actions {
+  display: flex; gap: 6px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--blue-border); flex-wrap: wrap;
+}
+.social-card-actions button {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500;
+  padding: 4px 8px; border-radius: 3px; border: 1px solid var(--blue-border);
+  background: none; color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.social-card-actions button:hover { border-color: var(--blue-border-bright); color: var(--text-primary); }
+.social-card-actions button.positive { border-color: rgba(0,229,160,0.3); color: var(--positive); }
+.social-card-actions button.positive:hover { background: rgba(0,229,160,0.08); }
+.social-card-actions button.negative { border-color: rgba(255,59,92,0.3); color: var(--negative); }
+.social-card-actions button.negative:hover { background: rgba(255,59,92,0.08); }
+.social-card-actions button.warning { border-color: rgba(255,182,39,0.3); color: var(--threat-medium); }
+.social-card-actions button.warning:hover { background: rgba(255,182,39,0.08); }
+.social-classification-badge {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.social-classification-badge.official { background: rgba(0,229,160,0.12); color: var(--positive); }
+.social-classification-badge.legitimate { background: rgba(0,212,255,0.12); color: var(--blue-primary); }
+.social-classification-badge.suspicious { background: rgba(255,182,39,0.12); color: var(--threat-medium); }
+.social-classification-badge.impersonation { background: rgba(255,59,92,0.12); color: var(--negative); }
+.social-classification-badge.unknown { background: rgba(74,90,115,0.2); color: var(--text-tertiary); }
+.social-severity-badge {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.social-severity-badge.critical { background: rgba(255,59,92,0.12); color: var(--negative); }
+.social-severity-badge.high { background: rgba(255,107,53,0.1); color: var(--threat-high); }
+.social-severity-badge.medium { background: rgba(255,182,39,0.1); color: var(--threat-medium); }
+.social-severity-badge.low { background: rgba(0,212,255,0.1); color: var(--blue-primary); }
+.impersonation-score-bar {
+  width: 100%; height: 4px; background: var(--bg-elevated); border-radius: 2px;
+  overflow: hidden; margin-top: 6px;
+}
+.impersonation-score-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.social-signals-list {
+  margin-top: 6px; font-size: 10px; color: var(--text-secondary);
+}
+.social-signals-list li {
+  padding: 2px 0; list-style: none; display: flex; align-items: center; gap: 4px;
+}
+.social-signals-list li::before { content: '▸'; color: var(--threat-medium); font-size: 8px; }
+.platform-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; font-size: 10px; font-weight: 700;
+  flex-shrink: 0;
+}
+.platform-icon.twitter { background: rgba(0,0,0,0.3); color: #fff; }
+.platform-icon.linkedin { background: rgba(0,119,181,0.2); color: #0077B5; }
+.platform-icon.instagram { background: rgba(228,64,95,0.15); color: #E4405F; }
+.platform-icon.tiktok { background: rgba(0,0,0,0.3); color: #fff; }
+.platform-icon.github { background: rgba(51,51,51,0.3); color: #ccc; }
+.platform-icon.youtube { background: rgba(255,0,0,0.15); color: #FF0000; }
+.social-empty-state {
+  text-align: center; padding: 32px 16px;
+}
+.social-empty-state .message { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; line-height: 1.5; }
+.social-skeleton-card {
+  background: var(--bg-panel); border: 1px solid var(--blue-border);
+  border-radius: 8px; padding: 14px; height: 140px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.social-platform-dots { display: flex; gap: 3px; align-items: center; }
+.social-platform-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.social-impersonation-alert {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  padding: 2px 6px; border-radius: 3px;
+  background: rgba(255,59,92,0.1); color: var(--negative);
+}
+.panel-collapsible .phead { cursor: pointer; user-select: none; }
+.panel-collapsible .phead::after {
+  content: '▾'; margin-left: auto; font-size: 10px; color: var(--text-tertiary);
+  transition: transform 0.2s;
+}
+.panel-collapsible.collapsed .phead::after { transform: rotate(-90deg); }
+.panel-collapsible.collapsed .panel-body,
+.panel-collapsible.collapsed .social-sub-tabs,
+.panel-collapsible.collapsed .social-profiles-grid { display: none; }
+.social-handles-section {
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--blue-border);
+}
+.social-handles-toggle {
+  font-family: var(--font-display); font-size: 10px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary);
+  cursor: pointer; background: none; border: none; display: flex; align-items: center; gap: 6px;
+}
+.social-handles-toggle::before { content: '▸'; font-size: 9px; transition: transform 0.2s; }
+.social-handles-toggle.expanded::before { transform: rotate(90deg); }
+.social-handles-fields { display: none; margin-top: 10px; }
+.social-handles-fields.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.social-handle-field { display: flex; align-items: center; gap: 6px; }
+.social-handle-field label {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);
+  width: 70px; flex-shrink: 0;
+}
+.social-handle-field input {
+  font-family: var(--font-body); font-size: 12px;
+  padding: 6px 10px; border-radius: var(--radius);
+  border: 1px solid var(--blue-border); background: var(--bg-panel);
+  color: var(--text-primary); flex: 1; outline: none;
+}
+.social-handle-field input:focus { border-color: var(--blue-border-bright); }
