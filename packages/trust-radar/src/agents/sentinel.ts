@@ -161,6 +161,59 @@ export const sentinelAgent: AgentModule = {
         }
       }
 
+      // Cross-reference with social profiles for coordinated attack detection
+      if (domain) {
+        try {
+          const domainKeyword = domain.split('.')[0] || '';
+          const socialMatch = await env.DB.prepare(`
+            SELECT sp.handle, sp.platform, sp.classification, sp.profile_url, b.name AS brand_name
+            FROM social_profiles sp
+            JOIN brands b ON b.id = sp.brand_id
+            WHERE sp.status = 'active'
+              AND sp.classification IN ('suspicious', 'impersonation')
+              AND (
+                sp.profile_url LIKE '%' || ? || '%'
+                OR sp.handle LIKE '%' || ? || '%'
+              )
+            LIMIT 3
+          `).bind(domain, domainKeyword).all<{
+            handle: string; platform: string; classification: string;
+            profile_url: string | null; brand_name: string;
+          }>();
+
+          if (socialMatch.results.length > 0) {
+            console.log("[sentinel] Social correlation found", {
+              threat_id: threat.id,
+              social_matches: socialMatch.results.length,
+              brands: socialMatch.results.map(s => s.brand_name),
+            });
+
+            const correlationNote = socialMatch.results.map(s =>
+              `Correlated with ${s.classification} ${s.platform} profile @${s.handle} (${s.brand_name})`
+            ).join('; ');
+
+            // Escalate severity on social correlation
+            if (severity === 'medium') severity = 'high';
+            else if (severity === 'high') severity = 'critical';
+
+            outputs.push({
+              type: "classification",
+              summary: `**Social Correlation** — Threat ${threat.id} (${domain}) correlates with social impersonation: ${correlationNote}`,
+              severity: severity as "critical" | "high" | "medium" | "low" | "info",
+              details: {
+                threat_id: threat.id,
+                domain,
+                social_matches: socialMatch.results,
+                escalated_severity: severity,
+              },
+            });
+          }
+        } catch (socialErr) {
+          // Non-fatal — social cross-ref is best-effort
+          console.warn(`[sentinel] Social cross-ref error for ${threat.id}:`, socialErr);
+        }
+      }
+
       try {
         await env.DB.prepare(
           `UPDATE threats SET confidence_score = ?, severity = COALESCE(severity, ?), threat_type = ? WHERE id = ?`

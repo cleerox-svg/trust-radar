@@ -16,6 +16,7 @@ import { createAlert } from '../lib/alerts';
 import { logger } from '../lib/logger';
 import { discoverSocialProfiles } from '../lib/social-discovery';
 import { assessSocialProfile, type ProfileContext } from '../lib/social-ai-assessor';
+import { computeBrandExposureScore } from '../lib/brand-scoring';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -436,7 +437,17 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
         }
       }
 
-      // 5. Update schedule: set last_checked and compute next_check
+      // 5. Recompute brand exposure score after social scan
+      try {
+        await computeBrandExposureScore(env, brand.id);
+      } catch (scoreErr) {
+        logger.warn('social_monitor_score_error', {
+          brand_id: brand.id,
+          error: scoreErr instanceof Error ? scoreErr.message : String(scoreErr),
+        });
+      }
+
+      // 6. Update schedule: set last_checked and compute next_check
       await env.DB.prepare(`
         UPDATE brand_monitor_schedule
         SET last_checked = ?,
