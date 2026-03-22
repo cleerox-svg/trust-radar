@@ -3637,6 +3637,7 @@ async function viewBrandDetail(el, params) {
           <div class="social-panel-actions">
             <button class="filter-pill" id="social-add-handle-btn" style="font-size:10px">+ Add Handle</button>
             <button class="filter-pill" id="social-scan-btn" style="font-size:10px">🔍 Scan Now</button>
+            <button class="filter-pill" id="social-discover-btn" style="font-size:10px">🌐 Auto-Discover</button>
           </div>
         </div>
         <div class="social-sub-tabs" id="social-profile-tabs">
@@ -3733,6 +3734,31 @@ async function viewBrandDetail(el, params) {
           } catch (err) { showToast(err.message || 'Scan failed', 'error'); }
           scanBtn.disabled = false;
           scanBtn.textContent = '🔍 Scan Now';
+        });
+      }
+
+      // Wire Auto-Discover button
+      const discoverBtn = document.getElementById('social-discover-btn');
+      if (discoverBtn) {
+        discoverBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          discoverBtn.disabled = true;
+          discoverBtn.textContent = '⏳ Discovering...';
+          try {
+            const res = await api(`/brands/${brandId}/discover-social`, { method: 'POST' });
+            const count = res?.data?.discovered?.length || 0;
+            const domain = b?.canonical_domain || 'website';
+            showToast(`Discovered ${count} social profile${count !== 1 ? 's' : ''} from ${domain}`, 'success');
+            const refreshed = await api(`/brands/${brandId}/social-profiles`).catch(() => null);
+            socialProfiles = refreshed?.data || socialProfiles;
+            // Update social config with new handles
+            if (res?.data?.handles_updated) {
+              socialConfig.official_handles = res.data.handles_updated;
+            }
+            renderSocialPanel();
+          } catch (err) { showToast(err.message || 'Discovery failed', 'error'); }
+          discoverBtn.disabled = false;
+          discoverBtn.textContent = '🌐 Auto-Discover';
         });
       }
     }

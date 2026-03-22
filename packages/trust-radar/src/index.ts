@@ -84,6 +84,7 @@ import {
   handleCleanFalsePositives,
   handleGetBrandSocialConfig, handleUpdateBrandSocialConfig,
   handleGetBrandSocialProfiles, handleClassifySocialProfile,
+  handleDiscoverSocialLinks,
 } from "./handlers/brands";
 import {
   handleCreateBrand as handleCreateBrandProfile,
@@ -851,6 +852,11 @@ router.patch("/api/brands/:id/social-profiles/:profileId", async (request: Reque
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleClassifySocialProfile(request, env, request.params["id"] ?? "", request.params["profileId"] ?? "", ctx.userId);
+});
+router.post("/api/brands/:id/discover-social", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleDiscoverSocialLinks(request, env, request.params["id"] ?? "", ctx.userId);
 });
 
 // ─── Brand Profiles (Social Monitoring) ─────────────────────

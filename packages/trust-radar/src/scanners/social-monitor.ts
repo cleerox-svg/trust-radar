@@ -14,6 +14,7 @@ import { generateHandlePermutations } from '../lib/handle-permutations';
 import { scoreImpersonation, nameSimilarity, type ImpersonationSignals } from './impersonation-scorer';
 import { createAlert } from '../lib/alerts';
 import { logger } from '../lib/logger';
+import { discoverSocialProfiles } from '../lib/social-discovery';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -56,6 +57,28 @@ export async function runSocialMonitorForBrand(
   brand: { id: string; brand_name: string; domain: string; official_handles: string },
 ): Promise<SocialMonitorResult[]> {
   const results: SocialMonitorResult[] = [];
+
+  // Re-discover social links from website (catches new profiles added since last scan)
+  if (brand.domain) {
+    try {
+      const discovered = await discoverSocialProfiles(`https://${brand.domain}`);
+      for (const profile of discovered) {
+        // Upsert — don't overwrite existing manual classifications
+        await env.DB.prepare(`
+          INSERT INTO social_profiles
+            (id, brand_id, platform, handle, profile_url, classification,
+             classified_by, classification_confidence, last_checked, status)
+          VALUES (?, ?, ?, ?, ?, 'official', 'auto_discovery', ?, ?, 'active')
+          ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+            last_checked = excluded.last_checked,
+            profile_url = excluded.profile_url
+        `).bind(crypto.randomUUID(), brand.id, profile.platform, profile.handle,
+                profile.profileUrl, profile.confidence, new Date().toISOString()).run();
+      }
+    } catch {
+      // Non-fatal — continue with existing handles
+    }
+  }
 
   // Parse official handles
   let officialHandles: Record<string, string> = {};
