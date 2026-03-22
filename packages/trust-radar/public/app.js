@@ -120,7 +120,7 @@ const routes = [
   { path: '/brands',               view: viewBrandsHub,       auth: true },
   { path: '/brands/:id',           view: viewBrandDetail,     auth: true },
   { path: '/report/:id',           view: viewBrandReport,     auth: true },
-  { path: '/social',               view: viewSocialMonitor,   auth: true },
+  { path: '/social',               view: () => { navigate('/brands?tab=watchlist'); }, auth: true },
   { path: '/providers',            view: viewProvidersHub,    auth: true },
   { path: '/providers/:id',        view: viewProviderDetail,  auth: true },
   { path: '/campaigns',            view: viewCampaignsHub,    auth: true },
@@ -594,7 +594,6 @@ function renderTopbar() {
   const navItems = [
     { href: '/observatory', label: 'Observatory' },
     { href: '/brands', label: 'Brands' },
-    { href: '/social', label: 'Social' },
     { href: '/providers', label: 'Providers' },
     { href: '/campaigns', label: 'Campaigns' },
     { href: '/trends', label: 'Trends' },
@@ -2753,6 +2752,12 @@ async function viewBrandsHub(el) {
         <div class="brand-card-footer">
           <span class="type-pill ${b.top_threat_type || 'phishing'}">${b.top_threat_type || 'phishing'}</span>
           <span class="brand-domain">${b.canonical_domain || ''}</span>
+          ${(() => {
+            const h = b.official_handles ? (typeof b.official_handles === 'string' ? JSON.parse(b.official_handles) : b.official_handles) : {};
+            const pc = { twitter: '#1DA1F2', linkedin: '#0077B5', instagram: '#E4405F', tiktok: '#69C9D0', github: '#8b949e', youtube: '#FF0000' };
+            return Object.keys(h).length ? `<div class="social-platform-dots">${Object.keys(h).map(p => `<span class="social-platform-dot" style="background:${pc[p] || '#4a5a73'}"></span>`).join('')}</div>` : '';
+          })()}
+          ${b.social_impersonation_count > 0 ? `<span class="social-impersonation-alert">⚠ ${b.social_impersonation_count}</span>` : ''}
           <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${gradeBg};color:${gradeColor};padding:1px 5px;border-radius:3px;border:${gradeBorder};flex-shrink:0">${gradeTxt}</span>
         </div>
       </a>`;
@@ -2789,13 +2794,24 @@ async function viewBrandsHub(el) {
       const mGradeTxt = b.email_security_grade || '—';
       const mGradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
       const mGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
+      // Social indicators
+      const handles = b.official_handles ? (typeof b.official_handles === 'string' ? JSON.parse(b.official_handles) : b.official_handles) : {};
+      const platformColors = { twitter: '#1DA1F2', linkedin: '#0077B5', instagram: '#E4405F', tiktok: '#69C9D0', github: '#8b949e', youtube: '#FF0000' };
+      const platformDotsHtml = Object.keys(handles).length
+        ? `<div class="social-platform-dots">${Object.keys(handles).map(p => `<span class="social-platform-dot" style="background:${platformColors[p] || '#4a5a73'}" title="${p}: @${handles[p]}"></span>`).join('')}</div>`
+        : '';
+      const impAlertCount = b.social_impersonation_count || 0;
+      const impAlertHtml = impAlertCount > 0 ? `<span class="social-impersonation-alert">⚠ ${impAlertCount} impersonation alert${impAlertCount > 1 ? 's' : ''}</span>` : '';
+
       return `<a href="/brands/${b.brand_id || b.id}" class="monitored-row" data-status="${statusClass}" data-name="${(b.name || '').toLowerCase()}">
         <div class="monitored-icon" style="color:${color}">${initials}</div>
         <div class="monitored-info"><div class="monitored-name">${b.name}</div><div class="monitored-domain">${b.canonical_domain || ''}</div></div>
         <div class="monitored-sector">${b.sector || ''}</div>
+        ${platformDotsHtml}
         <div class="monitored-threats" style="color:${color}">${tc}</div>
         <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${mGradeBg};color:${mGradeColor};padding:1px 5px;border-radius:3px;border:${mGradeBorder}">${mGradeTxt}</span>
         <span class="status-badge ${statusClass}">${statusText}</span>
+        ${impAlertHtml}
         <div class="monitored-meta">Since ${b.monitored_since ? b.monitored_since.slice(0, 10) : ''}</div>
       </a>`;
     }).join('');
@@ -2931,7 +2947,18 @@ async function viewBrandsHub(el) {
          <div class="form-group" style="flex:1"><label class="form-label">Sector</label><select class="form-select" id="modal-sector"><option value="">Auto-detect</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Government</option><option>Social Media</option></select></div>
          <div class="form-group" style="flex:1"><label class="form-label">Reason</label><select class="form-select" id="modal-reason"><option>Prospect</option><option>Competitor</option><option>Client request</option><option>Threat research</option></select></div>
        </div>
-       <div class="form-group"><label class="form-label">Notes</label><input class="form-input" placeholder="Internal notes..." id="modal-notes"></div>`,
+       <div class="form-group"><label class="form-label">Notes</label><input class="form-input" placeholder="Internal notes..." id="modal-notes"></div>
+       <div class="social-handles-section">
+         <button type="button" class="social-handles-toggle" id="modal-handles-toggle" onclick="this.classList.toggle('expanded');document.getElementById('modal-handles-fields').classList.toggle('visible')">Social Handles (optional)</button>
+         <div class="social-handles-fields" id="modal-handles-fields">
+           <div class="social-handle-field"><label>Twitter</label><input class="form-input" placeholder="@handle" id="modal-handle-twitter"></div>
+           <div class="social-handle-field"><label>LinkedIn</label><input class="form-input" placeholder="company-slug" id="modal-handle-linkedin"></div>
+           <div class="social-handle-field"><label>Instagram</label><input class="form-input" placeholder="@handle" id="modal-handle-instagram"></div>
+           <div class="social-handle-field"><label>TikTok</label><input class="form-input" placeholder="@handle" id="modal-handle-tiktok"></div>
+           <div class="social-handle-field"><label>GitHub</label><input class="form-input" placeholder="org-name" id="modal-handle-github"></div>
+           <div class="social-handle-field"><label>YouTube</label><input class="form-input" placeholder="channel" id="modal-handle-youtube"></div>
+         </div>
+       </div>`,
       async (overlay) => {
         const domain = document.getElementById('modal-domain')?.value?.trim();
         if (!domain) {
@@ -2940,6 +2967,12 @@ async function viewBrandsHub(el) {
           return false; // prevent close
         }
         try {
+          // Collect social handles
+          const officialHandles = {};
+          ['twitter','linkedin','instagram','tiktok','github','youtube'].forEach(p => {
+            const v = document.getElementById('modal-handle-' + p)?.value?.trim()?.replace(/^@/, '');
+            if (v) officialHandles[p] = v;
+          });
           const monRes = await api('/brands/monitor', {
             method: 'POST',
             body: JSON.stringify({
@@ -2948,6 +2981,7 @@ async function viewBrandsHub(el) {
               sector: document.getElementById('modal-sector')?.value || null,
               reason: document.getElementById('modal-reason')?.value || null,
               notes: document.getElementById('modal-notes')?.value?.trim() || null,
+              official_handles: Object.keys(officialHandles).length ? officialHandles : undefined,
             })
           });
           const linked = monRes?.data?.threats_linked || 0;
@@ -3227,7 +3261,7 @@ const _brandThreatsPerPage = 15;
 async function viewBrandDetail(el, params) {
   el.innerHTML = 'Loading...';
   try {
-    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes, safeDomainsRes, emailSecRes] = await Promise.all([
+    const [brandRes, threatsRes, locationsRes, providersRes, campaignsRes, timelineRes, analysisRes, safeDomainsRes, emailSecRes, socialProfilesRes, socialConfigRes] = await Promise.all([
       api(`/brands/${params.id}`),
       api(`/brands/${params.id}/threats?status=active&limit=50`).catch(() => null),
       api(`/brands/${params.id}/threats/locations`).catch(() => null),
@@ -3237,6 +3271,8 @@ async function viewBrandDetail(el, params) {
       api(`/brands/${params.id}/analysis`).catch(() => null),
       api(`/brands/${params.id}/safe-domains`).catch(() => null),
       api(`/email-security/${params.id}`).catch(() => null),
+      api(`/brands/${params.id}/social-profiles`).catch(() => null),
+      api(`/brands/${params.id}/social-config`).catch(() => null),
     ]);
     const b = brandRes?.data;
     if (!b) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
@@ -3277,6 +3313,7 @@ async function viewBrandDetail(el, params) {
             <div class="header-stat"><div class="header-stat-val" style="color:${trendColor}">${(stats.trend_pct || 0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7-day trend</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.countries || locationsRes?.totalCountries || locations.length}</div><div class="header-stat-label">Countries</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.provider_count || providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
+            <div class="header-stat"><div class="header-stat-val" style="color:${b.social_risk_score != null ? (b.social_risk_score >= 70 ? 'var(--threat-critical)' : b.social_risk_score >= 40 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)'}">${b.social_risk_score != null ? b.social_risk_score + '/100' : '\u2014'}</div><div class="header-stat-label">${b.social_risk_score != null ? 'Social risk' : 'No social scan yet'}</div></div>
           </div>
         </div>
         ${trustRingHtml}
@@ -3317,6 +3354,7 @@ async function viewBrandDetail(el, params) {
           </div>
         </div>
       </div>
+      <div id="social-profiles-panel-wrap"></div>
       <div id="email-security-panel-wrap">
         ${renderEmailSecurityCard(emailSecRes?.data, params.id)}
       </div>
@@ -3465,6 +3503,257 @@ async function viewBrandDetail(el, params) {
     }
 
     renderSafeDomains();
+
+    // ─── Social Profiles panel rendering ─────────────────────
+    let socialProfiles = socialProfilesRes?.data || [];
+    const socialConfig = socialConfigRes?.data || {};
+    let _socialFilterTab = 'all';
+
+    function _platformIcon(platform) {
+      const icons = { twitter: '𝕏', linkedin: 'in', instagram: '📷', tiktok: '♪', github: '⌨', youtube: '▶' };
+      const colors = { twitter: '#000', linkedin: '#0077B5', instagram: '#E4405F', tiktok: '#000', github: '#333', youtube: '#FF0000' };
+      return `<span class="platform-icon ${platform || ''}" style="background:${colors[platform] || 'var(--bg-elevated)'};color:${platform === 'twitter' || platform === 'tiktok' ? '#fff' : (colors[platform] || 'var(--text-tertiary)')}">${icons[platform] || (platform || '?')[0].toUpperCase()}</span>`;
+    }
+
+    function _classificationBadge(cls) {
+      const labels = { official: 'Official ✓', legitimate: 'Legitimate', suspicious: 'Suspicious', impersonation: 'Impersonation', unknown: 'Unknown' };
+      return `<span class="social-classification-badge ${cls || 'unknown'}">${labels[cls] || cls || 'Unknown'}</span>`;
+    }
+
+    function _severityBadge(sev) {
+      if (!sev) return '';
+      return `<span class="social-severity-badge ${(sev || '').toLowerCase()}">${sev}</span>`;
+    }
+
+    function _impersonationScoreColor(score) {
+      if (score >= 80) return 'var(--threat-critical)';
+      if (score >= 60) return 'var(--threat-high)';
+      if (score >= 40) return 'var(--threat-medium)';
+      return 'var(--blue-primary)';
+    }
+
+    function _formatFollowers(n) {
+      if (!n) return '0';
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function _timeAgo(dateStr) {
+      if (!dateStr) return 'Never';
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return mins + ' min ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + ' hour' + (hrs > 1 ? 's' : '') + ' ago';
+      const days = Math.floor(hrs / 24);
+      return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+    }
+
+    function renderSocialProfileCard(p) {
+      const isSuspicious = p.classification === 'suspicious' || p.classification === 'impersonation';
+      const cardClass = p.classification === 'impersonation' ? 'impersonation' : p.classification === 'suspicious' ? 'suspicious' : '';
+      const avatarHtml = p.avatar_url
+        ? `<div class="social-avatar"><img src="${p.avatar_url}" alt="" onerror="this.parentElement.textContent='${(p.handle || '?')[0].toUpperCase()}'"></div>`
+        : `<div class="social-avatar" style="background:var(--bg-elevated)">${_platformIcon(p.platform)}</div>`;
+
+      let html = `<div class="social-profile-card ${cardClass}" data-profile-id="${p.id}" data-classification="${p.classification || 'unknown'}">
+        <div class="social-card-top">
+          ${avatarHtml}
+          <div class="social-card-info">
+            <div class="social-card-handle">${_platformIcon(p.platform)} @${p.handle || ''} on ${(p.platform || 'unknown').charAt(0).toUpperCase() + (p.platform || 'unknown').slice(1)}</div>
+            <div class="social-card-name">${p.display_name || ''}</div>
+            ${p.bio ? `<div class="social-card-bio">"${p.bio}"</div>` : ''}
+            <div class="social-card-meta">
+              <span>${_formatFollowers(p.follower_count)} followers</span>
+              ${p.is_verified ? '<span style="color:var(--positive)">Verified ✓</span>' : ''}
+              <span>Last checked: ${_timeAgo(p.last_checked)}</span>
+            </div>
+          </div>
+          ${_classificationBadge(p.classification)}
+        </div>`;
+
+      // AI assessment
+      if (p.ai_classification) {
+        const aiClass = p.ai_classification === 'safe' || p.ai_classification === 'official' || p.ai_classification === 'legitimate' ? '' : p.ai_classification === 'suspicious' ? 'suspicious' : 'impersonation';
+        html += `<div class="social-ai-badge ${aiClass}">AI: ${p.ai_classification.charAt(0).toUpperCase() + p.ai_classification.slice(1)} — ${p.ai_confidence ? Math.round(p.ai_confidence * 100) + '% confidence' : ''}</div>`;
+      }
+
+      // Suspicious / impersonation extras
+      if (isSuspicious) {
+        if (p.impersonation_score != null) {
+          html += `<div class="impersonation-score-bar"><div class="impersonation-score-fill" style="width:${p.impersonation_score}%;background:${_impersonationScoreColor(p.impersonation_score)}"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px">
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">Impersonation score</span>
+              <span style="font-family:var(--font-mono);font-size:9px;font-weight:600;color:${_impersonationScoreColor(p.impersonation_score)}">${p.impersonation_score}%</span>
+            </div>`;
+        }
+        if (p.severity) html += `<div style="margin-top:4px">${_severityBadge(p.severity)}</div>`;
+        if (p.impersonation_signals && p.impersonation_signals.length) {
+          const signals = typeof p.impersonation_signals === 'string' ? JSON.parse(p.impersonation_signals) : p.impersonation_signals;
+          html += `<ul class="social-signals-list">${signals.slice(0, 5).map(s => `<li>${s}</li>`).join('')}</ul>`;
+        }
+        if (p.ai_assessment) {
+          html += `<div style="font-size:10px;color:var(--text-secondary);margin-top:6px;font-style:italic">${p.ai_assessment}</div>`;
+        }
+      }
+
+      // Action buttons
+      html += '<div class="social-card-actions">';
+      if (p.classification !== 'official' && p.classification !== 'legitimate') {
+        html += `<button class="positive" onclick="window._socialClassify('${p.id}','legitimate','resolved')">Mark as Safe</button>`;
+      }
+      if (p.classification !== 'suspicious') {
+        html += `<button class="warning" onclick="window._socialClassify('${p.id}','suspicious',null)">Mark Suspicious</button>`;
+      }
+      if (isSuspicious) {
+        html += `<button class="negative" onclick="window._socialClassify('${p.id}','impersonation','active')">Confirm Impersonation</button>`;
+        html += `<button onclick="window._socialClassify('${p.id}','legitimate','false_positive')">False Positive</button>`;
+      }
+      if (p.profile_url) {
+        html += `<button onclick="window.open('${p.profile_url}','_blank')">View Profile ↗</button>`;
+      }
+      html += '</div></div>';
+      return html;
+    }
+
+    function renderSocialPanel() {
+      const wrap = document.getElementById('social-profiles-panel-wrap');
+      if (!wrap) return;
+
+      const filtered = _socialFilterTab === 'all' ? socialProfiles
+        : _socialFilterTab === 'official' ? socialProfiles.filter(p => p.classification === 'official')
+        : _socialFilterTab === 'suspicious' ? socialProfiles.filter(p => p.classification === 'suspicious' || p.classification === 'impersonation')
+        : socialProfiles.filter(p => p.classification === 'official' || p.classification === 'legitimate');
+
+      const suspiciousCount = socialProfiles.filter(p => p.classification === 'suspicious' || p.classification === 'impersonation').length;
+
+      let html = `<div class="panel panel-collapsible" id="social-profiles-panel" style="margin-bottom:16px">
+        <div class="phead">
+          <div class="social-panel-header">
+            <span>Social Profiles</span>
+            <span class="badge">${socialProfiles.length}</span>
+          </div>
+          <div class="social-panel-actions">
+            <button class="filter-pill" id="social-add-handle-btn" style="font-size:10px">+ Add Handle</button>
+            <button class="filter-pill" id="social-scan-btn" style="font-size:10px">🔍 Scan Now</button>
+          </div>
+        </div>
+        <div class="social-sub-tabs" id="social-profile-tabs">
+          <button class="social-sub-tab ${_socialFilterTab === 'all' ? 'active' : ''}" data-stab="all">All Profiles</button>
+          <button class="social-sub-tab ${_socialFilterTab === 'official' ? 'active' : ''}" data-stab="official">Official</button>
+          <button class="social-sub-tab ${_socialFilterTab === 'suspicious' ? 'active' : ''}" data-stab="suspicious">Suspicious${suspiciousCount ? ` <span class="badge" style="background:rgba(255,59,92,.12);color:var(--negative);margin-left:4px">${suspiciousCount}</span>` : ''}</button>
+          <button class="social-sub-tab ${_socialFilterTab === 'safe' ? 'active' : ''}" data-stab="safe">Safe</button>
+        </div>`;
+
+      if (!socialProfiles.length && !Object.keys(socialConfig.official_handles || {}).length) {
+        html += `<div class="social-empty-state"><div class="message">No social monitoring configured.<br>Add your brand's official handles to start detecting impersonation.</div><button class="filter-pill" id="social-empty-add-btn" style="font-size:11px;margin-top:8px">+ Add Handles</button></div>`;
+      } else if (!filtered.length) {
+        html += `<div class="social-empty-state"><div class="message">No profiles match this filter.</div></div>`;
+      } else {
+        html += `<div class="social-profiles-grid">${filtered.map(p => renderSocialProfileCard(p)).join('')}</div>`;
+      }
+
+      html += '</div>';
+      wrap.innerHTML = html;
+
+      // Wire sub-tab clicks
+      wrap.querySelectorAll('.social-sub-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          _socialFilterTab = tab.dataset.stab;
+          renderSocialPanel();
+        });
+      });
+
+      // Wire collapsible
+      const panel = document.getElementById('social-profiles-panel');
+      const phead = panel?.querySelector('.phead');
+      if (phead) {
+        phead.addEventListener('click', (e) => {
+          if (e.target.closest('.social-panel-actions') || e.target.closest('.filter-pill')) return;
+          panel.classList.toggle('collapsed');
+        });
+      }
+
+      // Wire Add Handle button
+      const addBtn = document.getElementById('social-add-handle-btn');
+      const emptyAddBtn = document.getElementById('social-empty-add-btn');
+      const openAddModal = () => {
+        showModal('Add Social Handle',
+          `<div class="modal-sub">Add an official social media handle for this brand.</div>
+           <div class="form-group"><label class="form-label">Platform</label><select class="form-select" id="social-modal-platform"><option value="twitter">Twitter / X</option><option value="linkedin">LinkedIn</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="github">GitHub</option><option value="youtube">YouTube</option></select></div>
+           <div class="form-group"><label class="form-label">Handle</label><input class="form-input" placeholder="@acmecorp" id="social-modal-handle"></div>
+           <div class="form-group" style="display:flex;align-items:center;gap:8px">
+             <input type="checkbox" id="social-modal-official" checked style="accent-color:var(--blue-primary)">
+             <label for="social-modal-official" style="font-size:12px;color:var(--text-secondary)">This is our official account</label>
+           </div>`,
+          async (overlay) => {
+            const platform = document.getElementById('social-modal-platform')?.value;
+            let handle = document.getElementById('social-modal-handle')?.value?.trim();
+            if (!handle) {
+              const inp = document.getElementById('social-modal-handle');
+              if (inp) inp.style.borderColor = 'var(--threat-critical)';
+              return false;
+            }
+            handle = handle.replace(/^@/, '');
+            try {
+              const handles = { ...(socialConfig.official_handles || {}) };
+              handles[platform] = handle;
+              await api(`/brands/${brandId}/social-config`, {
+                method: 'PATCH',
+                body: JSON.stringify({ official_handles: handles }),
+              });
+              socialConfig.official_handles = handles;
+              showToast(`Added @${handle} on ${platform}`, 'success');
+              // Refresh profiles
+              const refreshed = await api(`/brands/${brandId}/social-profiles`).catch(() => null);
+              socialProfiles = refreshed?.data || socialProfiles;
+              renderSocialPanel();
+            } catch (err) { showToast(err.message, 'error'); }
+          }
+        );
+      };
+      if (addBtn) addBtn.addEventListener('click', (e) => { e.stopPropagation(); openAddModal(); });
+      if (emptyAddBtn) emptyAddBtn.addEventListener('click', openAddModal);
+
+      // Wire Scan Now button
+      const scanBtn = document.getElementById('social-scan-btn');
+      if (scanBtn) {
+        scanBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          scanBtn.disabled = true;
+          scanBtn.textContent = '⏳ Scanning...';
+          try {
+            const res = await api(`/social/scan/${brandId}`, { method: 'POST' });
+            const count = res?.data?.results_count || res?.data?.profiles_found || 0;
+            showToast(`Scan complete — ${count} profiles found`, 'success');
+            const refreshed = await api(`/brands/${brandId}/social-profiles`).catch(() => null);
+            socialProfiles = refreshed?.data || socialProfiles;
+            renderSocialPanel();
+          } catch (err) { showToast(err.message || 'Scan failed', 'error'); }
+          scanBtn.disabled = false;
+          scanBtn.textContent = '🔍 Scan Now';
+        });
+      }
+    }
+
+    // Global classification action handler
+    window._socialClassify = async function(profileId, classification, status) {
+      try {
+        const body = { classification };
+        if (status) body.status = status;
+        await api(`/brands/${brandId}/social-profiles/${profileId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+        showToast(`Profile classified as ${classification}`, 'success');
+        const refreshed = await api(`/brands/${brandId}/social-profiles`).catch(() => null);
+        socialProfiles = refreshed?.data || socialProfiles;
+        renderSocialPanel();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    renderSocialPanel();
 
     // ─── CSV Upload Modal logic ─────────────────────────────
     let parsedDomains = [];
