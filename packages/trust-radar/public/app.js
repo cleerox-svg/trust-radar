@@ -3550,6 +3550,23 @@ async function viewBrandDetail(el, params) {
       return days + ' day' + (days > 1 ? 's' : '') + ' ago';
     }
 
+    function _aiConfidenceColor(confidence) {
+      if (confidence >= 0.9) return 'var(--threat-critical)';
+      if (confidence >= 0.7) return 'var(--threat-high)';
+      if (confidence >= 0.4) return 'var(--threat-medium)';
+      return 'var(--text-tertiary)';
+    }
+
+    function _aiActionLabel(action) {
+      const labels = { safe: 'SAFE', review: 'REVIEW', escalate: 'ESCALATE', takedown: 'TAKEDOWN' };
+      return labels[action] || action || '';
+    }
+
+    function _aiActionColor(action) {
+      const colors = { safe: 'var(--positive)', review: 'var(--threat-medium)', escalate: 'var(--threat-high)', takedown: 'var(--threat-critical)' };
+      return colors[action] || 'var(--text-tertiary)';
+    }
+
     function renderSocialProfileCard(p) {
       const isSuspicious = p.classification === 'suspicious' || p.classification === 'impersonation';
       const cardClass = p.classification === 'impersonation' ? 'impersonation' : p.classification === 'suspicious' ? 'suspicious' : '';
@@ -3566,21 +3583,49 @@ async function viewBrandDetail(el, params) {
             ${p.bio ? `<div class="social-card-bio">"${p.bio}"</div>` : ''}
             <div class="social-card-meta">
               <span>${_formatFollowers(p.follower_count)} followers</span>
-              ${p.is_verified ? '<span style="color:var(--positive)">Verified ✓</span>' : ''}
+              ${p.is_verified ? '<span style="color:var(--positive)">Verified ✓</span>' : '<span style="color:var(--text-tertiary)">Not Verified</span>'}
               <span>Last checked: ${_timeAgo(p.last_checked)}</span>
             </div>
           </div>
           ${_classificationBadge(p.classification)}
         </div>`;
 
-      // AI assessment
-      if (p.ai_classification) {
-        const aiClass = p.ai_classification === 'safe' || p.ai_classification === 'official' || p.ai_classification === 'legitimate' ? '' : p.ai_classification === 'suspicious' ? 'suspicious' : 'impersonation';
-        html += `<div class="social-ai-badge ${aiClass}">AI: ${p.ai_classification.charAt(0).toUpperCase() + p.ai_classification.slice(1)} — ${p.ai_confidence ? Math.round(p.ai_confidence * 100) + '% confidence' : ''}</div>`;
+      // AI Assessment panel (enhanced)
+      if (p.ai_assessment || p.ai_confidence != null) {
+        const conf = p.ai_confidence != null ? p.ai_confidence : 0;
+        const confPct = Math.round(conf * 100);
+        const confColor = _aiConfidenceColor(conf);
+        const aiAction = p.ai_action || '';
+        const classification = p.classification || 'unknown';
+
+        html += `<div class="social-ai-panel" style="margin-top:8px;border:1px solid color-mix(in srgb, ${confColor} 30%, transparent);border-radius:6px;padding:10px;background:color-mix(in srgb, ${confColor} 4%, transparent)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:600;color:${confColor}">AI Assessment (${confPct}% confidence)</span>
+            <span style="font-size:9px;font-family:var(--font-mono);padding:2px 6px;border-radius:3px;background:color-mix(in srgb, ${_aiActionColor(aiAction)} 12%, transparent);color:${_aiActionColor(aiAction)};font-weight:600">${classification.toUpperCase()} → ${_aiActionLabel(aiAction)}</span>
+          </div>`;
+
+        if (p.ai_assessment) {
+          html += `<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:6px">${p.ai_assessment}</div>`;
+        }
+
+        // Parse and show signals
+        let signals = [];
+        try {
+          signals = p.impersonation_signals
+            ? (typeof p.impersonation_signals === 'string' ? JSON.parse(p.impersonation_signals) : p.impersonation_signals)
+            : [];
+        } catch { signals = []; }
+
+        if (signals.length > 0) {
+          html += `<div style="margin-top:6px"><div style="font-size:10px;font-weight:600;color:var(--text-tertiary);margin-bottom:3px">Signals:</div>
+            <ul style="margin:0;padding-left:16px;font-size:10px;color:var(--text-secondary);line-height:1.6">${signals.slice(0, 8).map(s => `<li>${s}</li>`).join('')}</ul></div>`;
+        }
+
+        html += `</div>`;
       }
 
-      // Suspicious / impersonation extras
-      if (isSuspicious) {
+      // Impersonation score bar (for suspicious/impersonation without AI)
+      if (isSuspicious && !p.ai_assessment) {
         if (p.impersonation_score != null) {
           html += `<div class="impersonation-score-bar"><div class="impersonation-score-fill" style="width:${p.impersonation_score}%;background:${_impersonationScoreColor(p.impersonation_score)}"></div></div>
             <div style="display:flex;justify-content:space-between;margin-top:2px">
@@ -3590,25 +3635,32 @@ async function viewBrandDetail(el, params) {
         }
         if (p.severity) html += `<div style="margin-top:4px">${_severityBadge(p.severity)}</div>`;
         if (p.impersonation_signals && p.impersonation_signals.length) {
-          const signals = typeof p.impersonation_signals === 'string' ? JSON.parse(p.impersonation_signals) : p.impersonation_signals;
-          html += `<ul class="social-signals-list">${signals.slice(0, 5).map(s => `<li>${s}</li>`).join('')}</ul>`;
+          const sigs = typeof p.impersonation_signals === 'string' ? JSON.parse(p.impersonation_signals) : p.impersonation_signals;
+          html += `<ul class="social-signals-list">${sigs.slice(0, 5).map(s => `<li>${s}</li>`).join('')}</ul>`;
         }
-        if (p.ai_assessment) {
-          html += `<div style="font-size:10px;color:var(--text-secondary);margin-top:6px;font-style:italic">${p.ai_assessment}</div>`;
-        }
+      }
+
+      // Severity badge (shown for AI-assessed profiles too)
+      if (p.severity && (p.ai_assessment || isSuspicious)) {
+        if (p.ai_assessment) html += `<div style="margin-top:4px">${_severityBadge(p.severity)}</div>`;
       }
 
       // Action buttons
       html += '<div class="social-card-actions">';
       if (p.classification !== 'official' && p.classification !== 'legitimate') {
-        html += `<button class="positive" onclick="window._socialClassify('${p.id}','legitimate','resolved')">Mark as Safe</button>`;
-      }
-      if (p.classification !== 'suspicious') {
-        html += `<button class="warning" onclick="window._socialClassify('${p.id}','suspicious',null)">Mark Suspicious</button>`;
+        html += `<button class="positive" onclick="window._socialClassify('${p.id}','legitimate','resolved')">Confirm Safe</button>`;
       }
       if (isSuspicious) {
         html += `<button class="negative" onclick="window._socialClassify('${p.id}','impersonation','active')">Confirm Impersonation</button>`;
         html += `<button onclick="window._socialClassify('${p.id}','legitimate','false_positive')">False Positive</button>`;
+      } else if (p.classification !== 'suspicious') {
+        html += `<button class="warning" onclick="window._socialClassify('${p.id}','suspicious',null)">Mark Suspicious</button>`;
+      }
+      // Re-Assess button
+      html += `<button class="social-reassess-btn" data-profile-id="${p.id}" onclick="window._socialReassess('${p.id}', this)">Re-Assess</button>`;
+      // Copy Takedown Evidence button (only if ai_evidence_draft exists)
+      if (p.ai_evidence_draft) {
+        html += `<button onclick="window._copyTakedownEvidence(this, '${p.id}')">Copy Takedown Evidence</button>`;
       }
       if (p.profile_url) {
         html += `<button onclick="window.open('${p.profile_url}','_blank')">View Profile ↗</button>`;
@@ -3777,6 +3829,48 @@ async function viewBrandDetail(el, params) {
         socialProfiles = refreshed?.data || socialProfiles;
         renderSocialPanel();
       } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    // AI Re-Assessment handler
+    window._socialReassess = async function(profileId, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Assessing...'; }
+      try {
+        const res = await api(`/brands/${brandId}/social-profiles/${profileId}/assess`, { method: 'POST' });
+        const assessment = res?.data?.assessment;
+        if (assessment) {
+          showToast(`AI Assessment: ${assessment.classification} (${Math.round(assessment.confidence * 100)}% confidence)`, 'success');
+        } else {
+          showToast('AI assessment completed', 'success');
+        }
+        const refreshed = await api(`/brands/${brandId}/social-profiles`).catch(() => null);
+        socialProfiles = refreshed?.data || socialProfiles;
+        renderSocialPanel();
+      } catch (err) { showToast(err.message || 'AI assessment failed', 'error'); }
+      if (btn) { btn.disabled = false; btn.textContent = 'Re-Assess'; }
+    };
+
+    // Copy Takedown Evidence handler
+    window._copyTakedownEvidence = async function(btn, profileId) {
+      const profile = socialProfiles.find(p => p.id === profileId);
+      if (!profile || !profile.ai_evidence_draft) {
+        showToast('No takedown evidence available', 'error');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(profile.ai_evidence_draft);
+        showToast('Takedown evidence copied to clipboard', 'success');
+      } catch {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = profile.ai_evidence_draft;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Takedown evidence copied to clipboard', 'success');
+      }
     };
 
     renderSocialPanel();
