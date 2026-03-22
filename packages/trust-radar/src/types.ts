@@ -143,6 +143,8 @@ export interface JWTPayload {
   sub: string;        // user ID
   email: string;
   role: UserRole;
+  org_id?: string;    // organization ID (null for superadmin/internal users)
+  org_role?: string;  // role within the org (owner, admin, analyst, viewer)
   plan?: UserPlan;    // v1 compat — remove when v1 auth handlers are replaced
   iat: number;
   exp: number;
