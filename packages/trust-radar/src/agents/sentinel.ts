@@ -252,6 +252,112 @@ export const sentinelAgent: AgentModule = {
   },
 };
 
+// ─── Social Assessment ───────────────────────────────────────
+
+export interface SocialAssessmentResult {
+  processed: number;
+  assessed: number;
+  escalated: number;
+  tokensUsed: number;
+}
+
+/**
+ * AI-enrich open social monitoring results that lack an ai_assessment.
+ * Called by the cron orchestrator alongside the social monitor batch.
+ * Uses Haiku to evaluate whether a suspicious account is a genuine impersonation threat.
+ */
+export async function runSentinelSocialAssessment(
+  env: import("../types").Env,
+): Promise<SocialAssessmentResult> {
+  const { callHaikuRaw } = await import("../lib/haiku");
+
+  // Fetch open social monitor results missing AI assessment (batch of 20)
+  const rows = await env.DB.prepare(`
+    SELECT smr.id, smr.brand_id, smr.platform, smr.handle_checked,
+           smr.suspicious_account_url, smr.suspicious_account_name,
+           smr.impersonation_score, smr.impersonation_signals, smr.severity,
+           bp.brand_name, bp.domain
+    FROM social_monitor_results smr
+    JOIN brand_profiles bp ON bp.id = smr.brand_id
+    WHERE smr.status = 'open'
+      AND smr.ai_assessment IS NULL
+      AND smr.impersonation_score >= 0.3
+    ORDER BY smr.impersonation_score DESC
+    LIMIT 20
+  `).all<{
+    id: string; brand_id: string; platform: string; handle_checked: string;
+    suspicious_account_url: string | null; suspicious_account_name: string | null;
+    impersonation_score: number; impersonation_signals: string; severity: string;
+    brand_name: string; domain: string;
+  }>();
+
+  let assessed = 0;
+  let escalated = 0;
+  let tokensUsed = 0;
+
+  for (const row of rows.results) {
+    let signals: string[] = [];
+    try { signals = JSON.parse(row.impersonation_signals || "[]"); } catch { /* ignore */ }
+
+    const result = await callHaikuRaw(
+      env,
+      "You are a brand protection analyst. Assess whether a social media account is impersonating a brand. Reply ONLY with valid JSON, no markdown.",
+      `Brand: "${row.brand_name}" (${row.domain})
+Platform: ${row.platform}
+Suspicious handle: @${row.handle_checked}
+Account name: ${row.suspicious_account_name ?? "unknown"}
+Profile URL: ${row.suspicious_account_url ?? "N/A"}
+Current impersonation score: ${(row.impersonation_score * 100).toFixed(0)}%
+Signals: ${signals.join("; ")}
+
+Evaluate this account. Reply JSON: {"assessment": "likely_impersonation"|"possible_impersonation"|"likely_legitimate"|"inconclusive", "confidence": 0-100, "reasoning": "...", "recommended_severity": "LOW"|"MEDIUM"|"HIGH"|"CRITICAL", "action": "escalate"|"monitor"|"dismiss"}`
+    );
+
+    if (!result.success || !result.text) continue;
+    if (result.tokens_used) tokensUsed += result.tokens_used;
+
+    try {
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) continue;
+
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        assessment: string; confidence: number; reasoning: string;
+        recommended_severity: string; action: string;
+      };
+
+      // Store AI assessment
+      await env.DB.prepare(
+        `UPDATE social_monitor_results SET ai_assessment = ? WHERE id = ?`
+      ).bind(JSON.stringify(parsed), row.id).run();
+      assessed++;
+
+      // Escalate severity if AI recommends it
+      const severityRank: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+      const currentRank = severityRank[row.severity] ?? 1;
+      const recommendedRank = severityRank[parsed.recommended_severity] ?? 1;
+
+      if (recommendedRank > currentRank) {
+        await env.DB.prepare(
+          `UPDATE social_monitor_results SET severity = ? WHERE id = ?`
+        ).bind(parsed.recommended_severity, row.id).run();
+        escalated++;
+      }
+
+      // Auto-dismiss if AI says dismiss with high confidence
+      if (parsed.action === "dismiss" && parsed.confidence >= 80) {
+        await env.DB.prepare(
+          `UPDATE social_monitor_results SET status = 'false_positive' WHERE id = ?`
+        ).bind(row.id).run();
+      }
+    } catch {
+      // JSON parse failure — skip
+    }
+  }
+
+  console.log(`[sentinel-social] assessed=${assessed}, escalated=${escalated}, tokens=${tokensUsed}`);
+  return { processed: rows.results.length, assessed, escalated, tokensUsed };
+}
+
 function ruleBasedClassify(
   sourceFeed: string,
   threatType: string,
