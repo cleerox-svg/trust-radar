@@ -253,7 +253,7 @@ export function renderChangelogPage(): string {
             <span class="changelog-badge changelog-badge-improvement">Improvement</span>
           </div>
           <h3 class="timeline-title">DKIM Selector Expansion</h3>
-          <p class="timeline-desc">Added 12+ enterprise email selectors including Proofpoint, Mimecast, and Barracuda.</p>
+          <p class="timeline-desc">Added 12+ enterprise email selectors across major enterprise email security providers.</p>
         </div>
       </div>
 

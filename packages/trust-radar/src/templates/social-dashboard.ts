@@ -9,7 +9,7 @@ export function renderSocialDashboard(): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Social Monitoring — Trust Radar</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg-primary: #fafbfc; --bg-secondary: #ffffff; --bg-tertiary: #f1f5f9;
@@ -26,7 +26,7 @@ export function renderSocialDashboard(): string {
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
-h1, h2, h3 { font-family: 'Syne', sans-serif; }
+h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
 
 /* Layout */

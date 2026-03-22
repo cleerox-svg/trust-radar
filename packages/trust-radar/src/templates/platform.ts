@@ -75,8 +75,9 @@ export function renderPlatformPage(): string {
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
 @media (max-width: 768px) {
-  .cap-row, .cap-row.reversed { grid-template-columns: 1fr; direction: ltr; }
+  .cap-row, .cap-row.reversed { grid-template-columns: 1fr; gap: 2rem; direction: ltr; }
   .social-grid { grid-template-columns: repeat(2, 1fr); }
+  .feed-grid { grid-template-columns: 1fr; }
   .int-grid { grid-template-columns: repeat(2, 1fr); }
   .arch-flow { flex-direction: column; }
 }

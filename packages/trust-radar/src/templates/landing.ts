@@ -10,20 +10,20 @@ export function renderLandingPage(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trust Radar — AI-Powered Brand Threat Intelligence | LRX Enterprise</title>
-<meta name="description" content="Trust Radar continuously monitors for brand impersonation, phishing, email vulnerabilities, and social media abuse. AI-powered threat intelligence by LRX Enterprise Inc.">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Trust Radar — AI-Powered Brand Threat Intelligence | LRX Enterprises</title>
+<meta name="description" content="Trust Radar continuously monitors for brand impersonation, phishing, email vulnerabilities, and social media abuse. AI-powered threat intelligence by LRX Enterprises Inc.">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
    TRUST RADAR — CORPORATE SITE
-   LRX Enterprise Inc.
+   LRX Enterprises Inc.
    ═══════════════════════════════════════════════════════════ */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* ── THEME TOKENS ── */
 :root {
-  --font-display: 'Syne', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
@@ -1448,16 +1448,81 @@ section {
 }
 
 @media (max-width: 768px) {
-  section { padding: 4.5rem 0; }
+  section { padding: 4rem 0; }
+  .hero-inner { text-align: center; }
+  .hero-content { max-width: 100%; }
+  .hero-illustration { display: none; }
+  .hero-desc { margin-left: auto; margin-right: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-meta { flex-direction: column; gap: 1rem; justify-content: center; align-items: center; }
+  .hero h1 { font-size: clamp(2rem, 6vw, 2.75rem); }
   .platform-grid { grid-template-columns: 1fr; }
+  .feature-row { grid-template-columns: 1fr; gap: 2rem; }
+  .feature-row.reversed { direction: ltr; }
   .pricing-grid { grid-template-columns: 1fr; max-width: 420px; }
-  .nav-links { display: none; }
+  .about-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none !important; }
   .hero { padding: 7rem 0 4rem; }
-  .hero-meta { flex-direction: column; gap: 1rem; }
   .social-grid { grid-template-columns: repeat(2, 1fr); }
   .scan-cards { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
+  .company-facts { grid-template-columns: 1fr 1fr; }
+  .trust-bar-feeds { gap: 1.5rem; }
+}
+
+@media (max-width: 480px) {
   .company-facts { grid-template-columns: 1fr; }
+  .hero-meta { flex-direction: column; gap: 1rem; align-items: center; }
+}
+
+/* ── MOBILE MENU ── */
+.nav-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.nav-hamburger:hover { border-color: var(--accent); color: var(--accent); }
+
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  z-index: 999;
+  flex-direction: column;
+  gap: 0.25rem;
+  box-shadow: var(--shadow-lg);
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu a {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.mobile-menu a:hover { background: var(--accent-bg); color: var(--accent); }
+
+@media (max-width: 768px) {
+  .nav-hamburger { display: flex; }
+  .nav-links { display: none !important; }
+  .nav-right .btn { display: none; }
+  .nav-right .theme-toggle { order: 2; }
+  .nav-right .nav-hamburger { order: 1; }
 }
 </style>
 </head>
@@ -1477,7 +1542,7 @@ section {
       </svg>
       <div>
         <span class="nav-brand-text">Trust Radar</span>
-        <span class="nav-brand-sub">by LRX Enterprise</span>
+        <span class="nav-brand-sub">by LRX Enterprises</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -1489,6 +1554,9 @@ section {
       <li><a href="/contact">Contact</a></li>
     </ul>
     <div class="nav-right">
+      <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
         <span id="theme-icon">☀</span>
       </button>
@@ -1497,6 +1565,16 @@ section {
     </div>
   </div>
 </nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="/platform">Platform</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/about">About</a>
+  <a href="/security">Security</a>
+  <a href="/blog">Blog</a>
+  <a href="/contact">Contact</a>
+  <a href="/login">Login</a>
+  <a href="/scan">Free Scan</a>
+</div>
 
 <!-- ═══ HERO ═══ -->
 <section class="hero">
@@ -1615,7 +1693,7 @@ section {
     <div class="trust-bar-inner">
       <div class="trust-bar-label">Integrated Threat Intelligence Feeds</div>
       <div class="trust-bar-feeds">
-        <span class="feed-badge"><span class="feed-dot"></span> PhishTank</span>
+        <span class="feed-badge"><span class="feed-dot"></span> Phishing Database</span>
         <span class="feed-badge"><span class="feed-dot"></span> URLhaus</span>
         <span class="feed-badge"><span class="feed-dot"></span> OpenPhish</span>
         <span class="feed-badge"><span class="feed-dot"></span> Certificate Transparency</span>
@@ -1643,7 +1721,7 @@ section {
         <h3>Threat Detection</h3>
         <p>Continuous scanning across phishing databases, malware feeds, and certificate transparency logs. AI agents correlate signals into attack narratives — not just IOC lists.</p>
         <div class="pc-tags">
-          <span class="pc-tag">PhishTank</span>
+          <span class="pc-tag">Phishing Feeds</span>
           <span class="pc-tag">URLhaus</span>
           <span class="pc-tag">OpenPhish</span>
           <span class="pc-tag">CT Logs</span>
@@ -1696,7 +1774,7 @@ section {
       <div class="feature-text">
         <div class="feature-label feature-label-teal">Email Security Posture Engine</div>
         <h3>Your email config is your front door.</h3>
-        <p>Most brand impersonation starts with email. Trust Radar performs enterprise-grade outside-in analysis of your SPF, DKIM, and DMARC deployment — the controls that determine whether attackers can spoof your domain. We check multiple DKIM selectors across enterprise providers (Proofpoint, Mimecast, Google, Microsoft) and grade your posture from A+ to F.</p>
+        <p>Most brand impersonation starts with email. Trust Radar performs enterprise-grade outside-in analysis of your SPF, DKIM, and DMARC deployment — the controls that determine whether attackers can spoof your domain. We check multiple DKIM selectors across enterprise email security providers and grade your posture from A+ to F.</p>
         <ul class="feature-list">
           <li><span class="feature-list-icon fli-teal">✓</span> Multi-selector DKIM verification across 12+ enterprise selectors</li>
           <li><span class="feature-list-icon fli-teal">✓</span> MX provider detection with provider-aware scoring</li>
@@ -1789,11 +1867,11 @@ section {
         </div>
         <div class="narrative-block" style="margin-top:0;border-left-color:var(--red);">
           <div class="narrative-agent" style="color:var(--red)">Analyst Agent — Correlated Threat</div>
-          <div class="narrative-text">Three domains registered within 48 hours share hosting infrastructure with a known PhishTank entry targeting your brand. Two domains have MX records, suggesting email capability. Combined with your DKIM gap (2 of 5 selectors), spoofed emails from these domains have elevated deliverability risk.</div>
+          <div class="narrative-text">Three domains registered within 48 hours share hosting infrastructure with a known phishing database entry targeting your brand. Two domains have MX records, suggesting email capability. Combined with your DKIM gap (2 of 5 selectors), spoofed emails from these domains have elevated deliverability risk.</div>
         </div>
         <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:0.4rem;">
           <span style="font-family:var(--font-mono);font-size:0.65rem;padding:0.2rem 0.6rem;border-radius:100px;background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.15);">3 LOOKALIKE DOMAINS</span>
-          <span style="font-family:var(--font-mono);font-size:0.65rem;padding:0.2rem 0.6rem;border-radius:100px;background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.15);">PHISHTANK MATCH</span>
+          <span style="font-family:var(--font-mono);font-size:0.65rem;padding:0.2rem 0.6rem;border-radius:100px;background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.15);">PHISHING DB MATCH</span>
           <span style="font-family:var(--font-mono);font-size:0.65rem;padding:0.2rem 0.6rem;border-radius:100px;background:var(--coral-bg);color:var(--coral);border:1px solid rgba(249,115,22,0.15);">DKIM GAP</span>
           <span style="font-family:var(--font-mono);font-size:0.65rem;padding:0.2rem 0.6rem;border-radius:100px;background:var(--accent-bg);color:var(--accent);border:1px solid rgba(8,145,178,0.15);">MX ACTIVE</span>
         </div>
@@ -1845,7 +1923,7 @@ section {
             </div>
             <ul class="sc-items">
               <li><span class="sci-icon sci-fail">✕</span> 3 lookalike domains active</li>
-              <li><span class="sci-icon sci-fail">✕</span> 1 PhishTank match</li>
+              <li><span class="sci-icon sci-fail">✕</span> 1 phishing database match</li>
               <li><span class="sci-icon sci-pass">✓</span> URLhaus clean</li>
             </ul>
           </div>
@@ -1883,9 +1961,9 @@ section {
     <div class="about-grid">
       <div>
         <div class="section-label">About</div>
-        <div class="section-title">Built by LRX Enterprise Inc.</div>
+        <div class="section-title">Built by LRX Enterprises Inc.</div>
         <div class="about-text">
-          <p>LRX Enterprise Inc. is a Canadian cybersecurity company focused on making brand threat intelligence accessible to organizations that operate without dedicated security teams. Founded on the principle that every company with a brand worth protecting deserves visibility into how attackers see them — not just enterprises with six-figure security budgets.</p>
+          <p>LRX Enterprises Inc. is a Canadian cybersecurity company focused on making brand threat intelligence accessible to organizations that operate without dedicated security teams. Founded on the principle that every company with a brand worth protecting deserves visibility into how attackers see them — not just enterprises with six-figure security budgets.</p>
 
           <h3>Why We Built Trust Radar</h3>
           <p>The brand protection market is dominated by platforms built for Fortune 500 security operations centers — priced accordingly, with six-figure annual contracts and analyst teams as prerequisites. Meanwhile, mid-market companies, fast-growing startups, and lean organizations face the same threats with none of the tooling. Trust Radar closes that gap with AI agents that replace the human analysts those companies can't afford.</p>
@@ -1894,7 +1972,7 @@ section {
           <p>Trust Radar operates entirely outside-in. We don't require agents on your network, access to your email systems, or integrations with your infrastructure. We look at your brand the way an attacker would — scanning the open internet, DNS records, social platforms, and threat intelligence feeds — and report what we find. Our AI agents correlate those findings into actionable intelligence with specific recommendations, not just alert counts.</p>
 
           <h3>Infrastructure Philosophy</h3>
-          <p>Trust Radar is built on Cloudflare's edge computing platform, with AI agents powered by Anthropic's Claude. This architecture delivers enterprise-grade threat intelligence at a fraction of traditional platform costs, with the performance advantages of edge-native computing — zero cold starts, global distribution, and sub-second response times.</p>
+          <p>Trust Radar is built on edge computing infrastructure, with AI agents powered by an advanced AI engine. This architecture delivers enterprise-grade threat intelligence at a fraction of traditional platform costs, with the performance advantages of edge-native computing — zero cold starts, global distribution, and sub-second response times.</p>
         </div>
       </div>
       <div>
@@ -1930,7 +2008,7 @@ section {
             </div>
             <div style="display:flex;align-items:center;gap:0.75rem">
               <span style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--accent);width:90px">AI Agents</span>
-              <span style="font-size:0.85rem;color:var(--text-secondary)">Anthropic Claude (Analyst + Observer)</span>
+              <span style="font-size:0.85rem;color:var(--text-secondary)">Advanced AI Engine (Analyst + Observer)</span>
             </div>
             <div style="display:flex;align-items:center;gap:0.75rem">
               <span style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--accent);width:90px">DNS Intel</span>
@@ -2059,8 +2137,8 @@ section {
             <span class="nav-brand-text" style="font-size:1rem">Trust Radar</span>
           </div>
         </a>
-        <p>AI-powered brand threat intelligence platform by LRX Enterprise Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
-        <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">LRX Enterprise Inc.<br>Canada</p>
+        <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
+        <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">LRX Enterprises Inc.<br>Canada</p>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Platform</div>
@@ -2077,9 +2155,7 @@ section {
         <ul>
           <li><a href="/about">About</a></li>
           <li><a href="/blog">Blog</a></li>
-          <li><a href="/contact">Careers</a></li>
           <li><a href="/contact">Contact</a></li>
-          <li><a href="/blog">Press</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -2103,12 +2179,7 @@ section {
       </div>
     </div>
     <div class="footer-bottom">
-      <span class="footer-legal">© 2026 LRX Enterprise Inc. All rights reserved.</span>
-      <div class="footer-badges">
-        <span class="footer-badge-item"><span class="fb-dot" style="background:#f6821f"></span> Cloudflare</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--accent)"></span> Anthropic</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--green)"></span> SOC 2 (Planned)</span>
-      </div>
+      <span class="footer-legal">© 2026 LRX Enterprises Inc. All rights reserved.</span>
     </div>
   </div>
 </footer>
@@ -2157,6 +2228,12 @@ document.querySelectorAll('.platform-card, .feature-row, .price-card, .fact-card
   el.style.transition = 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border 0.3s, box-shadow 0.3s';
   observer.observe(el);
 });
+
+// Mobile menu
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  if (menu) menu.classList.toggle('open');
+}
 </script>
 
 </body>

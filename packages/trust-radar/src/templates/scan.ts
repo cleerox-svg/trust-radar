@@ -14,12 +14,12 @@ export function renderScanPage(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Free Brand Exposure Scan — Trust Radar</title>
 <meta name="description" content="Scan any domain for email security vulnerabilities, lookalike domains, threat feed mentions, and social media impersonation risks. Free Brand Exposure Report by Trust Radar.">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --font-display: 'Syne', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --accent: #0891b2;
@@ -649,7 +649,7 @@ body {
 
   <!-- Footer -->
   <div class="footer">
-    <p>Powered by <a href="/">Trust Radar</a> by LRX Enterprise Inc.</p>
+    <p>Powered by <a href="/">Trust Radar</a> by LRX Enterprises Inc.</p>
     <p style="margin-top: 0.3rem;">Scans are cached for 24 hours. Data sourced from DNS records, threat intelligence feeds, and public profiles.</p>
   </div>
 
@@ -862,7 +862,7 @@ function renderReport(data, cached) {
           <div class="feed-count \${data.threat_feeds.total_hits > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.total_hits}</div>
         </div>
         <div class="feed-item">
-          <div class="feed-name">PhishTank</div>
+          <div class="feed-name">Phishing DB</div>
           <div class="feed-count \${data.threat_feeds.phishtank > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.phishtank}</div>
         </div>
         <div class="feed-item">
