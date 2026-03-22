@@ -120,6 +120,7 @@ const routes = [
   { path: '/brands',               view: viewBrandsHub,       auth: true },
   { path: '/brands/:id',           view: viewBrandDetail,     auth: true },
   { path: '/report/:id',           view: viewBrandReport,     auth: true },
+  { path: '/social',               view: viewSocialMonitor,   auth: true },
   { path: '/providers',            view: viewProvidersHub,    auth: true },
   { path: '/providers/:id',        view: viewProviderDetail,  auth: true },
   { path: '/campaigns',            view: viewCampaignsHub,    auth: true },
@@ -593,6 +594,7 @@ function renderTopbar() {
   const navItems = [
     { href: '/observatory', label: 'Observatory' },
     { href: '/brands', label: 'Brands' },
+    { href: '/social', label: 'Social' },
     { href: '/providers', label: 'Providers' },
     { href: '/campaigns', label: 'Campaigns' },
     { href: '/trends', label: 'Trends' },
@@ -3850,6 +3852,290 @@ function _renderProvCard(p, i, isImproving) {
       <span class="resp-time">${respHrs != null ? respHrs + 'h resp' : 'No data'}</span>
     </div>
   </a>`;
+}
+
+// ─── Social Brand Monitor ──────────────────────────────────────
+let _socialSubTab = 'brands';
+
+function _renderPlatformStatusPills(brand) {
+  let handles = {};
+  try { handles = JSON.parse(brand.official_handles || '{}'); } catch {}
+  const platforms = ['twitter','instagram','linkedin','tiktok','youtube','github'];
+  const icons = { twitter: '𝕏', instagram: '◉', linkedin: 'in', tiktok: '♪', youtube: '▶', github: '⌥' };
+  return platforms.map(p => {
+    const hasHandle = !!handles[p];
+    const color = hasHandle ? 'var(--positive)' : 'rgba(122,139,168,0.4)';
+    const bg = hasHandle ? 'rgba(0,229,160,0.08)' : 'rgba(122,139,168,0.06)';
+    const border = hasHandle ? 'rgba(0,229,160,0.25)' : 'rgba(122,139,168,0.15)';
+    return `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;background:${bg};border:1px solid ${border};color:${color}">${icons[p] || p}</span>`;
+  }).join('');
+}
+
+window.dismissSocialAlert = async function(resultId, e) {
+  e.stopPropagation();
+  try {
+    await api(`/social/results/${resultId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'false_positive' })
+    });
+    showToast('Alert dismissed', 'success');
+    if (typeof _loadSocialAlerts === 'function') _loadSocialAlerts();
+  } catch (err) {
+    showToast(err.message || 'Failed to dismiss', 'error');
+  }
+};
+
+window.triggerSocialScan = async function(brandId, brandName, e) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  btn.textContent = '↻';
+  btn.disabled = true;
+  try {
+    const res = await api(`/social/scan/${brandId}`, { method: 'POST' });
+    const count = res?.data?.results_count || 0;
+    showToast(`Scan complete — ${count} results for ${brandName}`, 'success');
+    if (typeof _loadSocialBrands === 'function') _loadSocialBrands();
+  } catch (err) {
+    showToast(err.message || 'Scan failed', 'error');
+    btn.textContent = '↻ Scan';
+    btn.disabled = false;
+  }
+};
+
+let _loadSocialBrands = null;
+let _loadSocialAlerts = null;
+
+async function viewSocialMonitor(el) {
+  el.innerHTML = `
+    <div style="padding:20px 24px 0">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px;letter-spacing:1px">
+        SOCIAL BRAND MONITOR
+      </div>
+    </div>
+    <div class="agg-stats" id="social-agg"></div>
+    <div class="sub-tabs" id="social-tabs">
+      <button class="sub-tab active" data-tab="brands">Brand Coverage<span class="tab-count" id="tc-social-brands">--</span></button>
+      <button class="sub-tab" data-tab="alerts">Active Alerts<span class="tab-count" id="tc-social-alerts">--</span></button>
+      <button class="sub-tab" data-tab="add">+ Add Brand</button>
+    </div>
+    <div style="padding:20px 24px" id="social-content">Loading...</div>`;
+
+  scrollActiveTabIntoView('#social-tabs');
+
+  // ── Aggregate stats ──
+  (async function loadSocialAgg() {
+    const [overviewRes, alertsRes] = await Promise.all([
+      api('/social/monitor?limit=100').catch(() => null),
+      api('/social/alerts?limit=100').catch(() => null),
+    ]);
+    const brands = overviewRes?.data || [];
+    const alerts = alertsRes?.data || [];
+    const critCount = alerts.filter(a => a.severity === 'CRITICAL').length;
+    const highCount = alerts.filter(a => a.severity === 'HIGH').length;
+    const atRisk = brands.filter(b =>
+      (b.monitoring?.open_critical || 0) > 0 || (b.monitoring?.open_high || 0) > 0
+    ).length;
+    const aggEl = document.getElementById('social-agg');
+    if (aggEl) aggEl.innerHTML = `
+      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${brands.length}</div><div class="agg-lbl">Brands monitored</div><div class="agg-sub">Across 6 platforms</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${critCount}</div><div class="agg-lbl">Critical alerts</div><div class="agg-sub">Require immediate action</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-high)">${highCount}</div><div class="agg-lbl">High severity</div><div class="agg-sub">Likely impersonation</div></div>
+      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${atRisk}</div><div class="agg-lbl">Brands at risk</div><div class="agg-sub">Open findings</div></div>`;
+  })();
+
+  // ── Brand Coverage tab ──
+  _loadSocialBrands = async function() {
+    const content = document.getElementById('social-content');
+    if (!content) return;
+    content.innerHTML = 'Loading...';
+    const res = await api('/social/monitor?limit=50').catch(() => null);
+    const brands = res?.data || [];
+    const tcEl = document.getElementById('tc-social-brands');
+    if (tcEl) tcEl.textContent = brands.length;
+
+    if (!brands.length) {
+      content.innerHTML = `<div class="empty-state"><div class="message">No brands monitored yet<br><span style="font-size:11px;color:var(--text-tertiary)">Add your first brand to start monitoring social platforms</span></div><button class="btn-monitor" onclick="_socialSubTab='add';document.querySelectorAll('#social-tabs .sub-tab').forEach(t=>t.classList.remove('active'));document.querySelector('#social-tabs .sub-tab[data-tab=add]').classList.add('active');_renderAddBrandForm()">+ Add First Brand</button></div>`;
+      return;
+    }
+
+    content.innerHTML = `<div class="brand-grid">${brands.map(b => {
+      const brandId = b.brand_id || b.id;
+      const brandName = b.brand_name || b.name || '';
+      return `<a class="brand-card" onclick="event.preventDefault()">
+        <div class="brand-card-top">
+          ${_brandLogoImg(brandName, 36)}
+          <div class="brand-card-info">
+            <div class="brand-card-name">${brandName}</div>
+            <div class="brand-card-sector" style="font-family:var(--font-mono);font-size:10px">${b.domain || ''}</div>
+          </div>
+        </div>
+        <div class="brand-card-stats" style="margin:10px 0 8px">
+          <div class="social-platform-grid">${_renderPlatformStatusPills(b)}</div>
+        </div>
+        <div class="brand-card-footer">
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">Last scan: ${b.last_full_scan ? timeAgo(b.last_full_scan) : 'Never'}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${(b.monitoring?.open_critical || 0) > 0 ? `<span class="type-pill phishing">${b.monitoring.open_critical} critical</span>` : ''}
+            ${(b.monitoring?.open_high || 0) > 0 ? `<span class="type-pill typosquat">${b.monitoring.open_high} high</span>` : ''}
+            ${!(b.monitoring?.open_critical) && !(b.monitoring?.open_high) ? `<span style="color:var(--positive);font-size:11px">✓ Clear</span>` : ''}
+            <button class="btn-monitor" style="font-size:10px;padding:3px 8px" onclick="triggerSocialScan('${brandId}','${brandName.replace(/'/g, "\\'")}',event)">↻ Scan</button>
+          </div>
+        </div>
+      </a>`;
+    }).join('')}</div>`;
+    _attachLogoFallbacks(content);
+  };
+
+  // ── Active Alerts tab ──
+  let _socialSevFilter = 'all';
+
+  _loadSocialAlerts = async function() {
+    const content = document.getElementById('social-content');
+    if (!content) return;
+    content.innerHTML = 'Loading...';
+    const res = await api('/social/alerts?status=open&limit=50').catch(() => null);
+    const allAlerts = res?.data || [];
+    const tcEl = document.getElementById('tc-social-alerts');
+    if (tcEl) tcEl.textContent = allAlerts.length;
+
+    const alerts = _socialSevFilter === 'all' ? allAlerts : allAlerts.filter(a => a.severity === _socialSevFilter);
+
+    if (!allAlerts.length) {
+      content.innerHTML = '<div class="empty-state"><div class="message">No active alerts — looking good</div></div>';
+      return;
+    }
+
+    const filterHtml = renderFilterPills(
+      [{ value: 'all', label: 'All' }, { value: 'CRITICAL', label: 'Critical' }, { value: 'HIGH', label: 'High' }, { value: 'MEDIUM', label: 'Medium' }],
+      [_socialSevFilter],
+      'social-sev-filter'
+    );
+
+    content.innerHTML = `${filterHtml}
+      <table class="data-table" style="margin-top:12px">
+        <thead><tr><th>Handle</th><th>Platform</th><th>Brand</th><th>Severity</th><th>Score</th><th>Detected</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${alerts.map(a => {
+          const score = Math.round((a.impersonation_score || 0) * 100);
+          const scoreColor = a.severity === 'CRITICAL' ? 'var(--negative)' : a.severity === 'HIGH' ? 'var(--threat-high)' : a.severity === 'MEDIUM' ? 'var(--threat-medium)' : 'var(--positive)';
+          return `<tr>
+            <td style="font-family:var(--font-mono);font-size:11px">@${a.handle_checked || a.suspicious_account_name || '-'}</td>
+            <td><span class="type-pill ${a.platform || ''}">${a.platform || '-'}</span></td>
+            <td style="font-size:12px">${a.brand_name || '-'}</td>
+            <td><span class="sev ${(a.severity || '').toLowerCase()}">${a.severity || '-'}</span></td>
+            <td style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${scoreColor}">${score}%</td>
+            <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.created_at ? timeAgo(a.created_at) : '-'}</td>
+            <td><span class="status-badge-sm ${a.status || 'open'}">${a.status || 'open'}</span></td>
+            <td>
+              ${a.suspicious_account_url ? `<a href="${a.suspicious_account_url}" target="_blank" rel="noopener" class="adm-action-btn" style="font-size:10px">View Profile</a>` : ''}
+              <button class="adm-action-btn" style="font-size:10px" onclick="dismissSocialAlert('${a.id}',event)">Dismiss</button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+
+    // Wire severity filter clicks
+    document.getElementById('social-sev-filter')?.addEventListener('click', (e) => {
+      const pill = e.target.closest('.filter-pill');
+      if (!pill) return;
+      _socialSevFilter = pill.dataset.value;
+      document.querySelectorAll('#social-sev-filter .filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      _loadSocialAlerts();
+    });
+  };
+
+  // ── Add Brand tab ──
+  function _renderAddBrandForm() {
+    const content = document.getElementById('social-content');
+    if (!content) return;
+    content.innerHTML = `<div style="max-width:560px">
+      <div style="font-family:var(--font-display);font-size:14px;font-weight:700;margin-bottom:4px;letter-spacing:.5px">Add Brand Profile</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:20px">Add your brand to start monitoring impersonation across 6 platforms.</div>
+      <div class="form-group"><label class="form-label">Brand Name</label><input class="form-input" id="social-add-name" placeholder="Acme Corporation"></div>
+      <div class="form-group"><label class="form-label">Domain</label><input class="form-input" id="social-add-domain" placeholder="acmecorp.com"></div>
+      <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-secondary);margin:16px 0 8px">OFFICIAL HANDLES (optional)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+        ${['twitter','instagram','linkedin','tiktok','youtube','github'].map(p =>
+          `<div class="form-group" style="margin:0"><label class="form-label" style="font-size:10px;text-transform:capitalize">${p}</label><input class="form-input" id="social-handle-${p}" placeholder="handle (without @)" style="font-family:var(--font-mono);font-size:12px"></div>`
+        ).join('')}
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-monitor" id="social-add-submit">+ Start Monitoring</button>
+        <button class="filter-pill" id="social-add-cancel">Cancel</button>
+      </div>
+      <div id="social-add-error" style="display:none;color:var(--negative);font-size:12px;margin-top:8px"></div>
+    </div>`;
+
+    document.getElementById('social-add-submit')?.addEventListener('click', async () => {
+      const name = document.getElementById('social-add-name')?.value?.trim();
+      const domain = document.getElementById('social-add-domain')?.value?.trim();
+      const errEl = document.getElementById('social-add-error');
+      if (!name || !domain) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Brand name and domain are required';
+        return;
+      }
+      const handles = {};
+      ['twitter','instagram','linkedin','tiktok','youtube','github'].forEach(p => {
+        const val = document.getElementById(`social-handle-${p}`)?.value?.trim().replace(/^@/, '');
+        if (val) handles[p] = val;
+      });
+      const btn = document.getElementById('social-add-submit');
+      btn.textContent = 'Adding...';
+      btn.disabled = true;
+      try {
+        const res = await api('/brand-profiles', {
+          method: 'POST',
+          body: JSON.stringify({
+            brand_name: name, domain,
+            official_handles: JSON.stringify(handles),
+            brand_keywords: JSON.stringify([name.toLowerCase(), name.toLowerCase().replace(/\s+/g, ''), domain.split('.')[0].toLowerCase()]),
+            monitoring_tier: 'professional',
+          })
+        });
+        if (res?.success && res?.data?.id) {
+          showToast(`${name} is now being monitored`, 'success');
+          api(`/social/scan/${res.data.id}`, { method: 'POST' }).catch(() => {});
+          _socialSubTab = 'brands';
+          document.querySelectorAll('#social-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+          document.querySelector('#social-tabs .sub-tab[data-tab="brands"]')?.classList.add('active');
+          await _loadSocialBrands();
+        } else {
+          errEl.style.display = 'block';
+          errEl.textContent = res?.error || 'Failed to add brand';
+          btn.textContent = '+ Start Monitoring'; btn.disabled = false;
+        }
+      } catch (err) {
+        errEl.style.display = 'block';
+        errEl.textContent = err.message || 'Failed to add brand';
+        btn.textContent = '+ Start Monitoring'; btn.disabled = false;
+      }
+    });
+
+    document.getElementById('social-add-cancel')?.addEventListener('click', () => {
+      _socialSubTab = 'brands';
+      document.querySelectorAll('#social-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('#social-tabs .sub-tab[data-tab="brands"]')?.classList.add('active');
+      _loadSocialBrands();
+    });
+  }
+
+  // ── Tab switching ──
+  document.getElementById('social-tabs').addEventListener('click', async (e) => {
+    const tab = e.target.closest('.sub-tab');
+    if (!tab || !tab.dataset.tab) return;
+    document.querySelectorAll('#social-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    _socialSubTab = tab.dataset.tab;
+    document.getElementById('social-content').innerHTML = 'Loading...';
+    if (_socialSubTab === 'brands') await _loadSocialBrands();
+    else if (_socialSubTab === 'alerts') await _loadSocialAlerts();
+    else _renderAddBrandForm();
+  });
+
+  // ── Initial load ──
+  await _loadSocialBrands();
 }
 
 async function viewProvidersHub(el) {
