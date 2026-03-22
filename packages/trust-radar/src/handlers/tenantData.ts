@@ -22,6 +22,11 @@ function canPerformHITL(ctx: AuthContext): boolean {
   return (ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0) >= (ORG_ROLE_HIERARCHY["analyst"] ?? 2);
 }
 
+function isOrgAdmin(ctx: AuthContext): boolean {
+  if (ctx.role === "super_admin") return true;
+  return (ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0) >= 3;
+}
+
 // ─── GET /api/orgs/:orgId/dashboard ──────────────────────────
 
 export async function handleTenantDashboard(
@@ -447,6 +452,119 @@ export async function handleTenantBrandSocialProfiles(
       success: true,
       data: profiles.results || [],
     }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── GET /api/orgs/:orgId/brands/:brandId/monitoring-config ──
+
+const DEFAULT_MONITORING_CONFIG = {
+  alert_severity_filter: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+  auto_acknowledge_low_days: 0,
+  social_platforms_monitored: ["twitter", "linkedin", "instagram"],
+  email_notifications: true,
+  email_notification_threshold: "HIGH",
+  weekly_digest: false,
+  custom_keywords: [] as string[],
+  excluded_domains: [] as string[],
+};
+
+export async function handleGetMonitoringConfig(
+  request: Request,
+  env: Env,
+  orgId: string,
+  brandId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const accessErr = verifyOrgAccess(ctx, orgId);
+  if (accessErr) return json({ success: false, error: accessErr }, 403, origin);
+
+  try {
+    const row = await env.DB.prepare(
+      "SELECT monitoring_config_json FROM org_brands WHERE org_id = ? AND brand_id = ?"
+    ).bind(orgId, brandId).first<{ monitoring_config_json: string | null }>();
+
+    if (!row) {
+      return json({ success: false, error: "Brand not assigned to your organization" }, 404, origin);
+    }
+
+    let config = { ...DEFAULT_MONITORING_CONFIG };
+    if (row.monitoring_config_json) {
+      try {
+        config = { ...config, ...JSON.parse(row.monitoring_config_json) };
+      } catch { /* use defaults */ }
+    }
+
+    return json({ success: true, data: config }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── PATCH /api/orgs/:orgId/brands/:brandId/monitoring-config
+
+export async function handleUpdateMonitoringConfig(
+  request: Request,
+  env: Env,
+  orgId: string,
+  brandId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const accessErr = verifyOrgAccess(ctx, orgId);
+  if (accessErr) return json({ success: false, error: accessErr }, 403, origin);
+
+  if (!canPerformHITL(ctx)) {
+    return json({ success: false, error: "Requires org role: analyst or higher" }, 403, origin);
+  }
+
+  try {
+    const body = await request.json() as Record<string, unknown>;
+
+    // Verify brand belongs to org
+    const row = await env.DB.prepare(
+      "SELECT monitoring_config_json FROM org_brands WHERE org_id = ? AND brand_id = ?"
+    ).bind(orgId, brandId).first<{ monitoring_config_json: string | null }>();
+
+    if (!row) {
+      return json({ success: false, error: "Brand not assigned to your organization" }, 404, origin);
+    }
+
+    // Merge existing config with updates
+    let existing = { ...DEFAULT_MONITORING_CONFIG };
+    if (row.monitoring_config_json) {
+      try {
+        existing = { ...existing, ...JSON.parse(row.monitoring_config_json) };
+      } catch { /* use defaults */ }
+    }
+
+    const updated = { ...existing };
+    if (Array.isArray(body.alert_severity_filter)) updated.alert_severity_filter = body.alert_severity_filter as string[];
+    if (typeof body.auto_acknowledge_low_days === "number") updated.auto_acknowledge_low_days = body.auto_acknowledge_low_days;
+    if (Array.isArray(body.social_platforms_monitored)) updated.social_platforms_monitored = body.social_platforms_monitored as string[];
+    if (typeof body.email_notifications === "boolean") updated.email_notifications = body.email_notifications;
+    if (typeof body.email_notification_threshold === "string") updated.email_notification_threshold = body.email_notification_threshold;
+    if (typeof body.weekly_digest === "boolean") updated.weekly_digest = body.weekly_digest;
+    if (Array.isArray(body.custom_keywords)) updated.custom_keywords = body.custom_keywords as string[];
+    if (Array.isArray(body.excluded_domains)) updated.excluded_domains = body.excluded_domains as string[];
+
+    await env.DB.prepare(
+      "UPDATE org_brands SET monitoring_config_json = ? WHERE org_id = ? AND brand_id = ?"
+    ).bind(JSON.stringify(updated), orgId, brandId).run();
+
+    await audit(env, {
+      action: "monitoring_config_update",
+      userId: ctx.userId,
+      resourceType: "org_brand",
+      resourceId: `${orgId}:${brandId}`,
+      details: { org_id: orgId, brand_id: brandId },
+      outcome: "success",
+      request,
+    });
+
+    return json({ success: true, data: updated, message: "Monitoring config saved" }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
