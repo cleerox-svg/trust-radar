@@ -135,6 +135,13 @@ const routes = [
   { path: '/admin/agent-config',   view: viewAdminAgentConfig, auth: true, admin: true },
   { path: '/admin/audit',          view: viewAdminAudit,      auth: true, admin: true },
   { path: '/admin/spam-trap',     view: viewAdminSpamTrap,   auth: true, admin: true },
+  { path: '/admin/organizations', view: viewAdminOrgs,       auth: true, admin: true },
+  { path: '/admin/organizations/:id', view: viewAdminOrgDetail, auth: true, admin: true },
+  { path: '/tenant/dashboard',    view: viewTenantDashboard, auth: true, tenant: true },
+  { path: '/tenant/brands',       view: viewTenantBrands,    auth: true, tenant: true },
+  { path: '/tenant/alerts',       view: viewTenantAlerts,    auth: true, tenant: true },
+  { path: '/tenant/team',         view: viewTenantTeam,      auth: true, tenant: true },
+  { path: '/tenant/settings',     view: viewTenantSettings,  auth: true, tenant: true },
   { path: '/login',                view: viewLogin,           auth: false },
   { path: '/auth/callback',        view: viewAuthCallback,    auth: false },
   { path: '/auth/error',           view: viewAuthError,       auth: false },
@@ -229,17 +236,26 @@ async function render() {
     return;
   }
 
+  // Tenant check — redirect tenant users trying to access SOC views
+  const isTenantUser = currentUser?.organization != null && currentUser.role === 'client';
+  if (route.tenant && !isTenantUser && currentUser?.role !== 'super_admin') {
+    navigate('/observatory', true); return;
+  }
+
   // Cleanup previous view
   if (window._viewCleanup) { window._viewCleanup(); window._viewCleanup = null; }
 
   // Render view
   if (route.auth) {
     const isAdmin = pathname.startsWith('/admin');
+    const isTenant = pathname.startsWith('/tenant');
     const isObservatory = pathname === '/observatory';
     if (isObservatory) {
       app.innerHTML = `<div class="observatory-view">${renderTopbar()}<div class="observatory-layout"><div class="main" id="view"></div><div class="obs-sidebar" id="obs-sidebar"></div></div></div><div class="toast-container" id="toasts"></div>`;
     } else if (isAdmin) {
       app.innerHTML = `<div class="admin-mode">${renderAdminTopbar(pathname)}<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
+    } else if (isTenant) {
+      app.innerHTML = `<div>${renderTenantTopbar(pathname)}<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
     } else {
       app.innerHTML = `<div>${renderTopbar()}` +
         `<div class="main" id="view"></div></div><div class="toast-container" id="toasts"></div>`;
@@ -632,6 +648,7 @@ function renderAdminTopbar(activePath) {
   const adminNav = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/users', label: 'Users' },
+    { href: '/admin/organizations', label: 'Organizations' },
     { href: '/admin/feeds', label: 'Feeds' },
     { href: '/admin/leads', label: 'Leads' },
     { href: '/admin/api-keys', label: 'API Keys' },
@@ -656,6 +673,40 @@ function renderAdminTopbar(activePath) {
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
           <a href="/observatory" onclick="event.stopPropagation(); navigate('/observatory'); return false;">Analyst View</a>
+          <div class="dropdown-divider"></div>
+          <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTenantTopbar(activePath) {
+  const u = currentUser;
+  const initials = getUserInitials(u);
+  const orgName = u?.organization?.name || 'Organization';
+  const tenantNav = [
+    { href: '/tenant/dashboard', label: 'Dashboard' },
+    { href: '/tenant/brands', label: 'Brands' },
+    { href: '/tenant/alerts', label: 'Alerts' },
+    { href: '/tenant/team', label: 'Team' },
+    { href: '/tenant/settings', label: 'Settings' },
+  ];
+  return `<div class="topbar">
+    <div class="topbar-logo"><svg class="tr-logo-mark" width="200" height="32" viewBox="0 0 200 32"><g transform="translate(16,16)"><path d="M-2.2,-14 A14,14 0 0,1 8.2,-11.3" stroke="#00d4ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M10.4,-8.2 A14,14 0 0,1 13.8,2.6" stroke="#00e5a0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M12.6,6 A14,14 0 0,1 2.6,13.8" stroke="#ffb627" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-0.6,14 A14,14 0 0,1 -12.6,6" stroke="#ff3b5c" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-13.8,2.6 A14,14 0 0,1 -6.7,-12.3" stroke="#b388ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-13" stroke="#00d4ff" stroke-width=".8" opacity=".35"/></g><circle cx="2.7" cy="-8.6" r="1.5" fill="#00d4ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="0.3s" repeatCount="indefinite"/></circle><circle cx="8.6" cy="0" r="1.5" fill="#00e5a0" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="1.5s" repeatCount="indefinite"/></circle><circle cx="2.7" cy="8.6" r="1.5" fill="#ffb627" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="2.7s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="5" r="1.5" fill="#ff3b5c" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="3.9s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="-5" r="1.5" fill="#b388ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="5.1s" repeatCount="indefinite"/></circle><circle cx="0" cy="0" r="2.5" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1"/><circle cx="0" cy="0" r="1.2" fill="#00d4ff"/></g><text class="tr-wordmark" x="36" y="21" font-family="'Chakra Petch',sans-serif" font-weight="700" font-size="16" letter-spacing="2" fill="#e8edf5">TRUST <tspan fill="#00d4ff">RADAR</tspan></text></svg></div>
+    <nav class="topbar-nav">
+      <span style="font-family:var(--font-display);font-size:11px;color:var(--text-secondary);padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;margin-right:8px">${orgName}</span>
+      ${tenantNav.map(n => `<a href="${n.href}" class="${activePath === n.href || (n.href !== '/tenant/dashboard' && activePath.startsWith(n.href)) ? 'active' : ''}">${n.label}</a>`).join('')}
+    </nav>
+    <div class="topbar-right">
+      ${renderNotifBell()}
+      <div class="user-menu" id="user-menu">
+        <div class="user-avatar">${initials}</div>
+        <div class="user-dropdown" style="right:0">
+          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill client">${u?.organization?.role || 'member'}</span></div>
+          <div class="dropdown-divider"></div>
+          <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
           <div class="dropdown-divider"></div>
           <a href="#" onclick="event.stopPropagation(); logout(); return false;">Logout</a>
         </div>
@@ -770,11 +821,15 @@ window.logout = logout;
 
 // ─── View: Root (public landing / redirect) ────────────────────
 async function viewRootRedirect(el) {
-  // If already authenticated (in-SPA nav), go to observatory
-  if (isAuthenticated()) { navigate('/observatory', true); return; }
+  function getDefaultRoute() {
+    const isTenant = currentUser?.organization != null && currentUser.role === 'client';
+    return isTenant ? '/tenant/dashboard' : '/observatory';
+  }
+  // If already authenticated (in-SPA nav), go to appropriate view
+  if (isAuthenticated()) { navigate(getDefaultRoute(), true); return; }
   // Try refresh (user has cookie but page was reloaded)
   const refreshed = await refreshToken();
-  if (refreshed) { navigate('/observatory', true); return; }
+  if (refreshed) { navigate(getDefaultRoute(), true); return; }
   // Unauthenticated → show public marketing site
   viewPublicSite(el, {});
 }
@@ -7672,6 +7727,326 @@ async function viewAdminSpamTrap(el) {
     } catch (e) { btn.textContent = 'Failed: ' + e.message; }
   });
 }
+
+// ─── Tenant Views ────────────────────────────────────────────
+
+async function viewTenantDashboard(el) {
+  const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:4px">${org.name}</div>
+    <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:24px">Plan: <span style="color:var(--blue-primary)">${org.plan}</span> &middot; Role: <span style="color:var(--positive)">${org.role}</span></div>
+    <div class="adm-grid-2">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Monitored Brands</div><div class="adm-pbadge" id="td-brand-count">-</div></div>
+        <div class="adm-padded" id="td-brands-list" style="max-height:300px;overflow-y:auto">Loading...</div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Team Members</div><div class="adm-pbadge" id="td-member-count">-</div></div>
+        <div class="adm-padded" id="td-members-list" style="max-height:300px;overflow-y:auto">Loading...</div>
+      </div>
+    </div>
+    <div class="adm-panel" style="margin-top:16px">
+      <div class="adm-phead"><div class="adm-ptitle">Threat Overview</div></div>
+      <div class="adm-padded" style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">
+        <div style="font-size:24px;margin-bottom:8px">Coming in Phase B</div>
+        <div style="font-size:12px">Threat dashboards, trend charts, and alert summaries will appear here.</div>
+      </div>
+    </div>`;
+
+  try {
+    const [brandsRes, membersRes] = await Promise.all([
+      api('/orgs/' + org.id + '/brands').catch(() => null),
+      api('/orgs/' + org.id + '/members').catch(() => null),
+    ]);
+    const brands = brandsRes?.data || [];
+    const members = membersRes?.data || [];
+
+    const bc = document.getElementById('td-brand-count');
+    if (bc) bc.textContent = brands.length;
+    document.getElementById('td-brands-list').innerHTML = brands.length
+      ? brands.map(b => `<div style="padding:6px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary)">${b.brand_name}</span><span style="font-size:11px;color:var(--text-tertiary);margin-left:8px">${b.canonical_domain || ''}</span></div><div style="font-size:11px;color:var(--text-secondary)">${b.threat_count || 0} threats</div></div>`).join('')
+      : '<div style="color:var(--text-tertiary);font-size:12px">No brands assigned yet</div>';
+
+    const mc = document.getElementById('td-member-count');
+    if (mc) mc.textContent = members.length;
+    document.getElementById('td-members-list').innerHTML = members.length
+      ? members.map(m => `<div style="padding:6px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary)">${m.user_name || m.email}</span><span style="font-size:11px;color:var(--text-tertiary);margin-left:8px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span></div></div>`).join('')
+      : '<div style="color:var(--text-tertiary);font-size:12px">No members yet</div>';
+  } catch (err) {
+    console.error('Tenant dashboard load error:', err);
+  }
+}
+
+async function viewTenantBrands(el) {
+  const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+
+  el.innerHTML = '<div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Your Brands</div><div id="tb-list">Loading...</div>';
+
+  try {
+    const res = await api('/orgs/' + org.id + '/brands');
+    const brands = res?.data || [];
+    document.getElementById('tb-list').innerHTML = brands.length
+      ? `<div class="data-table"><table><thead><tr><th>Brand</th><th>Domain</th><th>Sector</th><th>Threats</th><th>Primary</th></tr></thead><tbody>${brands.map(b => `<tr><td><a href="/brands/${b.brand_id}" style="color:var(--blue-primary)">${b.brand_name}</a></td><td style="font-family:var(--font-mono);font-size:11px">${b.canonical_domain || '-'}</td><td>${b.sector || '-'}</td><td>${b.threat_count || 0}</td><td>${b.is_primary ? 'Yes' : ''}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty-state"><div class="message">No brands assigned to your organization yet.</div></div>';
+  } catch (err) {
+    document.getElementById('tb-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load brands</div></div>';
+  }
+}
+
+function viewTenantAlerts(el) {
+  const org = currentUser?.organization;
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Alerts</div>
+    <div class="adm-panel">
+      <div class="adm-padded" style="text-align:center;padding:60px 20px;color:var(--text-tertiary)">
+        <div style="font-size:24px;margin-bottom:8px">Coming in Phase B</div>
+        <div style="font-size:12px">Real-time alerts for your monitored brands will appear here.</div>
+      </div>
+    </div>`;
+}
+
+async function viewTenantTeam(el) {
+  const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+  const isOrgAdmin = ['admin', 'owner'].includes(org.role);
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Team</div>
+      ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" style="font-size:12px;padding:6px 14px">Invite Member</button>' : ''}
+    </div>
+    <div id="tt-invite-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Role</label><select id="tt-invite-role" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
+        <button class="btn btn-primary" id="tt-send-invite" style="font-size:12px;padding:6px 14px">Send Invite</button>
+      </div>
+      <div id="tt-invite-result" style="font-size:11px;margin-top:8px"></div>
+    </div>
+    <div id="tt-members">Loading...</div>`;
+
+  // Toggle invite form
+  document.getElementById('tt-invite-btn')?.addEventListener('click', () => {
+    const f = document.getElementById('tt-invite-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Send invite
+  document.getElementById('tt-send-invite')?.addEventListener('click', async () => {
+    const email = document.getElementById('tt-invite-email').value;
+    const orgRole = document.getElementById('tt-invite-role').value;
+    const result = document.getElementById('tt-invite-result');
+    if (!email) { result.innerHTML = '<span style="color:var(--negative)">Email required</span>'; return; }
+    try {
+      const res = await api('/orgs/' + org.id + '/invite', { method: 'POST', body: JSON.stringify({ email, org_role: orgRole }) });
+      if (res?.data?.invite_url) {
+        result.innerHTML = '<span style="color:var(--positive)">Invite sent! URL: <code style="font-size:10px;word-break:break-all">' + res.data.invite_url + '</code></span>';
+      } else {
+        result.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+      }
+    } catch (err) {
+      result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+    }
+  });
+
+  // Load members
+  try {
+    const res = await api('/orgs/' + org.id + '/members');
+    const members = res?.data || [];
+    document.getElementById('tt-members').innerHTML = members.length
+      ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Email</th><th>Org Role</th><th>Joined</th></tr></thead><tbody>${members.map(m => `<tr><td>${m.user_name || '-'}</td><td style="font-family:var(--font-mono);font-size:11px">${m.email}</td><td><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span></td><td style="font-size:11px;color:var(--text-tertiary)">${m.accepted_at ? new Date(m.accepted_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty-state"><div class="message">No members</div></div>';
+  } catch (err) {
+    document.getElementById('tt-members').innerHTML = '<div class="empty-state"><div class="message">Failed to load members</div></div>';
+  }
+}
+
+function viewTenantSettings(el) {
+  const org = currentUser?.organization;
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Organization Settings</div>
+    <div class="adm-panel">
+      <div class="adm-padded">
+        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org?.name || '-'}</div></div>
+        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Slug</span><div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${org?.slug || '-'}</div></div>
+        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org?.plan || '-'}</span></div></div>
+        <div><span style="font-size:11px;color:var(--text-tertiary)">Your Role</span><div><span class="role-pill ${org?.role}" style="font-size:10px">${org?.role || '-'}</span></div></div>
+      </div>
+    </div>
+    <div class="adm-panel" style="margin-top:16px">
+      <div class="adm-padded" style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">
+        <div style="font-size:16px;margin-bottom:8px">More settings coming in Phase B</div>
+        <div style="font-size:12px">Webhook configuration, SSO setup, and notification preferences.</div>
+      </div>
+    </div>`;
+}
+
+// ─── Admin: Organization Management ──────────────────────────
+
+async function viewAdminOrgs(el) {
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Organizations</div>
+      <button class="btn btn-primary" id="ao-create-btn" style="font-size:12px;padding:6px 14px">Create Organization</button>
+    </div>
+    <div id="ao-create-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Name</label><input type="text" id="ao-name" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="Acme Corp"></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Plan</label><select id="ao-plan" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Max Brands</label><input type="number" id="ao-max-brands" value="5" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Max Members</label><input type="number" id="ao-max-members" value="10" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <button class="btn btn-primary" id="ao-create-submit" style="font-size:12px;padding:6px 14px">Create</button>
+      </div>
+      <div id="ao-create-result" style="font-size:11px;margin-top:8px"></div>
+    </div>
+    <div id="ao-list">Loading...</div>`;
+
+  document.getElementById('ao-create-btn').addEventListener('click', () => {
+    const f = document.getElementById('ao-create-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.getElementById('ao-create-submit').addEventListener('click', async () => {
+    const name = document.getElementById('ao-name').value;
+    const plan = document.getElementById('ao-plan').value;
+    const maxBrands = parseInt(document.getElementById('ao-max-brands').value) || 5;
+    const maxMembers = parseInt(document.getElementById('ao-max-members').value) || 10;
+    const result = document.getElementById('ao-create-result');
+    if (!name) { result.innerHTML = '<span style="color:var(--negative)">Name required</span>'; return; }
+    try {
+      const res = await api('/admin/organizations', { method: 'POST', body: JSON.stringify({ name, plan, max_brands: maxBrands, max_members: maxMembers }) });
+      if (res?.data) {
+        result.innerHTML = '<span style="color:var(--positive)">Created! Invite code: <code>' + (res.data.invite_code || '') + '</code></span>';
+        loadOrgList();
+      } else {
+        result.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+      }
+    } catch (err) {
+      result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+    }
+  });
+
+  async function loadOrgList() {
+    try {
+      const res = await api('/admin/organizations');
+      const orgs = res?.data || [];
+      document.getElementById('ao-list').innerHTML = orgs.length
+        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td style="font-weight:600;color:var(--blue-primary)">${o.name}</td><td style="font-family:var(--font-mono);font-size:11px">${o.slug}</td><td><span class="role-pill admin" style="font-size:10px">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td style="font-family:var(--font-mono);font-size:10px">${o.invite_code || '-'}</td><td style="font-size:11px;color:var(--text-tertiary)">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty-state"><div class="message">No organizations yet. Create one above.</div></div>';
+    } catch (err) {
+      document.getElementById('ao-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load organizations</div></div>';
+    }
+  }
+  loadOrgList();
+}
+
+async function viewAdminOrgDetail(el, params) {
+  const orgId = params?.id || currentParams.id;
+  el.innerHTML = 'Loading...';
+
+  try {
+    const res = await api('/admin/organizations/' + orgId);
+    const org = res?.data;
+    if (!org) { el.innerHTML = '<div class="empty-state"><div class="message">Organization not found</div></div>'; return; }
+
+    const members = org.members || [];
+    const brands = org.brands || [];
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <a href="/admin/organizations" style="color:var(--text-tertiary);font-size:12px">&larr; All Organizations</a>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:700">${org.name}</div>
+          <div style="font-size:12px;color:var(--text-tertiary)">Slug: ${org.slug} &middot; Plan: <span style="color:var(--blue-primary)">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code style="font-size:11px">${org.invite_code || '-'}</code></div>
+        </div>
+      </div>
+      <div class="adm-grid-2">
+        <div class="adm-panel">
+          <div class="adm-phead"><div class="adm-ptitle">Members (${members.length}/${org.max_members})</div></div>
+          <div class="adm-padded" id="aod-invite-form" style="border-bottom:1px solid var(--blue-border)">
+            <div style="display:flex;gap:6px;align-items:flex-end">
+              <div style="flex:1"><input type="email" id="aod-invite-email" placeholder="email@example.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+              <select id="aod-invite-role" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option><option value="owner">Owner</option></select>
+              <button class="btn btn-primary" id="aod-invite-submit" style="font-size:11px;padding:4px 10px">Invite</button>
+            </div>
+            <div id="aod-invite-result" style="font-size:10px;margin-top:4px"></div>
+          </div>
+          <div id="aod-members" style="max-height:300px;overflow-y:auto">
+            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div style="padding:12px;color:var(--text-tertiary);font-size:12px">No members</div>'}
+          </div>
+        </div>
+        <div class="adm-panel">
+          <div class="adm-phead"><div class="adm-ptitle">Brands (${brands.length}/${org.max_brands})</div></div>
+          <div class="adm-padded" id="aod-brand-form" style="border-bottom:1px solid var(--blue-border)">
+            <div style="display:flex;gap:6px;align-items:flex-end">
+              <div style="flex:1"><input type="text" id="aod-brand-id" placeholder="Brand ID" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+              <label style="font-size:10px;color:var(--text-tertiary);display:flex;align-items:center;gap:4px"><input type="checkbox" id="aod-brand-primary"> Primary</label>
+              <button class="btn btn-primary" id="aod-brand-submit" style="font-size:11px;padding:4px 10px">Assign</button>
+            </div>
+            <div id="aod-brand-result" style="font-size:10px;margin-top:4px"></div>
+          </div>
+          <div id="aod-brands" style="max-height:300px;overflow-y:auto">
+            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" style="font-weight:600;color:var(--blue-primary);font-size:12px">${b.brand_name}</a><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span style="font-size:10px;color:var(--positive)">Primary</span>' : ''}<button class="btn" style="font-size:10px;padding:2px 6px;margin-left:6px;color:var(--negative)" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div style="padding:12px;color:var(--text-tertiary);font-size:12px">No brands assigned</div>'}
+          </div>
+        </div>
+      </div>`;
+
+    // Invite handler
+    document.getElementById('aod-invite-submit')?.addEventListener('click', async () => {
+      const email = document.getElementById('aod-invite-email').value;
+      const orgRole = document.getElementById('aod-invite-role').value;
+      const result = document.getElementById('aod-invite-result');
+      if (!email) { result.innerHTML = '<span style="color:var(--negative)">Email required</span>'; return; }
+      try {
+        const r = await api('/orgs/' + orgId + '/invite', { method: 'POST', body: JSON.stringify({ email, org_role: orgRole }) });
+        if (r?.data?.invite_url) {
+          result.innerHTML = '<span style="color:var(--positive)">Invite created! <code style="font-size:9px;word-break:break-all">' + r.data.invite_url + '</code></span>';
+        } else {
+          result.innerHTML = '<span style="color:var(--negative)">' + (r?.error || 'Failed') + '</span>';
+        }
+      } catch (err) {
+        result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+      }
+    });
+
+    // Brand assign handler
+    document.getElementById('aod-brand-submit')?.addEventListener('click', async () => {
+      const brandId = document.getElementById('aod-brand-id').value;
+      const isPrimary = document.getElementById('aod-brand-primary').checked;
+      const result = document.getElementById('aod-brand-result');
+      if (!brandId) { result.innerHTML = '<span style="color:var(--negative)">Brand ID required</span>'; return; }
+      try {
+        const r = await api('/orgs/' + orgId + '/brands', { method: 'POST', body: JSON.stringify({ brand_id: brandId, is_primary: isPrimary }) });
+        if (r?.success) {
+          result.innerHTML = '<span style="color:var(--positive)">Brand assigned!</span>';
+          setTimeout(() => navigate('/admin/organizations/' + orgId), 500);
+        } else {
+          result.innerHTML = '<span style="color:var(--negative)">' + (r?.error || 'Failed') + '</span>';
+        }
+      } catch (err) {
+        result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+      }
+    });
+  } catch (err) {
+    el.innerHTML = '<div class="empty-state"><div class="message">Failed to load organization: ' + err.message + '</div></div>';
+  }
+}
+
+// Helper for removing org brands from detail view
+window.removeOrgBrand = async function(orgId, brandId) {
+  if (!confirm('Remove this brand from the organization?')) return;
+  try {
+    await api('/orgs/' + orgId + '/brands/' + brandId, { method: 'DELETE' });
+    navigate('/admin/organizations/' + orgId);
+  } catch (err) {
+    showToast('Failed to remove brand: ' + err.message, 'error');
+  }
+};
 
 // ─── Close user-menu dropdowns on outside click ─────────────
 document.addEventListener('click', () => {

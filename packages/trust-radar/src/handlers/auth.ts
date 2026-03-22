@@ -207,9 +207,24 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
   await env.DB.prepare("UPDATE sessions SET refresh_token_hash = ?, expires_at = datetime('now', '+7 days') WHERE id = ?")
     .bind(newRefreshHash, session.id).run();
 
+  // Look up org membership for refresh
+  const membership = await env.DB.prepare(`
+    SELECT om.org_id, om.role AS org_role
+    FROM org_members om
+    JOIN organizations o ON o.id = om.org_id
+    WHERE om.user_id = ? AND om.status = 'active'
+    LIMIT 1
+  `).bind(session.user_id).first<{ org_id: number; org_role: string }>();
+
   // Issue new access token
   const accessToken = await signJWT(
-    { sub: session.user_id, email: session.email, role: session.role as UserRole },
+    {
+      sub: session.user_id,
+      email: session.email,
+      role: session.role as UserRole,
+      org_id: membership?.org_id?.toString() ?? undefined,
+      org_role: membership?.org_role ?? undefined,
+    },
     env.JWT_SECRET,
     ACCESS_TOKEN_TTL,
   );
@@ -258,7 +273,28 @@ export async function handleMe(request: Request, env: Env, userId: string): Prom
     return json({ success: false, error: "User not found" }, 404, origin);
   }
 
-  return json({ success: true, data: user }, 200, origin);
+  // Look up org membership
+  const membership = await env.DB.prepare(`
+    SELECT om.org_id, om.role AS org_role, o.slug, o.name, o.plan
+    FROM org_members om
+    JOIN organizations o ON o.id = om.org_id
+    WHERE om.user_id = ? AND om.status = 'active'
+    LIMIT 1
+  `).bind(userId).first<{ org_id: number; org_role: string; slug: string; name: string; plan: string }>();
+
+  return json({
+    success: true,
+    data: {
+      ...user,
+      organization: membership ? {
+        id: membership.org_id,
+        name: membership.name,
+        slug: membership.slug,
+        plan: membership.plan,
+        role: membership.org_role,
+      } : null,
+    },
+  }, 200, origin);
 }
 
 // ─── Internal helpers ───────────────────────────────────────────
@@ -272,8 +308,8 @@ async function handleInviteAcceptance(
 ): Promise<Response> {
   const tokenHash = await hashToken(inviteToken);
   const invite = await env.DB.prepare(
-    "SELECT id, email, role, status, expires_at FROM invitations WHERE token_hash = ? AND status = 'pending'",
-  ).bind(tokenHash).first<{ id: string; email: string; role: string; status: string; expires_at: string }>();
+    "SELECT id, email, role, status, expires_at, org_id, org_role FROM invitations WHERE token_hash = ? AND status = 'pending'",
+  ).bind(tokenHash).first<{ id: string; email: string; role: string; status: string; expires_at: string; org_id: number | null; org_role: string | null }>();
 
   if (!invite) {
     await audit(env, { action: "invite_accept_invalid", details: { email: googleUser.email }, outcome: "failure", request });
@@ -318,12 +354,20 @@ async function handleInviteAcceptance(
   await env.DB.prepare("UPDATE invitations SET status = 'accepted', accepted_at = datetime('now') WHERE id = ?")
     .bind(invite.id).run();
 
+  // Create org membership if invite has org context
+  if (invite.org_id) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO org_members (org_id, user_id, role, status, invited_by, invited_at, accepted_at, provisioned_by)
+      VALUES (?, ?, ?, 'active', (SELECT invited_by FROM invitations WHERE id = ?), datetime('now'), datetime('now'), 'invite')
+    `).bind(invite.org_id, userId, invite.org_role || "viewer", invite.id).run();
+  }
+
   await audit(env, {
     action: "invite_accepted",
     userId,
     resourceType: "invitation",
     resourceId: invite.id,
-    details: { role: invite.role, email: googleUser.email },
+    details: { role: invite.role, email: googleUser.email, org_id: invite.org_id },
     request,
   });
 
@@ -338,8 +382,24 @@ async function issueSession(
   role: UserRole,
   siteOrigin: string,
 ): Promise<Response> {
+  // Look up org membership (user might belong to one org)
+  const membership = await env.DB.prepare(`
+    SELECT om.org_id, om.role AS org_role, o.slug AS org_slug, o.name AS org_name
+    FROM org_members om
+    JOIN organizations o ON o.id = om.org_id
+    WHERE om.user_id = ? AND om.status = 'active'
+    LIMIT 1
+  `).bind(userId).first<{ org_id: number; org_role: string; org_slug: string; org_name: string }>();
+
   // Generate tokens
-  const accessToken = await signJWT({ sub: userId, email, role }, env.JWT_SECRET, ACCESS_TOKEN_TTL);
+  const jwtPayload: Omit<import("../types").JWTPayload, "iat" | "exp"> = {
+    sub: userId,
+    email,
+    role,
+    org_id: membership?.org_id?.toString() ?? undefined,
+    org_role: membership?.org_role ?? undefined,
+  };
+  const accessToken = await signJWT(jwtPayload, env.JWT_SECRET, ACCESS_TOKEN_TTL);
   const refreshToken = generateRefreshToken();
   const refreshHash = await hashToken(refreshToken);
 

@@ -73,6 +73,12 @@ import {
 } from "./handlers/brandScan";
 import { handleListSessionEvents, handleForceLogout } from "./handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleValidateInvite, handleRevokeInvite } from "./handlers/invites";
+import {
+  handleCreateOrg, handleListOrgs, handleGetOrg, handleUpdateOrg,
+  handleGetOwnOrg, handleListOrgMembers, handleOrgInvite,
+  handleRemoveOrgMember, handleUpdateOrgMember,
+  handleAssignOrgBrand, handleRemoveOrgBrand, handleListOrgBrands,
+} from "./handlers/organizations";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "./handlers/dashboard";
 import {
   handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
@@ -401,6 +407,70 @@ router.delete("/api/admin/invites/:id", async (request: Request & { params: Reco
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleRevokeInvite(request, env, request.params["id"] ?? "", ctx.userId);
+});
+
+// ─── Organizations (admin) ──────────────────────────────────
+router.post("/api/admin/organizations", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateOrg(request, env, ctx.userId);
+});
+router.get("/api/admin/organizations", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListOrgs(request, env);
+});
+router.get("/api/admin/organizations/:orgId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetOrg(request, env, request.params["orgId"] ?? "");
+});
+router.patch("/api/admin/organizations/:orgId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateOrg(request, env, request.params["orgId"] ?? "");
+});
+
+// ─── Organizations (org-scoped) ─────────────────────────────
+router.get("/api/orgs/:orgId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetOwnOrg(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/members", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListOrgMembers(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.post("/api/orgs/:orgId/invite", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleOrgInvite(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.delete("/api/orgs/:orgId/members/:userId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRemoveOrgMember(request, env, request.params["orgId"] ?? "", request.params["userId"] ?? "", ctx);
+});
+router.patch("/api/orgs/:orgId/members/:userId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateOrgMember(request, env, request.params["orgId"] ?? "", request.params["userId"] ?? "", ctx);
+});
+router.post("/api/orgs/:orgId/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAssignOrgBrand(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.delete("/api/orgs/:orgId/brands/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRemoveOrgBrand(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListOrgBrands(request, env, request.params["orgId"] ?? "", ctx);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────

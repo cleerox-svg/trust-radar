@@ -8,6 +8,8 @@ export interface AuthContext {
   userId: string;
   email: string;
   role: UserRole;
+  orgId: string | null;
+  orgRole: string | null;
 }
 
 /**
@@ -50,7 +52,13 @@ export async function requireAuth(
   env.DB.prepare("UPDATE users SET last_active = datetime('now') WHERE id = ?")
     .bind(payload.sub).run().catch(() => {});
 
-  return { userId: payload.sub, email: payload.email, role: payload.role };
+  return {
+    userId: payload.sub,
+    email: payload.email,
+    role: payload.role,
+    orgId: payload.org_id ?? null,
+    orgRole: payload.org_role ?? null,
+  };
 }
 
 /**
@@ -99,4 +107,64 @@ export async function requireSuperAdmin(request: Request, env: Env): Promise<Aut
 
 export function isAuthContext(val: AuthContext | Response): val is AuthContext {
   return !(val instanceof Response);
+}
+
+/**
+ * Verify authenticated user belongs to a specific org.
+ * Superadmins bypass the check.
+ */
+export async function requireOrgMember(
+  request: Request & { params?: Record<string, string> },
+  env: Env,
+  orgIdParam: string = "orgId",
+): Promise<AuthContext | Response> {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+
+  // Superadmins can access any org
+  if (ctx.role === "super_admin") return ctx;
+
+  const orgId = request.params?.[orgIdParam];
+  if (!orgId) {
+    return json({ success: false, error: "Missing organization ID" }, 400, request.headers.get("Origin"));
+  }
+
+  if (ctx.orgId !== orgId) {
+    return json({ success: false, error: "Not a member of this organization" }, 403, request.headers.get("Origin"));
+  }
+
+  return ctx;
+}
+
+/**
+ * Org role hierarchy: viewer < analyst < admin < owner
+ */
+const ORG_ROLE_HIERARCHY: Record<string, number> = {
+  viewer: 1,
+  analyst: 2,
+  admin: 3,
+  owner: 4,
+};
+
+/**
+ * Require a minimum org role level. Superadmins bypass.
+ */
+export async function requireOrgRole(
+  request: Request & { params?: Record<string, string> },
+  env: Env,
+  minRole: string,
+): Promise<AuthContext | Response> {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+
+  // Superadmins bypass org role check
+  if (ctx.role === "super_admin") return ctx;
+
+  const userLevel = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+  const requiredLevel = ORG_ROLE_HIERARCHY[minRole] ?? 0;
+  if (userLevel < requiredLevel) {
+    return json({ success: false, error: `Requires org role: ${minRole} or higher` }, 403, request.headers.get("Origin"));
+  }
+
+  return ctx;
 }
