@@ -13,6 +13,7 @@ import { checkSocialHandles, type SocialCheckResult } from '../lib/social-check'
 import { generateHandlePermutations } from '../lib/handle-permutations';
 import { scoreImpersonation, nameSimilarity, type ImpersonationSignals } from './impersonation-scorer';
 import { createAlert } from '../lib/alerts';
+import { deliverWebhook } from '../lib/webhooks';
 import { logger } from '../lib/logger';
 import { discoverSocialProfiles } from '../lib/social-discovery';
 import { assessSocialProfile, type ProfileContext } from '../lib/social-ai-assessor';
@@ -418,7 +419,7 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
             ).bind(brand.id).first<{ added_by: string }>();
 
             if (monitoredBy) {
-              await createAlert(env.DB, {
+              const alertId = await createAlert(env.DB, {
                 brandId: brand.id,
                 userId: monitoredBy.added_by,
                 alertType: 'social_impersonation',
@@ -437,6 +438,24 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
                 sourceId: profileId,
               });
               totalAlerts++;
+
+              // Fire webhook: alert.created for org that owns this brand
+              const orgBrand = await env.DB.prepare(
+                "SELECT ob.org_id, b.name AS brand_name, b.canonical_domain FROM org_brands ob JOIN brands b ON b.id = ob.brand_id WHERE ob.brand_id = ? LIMIT 1",
+              ).bind(brand.id).first<{ org_id: number; brand_name: string; canonical_domain: string }>();
+              if (orgBrand) {
+                deliverWebhook(env, orgBrand.org_id, 'alert.created', {
+                  alert_id: alertId,
+                  brand_name: orgBrand.brand_name,
+                  brand_domain: orgBrand.canonical_domain,
+                  severity: result.severity,
+                  title: `${result.severity === 'CRITICAL' ? 'Likely' : 'Possible'} impersonation on ${result.platform}: @${result.handleChecked}`,
+                  alert_type: 'social_impersonation',
+                  platform: result.platform,
+                  handle: result.handleChecked,
+                  impersonation_score: result.impersonationScore,
+                }).catch(() => {});
+              }
             }
           } catch (alertErr) {
             logger.error('social_monitor_alert_error', {

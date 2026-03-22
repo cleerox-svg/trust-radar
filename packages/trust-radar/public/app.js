@@ -8407,13 +8407,15 @@ async function viewTenantAlerts(el) {
 async function viewTenantTeam(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
-  const isOrgAdmin = ['admin', 'owner'].includes(org.role);
+  const isOrgAdmin = ['admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+  const maxMembers = org.max_members || 10;
 
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Team</div>
-      ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" style="font-size:12px;padding:6px 14px">Invite Member</button>' : ''}
+      ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" style="font-size:12px;padding:6px 14px">+ Invite Member</button>' : ''}
     </div>
+    <div id="tt-member-count" style="font-size:12px;color:var(--text-tertiary);margin-bottom:16px"></div>
     <div id="tt-invite-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end">
         <div style="flex:1"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
@@ -8422,7 +8424,8 @@ async function viewTenantTeam(el) {
       </div>
       <div id="tt-invite-result" style="font-size:11px;margin-top:8px"></div>
     </div>
-    <div id="tt-members">Loading...</div>`;
+    <div id="tt-members">Loading...</div>
+    <div id="tt-pending" style="margin-top:20px"></div>`;
 
   // Toggle invite form
   document.getElementById('tt-invite-btn')?.addEventListener('click', () => {
@@ -8440,6 +8443,7 @@ async function viewTenantTeam(el) {
       const res = await api('/orgs/' + org.id + '/invite', { method: 'POST', body: JSON.stringify({ email, org_role: orgRole }) });
       if (res?.data?.invite_url) {
         result.innerHTML = '<span style="color:var(--positive)">Invite sent! URL: <code style="font-size:10px;word-break:break-all">' + res.data.invite_url + '</code></span>';
+        loadPendingInvites();
       } else {
         result.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
       }
@@ -8448,21 +8452,137 @@ async function viewTenantTeam(el) {
     }
   });
 
-  // Load members
-  try {
-    const res = await api('/orgs/' + org.id + '/members');
-    const members = res?.data || [];
-    document.getElementById('tt-members').innerHTML = members.length
-      ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Email</th><th>Org Role</th><th>Joined</th></tr></thead><tbody>${members.map(m => `<tr><td>${m.user_name || '-'}</td><td style="font-family:var(--font-mono);font-size:11px">${m.email}</td><td><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span></td><td style="font-size:11px;color:var(--text-tertiary)">${m.accepted_at ? new Date(m.accepted_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
-      : '<div class="empty-state"><div class="message">No members</div></div>';
-  } catch (err) {
-    document.getElementById('tt-members').innerHTML = '<div class="empty-state"><div class="message">Failed to load members</div></div>';
+  function timeAgo(dateStr) {
+    if (!dateStr) return '-';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    return Math.floor(hrs / 24) + 'd ago';
   }
+
+  function hoursLeft(expiresStr) {
+    if (!expiresStr) return '-';
+    const diff = new Date(expiresStr).getTime() - Date.now();
+    if (diff <= 0) return 'Expired';
+    return Math.floor(diff / 3600000) + 'h';
+  }
+
+  // Load members
+  async function loadMembers() {
+    try {
+      const res = await api('/orgs/' + org.id + '/members');
+      const members = res?.data || [];
+      const countEl = document.getElementById('tt-member-count');
+      if (countEl) countEl.textContent = members.length + ' of ' + maxMembers + ' members';
+
+      const roleOptions = ['viewer', 'analyst', 'admin', 'owner'];
+      const selectStyle = 'padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px;cursor:pointer';
+
+      document.getElementById('tt-members').innerHTML = members.length
+        ? `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Active Members</div></div><div class="data-table"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th>${isOrgAdmin ? '<th style="width:120px">Actions</th>' : ''}</tr></thead><tbody>${members.map(m => {
+          const isOwner = m.role === 'owner';
+          const isSelf = String(m.user_id) === String(currentUser?.id);
+          const youLabel = isSelf ? ' <span style="color:var(--text-tertiary);font-size:10px">(you)</span>' : '';
+          const canEdit = isOrgAdmin && !isOwner;
+          const roleCell = canEdit
+            ? `<select class="tt-role-select" data-user-id="${m.user_id}" style="${selectStyle}">${roleOptions.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r}</option>`).join('')}</select>`
+            : `<span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span>`;
+          const actionCell = isOrgAdmin
+            ? (isOwner || isSelf
+              ? '<span style="color:var(--text-tertiary);font-size:11px">' + (isOwner ? '--' : '--') + '</span>'
+              : `<button class="tt-remove-btn" data-user-id="${m.user_id}" data-user-name="${m.user_name || m.email}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-critical);border-radius:4px;background:transparent;color:var(--threat-critical);cursor:pointer">Remove</button>`)
+            : '';
+          return `<tr><td>${(m.user_name || '-') + youLabel}</td><td style="font-family:var(--font-mono);font-size:11px">${m.email}</td><td>${roleCell}</td>${isOrgAdmin ? '<td>' + actionCell + '</td>' : ''}</tr>`;
+        }).join('')}</tbody></table></div></div>`
+        : '<div class="empty-state"><div class="message">No members</div></div>';
+
+      // Bind role change handlers
+      document.querySelectorAll('.tt-role-select').forEach(sel => {
+        sel.addEventListener('change', async (e) => {
+          const userId = e.target.dataset.userId;
+          const newRole = e.target.value;
+          try {
+            const res = await api('/orgs/' + org.id + '/members/' + userId, { method: 'PATCH', body: JSON.stringify({ role: newRole }) });
+            if (!res?.success) { showToast(res?.error || 'Failed to update role', 'error'); loadMembers(); }
+            else showToast('Role updated', 'success');
+          } catch (err) { showToast(err.message, 'error'); loadMembers(); }
+        });
+      });
+
+      // Bind remove handlers
+      document.querySelectorAll('.tt-remove-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const userId = e.target.dataset.userId;
+          const userName = e.target.dataset.userName;
+          if (!confirm('Remove ' + userName + ' from the organization? This action cannot be undone.')) return;
+          try {
+            const res = await api('/orgs/' + org.id + '/members/' + userId, { method: 'DELETE' });
+            if (res?.success) { showToast('Member removed', 'success'); loadMembers(); }
+            else showToast(res?.error || 'Failed to remove member', 'error');
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+    } catch (err) {
+      document.getElementById('tt-members').innerHTML = '<div class="empty-state"><div class="message">Failed to load members</div></div>';
+    }
+  }
+
+  // Load pending invites
+  async function loadPendingInvites() {
+    if (!isOrgAdmin) return;
+    try {
+      const res = await api('/orgs/' + org.id + '/invites');
+      const invites = res?.data || [];
+      const pendingEl = document.getElementById('tt-pending');
+      if (!pendingEl) return;
+
+      if (invites.length === 0) {
+        pendingEl.innerHTML = '';
+        return;
+      }
+
+      pendingEl.innerHTML = `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pending Invites</div></div><div class="data-table"><table><thead><tr><th>Email</th><th>Role</th><th>Invited</th><th>Expires</th><th style="width:80px">Action</th></tr></thead><tbody>${invites.map(inv => `<tr><td style="font-family:var(--font-mono);font-size:11px">${inv.email}</td><td><span class="role-pill ${inv.org_role}" style="font-size:10px">${inv.org_role}</span></td><td style="font-size:11px;color:var(--text-tertiary)">${timeAgo(inv.created_at)}</td><td style="font-size:11px;color:var(--text-tertiary)">${hoursLeft(inv.expires_at)}</td><td><button class="tt-revoke-btn" data-invite-id="${inv.id}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-medium);border-radius:4px;background:transparent;color:var(--threat-medium);cursor:pointer">Revoke</button></td></tr>`).join('')}</tbody></table></div></div>`;
+
+      // Bind revoke handlers
+      document.querySelectorAll('.tt-revoke-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const inviteId = e.target.dataset.inviteId;
+          if (!confirm('Revoke this invitation?')) return;
+          try {
+            const res = await api('/orgs/' + org.id + '/invites/' + inviteId, { method: 'DELETE' });
+            if (res?.success) { showToast('Invitation revoked', 'success'); loadPendingInvites(); }
+            else showToast(res?.error || 'Failed to revoke', 'error');
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+    } catch (err) {
+      // Silently fail for pending invites
+    }
+  }
+
+  loadMembers();
+  loadPendingInvites();
 }
 
 async function viewTenantSettings(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
+  const isOrgAdmin = ['admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+  const isOrgOwner = org.role === 'owner' || currentUser?.role === 'super_admin';
+
+  const inputStyle = 'width:100%;padding:8px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px';
+  const checkStyle = 'margin-right:6px;accent-color:var(--blue-primary)';
+
+  const allEventTypes = [
+    { key: 'alert.created', label: 'New alert (CRITICAL/HIGH)' },
+    { key: 'alert.status_changed', label: 'Alert status changed' },
+    { key: 'takedown.status_changed', label: 'Takedown status changed' },
+    { key: 'threat.detected', label: 'New threat detected' },
+    { key: 'email_grade.changed', label: 'Email grade changed' },
+    { key: 'social_profile.discovered', label: 'Social profile discovered' },
+  ];
 
   el.innerHTML = `
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Organization Settings</div>
@@ -8481,14 +8601,13 @@ async function viewTenantSettings(el) {
         <div class="adm-padded" id="ts-usage">Loading...</div>
       </div>
     </div>
-    <div class="adm-grid-2" style="margin-top:16px">
+    <div style="margin-top:16px">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Webhooks</div></div>
-        <div class="adm-padded" style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">
-          <div style="font-size:13px;margin-bottom:4px;color:var(--text-secondary)">Not configured</div>
-          <div>Webhook configuration available in Phase D.</div>
-        </div>
+        <div class="adm-padded" id="ts-webhook">Loading...</div>
       </div>
+    </div>
+    <div style="margin-top:16px">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">SSO / SAML</div></div>
         <div class="adm-padded" style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">
@@ -8498,6 +8617,7 @@ async function viewTenantSettings(el) {
       </div>
     </div>`;
 
+  // Load usage
   try {
     const [brandsRes, membersRes] = await Promise.all([
       api('/orgs/' + org.id + '/brands').catch(() => null),
@@ -8539,6 +8659,127 @@ async function viewTenantSettings(el) {
     const usageEl = document.getElementById('ts-usage');
     if (usageEl) usageEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load usage data</div>';
   }
+
+  // Load webhook config
+  async function loadWebhookConfig() {
+    const webhookEl = document.getElementById('ts-webhook');
+    if (!webhookEl) return;
+
+    if (!isOrgAdmin) {
+      webhookEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px">Webhook configuration requires admin access.</div>';
+      return;
+    }
+
+    try {
+      const res = await api('/orgs/' + org.id + '/webhook');
+      const config = res?.data || {};
+      const subscribedEvents = config.webhook_events || [];
+
+      function timeAgoShort(dateStr) {
+        if (!dateStr) return 'Never';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return mins + ' min ago';
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + ' hours ago';
+        return Math.floor(hrs / 24) + ' days ago';
+      }
+
+      webhookEl.innerHTML = `
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Webhook URL</label>
+          <input type="url" id="wh-url" value="${config.webhook_url || ''}" placeholder="https://your-siem.example.com/api/webhook" style="${inputStyle}">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Secret (HMAC-SHA256 signing)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="wh-secret-display" value="${config.has_secret ? '••••••••••••••••' : ''}" readonly style="${inputStyle};flex:1;background:var(--bg-surface)">
+            ${isOrgOwner ? '<button id="wh-regen-btn" style="padding:6px 12px;font-size:11px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer;white-space:nowrap">Regenerate</button>' : ''}
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:8px">Event Types</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            ${allEventTypes.map(evt => `<label style="font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center"><input type="checkbox" class="wh-event-cb" value="${evt.key}" ${subscribedEvents.includes(evt.key) ? 'checked' : ''} style="${checkStyle}">${evt.label}</label>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button id="wh-test-btn" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer">Test Webhook</button>
+          <button id="wh-save-btn" class="btn btn-primary" style="font-size:12px;padding:6px 14px">Save</button>
+          <span id="wh-status" style="font-size:11px;align-self:center"></span>
+        </div>
+        <div style="display:flex;gap:20px;font-size:11px;color:var(--text-tertiary);margin-bottom:10px">
+          <span>Last delivery: ${timeAgoShort(config.webhook_last_success)} ${config.webhook_last_success ? '<span style="color:var(--positive)">&#10003;</span>' : ''}</span>
+          <span>Failures (24h): ${config.webhook_failures_24h || 0}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-tertiary);border-top:1px solid var(--blue-border);padding-top:10px">
+          <div>Format: JSON with HMAC-SHA256 signature in <code style="font-size:10px">X-Trust-Radar-Signature</code></div>
+          <div style="margin-top:4px">Compatible with: Splunk HEC, Elastic, Microsoft Sentinel, generic webhook receivers</div>
+        </div>`;
+
+      // Save webhook
+      document.getElementById('wh-save-btn')?.addEventListener('click', async () => {
+        const url = document.getElementById('wh-url').value;
+        const events = Array.from(document.querySelectorAll('.wh-event-cb:checked')).map(cb => cb.value);
+        const statusEl = document.getElementById('wh-status');
+        try {
+          const res = await api('/orgs/' + org.id + '/webhook', { method: 'PATCH', body: JSON.stringify({ webhook_url: url, webhook_events: events }) });
+          if (res?.success) {
+            statusEl.innerHTML = '<span style="color:var(--positive)">Saved</span>';
+            if (res.data?.webhook_secret) {
+              document.getElementById('wh-secret-display').type = 'text';
+              document.getElementById('wh-secret-display').value = res.data.webhook_secret;
+              showToast('Webhook secret generated. Copy it now — it will be masked after reload.', 'success');
+            } else {
+              showToast('Webhook configuration saved', 'success');
+            }
+          } else {
+            statusEl.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+          }
+        } catch (err) {
+          statusEl.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+        }
+      });
+
+      // Test webhook
+      document.getElementById('wh-test-btn')?.addEventListener('click', async () => {
+        const statusEl = document.getElementById('wh-status');
+        statusEl.innerHTML = '<span style="color:var(--text-tertiary)">Testing...</span>';
+        try {
+          const res = await api('/orgs/' + org.id + '/webhook/test', { method: 'POST' });
+          if (res?.success) {
+            statusEl.innerHTML = '<span style="color:var(--positive)">Test delivered (HTTP ' + (res.data?.status || '200') + ')</span>';
+          } else {
+            statusEl.innerHTML = '<span style="color:var(--negative)">Failed: ' + (res?.data?.error || res?.error || 'Unknown error') + '</span>';
+          }
+        } catch (err) {
+          statusEl.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+        }
+      });
+
+      // Regenerate secret
+      document.getElementById('wh-regen-btn')?.addEventListener('click', async () => {
+        if (!confirm('Regenerate webhook secret? The current secret will be invalidated.')) return;
+        try {
+          const res = await api('/orgs/' + org.id + '/webhook/regenerate-secret', { method: 'POST' });
+          if (res?.success && res.data?.webhook_secret) {
+            const secretInput = document.getElementById('wh-secret-display');
+            secretInput.type = 'text';
+            secretInput.value = res.data.webhook_secret;
+            showToast('New secret generated. Copy it now — it will be masked after reload.', 'success');
+          } else {
+            showToast(res?.error || 'Failed to regenerate secret', 'error');
+          }
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+    } catch (err) {
+      webhookEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px">Failed to load webhook configuration</div>';
+    }
+  }
+
+  loadWebhookConfig();
 }
 
 // ─── Tenant: Takedowns View ─────────────────────────────────

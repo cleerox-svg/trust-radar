@@ -78,6 +78,8 @@ import {
   handleGetOwnOrg, handleListOrgMembers, handleOrgInvite,
   handleRemoveOrgMember, handleUpdateOrgMember,
   handleAssignOrgBrand, handleRemoveOrgBrand, handleListOrgBrands,
+  handleListOrgInvites, handleRevokeOrgInvite,
+  handleUpdateWebhook, handleRegenerateSecret, handleTestWebhook, handleGetWebhookConfig,
 } from "./handlers/organizations";
 import {
   handleTenantDashboard, handleTenantAlerts, handleTenantUpdateAlert,
@@ -480,6 +482,40 @@ router.get("/api/orgs/:orgId/brands", async (request: Request & { params: Record
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleListOrgBrands(request, env, request.params["orgId"] ?? "", ctx);
+});
+
+// ─── Team Management: Invites ────────────────────────────────
+router.get("/api/orgs/:orgId/invites", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListOrgInvites(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.delete("/api/orgs/:orgId/invites/:inviteId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRevokeOrgInvite(request, env, request.params["orgId"] ?? "", request.params["inviteId"] ?? "", ctx);
+});
+
+// ─── Webhook Management ─────────────────────────────────────
+router.get("/api/orgs/:orgId/webhook", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetWebhookConfig(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.patch("/api/orgs/:orgId/webhook", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateWebhook(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.post("/api/orgs/:orgId/webhook/regenerate-secret", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleRegenerateSecret(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.post("/api/orgs/:orgId/webhook/test", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTestWebhook(request, env, request.params["orgId"] ?? "", ctx);
 });
 
 // ─── Tenant Data (org-scoped dashboard, alerts, brand detail) ──

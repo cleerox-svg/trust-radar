@@ -3,6 +3,7 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { generateInviteToken, hashToken } from "../lib/hash";
+import { sendTestWebhook } from "../lib/webhooks";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -517,4 +518,258 @@ export async function handleListOrgBrands(
   `).bind(orgId).all();
 
   return json({ success: true, data: results }, 200, origin);
+}
+
+// ─── Org Admin: List Pending Invites ─────────────────────────
+
+export async function handleListOrgInvites(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+
+  const { results } = await env.DB.prepare(`
+    SELECT id, email, org_role, created_at, expires_at
+    FROM invitations
+    WHERE org_id = ? AND status = 'pending'
+    ORDER BY created_at DESC
+  `).bind(orgId).all();
+
+  return json({ success: true, data: results }, 200, origin);
+}
+
+// ─── Org Admin: Revoke Pending Invite ────────────────────────
+
+export async function handleRevokeOrgInvite(
+  request: Request,
+  env: Env,
+  orgId: string,
+  inviteId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+
+  // Verify invitation belongs to this org
+  const invite = await env.DB.prepare(
+    "SELECT id FROM invitations WHERE id = ? AND org_id = ? AND status = 'pending'",
+  ).bind(inviteId, orgId).first();
+
+  if (!invite) {
+    return json({ success: false, error: "Invitation not found or already used" }, 404, origin);
+  }
+
+  await env.DB.prepare(
+    "UPDATE invitations SET status = 'revoked' WHERE id = ?",
+  ).bind(inviteId).run();
+
+  await audit(env, {
+    action: "org_invite_revoked",
+    userId: ctx.userId,
+    resourceType: "invitation",
+    resourceId: inviteId,
+    details: { org_id: orgId },
+    request,
+  });
+
+  return json({ success: true, data: { message: "Invitation revoked" } }, 200, origin);
+}
+
+// ─── Org Admin: Update Webhook Config ────────────────────────
+
+export async function handleUpdateWebhook(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+
+  const body = await request.json().catch(() => null) as {
+    webhook_url?: string;
+    webhook_events?: string[];
+  } | null;
+
+  if (!body) return json({ success: false, error: "No update data provided" }, 400, origin);
+
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+
+  if (body.webhook_url !== undefined) {
+    sets.push("webhook_url = ?");
+    vals.push(body.webhook_url || null);
+  }
+
+  if (body.webhook_events !== undefined) {
+    sets.push("webhook_events = ?");
+    vals.push(JSON.stringify(body.webhook_events));
+  }
+
+  if (sets.length === 0) return json({ success: false, error: "No valid fields to update" }, 400, origin);
+
+  // Auto-generate secret if setting webhook_url for the first time
+  let newSecret: string | null = null;
+  if (body.webhook_url) {
+    const existing = await env.DB.prepare(
+      "SELECT webhook_secret FROM organizations WHERE id = ?",
+    ).bind(orgId).first<{ webhook_secret: string | null }>();
+
+    if (!existing?.webhook_secret) {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      newSecret = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+      sets.push("webhook_secret = ?");
+      vals.push(newSecret);
+    }
+  }
+
+  sets.push("updated_at = datetime('now')");
+  vals.push(orgId);
+
+  await env.DB.prepare(`UPDATE organizations SET ${sets.join(", ")} WHERE id = ?`)
+    .bind(...vals).run();
+
+  await audit(env, {
+    action: "webhook_config_updated",
+    userId: ctx.userId,
+    resourceType: "organization",
+    resourceId: orgId,
+    details: { webhook_url: body.webhook_url, webhook_events: body.webhook_events },
+    request,
+  });
+
+  const responseData: Record<string, unknown> = { message: "Webhook configuration updated" };
+  if (newSecret) {
+    responseData.webhook_secret = newSecret;
+  }
+
+  return json({ success: true, data: responseData }, 200, origin);
+}
+
+// ─── Org Owner: Regenerate Webhook Secret ────────────────────
+
+export async function handleRegenerateSecret(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    if (ctx.orgRole !== "owner") return json({ success: false, error: "Only the org owner can regenerate the webhook secret" }, 403, origin);
+  }
+
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const newSecret = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+
+  await env.DB.prepare(
+    "UPDATE organizations SET webhook_secret = ?, updated_at = datetime('now') WHERE id = ?",
+  ).bind(newSecret, orgId).run();
+
+  await audit(env, {
+    action: "webhook_secret_regenerated",
+    userId: ctx.userId,
+    resourceType: "organization",
+    resourceId: orgId,
+    details: {},
+    request,
+  });
+
+  return json({ success: true, data: { webhook_secret: newSecret } }, 200, origin);
+}
+
+// ─── Org Admin: Test Webhook ─────────────────────────────────
+
+export async function handleTestWebhook(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+
+  const result = await sendTestWebhook(env, Number(orgId));
+
+  return json({
+    success: result.success,
+    data: {
+      status: result.status,
+      error: result.error,
+    },
+  }, result.success ? 200 : 502, origin);
+}
+
+// ─── Org Admin: Get Webhook Config ───────────────────────────
+
+export async function handleGetWebhookConfig(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+
+  const org = await env.DB.prepare(
+    "SELECT webhook_url, webhook_secret, webhook_events, webhook_failures_24h, webhook_last_success, webhook_last_failure FROM organizations WHERE id = ?",
+  ).bind(orgId).first<{
+    webhook_url: string | null;
+    webhook_secret: string | null;
+    webhook_events: string | null;
+    webhook_failures_24h: number;
+    webhook_last_success: string | null;
+    webhook_last_failure: string | null;
+  }>();
+
+  if (!org) return json({ success: false, error: "Organization not found" }, 404, origin);
+
+  let events: string[] = [];
+  if (org.webhook_events) {
+    try { events = JSON.parse(org.webhook_events); } catch { /* default empty */ }
+  }
+
+  return json({
+    success: true,
+    data: {
+      webhook_url: org.webhook_url,
+      has_secret: !!org.webhook_secret,
+      webhook_events: events,
+      webhook_failures_24h: org.webhook_failures_24h ?? 0,
+      webhook_last_success: org.webhook_last_success,
+      webhook_last_failure: org.webhook_last_failure,
+    },
+  }, 200, origin);
 }
