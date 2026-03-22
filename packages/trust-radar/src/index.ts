@@ -1745,7 +1745,7 @@ export default {
         return applySecurityHeaders(serveLrxRadarPage(url.pathname));
       }
 
-      // Honeypot pages serve from trustradar.ca
+      // Honeypot pages on trustradar.ca — only /team and /careers (not /contact or /about)
       if (["trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
         const honeypotPages = ["/team", "/careers"];
         if (honeypotPages.includes(url.pathname)) {
