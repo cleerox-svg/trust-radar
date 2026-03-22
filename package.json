@@ -10,8 +10,6 @@
     "typecheck": "turbo run typecheck",
     "deploy:guard": "turbo run deploy --filter=imprsn8",
     "deploy:shield": "turbo run deploy --filter=trust-radar",
-    "deploy:api": "turbo run deploy --filter=api",
-    "deploy:all": "turbo run deploy",
     "deploy:imprsn8": "turbo run deploy --filter=imprsn8",
     "deploy:radar": "turbo run deploy --filter=trust-radar"
   },

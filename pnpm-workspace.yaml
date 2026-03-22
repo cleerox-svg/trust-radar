@@ -1,2 +1,3 @@
 packages:
-  - "packages/*"
+  - "packages/trust-radar"
+  - "packages/imprsn8"

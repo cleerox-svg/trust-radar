@@ -8,7 +8,7 @@ Trust Radar deploys to Cloudflare Workers via GitHub Actions on push to `master`
 GitHub Actions (CI/CD)
 ├── deploy-radar.yml    → Cloudflare Workers (trust-radar)
 ├── deploy-imprsn8.yml  → Cloudflare Workers (imprsn8)
-└── ci.yml              → TypeCheck all packages on PR/push
+└── ci.yml              → TypeCheck trust-radar and imprsn8 Workers
 ```
 
 ## Prerequisites
@@ -72,7 +72,8 @@ npx wrangler deploy --env staging  # Deploy to staging
 
 ### ci.yml (on every PR and push to master)
 1. TypeCheck trust-radar and imprsn8 Workers
-2. TypeCheck and build frontend
+
+> **Note:** The `deploy-api.yml` workflow (FastAPI/Railway) has been removed — all compute runs on Cloudflare Workers.
 
 ### deploy-radar.yml (on push to master, paths: `packages/trust-radar/**`)
 1. Type check

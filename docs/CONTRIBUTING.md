@@ -75,7 +75,6 @@ packages/
 │   │   └── middleware/   → Auth, rate limiting, CORS, security
 │   └── migrations/       → D1 SQL migrations
 ├── imprsn8/              → Social brand protection Worker
-└── api/                  → FastAPI backend (deprecated)
 ```
 
 ## Adding New Features
@@ -110,4 +109,4 @@ pnpm dev                    # Test locally with Miniflare
 
 ## License
 
-Proprietary — © 2026 LRX Enterprise Inc. All rights reserved.
+Proprietary — © 2026 LRX Enterprises Inc. All rights reserved.
