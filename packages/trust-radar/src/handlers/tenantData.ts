@@ -2,6 +2,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
+import { deliverWebhook } from "../lib/webhooks";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -276,6 +277,15 @@ export async function handleTenantUpdateAlert(
       outcome: "success",
       request,
     });
+
+    // Fire webhook: alert.status_changed
+    deliverWebhook(env, Number(orgId), "alert.status_changed", {
+      alert_id: alertId,
+      previous_status: alert.current_status,
+      new_status: body.status,
+      updated_by: ctx.userId,
+      notes: body.notes ?? null,
+    }).catch(() => {});
 
     return json({ success: true, message: `Alert ${body.status}` }, 200, origin);
   } catch (err) {

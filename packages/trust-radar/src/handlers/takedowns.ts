@@ -2,6 +2,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
+import { deliverWebhook } from "../lib/webhooks";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -381,6 +382,16 @@ export async function handleUpdateTakedown(
       request,
     });
 
+    // Fire webhook: takedown.status_changed
+    if (typeof body.status === "string" && body.status !== takedown.status) {
+      deliverWebhook(env, Number(orgId), "takedown.status_changed", {
+        takedown_id: takedownId,
+        previous_status: takedown.status,
+        new_status: body.status,
+        updated_by: ctx.userId,
+      }).catch(() => {});
+    }
+
     return json({ success: true, message: "Takedown request updated" }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
@@ -548,6 +559,21 @@ export async function handleAdminUpdateTakedown(
       outcome: "success",
       request,
     });
+
+    // Fire webhook: takedown.status_changed (look up org_id from takedown)
+    if (typeof body.status === "string" && body.status !== takedown.status) {
+      const tdOrg = await env.DB.prepare(
+        "SELECT org_id FROM takedown_requests WHERE id = ?",
+      ).bind(takedownId).first<{ org_id: number | null }>();
+      if (tdOrg?.org_id) {
+        deliverWebhook(env, tdOrg.org_id, "takedown.status_changed", {
+          takedown_id: takedownId,
+          previous_status: takedown.status,
+          new_status: body.status,
+          updated_by: ctx.userId,
+        }).catch(() => {});
+      }
+    }
 
     return json({ success: true, message: "Takedown request updated" }, 200, origin);
   } catch (err) {
