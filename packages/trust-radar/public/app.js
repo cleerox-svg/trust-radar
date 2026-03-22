@@ -142,6 +142,7 @@ const routes = [
   { path: '/tenant/alerts',       view: viewTenantAlerts,    auth: true, tenant: true },
   { path: '/tenant/team',         view: viewTenantTeam,      auth: true, tenant: true },
   { path: '/tenant/settings',     view: viewTenantSettings,  auth: true, tenant: true },
+  { path: '/tenant/brands/:id',  view: viewTenantBrandDetail, auth: true, tenant: true },
   { path: '/login',                view: viewLogin,           auth: false },
   { path: '/auth/callback',        view: viewAuthCallback,    auth: false },
   { path: '/auth/error',           view: viewAuthError,       auth: false },
@@ -7730,6 +7731,8 @@ async function viewAdminSpamTrap(el) {
 
 // ─── Tenant Views ────────────────────────────────────────────
 
+let _tenantTrendChart = null;
+
 async function viewTenantDashboard(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
@@ -7737,45 +7740,139 @@ async function viewTenantDashboard(el) {
   el.innerHTML = `
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:4px">${org.name}</div>
     <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:24px">Plan: <span style="color:var(--blue-primary)">${org.plan}</span> &middot; Role: <span style="color:var(--positive)">${org.role}</span></div>
-    <div class="adm-grid-2">
-      <div class="adm-panel">
-        <div class="adm-phead"><div class="adm-ptitle">Monitored Brands</div><div class="adm-pbadge" id="td-brand-count">-</div></div>
-        <div class="adm-padded" id="td-brands-list" style="max-height:300px;overflow-y:auto">Loading...</div>
-      </div>
-      <div class="adm-panel">
-        <div class="adm-phead"><div class="adm-ptitle">Team Members</div><div class="adm-pbadge" id="td-member-count">-</div></div>
-        <div class="adm-padded" id="td-members-list" style="max-height:300px;overflow-y:auto">Loading...</div>
-      </div>
+    <div class="agg-stats" id="td-stats">
+      ${renderStatCard('&#9733;', 'brands', '-', 'Brands')}
+      ${renderStatCard('&#9888;', 'threats', '-', 'Active Threats')}
+      ${renderStatCard('&#128276;', 'providers', '-', 'Open Alerts')}
+      ${renderStatCard('&#128101;', 'campaigns', '-', 'Social Profiles')}
+      ${renderStatCard('&#9878;', 'positive', '-', 'Avg Exposure')}
     </div>
-    <div class="adm-panel" style="margin-top:16px">
-      <div class="adm-phead"><div class="adm-ptitle">Threat Overview</div></div>
-      <div class="adm-padded" style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">
-        <div style="font-size:24px;margin-bottom:8px">Coming in Phase B</div>
-        <div style="font-size:12px">Threat dashboards, trend charts, and alert summaries will appear here.</div>
+    <div style="margin-top:20px;font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:12px">Brand Health</div>
+    <div id="td-brand-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
+      <div style="color:var(--text-tertiary);font-size:12px;padding:20px">Loading...</div>
+    </div>
+    <div class="adm-grid-2" style="margin-top:20px">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">7-Day Threat Trend</div></div>
+        <div class="adm-padded"><div class="adm-chart-wrap"><canvas id="td-trend-chart"></canvas></div></div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Recent Alerts</div></div>
+        <div class="adm-padded" id="td-recent-alerts" style="max-height:220px;overflow-y:auto">Loading...</div>
       </div>
     </div>`;
 
   try {
-    const [brandsRes, membersRes] = await Promise.all([
-      api('/orgs/' + org.id + '/brands').catch(() => null),
-      api('/orgs/' + org.id + '/members').catch(() => null),
-    ]);
-    const brands = brandsRes?.data || [];
-    const members = membersRes?.data || [];
+    const res = await api('/orgs/' + org.id + '/dashboard');
+    if (!res?.data) return;
+    const d = res.data;
 
-    const bc = document.getElementById('td-brand-count');
-    if (bc) bc.textContent = brands.length;
-    document.getElementById('td-brands-list').innerHTML = brands.length
-      ? brands.map(b => `<div style="padding:6px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary)">${b.brand_name}</span><span style="font-size:11px;color:var(--text-tertiary);margin-left:8px">${b.canonical_domain || ''}</span></div><div style="font-size:11px;color:var(--text-secondary)">${b.threat_count || 0} threats</div></div>`).join('')
-      : '<div style="color:var(--text-tertiary);font-size:12px">No brands assigned yet</div>';
+    // Update stat cards
+    const statsEl = document.getElementById('td-stats');
+    if (statsEl) {
+      statsEl.innerHTML =
+        renderStatCard('&#9733;', 'brands', d.total_brands, 'Brands') +
+        renderStatCard('&#9888;', 'threats', d.total_active_threats, 'Active Threats') +
+        renderStatCard('&#128276;', 'providers', d.total_alerts_open, 'Open Alerts') +
+        renderStatCard('&#128101;', 'campaigns', d.total_social_profiles, 'Social Profiles') +
+        renderStatCard('&#9878;', 'positive', d.avg_exposure_score != null ? d.avg_exposure_score + '/100' : 'N/A', 'Avg Exposure');
+    }
 
-    const mc = document.getElementById('td-member-count');
-    if (mc) mc.textContent = members.length;
-    document.getElementById('td-members-list').innerHTML = members.length
-      ? members.map(m => `<div style="padding:6px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary)">${m.user_name || m.email}</span><span style="font-size:11px;color:var(--text-tertiary);margin-left:8px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span></div></div>`).join('')
-      : '<div style="color:var(--text-tertiary);font-size:12px">No members yet</div>';
+    // Brand health cards
+    const cardsEl = document.getElementById('td-brand-cards');
+    if (cardsEl) {
+      cardsEl.innerHTML = d.brands.length ? d.brands.map(b => {
+        const score = b.exposure_score != null ? Number(b.exposure_score) : null;
+        const scoreColor = score == null ? '#4a5a73' : score >= 70 ? 'var(--threat-critical)' : score >= 40 ? 'var(--threat-medium)' : 'var(--positive)';
+        const ringOffset = score != null ? 188.5 * (1 - score / 100) : 188.5;
+        const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[b.email_security_grade] || 'var(--text-tertiary)';
+        return `<div class="adm-panel" style="cursor:pointer;transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
+          <div class="adm-padded" style="display:flex;gap:14px;align-items:center">
+            <div style="flex-shrink:0;position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center">
+              <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${ringOffset}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
+              <div style="position:absolute;font-size:16px;font-weight:700;color:${scoreColor}">${score != null ? score : '?'}</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</span>
+                ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(0,212,255,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+              </div>
+              <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:8px">${b.canonical_domain || ''}</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
+                <span style="color:var(--text-secondary)">Email: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
+                <span style="color:var(--text-secondary)">Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
+                <span style="color:var(--text-secondary)">Social: <span style="font-weight:600">${b.social_profiles_count}</span>${Number(b.impersonation_count) > 0 ? ' <span style="color:var(--threat-critical)">(' + b.impersonation_count + ' impersonation)</span>' : ''}</span>
+                ${b.social_risk_score != null ? '<span style="color:var(--text-secondary)">Risk: <span style="font-weight:600">' + b.social_risk_score + '</span></span>' : ''}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:20px">No brands assigned yet</div>';
+    }
+
+    // Threat trend chart
+    if (_tenantTrendChart) { _tenantTrendChart.destroy(); _tenantTrendChart = null; }
+    const trendData = d.threat_trend || [];
+    const canvas = document.getElementById('td-trend-chart');
+    if (canvas && trendData.length && typeof Chart !== 'undefined') {
+      _tenantTrendChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: trendData.map(t => t.date),
+          datasets: [{
+            label: 'Threats', data: trendData.map(t => t.count),
+            borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)',
+            fill: true, tension: 0.35, pointRadius: 2,
+            pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff',
+            pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
+              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+              titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
+              displayColors: false,
+              callbacks: { label: i => i.parsed.y + ' threats' }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(0,212,255,0.04)' } },
+            y: { beginAtZero: true, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, precision: 0 }, grid: { color: 'rgba(0,212,255,0.04)' } }
+          }
+        }
+      });
+    } else if (canvas && !trendData.length) {
+      canvas.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:12px">No threat data in the last 7 days</div>';
+    }
+
+    // Recent alerts
+    const alertsEl = document.getElementById('td-recent-alerts');
+    if (alertsEl) {
+      const alerts = d.recent_alerts || [];
+      alertsEl.innerHTML = alerts.length ? alerts.map(a => {
+        const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[a.severity] || 'var(--text-tertiary)';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border);cursor:pointer" onclick="navigate('/tenant/alerts')">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
+            <span style="font-size:10px;font-weight:600;color:${sevColor};text-transform:uppercase">${a.severity}</span>
+            <span style="font-size:11px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${a.title}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);padding-left:16px">
+            <span>${a.brand_name} &middot; ${(a.alert_type || '').replace(/_/g, ' ')}</span>
+            <span>${timeAgo(a.created_at)}</span>
+          </div>
+        </div>`;
+      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">No open alerts</div>';
+    }
   } catch (err) {
     console.error('Tenant dashboard load error:', err);
+    showToast('Failed to load dashboard data', 'error');
   }
 }
 
@@ -7783,29 +7880,354 @@ async function viewTenantBrands(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
 
-  el.innerHTML = '<div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Your Brands</div><div id="tb-list">Loading...</div>';
+  el.innerHTML = '<div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Your Brands</div><div id="tb-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">Loading...</div>';
 
   try {
-    const res = await api('/orgs/' + org.id + '/brands');
-    const brands = res?.data || [];
-    document.getElementById('tb-list').innerHTML = brands.length
-      ? `<div class="data-table"><table><thead><tr><th>Brand</th><th>Domain</th><th>Sector</th><th>Threats</th><th>Primary</th></tr></thead><tbody>${brands.map(b => `<tr><td><a href="/brands/${b.brand_id}" style="color:var(--blue-primary)">${b.brand_name}</a></td><td style="font-family:var(--font-mono);font-size:11px">${b.canonical_domain || '-'}</td><td>${b.sector || '-'}</td><td>${b.threat_count || 0}</td><td>${b.is_primary ? 'Yes' : ''}</td></tr>`).join('')}</tbody></table></div>`
-      : '<div class="empty-state"><div class="message">No brands assigned to your organization yet.</div></div>';
+    const res = await api('/orgs/' + org.id + '/dashboard');
+    const brands = res?.data?.brands || [];
+    const listEl = document.getElementById('tb-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = brands.length ? brands.map(b => {
+      const score = b.exposure_score != null ? Number(b.exposure_score) : null;
+      const scoreColor = score == null ? '#4a5a73' : score >= 70 ? 'var(--threat-critical)' : score >= 40 ? 'var(--threat-medium)' : 'var(--positive)';
+      const ringOffset = score != null ? 188.5 * (1 - score / 100) : 188.5;
+      const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[b.email_security_grade] || 'var(--text-tertiary)';
+      return `<div class="adm-panel" style="cursor:pointer;transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
+        <div class="adm-padded" style="display:flex;gap:14px;align-items:flex-start">
+          <div style="flex-shrink:0;position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center">
+            <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${ringOffset}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
+            <div style="position:absolute;font-size:16px;font-weight:700;color:${scoreColor}">${score != null ? score : '?'}</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-weight:700;font-size:14px;color:var(--text-primary)">${b.name}</span>
+              ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(0,212,255,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+            </div>
+            <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:6px">${b.canonical_domain || ''} ${b.sector ? '&middot; ' + b.sector : ''}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
+              <span style="color:var(--text-secondary)">Email Grade: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
+              <span style="color:var(--text-secondary)">Active Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
+              <span style="color:var(--text-secondary)">Social: <span style="font-weight:600">${b.social_profiles_count}</span> profiles</span>
+              <span style="color:var(--text-secondary)">Impersonation: <span style="font-weight:600;color:${Number(b.impersonation_count) > 0 ? 'var(--threat-critical)' : 'var(--positive)'}">${b.impersonation_count}</span></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-tertiary);margin-top:6px">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty-state"><div class="message">No brands assigned to your organization yet.</div></div>';
   } catch (err) {
     document.getElementById('tb-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load brands</div></div>';
   }
 }
 
-function viewTenantAlerts(el) {
+async function viewTenantBrandDetail(el) {
   const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+  const brandId = currentParams?.id;
+  if (!brandId) { navigate('/tenant/brands', true); return; }
+  const canHITL = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+
+  el.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;padding:20px">Loading brand details...</div>';
+
+  try {
+    const res = await api('/orgs/' + org.id + '/brands/' + brandId + '/detail');
+    if (!res?.data) { el.innerHTML = '<div class="empty-state"><div class="message">Brand not found</div></div>'; return; }
+    const { brand, active_threats_count, top_threats, social_profiles, recent_alerts } = res.data;
+
+    const score = brand.exposure_score != null ? Number(brand.exposure_score) : null;
+    const scoreColor = score == null ? '#4a5a73' : score >= 70 ? 'var(--threat-critical)' : score >= 40 ? 'var(--threat-medium)' : 'var(--positive)';
+    const ringOffset = score != null ? 188.5 * (1 - score / 100) : 188.5;
+    const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[brand.email_security_grade] || 'var(--text-tertiary)';
+
+    el.innerHTML = `
+      <div style="margin-bottom:16px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/brands')" style="color:var(--blue-primary);font-size:12px;text-decoration:none">&larr; Back to Brands</a></div>
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px">
+        <div style="position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="90" height="90" viewBox="0 0 90 90"><circle cx="45" cy="45" r="38" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="45" cy="45" r="38" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="238.8" stroke-dashoffset="${score != null ? 238.8 * (1 - score / 100) : 238.8}" stroke-linecap="round" transform="rotate(-90 45 45)"/></svg>
+          <div style="position:absolute;font-size:22px;font-weight:700;color:${scoreColor}">${score != null ? score : '?'}</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${brand.name}</div>
+          <div style="font-size:12px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:8px">${brand.canonical_domain || ''} ${brand.sector ? '&middot; ' + brand.sector : ''}</div>
+          <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap">
+            <span style="padding:4px 10px;border-radius:4px;background:${gradeColor}22;color:${gradeColor};border:1px solid ${gradeColor}44;font-weight:600">Email: ${brand.email_security_grade || 'N/A'}</span>
+            <span style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--blue-border)">Threats: ${active_threats_count}</span>
+            <span style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--blue-border)">Social Risk: ${brand.social_risk_score ?? 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="adm-grid-2">
+        <div class="adm-panel">
+          <div class="adm-phead"><div class="adm-ptitle">Active Threats</div><div class="adm-pbadge">${active_threats_count}</div></div>
+          <div class="adm-padded" id="tbd-threats" style="max-height:320px;overflow-y:auto"></div>
+        </div>
+        <div class="adm-panel">
+          <div class="adm-phead"><div class="adm-ptitle">Social Profiles</div><div class="adm-pbadge">${social_profiles.length}</div></div>
+          <div class="adm-padded" id="tbd-social" style="max-height:320px;overflow-y:auto"></div>
+        </div>
+      </div>
+
+      <div class="adm-panel" style="margin-top:16px">
+        <div class="adm-phead"><div class="adm-ptitle">Recent Alerts</div><div class="adm-pbadge">${recent_alerts.length}</div></div>
+        <div class="adm-padded" id="tbd-alerts" style="max-height:400px;overflow-y:auto"></div>
+      </div>`;
+
+    // Threats
+    const threatsEl = document.getElementById('tbd-threats');
+    if (threatsEl) {
+      threatsEl.innerHTML = top_threats.length ? top_threats.map(t => {
+        const sColor = { critical: 'var(--threat-critical)', high: 'var(--threat-high)', medium: 'var(--threat-medium)', low: '#4a5a73' }[t.severity] || 'var(--text-tertiary)';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${sColor}"></span>
+            <span style="font-size:11px;font-weight:600;color:${sColor};text-transform:uppercase">${t.severity || 'unknown'}</span>
+            <span style="font-size:11px;color:var(--text-secondary)">${(t.threat_type || '').replace(/_/g, ' ')}</span>
+          </div>
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-primary);word-break:break-all">${t.malicious_domain || t.malicious_url || 'N/A'}</div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
+        </div>`;
+      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" style="color:var(--blue-primary);font-size:11px">View all threats</a></div>` : '')
+      : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No active threats</div>';
+    }
+
+    // Social profiles
+    const socialEl = document.getElementById('tbd-social');
+    if (socialEl) {
+      socialEl.innerHTML = social_profiles.length ? social_profiles.map(p => {
+        const classColor = { impersonation: 'var(--threat-critical)', suspicious: 'var(--threat-high)', parody: 'var(--threat-medium)', official: 'var(--positive)', unclassified: 'var(--text-tertiary)' }[p.classification] || 'var(--text-tertiary)';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${p.handle || p.display_name || 'Unknown'}</div>
+            <div style="font-size:10px;color:var(--text-tertiary)">${p.platform || ''} &middot; ${timeAgo(p.last_scanned)}</div>
+          </div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${classColor}22;color:${classColor};border:1px solid ${classColor}44">${p.classification || 'unclassified'}</span>
+        </div>`;
+      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No social profiles tracked</div>';
+    }
+
+    // Alerts
+    const alertsEl = document.getElementById('tbd-alerts');
+    if (alertsEl) {
+      alertsEl.innerHTML = recent_alerts.length ? recent_alerts.map(a => {
+        const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[a.severity] || 'var(--text-tertiary)';
+        const statusLabel = (a.status || 'new').replace(/_/g, ' ');
+        const hitlBtns = canHITL && a.status !== 'resolved' && a.status !== 'false_positive' ? `
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="acknowledged" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-elevated);color:var(--blue-primary);cursor:pointer">Ack</button>
+            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="resolved" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:var(--bg-elevated);color:var(--positive);cursor:pointer">Resolve</button>
+            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="false_positive" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">FP</button>
+          </div>` : '';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${sevColor}"></span>
+            <span style="font-size:10px;font-weight:600;color:${sevColor}">${a.severity}</span>
+            <span style="font-size:11px;color:var(--text-primary);flex:1">${a.title}</span>
+            <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:var(--bg-surface);color:var(--text-tertiary)">${statusLabel}</span>
+            <span style="font-size:10px;color:var(--text-tertiary)">${timeAgo(a.created_at)}</span>
+          </div>
+          ${a.summary ? '<div style="font-size:11px;color:var(--text-secondary);padding-left:14px">' + a.summary + '</div>' : ''}
+          ${hitlBtns}
+        </div>`;
+      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No alerts for this brand</div>';
+
+      // HITL buttons
+      alertsEl.querySelectorAll('.tbd-alert-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const alertId = e.target.dataset.alert;
+          const newStatus = e.target.dataset.status;
+          if (newStatus === 'false_positive' && !confirm('Mark as false positive?')) return;
+          let notes = null;
+          if (newStatus === 'resolved') notes = prompt('Resolution notes (optional):');
+          e.target.disabled = true;
+          try {
+            const body = { status: newStatus };
+            if (notes) body.notes = notes;
+            await api('/orgs/' + org.id + '/alerts/' + alertId, { method: 'PATCH', body: JSON.stringify(body) });
+            showToast('Alert ' + newStatus.replace(/_/g, ' '), 'success');
+            viewTenantBrandDetail(el);
+          } catch (err) {
+            showToast('Failed: ' + err.message, 'error');
+            e.target.disabled = false;
+          }
+        });
+      });
+    }
+  } catch (err) {
+    el.innerHTML = '<div class="empty-state"><div class="message">Failed to load brand details</div></div>';
+    console.error('Tenant brand detail error:', err);
+  }
+}
+
+async function viewTenantAlerts(el) {
+  const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+  const canHITL = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+
+  let filters = { status: '', severity: '', brand_id: '', alert_type: '' };
+  let currentOffset = 0;
+  const PAGE_SIZE = 20;
+
   el.innerHTML = `
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Alerts</div>
-    <div class="adm-panel">
-      <div class="adm-padded" style="text-align:center;padding:60px 20px;color:var(--text-tertiary)">
-        <div style="font-size:24px;margin-bottom:8px">Coming in Phase B</div>
-        <div style="font-size:12px">Real-time alerts for your monitored brands will appear here.</div>
-      </div>
-    </div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="ta-filters">
+      <select id="ta-status" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+        <option value="">All Statuses</option><option value="new">New</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option><option value="false_positive">False Positive</option>
+      </select>
+      <select id="ta-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+        <option value="">All Severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option>
+      </select>
+      <select id="ta-brand" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+        <option value="">All Brands</option>
+      </select>
+      <select id="ta-type" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+        <option value="">All Types</option><option value="social_impersonation">Social Impersonation</option><option value="phishing_detected">Phishing Detected</option><option value="email_grade_change">Email Grade Change</option><option value="lookalike_domain_active">Lookalike Domain</option><option value="ct_certificate_issued">CT Certificate</option><option value="threat_feed_match">Threat Feed Match</option>
+      </select>
+    </div>
+    <div id="ta-severity-badges" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+    <div id="ta-alerts-list">Loading...</div>
+    <div id="ta-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:16px"></div>`;
+
+  // Populate brand filter
+  try {
+    const brandsRes = await api('/orgs/' + org.id + '/brands');
+    const brandSelect = document.getElementById('ta-brand');
+    if (brandSelect && brandsRes?.data) {
+      brandsRes.data.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.brand_id;
+        opt.textContent = b.brand_name;
+        brandSelect.appendChild(opt);
+      });
+    }
+  } catch (e) { /* ignore */ }
+
+  async function loadAlerts() {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.severity) params.set('severity', filters.severity);
+    if (filters.brand_id) params.set('brand_id', filters.brand_id);
+    if (filters.alert_type) params.set('alert_type', filters.alert_type);
+    params.set('limit', String(PAGE_SIZE));
+    params.set('offset', String(currentOffset));
+
+    try {
+      const res = await api('/orgs/' + org.id + '/alerts?' + params.toString());
+      if (!res) return;
+      const alerts = res.data || [];
+      const total = res.total || 0;
+      const sevBreakdown = res.severity_breakdown || [];
+
+      // Severity badges
+      const badgesEl = document.getElementById('ta-severity-badges');
+      if (badgesEl) {
+        const sevMap = {};
+        sevBreakdown.forEach(s => { sevMap[s.severity] = s.count; });
+        badgesEl.innerHTML = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(s => {
+          const c = sevMap[s] || 0;
+          const col = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[s];
+          return `<span style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;background:${col}22;color:${col};border:1px solid ${col}44">${s} ${c}</span>`;
+        }).join('');
+      }
+
+      // Alert cards
+      const listEl = document.getElementById('ta-alerts-list');
+      if (listEl) {
+        listEl.innerHTML = alerts.length ? alerts.map(a => {
+          const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[a.severity] || 'var(--text-tertiary)';
+          const statusLabel = (a.status || 'new').replace(/_/g, ' ');
+          const typeLabel = (a.alert_type || '').replace(/_/g, ' ');
+          const hitlButtons = canHITL && a.status !== 'resolved' && a.status !== 'false_positive' ? `
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              ${a.status !== 'acknowledged' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="acknowledged" style="padding:4px 10px;font-size:10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-elevated);color:var(--blue-primary);cursor:pointer">Acknowledge</button>' : ''}
+              ${a.status !== 'investigating' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="investigating" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-medium)44;border-radius:4px;background:var(--bg-elevated);color:var(--threat-medium);cursor:pointer">Investigate</button>' : ''}
+              <button class="ta-action-btn" data-alert="${a.id}" data-status="resolved" style="padding:4px 10px;font-size:10px;border:1px solid var(--positive)44;border-radius:4px;background:var(--bg-elevated);color:var(--positive);cursor:pointer">Resolve</button>
+              <button class="ta-action-btn" data-alert="${a.id}" data-status="false_positive" style="padding:4px 10px;font-size:10px;border:1px solid #4a5a73;border-radius:4px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">False Positive</button>
+            </div>` : '';
+          const aiSection = a.ai_assessment ? `<div style="margin-top:8px;padding:8px;border-radius:4px;background:var(--bg-surface);font-size:11px;color:var(--text-secondary);display:none" id="ta-ai-${a.id}"><strong style="color:var(--blue-primary)">AI Assessment:</strong> ${a.ai_assessment}</div><button onclick="document.getElementById('ta-ai-${a.id}').style.display=document.getElementById('ta-ai-${a.id}').style.display==='none'?'block':'none'" style="margin-top:4px;font-size:10px;color:var(--blue-primary);background:none;border:none;cursor:pointer;padding:0">Toggle AI Assessment</button>` : '';
+          return `<div class="adm-panel" style="margin-bottom:10px">
+            <div class="adm-padded">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${a.severity}</span>
+                <span style="font-size:12px;color:var(--text-secondary)">${typeLabel}</span>
+                <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:var(--bg-surface);color:var(--text-tertiary);margin-left:auto">${statusLabel}</span>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px">${a.title}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${a.summary || ''}</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary)">
+                <span>${a.brand_name || ''}</span>
+                <span>${timeAgo(a.created_at)}</span>
+              </div>
+              ${aiSection}
+              ${hitlButtons}
+            </div>
+          </div>`;
+        }).join('') : '<div class="empty-state"><div class="message">No alerts match your filters</div></div>';
+
+        // HITL action buttons
+        listEl.querySelectorAll('.ta-action-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const alertId = e.target.dataset.alert;
+            const newStatus = e.target.dataset.status;
+
+            if (newStatus === 'false_positive') {
+              if (!confirm('Mark this alert as a false positive? This action will be logged.')) return;
+            }
+
+            let notes = null;
+            if (newStatus === 'resolved') {
+              notes = prompt('Resolution notes (optional):');
+            }
+
+            e.target.disabled = true;
+            e.target.textContent = 'Updating...';
+            try {
+              const body = { status: newStatus };
+              if (notes) body.notes = notes;
+              await api('/orgs/' + org.id + '/alerts/' + alertId, { method: 'PATCH', body: JSON.stringify(body) });
+              showToast('Alert ' + newStatus.replace(/_/g, ' '), 'success');
+              loadAlerts();
+            } catch (err) {
+              showToast('Failed: ' + err.message, 'error');
+              e.target.disabled = false;
+              e.target.textContent = newStatus.replace(/_/g, ' ');
+            }
+          });
+        });
+      }
+
+      // Pagination
+      const pagEl = document.getElementById('ta-pagination');
+      if (pagEl && total > PAGE_SIZE) {
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const currentPage = Math.floor(currentOffset / PAGE_SIZE) + 1;
+        pagEl.innerHTML = `
+          <button ${currentPage <= 1 ? 'disabled' : ''} id="ta-prev" style="padding:4px 12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px;cursor:pointer">Prev</button>
+          <span style="font-size:11px;color:var(--text-secondary);padding:4px 8px">${currentPage} / ${totalPages} (${total} total)</span>
+          <button ${currentPage >= totalPages ? 'disabled' : ''} id="ta-next" style="padding:4px 12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px;cursor:pointer">Next</button>`;
+        document.getElementById('ta-prev')?.addEventListener('click', () => { currentOffset = Math.max(0, currentOffset - PAGE_SIZE); loadAlerts(); });
+        document.getElementById('ta-next')?.addEventListener('click', () => { currentOffset += PAGE_SIZE; loadAlerts(); });
+      } else if (pagEl) {
+        pagEl.innerHTML = '';
+      }
+    } catch (err) {
+      document.getElementById('ta-alerts-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load alerts</div></div>';
+    }
+  }
+
+  // Filter change handlers
+  ['ta-status', 'ta-severity', 'ta-brand', 'ta-type'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      const key = { 'ta-status': 'status', 'ta-severity': 'severity', 'ta-brand': 'brand_id', 'ta-type': 'alert_type' }[id];
+      filters[key] = e.target.value;
+      currentOffset = 0;
+      loadAlerts();
+    });
+  });
+
+  loadAlerts();
 }
 
 async function viewTenantTeam(el) {
@@ -7864,24 +8286,85 @@ async function viewTenantTeam(el) {
   }
 }
 
-function viewTenantSettings(el) {
+async function viewTenantSettings(el) {
   const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+
   el.innerHTML = `
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Organization Settings</div>
-    <div class="adm-panel">
-      <div class="adm-padded">
-        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org?.name || '-'}</div></div>
-        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Slug</span><div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${org?.slug || '-'}</div></div>
-        <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org?.plan || '-'}</span></div></div>
-        <div><span style="font-size:11px;color:var(--text-tertiary)">Your Role</span><div><span class="role-pill ${org?.role}" style="font-size:10px">${org?.role || '-'}</span></div></div>
+    <div class="adm-grid-2">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Organization Details</div></div>
+        <div class="adm-padded">
+          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org.name || '-'}</div></div>
+          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Slug</span><div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${org.slug || '-'}</div></div>
+          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org.plan || '-'}</span></div></div>
+          <div><span style="font-size:11px;color:var(--text-tertiary)">Your Role</span><div><span class="role-pill ${org.role}" style="font-size:10px">${org.role || '-'}</span></div></div>
+        </div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Usage</div></div>
+        <div class="adm-padded" id="ts-usage">Loading...</div>
       </div>
     </div>
-    <div class="adm-panel" style="margin-top:16px">
-      <div class="adm-padded" style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">
-        <div style="font-size:16px;margin-bottom:8px">More settings coming in Phase B</div>
-        <div style="font-size:12px">Webhook configuration, SSO setup, and notification preferences.</div>
+    <div class="adm-grid-2" style="margin-top:16px">
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">Webhooks</div></div>
+        <div class="adm-padded" style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">
+          <div style="font-size:13px;margin-bottom:4px;color:var(--text-secondary)">Not configured</div>
+          <div>Webhook configuration available in Phase D.</div>
+        </div>
+      </div>
+      <div class="adm-panel">
+        <div class="adm-phead"><div class="adm-ptitle">SSO / SAML</div></div>
+        <div class="adm-padded" style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">
+          <div style="font-size:13px;margin-bottom:4px;color:var(--text-secondary)">Not configured</div>
+          <div>SSO setup available in Phase E.</div>
+        </div>
       </div>
     </div>`;
+
+  try {
+    const [brandsRes, membersRes] = await Promise.all([
+      api('/orgs/' + org.id + '/brands').catch(() => null),
+      api('/orgs/' + org.id + '/members').catch(() => null),
+    ]);
+    const brandCount = brandsRes?.data?.length || 0;
+    const memberCount = membersRes?.data?.length || 0;
+    const maxBrands = org.max_brands || 5;
+    const maxMembers = org.max_members || 10;
+
+    const usageEl = document.getElementById('ts-usage');
+    if (usageEl) {
+      const brandPct = Math.round((brandCount / maxBrands) * 100);
+      const memberPct = Math.round((memberCount / maxMembers) * 100);
+      const brandColor = brandPct >= 90 ? 'var(--threat-critical)' : brandPct >= 70 ? 'var(--threat-medium)' : 'var(--positive)';
+      const memberColor = memberPct >= 90 ? 'var(--threat-critical)' : memberPct >= 70 ? 'var(--threat-medium)' : 'var(--positive)';
+
+      usageEl.innerHTML = `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+            <span style="color:var(--text-secondary)">Brands</span>
+            <span style="color:var(--text-primary);font-weight:600">${brandCount} / ${maxBrands}</span>
+          </div>
+          <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${brandPct}%;background:${brandColor};border-radius:3px;transition:width 0.3s"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+            <span style="color:var(--text-secondary)">Members</span>
+            <span style="color:var(--text-primary);font-weight:600">${memberCount} / ${maxMembers}</span>
+          </div>
+          <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${memberPct}%;background:${memberColor};border-radius:3px;transition:width 0.3s"></div>
+          </div>
+        </div>`;
+    }
+  } catch (err) {
+    const usageEl = document.getElementById('ts-usage');
+    if (usageEl) usageEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load usage data</div>';
+  }
 }
 
 // ─── Admin: Organization Management ──────────────────────────

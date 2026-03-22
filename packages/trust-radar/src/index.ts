@@ -79,6 +79,10 @@ import {
   handleRemoveOrgMember, handleUpdateOrgMember,
   handleAssignOrgBrand, handleRemoveOrgBrand, handleListOrgBrands,
 } from "./handlers/organizations";
+import {
+  handleTenantDashboard, handleTenantAlerts, handleTenantUpdateAlert,
+  handleTenantBrandDetail, handleTenantBrandThreats, handleTenantBrandSocialProfiles,
+} from "./handlers/tenantData";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "./handlers/dashboard";
 import {
   handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
@@ -471,6 +475,38 @@ router.get("/api/orgs/:orgId/brands", async (request: Request & { params: Record
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleListOrgBrands(request, env, request.params["orgId"] ?? "", ctx);
+});
+
+// ─── Tenant Data (org-scoped dashboard, alerts, brand detail) ──
+router.get("/api/orgs/:orgId/dashboard", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantDashboard(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/alerts", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantAlerts(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.patch("/api/orgs/:orgId/alerts/:alertId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantUpdateAlert(request, env, request.params["orgId"] ?? "", request.params["alertId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/brands/:brandId/detail", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantBrandDetail(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/brands/:brandId/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantBrandThreats(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/brands/:brandId/social-profiles", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleTenantBrandSocialProfiles(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────
