@@ -1,6 +1,6 @@
 /**
  * Trust Radar — Blog Index Page
- * 6 post cards in a 3x2 grid served at /blog
+ * 4 post cards in a 2x2 grid served at /blog
  */
 
 import { wrapPage } from './shared';
@@ -38,7 +38,7 @@ export function renderBlogPage(): string {
 
 .blog-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 2rem;
 }
 
@@ -203,7 +203,7 @@ export function renderBlogPage(): string {
         <h2 class="blog-card-title">Why Email Security Posture Is Your First Line of Brand Defense</h2>
         <time class="blog-card-date">Mar 15, 2026</time>
         <p class="blog-card-excerpt">Most brand protection platforms ignore email security entirely. Here&rsquo;s why that&rsquo;s a critical gap.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
+        <a href="/blog/email-security-posture-brand-defense" class="blog-card-link">Read more &rarr;</a>
       </article>
 
       <!-- Post 2 -->
@@ -212,43 +212,25 @@ export function renderBlogPage(): string {
         <h2 class="blog-card-title">The Real Cost of Brand Impersonation for Mid-Market Companies</h2>
         <time class="blog-card-date">Mar 10, 2026</time>
         <p class="blog-card-excerpt">A single impersonation campaign can cost companies 10x what continuous monitoring costs.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
+        <a href="/blog/cost-brand-impersonation-mid-market" class="blog-card-link">Read more &rarr;</a>
       </article>
 
       <!-- Post 3 -->
-      <article class="blog-card" data-category="Engineering">
-        <span class="blog-badge blog-badge-engineering">Engineering</span>
-        <h2 class="blog-card-title">Building Trust Radar on Cloudflare Workers: An Architecture Deep Dive</h2>
-        <time class="blog-card-date">Mar 5, 2026</time>
-        <p class="blog-card-excerpt">How we built an enterprise-grade threat intelligence platform on the edge.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
-      </article>
-
-      <!-- Post 4 -->
       <article class="blog-card" data-category="Product">
         <span class="blog-badge blog-badge-product">Product</span>
         <h2 class="blog-card-title">Introducing AI-Powered Threat Narratives</h2>
         <time class="blog-card-date">Feb 28, 2026</time>
         <p class="blog-card-excerpt">Why our AI agents write threat narratives instead of generating alert noise.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
+        <a href="/blog/ai-powered-threat-narratives" class="blog-card-link">Read more &rarr;</a>
       </article>
 
-      <!-- Post 5 -->
+      <!-- Post 4 -->
       <article class="blog-card" data-category="Threat Intel">
         <span class="blog-badge blog-badge-threat">Threat Intel</span>
         <h2 class="blog-card-title">Lookalike Domains: The Threat Hiding in Plain Sight</h2>
         <time class="blog-card-date">Feb 20, 2026</time>
         <p class="blog-card-excerpt">How attackers register typosquat and homoglyph domains to impersonate your brand.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
-      </article>
-
-      <!-- Post 6 -->
-      <article class="blog-card" data-category="Company">
-        <span class="blog-badge blog-badge-company">Company</span>
-        <h2 class="blog-card-title">SOC 2 and Beyond: Our Security Compliance Journey</h2>
-        <time class="blog-card-date">Feb 12, 2026</time>
-        <p class="blog-card-excerpt">An inside look at how we&rsquo;re building trust through transparency and compliance.</p>
-        <a href="#" class="blog-card-link">Read more &rarr;</a>
+        <a href="/blog/lookalike-domains-threat-hiding" class="blog-card-link">Read more &rarr;</a>
       </article>
 
     </div>

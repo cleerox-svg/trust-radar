@@ -130,13 +130,6 @@ export function renderAboutPage(): string {
   </div>
 </section>
 
-<!-- Careers -->
-<section class="careers-section">
-  <h2>Join Us</h2>
-  <p>We're building the future of accessible brand protection. If you're passionate about security, AI, and making enterprise capabilities available to everyone — we'd love to hear from you.</p>
-  <a href="mailto:careers@trustradar.ca" class="careers-email">careers@trustradar.ca</a>
-</section>
-
 <!-- CTA -->
 <section class="cta-block">
   <div class="container">

@@ -21,7 +21,7 @@ export function renderNav(): string {
       </svg>
       <div>
         <span class="nav-brand-text">Trust Radar</span>
-        <span class="nav-brand-sub">by LRX Enterprise</span>
+        <span class="nav-brand-sub">by LRX Enterprises</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -33,6 +33,9 @@ export function renderNav(): string {
       <li><a href="/contact">Contact</a></li>
     </ul>
     <div class="nav-right">
+      <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
         <span id="theme-icon">\u2600</span>
       </button>
@@ -40,7 +43,17 @@ export function renderNav(): string {
       <a href="/scan" class="btn btn-primary" style="font-size:0.82rem;padding:0.45rem 1rem;">Free Scan</a>
     </div>
   </div>
-</nav>`;
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="/platform">Platform</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/about">About</a>
+  <a href="/security">Security</a>
+  <a href="/blog">Blog</a>
+  <a href="/contact">Contact</a>
+  <a href="/login">Login</a>
+  <a href="/scan">Free Scan</a>
+</div>`;
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -62,7 +75,7 @@ export function renderFooter(): string {
             <span class="nav-brand-text" style="font-size:1rem">Trust Radar</span>
           </div>
         </a>
-        <p>AI-powered brand threat intelligence platform by LRX Enterprise Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@trustradar.ca" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@trustradar.ca</a>
         </p>
@@ -90,8 +103,6 @@ export function renderFooter(): string {
         <ul>
           <li><a href="/about">About</a></li>
           <li><a href="/contact">Contact</a></li>
-          <li><a href="/contact">Careers</a></li>
-          <li><a href="/contact">Partners</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -104,12 +115,7 @@ export function renderFooter(): string {
       </div>
     </div>
     <div class="footer-bottom">
-      <span class="footer-legal">&copy; 2026 LRX Enterprises Inc. All rights reserved. | Built on Cloudflare Workers</span>
-      <div class="footer-badges">
-        <span class="footer-badge-item"><span class="fb-dot" style="background:#f6821f"></span> Cloudflare</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--accent)"></span> Anthropic</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--green)"></span> SOC 2 (Planned)</span>
-      </div>
+      <span class="footer-legal">&copy; 2026 LRX Enterprises Inc. All rights reserved.</span>
     </div>
   </div>
 </footer>`;
@@ -124,18 +130,18 @@ export function renderHead(title: string, description: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <meta name="description" content="${description}">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
    TRUST RADAR — DESIGN SYSTEM
-   LRX Enterprise Inc.
+   LRX Enterprises Inc.
    ═══════════════════════════════════════════════════════════ */
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* ── THEME TOKENS ── */
 :root {
-  --font-display: 'Syne', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
@@ -619,6 +625,56 @@ section {
   .nav-links { display: none; }
   .footer-grid { grid-template-columns: 1fr; }
 }
+
+/* ── MOBILE MENU ── */
+.nav-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.nav-hamburger:hover { border-color: var(--accent); color: var(--accent); }
+
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  z-index: 999;
+  flex-direction: column;
+  gap: 0.25rem;
+  box-shadow: var(--shadow-lg);
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu a {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.mobile-menu a:hover { background: var(--accent-bg); color: var(--accent); }
+
+@media (max-width: 768px) {
+  .nav-hamburger { display: flex; }
+  .nav-links { display: none !important; }
+  .nav-right .btn { display: none; }
+  .nav-right .theme-toggle { order: 2; }
+  .nav-right .nav-hamburger { order: 1; }
+}
 </style>`;
 }
 
@@ -683,6 +739,12 @@ document.querySelectorAll('.platform-card, .feature-row, .price-card, .fact-card
   el.style.transition = 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border 0.3s, box-shadow 0.3s';
   observer.observe(el);
 });
+
+// Mobile menu
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  if (menu) menu.classList.toggle('open');
+}
 </script>
 
 </body>

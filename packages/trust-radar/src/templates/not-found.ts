@@ -14,12 +14,12 @@ export function renderNotFoundPage(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Page Not Found — Trust Radar</title>
 <meta name="description" content="The page you're looking for doesn't exist or has been moved.">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --font-display: 'Syne', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --accent: #0891b2;
@@ -401,6 +401,56 @@ img { max-width: 100%; }
   .not-found-subtitle { font-size: 1.35rem; }
   .not-found-desc { font-size: 0.95rem; }
 }
+
+/* ── MOBILE MENU ── */
+.nav-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.nav-hamburger:hover { border-color: var(--accent); color: var(--accent); }
+
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  z-index: 999;
+  flex-direction: column;
+  gap: 0.25rem;
+  box-shadow: var(--shadow-lg);
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu a {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.mobile-menu a:hover { background: var(--accent-bg); color: var(--accent); }
+
+@media (max-width: 768px) {
+  .nav-hamburger { display: flex; }
+  .nav-links { display: none !important; }
+  .nav-right .btn { display: none; }
+  .nav-right .theme-toggle { order: 2; }
+  .nav-right .nav-hamburger { order: 1; }
+}
 </style>
 </head>
 <body>
@@ -418,7 +468,7 @@ img { max-width: 100%; }
       </svg>
       <div>
         <span class="nav-brand-text">Trust Radar</span>
-        <span class="nav-brand-sub">by LRX Enterprise</span>
+        <span class="nav-brand-sub">by LRX Enterprises</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -430,6 +480,9 @@ img { max-width: 100%; }
       <li><a href="/contact">Contact</a></li>
     </ul>
     <div class="nav-right">
+      <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
         <span id="theme-icon">\u2600</span>
       </button>
@@ -438,6 +491,16 @@ img { max-width: 100%; }
     </div>
   </div>
 </nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="/platform">Platform</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/about">About</a>
+  <a href="/security">Security</a>
+  <a href="/blog">Blog</a>
+  <a href="/contact">Contact</a>
+  <a href="/login">Login</a>
+  <a href="/scan">Free Scan</a>
+</div>
 
 <div class="not-found-wrapper">
   <div class="not-found-content">
@@ -465,7 +528,7 @@ img { max-width: 100%; }
             <span class="nav-brand-text" style="font-size:1rem">Trust Radar</span>
           </div>
         </a>
-        <p>AI-powered brand threat intelligence platform by LRX Enterprise Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@trustradar.ca" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@trustradar.ca</a>
         </p>
@@ -493,8 +556,6 @@ img { max-width: 100%; }
         <ul>
           <li><a href="/about">About</a></li>
           <li><a href="/contact">Contact</a></li>
-          <li><a href="#">Careers</a></li>
-          <li><a href="#">Partners</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -507,12 +568,7 @@ img { max-width: 100%; }
       </div>
     </div>
     <div class="footer-bottom">
-      <span class="footer-legal">&copy; 2026 LRX Enterprises Inc. All rights reserved. | Built on Cloudflare Workers</span>
-      <div class="footer-badges">
-        <span class="footer-badge-item"><span class="fb-dot" style="background:#f6821f"></span> Cloudflare</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--accent)"></span> Anthropic</span>
-        <span class="footer-badge-item"><span class="fb-dot" style="background:var(--green)"></span> SOC 2 (Planned)</span>
-      </div>
+      <span class="footer-legal">&copy; 2026 LRX Enterprises Inc. All rights reserved.</span>
     </div>
   </div>
 </footer>
@@ -532,6 +588,12 @@ const saved = localStorage.getItem('tr-theme');
 if (saved) {
   document.documentElement.setAttribute('data-theme', saved);
   document.getElementById('theme-icon').textContent = saved === 'light' ? '\\u2600' : '\\u263E';
+}
+
+// Mobile menu
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  if (menu) menu.classList.toggle('open');
 }
 </script>
 
