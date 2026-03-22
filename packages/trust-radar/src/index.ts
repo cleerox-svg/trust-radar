@@ -1304,6 +1304,19 @@ router.post("/api/admin/brands/bulk-delete", async (request: Request, env: Env) 
   if (!isAuthContext(ctx)) return ctx;
   return handleBulkDeleteBrands(request, env, ctx.userId);
 });
+router.post("/api/admin/discover-social-batch", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  try {
+    const body = await request.json().catch(() => ({})) as { limit?: number };
+    const limit = Math.min(Math.max(body.limit ?? 10, 1), 50);
+    const { runSocialDiscoveryBatch } = await import('./scanners/social-monitor');
+    const result = await runSocialDiscoveryBatch(env, limit);
+    return json({ success: true, data: result });
+  } catch (err) {
+    return json({ success: false, error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
 
 // ─── Data Export ─────────────────────────────────────────────
 router.get("/api/export/scans", async (request: Request, env: Env) => {

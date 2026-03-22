@@ -22,8 +22,12 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
-  // Every 6 hours (minute 0, hours 0/6/12/18): Social monitoring
+  // Every 6 hours (minute 0, hours 0/6/12/18): Social discovery + monitoring
   if (minute === 0 && hour % 6 === 0) {
+    // Discovery first — so newly found handles get monitored in the same cycle
+    const discoveryResult = await runJob('social_discovery', () => runSocialDiscovery(env));
+    results.push(discoveryResult);
+
     const result = await runJob('social_monitor', () => runSocialMonitor(env));
     results.push(result);
 
@@ -380,6 +384,11 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   } catch (err) {
     logger.error('threat_feed_scan_snapshots_error', { error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+async function runSocialDiscovery(env: Env): Promise<void> {
+  const { runSocialDiscoveryBatch } = await import('../scanners/social-monitor');
+  await runSocialDiscoveryBatch(env);
 }
 
 async function runSocialMonitor(env: Env): Promise<void> {

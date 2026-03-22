@@ -183,6 +183,136 @@ export async function runSocialMonitorForBrand(
   return results;
 }
 
+// ─── Social Discovery Batch (Cron) ──────────────────────────────
+
+/**
+ * Discover social profiles for brands that don't have official_handles configured.
+ * Processes a small batch per cycle, prioritizing brands with the most threats.
+ * Called by the cron orchestrator every 6 hours, before runSocialMonitorBatch.
+ */
+export async function runSocialDiscoveryBatch(env: Env, limit: number = 10): Promise<{
+  brands_processed: number;
+  profiles_found: number;
+  schedules_created: number;
+}> {
+  const effectiveLimit = Math.min(Math.max(limit, 1), 50);
+
+  // Query brands with no official_handles, ordered by threat_count DESC
+  const brands = await env.DB.prepare(`
+    SELECT id, name, canonical_domain, threat_count
+    FROM brands
+    WHERE (official_handles IS NULL OR official_handles = '{}' OR official_handles = '')
+      AND canonical_domain IS NOT NULL
+      AND canonical_domain NOT LIKE '%.%.%.%'
+      AND (last_social_scan IS NULL OR last_social_scan < datetime('now', '-7 days'))
+    ORDER BY threat_count DESC
+    LIMIT ?
+  `).bind(effectiveLimit).all<{
+    id: string;
+    name: string;
+    canonical_domain: string;
+    threat_count: number;
+  }>();
+
+  if (brands.results.length === 0) {
+    logger.info('social_discovery_batch', { message: 'No brands need social discovery' });
+    return { brands_processed: 0, profiles_found: 0, schedules_created: 0 };
+  }
+
+  logger.info('social_discovery_batch_start', { brands_count: brands.results.length });
+
+  let brandsProcessed = 0;
+  let profilesFound = 0;
+  let schedulesCreated = 0;
+
+  for (const brand of brands.results) {
+    try {
+      const discovered = await discoverSocialProfiles(`https://${brand.canonical_domain}`);
+
+      if (discovered.length > 0) {
+        const handles: Record<string, string> = {};
+
+        for (const profile of discovered) {
+          // Upsert into social_profiles as official
+          await env.DB.prepare(`
+            INSERT INTO social_profiles
+              (id, brand_id, platform, handle, profile_url, classification,
+               classified_by, classification_confidence, last_checked, status)
+            VALUES (?, ?, ?, ?, ?, 'official', 'auto_discovery', ?, datetime('now'), 'active')
+            ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+              classification = CASE
+                WHEN classified_by = 'manual' THEN classification
+                ELSE 'official'
+              END,
+              classified_by = CASE
+                WHEN classified_by = 'manual' THEN classified_by
+                ELSE 'auto_discovery'
+              END,
+              classification_confidence = CASE
+                WHEN classified_by = 'manual' THEN classification_confidence
+                ELSE excluded.classification_confidence
+              END,
+              profile_url = excluded.profile_url,
+              last_checked = datetime('now'),
+              updated_at = datetime('now')
+          `).bind(
+            crypto.randomUUID(), brand.id, profile.platform, profile.handle,
+            profile.profileUrl, profile.confidence,
+          ).run();
+
+          // Track handle per platform (keep highest confidence)
+          if (!handles[profile.platform] || profile.confidence > 0.5) {
+            handles[profile.platform] = profile.handle;
+          }
+
+          // Create brand_monitor_schedule entry for this platform
+          await env.DB.prepare(`
+            INSERT INTO brand_monitor_schedule
+              (id, brand_id, monitor_type, platform, check_interval_hours, enabled, next_check)
+            VALUES (?, ?, 'social', ?, 24, 1, datetime('now'))
+            ON CONFLICT (brand_id, monitor_type, platform) DO NOTHING
+          `).bind(crypto.randomUUID(), brand.id, profile.platform).run();
+
+          schedulesCreated++;
+          profilesFound++;
+        }
+
+        // Update brands.official_handles with discovered handles
+        await env.DB.prepare(
+          "UPDATE brands SET official_handles = ? WHERE id = ?"
+        ).bind(JSON.stringify(handles), brand.id).run();
+      }
+
+      // Always update last_social_scan so we don't re-scan every cycle
+      await env.DB.prepare(
+        "UPDATE brands SET last_social_scan = datetime('now') WHERE id = ?"
+      ).bind(brand.id).run();
+
+      brandsProcessed++;
+    } catch (err) {
+      logger.error('social_discovery_brand_error', {
+        brand_id: brand.id,
+        brand_name: brand.name,
+        canonical_domain: brand.canonical_domain,
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      // Still mark last_social_scan to avoid retrying a broken domain every cycle
+      await env.DB.prepare(
+        "UPDATE brands SET last_social_scan = datetime('now') WHERE id = ?"
+      ).bind(brand.id).run().catch(() => {});
+    }
+  }
+
+  logger.info('social_discovery_batch', {
+    brands_processed: brandsProcessed,
+    profiles_found: profilesFound,
+    schedules_created: schedulesCreated,
+  });
+
+  return { brands_processed: brandsProcessed, profiles_found: profilesFound, schedules_created: schedulesCreated };
+}
+
 // ─── Batch Monitor (Cron) ───────────────────────────────────────
 
 /**
