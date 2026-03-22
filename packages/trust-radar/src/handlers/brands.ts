@@ -4,6 +4,7 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { analyzeBrandThreats, callHaikuRaw, setHaikuCategory } from "../lib/haiku";
 import { discoverSocialProfiles } from "../lib/social-discovery";
+import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
 import type { Env } from "../types";
 
@@ -1219,6 +1220,174 @@ export async function handleDiscoverSocialLinks(
         discovered,
         new_profiles_created: newProfilesCreated,
         handles_updated: merged,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── POST /api/brands/:id/social-profiles/:profileId/assess — On-demand AI re-assessment ───
+
+export async function handleReassessSocialProfile(
+  request: Request, env: Env, brandId: string, profileId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const profile = await env.DB.prepare(
+      "SELECT * FROM social_profiles WHERE id = ? AND brand_id = ?"
+    ).bind(profileId, brandId).first<{
+      id: string; brand_id: string; platform: string; handle: string;
+      profile_url: string | null; display_name: string | null; bio: string | null;
+      followers_count: number | null; verified: number;
+    }>();
+
+    if (!profile) return json({ success: false, error: "Social profile not found" }, 404, origin);
+
+    const brand = await env.DB.prepare(
+      "SELECT id, name, canonical_domain, official_handles, aliases, brand_keywords FROM brands WHERE id = ?"
+    ).bind(brandId).first<{
+      id: string; name: string; canonical_domain: string;
+      official_handles: string | null; aliases: string | null; brand_keywords: string | null;
+    }>();
+
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Verify authorization
+    const monitored = await env.DB.prepare(
+      "SELECT 1 FROM monitored_brands WHERE brand_id = ? AND added_by = ?"
+    ).bind(brandId, userId).first();
+    const isAdmin = await env.DB.prepare(
+      "SELECT 1 FROM users WHERE id = ? AND role IN ('admin', 'super_admin')"
+    ).bind(userId).first();
+
+    if (!monitored && !isAdmin) {
+      return json({ success: false, error: "Not authorized for this brand" }, 403, origin);
+    }
+
+    // Gather cross-reference data
+    const threats = await env.DB.prepare(
+      "SELECT malicious_url, threat_type FROM threats WHERE target_brand_id = ? AND status = 'active' LIMIT 5"
+    ).bind(brand.id).all<{ malicious_url: string; threat_type: string }>();
+
+    const emailGrade = await env.DB.prepare(
+      "SELECT grade FROM email_security_posture WHERE domain = ? ORDER BY scanned_at DESC LIMIT 1"
+    ).bind(brand.canonical_domain).first<{ grade: string }>();
+
+    const campaigns = await env.DB.prepare(
+      "SELECT c.name FROM campaigns c JOIN threats t ON t.campaign_id = c.id WHERE t.target_brand_id = ? AND c.status = 'active' LIMIT 3"
+    ).bind(brand.id).all<{ name: string }>();
+
+    const lookalikes = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM lookalike_domains WHERE brand_id = ? AND status = 'active'"
+    ).bind(brand.id).first<{ n: number }>();
+
+    const otherSuspicious = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM social_profiles WHERE brand_id = ? AND classification IN ('suspicious','impersonation') AND status = 'active' AND id != ?"
+    ).bind(brand.id, profileId).first<{ n: number }>();
+
+    let brandAliases: string[] = [];
+    let brandKeywords: string[] = [];
+    let officialHandles: Record<string, string> = {};
+    try { if (brand.aliases) brandAliases = JSON.parse(brand.aliases); } catch { /* */ }
+    try { if (brand.brand_keywords) brandKeywords = JSON.parse(brand.brand_keywords); } catch { /* */ }
+    try { if (brand.official_handles) officialHandles = JSON.parse(brand.official_handles); } catch { /* */ }
+
+    const context: ProfileContext = {
+      brandName: brand.name,
+      brandDomain: brand.canonical_domain,
+      brandAliases,
+      brandKeywords,
+      officialHandles,
+      platform: profile.platform,
+      handle: profile.handle,
+      profileUrl: profile.profile_url || '',
+      displayName: profile.display_name || null,
+      bio: profile.bio || null,
+      followersCount: profile.followers_count ?? null,
+      verified: !!profile.verified,
+      accountCreated: null,
+      existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`),
+      emailSecurityGrade: emailGrade?.grade || null,
+      activeCampaigns: campaigns.results.map(c => c.name),
+      lookalikeDomainsFound: lookalikes?.n || 0,
+      otherImpersonationProfiles: otherSuspicious?.n || 0,
+    };
+
+    const assessment = await assessSocialProfile(env, context);
+
+    const now = new Date().toISOString();
+    await env.DB.prepare(`
+      UPDATE social_profiles SET
+        ai_assessment = ?,
+        ai_confidence = ?,
+        ai_action = ?,
+        ai_evidence_draft = ?,
+        classification = CASE
+          WHEN classified_by = 'manual' THEN classification
+          ELSE ?
+        END,
+        classification_confidence = CASE
+          WHEN classified_by = 'manual' THEN classification_confidence
+          ELSE ?
+        END,
+        classification_reason = ?,
+        impersonation_signals = ?,
+        severity = CASE
+          WHEN ? >= 0.9 THEN 'CRITICAL'
+          WHEN ? >= 0.7 THEN 'HIGH'
+          WHEN ? >= 0.4 THEN 'MEDIUM'
+          ELSE 'LOW'
+        END,
+        ai_assessed_at = ?,
+        updated_at = ?
+      WHERE id = ? AND brand_id = ?
+    `).bind(
+      assessment.reasoning,
+      assessment.confidence,
+      assessment.action,
+      assessment.evidenceDraft,
+      assessment.classification,
+      assessment.confidence,
+      assessment.reasoning,
+      JSON.stringify([...assessment.signals, ...assessment.crossCorrelations]),
+      assessment.confidence, assessment.confidence, assessment.confidence,
+      now,
+      now,
+      profileId, brandId,
+    ).run();
+
+    await audit(env, {
+      action: "social_profile_ai_reassess",
+      userId,
+      resourceType: "social_profile",
+      resourceId: profileId,
+      details: {
+        brand_id: brandId,
+        classification: assessment.classification,
+        confidence: assessment.confidence,
+        action: assessment.action,
+      },
+      request,
+    });
+
+    const updated = await env.DB.prepare(
+      "SELECT * FROM social_profiles WHERE id = ?"
+    ).bind(profileId).first();
+
+    return json({
+      success: true,
+      data: {
+        profile: updated,
+        assessment: {
+          classification: assessment.classification,
+          confidence: assessment.confidence,
+          action: assessment.action,
+          reasoning: assessment.reasoning,
+          evidenceDraft: assessment.evidenceDraft,
+          signals: assessment.signals,
+          crossCorrelations: assessment.crossCorrelations,
+        },
       },
     }, 200, origin);
   } catch (err) {

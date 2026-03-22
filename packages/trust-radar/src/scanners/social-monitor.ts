@@ -15,6 +15,7 @@ import { scoreImpersonation, nameSimilarity, type ImpersonationSignals } from '.
 import { createAlert } from '../lib/alerts';
 import { logger } from '../lib/logger';
 import { discoverSocialProfiles } from '../lib/social-discovery';
+import { assessSocialProfile, type ProfileContext } from '../lib/social-ai-assessor';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -315,6 +316,124 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
         }
 
         totalResults++;
+      }
+
+      // 4b. AI assessment for profiles that need it
+      const profilesToAssess = results.filter(r =>
+        r.impersonationScore >= 0.3 || r.checkType === 'handle_check'
+      );
+
+      for (const profile of profilesToAssess) {
+        try {
+          const handle = profile.handleChecked.replace(/^@/, '');
+
+          // Gather cross-reference data
+          const threats = await env.DB.prepare(
+            "SELECT malicious_url, threat_type FROM threats WHERE target_brand_id = ? AND status = 'active' LIMIT 5"
+          ).bind(brand.id).all<{ malicious_url: string; threat_type: string }>();
+
+          const emailGrade = await env.DB.prepare(
+            "SELECT grade FROM email_security_posture WHERE domain = ? ORDER BY scanned_at DESC LIMIT 1"
+          ).bind(brand.domain).first<{ grade: string }>();
+
+          const campaigns = await env.DB.prepare(
+            "SELECT c.name FROM campaigns c JOIN threats t ON t.campaign_id = c.id WHERE t.target_brand_id = ? AND c.status = 'active' LIMIT 3"
+          ).bind(brand.id).all<{ name: string }>();
+
+          const lookalikes = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM lookalike_domains WHERE brand_id = ? AND status = 'active'"
+          ).bind(brand.id).first<{ n: number }>();
+
+          const otherSuspicious = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM social_profiles WHERE brand_id = ? AND classification IN ('suspicious','impersonation') AND status = 'active'"
+          ).bind(brand.id).first<{ n: number }>();
+
+          let brandAliases: string[] = [];
+          let brandKeywords: string[] = [];
+          try {
+            const brandData = await env.DB.prepare(
+              "SELECT aliases, brand_keywords FROM brands WHERE id = ?"
+            ).bind(brand.id).first<{ aliases: string | null; brand_keywords: string | null }>();
+            if (brandData?.aliases) brandAliases = JSON.parse(brandData.aliases);
+            if (brandData?.brand_keywords) brandKeywords = JSON.parse(brandData.brand_keywords);
+          } catch { /* non-fatal */ }
+
+          let officialHandles: Record<string, string> = {};
+          try {
+            officialHandles = brand.official_handles ? JSON.parse(brand.official_handles) : {};
+          } catch { /* non-fatal */ }
+
+          const context: ProfileContext = {
+            brandName: brand.brand_name,
+            brandDomain: brand.domain,
+            brandAliases,
+            brandKeywords,
+            officialHandles,
+            platform: profile.platform,
+            handle,
+            profileUrl: profile.suspiciousAccountUrl || '',
+            displayName: profile.suspiciousAccountName || null,
+            bio: null,
+            followersCount: null,
+            verified: false,
+            accountCreated: null,
+            existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`),
+            emailSecurityGrade: emailGrade?.grade || null,
+            activeCampaigns: campaigns.results.map(c => c.name),
+            lookalikeDomainsFound: lookalikes?.n || 0,
+            otherImpersonationProfiles: otherSuspicious?.n || 0,
+          };
+
+          const assessment = await assessSocialProfile(env, context);
+
+          const now2 = new Date().toISOString();
+          await env.DB.prepare(`
+            UPDATE social_profiles SET
+              ai_assessment = ?,
+              ai_confidence = ?,
+              ai_action = ?,
+              ai_evidence_draft = ?,
+              classification = CASE
+                WHEN classified_by = 'manual' THEN classification
+                ELSE ?
+              END,
+              classification_confidence = CASE
+                WHEN classified_by = 'manual' THEN classification_confidence
+                ELSE ?
+              END,
+              classification_reason = ?,
+              impersonation_signals = ?,
+              severity = CASE
+                WHEN ? >= 0.9 THEN 'CRITICAL'
+                WHEN ? >= 0.7 THEN 'HIGH'
+                WHEN ? >= 0.4 THEN 'MEDIUM'
+                ELSE 'LOW'
+              END,
+              ai_assessed_at = ?,
+              updated_at = ?
+            WHERE brand_id = ? AND platform = ? AND handle = ?
+          `).bind(
+            assessment.reasoning,
+            assessment.confidence,
+            assessment.action,
+            assessment.evidenceDraft,
+            assessment.classification,
+            assessment.confidence,
+            assessment.reasoning,
+            JSON.stringify([...assessment.signals, ...assessment.crossCorrelations]),
+            assessment.confidence, assessment.confidence, assessment.confidence,
+            now2,
+            now2,
+            brand.id, profile.platform, handle,
+          ).run();
+        } catch (aiErr) {
+          logger.warn("social_ai_assessment_error", {
+            brand_id: brand.id,
+            platform: profile.platform,
+            handle: profile.handleChecked,
+            error: aiErr instanceof Error ? aiErr.message : String(aiErr),
+          });
+        }
       }
 
       // 5. Update schedule: set last_checked and compute next_check
