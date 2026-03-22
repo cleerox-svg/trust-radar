@@ -1,3 +1,7 @@
+// DEPRECATED: These endpoints are superseded by the unified brand model.
+// Social monitoring now operates on brands.id via /api/brands/:id/social-config
+// and /api/brands/:id/social-profiles. These routes will be removed in a future release.
+
 // Trust Radar v2 — Brand Profile CRUD (Social Monitoring)
 
 import { json } from "../lib/cors";

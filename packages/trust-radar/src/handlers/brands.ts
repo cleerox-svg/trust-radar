@@ -197,6 +197,10 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     const body = await request.json().catch(() => null) as {
       domain?: string; name?: string | null; sector?: string | null;
       reason?: string | null; notes?: string | null;
+      official_handles?: Record<string, string>;
+      aliases?: string[];
+      brand_keywords?: string[];
+      website_url?: string;
     } | null;
 
     if (!body?.domain) return json({ success: false, error: "domain required" }, 400, origin);
@@ -239,6 +243,50 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
       `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
        VALUES (?, ?, ?, ?, 'auto_detected')`
     ).bind(crypto.randomUUID(), brand.id, "*." + domain, userId).run();
+
+    // ─── Populate social monitoring fields if provided ───
+    const socialDomain = domain;
+    const socialBrandName = brandName;
+    const keywords = body.brand_keywords ?? generateBrandKeywords(socialDomain, socialBrandName);
+    const handles = body.official_handles ?? {};
+    const aliases = body.aliases ?? [];
+
+    const socialUpdates: string[] = [];
+    const socialValues: unknown[] = [];
+
+    if (Object.keys(handles).length > 0) {
+      socialUpdates.push("official_handles = ?");
+      socialValues.push(JSON.stringify(handles));
+    }
+    if (aliases.length > 0) {
+      socialUpdates.push("aliases = ?");
+      socialValues.push(JSON.stringify(aliases));
+    }
+    if (keywords.length > 0) {
+      socialUpdates.push("brand_keywords = ?");
+      socialValues.push(JSON.stringify(keywords));
+    }
+    if (body.website_url) {
+      socialUpdates.push("website_url = ?");
+      socialValues.push(body.website_url);
+    }
+
+    if (socialUpdates.length > 0) {
+      socialValues.push(brand.id);
+      await env.DB.prepare(
+        `UPDATE brands SET ${socialUpdates.join(", ")} WHERE id = ?`
+      ).bind(...socialValues).run();
+    }
+
+    // Create brand_monitor_schedule entries for each platform with a handle
+    for (const platform of Object.keys(handles)) {
+      const schedId = crypto.randomUUID();
+      await env.DB.prepare(`
+        INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
+        VALUES (?, ?, 'social', ?, 24, 1)
+        ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
+      `).bind(schedId, brand.id, platform).run();
+    }
 
     // ─── Step A: Retroactive domain-based threat linking (free, no AI) ───
     const keyword = domain.split(".")[0]!; // e.g. "docusign.com" → "docusign"
@@ -644,6 +692,338 @@ export async function handleCleanFalsePositives(request: Request, env: Env, bran
     }
 
     return json({ success: true, data: { cleaned, checked: threats.results.length } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+const SUPPORTED_PLATFORMS = ["twitter", "linkedin", "instagram", "tiktok", "github", "youtube"] as const;
+
+/** Auto-generate brand keywords from domain + brand name */
+function generateBrandKeywords(domain: string, brandName: string): string[] {
+  const keywords = new Set<string>();
+  const domainBase = domain.split(".")[0]!.toLowerCase();
+  keywords.add(domainBase);
+  keywords.add(brandName.toLowerCase());
+  const noSpace = brandName.toLowerCase().replace(/\s+/g, "");
+  if (noSpace !== domainBase) keywords.add(noSpace);
+  const hyphenated = brandName.toLowerCase().replace(/\s+/g, "-");
+  if (hyphenated !== domainBase) keywords.add(hyphenated);
+  return [...keywords];
+}
+
+// ─── PATCH /api/brands/:id/social-config — Update social monitoring config ───
+
+export async function handleUpdateBrandSocialConfig(
+  request: Request, env: Env, brandId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Verify brand exists and user has access (via monitored_brands or admin)
+    const brand = await env.DB.prepare("SELECT id FROM brands WHERE id = ?").bind(brandId).first<{ id: string }>();
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    const ownership = await env.DB.prepare(
+      "SELECT brand_id FROM monitored_brands WHERE brand_id = ?"
+    ).bind(brandId).first();
+    const userRow = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first<{ role: string }>();
+    const isAdmin = userRow?.role === "admin" || userRow?.role === "super_admin";
+
+    if (!ownership && !isAdmin) {
+      return json({ success: false, error: "Brand not in your monitored list" }, 403, origin);
+    }
+
+    const body = await request.json().catch(() => null) as {
+      official_handles?: Record<string, string>;
+      aliases?: string[];
+      brand_keywords?: string[];
+      executive_names?: string[];
+      logo_url?: string;
+      website_url?: string;
+      monitoring_tier?: string;
+    } | null;
+
+    if (!body) return json({ success: false, error: "Request body is required" }, 400, origin);
+
+    const VALID_TIERS = ["scan", "professional", "business", "enterprise"];
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (body.official_handles !== undefined) {
+      // Validate platforms
+      for (const platform of Object.keys(body.official_handles)) {
+        if (!SUPPORTED_PLATFORMS.includes(platform as typeof SUPPORTED_PLATFORMS[number])) {
+          return json({ success: false, error: `Unsupported platform: ${platform}` }, 400, origin);
+        }
+      }
+      updates.push("official_handles = ?");
+      values.push(JSON.stringify(body.official_handles));
+    }
+    if (body.aliases !== undefined) {
+      updates.push("aliases = ?");
+      values.push(JSON.stringify(body.aliases));
+    }
+    if (body.brand_keywords !== undefined) {
+      updates.push("brand_keywords = ?");
+      values.push(JSON.stringify(body.brand_keywords));
+    }
+    if (body.executive_names !== undefined) {
+      updates.push("executive_names = ?");
+      values.push(JSON.stringify(body.executive_names));
+    }
+    if (body.logo_url !== undefined) {
+      updates.push("logo_url = ?");
+      values.push(body.logo_url);
+    }
+    if (body.website_url !== undefined) {
+      updates.push("website_url = ?");
+      values.push(body.website_url);
+    }
+    if (body.monitoring_tier !== undefined) {
+      if (!VALID_TIERS.includes(body.monitoring_tier)) {
+        return json({ success: false, error: `Invalid monitoring_tier: ${body.monitoring_tier}` }, 400, origin);
+      }
+      updates.push("monitoring_tier = ?");
+      values.push(body.monitoring_tier);
+    }
+
+    if (updates.length === 0) {
+      return json({ success: false, error: "No fields to update" }, 400, origin);
+    }
+
+    values.push(brandId);
+    await env.DB.prepare(
+      `UPDATE brands SET ${updates.join(", ")} WHERE id = ?`
+    ).bind(...values).run();
+
+    // Upsert brand_monitor_schedule entries for each platform with a handle
+    if (body.official_handles) {
+      for (const platform of Object.keys(body.official_handles)) {
+        const handle = body.official_handles[platform];
+        if (handle) {
+          const schedId = crypto.randomUUID();
+          await env.DB.prepare(`
+            INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
+            VALUES (?, ?, 'social', ?, 24, 1)
+            ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
+          `).bind(schedId, brandId, platform).run();
+        }
+      }
+    }
+
+    await audit(env, {
+      action: "brand_social_config_update",
+      userId,
+      resourceType: "brand",
+      resourceId: brandId,
+      details: { fields: Object.keys(body) },
+      request,
+    });
+
+    const updated = await env.DB.prepare(
+      `SELECT id, name, canonical_domain, official_handles, aliases, brand_keywords,
+              executive_names, logo_url, website_url, monitoring_tier, monitoring_status,
+              social_risk_score, domain_risk_score, email_grade, exposure_score,
+              last_social_scan, next_social_scan
+       FROM brands WHERE id = ?`
+    ).bind(brandId).first();
+
+    return json({ success: true, data: updated }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── GET /api/brands/:id/social-config — Get social monitoring config ───
+
+export async function handleGetBrandSocialConfig(
+  request: Request, env: Env, brandId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare(
+      `SELECT id, name, canonical_domain, official_handles, aliases, brand_keywords,
+              executive_names, logo_url, website_url, monitoring_tier, monitoring_status,
+              social_risk_score, domain_risk_score, email_grade, exposure_score,
+              last_social_scan, next_social_scan
+       FROM brands WHERE id = ?`
+    ).bind(brandId).first();
+
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Fetch social_profiles for this brand
+    const profiles = await env.DB.prepare(
+      "SELECT * FROM social_profiles WHERE brand_id = ? ORDER BY platform, handle"
+    ).bind(brandId).all();
+
+    // Fetch brand_monitor_schedule entries
+    const schedule = await env.DB.prepare(
+      "SELECT * FROM brand_monitor_schedule WHERE brand_id = ? ORDER BY monitor_type, platform"
+    ).bind(brandId).all();
+
+    return json({
+      success: true,
+      data: {
+        ...brand,
+        social_profiles: profiles.results,
+        schedule: schedule.results,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── GET /api/brands/:id/social-profiles — Paginated social profiles ───
+
+export async function handleGetBrandSocialProfiles(
+  request: Request, env: Env, brandId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare("SELECT id FROM brands WHERE id = ?").bind(brandId).first();
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    const url = new URL(request.url);
+    const platform = url.searchParams.get("platform");
+    const classification = url.searchParams.get("classification");
+    const status = url.searchParams.get("status");
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+    let where = "WHERE brand_id = ?";
+    const params: unknown[] = [brandId];
+
+    if (platform) { where += " AND platform = ?"; params.push(platform); }
+    if (classification) { where += " AND classification = ?"; params.push(classification); }
+    if (status) { where += " AND status = ?"; params.push(status); }
+
+    const [rows, countRow, classificationCounts, severityCounts] = await Promise.all([
+      env.DB.prepare(`
+        SELECT * FROM social_profiles ${where}
+        ORDER BY
+          CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 END,
+          created_at DESC
+        LIMIT ? OFFSET ?
+      `).bind(...params, limit, offset).all(),
+      env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM social_profiles ${where}`
+      ).bind(...params).first<{ n: number }>(),
+      env.DB.prepare(
+        "SELECT classification, COUNT(*) AS count FROM social_profiles WHERE brand_id = ? GROUP BY classification"
+      ).bind(brandId).all(),
+      env.DB.prepare(
+        "SELECT severity, COUNT(*) AS count FROM social_profiles WHERE brand_id = ? AND status = 'active' GROUP BY severity"
+      ).bind(brandId).all(),
+    ]);
+
+    const classificationMap: Record<string, number> = {};
+    for (const r of classificationCounts.results) {
+      classificationMap[r.classification as string] = r.count as number;
+    }
+    const severityMap: Record<string, number> = {};
+    for (const r of severityCounts.results) {
+      severityMap[r.severity as string] = r.count as number;
+    }
+
+    return json({
+      success: true,
+      data: rows.results,
+      total: countRow?.n ?? 0,
+      aggregates: {
+        by_classification: classificationMap,
+        by_severity: severityMap,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── PATCH /api/brands/:id/social-profiles/:profileId — Classify a social profile ───
+
+export async function handleClassifySocialProfile(
+  request: Request, env: Env, brandId: string, profileId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const profile = await env.DB.prepare(
+      "SELECT id, brand_id, status FROM social_profiles WHERE id = ? AND brand_id = ?"
+    ).bind(profileId, brandId).first();
+
+    if (!profile) return json({ success: false, error: "Social profile not found" }, 404, origin);
+
+    const body = await request.json().catch(() => null) as {
+      classification?: string;
+      status?: string;
+    } | null;
+
+    if (!body) return json({ success: false, error: "Request body is required" }, 400, origin);
+
+    const VALID_CLASSIFICATIONS = ["official", "legitimate", "suspicious", "impersonation", "parked", "unknown"];
+    const VALID_STATUSES = ["active", "resolved", "false_positive", "takedown_requested", "taken_down"];
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (body.classification !== undefined) {
+      if (!VALID_CLASSIFICATIONS.includes(body.classification)) {
+        return json({ success: false, error: `Invalid classification: ${body.classification}` }, 400, origin);
+      }
+      updates.push("classification = ?");
+      values.push(body.classification);
+      updates.push("classified_by = ?");
+      values.push(userId);
+    }
+
+    if (body.status !== undefined) {
+      if (!VALID_STATUSES.includes(body.status)) {
+        return json({ success: false, error: `Invalid status: ${body.status}` }, 400, origin);
+      }
+      updates.push("status = ?");
+      values.push(body.status);
+
+      if (body.status === "false_positive" || body.status === "resolved") {
+        updates.push("resolved_by = ?");
+        values.push(userId);
+        updates.push("resolved_at = datetime('now')");
+      }
+      if (body.status === "takedown_requested") {
+        updates.push("takedown_requested_at = datetime('now')");
+      }
+      if (body.status === "taken_down") {
+        updates.push("taken_down_at = datetime('now')");
+      }
+    }
+
+    if (updates.length === 0) {
+      return json({ success: false, error: "No fields to update" }, 400, origin);
+    }
+
+    updates.push("updated_at = datetime('now')");
+    values.push(profileId, brandId);
+
+    await env.DB.prepare(
+      `UPDATE social_profiles SET ${updates.join(", ")} WHERE id = ? AND brand_id = ?`
+    ).bind(...values).run();
+
+    await audit(env, {
+      action: "social_profile_classify",
+      userId,
+      resourceType: "social_profile",
+      resourceId: profileId,
+      details: { brand_id: brandId, classification: body.classification, status: body.status },
+      request,
+    });
+
+    const updated = await env.DB.prepare(
+      "SELECT * FROM social_profiles WHERE id = ?"
+    ).bind(profileId).first();
+
+    return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

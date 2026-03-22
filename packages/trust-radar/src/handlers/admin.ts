@@ -1056,3 +1056,153 @@ export async function handleBulkDeleteBrands(request: Request, env: Env, userId:
     return json({ success: false, error: String(err) }, 500, origin);
   }
 }
+
+// ─── POST /api/admin/backfill-social-config — Migrate brand_profiles → brands unified model ───
+
+export async function handleBackfillSocialConfig(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // 1. Query all brand_profiles rows
+    const profiles = await env.DB.prepare(
+      "SELECT * FROM brand_profiles WHERE status != 'archived'"
+    ).all<{
+      id: string; user_id: string; domain: string; brand_name: string;
+      aliases: string | null; official_handles: string | null;
+      brand_keywords: string | null; executive_names: string | null;
+      monitoring_tier: string | null; status: string;
+      exposure_score: number | null; social_risk_score: number | null;
+      domain_risk_score: number | null; email_grade: string | null;
+      logo_url: string | null;
+    }>();
+
+    let brandsMigrated = 0;
+    let profilesMigrated = 0;
+    let schedulesMigrated = 0;
+    let brandsNotFound = 0;
+
+    for (const profile of profiles.results) {
+      // 2. Find matching brands row by canonical_domain
+      const brand = await env.DB.prepare(
+        "SELECT id FROM brands WHERE canonical_domain = ?"
+      ).bind(profile.domain).first<{ id: string }>();
+
+      if (!brand) {
+        brandsNotFound++;
+        continue;
+      }
+
+      // 3. UPDATE brands with social fields from brand_profiles
+      await env.DB.prepare(`
+        UPDATE brands SET
+          official_handles = COALESCE(?, official_handles),
+          aliases = COALESCE(?, aliases),
+          brand_keywords = COALESCE(?, brand_keywords),
+          executive_names = COALESCE(?, executive_names),
+          logo_url = COALESCE(?, logo_url),
+          monitoring_tier = COALESCE(?, monitoring_tier),
+          monitoring_status = CASE WHEN ? = 'active' THEN 'active' ELSE monitoring_status END,
+          social_risk_score = COALESCE(?, social_risk_score),
+          domain_risk_score = COALESCE(?, domain_risk_score),
+          email_grade = COALESCE(?, email_grade),
+          exposure_score = COALESCE(?, exposure_score)
+        WHERE id = ?
+      `).bind(
+        profile.official_handles,
+        profile.aliases,
+        profile.brand_keywords,
+        profile.executive_names,
+        profile.logo_url,
+        profile.monitoring_tier,
+        profile.status,
+        profile.social_risk_score,
+        profile.domain_risk_score,
+        profile.email_grade,
+        profile.exposure_score,
+        brand.id,
+      ).run();
+      brandsMigrated++;
+
+      // 4. Migrate social_monitor_results → social_profiles
+      const results = await env.DB.prepare(
+        "SELECT * FROM social_monitor_results WHERE brand_id = ?"
+      ).bind(profile.id).all<{
+        id: string; platform: string; check_type: string;
+        handle_checked: string; handle_available: number | null;
+        suspicious_account_url: string | null; suspicious_account_name: string | null;
+        impersonation_score: number; impersonation_signals: string | null;
+        ai_assessment: string | null; severity: string; status: string;
+        ai_confidence: number | null; ai_action: string | null;
+        ai_evidence_draft: string | null; created_at: string;
+      }>();
+
+      for (const r of results.results) {
+        const handle = r.handle_checked?.replace(/^@/, '') ?? '';
+        if (!handle) continue;
+
+        const classification = r.check_type === 'handle_check' ? 'official' :
+          r.impersonation_score >= 0.7 ? 'impersonation' : 'suspicious';
+
+        const newId = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO social_profiles
+            (id, brand_id, platform, handle, profile_url, display_name,
+             classification, classified_by, classification_confidence,
+             ai_assessment, ai_confidence, ai_action, ai_evidence_draft,
+             impersonation_score, impersonation_signals, severity, status,
+             last_checked, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'ai', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+            impersonation_score = MAX(excluded.impersonation_score, social_profiles.impersonation_score),
+            updated_at = datetime('now')
+        `).bind(
+          newId, brand.id, r.platform, handle,
+          r.suspicious_account_url, r.suspicious_account_name,
+          classification, r.impersonation_score,
+          r.ai_assessment, r.ai_confidence, r.ai_action, r.ai_evidence_draft,
+          r.impersonation_score, r.impersonation_signals, r.severity,
+          r.status === 'open' ? 'active' : r.status,
+          r.created_at, r.created_at,
+        ).run();
+        profilesMigrated++;
+      }
+
+      // 5. Migrate social_monitor_schedule → brand_monitor_schedule
+      const schedules = await env.DB.prepare(
+        "SELECT * FROM social_monitor_schedule WHERE brand_id = ?"
+      ).bind(profile.id).all<{
+        id: string; platform: string; last_checked: string | null;
+        next_check: string | null; check_interval_hours: number; enabled: number;
+      }>();
+
+      for (const s of schedules.results) {
+        const schedId = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO brand_monitor_schedule
+            (id, brand_id, monitor_type, platform, last_checked, next_check, check_interval_hours, enabled)
+          VALUES (?, ?, 'social', ?, ?, ?, ?, ?)
+          ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET
+            last_checked = COALESCE(excluded.last_checked, brand_monitor_schedule.last_checked),
+            next_check = COALESCE(excluded.next_check, brand_monitor_schedule.next_check),
+            enabled = excluded.enabled
+        `).bind(
+          schedId, brand.id, s.platform, s.last_checked, s.next_check,
+          s.check_interval_hours, s.enabled,
+        ).run();
+        schedulesMigrated++;
+      }
+    }
+
+    return json({
+      success: true,
+      data: {
+        profiles_processed: profiles.results.length,
+        brands_migrated: brandsMigrated,
+        brands_not_found: brandsNotFound,
+        social_profiles_migrated: profilesMigrated,
+        schedules_migrated: schedulesMigrated,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
