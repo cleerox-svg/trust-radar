@@ -137,9 +137,11 @@ const routes = [
   { path: '/admin/spam-trap',     view: viewAdminSpamTrap,   auth: true, admin: true },
   { path: '/admin/organizations', view: viewAdminOrgs,       auth: true, admin: true },
   { path: '/admin/organizations/:id', view: viewAdminOrgDetail, auth: true, admin: true },
+  { path: '/admin/takedowns',    view: viewAdminTakedowns,  auth: true, admin: true },
   { path: '/tenant/dashboard',    view: viewTenantDashboard, auth: true, tenant: true },
   { path: '/tenant/brands',       view: viewTenantBrands,    auth: true, tenant: true },
   { path: '/tenant/alerts',       view: viewTenantAlerts,    auth: true, tenant: true },
+  { path: '/tenant/takedowns',    view: viewTenantTakedowns,  auth: true, tenant: true },
   { path: '/tenant/team',         view: viewTenantTeam,      auth: true, tenant: true },
   { path: '/tenant/settings',     view: viewTenantSettings,  auth: true, tenant: true },
   { path: '/tenant/brands/:id',  view: viewTenantBrandDetail, auth: true, tenant: true },
@@ -656,6 +658,7 @@ function renderAdminTopbar(activePath) {
     { href: '/admin/agent-config', label: 'Agent Config' },
     { href: '/admin/audit', label: 'Audit Log' },
     { href: '/admin/spam-trap', label: 'Spam Trap' },
+    { href: '/admin/takedowns', label: 'Takedowns' },
   ];
   return `<div class="topbar admin-topbar">
     <div class="topbar-logo"><svg class="tr-logo-mark" width="200" height="32" viewBox="0 0 200 32"><g transform="translate(16,16)"><path d="M-2.2,-14 A14,14 0 0,1 8.2,-11.3" stroke="#00d4ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M10.4,-8.2 A14,14 0 0,1 13.8,2.6" stroke="#00e5a0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M12.6,6 A14,14 0 0,1 2.6,13.8" stroke="#ffb627" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-0.6,14 A14,14 0 0,1 -12.6,6" stroke="#ff3b5c" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><path d="M-13.8,2.6 A14,14 0 0,1 -6.7,-12.3" stroke="#b388ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-13" stroke="#00d4ff" stroke-width=".8" opacity=".35"/></g><circle cx="2.7" cy="-8.6" r="1.5" fill="#00d4ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="0.3s" repeatCount="indefinite"/></circle><circle cx="8.6" cy="0" r="1.5" fill="#00e5a0" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="1.5s" repeatCount="indefinite"/></circle><circle cx="2.7" cy="8.6" r="1.5" fill="#ffb627" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="2.7s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="5" r="1.5" fill="#ff3b5c" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="3.9s" repeatCount="indefinite"/></circle><circle cx="-6.9" cy="-5" r="1.5" fill="#b388ff" opacity=".5"><animate attributeName="opacity" values=".5;1;.5" dur="6s" begin="5.1s" repeatCount="indefinite"/></circle><circle cx="0" cy="0" r="2.5" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1"/><circle cx="0" cy="0" r="1.2" fill="#00d4ff"/></g><text class="tr-wordmark" x="36" y="21" font-family="'Chakra Petch',sans-serif" font-weight="700" font-size="16" letter-spacing="2" fill="#e8edf5">TRUST <tspan fill="#00d4ff">RADAR</tspan></text></svg></div>
@@ -690,6 +693,7 @@ function renderTenantTopbar(activePath) {
     { href: '/tenant/dashboard', label: 'Dashboard' },
     { href: '/tenant/brands', label: 'Brands' },
     { href: '/tenant/alerts', label: 'Alerts' },
+    { href: '/tenant/takedowns', label: 'Takedowns' },
     { href: '/tenant/team', label: 'Team' },
     { href: '/tenant/settings', label: 'Settings' },
   ];
@@ -7972,6 +7976,11 @@ async function viewTenantBrandDetail(el) {
       <div class="adm-panel" style="margin-top:16px">
         <div class="adm-phead"><div class="adm-ptitle">Recent Alerts</div><div class="adm-pbadge">${recent_alerts.length}</div></div>
         <div class="adm-padded" id="tbd-alerts" style="max-height:400px;overflow-y:auto"></div>
+      </div>
+
+      <div class="adm-panel" style="margin-top:16px">
+        <div class="adm-phead"><div class="adm-ptitle">Monitoring Rules</div></div>
+        <div class="adm-padded" id="tbd-monitoring-config">Loading...</div>
       </div>`;
 
     // Threats
@@ -7997,14 +8006,53 @@ async function viewTenantBrandDetail(el) {
     if (socialEl) {
       socialEl.innerHTML = social_profiles.length ? social_profiles.map(p => {
         const classColor = { impersonation: 'var(--threat-critical)', suspicious: 'var(--threat-high)', parody: 'var(--threat-medium)', official: 'var(--positive)', unclassified: 'var(--text-tertiary)' }[p.classification] || 'var(--text-tertiary)';
+        const takedownBtn = canHITL && p.classification === 'impersonation' ? `<button class="tbd-social-takedown" data-profile-id="${p.id}" data-platform="${p.platform || ''}" data-handle="${(p.handle || '').replace(/"/g, '&quot;')}" data-url="${(p.url || '').replace(/"/g, '&quot;')}" style="padding:2px 6px;font-size:9px;border:1px solid var(--threat-critical)44;border-radius:3px;background:rgba(255,59,92,0.08);color:var(--threat-critical);cursor:pointer;margin-left:6px">Takedown</button>` : '';
         return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${p.handle || p.display_name || 'Unknown'}</div>
             <div style="font-size:10px;color:var(--text-tertiary)">${p.platform || ''} &middot; ${timeAgo(p.last_scanned)}</div>
           </div>
-          <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${classColor}22;color:${classColor};border:1px solid ${classColor}44">${p.classification || 'unclassified'}</span>
+          <div style="display:flex;align-items:center">
+            <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${classColor}22;color:${classColor};border:1px solid ${classColor}44">${p.classification || 'unclassified'}</span>
+            ${takedownBtn}
+          </div>
         </div>`;
       }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No social profiles tracked</div>';
+
+      // Social profile takedown buttons
+      socialEl.querySelectorAll('.tbd-social-takedown').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const profileId = e.target.dataset.profileId;
+          const platform = e.target.dataset.platform;
+          const handle = e.target.dataset.handle;
+          const profileUrl = e.target.dataset.url;
+          e.target.disabled = true;
+          e.target.textContent = 'Creating...';
+          try {
+            await api('/orgs/' + org.id + '/takedowns', {
+              method: 'POST',
+              body: JSON.stringify({
+                brand_id: brandId,
+                target_type: 'social_profile',
+                target_value: handle,
+                target_platform: platform,
+                target_url: profileUrl || null,
+                evidence_summary: 'Impersonation of ' + brand.name + ' on ' + platform + ' by ' + handle,
+                source_type: 'social_profile',
+                source_id: profileId,
+              }),
+            });
+            showToast('Takedown request created', 'success');
+            e.target.textContent = 'Requested';
+            e.target.style.color = 'var(--positive)';
+            e.target.style.borderColor = 'var(--positive)';
+          } catch (err) {
+            showToast('Failed: ' + err.message, 'error');
+            e.target.disabled = false;
+            e.target.textContent = 'Takedown';
+          }
+        });
+      });
     }
 
     // Alerts
@@ -8053,6 +8101,94 @@ async function viewTenantBrandDetail(el) {
           }
         });
       });
+    }
+
+    // Monitoring config
+    const monEl = document.getElementById('tbd-monitoring-config');
+    if (monEl) {
+      const isOrgAdmin = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+      try {
+        const mcRes = await api('/orgs/' + org.id + '/brands/' + brandId + '/monitoring-config');
+        const mc = mcRes?.data || {};
+        const allSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+        const allPlatforms = ['twitter', 'linkedin', 'instagram', 'tiktok', 'github', 'youtube'];
+        const platformLabels = { twitter: 'Twitter/X', linkedin: 'LinkedIn', instagram: 'Instagram', tiktok: 'TikTok', github: 'GitHub', youtube: 'YouTube' };
+
+        monEl.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Alert Severity Filter</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-severities">
+                ${allSeverities.map(s => {
+                  const checked = (mc.alert_severity_filter || []).includes(s);
+                  return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
+                }).join('')}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Social Platforms</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-platforms">
+                ${allPlatforms.map(p => {
+                  const checked = (mc.social_platforms_monitored || []).includes(p);
+                  return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
+                }).join('')}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Email Notifications</div>
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;margin-bottom:4px"><input type="checkbox" id="mc-email-toggle" ${mc.email_notifications ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Enabled</label>
+              <select id="mc-email-threshold" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
+                ${allSeverities.map(s => `<option value="${s}" ${mc.email_notification_threshold === s ? 'selected' : ''}>${s}+</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Weekly Digest</div>
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Custom Keywords</div>
+              <input type="text" id="mc-keywords" value="${(mc.custom_keywords || []).join(', ')}" placeholder="keyword1, keyword2" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Excluded Domains</div>
+              <input type="text" id="mc-excluded" value="${(mc.excluded_domains || []).join(', ')}" placeholder="safe-domain.com, internal.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
+            </div>
+          </div>
+          ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" style="font-size:10px;color:var(--text-tertiary);margin-right:8px"></span></div>' : '<div style="margin-top:8px;font-size:10px;color:var(--text-tertiary)">Read-only (requires analyst+ role to modify)</div>'}`;
+
+        if (isOrgAdmin) {
+          let saveTimeout;
+          const saveConfig = async () => {
+            const statusEl = document.getElementById('mc-save-status');
+            if (statusEl) statusEl.textContent = 'Saving...';
+            try {
+              const config = {
+                alert_severity_filter: [...monEl.querySelectorAll('.mc-sev:checked')].map(c => c.value),
+                social_platforms_monitored: [...monEl.querySelectorAll('.mc-plat:checked')].map(c => c.value),
+                email_notifications: document.getElementById('mc-email-toggle')?.checked || false,
+                email_notification_threshold: document.getElementById('mc-email-threshold')?.value || 'HIGH',
+                weekly_digest: document.getElementById('mc-digest')?.checked || false,
+                custom_keywords: (document.getElementById('mc-keywords')?.value || '').split(',').map(k => k.trim()).filter(Boolean),
+                excluded_domains: (document.getElementById('mc-excluded')?.value || '').split(',').map(d => d.trim()).filter(Boolean),
+              };
+              await api('/orgs/' + org.id + '/brands/' + brandId + '/monitoring-config', {
+                method: 'PATCH',
+                body: JSON.stringify(config),
+              });
+              if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = 'var(--positive)'; }
+              showToast('Monitoring config saved', 'success');
+              setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; } }, 2000);
+            } catch (err) {
+              if (statusEl) { statusEl.textContent = 'Failed to save'; statusEl.style.color = 'var(--negative)'; }
+            }
+          };
+          const debouncedSave = () => { clearTimeout(saveTimeout); saveTimeout = setTimeout(saveConfig, 800); };
+          monEl.querySelectorAll('input[type="checkbox"], select').forEach(el => el.addEventListener('change', debouncedSave));
+          monEl.querySelectorAll('input[type="text"]').forEach(el => el.addEventListener('input', debouncedSave));
+        }
+      } catch (err) {
+        monEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load monitoring config</div>';
+      }
     }
   } catch (err) {
     el.innerHTML = '<div class="empty-state"><div class="message">Failed to load brand details</div></div>';
@@ -8138,12 +8274,15 @@ async function viewTenantAlerts(el) {
           const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[a.severity] || 'var(--text-tertiary)';
           const statusLabel = (a.status || 'new').replace(/_/g, ' ');
           const typeLabel = (a.alert_type || '').replace(/_/g, ' ');
+          const canTakedown = canHITL && ['social_impersonation', 'phishing_detected'].includes(a.alert_type);
+          const takedownBtn = canTakedown ? `<button class="ta-takedown-btn" data-alert-id="${a.id}" data-brand-id="${a.brand_id}" data-alert-type="${a.alert_type}" data-summary="${(a.summary || a.title || '').replace(/"/g, '&quot;')}" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-critical)44;border-radius:4px;background:rgba(255,59,92,0.08);color:var(--threat-critical);cursor:pointer;font-weight:600">Request Takedown</button>` : '';
           const hitlButtons = canHITL && a.status !== 'resolved' && a.status !== 'false_positive' ? `
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
               ${a.status !== 'acknowledged' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="acknowledged" style="padding:4px 10px;font-size:10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-elevated);color:var(--blue-primary);cursor:pointer">Acknowledge</button>' : ''}
               ${a.status !== 'investigating' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="investigating" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-medium)44;border-radius:4px;background:var(--bg-elevated);color:var(--threat-medium);cursor:pointer">Investigate</button>' : ''}
               <button class="ta-action-btn" data-alert="${a.id}" data-status="resolved" style="padding:4px 10px;font-size:10px;border:1px solid var(--positive)44;border-radius:4px;background:var(--bg-elevated);color:var(--positive);cursor:pointer">Resolve</button>
               <button class="ta-action-btn" data-alert="${a.id}" data-status="false_positive" style="padding:4px 10px;font-size:10px;border:1px solid #4a5a73;border-radius:4px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">False Positive</button>
+              ${takedownBtn}
             </div>` : '';
           const aiSection = a.ai_assessment ? `<div style="margin-top:8px;padding:8px;border-radius:4px;background:var(--bg-surface);font-size:11px;color:var(--text-secondary);display:none" id="ta-ai-${a.id}"><strong style="color:var(--blue-primary)">AI Assessment:</strong> ${a.ai_assessment}</div><button onclick="document.getElementById('ta-ai-${a.id}').style.display=document.getElementById('ta-ai-${a.id}').style.display==='none'?'block':'none'" style="margin-top:4px;font-size:10px;color:var(--blue-primary);background:none;border:none;cursor:pointer;padding:0">Toggle AI Assessment</button>` : '';
           return `<div class="adm-panel" style="margin-bottom:10px">
@@ -8193,6 +8332,41 @@ async function viewTenantAlerts(el) {
               showToast('Failed: ' + err.message, 'error');
               e.target.disabled = false;
               e.target.textContent = newStatus.replace(/_/g, ' ');
+            }
+          });
+        });
+
+        // Takedown request buttons
+        listEl.querySelectorAll('.ta-takedown-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const alertId = e.target.dataset.alertId;
+            const brandId = e.target.dataset.brandId;
+            const alertType = e.target.dataset.alertType;
+            const summary = e.target.dataset.summary;
+            const targetType = alertType === 'social_impersonation' ? 'social_profile' : 'domain';
+            e.target.disabled = true;
+            e.target.textContent = 'Creating...';
+            try {
+              await api('/orgs/' + org.id + '/takedowns', {
+                method: 'POST',
+                body: JSON.stringify({
+                  brand_id: brandId,
+                  target_type: targetType,
+                  target_value: summary.split(' ').find(w => w.startsWith('@') || w.includes('.')) || summary.substring(0, 100),
+                  evidence_summary: summary,
+                  source_type: 'alert',
+                  source_id: alertId,
+                }),
+              });
+              showToast('Takedown request created', 'success');
+              e.target.textContent = 'Requested';
+              e.target.style.background = 'rgba(0,229,160,0.08)';
+              e.target.style.color = 'var(--positive)';
+              e.target.style.borderColor = 'var(--positive)';
+            } catch (err) {
+              showToast('Failed: ' + err.message, 'error');
+              e.target.disabled = false;
+              e.target.textContent = 'Request Takedown';
             }
           });
         });
@@ -8365,6 +8539,296 @@ async function viewTenantSettings(el) {
     const usageEl = document.getElementById('ts-usage');
     if (usageEl) usageEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load usage data</div>';
   }
+}
+
+// ─── Tenant: Takedowns View ─────────────────────────────────
+
+async function viewTenantTakedowns(el) {
+  const org = currentUser?.organization;
+  if (!org) { navigate('/observatory', true); return; }
+  const canHITL = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
+
+  let currentFilter = '';
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Takedown Requests</div>
+      ${canHITL ? '<button class="btn btn-primary" id="tt-new-btn" style="font-size:12px;padding:6px 14px">+ New Request</button>' : ''}
+    </div>
+    <div id="tt-new-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px">New Takedown Request</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Brand</label><select id="tt-brand" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></select></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Target Type</label><select id="tt-target-type" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="social_profile">Social Profile</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option></select></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Target Value</label><input type="text" id="tt-target-value" placeholder="@handle or domain.com" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Platform</label><input type="text" id="tt-platform" placeholder="twitter, linkedin, etc." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Evidence Summary</label><textarea id="tt-evidence" rows="3" placeholder="Brief description of the violation..." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px;resize:vertical"></textarea></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button id="tt-cancel" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer">Cancel</button>
+        <button class="btn btn-primary" id="tt-submit" style="font-size:12px;padding:6px 14px">Create Draft</button>
+      </div>
+    </div>
+    <div id="tt-status-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+    <div id="tt-list">Loading...</div>`;
+
+  // Populate brands
+  try {
+    const brandsRes = await api('/orgs/' + org.id + '/brands');
+    const brandSelect = document.getElementById('tt-brand');
+    if (brandSelect && brandsRes?.data) {
+      brandsRes.data.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.brand_id;
+        opt.textContent = b.brand_name;
+        brandSelect.appendChild(opt);
+      });
+    }
+  } catch (e) { /* ignore */ }
+
+  document.getElementById('tt-new-btn')?.addEventListener('click', () => {
+    const f = document.getElementById('tt-new-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('tt-cancel')?.addEventListener('click', () => {
+    document.getElementById('tt-new-form').style.display = 'none';
+  });
+  document.getElementById('tt-submit')?.addEventListener('click', async () => {
+    const btn = document.getElementById('tt-submit');
+    btn.disabled = true; btn.textContent = 'Creating...';
+    try {
+      const body = {
+        brand_id: document.getElementById('tt-brand').value,
+        target_type: document.getElementById('tt-target-type').value,
+        target_value: document.getElementById('tt-target-value').value,
+        target_platform: document.getElementById('tt-platform').value || undefined,
+        evidence_summary: document.getElementById('tt-evidence').value,
+      };
+      if (!body.target_value || !body.evidence_summary) {
+        showToast('Target value and evidence summary are required', 'error');
+        btn.disabled = false; btn.textContent = 'Create Draft';
+        return;
+      }
+      await api('/orgs/' + org.id + '/takedowns', { method: 'POST', body: JSON.stringify(body) });
+      showToast('Takedown request created', 'success');
+      document.getElementById('tt-new-form').style.display = 'none';
+      btn.disabled = false; btn.textContent = 'Create Draft';
+      loadTakedowns();
+    } catch (err) {
+      showToast('Failed: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Create Draft';
+    }
+  });
+
+  async function loadTakedowns() {
+    try {
+      const params = new URLSearchParams();
+      if (currentFilter) params.set('status', currentFilter);
+      const res = await api('/orgs/' + org.id + '/takedowns?' + params.toString());
+      if (!res) return;
+      const takedowns = res.data || [];
+      const statusCounts = res.status_counts || [];
+
+      // Status tabs
+      const tabsEl = document.getElementById('tt-status-tabs');
+      if (tabsEl) {
+        const countMap = {};
+        statusCounts.forEach(s => { countMap[s.status] = s.count; });
+        const tabs = [
+          { key: '', label: 'All', count: Object.values(countMap).reduce((a, b) => a + Number(b), 0) },
+          { key: 'draft', label: 'Draft', count: countMap.draft || 0 },
+          { key: 'requested', label: 'Requested', count: countMap.requested || 0 },
+          { key: 'submitted', label: 'Submitted', count: countMap.submitted || 0 },
+          { key: 'pending_response', label: 'Pending', count: countMap.pending_response || 0 },
+          { key: 'taken_down', label: 'Resolved', count: (countMap.taken_down || 0) + (countMap.failed || 0) + (countMap.expired || 0) + (countMap.withdrawn || 0) },
+        ];
+        tabsEl.innerHTML = tabs.map(t =>
+          `<button class="tt-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(0,212,255,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer;font-weight:${currentFilter === t.key ? '600' : '400'}">${t.label} ${t.count}</button>`
+        ).join('');
+        tabsEl.querySelectorAll('.tt-tab').forEach(btn => {
+          btn.addEventListener('click', () => { currentFilter = btn.dataset.status; loadTakedowns(); });
+        });
+      }
+
+      // Takedown cards
+      const listEl = document.getElementById('tt-list');
+      if (listEl) {
+        listEl.innerHTML = takedowns.length ? takedowns.map(t => {
+          const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[t.severity] || 'var(--text-tertiary)';
+          const statusColor = { draft: 'var(--text-tertiary)', requested: 'var(--blue-primary)', submitted: 'var(--threat-medium)', pending_response: 'var(--threat-medium)', taken_down: 'var(--positive)', failed: 'var(--negative)', expired: '#4a5a73', withdrawn: '#4a5a73' }[t.status] || 'var(--text-tertiary)';
+          const statusLabel = (t.status || '').replace(/_/g, ' ').toUpperCase();
+
+          const actionBtns = canHITL ? (() => {
+            if (t.status === 'draft') return `
+              <button class="tt-action" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(0,212,255,0.08);color:var(--blue-primary);cursor:pointer">Submit Request</button>
+              <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
+            if (t.status === 'requested') return `
+              <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
+            return '';
+          })() : '';
+
+          return `<div class="adm-panel" style="margin-bottom:10px">
+            <div class="adm-padded">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${t.severity}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
+                <span style="font-size:10px;color:var(--text-tertiary)">&mdash; ${(t.target_type || '').replace(/_/g, ' ')}</span>
+                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${statusLabel}</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Brand: ${t.brand_name || 'Unknown'}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${t.evidence_summary || ''}</div>
+              ${t.provider_name ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
+              ${t.response_notes ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px">Response: ' + t.response_notes + '</div>' : ''}
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text-tertiary)">
+                <span>${timeAgo(t.created_at)}</span>
+                <div style="display:flex;gap:4px">${actionBtns}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('') : '<div class="empty-state"><div class="message">No takedown requests</div></div>';
+
+        listEl.querySelectorAll('.tt-action').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            const action = e.target.dataset.action;
+            if (action === 'withdrawn' && !confirm('Withdraw this takedown request?')) return;
+            e.target.disabled = true;
+            try {
+              await api('/orgs/' + org.id + '/takedowns/' + id, { method: 'PATCH', body: JSON.stringify({ status: action }) });
+              showToast('Takedown ' + action.replace(/_/g, ' '), 'success');
+              loadTakedowns();
+            } catch (err) {
+              showToast('Failed: ' + err.message, 'error');
+              e.target.disabled = false;
+            }
+          });
+        });
+      }
+    } catch (err) {
+      document.getElementById('tt-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load takedowns</div></div>';
+    }
+  }
+
+  loadTakedowns();
+}
+
+// ─── Admin: Takedown Queue ──────────────────────────────────
+
+async function viewAdminTakedowns(el) {
+  let currentFilter = '';
+
+  el.innerHTML = `
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">SOC Takedown Queue</div>
+    <div id="at-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <select id="at-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+        <option value="">All Severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option>
+      </select>
+    </div>
+    <div id="at-list">Loading...</div>`;
+
+  async function loadAdminTakedowns() {
+    try {
+      const params = new URLSearchParams();
+      if (currentFilter) params.set('status', currentFilter);
+      const sevFilter = document.getElementById('at-severity')?.value;
+      if (sevFilter) params.set('severity', sevFilter);
+      const res = await api('/admin/takedowns?' + params.toString());
+      if (!res) return;
+      const takedowns = res.data || [];
+      const statusCounts = res.status_counts || [];
+
+      const tabsEl = document.getElementById('at-tabs');
+      if (tabsEl) {
+        const countMap = {};
+        statusCounts.forEach(s => { countMap[s.status] = s.count; });
+        const tabs = [
+          { key: '', label: 'All' },
+          { key: 'requested', label: 'Requested' },
+          { key: 'submitted', label: 'Submitted' },
+          { key: 'pending_response', label: 'Pending' },
+          { key: 'draft', label: 'Draft' },
+          { key: 'taken_down', label: 'Taken Down' },
+          { key: 'failed', label: 'Failed' },
+        ];
+        tabsEl.innerHTML = tabs.map(t => {
+          const c = t.key ? (countMap[t.key] || 0) : Object.values(countMap).reduce((a, b) => a + Number(b), 0);
+          return `<button class="at-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(0,212,255,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer">${t.label} ${c}</button>`;
+        }).join('');
+        tabsEl.querySelectorAll('.at-tab').forEach(btn => {
+          btn.addEventListener('click', () => { currentFilter = btn.dataset.status; loadAdminTakedowns(); });
+        });
+      }
+
+      const listEl = document.getElementById('at-list');
+      if (listEl) {
+        listEl.innerHTML = takedowns.length ? takedowns.map(t => {
+          const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[t.severity] || 'var(--text-tertiary)';
+          const statusColor = { draft: 'var(--text-tertiary)', requested: 'var(--blue-primary)', submitted: 'var(--threat-medium)', pending_response: 'var(--threat-medium)', taken_down: 'var(--positive)', failed: 'var(--negative)', expired: '#4a5a73', withdrawn: '#4a5a73' }[t.status] || 'var(--text-tertiary)';
+
+          let advanceBtns = '';
+          if (t.status === 'requested' || t.status === 'draft') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="submitted" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(0,212,255,0.08);color:var(--blue-primary);cursor:pointer">Mark Submitted</button>`;
+          if (t.status === 'submitted') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="pending_response" style="padding:3px 8px;font-size:9px;border:1px solid var(--threat-medium)44;border-radius:3px;background:rgba(255,182,39,0.08);color:var(--threat-medium);cursor:pointer">Pending Response</button>`;
+          if (t.status === 'submitted' || t.status === 'pending_response') {
+            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="taken_down" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:rgba(0,229,160,0.08);color:var(--positive);cursor:pointer">Taken Down</button>`;
+            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="failed" style="padding:3px 8px;font-size:9px;border:1px solid var(--negative)44;border-radius:3px;background:rgba(255,59,92,0.08);color:var(--negative);cursor:pointer">Failed</button>`;
+          }
+
+          return `<div class="adm-panel" style="margin-bottom:10px">
+            <div class="adm-padded">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${sevColor}"></span>
+                <span style="font-size:11px;font-weight:700;color:${sevColor}">${t.severity}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
+                <span style="font-size:10px;color:var(--text-tertiary)">${(t.target_type || '').replace(/_/g, ' ')}</span>
+                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">
+                <span style="font-weight:600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}
+                ${t.target_platform ? ' &middot; ' + t.target_platform : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${t.evidence_summary || ''}</div>
+              ${t.evidence_detail ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px;max-height:80px;overflow-y:auto">' + t.evidence_detail + '</div>' : ''}
+              ${t.provider_name ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:var(--blue-primary)">' + t.provider_abuse_contact + '</a>' : '') + '</div>' : ''}
+              ${t.response_notes ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px"><strong>Response:</strong> ' + t.response_notes + '</div>' : ''}
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span style="font-size:10px;color:var(--text-tertiary)">${timeAgo(t.created_at)}</span>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <input class="at-notes-input" data-id="${t.id}" placeholder="Response notes..." style="padding:3px 6px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-card);color:var(--text-primary);width:160px;display:${['submitted', 'pending_response'].includes(t.status) ? 'inline' : 'none'}">
+                  ${advanceBtns}
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join('') : '<div class="empty-state"><div class="message">No takedown requests</div></div>';
+
+        listEl.querySelectorAll('.at-adv').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            const newStatus = e.target.dataset.status;
+            const notesInput = listEl.querySelector('.at-notes-input[data-id="' + id + '"]');
+            const body = { status: newStatus };
+            if (notesInput?.value) body.response_notes = notesInput.value;
+            e.target.disabled = true;
+            try {
+              await api('/admin/takedowns/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+              showToast('Takedown ' + newStatus.replace(/_/g, ' '), 'success');
+              loadAdminTakedowns();
+            } catch (err) {
+              showToast('Failed: ' + err.message, 'error');
+              e.target.disabled = false;
+            }
+          });
+        });
+      }
+    } catch (err) {
+      document.getElementById('at-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load takedowns</div></div>';
+    }
+  }
+
+  document.getElementById('at-severity')?.addEventListener('change', loadAdminTakedowns);
+  loadAdminTakedowns();
 }
 
 // ─── Admin: Organization Management ──────────────────────────

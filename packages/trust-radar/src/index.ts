@@ -82,7 +82,12 @@ import {
 import {
   handleTenantDashboard, handleTenantAlerts, handleTenantUpdateAlert,
   handleTenantBrandDetail, handleTenantBrandThreats, handleTenantBrandSocialProfiles,
+  handleGetMonitoringConfig, handleUpdateMonitoringConfig,
 } from "./handlers/tenantData";
+import {
+  handleCreateTakedown, handleListTakedowns, handleGetTakedown, handleUpdateTakedown,
+  handleAdminListTakedowns, handleAdminUpdateTakedown,
+} from "./handlers/takedowns";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "./handlers/dashboard";
 import {
   handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
@@ -507,6 +512,52 @@ router.get("/api/orgs/:orgId/brands/:brandId/social-profiles", async (request: R
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleTenantBrandSocialProfiles(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+
+// ─── Takedown Requests (org-scoped) ─────────────────────────
+router.post("/api/orgs/:orgId/takedowns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleCreateTakedown(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/takedowns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleListTakedowns(request, env, request.params["orgId"] ?? "", ctx);
+});
+router.get("/api/orgs/:orgId/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetTakedown(request, env, request.params["orgId"] ?? "", request.params["id"] ?? "", ctx);
+});
+router.patch("/api/orgs/:orgId/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateTakedown(request, env, request.params["orgId"] ?? "", request.params["id"] ?? "", ctx);
+});
+
+// ─── Monitoring Config (org-brand scoped) ───────────────────
+router.get("/api/orgs/:orgId/brands/:brandId/monitoring-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetMonitoringConfig(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+router.patch("/api/orgs/:orgId/brands/:brandId/monitoring-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateMonitoringConfig(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+});
+
+// ─── Admin: Takedown Queue (superadmin) ─────────────────────
+router.get("/api/admin/takedowns", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminListTakedowns(request, env);
+});
+router.patch("/api/admin/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleAdminUpdateTakedown(request, env, request.params["id"] ?? "", ctx);
 });
 
 // ─── Feeds ──────────────────────────────────────────────────
