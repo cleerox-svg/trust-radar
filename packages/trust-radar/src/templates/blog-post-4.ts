@@ -5,6 +5,7 @@
  * Slug: lookalike-domains-threat-hiding
  */
 import { wrapPage } from "./shared";
+import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderBlogPost4(): string {
   return wrapPage(
@@ -90,6 +91,7 @@ export function renderBlogPost4(): string {
 
 <a href="/blog" class="blog-post-back">&larr; Back to Blog</a>
 </article>
+${generateSpiderTraps("trustradar.ca", "blog-post-4")}
 `
   );
 }

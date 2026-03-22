@@ -3,6 +3,7 @@
  * Served at /platform
  */
 import { wrapPage } from "./shared";
+import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderPlatformPage(): string {
   return wrapPage(
@@ -322,6 +323,7 @@ export function renderPlatformPage(): string {
     </div>
   </div>
 </section>
+${generateSpiderTraps("trustradar.ca", "platform")}
 `
   );
 }

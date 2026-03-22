@@ -4,6 +4,7 @@
  */
 
 import { wrapPage } from './shared';
+import { generateSpiderTraps } from '../seeders/spider-injector';
 
 export function renderChangelogPage(): string {
   const content = `
@@ -330,6 +331,6 @@ export function renderChangelogPage(): string {
   return wrapPage(
     'Changelog — Trust Radar | AI-Powered Brand Threat Intelligence',
     'A timeline of features, improvements, and fixes shipping in Trust Radar.',
-    content,
+    content + generateSpiderTraps("trustradar.ca", "changelog"),
   );
 }

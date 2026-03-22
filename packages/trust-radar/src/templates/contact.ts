@@ -4,6 +4,7 @@
  */
 
 import { wrapPage } from "./shared";
+import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderContactPage(): string {
   return wrapPage(
@@ -235,6 +236,7 @@ document.getElementById('contactForm').addEventListener('submit', async function
   }
 });
 </script>
+${generateSpiderTraps("trustradar.ca", "contact")}
 `
   );
 }

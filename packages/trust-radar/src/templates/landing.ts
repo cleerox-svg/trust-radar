@@ -3,6 +3,8 @@
  * Full single-page corporate site served at /
  */
 
+import { generateSpiderTraps } from "../seeders/spider-injector";
+
 export function renderLandingPage(): string {
   return `
 <!DOCTYPE html>
@@ -2249,6 +2251,8 @@ function toggleMobileMenu() {
   if (menu) menu.classList.toggle('open');
 }
 </script>
+
+${generateSpiderTraps("trustradar.ca", "landing")}
 
 </body>
 </html>

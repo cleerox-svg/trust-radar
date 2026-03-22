@@ -4,6 +4,7 @@
  */
 
 import { wrapPage } from './shared';
+import { generateSpiderTraps } from '../seeders/spider-injector';
 
 export function renderSecurityPage(): string {
   const content = `
@@ -579,6 +580,6 @@ export function renderSecurityPage(): string {
   return wrapPage(
     'Security & Trust — Trust Radar',
     'Learn how Trust Radar protects your data with encryption, access controls, audit logging, and edge-native infrastructure on Cloudflare.',
-    content
+    content + generateSpiderTraps("trustradar.ca", "security")
   );
 }

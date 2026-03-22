@@ -1,7 +1,7 @@
 import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderHomepage(): string {
-  const spiderTraps = generateSpiderTraps("trustradar.ca");
+  const spiderTraps = generateSpiderTraps("trustradar.ca", "scan");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

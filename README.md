@@ -114,6 +114,10 @@ See `docs/` for detailed documentation:
 - [Social Monitoring](docs/SOCIAL_MONITORING.md)
 - [Deployment](docs/DEPLOYMENT.md)
 
+## Security
+
+Report security vulnerabilities to [security@trustradar.ca](mailto:security@trustradar.ca).
+
 ## License
 
 Proprietary — © 2026 LRX Enterprises Inc. All rights reserved.

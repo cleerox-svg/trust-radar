@@ -6,21 +6,16 @@
  * for tracking which trap caught which spammer.
  */
 
-export function generateSpiderTraps(domain: string = "trustradar.ca"): string {
+export function generateSpiderTraps(domain: string = "trustradar.ca", page: string = "page"): string {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
-  const traps = [
-    `spider-pub-footer-${date}`,
-    `spider-pub-meta-${date}`,
-    `spider-pub-comment-${date}`,
-    `spider-pub-hidden-${date}`,
-  ];
-
   return `
-    <!-- Trust Radar monitoring -->
     <div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
-      <a href="mailto:${traps[0] ?? ""}@${domain}">contact us</a>
-      <a href="mailto:${traps[1] ?? ""}@${domain}">support</a>
+      <a href="mailto:spider-${page}-footer-${date}@${domain}">contact</a>
+      <a href="mailto:spider-${page}-meta-${date}@${domain}">support</a>
+      <a href="mailto:spider-${page}-link-${date}@${domain}">info</a>
     </div>
-    <meta name="reply-to" content="${traps[2] ?? ""}@${domain}">
+    <meta name="reply-to" content="spider-${page}-reply-${date}@${domain}">
+    <link rel="author" href="mailto:spider-${page}-author-${date}@${domain}">
+    <!-- Last updated by webmaster-${page}@${domain} -->
   `.trim();
 }

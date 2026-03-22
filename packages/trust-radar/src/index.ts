@@ -146,6 +146,7 @@ import {
 import { handleDmarcEmail } from "./dmarc-receiver";
 import { handleSpamTrapEmail } from "./spam-trap";
 import { serveHoneypotPage } from "./honeypot";
+import { serveLrxRadarPage } from "./templates/honeypot-lrx";
 import {
   handleSpamTrapStats, handleSpamTrapCaptures, handleSpamTrapCapturesByBrand,
   handleSpamTrapSources, handleSpamTrapCampaigns, handleCreateSpamTrapCampaign,
@@ -1717,15 +1718,13 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Canonical-host redirect: www → non-www + legacy domain → trustradar.ca
-      // Skip API routes so OAuth callbacks are never intercepted.
-      if (
-        (url.hostname === "www.trustradar.ca" ||
-         url.hostname === "lrxradar.com" ||
-         url.hostname === "www.lrxradar.com") &&
-        !url.pathname.startsWith("/api/")
-      ) {
+      // www → non-www redirect for trustradar.ca
+      if (url.hostname === "www.trustradar.ca" && !url.pathname.startsWith("/api/")) {
         return Response.redirect(`https://trustradar.ca${url.pathname}${url.search}`, 301);
+      }
+      // www.lrxradar.com → lrxradar.com redirect
+      if (url.hostname === "www.lrxradar.com" && !url.pathname.startsWith("/api/")) {
+        return Response.redirect(`https://lrxradar.com${url.pathname}${url.search}`, 301);
       }
 
       // Honeypot domain routing — serve KV-stored sites for throwaway domains
@@ -1741,8 +1740,13 @@ export default {
         }
       }
 
-      // Honeypot pages serve from trustradar.ca (and lrxradar.com for legacy trap compat)
-      if (["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
+      // lrxradar.com serves as a full honeypot site
+      if (url.hostname === "lrxradar.com") {
+        return applySecurityHeaders(serveLrxRadarPage(url.pathname));
+      }
+
+      // Honeypot pages serve from trustradar.ca
+      if (["trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
         const honeypotPages = ["/team", "/careers"];
         if (honeypotPages.includes(url.pathname)) {
           const serveDomain = url.hostname.replace(/^www\./, "");

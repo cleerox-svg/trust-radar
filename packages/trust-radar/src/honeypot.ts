@@ -2,83 +2,159 @@
  * Honeypot Pages — Serves realistic-looking pages with trap addresses.
  *
  * These pages contain visible email addresses and hidden spider traps.
- * Served from trustradar.ca (lrxradar.com retained for legacy trap compatibility).
+ * Served from trustradar.ca with styling matching the main site.
  */
+
+import { generateSpiderTraps } from "./seeders/spider-injector";
 
 export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Response {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
-  const isTrustRadar = domain === "trustradar.ca";
-  const brandName = isTrustRadar ? "Trust Radar" : "LRX Radar";
-  const companyName = "LRX Enterprises Inc.";
 
-  // Seed trap addresses for trustradar.ca (static — harvesters parse raw HTML)
-  const trustRadarSeeds: Record<string, string> = {
+  // Seed trap addresses (static — harvesters parse raw HTML)
+  const seeds: Record<string, string> = {
     contact: "info-cp01@trustradar.ca",
     team: "hr-hp01@trustradar.ca",
     careers: "hr-hp01@trustradar.ca",
     about: "admin-wh01@trustradar.ca",
   };
 
-  const pages: Record<string, { title: string; content: string; email: string }> = {
-    contact: {
-      title: `Contact Us \u2014 ${brandName}`,
-      email: isTrustRadar
-        ? trustRadarSeeds["contact"]!
-        : `honey-contact-${date}@trustradar.ca`,
-      content: isTrustRadar
-        ? "Have questions about our threat intelligence platform? Get in touch with our team."
-        : "For general inquiries, reach out to our team.",
-    },
-    team: {
-      title: `Our Team \u2014 ${brandName}`,
-      email: isTrustRadar
-        ? trustRadarSeeds["team"]!
-        : `honey-team-${date}@trustradar.ca`,
-      content: `Meet the team behind ${brandName}.`,
-    },
-    careers: {
-      title: `Careers \u2014 ${brandName}`,
-      email: isTrustRadar
-        ? trustRadarSeeds["careers"]!
-        : `honey-careers-${date}@trustradar.ca`,
-      content: "We are always looking for talented individuals.",
-    },
-    about: {
-      title: `About \u2014 ${brandName}`,
-      email: isTrustRadar
-        ? trustRadarSeeds["about"]!
-        : `honey-about-${date}@trustradar.ca`,
-      content: `${brandName} provides real-time threat intelligence and brand protection solutions.`,
-    },
-  };
+  const primaryEmail = seeds[page] ?? seeds["contact"]!;
 
-  const p = pages[page] ?? pages["contact"]!;
+  const teamMembers = [
+    { name: "Claude Leroux", title: "CEO & Founder", email: "ceo@trustradar.ca" },
+    { name: "Sarah Chen", title: "CTO", email: "sarah.chen@trustradar.ca" },
+    { name: "James Wilson", title: "VP Engineering", email: "james.wilson@trustradar.ca" },
+    { name: "Jennifer Smith", title: "Head of Threat Research", email: "cto@trustradar.ca" },
+    { name: "Michael Patel", title: "Lead Data Engineer", email: "info-cp01@trustradar.ca" },
+    { name: "Lisa Rodriguez", title: "Director of Operations", email: "admin-wh01@trustradar.ca" },
+  ];
+
+  const jobListings = [
+    { title: "Senior Threat Intelligence Analyst", dept: "Security Research", email: "hr-hp01@trustradar.ca" },
+    { title: "Full-Stack Engineer (Cloudflare Workers)", dept: "Engineering", email: "dev-gp01@trustradar.ca" },
+    { title: "Product Manager — AI Agents", dept: "Product", email: "hr-hp01@trustradar.ca" },
+  ];
+
+  let content: string;
+
+  if (page === "team") {
+    const memberCards = teamMembers.map(m => `
+      <div class="hp-card">
+        <div class="hp-card-name">${m.name}</div>
+        <div class="hp-card-title">${m.title}</div>
+        <a href="mailto:${m.email}">${m.email}</a>
+      </div>`).join("");
+
+    content = `
+    <div class="hp-hero">
+      <h1>Our Team</h1>
+      <p>The people behind Trust Radar — building AI-powered brand threat intelligence.</p>
+    </div>
+    <div class="hp-section">
+      <div class="hp-grid">${memberCards}</div>
+      <p class="hp-cta">General inquiries: <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
+    </div>`;
+  } else if (page === "careers") {
+    const jobCards = jobListings.map(j => `
+      <div class="hp-card">
+        <div class="hp-card-name">${j.title}</div>
+        <div class="hp-card-title">${j.dept}</div>
+        <p class="hp-card-desc">We're looking for talented individuals to join our growing team. Remote-friendly, competitive compensation, equity.</p>
+        <a href="mailto:${j.email}?subject=Application: ${j.title}" class="hp-apply">Apply via Email</a>
+      </div>`).join("");
+
+    content = `
+    <div class="hp-hero">
+      <h1>Careers at Trust Radar</h1>
+      <p>Join us in making brand threat intelligence accessible to every organization.</p>
+    </div>
+    <div class="hp-section">
+      <div class="hp-grid">${jobCards}</div>
+      <p class="hp-cta">HR inquiries: <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
+      <p class="hp-cta">Engineering roles: <a href="mailto:dev-gp01@trustradar.ca">dev-gp01@trustradar.ca</a></p>
+    </div>`;
+  } else {
+    content = `
+    <div class="hp-hero">
+      <h1>${page.charAt(0).toUpperCase() + page.slice(1)}</h1>
+      <p>Trust Radar — AI-powered brand threat intelligence.</p>
+    </div>
+    <div class="hp-section">
+      <p>Email: <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
+    </div>`;
+  }
+
+  const schemaEmails = page === "team"
+    ? teamMembers.map(m => m.email)
+    : [primaryEmail];
 
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>${p.title}</title>
-<meta name="description" content="${brandName} — Real-time threat intelligence and brand protection">
-<style>body{font-family:system-ui;max-width:600px;margin:60px auto;color:#333;padding:0 20px}
-h1{font-size:24px}a{color:#0066cc}.footer{margin-top:40px;padding-top:20px;border-top:1px solid #eee;font-size:13px;color:#999}</style></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${page === "team" ? "Our Team" : page === "careers" ? "Careers" : page.charAt(0).toUpperCase() + page.slice(1)} — Trust Radar</title>
+<meta name="description" content="Trust Radar — AI-powered brand threat intelligence by LRX Enterprises Inc.">
+<meta name="reply-to" content="${primaryEmail}">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Trust Radar",
+    url: "https://trustradar.ca",
+    email: schemaEmails,
+  })}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans','DM Sans',system-ui,sans-serif;background:#0a0e1a;color:#c8d0e0;line-height:1.7}
+a{color:#00d4ff;text-decoration:none}a:hover{text-decoration:underline}
+.hp-nav{background:#060a14;border-bottom:1px solid rgba(0,212,255,.12);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;max-width:100%}
+.hp-nav-brand{font-size:1.2rem;font-weight:700;color:#00d4ff}
+.hp-nav-links a{color:#7a8ba8;margin-left:1.5rem;font-size:.9rem;transition:color .2s}
+.hp-nav-links a:hover{color:#00d4ff;text-decoration:none}
+.hp-hero{padding:6rem 2rem 3rem;text-align:center;background:linear-gradient(180deg,#0a0e1a,#0d1528)}
+.hp-hero h1{font-size:clamp(2rem,4vw,2.75rem);font-weight:800;color:#e8edf5;margin-bottom:.75rem}
+.hp-hero p{font-size:1.05rem;color:#7a8ba8;max-width:560px;margin:0 auto}
+.hp-section{max-width:960px;margin:0 auto;padding:3rem 2rem}
+.hp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+.hp-card{background:#0d1528;border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:1.5rem;text-align:center}
+.hp-card-name{font-size:1.1rem;font-weight:600;color:#e8edf5;margin-bottom:.25rem}
+.hp-card-title{font-size:.85rem;color:#00d4ff;margin-bottom:.75rem}
+.hp-card-desc{font-size:.9rem;color:#7a8ba8;margin-bottom:.75rem}
+.hp-apply{display:inline-block;padding:.5rem 1.25rem;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);border-radius:6px;font-size:.9rem;color:#00d4ff;transition:background .2s}
+.hp-apply:hover{background:rgba(0,212,255,.18);text-decoration:none}
+.hp-cta{text-align:center;margin-top:1.5rem;color:#7a8ba8}
+.hp-footer{background:#060a14;border-top:1px solid rgba(0,212,255,.08);padding:1.5rem 2rem;text-align:center;font-size:.85rem;color:#4a5a73;margin-top:3rem}
+.hp-footer a{color:#7a8ba8}
+</style>
+</head>
 <body>
-<h1>${(p.title.split("\u2014")[0] ?? p.title).trim()}</h1>
-<p>${p.content}</p>
-<p>Email: <a href="mailto:${p.email}">${p.email}</a></p>${isTrustRadar && page === "contact" ? `
-<p>For support inquiries: <a href="mailto:support-fp01@trustradar.ca">support-fp01@trustradar.ca</a></p>
-<p>Sales: <a href="mailto:sales-bd01@trustradar.ca">sales-bd01@trustradar.ca</a></p>` : ""}
-<div class="footer">
-  <p>&copy; 2026 ${companyName}. All rights reserved.</p>
-  <p><a href="https://trustradar.ca">Trust Radar</a> | <a href="/contact">Contact</a> | <a href="/about">About</a></p>
-</div>
-<!-- ${p.email} -->
+<nav class="hp-nav">
+  <a href="/" class="hp-nav-brand">Trust Radar</a>
+  <div class="hp-nav-links">
+    <a href="/">Home</a>
+    <a href="/platform">Platform</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/blog">Blog</a>
+  </div>
+</nav>
+${content}
+<footer class="hp-footer">
+  <p>&copy; 2026 LRX Enterprises Inc. All rights reserved.</p>
+  <p><a href="https://trustradar.ca">Trust Radar</a> &middot; <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
+</footer>
+<!-- ${primaryEmail} -->
+<!-- Support: support-fp01@trustradar.ca -->
 <div style="position:absolute;left:-9999px;height:0;overflow:hidden" aria-hidden="true">
   <a href="mailto:spider-honey-${page}-${date}@${domain}">support</a>
-  <a href="mailto:spider-honey-${page}b-${date}@${domain}">info</a>${isTrustRadar ? `
-  <a href="mailto:dev-gp01@trustradar.ca">dev</a>` : ""}
+  <a href="mailto:spider-honey-${page}b-${date}@${domain}">info</a>
+  <a href="mailto:dev-gp01@trustradar.ca">dev</a>
 </div>
-</body></html>`;
+${generateSpiderTraps(domain, "honey-" + page)}
+</body>
+</html>`;
 
   return new Response(html, {
-    headers: { "Content-Type": "text/html", "Cache-Control": "public, max-age=86400" },
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" },
   });
 }
