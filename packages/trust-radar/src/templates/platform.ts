@@ -65,9 +65,19 @@ export function renderPlatformPage(): string {
 .arch-arrow { font-size: 1.2rem; color: var(--accent); }
 
 .int-section { padding: 5rem 0; background: var(--bg-tertiary); text-align: center; }
-.int-grid { max-width: 800px; margin: 2rem auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
-.int-badge { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem 1rem; font-size: 0.82rem; font-weight: 600; transition: border-color 0.2s; }
-.int-badge:hover { border-color: var(--accent); }
+.int-grid { max-width: 900px; margin: 2rem auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.int-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 1.25rem; text-align: center; transition: all 0.3s; position: relative; backdrop-filter: blur(10px); background: rgba(var(--bg-secondary-rgb, 255,255,255), 0.7); }
+[data-theme="dark"] .int-card { background: rgba(17,24,39,0.7); }
+.int-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 0 25px rgba(8,145,178,0.15); }
+.int-card-icon { width: 44px; height: 44px; margin: 0 auto 0.75rem; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); }
+.int-card-icon svg { width: 24px; height: 24px; }
+.int-card-icon.live { background: var(--green-bg); color: var(--green); }
+.int-card-icon.planned { background: var(--accent-bg); color: var(--accent); }
+.int-card-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.35rem; }
+.int-card-desc { font-size: 0.72rem; color: var(--text-tertiary); line-height: 1.4; margin-bottom: 0.5rem; }
+.int-card-status { font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 100px; display: inline-block; }
+.int-card-status.live { background: var(--green-bg); color: var(--green); }
+.int-card-status.planned { background: var(--accent-bg); color: var(--text-tertiary); }
 
 .cta-block { padding: 5rem 0; text-align: center; }
 .cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
@@ -106,9 +116,9 @@ export function renderPlatformPage(): string {
     <div class="cap-text">
       <div class="section-label">Capability 01</div>
       <h2>Continuous Threat Detection</h2>
-      <p>Trust Radar monitors multiple threat intelligence feeds every 30 minutes, checking for brand mentions across phishing databases, malware URL feeds, and domain intelligence sources.</p>
+      <p>Trust Radar continuously monitors threat intelligence feeds for brand mentions across phishing databases, malware URL feeds, and domain intelligence sources.</p>
       <ul class="cap-features">
-        <li>30-minute scanning cycles across all feeds</li>
+        <li>Continuous scanning across all feeds</li>
         <li>Parallel feed processing for speed</li>
         <li>Automatic deduplication and false positive filtering</li>
         <li>Safe domains allowlist to reduce noise</li>
@@ -167,13 +177,14 @@ export function renderPlatformPage(): string {
     <div class="cap-text">
       <div class="section-label">Capability 03</div>
       <h2>Social Brand Monitoring</h2>
-      <p>Monitor six social platforms for brand impersonation, handle squatting, and unauthorized brand usage. AI-powered confidence scoring identifies the most dangerous impersonation attempts.</p>
+      <p>Monitor six social platforms for brand impersonation, handle squatting, and unauthorized brand usage. AI-powered profile assessment identifies the most dangerous impersonation attempts with confidence scoring.</p>
       <ul class="cap-features">
-        <li>Handle existence and availability checking</li>
-        <li>Impersonation detection with confidence scoring</li>
-        <li>Handle permutation generation</li>
-        <li>Evidence collection for takedown requests</li>
-        <li>Executive name monitoring</li>
+        <li>AI-powered profile assessment (confidence scoring)</li>
+        <li>Auto-discovery of brand accounts from company websites</li>
+        <li>Cross-correlation with threat intelligence feeds</li>
+        <li>Manual classification and takedown evidence generation</li>
+        <li>Handle permutation generation and monitoring</li>
+        <li>Executive name monitoring across platforms</li>
       </ul>
     </div>
     <div class="cap-visual">
@@ -196,19 +207,20 @@ export function renderPlatformPage(): string {
     <div class="cap-text">
       <div class="section-label">Capability 04</div>
       <h2>AI-Powered Intelligence</h2>
-      <p>Trust Radar's AI agents don't just detect threats — they reason about them. The Analyst correlates signals across email, domains, and social platforms to construct threat narratives that explain why a combination of findings is dangerous.</p>
+      <p>Trust Radar's AI agents don't just detect threats — they reason about them. The Analyst correlates signals across email, domains, social platforms, and threat feeds to construct threat narratives and generate a composite Brand Exposure Score.</p>
       <ul class="cap-features">
-        <li>Multi-signal threat correlation</li>
+        <li>Cross-system signal fusion (email + social + threats + domains)</li>
+        <li>Social intelligence correlation in risk scoring</li>
+        <li>Composite Brand Exposure Score</li>
         <li>Natural language threat narratives</li>
-        <li>Severity scoring with context</li>
+        <li>Automated takedown evidence generation</li>
         <li>Daily intelligence briefings</li>
-        <li>Actionable recommendations</li>
       </ul>
     </div>
     <div class="cap-visual">
       <div class="agent-card">
         <div class="agent-name">Analyst Agent</div>
-        <div class="agent-desc">Evaluates threats, correlates signals, generates assessments. Triggered on new detections.</div>
+        <div class="agent-desc">Evaluates threats, correlates signals across email security, social impersonation, threat feeds, and domain lookalikes. Generates composite risk assessments.</div>
       </div>
       <div class="agent-card">
         <div class="agent-name">Observer Agent</div>
@@ -247,14 +259,54 @@ export function renderPlatformPage(): string {
     <h2 style="font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.5rem;">Works With Your Existing Stack</h2>
     <p style="color:var(--text-secondary);margin-bottom:2rem;">Export data and receive alerts in the tools you already use.</p>
     <div class="int-grid">
-      <div class="int-badge">Splunk</div>
-      <div class="int-badge">QRadar</div>
-      <div class="int-badge">Sentinel</div>
-      <div class="int-badge">STIX/TAXII</div>
-      <div class="int-badge">Webhooks</div>
-      <div class="int-badge">Slack</div>
-      <div class="int-badge">Email</div>
-      <div class="int-badge">REST API</div>
+      <div class="int-card">
+        <div class="int-card-icon live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="int-card-name">STIX/TAXII</div>
+        <div class="int-card-desc">Standard threat intelligence export</div>
+        <span class="int-card-status live">Live</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="int-card-name">REST API</div>
+        <div class="int-card-desc">Full programmatic access</div>
+        <span class="int-card-status live">Live</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <div class="int-card-name">Webhooks</div>
+        <div class="int-card-desc">Real-time event notifications</div>
+        <span class="int-card-status live">Live</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+        <div class="int-card-name">Email</div>
+        <div class="int-card-desc">Alert delivery and digests</div>
+        <span class="int-card-status live">Live</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon planned"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg></div>
+        <div class="int-card-name">Slack</div>
+        <div class="int-card-desc">Team alert channels</div>
+        <span class="int-card-status planned">Coming Soon</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon planned"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></div>
+        <div class="int-card-name">Splunk</div>
+        <div class="int-card-desc">SIEM data integration</div>
+        <span class="int-card-status planned">Coming Soon</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon planned"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><line x1="2" y1="12" x2="22" y2="12"/></svg></div>
+        <div class="int-card-name">QRadar</div>
+        <div class="int-card-desc">Security analytics feed</div>
+        <span class="int-card-status planned">Coming Soon</span>
+      </div>
+      <div class="int-card">
+        <div class="int-card-icon planned"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg></div>
+        <div class="int-card-name">Microsoft Sentinel</div>
+        <div class="int-card-desc">Cloud SIEM integration</div>
+        <span class="int-card-status planned">Coming Soon</span>
+      </div>
     </div>
   </div>
 </section>

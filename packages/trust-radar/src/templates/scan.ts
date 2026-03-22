@@ -862,15 +862,15 @@ function renderReport(data, cached) {
           <div class="feed-count \${data.threat_feeds.total_hits > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.total_hits}</div>
         </div>
         <div class="feed-item">
-          <div class="feed-name">Phishing DB</div>
+          <div class="feed-name">Phishing Database</div>
           <div class="feed-count \${data.threat_feeds.phishtank > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.phishtank}</div>
         </div>
         <div class="feed-item">
-          <div class="feed-name">URLhaus</div>
+          <div class="feed-name">Malware URL Feed</div>
           <div class="feed-count \${data.threat_feeds.urlhaus > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.urlhaus}</div>
         </div>
         <div class="feed-item">
-          <div class="feed-name">OpenPhish</div>
+          <div class="feed-name">Phishing Intelligence</div>
           <div class="feed-count \${data.threat_feeds.openphish > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.openphish}</div>
         </div>
       </div>

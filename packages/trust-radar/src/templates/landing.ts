@@ -283,10 +283,19 @@ img { max-width: 100%; }
 .hero-grid-bg {
   position: absolute;
   inset: 0;
-  opacity: 0.4;
+  opacity: 0.5;
   background-image:
-    radial-gradient(circle at 25% 25%, var(--accent-bg) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(16,185,129,0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 20%, rgba(8,145,178,0.12) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(16,185,129,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 60% 30%, rgba(249,115,22,0.04) 0%, transparent 35%),
+    radial-gradient(circle at 40% 70%, rgba(8,145,178,0.06) 0%, transparent 45%);
+}
+.hero-grid-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 50% 50%, transparent 0%, var(--bg-primary) 70%);
+  opacity: 0.4;
 }
 
 .hero-inner {
@@ -445,8 +454,8 @@ img { max-width: 100%; }
 @keyframes observatoryFadeIn {
   to { opacity: 1; }
 }
-[data-theme="light"] .observatory-inner { --obs-opacity: 0.06; }
-[data-theme="dark"] .observatory-inner { --obs-opacity: 0.08; }
+[data-theme="light"] .observatory-inner { --obs-opacity: 0.10; }
+[data-theme="dark"] .observatory-inner { --obs-opacity: 0.14; }
 .obs-dashboard {
   opacity: var(--obs-opacity, 0.06);
   background: var(--bg-secondary);
@@ -511,14 +520,19 @@ img { max-width: 100%; }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 0.65rem 0.85rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), 0 0 20px rgba(8,145,178,0.08);
   font-size: 0.75rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   animation: floatIn 0.8s both;
-  transition: background 0.3s, border 0.3s;
+  transition: all 0.3s;
   white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+.float-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), 0 0 25px rgba(8,145,178,0.15);
 }
 
 .float-card .dot {
@@ -691,8 +705,8 @@ section {
 
 .platform-card:hover {
   border-color: var(--accent);
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(8,145,178,0.15), var(--shadow-lg);
+  transform: translateY(-3px);
 }
 
 .platform-card:hover::before { opacity: 1; }
@@ -1694,8 +1708,8 @@ section {
       <div class="trust-bar-label">Integrated Threat Intelligence Feeds</div>
       <div class="trust-bar-feeds">
         <span class="feed-badge"><span class="feed-dot"></span> Phishing Database</span>
-        <span class="feed-badge"><span class="feed-dot"></span> URLhaus</span>
-        <span class="feed-badge"><span class="feed-dot"></span> OpenPhish</span>
+        <span class="feed-badge"><span class="feed-dot"></span> Malware URL Feed</span>
+        <span class="feed-badge"><span class="feed-dot"></span> Phishing Intelligence</span>
         <span class="feed-badge"><span class="feed-dot"></span> Certificate Transparency</span>
         <span class="feed-badge"><span class="feed-dot"></span> HIBP</span>
         <span class="feed-badge"><span class="feed-dot"></span> Cloudflare Radar</span>
@@ -1722,8 +1736,8 @@ section {
         <p>Continuous scanning across phishing databases, malware feeds, and certificate transparency logs. AI agents correlate signals into attack narratives — not just IOC lists.</p>
         <div class="pc-tags">
           <span class="pc-tag">Phishing Feeds</span>
-          <span class="pc-tag">URLhaus</span>
-          <span class="pc-tag">OpenPhish</span>
+          <span class="pc-tag">Malware URLs</span>
+          <span class="pc-tag">Phishing Detection</span>
           <span class="pc-tag">CT Logs</span>
           <span class="pc-tag">HIBP</span>
         </div>
@@ -1924,7 +1938,7 @@ section {
             <ul class="sc-items">
               <li><span class="sci-icon sci-fail">✕</span> 3 lookalike domains active</li>
               <li><span class="sci-icon sci-fail">✕</span> 1 phishing database match</li>
-              <li><span class="sci-icon sci-pass">✓</span> URLhaus clean</li>
+              <li><span class="sci-icon sci-pass">✓</span> Malware feed clean</li>
             </ul>
           </div>
           <div class="sc-card">

@@ -93,8 +93,7 @@ export function renderFooter(): string {
         <div class="footer-col-title">Resources</div>
         <ul>
           <li><a href="/blog">Blog</a></li>
-          <li><a href="/blog">Documentation</a></li>
-          <li><a href="/blog">API Reference</a></li>
+          <li><a href="/changelog">Changelog</a></li>
           <li><a href="/security">Security</a></li>
         </ul>
       </div>

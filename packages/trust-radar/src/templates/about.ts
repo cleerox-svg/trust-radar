@@ -43,11 +43,6 @@ export function renderAboutPage(): string {
 .tech-name { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent); margin-bottom: 0.35rem; }
 .tech-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 
-.careers-section { padding: 5rem 0; text-align: center; background: var(--bg-tertiary); }
-.careers-section h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
-.careers-section p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 1.5rem; }
-.careers-email { font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent); }
-
 .cta-block { padding: 5rem 0; text-align: center; }
 .cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
