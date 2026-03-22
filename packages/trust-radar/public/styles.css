@@ -3378,3 +3378,51 @@ a.campaign-card:hover { text-decoration: none; }
   .sidebar-brand-row, .sidebar-provider-row { min-height: 44px; }
 }
 
+/* ─── Social Monitor ────────────────────────────────────────── */
+
+/* Platform status pills in social brand cards */
+.social-platform-grid {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+/* Severity badges — reuse .sev pattern but uppercase input */
+.sev.critical { background: rgba(255,59,92,.12); color: var(--negative); }
+.sev.high { background: rgba(255,107,53,.1); color: var(--threat-high); }
+.sev.medium { background: rgba(255,182,39,.1); color: var(--threat-medium); }
+.sev.low { background: rgba(0,229,160,.08); color: var(--positive); }
+.sev.CRITICAL { background: rgba(255,59,92,.12); color: var(--negative); }
+.sev.HIGH { background: rgba(255,107,53,.1); color: var(--threat-high); }
+.sev.MEDIUM { background: rgba(255,182,39,.1); color: var(--threat-medium); }
+.sev.LOW { background: rgba(0,229,160,.08); color: var(--positive); }
+
+/* Impersonation score bar */
+.impersonation-score-bar {
+  height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.impersonation-score-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Social alert table row hover */
+.data-table tbody tr:hover td {
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+
+/* Platform type pills */
+.type-pill.twitter  { background: rgba(0,212,255,.1); color: var(--blue-primary); border-color: rgba(0,212,255,.2); }
+.type-pill.instagram { background: rgba(179,136,255,.1); color: #b388ff; border-color: rgba(179,136,255,.2); }
+.type-pill.linkedin { background: rgba(0,119,181,.12); color: #0a66c2; border-color: rgba(10,102,194,.25); }
+.type-pill.tiktok   { background: rgba(255,59,92,.08); color: var(--negative); border-color: rgba(255,59,92,.2); }
+.type-pill.youtube  { background: rgba(255,0,0,.08); color: #ff3b5b; border-color: rgba(255,59,59,.2); }
+.type-pill.github   { background: rgba(122,139,168,.12); color: var(--text-secondary); border-color: rgba(122,139,168,.2); }
+

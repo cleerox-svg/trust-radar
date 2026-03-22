@@ -1507,9 +1507,7 @@ router.get("/assess/:id/results", (request: Request & { params: Record<string, s
 
 // ─── Social Monitoring Dashboard ──────────────────────────────
 router.get("/dashboard/social", () =>
-  new Response(renderSocialDashboard(), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  })
+  Response.redirect("/social", 301)
 );
 
 // ─── Corporate Site Pages ─────────────────────────────────────
