@@ -1314,7 +1314,7 @@ router.post("/api/admin/discover-social-batch", async (request: Request, env: En
     const result = await runSocialDiscoveryBatch(env, limit);
     return json({ success: true, data: result });
   } catch (err) {
-    return json({ success: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return json({ success: false, error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
 
