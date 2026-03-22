@@ -86,6 +86,7 @@ import {
   handleGetBrandSocialProfiles, handleClassifySocialProfile,
   handleDiscoverSocialLinks,
   handleReassessSocialProfile,
+  handleComputeBrandScore,
 } from "./handlers/brands";
 import {
   handleCreateBrand as handleCreateBrandProfile,
@@ -863,6 +864,11 @@ router.post("/api/brands/:id/social-profiles/:profileId/assess", async (request:
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleReassessSocialProfile(request, env, request.params["id"] ?? "", request.params["profileId"] ?? "", ctx.userId);
+});
+router.post("/api/brands/:id/compute-score", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleComputeBrandScore(request, env, request.params["id"] ?? "");
 });
 
 // ─── Brand Profiles (Social Monitoring) ─────────────────────

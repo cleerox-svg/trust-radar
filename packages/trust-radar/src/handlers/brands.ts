@@ -6,6 +6,7 @@ import { analyzeBrandThreats, callHaikuRaw, setHaikuCategory } from "../lib/haik
 import { discoverSocialProfiles } from "../lib/social-discovery";
 import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
+import { computeBrandExposureScore } from "../lib/brand-scoring";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -1388,6 +1389,33 @@ export async function handleReassessSocialProfile(
           signals: assessment.signals,
           crossCorrelations: assessment.crossCorrelations,
         },
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/brands/:id/compute-score
+export async function handleComputeBrandScore(request: Request, env: Env, brandId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Verify brand exists
+    const brand = await env.DB.prepare("SELECT id, name, email_security_grade FROM brands WHERE id = ?")
+      .bind(brandId).first<{ id: string; name: string; email_security_grade: string | null }>();
+    if (!brand) {
+      return json({ success: false, error: "Brand not found" }, 404, origin);
+    }
+
+    const result = await computeBrandExposureScore(env, brandId);
+
+    return json({
+      success: true,
+      data: {
+        brand_id: brandId,
+        brand_name: brand.name,
+        email_grade: brand.email_security_grade,
+        ...result,
       },
     }, 200, origin);
   } catch (err) {

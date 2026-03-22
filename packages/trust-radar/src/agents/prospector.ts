@@ -11,6 +11,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
+import { getBrandSocialIntel } from "../lib/social-intel";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -87,6 +88,9 @@ const SCORING = {
   tranco_top_10k: 10,
   multiple_campaigns: 15,
   recent_risk_spike: 10,
+  social_impersonation: 15,
+  social_high_risk: 10,
+  social_takedown_needed: 10,
 };
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -336,6 +340,23 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
       score += SCORING.recent_risk_spike;
     }
 
+    // Social impersonation risk (from social_profiles)
+    try {
+      const socialIntel = await getBrandSocialIntel({ DB: db } as Env, brand.brand_id);
+      if (socialIntel.impersonationProfiles > 0) {
+        breakdown.social_impersonation = SCORING.social_impersonation;
+        score += SCORING.social_impersonation;
+      }
+      if (socialIntel.socialRiskScore && socialIntel.socialRiskScore >= 60) {
+        breakdown.social_high_risk = SCORING.social_high_risk;
+        score += SCORING.social_high_risk;
+      }
+      if (socialIntel.aiTakedownRecommendations > 0) {
+        breakdown.social_takedown_needed = SCORING.social_takedown_needed;
+        score += SCORING.social_takedown_needed;
+      }
+    } catch { /* social intel is best-effort for scoring */ }
+
     if (score < MIN_SCORE) continue;
 
     // Determine pitch angle
@@ -346,10 +367,14 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
     const hasAI = aiCount > 0;
     const hasMultiCampaign = campCount >= 3;
 
+    const hasSocialImpersonation = !!(breakdown.social_impersonation);
+
     let pitchAngle = 'brand_protection';
     if (hasBadEmail && hasPhishing) pitchAngle = 'urgent_exposure';
     else if (hasPhishing && hasTrap) pitchAngle = 'active_attack';
+    else if (hasSocialImpersonation && hasPhishing) pitchAngle = 'coordinated_attack';
     else if (hasBadEmail && hasDmarcNone) pitchAngle = 'email_security';
+    else if (hasSocialImpersonation) pitchAngle = 'social_impersonation';
     else if (hasAI) pitchAngle = 'ai_threat';
     else if (hasMultiCampaign) pitchAngle = 'campaign_targeting';
 

@@ -10,6 +10,8 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import { inferBrand } from "../lib/haiku";
 import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 import { correlateBrandThreats } from "../brand-threat-correlator";
+import { getBrandSocialIntel } from "../lib/social-intel";
+import { computeBrandExposureScore } from "../lib/brand-scoring";
 
 export const analystAgent: AgentModule = {
   name: "analyst",
@@ -285,6 +287,75 @@ export const analystAgent: AgentModule = {
         }
       } catch (corrErr) {
         console.error(`[analyst] correlation check failed for brand ${bid}:`, corrErr);
+      }
+    }
+
+    // ─── Phase 4: Social intelligence correlation & exposure scoring ──
+    for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
+      try {
+        const socialIntel = await getBrandSocialIntel(env, bid);
+
+        if (socialIntel.totalProfiles > 0) {
+          const socialContext = `Social Media Intelligence:
+- Total profiles tracked: ${socialIntel.totalProfiles} across ${socialIntel.platformsCovered.join(', ')}
+- Official verified: ${socialIntel.officialProfiles}
+- Suspicious/Impersonation: ${socialIntel.suspiciousProfiles + socialIntel.impersonationProfiles}
+- Platforms with impersonation: ${socialIntel.platformsWithImpersonation.join(', ') || 'None'}
+- Social Risk Score: ${socialIntel.socialRiskScore ?? 'Not computed'}
+- AI recommends takedown for ${socialIntel.aiTakedownRecommendations} profiles
+- New impersonations (24h): ${socialIntel.newImpersonationsLast24h}`;
+
+          // Check for coordinated attack: phishing + social impersonation
+          const brandThreats = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ? AND status = 'active' AND threat_type = 'phishing'"
+          ).bind(bid).first<{ n: number }>();
+
+          if ((brandThreats?.n || 0) > 0 && socialIntel.impersonationProfiles > 0) {
+            outputs.push({
+              type: "classification",
+              summary: `**Coordinated Attack Signal** — Brand has ${brandThreats?.n} active phishing campaigns AND ${socialIntel.impersonationProfiles} social impersonation accounts. This suggests a coordinated attack.`,
+              severity: "critical",
+              details: {
+                brand_id: bid,
+                phishing_count: brandThreats?.n,
+                impersonation_count: socialIntel.impersonationProfiles,
+                platforms_affected: socialIntel.platformsWithImpersonation,
+                social_risk_score: socialIntel.socialRiskScore,
+                social_context: socialContext,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+
+          // Check for high-vulnerability: weak email + social impersonation
+          const emailSec2 = await env.DB.prepare(
+            "SELECT email_security_grade FROM brands WHERE id = ?"
+          ).bind(bid).first<{ email_security_grade: string | null }>();
+
+          if (emailSec2?.email_security_grade && ['F', 'D'].includes(emailSec2.email_security_grade) && socialIntel.impersonationProfiles > 0) {
+            outputs.push({
+              type: "classification",
+              summary: `**High Vulnerability** — Brand has email security grade ${emailSec2.email_security_grade} AND ${socialIntel.impersonationProfiles} active impersonation accounts. Extremely vulnerable to brand abuse.`,
+              severity: "high",
+              details: {
+                brand_id: bid,
+                email_grade: emailSec2.email_security_grade,
+                impersonation_count: socialIntel.impersonationProfiles,
+                social_risk_assessment: {
+                  score: socialIntel.socialRiskScore,
+                  highest_severity: socialIntel.highestSeverity,
+                  takedown_needed: socialIntel.aiTakedownRecommendations,
+                },
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+        }
+
+        // Compute composite exposure score
+        await computeBrandExposureScore(env, bid);
+      } catch (socialErr) {
+        console.error(`[analyst] social intel check failed for brand ${bid}:`, socialErr);
       }
     }
 

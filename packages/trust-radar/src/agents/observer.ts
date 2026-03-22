@@ -163,38 +163,60 @@ export const observerAgent: AgentModule = {
       }
     } catch { /* threat_narratives table may not exist yet */ }
 
-    // ─── Social monitoring findings summary ────────────────────────
+    // ─── Social monitoring findings summary (unified model) ─────────
     let socialMonitorContext = "";
+    let socialSummaryData: {
+      impersonations: number; suspicious: number; platforms: number;
+      brands_affected: number; takedown_recommended: number; new_24h: number;
+    } | null = null;
     try {
       const socialSummary = await env.DB.prepare(`
-        SELECT COUNT(*) as total,
-          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-          SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
-          COUNT(DISTINCT platform) as platforms,
-          COUNT(DISTINCT brand_id) as brands
-        FROM social_monitor_results
-        WHERE found_at >= datetime('now', '-24 hours')
-      `).first<{ total: number; active: number; resolved: number; platforms: number; brands: number }>();
+        SELECT
+          COUNT(*) AS total,
+          COUNT(DISTINCT sp.brand_id) AS brands_affected,
+          COUNT(DISTINCT sp.platform) AS platforms,
+          SUM(CASE WHEN sp.classification = 'impersonation' AND sp.status = 'active' THEN 1 ELSE 0 END) AS impersonations,
+          SUM(CASE WHEN sp.classification = 'suspicious' AND sp.status = 'active' THEN 1 ELSE 0 END) AS suspicious,
+          SUM(CASE WHEN sp.ai_action = 'takedown' AND sp.status = 'active' THEN 1 ELSE 0 END) AS takedown_recommended,
+          SUM(CASE WHEN sp.created_at >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) AS new_24h
+        FROM social_profiles sp
+        WHERE sp.status = 'active'
+          AND sp.classification IN ('suspicious', 'impersonation')
+      `).first<{
+        total: number; brands_affected: number; platforms: number;
+        impersonations: number; suspicious: number; takedown_recommended: number; new_24h: number;
+      }>();
 
-      if (socialSummary && socialSummary.total > 0) {
-        const newImpersonations = await env.DB.prepare(`
-          SELECT smr.platform, smr.username, b.name AS brand_name, smr.similarity_score
-          FROM social_monitor_results smr
-          JOIN brands b ON b.id = smr.brand_id
-          WHERE smr.found_at >= datetime('now', '-24 hours') AND smr.status = 'active'
-          ORDER BY smr.similarity_score DESC
+      if (socialSummary && (socialSummary.impersonations > 0 || socialSummary.suspicious > 0)) {
+        socialSummaryData = socialSummary;
+
+        const topImpersonations = await env.DB.prepare(`
+          SELECT sp.platform, sp.handle, sp.severity, sp.ai_confidence,
+                 sp.classification_reason, b.name AS brand_name
+          FROM social_profiles sp
+          JOIN brands b ON b.id = sp.brand_id
+          WHERE sp.status = 'active'
+            AND sp.classification IN ('suspicious', 'impersonation')
+          ORDER BY
+            CASE sp.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+            sp.ai_confidence DESC
           LIMIT 5
-        `).all<{ platform: string; username: string; brand_name: string; similarity_score: number }>();
+        `).all<{
+          platform: string; handle: string; severity: string;
+          ai_confidence: number | null; classification_reason: string | null; brand_name: string;
+        }>();
 
-        socialMonitorContext = `Social Impersonation Monitoring (24h): ${socialSummary.total} findings across ${socialSummary.platforms} platforms targeting ${socialSummary.brands} brands. ` +
-          `Active: ${socialSummary.active}, Resolved: ${socialSummary.resolved}.`;
-        if (newImpersonations.results.length > 0) {
-          socialMonitorContext += ` Top impersonations: ${newImpersonations.results.map(s =>
-            `@${s.username} on ${s.platform} targeting ${s.brand_name} (${s.similarity_score}% match)`
-          ).join(", ")}.`;
+        socialMonitorContext = `Social Impersonation Monitoring: ${socialSummary.impersonations} confirmed impersonation accounts and ${socialSummary.suspicious} suspicious profiles detected across ${socialSummary.platforms} platforms targeting ${socialSummary.brands_affected} brands. ${socialSummary.takedown_recommended} profiles recommended for takedown. ${socialSummary.new_24h} new detections in the last 24 hours.`;
+
+        if (topImpersonations.results.length > 0) {
+          socialMonitorContext += ` Top alerts: ${topImpersonations.results.map(s =>
+            `@${s.handle} on ${s.platform} targeting ${s.brand_name} [${s.severity}]`
+          ).join('; ')}.`;
         }
       }
-    } catch { /* social_monitor_results table may not exist yet */ }
+    } catch (err) {
+      console.warn("[observer] social query error:", String(err));
+    }
 
     // ─── Lookalike domain changes ────────────────────────────────
     let lookalikeContext = "";
@@ -438,11 +460,27 @@ export const observerAgent: AgentModule = {
 
       // Item: Social impersonation findings
       if (socialMonitorContext) {
+        const socialSev = socialSummaryData
+          ? (socialSummaryData.impersonations >= 5 ? 'critical'
+            : socialSummaryData.impersonations >= 2 ? 'high' : 'medium')
+          : 'medium';
         outputs.push({
           type: 'insight',
           summary: `**Social Impersonation Activity** — ${socialMonitorContext}`,
-          severity: 'medium',
-          details: { title: 'Social Impersonation Activity' },
+          severity: socialSev as "critical" | "high" | "medium",
+          details: {
+            title: 'Social Impersonation Activity',
+            category: 'social_impersonation',
+            impersonation_count: socialSummaryData?.impersonations ?? 0,
+            suspicious_count: socialSummaryData?.suspicious ?? 0,
+            brands_affected: socialSummaryData?.brands_affected ?? 0,
+            takedown_recommended: socialSummaryData?.takedown_recommended ?? 0,
+            recommendations: [
+              'Review flagged impersonation accounts in the Social Profiles panel',
+              'File takedown requests for AI-confirmed impersonation accounts',
+              'Verify official handles are registered on all major platforms',
+            ],
+          },
         });
       }
 

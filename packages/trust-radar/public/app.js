@@ -3289,12 +3289,16 @@ async function viewBrandDetail(el, params) {
     const trendColor = (stats.trend_pct || 0) >= 0 ? 'var(--threat-medium)' : 'var(--positive)';
     const threatColor = _tColor(totalThreats);
 
-    // SVG Trust Score ring (matches prototype: 72x72 SVG with dashoffset)
-    const trustRingHtml = b.trust_score != null
+    // SVG Trust/Exposure Score ring (matches prototype: 72x72 SVG with dashoffset)
+    const displayScore = b.trust_score != null ? b.trust_score : b.exposure_score != null ? b.exposure_score : null;
+    const displayGrade = b.trust_grade || (b.exposure_score != null ? (b.exposure_score >= 70 ? 'HIGH' : b.exposure_score >= 40 ? 'MODERATE' : 'LOW') : '');
+    const displayLabel = b.trust_score != null ? 'Trust' : b.exposure_score != null ? 'Exposure' : '';
+    const ringColor = displayScore != null ? _scoreColor(displayScore) : 'var(--text-tertiary)';
+    const trustRingHtml = displayScore != null
       ? `<div class="ts-ring-wrap"><div style="width:72px;height:72px;position:relative">
-          <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - b.trust_score / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
-          <div class="ts-val-center">${b.trust_score}</div>
-        </div><div class="ts-grade">Grade: ${b.trust_grade || ''}</div></div>`
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${ringColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - displayScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
+          <div class="ts-val-center">${displayScore}</div>
+        </div><div class="ts-grade">${displayLabel}: ${displayGrade}</div></div>`
       : '';
 
     // Provider bar colors
