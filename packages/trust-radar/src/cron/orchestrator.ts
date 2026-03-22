@@ -26,6 +26,12 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   if (minute === 0 && hour % 6 === 0) {
     const result = await runJob('social_monitor', () => runSocialMonitor(env));
     results.push(result);
+
+    // After social monitor batch completes, run AI assessment on new findings
+    const { runSentinelSocialAssessment } = await import('../agents/sentinel');
+    await runSentinelSocialAssessment(env).catch(err =>
+      logger.error('cron_sentinel_social_failed', { error: String(err) })
+    );
   }
 
   // Daily at 06:00 UTC: Observer briefing + threat narratives

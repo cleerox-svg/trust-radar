@@ -11,6 +11,7 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+import type { Env } from "../types";
 import { classifyThreat } from "../lib/haiku";
 
 // ─── Homoglyph & brand-squatting detection ──────────────────────
@@ -251,6 +252,181 @@ export const sentinelAgent: AgentModule = {
     };
   },
 };
+
+// ─── Social Assessment ───────────────────────────────────────
+
+interface SocialAssessmentRow {
+  id: string;
+  brand_id: string;
+  platform: string;
+  handle_checked: string;
+  suspicious_account_url: string | null;
+  suspicious_account_name: string | null;
+  impersonation_score: number;
+  impersonation_signals: string;
+  severity: string;
+  brand_name: string;
+  domain: string;
+  official_handles: string | null;
+}
+
+interface SocialAssessmentAI {
+  confirmed_impersonation: boolean;
+  confidence: number;
+  reasoning: string;
+  recommended_action: string;
+  evidence_summary: string | null;
+}
+
+/**
+ * AI-assess open HIGH/CRITICAL social monitoring results that lack an ai_assessment.
+ * Called by the cron orchestrator after runSocialMonitorBatch completes.
+ * Uses the same callAnthropic pattern as the main sentinel classification loop.
+ */
+export async function runSentinelSocialAssessment(env: Env): Promise<void> {
+  console.log("[sentinel-social] === STARTING ===");
+
+  // Fetch unassessed HIGH/CRITICAL results
+  const rows = await env.DB.prepare(`
+    SELECT smr.*, bp.brand_name, bp.domain, bp.official_handles
+    FROM social_monitor_results smr
+    JOIN brand_profiles bp ON bp.id = smr.brand_id
+    WHERE smr.severity IN ('HIGH', 'CRITICAL')
+      AND smr.ai_assessment IS NULL
+      AND smr.status = 'open'
+    ORDER BY smr.created_at DESC
+    LIMIT 20
+  `).all<SocialAssessmentRow>();
+
+  console.log(`[sentinel-social] Found ${rows.results.length} unassessed HIGH/CRITICAL results`);
+  if (rows.results.length === 0) {
+    console.log("[sentinel-social] === DONE (nothing to assess) ===");
+    return;
+  }
+
+  let assessed = 0;
+  let failed = 0;
+
+  for (const row of rows.results) {
+    // Parse official handles to find the one for this platform
+    let officialHandles: Record<string, string> = {};
+    try { officialHandles = row.official_handles ? JSON.parse(row.official_handles) : {}; } catch { /* ignore */ }
+    const officialHandle = officialHandles[row.platform]?.replace(/^@/, "") ?? "not set";
+
+    // Parse impersonation signals into a bullet list
+    let signals: string[] = [];
+    try { signals = JSON.parse(row.impersonation_signals || "[]"); } catch { /* ignore */ }
+    const signalBullets = signals.length > 0
+      ? signals.map((s) => `- ${s}`).join("\n")
+      : "- (none detected)";
+
+    const systemPrompt =
+      "You are a brand protection analyst. Evaluate whether this social media account is impersonating the brand below.\n" +
+      "Respond in JSON only — no preamble, no markdown.";
+
+    const userMessage =
+      `BRAND: ${row.brand_name} — ${row.domain}\n` +
+      `Official ${row.platform} handle: ${officialHandle}\n\n` +
+      `SUSPICIOUS ACCOUNT:\n` +
+      `- Handle: ${row.handle_checked}\n` +
+      `- Platform: ${row.platform}\n` +
+      `- Impersonation score: ${Math.round(row.impersonation_score * 100)}%\n` +
+      `- Signals detected:\n${signalBullets}\n` +
+      `- Follower count: unknown\n` +
+      `- Account age: unknown days\n` +
+      `- Verified: no\n\n` +
+      `{\n` +
+      `  "confirmed_impersonation": true | false,\n` +
+      `  "confidence": 0.0-1.0,\n` +
+      `  "reasoning": "1-2 sentence plain English assessment",\n` +
+      `  "recommended_action": "monitor" | "report" | "legal_notice" | "dismiss",\n` +
+      `  "evidence_summary": "one paragraph suitable for a platform abuse report, or null if dismiss"\n` +
+      `}`;
+
+    // Use classifyThreat's underlying pattern: callAnthropic via the same
+    // Anthropic Messages API client with identical error handling
+    try {
+      const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+      if (!apiKey || apiKey.startsWith("lrx_")) {
+        console.error("[sentinel-social] No valid Anthropic API key");
+        break;
+      }
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[sentinel-social] Haiku HTTP ${res.status} for ${row.id}: ${errText.slice(0, 200)}`);
+        failed++;
+        continue;
+      }
+
+      const apiResponse = await res.json() as {
+        content: Array<{ type: string; text: string }>;
+        usage: { input_tokens: number; output_tokens: number };
+      };
+
+      const textBlock = apiResponse.content.find((b) => b.type === "text");
+      if (!textBlock) {
+        console.error(`[sentinel-social] No text block for ${row.id}`);
+        failed++;
+        continue;
+      }
+
+      const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error(`[sentinel-social] No JSON in response for ${row.id}: ${textBlock.text.slice(0, 200)}`);
+        failed++;
+        continue;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]) as SocialAssessmentAI;
+
+      // Store result into the four columns added by migration 0035
+      await env.DB.prepare(`
+        UPDATE social_monitor_results
+        SET ai_assessment = ?,
+            ai_confidence = ?,
+            ai_action = ?,
+            ai_evidence_draft = ?
+        WHERE id = ?
+      `).bind(
+        parsed.reasoning,
+        parsed.confidence,
+        parsed.recommended_action,
+        parsed.evidence_summary ?? null,
+        row.id,
+      ).run();
+
+      assessed++;
+
+      if (assessed <= 3) {
+        console.log(`[sentinel-social] Assessed ${row.id}: confidence=${parsed.confidence}, action=${parsed.recommended_action}, impersonation=${parsed.confirmed_impersonation}`);
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[sentinel-social] Error assessing ${row.id}: ${errMsg}`);
+      failed++;
+    }
+  }
+
+  console.log(`[sentinel-social] Processing complete: total=${rows.results.length}, assessed=${assessed}, failed=${failed}`);
+  console.log("[sentinel-social] === DONE ===");
+}
 
 function ruleBasedClassify(
   sourceFeed: string,
