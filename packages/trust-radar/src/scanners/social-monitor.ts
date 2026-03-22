@@ -4,6 +4,8 @@
  * Scans social media platforms for handle squatting and impersonation
  * of monitored brands. Runs on a cron schedule (every 6 hours) and
  * can be triggered on-demand per brand.
+ *
+ * Unified model: operates on brands.id and writes to social_profiles table.
  */
 
 import type { Env } from '../types';
@@ -46,6 +48,7 @@ const MAX_PERMUTATIONS_PER_PLATFORM = 10;
 
 /**
  * Run social monitoring for a single brand.
+ * Accepts brands.id as the brand identifier.
  * Checks official handle status and scans for impersonation via permutations.
  */
 export async function runSocialMonitorForBrand(
@@ -160,26 +163,28 @@ export async function runSocialMonitorForBrand(
 /**
  * Run social monitoring for all brands due for a check.
  * Called by the cron orchestrator every 6 hours.
+ * Now queries from brands + brand_monitor_schedule instead of brand_profiles.
  */
 export async function runSocialMonitorBatch(env: Env): Promise<void> {
   const now = new Date().toISOString();
 
-  // 1. Query brands that are due for social monitoring
+  // 1. Query brands that are due for social monitoring via brand_monitor_schedule
   const brands = await env.DB.prepare(`
-    SELECT DISTINCT bp.id, bp.brand_name, bp.domain, bp.official_handles, bp.user_id
-    FROM brand_profiles bp
-    INNER JOIN social_monitor_schedule sms ON sms.brand_id = bp.id
-    WHERE bp.status = 'active'
-      AND sms.enabled = 1
-      AND (sms.next_check IS NULL OR sms.next_check <= ?)
-    ORDER BY sms.next_check ASC
+    SELECT DISTINCT b.id, b.name AS brand_name, b.canonical_domain AS domain,
+           b.official_handles
+    FROM brands b
+    INNER JOIN brand_monitor_schedule bms ON bms.brand_id = b.id
+    WHERE bms.monitor_type = 'social'
+      AND bms.enabled = 1
+      AND (bms.next_check IS NULL OR bms.next_check <= ?)
+      AND b.official_handles IS NOT NULL
+    ORDER BY bms.next_check ASC
     LIMIT 50
   `).bind(now).all<{
     id: string;
     brand_name: string;
     domain: string;
     official_handles: string;
-    user_id: string;
   }>();
 
   if (brands.results.length === 0) {
@@ -195,7 +200,7 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
 
   for (const brand of brands.results) {
     try {
-      // 2. Run monitoring for this brand
+      // 2. Run monitoring for this brand (brands.id)
       const results = await runSocialMonitorForBrand(env, {
         id: brand.id,
         brand_name: brand.brand_name,
@@ -203,51 +208,81 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
         official_handles: brand.official_handles,
       });
 
-      // 3. Store results in social_monitor_results
+      // 3. Store results in social_profiles (upsert)
       for (const result of results) {
-        const resultId = crypto.randomUUID();
-        await env.DB.prepare(`
-          INSERT INTO social_monitor_results
-            (id, brand_id, platform, check_type, handle_checked, handle_available,
-             suspicious_account_url, suspicious_account_name,
-             impersonation_score, impersonation_signals, severity, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
-        `).bind(
-          resultId,
-          result.brandId,
-          result.platform,
-          result.checkType,
-          result.handleChecked,
-          result.handleAvailable === null ? null : result.handleAvailable ? 1 : 0,
-          result.suspiciousAccountUrl ?? null,
-          result.suspiciousAccountName ?? null,
-          result.impersonationScore,
-          JSON.stringify(result.impersonationSignals),
-          result.severity,
-        ).run();
+        const profileId = crypto.randomUUID();
+        const handle = result.handleChecked.replace(/^@/, '');
+
+        if (result.checkType === 'handle_check') {
+          await env.DB.prepare(`
+            INSERT INTO social_profiles
+              (id, brand_id, platform, handle, profile_url, classification, classified_by,
+               impersonation_score, impersonation_signals, severity, status, last_checked)
+            VALUES (?, ?, ?, ?, ?, 'official', 'system', 0, '[]', 'LOW', 'active', datetime('now'))
+            ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+              last_checked = datetime('now'),
+              updated_at = datetime('now')
+          `).bind(
+            profileId, result.brandId, result.platform, handle,
+            result.suspiciousAccountUrl ?? null,
+          ).run();
+        } else {
+          const classification = result.impersonationScore >= 0.7 ? 'impersonation' : 'suspicious';
+          await env.DB.prepare(`
+            INSERT INTO social_profiles
+              (id, brand_id, platform, handle, profile_url, display_name,
+               classification, classified_by, classification_confidence,
+               impersonation_score, impersonation_signals, severity, status, last_checked)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'ai', ?, ?, ?, ?, 'active', datetime('now'))
+            ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+              impersonation_score = excluded.impersonation_score,
+              impersonation_signals = excluded.impersonation_signals,
+              severity = excluded.severity,
+              classification = excluded.classification,
+              classification_confidence = excluded.classification_confidence,
+              last_checked = datetime('now'),
+              updated_at = datetime('now')
+          `).bind(
+            profileId, result.brandId, result.platform, handle,
+            result.suspiciousAccountUrl ?? null,
+            result.suspiciousAccountName ?? null,
+            classification,
+            result.impersonationScore,
+            result.impersonationScore,
+            JSON.stringify(result.impersonationSignals),
+            result.severity,
+          ).run();
+        }
 
         // 4. Create alerts for HIGH/CRITICAL severity
         if (result.severity === 'HIGH' || result.severity === 'CRITICAL') {
           try {
-            await createAlert(env.DB, {
-              brandId: brand.id,
-              userId: brand.user_id,
-              alertType: 'social_impersonation',
-              severity: result.severity,
-              title: `${result.severity === 'CRITICAL' ? 'Likely' : 'Possible'} impersonation on ${result.platform}: @${result.handleChecked}`,
-              summary: `A ${result.platform} account "${result.handleChecked}" was detected that may be impersonating ${brand.brand_name}. Impersonation score: ${(result.impersonationScore * 100).toFixed(0)}%.`,
-              details: {
-                platform: result.platform,
-                handle: result.handleChecked,
-                url: result.suspiciousAccountUrl,
-                score: result.impersonationScore,
-                signals: result.impersonationSignals,
-                check_type: result.checkType,
-              },
-              sourceType: 'social_monitor',
-              sourceId: resultId,
-            });
-            totalAlerts++;
+            // Find the user who monitors this brand for alert routing
+            const monitoredBy = await env.DB.prepare(
+              "SELECT added_by FROM monitored_brands WHERE brand_id = ? LIMIT 1"
+            ).bind(brand.id).first<{ added_by: string }>();
+
+            if (monitoredBy) {
+              await createAlert(env.DB, {
+                brandId: brand.id,
+                userId: monitoredBy.added_by,
+                alertType: 'social_impersonation',
+                severity: result.severity,
+                title: `${result.severity === 'CRITICAL' ? 'Likely' : 'Possible'} impersonation on ${result.platform}: @${result.handleChecked}`,
+                summary: `A ${result.platform} account "${result.handleChecked}" was detected that may be impersonating ${brand.brand_name}. Impersonation score: ${(result.impersonationScore * 100).toFixed(0)}%.`,
+                details: {
+                  platform: result.platform,
+                  handle: result.handleChecked,
+                  url: result.suspiciousAccountUrl,
+                  score: result.impersonationScore,
+                  signals: result.impersonationSignals,
+                  check_type: result.checkType,
+                },
+                sourceType: 'social_monitor',
+                sourceId: profileId,
+              });
+              totalAlerts++;
+            }
           } catch (alertErr) {
             logger.error('social_monitor_alert_error', {
               brand_id: brand.id,
@@ -261,11 +296,16 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
 
       // 5. Update schedule: set last_checked and compute next_check
       await env.DB.prepare(`
-        UPDATE social_monitor_schedule
+        UPDATE brand_monitor_schedule
         SET last_checked = ?,
             next_check = datetime(?, '+' || check_interval_hours || ' hours')
-        WHERE brand_id = ? AND enabled = 1
+        WHERE brand_id = ? AND monitor_type = 'social' AND enabled = 1
       `).bind(now, now, brand.id).run();
+
+      // Update brand's last_social_scan
+      await env.DB.prepare(
+        "UPDATE brands SET last_social_scan = ? WHERE id = ?"
+      ).bind(now, brand.id).run();
 
       brandsProcessed++;
     } catch (brandErr) {

@@ -31,7 +31,7 @@ import { handleScanPage } from "./handlers/scanPage";
 import { handleStats, handleSourceMix, handleQualityTrend, handlePublicStats as handlePublicStatsV2 } from "./handlers/stats";
 import { handleHealthCheck } from "./handlers/health";
 import { handleSignals, handleIngestSignal } from "./handlers/signals";
-import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution } from "./handlers/admin";
+import { handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch, handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands, handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution, handleBackfillSocialConfig } from "./handlers/admin";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
@@ -82,6 +82,8 @@ import {
   handleGetBrandAnalysis, handleGenerateBrandAnalysis,
   handleBrandDeepScan,
   handleCleanFalsePositives,
+  handleGetBrandSocialConfig, handleUpdateBrandSocialConfig,
+  handleGetBrandSocialProfiles, handleClassifySocialProfile,
 } from "./handlers/brands";
 import {
   handleCreateBrand as handleCreateBrandProfile,
@@ -829,6 +831,28 @@ router.delete("/api/brands/:id/safe-domains/:domainId", async (request: Request 
   return handleDeleteSafeDomain(request, env, request.params["id"] ?? "", request.params["domainId"] ?? "");
 });
 
+// ─── Social Monitoring (integrated with brands) ─────────────
+router.get("/api/brands/:id/social-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrandSocialConfig(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.patch("/api/brands/:id/social-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleUpdateBrandSocialConfig(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.get("/api/brands/:id/social-profiles", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleGetBrandSocialProfiles(request, env, request.params["id"] ?? "", ctx.userId);
+});
+router.patch("/api/brands/:id/social-profiles/:profileId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAuth(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleClassifySocialProfile(request, env, request.params["id"] ?? "", request.params["profileId"] ?? "", ctx.userId);
+});
+
 // ─── Brand Profiles (Social Monitoring) ─────────────────────
 router.post("/api/brand-profiles", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
@@ -1240,6 +1264,11 @@ router.post("/api/admin/import-tranco", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleImportTranco(request, env);
+});
+router.post("/api/admin/backfill-social-config", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleBackfillSocialConfig(request, env);
 });
 router.get("/api/admin/brands", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
