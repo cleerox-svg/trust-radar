@@ -315,7 +315,7 @@ export async function handleInitialSeed(request: Request, env: Env): Promise<Res
     let created = 0;
 
     // Generic traps on both domains
-    for (const domain of ["trustradar.ca"]) {
+    for (const domain of ["trustradar.ca", "lrxradar.com"]) {
       for (const prefix of genericPrefixes) {
         await env.DB.prepare(`
           INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)

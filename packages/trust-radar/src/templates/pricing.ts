@@ -3,6 +3,7 @@
  * Served at /pricing
  */
 import { wrapPage } from "./shared";
+import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderPricingPage(): string {
   return wrapPage(
@@ -224,6 +225,7 @@ export function renderPricingPage(): string {
     </div>
   </div>
 </section>
+${generateSpiderTraps("trustradar.ca", "pricing")}
 `
   );
 }
