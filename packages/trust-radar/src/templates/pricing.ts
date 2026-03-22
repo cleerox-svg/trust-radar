@@ -103,6 +103,8 @@ export function renderPricingPage(): string {
         <li>Daily Observer briefings</li>
         <li>Email security alerts</li>
         <li>Social monitoring (6 platforms)</li>
+        <li>AI-powered impersonation detection with confidence scoring</li>
+        <li>Takedown evidence generation</li>
         <li>Lookalike domain tracking</li>
         <li>Up to 5 brands</li>
       </ul>
@@ -119,6 +121,7 @@ export function renderPricingPage(): string {
       <ul class="price-features">
         <li>Everything in Professional</li>
         <li>Up to 25 brands</li>
+        <li>AI-powered social monitoring across 6 platforms</li>
         <li>STIX 2.1 export</li>
         <li>Full API access</li>
         <li>Webhook notifications</li>
@@ -189,7 +192,7 @@ export function renderPricingPage(): string {
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">What's included in continuous monitoring? <span class="faq-arrow">▼</span></button>
-      <div class="faq-a">Professional and above plans include 24/7 monitoring across all threat feeds (every 30 minutes), daily AI-generated briefings, real-time alerts on new threats, and ongoing social platform monitoring.</div>
+      <div class="faq-a">Professional and above plans include continuous 24/7 monitoring across all threat feeds, daily AI-generated briefings, real-time alerts on new threats, and ongoing social platform monitoring with AI-powered impersonation detection.</div>
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I switch plans? <span class="faq-arrow">▼</span></button>

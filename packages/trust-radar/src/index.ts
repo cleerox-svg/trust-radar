@@ -1743,7 +1743,7 @@ export default {
 
       // Honeypot pages serve from trustradar.ca (and lrxradar.com for legacy trap compat)
       if (["lrxradar.com", "www.lrxradar.com", "trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
-        const honeypotPages = ["/contact", "/team", "/careers", "/about"];
+        const honeypotPages = ["/team", "/careers"];
         if (honeypotPages.includes(url.pathname)) {
           const serveDomain = url.hostname.replace(/^www\./, "");
           return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1), serveDomain));

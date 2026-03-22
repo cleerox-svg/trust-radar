@@ -496,6 +496,11 @@ export function renderSecurityPage(): string {
         <div class="sec-timeline-title">GDPR Readiness</div>
         <div class="sec-timeline-desc">Data processing practices aligned with EU General Data Protection Regulation requirements.</div>
       </div>
+      <div class="sec-timeline-item sec-tl-active">
+        <div class="sec-timeline-date">Ongoing</div>
+        <div class="sec-timeline-title">WCAG 2.1 Level AA</div>
+        <div class="sec-timeline-desc">Trust Radar is committed to WCAG 2.1 Level AA accessibility across all public-facing pages and the authenticated dashboard.</div>
+      </div>
     </div>
   </div>
 
