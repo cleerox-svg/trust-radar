@@ -3,6 +3,8 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { analyzeBrandThreats, callHaikuRaw, setHaikuCategory } from "../lib/haiku";
+import { discoverSocialProfiles } from "../lib/social-discovery";
+import { logger } from "../lib/logger";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -310,6 +312,57 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
         VALUES (?, ?, 'social', ?, 24, 1)
         ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
       `).bind(schedId, brand.id, platform).run();
+    }
+
+    // ─── Auto-discover social profiles from brand website (non-fatal) ───
+    try {
+      const discovered = await discoverSocialProfiles(`https://${domain}`);
+      if (discovered.length > 0) {
+        const discoveredHandles: Record<string, string> = {};
+        for (const profile of discovered) {
+          const profileId = crypto.randomUUID();
+          await env.DB.prepare(`
+            INSERT OR IGNORE INTO social_profiles
+              (id, brand_id, platform, handle, profile_url, classification,
+               classified_by, classification_confidence, status)
+            VALUES (?, ?, ?, ?, ?, 'official', 'auto_discovery', ?, 'active')
+          `).bind(profileId, brand.id, profile.platform, profile.handle,
+                  profile.profileUrl, profile.confidence).run();
+
+          if (!discoveredHandles[profile.platform]) {
+            discoveredHandles[profile.platform] = profile.handle;
+          }
+        }
+
+        // Merge with any user-provided handles (user input takes priority)
+        const existingHandles = handles;
+        const merged = { ...discoveredHandles, ...existingHandles };
+        await env.DB.prepare(
+          "UPDATE brands SET official_handles = ?, website_url = COALESCE(website_url, ?) WHERE id = ?"
+        ).bind(JSON.stringify(merged), `https://${domain}`, brand.id).run();
+
+        // Create monitor schedules for discovered platforms
+        for (const platform of Object.keys(discoveredHandles)) {
+          if (!existingHandles[platform]) {
+            const schedId = crypto.randomUUID();
+            await env.DB.prepare(`
+              INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
+              VALUES (?, ?, 'social', ?, 24, 1)
+              ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
+            `).bind(schedId, brand.id, platform).run();
+          }
+        }
+
+        logger.info("brand_social_discovery", {
+          brand_id: brand.id, domain, discovered: discovered.length,
+          platforms: [...new Set(discovered.map(d => d.platform))],
+        });
+      }
+    } catch (err) {
+      logger.error("brand_social_discovery_error", {
+        brand_id: brand.id, domain,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // ─── Step A: Retroactive domain-based threat linking (free, no AI) ───
@@ -1048,6 +1101,126 @@ export async function handleClassifySocialProfile(
     ).bind(profileId).first();
 
     return json({ success: true, data: updated }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── POST /api/brands/:id/discover-social — Auto-discover social links from website ───
+
+export async function handleDiscoverSocialLinks(
+  request: Request, env: Env, brandId: string, userId: string
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const brand = await env.DB.prepare(
+      "SELECT id, name, canonical_domain, official_handles, website_url FROM brands WHERE id = ?"
+    ).bind(brandId).first<{
+      id: string; name: string; canonical_domain: string;
+      official_handles: string | null; website_url: string | null;
+    }>();
+
+    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+
+    // Verify user monitors this brand or is admin
+    const monitored = await env.DB.prepare(
+      "SELECT 1 FROM monitored_brands WHERE brand_id = ? AND added_by = ?"
+    ).bind(brandId, userId).first();
+    const isAdmin = await env.DB.prepare(
+      "SELECT 1 FROM users WHERE id = ? AND role IN ('admin', 'super_admin')"
+    ).bind(userId).first();
+
+    if (!monitored && !isAdmin) {
+      return json({ success: false, error: "Not authorized for this brand" }, 403, origin);
+    }
+
+    const domain = brand.canonical_domain;
+    let discovered = await discoverSocialProfiles(`https://${domain}`);
+
+    // If primary domain fails, try www variant
+    if (discovered.length === 0) {
+      discovered = await discoverSocialProfiles(`https://www.${domain}`);
+    }
+
+    // Store discovered profiles
+    let newProfilesCreated = 0;
+    const handlesUpdate: Record<string, string> = {};
+
+    for (const profile of discovered) {
+      const profileId = crypto.randomUUID();
+
+      const result = await env.DB.prepare(`
+        INSERT INTO social_profiles
+          (id, brand_id, platform, handle, profile_url, classification,
+           classified_by, classification_confidence, status, last_checked)
+        VALUES (?, ?, ?, ?, ?, 'official', 'auto_discovery', ?, 'active', datetime('now'))
+        ON CONFLICT (brand_id, platform, handle) DO UPDATE SET
+          last_checked = datetime('now'),
+          profile_url = excluded.profile_url
+      `).bind(
+        profileId, brand.id, profile.platform, profile.handle,
+        profile.profileUrl, profile.confidence
+      ).run();
+
+      if (result.meta?.changes && result.meta.changes > 0) {
+        newProfilesCreated++;
+      }
+
+      if (!handlesUpdate[profile.platform]) {
+        handlesUpdate[profile.platform] = profile.handle;
+      }
+    }
+
+    // Merge with existing handles (user input takes priority)
+    const existingHandles = brand.official_handles
+      ? JSON.parse(brand.official_handles) : {};
+    const merged = { ...handlesUpdate, ...existingHandles };
+
+    await env.DB.prepare(
+      "UPDATE brands SET official_handles = ?, website_url = COALESCE(website_url, ?) WHERE id = ?"
+    ).bind(JSON.stringify(merged), `https://${domain}`, brand.id).run();
+
+    // Create monitor schedule entries for newly discovered platforms
+    for (const platform of Object.keys(handlesUpdate)) {
+      if (!existingHandles[platform]) {
+        const schedId = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
+          VALUES (?, ?, 'social', ?, 24, 1)
+          ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
+        `).bind(schedId, brand.id, platform).run();
+      }
+    }
+
+    await audit(env, {
+      action: "brand_social_discovery",
+      userId,
+      resourceType: "brand",
+      resourceId: brand.id,
+      details: {
+        domain,
+        discovered: discovered.length,
+        new_profiles: newProfilesCreated,
+        platforms: [...new Set(discovered.map(d => d.platform))],
+      },
+      request,
+    });
+
+    logger.info("brand_social_discovery", {
+      brand_id: brand.id, domain,
+      discovered: discovered.length,
+      new_profiles: newProfilesCreated,
+      platforms: [...new Set(discovered.map(d => d.platform))],
+    });
+
+    return json({
+      success: true,
+      data: {
+        discovered,
+        new_profiles_created: newProfilesCreated,
+        handles_updated: merged,
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
