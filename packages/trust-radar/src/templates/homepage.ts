@@ -1039,11 +1039,11 @@ export function renderAssessResults(scanId: string): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trust Score Results — Trust Radar</title>
+<title>Trust Score Results — Averrow</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--purple:#b388ff;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Chakra Petch',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--purple:#b388ff;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Plus Jakarta Sans',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
 *{margin:0;padding:0;box-sizing:border-box}html{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body)}
 .pub-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 40px;background:rgba(4,8,16,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--blue-border)}
 .pub-logo{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text-primary)}

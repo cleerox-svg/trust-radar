@@ -93,7 +93,7 @@ export function renderAboutPage(): string {
     <div class="principle-card">
       <div class="principle-num">03</div>
       <h3>Radically Accessible</h3>
-      <p>Enterprise intelligence without enterprise pricing. Edge-native architecture on Cloudflare Workers keeps infrastructure costs 10-50x lower than traditional security platforms.</p>
+      <p>Enterprise intelligence without enterprise pricing. Edge-native architecture keeps infrastructure costs 10-50x lower than traditional security platforms.</p>
     </div>
   </div>
 </section>
@@ -106,10 +106,10 @@ export function renderAboutPage(): string {
   <div class="facts-grid">
     <div class="fact-card"><div class="fact-value">🇨🇦 LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
     <div class="fact-card"><div class="fact-value">AI-Native</div><div class="fact-label">Powered by advanced AI agents</div></div>
-    <div class="fact-card"><div class="fact-value">Edge-First</div><div class="fact-label">Cloudflare Workers, zero cold starts</div></div>
+    <div class="fact-card"><div class="fact-value">Edge-First</div><div class="fact-label">Zero cold starts, globally distributed</div></div>
     <div class="fact-card"><div class="fact-value">6+</div><div class="fact-label">Integrated threat intelligence feeds</div></div>
     <div class="fact-card"><div class="fact-value">50-66%</div><div class="fact-label">Less than incumbent platforms</div></div>
-    <div class="fact-card"><div class="fact-value">SOC 2</div><div class="fact-label">Compliance roadmap in progress</div></div>
+    <div class="fact-card"><div class="fact-value">Q3 2026</div><div class="fact-label">SOC 2 Type I audit target</div></div>
   </div>
 </section>
 
@@ -120,7 +120,7 @@ export function renderAboutPage(): string {
     <p style="color:var(--text-secondary);margin-bottom:1rem;">Every choice optimized for performance, reliability, and cost.</p>
   </div>
   <div class="tech-grid">
-    <div class="tech-item"><div class="tech-name">Cloudflare Workers</div><div class="tech-desc">Edge-native compute with zero cold starts. Globally distributed, no traditional servers to compromise.</div></div>
+    <div class="tech-item"><div class="tech-name">Edge Compute Workers</div><div class="tech-desc">Edge-native compute with zero cold starts. Globally distributed, no traditional servers to compromise.</div></div>
     <div class="tech-item"><div class="tech-name">D1 Database</div><div class="tech-desc">SQLite-based, encrypted at rest, automatic backups. Low-cost, high-reliability relational storage.</div></div>
     <div class="tech-item"><div class="tech-name">Advanced AI Agents</div><div class="tech-desc">Multi-signal threat reasoning and natural language narrative generation. Configurable via API key.</div></div>
     <div class="tech-item"><div class="tech-name">KV + R2</div><div class="tech-desc">Distributed caching and object storage. TTL-based expiry, encrypted, globally replicated.</div></div>

@@ -455,7 +455,7 @@ export function renderSecurityPage(): string {
 
     <div class="sec-infra-list">
       <div class="sec-infra-item">
-        <h4><span class="sec-dot" style="background:#f6821f"></span>Cloudflare Workers</h4>
+        <h4><span class="sec-dot" style="background:var(--accent)"></span>Edge Compute Workers</h4>
         <p>Edge-native, no traditional servers to compromise. Zero cold starts, global distribution.</p>
       </div>
       <div class="sec-infra-item">
@@ -468,7 +468,7 @@ export function renderSecurityPage(): string {
       </div>
     </div>
 
-    <div class="sec-infra-note">No customer data leaves Cloudflare's network.</div>
+    <div class="sec-infra-note">No customer data leaves our processing network.</div>
   </div>
 
   <!-- ═══════════════════ COMPLIANCE ROADMAP ═══════════════════ -->

@@ -420,7 +420,7 @@ Pitch angle: ${candidate.pitch_angle}`,
     256,
   );
 
-  return result.data?.summary ?? `Trust Radar detected ${candidate.threat_count_30d} threats targeting ${candidate.brand_name} in the past 30 days, including ${candidate.phishing_urls_active} active phishing URLs. Email security grade: ${candidate.email_security_grade || 'unknown'}.`;
+  return result.data?.summary ?? `Averrow detected ${candidate.threat_count_30d} threats targeting ${candidate.brand_name} in the past 30 days, including ${candidate.phishing_urls_active} active phishing URLs. Email security grade: ${candidate.email_security_grade || 'unknown'}.`;
 }
 
 // ─── Stage 2: Company & CISO Research ───────────────────────────
@@ -429,7 +429,7 @@ async function researchProspect(
   candidate: ProspectCandidate,
   env: Env,
 ): Promise<ProspectResearch> {
-  const systemPrompt = `You are a sales intelligence researcher for Trust Radar, a brand threat intelligence platform that detects phishing, brand impersonation, and email security vulnerabilities.
+  const systemPrompt = `You are a sales intelligence researcher for Averrow, a brand threat intelligence platform that detects phishing, brand impersonation, and email security vulnerabilities.
 
 Research this company to build a sales prospect profile:
 
@@ -528,7 +528,7 @@ async function generateOutreach(
   research: ProspectResearch,
   env: Env,
 ): Promise<OutreachDrafts> {
-  const systemPrompt = `You are drafting outreach emails from Trust Radar to a security leader.
+  const systemPrompt = `You are drafting outreach emails from Averrow to a security leader.
 
 RECIPIENT:
 Name: ${research.target_name}
@@ -537,7 +537,7 @@ Company: ${research.company_name}
 Industry: ${research.company_industry ?? 'Unknown'}
 Size: ${research.company_size ?? 'Unknown'}
 
-TRUST RADAR FINDINGS (share at HIGH LEVEL only — do not reveal specific URLs, IPs, or detailed IOCs):
+AVERROW FINDINGS (share at HIGH LEVEL only — do not reveal specific URLs, IPs, or detailed IOCs):
 ${lead.findings_summary}
 
 Email security grade: ${lead.email_security_grade ?? 'Unknown'}
@@ -569,7 +569,7 @@ RULES FOR BOTH:
 - Reference exactly ONE specific finding to hook interest
 - Do NOT reveal exact phishing URLs, IP addresses, or detailed IOCs
 - Include a clear call to action (15-min call or briefing)
-- Sign off as "Trust Radar Threat Intelligence Team"
+- Sign off as "Averrow Threat Intelligence Team"
 - Return ONLY valid JSON, no markdown`;
 
   const result = await callHaikuJSON<OutreachDrafts>(
