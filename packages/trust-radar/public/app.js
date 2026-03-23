@@ -564,6 +564,7 @@ window.markAllNotifRead = markAllNotifRead;
 window.openNotifPreferences = openNotifPreferences;
 window.saveNotifPreferences = saveNotifPreferences;
 window.handleBrowserNotifToggle = handleBrowserNotifToggle;
+window.showCaptureDetail = showCaptureDetail;
 
 // ─── Shared Components ──────────────────────────────────────────
 
@@ -7643,18 +7644,49 @@ async function viewAdminSpamTrap(el) {
     const totalCaptures = capturesRes?.total || s.total_captures || 0;
 
     // Stats cards
-    document.getElementById('st-metrics').innerHTML = `
-      <div class="adm-metric"><div class="adm-metric-val">${s.total_captures || 0}</div><div class="adm-metric-label">Captured</div><div class="adm-metric-sub">+${s.last_24h || 0} 24h</div></div>
-      <div class="adm-metric"><div class="adm-metric-val">${s.brands_spoofed || 0}</div><div class="adm-metric-label">Brands Spoofed</div></div>
-      <div class="adm-metric"><div class="adm-metric-val">${s.unique_ips || 0}</div><div class="adm-metric-label">Unique IPs</div></div>
-      <div class="adm-metric"><div class="adm-metric-val">${s.auth_fail_rate || 0}%</div><div class="adm-metric-label">Auth Fail Rate</div></div>`;
+    const _stMetricCard = (val, label, sub, sparkColor) => {
+      const sc = sparkColor || '#C83C3C';
+      return `<div class="adm-metric" style="border-left:3px solid #C83C3C;background:#0E1A2B;border:1px solid rgba(120,160,200,0.06);border-left:3px solid #C83C3C;border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:2px">
+        <div style="font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--text-primary);line-height:1.1">${val}</div>
+        <div style="font-family:var(--font-mono);font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin-top:4px">${label}</div>
+        ${sub ? `<div style="font-family:var(--font-mono);font-size:10px;color:#C83C3C;margin-top:2px">${sub}</div>` : ''}
+        <svg width="48" height="14" viewBox="0 0 48 14" fill="none" style="margin-top:6px;opacity:0.45"><polyline points="0,11 8,7 16,9 24,4 32,6 40,2 48,5" stroke="${sc}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>`;
+    };
+    document.getElementById('st-metrics').innerHTML =
+      _stMetricCard(s.total_captures || 0, 'Captured', `+${s.last_24h || 0} last 24h`) +
+      _stMetricCard(s.brands_spoofed || 0, 'Brands Spoofed') +
+      _stMetricCard(s.unique_ips || 0, 'Unique IPs') +
+      _stMetricCard(`${s.auth_fail_rate || 0}%`, 'Auth Fail Rate', null, s.auth_fail_rate > 50 ? '#C83C3C' : '#28A050');
 
     document.getElementById('st-total-badge').textContent = totalCaptures;
 
     // Trap health
-    const channelIcons = { generic: '\u25cb', brand: '\u25c9', spider: '\u25cc', paste: '\u25ce', honeypot: '\u25cf', employee: '\u25ca' };
+    const _stChannelCfg = {
+      brand:        { color: '#C83C3C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L2.5 4v4c0 3 2.2 5.3 5.5 5.5C11.3 13.3 13.5 11 13.5 8V4L8 1.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>` },
+      contact_page: { color: '#78A0C8', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5l6.5 4.5 6.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>` },
+      employee:     { color: '#E8923C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 14c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>` },
+      generic:      { color: '#8A8F9C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 9.5h4l1.5 2.5h2L10.5 9.5H15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>` },
+      github:       { color: '#78A0C8', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 4L1.5 8 5 12M11 4l3.5 4L11 12M9.5 3l-3 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+      honeypot:     { color: '#28A050', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.2 3v6L8 13.5 2.8 10.5v-6L8 1.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>` },
+      paste:        { color: '#E8923C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="3.5" width="10" height="11" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5V2.5a2 2 0 014 0v1" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>` },
+      whois:        { color: '#78A0C8', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 13.5l-2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>` },
+      forum:        { color: '#78A0C8', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.5 2.5a1 1 0 011-1h11a1 1 0 011 1v8a1 1 0 01-1 1H5l-3.5 3V2.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>` },
+      spider:       { color: '#8A8F9C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5v11M2.5 8h11M3.6 3.6l8.8 8.8M12.4 3.6l-8.8 8.8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>` },
+      directory:    { color: '#8A8F9C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.5 4.5a1 1 0 011-1h4l1.5 1.5H14a1 1 0 011 1v6.5a1 1 0 01-1 1h-11a1 1 0 01-1-1V4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>` },
+    };
+    const _stDefaultCfg = { color: '#8A8F9C', icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/></svg>` };
     document.getElementById('st-health').innerHTML = health.length
-      ? health.map(h => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span>${channelIcons[h.channel] || '\u25cb'}</span><span style="flex:1;text-transform:capitalize">${h.channel}</span><span style="font-weight:700">${h.count} active</span></div>`).join('')
+      ? health.map((h, i) => {
+          const cfg = _stChannelCfg[h.channel] || _stDefaultCfg;
+          const isLast = i === health.length - 1;
+          const label = h.channel.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;${isLast ? '' : 'border-bottom:1px solid rgba(120,160,200,0.07)'}">
+            <span style="color:${cfg.color};flex-shrink:0;display:flex;align-items:center">${cfg.icon}</span>
+            <span style="flex:1;font-family:var(--font-display);font-size:12px;font-weight:600;color:var(--text-primary)">${label}</span>
+            <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;background:${cfg.color}22;color:${cfg.color};padding:2px 9px;border-radius:4px">${h.count}</span>
+          </div>`;
+        }).join('')
       : '<div style="color:var(--text-tertiary);font-size:12px">No seed addresses deployed yet</div>';
 
     // Campaigns
@@ -7663,19 +7695,25 @@ async function viewAdminSpamTrap(el) {
       : '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px">No campaigns yet</div>';
 
     // Recent captures
+    const _thStyle = `style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#C83C3C"`;
+    const _tdBase = `padding:8px 6px`;
     document.getElementById('st-captures').innerHTML = captures.length
-      ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>From</th><th>Subject</th><th>Brand</th><th>SPF</th><th>DKIM</th><th>DMARC</th><th>Category</th><th>Severity</th><th>Time</th></tr></thead><tbody>${captures.map(c => {
+      ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr>
+          <th ${_thStyle}>From</th><th ${_thStyle}>Subject</th><th ${_thStyle}>Brand</th>
+          <th ${_thStyle}>SPF</th><th ${_thStyle}>DKIM</th><th ${_thStyle}>DMARC</th>
+          <th ${_thStyle}>Category</th><th ${_thStyle}>Severity</th><th ${_thStyle}>Time</th>
+        </tr></thead><tbody>${captures.map(c => {
           const authPill = r => r === 'fail' ? `<span class="auth-fail">${r}</span>` : r === 'pass' ? `<span class="auth-pass">${r}</span>` : `<span class="auth-neutral">${r || '-'}</span>`;
-          return `<tr onclick="showCaptureDetail('${c.id}')" style="cursor:pointer" onmouseover="this.style.background='rgba(20,34,54,0.6)'" onmouseout="this.style.background=''">
-            <td style="font-family:var(--font-mono);font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</td>
-            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.subject || ''}</td>
-            <td>${c.spoofed_domain || '-'}</td>
-            <td>${authPill(c.spf_result)}</td>
-            <td>${authPill(c.dkim_result)}</td>
-            <td>${authPill(c.dmarc_result)}</td>
-            <td>${c.category || '-'}</td>
-            <td><span class="severity-pill ${c.severity}">${c.severity || '-'}</span></td>
-            <td style="font-size:10px;color:var(--text-tertiary)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
+          return `<tr onclick="showCaptureDetail('${c.id}')" style="cursor:pointer" onmouseover="this.style.background='#142236'" onmouseout="this.style.background=''">
+            <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;color:var(--text-primary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</td>
+            <td style="${_tdBase};font-family:var(--font-display);font-size:12px;font-weight:500;color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.subject || ''}</td>
+            <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;font-weight:500">${c.spoofed_domain || '-'}</td>
+            <td style="${_tdBase}">${authPill(c.spf_result)}</td>
+            <td style="${_tdBase}">${authPill(c.dkim_result)}</td>
+            <td style="${_tdBase}">${authPill(c.dmarc_result)}</td>
+            <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;text-transform:capitalize">${c.category || '-'}</td>
+            <td style="${_tdBase}"><span class="severity-pill ${c.severity}">${c.severity || '-'}</span></td>
+            <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
           </tr>`;
         }).join('')}</tbody></table></div>`
       : '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:12px">No captures yet — deploy initial seeds to start catching emails</div>';
