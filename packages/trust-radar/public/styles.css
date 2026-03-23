@@ -3590,3 +3590,15 @@ a.campaign-card:hover { text-decoration: none; }
   color: var(--text-primary); flex: 1; outline: none;
 }
 .social-handle-field input:focus { border-color: var(--blue-border-bright); }
+
+/* Spam trap auth result pills */
+.auth-pass { color: #28A050; background: rgba(40,160,80,0.1); border: 1px solid rgba(40,160,80,0.2); padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; }
+.auth-fail { color: #C83C3C; background: rgba(200,60,60,0.1); border: 1px solid rgba(200,60,60,0.2); padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; }
+.auth-neutral { color: #8A8F9C; background: rgba(138,143,156,0.1); border: 1px solid rgba(138,143,156,0.2); padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; }
+
+/* Spam trap severity pill */
+.severity-pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.severity-pill.critical { background: rgba(200,60,60,0.15); color: #C83C3C; border: 1px solid rgba(200,60,60,0.3); }
+.severity-pill.high { background: rgba(232,146,60,0.15); color: #E8923C; border: 1px solid rgba(232,146,60,0.3); }
+.severity-pill.medium { background: rgba(220,170,50,0.15); color: #DCAA32; border: 1px solid rgba(220,170,50,0.3); }
+.severity-pill.low { background: rgba(120,160,200,0.15); color: #78A0C8; border: 1px solid rgba(120,160,200,0.3); }
