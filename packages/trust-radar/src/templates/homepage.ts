@@ -508,6 +508,171 @@ export function renderHomepage(): string {
   width: 40px;
   justify-content: center;
 }
+
+/* ── CAPABILITIES ── */
+.capabilities {
+  padding: 5rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.capabilities-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+
+@media (max-width: 960px) and (min-width: 721px) {
+  .capabilities-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .capabilities-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cap-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cap-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+}
+
+.cap-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  color: var(--accent);
+  display: block;
+}
+
+.cap-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.cap-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── CTA ── */
+.cta-section {
+  padding: 5rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.cta-inner {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 64px 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(200, 60, 60, 0.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.cta-inner::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 60, 60, 0.5), transparent);
+}
+
+.cta-headline {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.cta-btn-primary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 13px 30px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+}
+
+.cta-btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 0 20px rgba(200, 60, 60, 0.35);
+}
+
+.cta-btn-secondary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 13px 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(200, 60, 60, 0.4);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+}
+
+.cta-btn-secondary:hover {
+  border-color: var(--accent);
+  background: rgba(200, 60, 60, 0.06);
+}
 </style>`;
 
   const content = `
@@ -598,8 +763,101 @@ ${pageStyles}
 <hr class="tr-divider-animated">
 
 <!-- CAPABILITIES SECTION — Phase 2C -->
+<hr class="tr-divider-animated">
+
+<section class="capabilities">
+  <div class="section-label">Capabilities</div>
+  <h2 class="capabilities-title">Full-spectrum airspace defense</h2>
+  <div class="capabilities-grid">
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="2" fill="currentColor"/>
+        <circle cx="16" cy="16" r="6" stroke="currentColor" stroke-width="1.5" opacity="0.7"/>
+        <circle cx="16" cy="16" r="11" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+        <line x1="16" y1="16" x2="16" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="16" y1="16" x2="24" y2="10" stroke="currentColor" stroke-width="1" opacity="0.5" stroke-linecap="round"/>
+        <circle cx="22" cy="9" r="1.5" fill="currentColor" opacity="0.7"/>
+      </svg>
+      <div class="cap-title">Threat Feed Intelligence</div>
+      <div class="cap-desc">Continuous ingestion from phishing databases, malware feeds, and newly registered domains</div>
+    </div>
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="3,7 13,16 23,7" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M22 17 L28 17 L28 29 L22 29 Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <path d="M24 21 L26 23 L24 25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="cap-title">Email Security Posture</div>
+      <div class="cap-desc">SPF, DKIM, DMARC analysis and grading for every monitored brand</div>
+    </div>
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="16" cy="16" rx="13" ry="7" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+        <line x1="3" y1="16" x2="8" y2="16" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+        <line x1="24" y1="16" x2="29" y2="16" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+        <circle cx="7" cy="12" r="1" fill="currentColor" opacity="0.6"/>
+        <circle cx="25" cy="20" r="1" fill="currentColor" opacity="0.6"/>
+      </svg>
+      <div class="cap-title">Social Airspace Monitoring</div>
+      <div class="cap-desc">Impersonation detection, handle squatting, takedown evidence across platforms</div>
+    </div>
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="13" cy="13" r="8" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="19" y1="19" x2="27" y2="27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 10 Q13 8 16 10" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+        <path d="M10 13 Q13 11 16 13" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+        <circle cx="13" cy="13" r="2" fill="currentColor" opacity="0.4"/>
+      </svg>
+      <div class="cap-title">Lookalike Domain Detection</div>
+      <div class="cap-desc">Fuzzy matching, homoglyph analysis, and NRD monitoring for brand abuse</div>
+    </div>
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="7" y="4" width="18" height="24" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="11" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="11" y1="14" x2="21" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="11" y1="18" x2="17" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="22" cy="24" r="4" fill="var(--bg-base, #080e18)" stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="19.5,24 21.5,26 24.5,22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="cap-title">Certificate Transparency</div>
+      <div class="cap-desc">Real-time monitoring of SSL certificate issuance for brand domains</div>
+    </div>
+
+    <div class="cap-card">
+      <svg class="cap-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="6" width="24" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="4,18 8,18 10,12 13,22 16,14 19,20 21,16 24,16 28,16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="26" cy="8" r="2.5" fill="currentColor" opacity="0.9"/>
+      </svg>
+      <div class="cap-title">AI Threat Narratives</div>
+      <div class="cap-desc">Blackbox agent generates human-readable threat timelines and kill chain analysis</div>
+    </div>
+
+  </div>
+</section>
 
 <!-- CTA SECTION — Phase 2C -->
+<hr class="tr-divider-animated">
+
+<section class="cta-section">
+  <div class="cta-inner">
+    <h2 class="cta-headline">Defend your airspace</h2>
+    <div class="cta-buttons">
+      <a href="/scan" class="cta-btn-primary">Launch Free Scan</a>
+      <a href="/pricing" class="cta-btn-secondary">View Pricing</a>
+    </div>
+  </div>
+</section>
 
 <!-- RESULTS (hidden until scan) -->
 <section id="results-section">
