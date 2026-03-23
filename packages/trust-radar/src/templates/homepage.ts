@@ -361,6 +361,153 @@ export function renderHomepage(): string {
   color: var(--text-tertiary);
   margin-top: 6px;
 }
+
+/* ── AGENT SQUADRON ── */
+.squadron {
+  padding: 5rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.squadron-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.squadron-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  line-height: 1.5;
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .agent-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agent-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px 20px 20px 24px;
+  border-left: 3px solid var(--agent-color, var(--border));
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.agent-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+}
+
+.agent-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.agent-role {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.agent-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── HOW IT WORKS ── */
+.how-it-works {
+  padding: 5rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.steps-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-top: 40px;
+}
+
+@media (max-width: 720px) {
+  .steps-row {
+    flex-direction: column;
+    gap: 32px;
+  }
+  .step-arrow {
+    display: none;
+  }
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+}
+
+.step-num {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.step-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.step-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+.step-arrow {
+  display: flex;
+  align-items: center;
+  padding-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 24px;
+  flex-shrink: 0;
+  width: 40px;
+  justify-content: center;
+}
 </style>`;
 
   const content = `
@@ -383,9 +530,72 @@ ${pageStyles}
 
 <hr class="tr-divider-animated">
 
-<!-- AGENT SQUADRON SECTION — Phase 2B -->
+<!-- AGENT SQUADRON -->
+<section class="squadron">
+  <div class="section-label">Agent Squadron</div>
+  <h2 class="squadron-title">Six AI agents. One mission.</h2>
+  <p class="squadron-subtitle">Continuous autonomous defense across every threat vector — scanning, classifying, and intercepting around the clock.</p>
+  <div class="agent-grid">
+    <div class="agent-card" style="--agent-color: #C83C3C;">
+      <div class="agent-name">Sentinel</div>
+      <div class="agent-role">Threat Detection</div>
+      <div class="agent-desc">Continuous radar sweep across all feeds</div>
+    </div>
+    <div class="agent-card" style="--agent-color: #E8923C;">
+      <div class="agent-name">ASTRA</div>
+      <div class="agent-role">Fire Control</div>
+      <div class="agent-desc">Classifies, scores, and prioritizes threat severity</div>
+    </div>
+    <div class="agent-card" style="--agent-color: #78A0C8;">
+      <div class="agent-name">Observer</div>
+      <div class="agent-role">Strategic Intel</div>
+      <div class="agent-desc">Daily briefings and macro trend analysis</div>
+    </div>
+    <div class="agent-card" style="--agent-color: #5A80A8;">
+      <div class="agent-name">Navigator</div>
+      <div class="agent-role">Geo Mapping</div>
+      <div class="agent-desc">Plots threat origins and infrastructure</div>
+    </div>
+    <div class="agent-card" style="--agent-color: #8A8F9C;">
+      <div class="agent-name">Blackbox</div>
+      <div class="agent-role">Flight Recorder</div>
+      <div class="agent-desc">Captures threat timelines and narratives</div>
+    </div>
+    <div class="agent-card" style="--agent-color: #28A050;">
+      <div class="agent-name">Pathfinder</div>
+      <div class="agent-role">Target Acquisition</div>
+      <div class="agent-desc">Identifies prospects and generates outreach</div>
+    </div>
+  </div>
+</section>
 
-<!-- HOW IT WORKS SECTION — Phase 2B -->
+<hr class="tr-divider-animated">
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works">
+  <div class="section-label">How It Works</div>
+  <div class="steps-row">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Enter a domain</div>
+      <div class="step-desc">Launch a sortie against any domain — no signup required.</div>
+    </div>
+    <div class="step-arrow">&#x2192;</div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">Agents deploy</div>
+      <div class="step-desc">Six AI agents scan threat feeds, CT logs, DMARC records, and newly registered domains.</div>
+    </div>
+    <div class="step-arrow">&#x2192;</div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Threats intercepted</div>
+      <div class="step-desc">Contacts classified, graded by severity, and queued for takedown.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="tr-divider-animated">
 
 <!-- CAPABILITIES SECTION — Phase 2C -->
 
