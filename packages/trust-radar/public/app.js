@@ -1701,15 +1701,15 @@ async function viewObservatory(el) {
             arc.sourcePosition[0], arc.sourcePosition[1],
             arc.targetPosition[0], arc.targetPosition[1], tc
           );
-          // Outer glow: 6px cyan at 15% opacity
-          glowData.push({ pos: [lon, lat], col: [0, 212, 255, 38] });
-          // Core dot: 4px bright white
-          coreData.push({ pos: [lon, lat], col: [255, 255, 255, 255] });
+          // Outer glow: 3px subtle tint at low opacity — clinical, not bright
+          glowData.push({ pos: [lon, lat], col: [120, 160, 200, 20] });
+          // Core dot: 2px crisp white
+          coreData.push({ pos: [lon, lat], col: [255, 255, 255, 200] });
         });
 
         _curParticleLayers = [
-          new deck.ScatterplotLayer({ id: 'particle-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 6, getFillColor: d => d.col }),
-          new deck.ScatterplotLayer({ id: 'particle-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 4, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 3, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 2, getFillColor: d => d.col }),
         ];
         deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
       }
@@ -1742,11 +1742,13 @@ async function viewObservatory(el) {
     return map[type] || '#78A0C8';
   }
   function _sevColor(sev, alpha) {
-    const a = alpha !== undefined ? alpha : 200;
-    if (sev === 'critical') return [255, 59,  92,  a];
-    if (sev === 'high')     return [255, 107, 53,  a];
-    if (sev === 'medium')   return [255, 182, 39,  a];
-    return [0, 212, 255, a];
+    // Per-severity default alpha: critical 0.7, high 0.6, medium 0.5, low 0.4
+    const defaultAlpha = sev === 'critical' ? 178 : sev === 'high' ? 153 : sev === 'medium' ? 128 : 102;
+    const a = alpha !== undefined ? alpha : defaultAlpha;
+    if (sev === 'critical') return [200,  60,  60, a];   // #C83C3C — Signal Red
+    if (sev === 'high')     return [232, 146,  60, a];   // #E8923C — Amber
+    if (sev === 'medium')   return [220, 170,  50, a];   // #DCAA32 — Medium gold
+    return [120, 160, 200, a];                            // #78A0C8 — Contrail Blue
   }
   function _periodToHours(p) {
     if (p === '24h') return 24;
@@ -1875,34 +1877,34 @@ async function viewObservatory(el) {
     const targetNodes = Object.values(targetSet);
 
     setLayers([
-      // Node bloom (outer glow ring)
+      // Node bloom (very subtle outer glow — reduced for Averrow aesthetic)
       new deck.ScatterplotLayer({
         id: 'nodes-bloom',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 15000,
-        getFillColor: d => _sevColor(d.top_severity, 18),
-        radiusMinPixels: 10, radiusMaxPixels: 80,
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 9000,
+        getFillColor: d => _sevColor(d.top_severity, 8),
+        radiusMinPixels: 5, radiusMaxPixels: 40,
       }),
-      // Node mid glow
+      // Node mid glow (minimal — keeps form without dominating)
       new deck.ScatterplotLayer({
         id: 'nodes-glow',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 8000,
-        getFillColor: d => _sevColor(d.top_severity, 40),
-        radiusMinPixels: 6, radiusMaxPixels: 50,
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4800,
+        getFillColor: d => _sevColor(d.top_severity, 18),
+        radiusMinPixels: 3, radiusMaxPixels: 22,
       }),
-      // Source nodes (solid core)
+      // Source nodes (solid core — per-severity opacity)
       new deck.ScatterplotLayer({
         id: 'nodes',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4000,
-        getFillColor: d => _sevColor(d.top_severity, 200),
-        getLineColor: d => _sevColor(d.top_severity, 255),
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 2400,
+        getFillColor: d => _sevColor(d.top_severity),
+        getLineColor: d => _sevColor(d.top_severity, 200),
         lineWidthMinPixels: 1, stroked: true, filled: true,
-        radiusMinPixels: 3, radiusMaxPixels: 28,
+        radiusMinPixels: 2, radiusMaxPixels: 14,
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
@@ -2056,11 +2058,11 @@ async function viewObservatory(el) {
         id: 'nodes-corridor',
         data: nodeData.slice(0, 40),
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4000,
-        getFillColor: d => _sevColor(d.top_severity, 180),
-        getLineColor: d => _sevColor(d.top_severity, 255),
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 2400,
+        getFillColor: d => _sevColor(d.top_severity),
+        getLineColor: d => _sevColor(d.top_severity, 200),
         lineWidthMinPixels: 1, stroked: true,
-        radiusMinPixels: 3, radiusMaxPixels: 22,
+        radiusMinPixels: 2, radiusMaxPixels: 14,
         pickable: true,
       }),
     ]);
@@ -2172,19 +2174,19 @@ async function viewObservatory(el) {
           id: 'nodes-brand-glow',
           data: bArcs,
           getPosition: d => d.sourcePosition,
-          getRadius: 20000,
-          getFillColor: d => _typeColor(d.threat_type, 25),
-          radiusMinPixels: 5, radiusMaxPixels: 20,
+          getRadius: 10000,
+          getFillColor: d => _typeColor(d.threat_type, 12),
+          radiusMinPixels: 3, radiusMaxPixels: 10,
         }),
         new deck.ScatterplotLayer({
           id: 'nodes-brand',
           data: bArcs,
           getPosition: d => d.sourcePosition,
-          getRadius: 7000,
-          getFillColor: d => _typeColor(d.threat_type, 200),
-          getLineColor: [255, 255, 255, 80],
+          getRadius: 4000,
+          getFillColor: d => _typeColor(d.threat_type, 140),
+          getLineColor: [255, 255, 255, 60],
           stroked: true, lineWidthMinPixels: 1,
-          radiusMinPixels: 3, radiusMaxPixels: 12,
+          radiusMinPixels: 2, radiusMaxPixels: 7,
           pickable: true,
         }),
         // Source city labels
@@ -2263,11 +2265,11 @@ async function viewObservatory(el) {
         id: 'nodes-radar',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 5000,
-        getFillColor: d => _sevColor(d.top_severity, 40),
-        getLineColor: d => _sevColor(d.top_severity, 70),
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 3000,
+        getFillColor: d => _sevColor(d.top_severity, 25),
+        getLineColor: d => _sevColor(d.top_severity, 50),
         stroked: true, lineWidthMinPixels: 1,
-        radiusMinPixels: 2, radiusMaxPixels: 14,
+        radiusMinPixels: 2, radiusMaxPixels: 9,
       }),
     ]);
 
@@ -2385,13 +2387,13 @@ async function viewObservatory(el) {
           if (!ns) return;
           const color = _sevColor(node.top_severity, 255);
           ctx.save();
-          ctx.globalAlpha = opacity * 0.9;
+          ctx.globalAlpha = opacity * 0.7;
           ctx.beginPath();
-          ctx.arc(ns[0], ns[1], 7, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},0.25)`;
+          ctx.arc(ns[0], ns[1], 4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},0.15)`;
           ctx.fill();
           ctx.beginPath();
-          ctx.arc(ns[0], ns[1], 3, 0, Math.PI * 2);
+          ctx.arc(ns[0], ns[1], 2, 0, Math.PI * 2);
           ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
           ctx.fill();
           ctx.restore();
@@ -2638,11 +2640,11 @@ async function viewObservatory(el) {
               id: flashId,
               data: flashData,
               getPosition: d => [d.lng, d.lat],
-              getRadius: 40000,
-              getFillColor: [0, 212, 255, 60],
-              getLineColor: [0, 212, 255, 180],
-              stroked: true, lineWidthMinPixels: 2,
-              radiusMinPixels: 8,
+              getRadius: 22000,
+              getFillColor: [200, 60, 60, 30],
+              getLineColor: [200, 60, 60, 140],
+              stroked: true, lineWidthMinPixels: 1,
+              radiusMinPixels: 5,
             });
             if (deckgl) deckgl.setProps({ layers: [...deckgl.props.layers, flashLayer] });
             setTimeout(() => {
@@ -5656,12 +5658,13 @@ function agentIcon(agentId, size = 24) {
 
 // ─── View: Agents (Step 13) ─────────────────────────────────
 const AGENT_META = {
-  sentinel: { iconClass: 'sentinel', color: '#C83C3C', role: 'Certificate & Domain Surveillance' },
-  analyst: { iconClass: 'analyst', color: '#E8923C', role: 'Threat Classification & Brand Matching' },
-  cartographer: { iconClass: 'cartographer', color: '#5A80A8', role: 'Infrastructure Mapping & Provider Scoring' },
-  strategist: { iconClass: 'strategist', color: '#f87171', role: 'Campaign Correlation & Clustering' },
-  observer: { iconClass: 'observer', color: '#78A0C8', role: 'Trend Analysis & Intelligence Synthesis' },
-  prospector: { iconClass: 'prospector', color: '#28A050', role: 'Sales Intelligence & Lead Generation' },
+  sentinel:     { iconClass: 'sentinel',     color: '#C83C3C', role: 'Certificate & Domain Surveillance',        label: 'Sentinel'   },
+  analyst:      { iconClass: 'analyst',      color: '#E8923C', role: 'Threat Classification & Brand Matching',   label: 'ASTRA'      },
+  cartographer: { iconClass: 'cartographer', color: '#5A80A8', role: 'Infrastructure Mapping & Provider Scoring', label: 'Navigator'  },
+  strategist:   { iconClass: 'strategist',   color: '#f87171', role: 'Campaign Correlation & Clustering',        label: 'Strategist' },
+  observer:     { iconClass: 'observer',     color: '#78A0C8', role: 'Trend Analysis & Intelligence Synthesis',   label: 'Observer'   },
+  narrator:     { iconClass: 'narrator',     color: '#8A8F9C', role: 'Threat Event History & Timelines',          label: 'Blackbox'   },
+  prospector:   { iconClass: 'prospector',   color: '#28A050', role: 'Sales Intelligence & Lead Generation',     label: 'Pathfinder' },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -5733,7 +5736,7 @@ async function viewAgents(el) {
         <div class="agent-status-dot ${a.status || 'idle'}"></div>
         <div class="agent-header">
           <div class="agent-icon ${meta.iconClass}" style="color:${meta.color}">${agentIcon(aid, 28)}</div>
-          <div class="agent-name-block"><div class="agent-name">${a.display_name || a.name}</div><div class="agent-role">${meta.role}</div></div>
+          <div class="agent-name-block"><div class="agent-name">${meta.label || a.display_name || a.name}</div><div class="agent-role">${meta.role}</div></div>
         </div>
         <div class="agent-stats-row">
           <div class="agent-stat"><div class="agent-stat-val">${a.jobs_24h || 0}</div><div class="agent-stat-label">Jobs</div></div>
@@ -5944,18 +5947,18 @@ async function viewAdmin(el) {
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon">\u{1F464}</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-feeds"><div class="adm-action-icon">\u{1F504}</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-agents"><div class="adm-action-icon">\u{1F9E0}</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00a8ff" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #8b5cf6" id="adm-dash-ai-attr"><div class="adm-action-icon">\u{1F916}</div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #22d3ee" id="adm-dash-social"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #06b6d4" id="adm-dash-social-10x"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="11" cy="10" r="4" stroke="#78A0C8" stroke-width="1.5"/><path d="M4 23c0-3.866 3.134-7 7-7h1" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><line x1="20" y1="16" x2="20" y2="24" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="20" x2="24" y2="20" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-feeds"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 0 1 14.5-4.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round"/><path d="M22 14a8 8 0 0 1-14.5 4.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round"/><polyline points="19,6 21.5,9.5 17.5,9.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9,22 6.5,18.5 10.5,18.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-agents"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><polygon points="14,5 21,14 14,23 7,14" stroke="#E8923C" stroke-width="1.5" stroke-linejoin="round"/><line x1="14" y1="2" x2="14" y2="26" stroke="#E8923C" stroke-width="1" opacity="0.45"/><line x1="2" y1="14" x2="26" y2="14" stroke="#E8923C" stroke-width="1" opacity="0.45"/><circle cx="14" cy="14" r="2" fill="#E8923C"/></svg></div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-backfill"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4L6 7.5v6.5c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7.5L14 4z" stroke="#28A050" stroke-width="1.5" stroke-linejoin="round"/><polyline points="10,14 13,17 19,11" stroke="#28A050" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-tranco"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><line x1="14" y1="5" x2="14" y2="19" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><polyline points="9,14 14,19 19,14" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="23" x2="22" y2="23" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #5A80A8" id="adm-dash-geo"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="12" cy="12" r="7" stroke="#5A80A8" stroke-width="1.5"/><ellipse cx="12" cy="12" rx="3" ry="7" stroke="#5A80A8" stroke-width="1"/><line x1="5" y1="12" x2="19" y2="12" stroke="#5A80A8" stroke-width="1"/><path d="M22.5 20.5a2.5 2.5 0 1 0-5 0c0 2.2 2.5 5 2.5 5s2.5-2.8 2.5-5z" stroke="#5A80A8" stroke-width="1.5"/><circle cx="20" cy="20.5" r="1" fill="#5A80A8"/></svg></div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-brand-match"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M12 16.5a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L13 8.43" stroke="#E8923C" stroke-width="1.5" stroke-linecap="round"/><path d="M16 11.5a5 5 0 0 0-7.07 0L6.1 14.33a5 5 0 0 0 7.07 7.07L15 19.57" stroke="#E8923C" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-ai-attr"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="8" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="20" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="14" cy="19" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="14" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><line x1="10.5" y1="9" x2="11.5" y2="9" stroke="#C83C3C" stroke-width="1"/><line x1="16.5" y1="9" x2="17.5" y2="9" stroke="#C83C3C" stroke-width="1"/><line x1="8" y1="11.5" x2="13" y2="16.5" stroke="#C83C3C" stroke-width="1"/><line x1="20" y1="11.5" x2="15" y2="16.5" stroke="#C83C3C" stroke-width="1"/><line x1="14" y1="11.5" x2="14" y2="16.5" stroke="#C83C3C" stroke-width="1"/></svg></div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-social"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="12" rx="8" ry="5" stroke="#78A0C8" stroke-width="1.5"/><circle cx="14" cy="12" r="2" fill="#78A0C8"/><circle cx="8" cy="22" r="2" stroke="#78A0C8" stroke-width="1.5"/><circle cx="20" cy="22" r="2" stroke="#78A0C8" stroke-width="1.5"/><line x1="9" y1="20.5" x2="12" y2="17.5" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/><line x1="19" y1="20.5" x2="16" y2="17.5" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="22" x2="18" y2="22" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/></svg></div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-social-10x"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><polyline points="17,4 10,15 15.5,15 11,24" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #8A8F9C" onclick="navigate('/admin/audit')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M18 4H9a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 9 20h5" stroke="#8A8F9C" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="8" x2="16" y2="8" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="11.5" x2="16" y2="11.5" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="15" x2="13" y2="15" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><circle cx="20.5" cy="21.5" r="4.5" stroke="#8A8F9C" stroke-width="1.5"/><polyline points="20.5,19 20.5,21.5 22.5,21.5" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M13 8H8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><polyline points="17,5 23,5 23,11" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="23" y1="5" x2="14" y2="14" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel">
@@ -6125,7 +6128,7 @@ async function viewAdmin(el) {
       const bl = backlogMap[a.name] || backlogMap[aid];
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // Email Security stats
