@@ -214,13 +214,13 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
 
   // Spam trap catches (last 30 days)
   const trapCatches = await db.prepare(`
-    SELECT brand_id, COUNT(*) as catch_count
+    SELECT spoofed_brand_id, COUNT(*) as catch_count
     FROM spam_trap_captures
     WHERE captured_at >= datetime('now', '-30 days')
-      AND brand_id IS NOT NULL
-    GROUP BY brand_id
-  `).all<{ brand_id: string; catch_count: number }>();
-  const trapMap = new Map(trapCatches.results.map(r => [r.brand_id, r.catch_count]));
+      AND spoofed_brand_id IS NOT NULL
+    GROUP BY spoofed_brand_id
+  `).all<{ spoofed_brand_id: string; catch_count: number }>();
+  const trapMap = new Map(trapCatches.results.map(r => [r.spoofed_brand_id, r.catch_count]));
 
   // Risk scores
   const riskScores = await db.prepare(`
