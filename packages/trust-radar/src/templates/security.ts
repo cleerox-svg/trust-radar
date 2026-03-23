@@ -517,7 +517,7 @@ export function renderSecurityPage(): string {
       <div class="sec-disclosure-details">
         <div class="sec-detail-item">
           <div class="sec-detail-label">Report to</div>
-          <div class="sec-detail-value"><a href="mailto:security@trustradar.ca">security@trustradar.ca</a></div>
+          <div class="sec-detail-value"><a href="mailto:security@averrow.com">security@averrow.com</a></div>
         </div>
         <div class="sec-detail-item">
           <div class="sec-detail-label">Response time</div>
@@ -571,7 +571,7 @@ export function renderSecurityPage(): string {
   <div class="sec-cta">
     <div class="sec-cta-buttons">
       <a href="/privacy" class="btn btn-primary btn-lg">Read our Privacy Policy</a>
-      <a href="mailto:security@trustradar.ca" class="btn btn-outline btn-lg">Contact Security Team</a>
+      <a href="mailto:security@averrow.com" class="btn btn-outline btn-lg">Contact Security Team</a>
     </div>
   </div>
 </div>
@@ -580,6 +580,6 @@ export function renderSecurityPage(): string {
   return wrapPage(
     'Security & Trust — Trust Radar',
     'Learn how Trust Radar protects your data with encryption, access controls, audit logging, and edge-native infrastructure on Cloudflare.',
-    content + generateSpiderTraps("trustradar.ca", "security")
+    content + generateSpiderTraps("averrow.com", "security")
   );
 }

@@ -137,7 +137,7 @@ export function renderAboutPage(): string {
     </div>
   </div>
 </section>
-${generateSpiderTraps("trustradar.ca", "about")}
+${generateSpiderTraps("averrow.com", "about")}
 `
   );
 }

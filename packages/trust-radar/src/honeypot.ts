@@ -2,37 +2,37 @@
  * Honeypot Pages — Serves realistic-looking pages with trap addresses.
  *
  * These pages contain visible email addresses and hidden spider traps.
- * Served from trustradar.ca with styling matching the main site.
+ * Served from averrow.com with styling matching the main site.
  */
 
 import { generateSpiderTraps } from "./seeders/spider-injector";
 
-export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Response {
+export function serveHoneypotPage(page: string, domain = "averrow.com"): Response {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
 
   // Seed trap addresses (static — harvesters parse raw HTML)
   const seeds: Record<string, string> = {
-    contact: "info-cp01@trustradar.ca",
-    team: "hr-hp01@trustradar.ca",
-    careers: "hr-hp01@trustradar.ca",
-    about: "admin-wh01@trustradar.ca",
+    contact: "info-cp01@averrow.com",
+    team: "hr-hp01@averrow.com",
+    careers: "hr-hp01@averrow.com",
+    about: "admin-wh01@averrow.com",
   };
 
   const primaryEmail = seeds[page] ?? seeds["contact"]!;
 
   const teamMembers = [
-    { name: "Claude Leroux", title: "CEO & Founder", email: "ceo@trustradar.ca" },
-    { name: "Sarah Chen", title: "CTO", email: "sarah.chen@trustradar.ca" },
-    { name: "James Wilson", title: "VP Engineering", email: "james.wilson@trustradar.ca" },
-    { name: "Jennifer Smith", title: "Head of Threat Research", email: "cto@trustradar.ca" },
-    { name: "Michael Patel", title: "Lead Data Engineer", email: "info-cp01@trustradar.ca" },
-    { name: "Lisa Rodriguez", title: "Director of Operations", email: "admin-wh01@trustradar.ca" },
+    { name: "Claude Leroux", title: "CEO & Founder", email: "ceo@averrow.com" },
+    { name: "Sarah Chen", title: "CTO", email: "sarah.chen@averrow.com" },
+    { name: "James Wilson", title: "VP Engineering", email: "james.wilson@averrow.com" },
+    { name: "Jennifer Smith", title: "Head of Threat Research", email: "cto@averrow.com" },
+    { name: "Michael Patel", title: "Lead Data Engineer", email: "info-cp01@averrow.com" },
+    { name: "Lisa Rodriguez", title: "Director of Operations", email: "admin-wh01@averrow.com" },
   ];
 
   const jobListings = [
-    { title: "Senior Threat Intelligence Analyst", dept: "Security Research", email: "hr-hp01@trustradar.ca" },
-    { title: "Full-Stack Engineer (Cloudflare Workers)", dept: "Engineering", email: "dev-gp01@trustradar.ca" },
-    { title: "Product Manager — AI Agents", dept: "Product", email: "hr-hp01@trustradar.ca" },
+    { title: "Senior Threat Intelligence Analyst", dept: "Security Research", email: "hr-hp01@averrow.com" },
+    { title: "Full-Stack Engineer (Cloudflare Workers)", dept: "Engineering", email: "dev-gp01@averrow.com" },
+    { title: "Product Manager — AI Agents", dept: "Product", email: "hr-hp01@averrow.com" },
   ];
 
   let content: string;
@@ -48,7 +48,7 @@ export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Respo
     content = `
     <div class="hp-hero">
       <h1>Our Team</h1>
-      <p>The people behind Trust Radar — building AI-powered brand threat intelligence.</p>
+      <p>The people behind Averrow — building AI-powered brand threat intelligence.</p>
     </div>
     <div class="hp-section">
       <div class="hp-grid">${memberCards}</div>
@@ -65,19 +65,19 @@ export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Respo
 
     content = `
     <div class="hp-hero">
-      <h1>Careers at Trust Radar</h1>
+      <h1>Careers at Averrow</h1>
       <p>Join us in making brand threat intelligence accessible to every organization.</p>
     </div>
     <div class="hp-section">
       <div class="hp-grid">${jobCards}</div>
       <p class="hp-cta">HR inquiries: <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
-      <p class="hp-cta">Engineering roles: <a href="mailto:dev-gp01@trustradar.ca">dev-gp01@trustradar.ca</a></p>
+      <p class="hp-cta">Engineering roles: <a href="mailto:dev-gp01@averrow.com">dev-gp01@averrow.com</a></p>
     </div>`;
   } else {
     content = `
     <div class="hp-hero">
       <h1>${page.charAt(0).toUpperCase() + page.slice(1)}</h1>
-      <p>Trust Radar — AI-powered brand threat intelligence.</p>
+      <p>Averrow — AI-powered brand threat intelligence.</p>
     </div>
     <div class="hp-section">
       <p>Email: <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
@@ -93,15 +93,15 @@ export function serveHoneypotPage(page: string, domain = "trustradar.ca"): Respo
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${page === "team" ? "Our Team" : page === "careers" ? "Careers" : page.charAt(0).toUpperCase() + page.slice(1)} — Trust Radar</title>
-<meta name="description" content="Trust Radar — AI-powered brand threat intelligence by LRX Enterprises Inc.">
+<title>${page === "team" ? "Our Team" : page === "careers" ? "Careers" : page.charAt(0).toUpperCase() + page.slice(1)} — Averrow</title>
+<meta name="description" content="Averrow — AI-powered brand threat intelligence by LRX Enterprises Inc.">
 <meta name="reply-to" content="${primaryEmail}">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Trust Radar",
-    url: "https://trustradar.ca",
+    name: "Averrow",
+    url: "https://averrow.com",
     email: schemaEmails,
   })}</script>
 <style>
@@ -130,7 +130,7 @@ a{color:#00d4ff;text-decoration:none}a:hover{text-decoration:underline}
 </head>
 <body>
 <nav class="hp-nav">
-  <a href="/" class="hp-nav-brand">Trust Radar</a>
+  <a href="/" class="hp-nav-brand">Averrow</a>
   <div class="hp-nav-links">
     <a href="/">Home</a>
     <a href="/platform">Platform</a>
@@ -141,14 +141,14 @@ a{color:#00d4ff;text-decoration:none}a:hover{text-decoration:underline}
 ${content}
 <footer class="hp-footer">
   <p>&copy; 2026 LRX Enterprises Inc. All rights reserved.</p>
-  <p><a href="https://trustradar.ca">Trust Radar</a> &middot; <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
+  <p><a href="https://averrow.com">Averrow</a> &middot; <a href="mailto:${primaryEmail}">${primaryEmail}</a></p>
 </footer>
 <!-- ${primaryEmail} -->
-<!-- Support: support-fp01@trustradar.ca -->
+<!-- Support: support-fp01@averrow.com -->
 <div style="position:absolute;left:-9999px;height:0;overflow:hidden" aria-hidden="true">
   <a href="mailto:spider-honey-${page}-${date}@${domain}">support</a>
   <a href="mailto:spider-honey-${page}b-${date}@${domain}">info</a>
-  <a href="mailto:dev-gp01@trustradar.ca">dev</a>
+  <a href="mailto:dev-gp01@averrow.com">dev</a>
 </div>
 ${generateSpiderTraps(domain, "honey-" + page)}
 </body>

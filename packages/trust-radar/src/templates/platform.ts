@@ -323,7 +323,7 @@ export function renderPlatformPage(): string {
     </div>
   </div>
 </section>
-${generateSpiderTraps("trustradar.ca", "platform")}
+${generateSpiderTraps("averrow.com", "platform")}
 `
   );
 }

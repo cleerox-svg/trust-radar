@@ -1,7 +1,7 @@
 import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderHomepage(): string {
-  const spiderTraps = generateSpiderTraps("trustradar.ca", "scan");
+  const spiderTraps = generateSpiderTraps("averrow.com", "scan");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -165,7 +165,7 @@ export function renderHomepage(): string {
 
 <footer class="pub-footer">
   <div class="footer-logo">TRUST <span>RADAR</span></div>
-  <div class="footer-text">AI-powered threat intelligence by LRX &middot; trustradar.ca</div>
+  <div class="footer-text">AI-powered threat intelligence by LRX &middot; averrow.com</div>
 </footer>
 
 <script>

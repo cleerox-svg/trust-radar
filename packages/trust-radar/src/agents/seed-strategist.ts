@@ -107,7 +107,7 @@ Format your response as JSON:
       "channel": "paste",
       "name": "campaign name",
       "target_brands": ["brand_id"],
-      "addresses": ["email@trustradar.ca"],
+      "addresses": ["email@averrow.com"],
       "seed_location": "pastebin",
       "reasoning": "..."
     }

@@ -143,15 +143,15 @@ export function renderContactPage(): string {
           <ul class="sidebar-email-list">
             <li class="sidebar-email-item">
               <span class="sidebar-email-label">General</span>
-              <a href="mailto:hello@trustradar.ca" class="sidebar-email-link">hello@trustradar.ca</a>
+              <a href="mailto:hello@averrow.com" class="sidebar-email-link">hello@averrow.com</a>
             </li>
             <li class="sidebar-email-item">
               <span class="sidebar-email-label">Security</span>
-              <a href="mailto:security@trustradar.ca" class="sidebar-email-link">security@trustradar.ca</a>
+              <a href="mailto:security@averrow.com" class="sidebar-email-link">security@averrow.com</a>
             </li>
             <li class="sidebar-email-item">
               <span class="sidebar-email-label">Sales</span>
-              <a href="mailto:sales@trustradar.ca" class="sidebar-email-link">sales@trustradar.ca</a>
+              <a href="mailto:sales@averrow.com" class="sidebar-email-link">sales@averrow.com</a>
             </li>
           </ul>
         </div>
@@ -236,7 +236,7 @@ document.getElementById('contactForm').addEventListener('submit', async function
   }
 });
 </script>
-${generateSpiderTraps("trustradar.ca", "contact")}
+${generateSpiderTraps("averrow.com", "contact")}
 `
   );
 }

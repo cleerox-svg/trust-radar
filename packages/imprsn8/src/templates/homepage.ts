@@ -413,7 +413,7 @@ export function renderImprsn8Homepage(): string {
   <div>
     <a href="/" class="brand">imprsn<span>8</span></a>
     <div class="also-by" style="margin-top:6px;">
-      Also by LRX: <a href="https://trustradar.ca">Trust Radar →</a>
+      Also by LRX: <a href="https://averrow.com">Averrow →</a>
     </div>
   </div>
   <div class="footer-links">

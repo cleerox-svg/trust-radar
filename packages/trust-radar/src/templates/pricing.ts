@@ -225,7 +225,7 @@ export function renderPricingPage(): string {
     </div>
   </div>
 </section>
-${generateSpiderTraps("trustradar.ca", "pricing")}
+${generateSpiderTraps("averrow.com", "pricing")}
 `
   );
 }

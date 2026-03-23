@@ -155,7 +155,7 @@ export function renderTermsPage(): string {
   </p>
   <p>
     <strong>LRX Enterprises Inc.</strong><br>
-    Email: <a href="mailto:legal@trustradar.ca">legal@trustradar.ca</a>
+    Email: <a href="mailto:legal@averrow.com">legal@averrow.com</a>
   </p>
 </div>`;
 

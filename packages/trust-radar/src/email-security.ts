@@ -215,7 +215,7 @@ export function calculateEmailSecurityScore(scan: EmailSecurityScanInput): { sco
     else if (scan.dmarc.policy === 'quarantine') score += 12;
     else if (scan.dmarc.policy === 'none') score += 4;
     if (scan.dmarc.rua) score += 5; // Aggregate reporting
-    if (scan.dmarc.rua?.includes('trustradar.ca')) score += 5; // Trust Radar reporting bonus
+    if (scan.dmarc.rua?.includes('averrow.com') || scan.dmarc.rua?.includes('trustradar.ca')) score += 5; // Averrow reporting bonus
   }
 
   // SPF (30 points max)

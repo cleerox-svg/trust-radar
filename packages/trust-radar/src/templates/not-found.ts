@@ -530,7 +530,7 @@ img { max-width: 100%; }
         </a>
         <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
-          <a href="mailto:hello@trustradar.ca" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@trustradar.ca</a>
+          <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
       </div>
       <div class="footer-col">

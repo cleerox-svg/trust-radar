@@ -56,7 +56,7 @@ export function renderPrivacyPage(): string {
   <ul>
     <li><strong>Active Account Data:</strong> Your personal information and scan history are retained for as long as your subscription remains active.</li>
     <li><strong>Free Scan Results:</strong> Results from one-time free scans are cached for 24 hours and then automatically purged.</li>
-    <li><strong>Account Deletion:</strong> Upon request, your account and all associated data will be permanently deleted within 30 days. To request deletion, contact us at <a href="mailto:privacy@trustradar.ca">privacy@trustradar.ca</a>.</li>
+    <li><strong>Account Deletion:</strong> Upon request, your account and all associated data will be permanently deleted within 30 days. To request deletion, contact us at <a href="mailto:privacy@averrow.com">privacy@averrow.com</a>.</li>
   </ul>
 
   <h2>Third-Party Processors</h2>
@@ -76,7 +76,7 @@ export function renderPrivacyPage(): string {
   </ul>
   <p>
     To exercise any of these rights, please contact us at
-    <a href="mailto:privacy@trustradar.ca">privacy@trustradar.ca</a>.
+    <a href="mailto:privacy@averrow.com">privacy@averrow.com</a>.
     We will respond to your request within 30 days.
   </p>
 
@@ -113,7 +113,7 @@ export function renderPrivacyPage(): string {
   </p>
   <p>
     <strong>LRX Enterprises Inc.</strong><br>
-    Email: <a href="mailto:privacy@trustradar.ca">privacy@trustradar.ca</a>
+    Email: <a href="mailto:privacy@averrow.com">privacy@averrow.com</a>
   </p>
 </div>`;
 

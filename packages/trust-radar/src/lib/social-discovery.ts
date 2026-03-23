@@ -289,7 +289,7 @@ export async function discoverSocialProfiles(websiteUrl: string): Promise<Discov
   try {
     const response = await fetch(websiteUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TrustRadar/1.0; +https://trustradar.ca)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Averrow/1.0; +https://averrow.com)',
         'Accept': 'text/html,application/xhtml+xml',
       },
       redirect: 'follow',

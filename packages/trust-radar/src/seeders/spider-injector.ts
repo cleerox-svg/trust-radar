@@ -6,7 +6,7 @@
  * for tracking which trap caught which spammer.
  */
 
-export function generateSpiderTraps(domain: string = "trustradar.ca", page: string = "page"): string {
+export function generateSpiderTraps(domain: string = "averrow.com", page: string = "page"): string {
   const date = (new Date().toISOString().split("T")[0] ?? "").replace(/-/g, "");
   return `
     <div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden" aria-hidden="true">
