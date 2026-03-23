@@ -115,7 +115,7 @@ export function renderPlatformPage(): string {
 
 /* === ARCHITECTURE SVG FLOW === */
 .arch-section { padding: 3rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
-.arch-svg-wrap { max-width: 860px; margin: 2.5rem auto 0; padding: 0 1.5rem; overflow-x: auto; }
+.arch-svg-wrap { max-width: 1400px; margin: 2.5rem auto 0; padding: 0 2rem; overflow-x: auto; }
 .arch-svg-wrap svg { min-width: 580px; width: 100%; }
 .arch-box { fill: var(--bg-secondary); stroke: var(--border); stroke-width: 1; }
 .arch-box-final { fill: var(--accent-bg); stroke: rgba(200,60,60,0.3); stroke-width: 1.5; }
@@ -127,7 +127,7 @@ export function renderPlatformPage(): string {
 
 /* === INTEGRATIONS === */
 .int-section { padding: 3rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
-.int-grid { max-width: 900px; margin: 2rem auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.int-grid { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .int-card { background: rgba(14,26,43,0.5); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 1.25rem; text-align: center; transition: all 0.3s ease; position: relative; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 [data-theme="light"] .int-card { background: rgba(255,255,255,0.68); }
 .int-card:hover { border-color: rgba(200,60,60,0.4); transform: translateY(-5px); box-shadow: 0 0 28px rgba(200,60,60,0.14), 0 8px 24px rgba(0,0,0,0.2); }

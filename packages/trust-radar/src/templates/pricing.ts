@@ -34,7 +34,7 @@ export function renderPricingPage(): string {
 .price-cta { margin-top: auto; }
 
 .compare-section { padding: 3rem 0; background: var(--bg-tertiary); }
-.compare-table-wrap { max-width: 900px; margin: 2rem auto 0; padding: 0 2rem; overflow-x: auto; }
+.compare-table-wrap { max-width: 1400px; margin: 2rem auto 0; padding: 0 2rem; overflow-x: auto; }
 .compare-table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
 .compare-table th { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); text-align: left; padding: 1rem; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); }
 .compare-table th.highlight { color: var(--accent); }

@@ -143,8 +143,8 @@ export function renderSecurityPage(): string {
 
 /* ── INFRASTRUCTURE LIST ── */
 .sec-infra-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
 }
 
@@ -159,6 +159,7 @@ export function renderSecurityPage(): string {
 .sec-infra-item:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
 }
 
 .sec-infra-item h4 {
@@ -389,6 +390,10 @@ export function renderSecurityPage(): string {
 }
 
 /* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .sec-infra-list { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 640px) {
   .sec-hero { padding: 5rem 0 2rem; }
   .sec-section { padding: 2rem 0; }

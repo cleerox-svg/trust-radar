@@ -11,7 +11,7 @@ export function renderChangelogPage(): string {
 <style>
 /* ── CHANGELOG PAGE ── */
 .changelog-hero {
-  padding: 10rem 0 4rem;
+  padding: 5rem 0 2.5rem;
   text-align: center;
   background: var(--gradient-hero);
 }
@@ -34,7 +34,7 @@ export function renderChangelogPage(): string {
 }
 
 .changelog-section {
-  padding: 5rem 0 7rem;
+  padding: 3rem 0;
 }
 
 /* ── TIMELINE ── */
@@ -88,7 +88,7 @@ export function renderChangelogPage(): string {
 .timeline-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 1.75rem 2rem;
   transition: all 0.3s;
 }
@@ -177,10 +177,10 @@ export function renderChangelogPage(): string {
 /* ── RESPONSIVE ── */
 @media (max-width: 640px) {
   .changelog-hero {
-    padding: 8rem 0 3rem;
+    padding: 5rem 0 2rem;
   }
   .changelog-section {
-    padding: 3rem 0 5rem;
+    padding: 2rem 0;
   }
   .timeline::before {
     left: 18px;
