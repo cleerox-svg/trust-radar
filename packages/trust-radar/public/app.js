@@ -266,7 +266,7 @@ async function render() {
     route.view(document.getElementById('view'), params);
     // Append footer at bottom of main content
     const mainEl = document.querySelector('.main');
-    if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(0,212,255,.15);font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>');
+    if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(200,60,60,.15);font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>');
     startFeedStatusUpdater();
     startNotificationPoller();
     _initUserMenu();
@@ -398,7 +398,7 @@ async function _loadNotifications() {
       return;
     }
     list.innerHTML = items.map(n => {
-      const severityColor = { critical: '#ff3b5c', high: '#ff6b35', medium: '#ffb627', low: '#00d4ff', info: '#7a8ba8' }[n.severity] || '#7a8ba8';
+      const severityColor = { critical: '#C83C3C', high: '#ff6b35', medium: '#E8923C', low: '#78A0C8', info: '#7a8ba8' }[n.severity] || '#7a8ba8';
       const readClass = n.read_at ? 'notif-read' : 'notif-unread';
       const timeAgo = _timeAgo(n.created_at);
       return `<div class="notif-item ${readClass}" onclick="markNotifRead('${n.id}', '${n.link || ''}')">
@@ -874,22 +874,22 @@ async function viewPublicSite(el, params) {
   const logoSvg = `<svg width="160" height="28" viewBox="0 0 160 28"><defs><linearGradient id="nav-lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(14,14)"><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#C83C3C" stroke-width="0.6" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#78A0C8" stroke-width="0.4" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-10 L6,8 H-6 Z" fill="url(#nav-lg)"/><path d="M-1.5,5 H1.5 L0,1 Z" fill="#080E18"/><circle cx="0" cy="-10" r="1.2" fill="#C83C3C"/></g><text x="32" y="18" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="14" letter-spacing="2" fill="#F0EDE8">AVERROW</text></svg>`;
 
   // Hero logo (large animated SVG for footer CTA)
-  const heroLogo = `<svg width="80" height="80" viewBox="0 0 80 80"><g transform="translate(40,40)"><path d="M-6.3,-35 A35,35 0 0,1 20.5,-28.3" stroke="#00d4ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M26,-20.5 A35,35 0 0,1 34.5,6.5" stroke="#00e5a0" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M31.5,15 A35,35 0 0,1 6.5,34.5" stroke="#ffb627" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-1.5,35 A35,35 0 0,1 -31.5,15" stroke="#ff3b5c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-34.5,6.5 A35,35 0 0,1 -16.8,-30.8" stroke="#b388ff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-32" stroke="#00d4ff" stroke-width="1" opacity=".35"/></g><circle cx="0" cy="0" r="6" fill="rgba(0,212,255,.08)" stroke="#00d4ff" stroke-width="1.5"/><circle cx="0" cy="0" r="3" fill="#00d4ff"/></g></svg>`;
+  const heroLogo = `<svg width="80" height="80" viewBox="0 0 80 80"><g transform="translate(40,40)"><path d="M-6.3,-35 A35,35 0 0,1 20.5,-28.3" stroke="#78A0C8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M26,-20.5 A35,35 0 0,1 34.5,6.5" stroke="#28A050" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M31.5,15 A35,35 0 0,1 6.5,34.5" stroke="#E8923C" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-1.5,35 A35,35 0 0,1 -31.5,15" stroke="#C83C3C" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><path d="M-34.5,6.5 A35,35 0 0,1 -16.8,-30.8" stroke="#78A0C8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-32" stroke="#C83C3C" stroke-width="1" opacity=".35"/></g><circle cx="0" cy="0" r="6" fill="rgba(200,60,60,.08)" stroke="#C83C3C" stroke-width="1.5"/><circle cx="0" cy="0" r="3" fill="#C83C3C"/></g></svg>`;
 
   const agents = [
-    { name: 'Sentinel', color: '#00d4ff', role: 'Certificate & Domain Surveillance', icon: '\u25C9',
+    { name: 'Sentinel', color: '#C83C3C', role: 'Certificate & Domain Surveillance', icon: '\u25C9',
       bullets: ['Monitors Certificate Transparency logs in real-time', 'Detects newly registered suspicious domains', 'Flags typosquatting and homoglyph attacks'],
       statKey: 'certificates_today', statLabel: 'certificates scanned today' },
-    { name: 'Analyst', color: '#00e5a0', role: 'Threat Classification & Brand Matching', icon: '\u25C8',
+    { name: 'Analyst', color: '#28A050', role: 'Threat Classification & Brand Matching', icon: '\u25C8',
       bullets: ['AI-powered URL analysis using Claude Haiku', 'Matches threats to target brands automatically', 'Scores confidence and assigns severity levels'],
       statKey: 'threats_classified_today', statLabel: 'threats classified today' },
-    { name: 'Cartographer', color: '#ffb627', role: 'Infrastructure Mapping & Provider Scoring', icon: '\u25CE',
+    { name: 'Cartographer', color: '#E8923C', role: 'Infrastructure Mapping & Provider Scoring', icon: '\u25CE',
       bullets: ['Maps IP addresses to hosting providers and ASNs', 'Scores provider abuse rates and response times', 'Identifies infrastructure patterns across campaigns'],
       statKey: 'providers_mapped', statLabel: 'providers mapped' },
-    { name: 'Strategist', color: '#ff3b5c', role: 'Campaign Correlation & Clustering', icon: '\u25C6',
+    { name: 'Strategist', color: '#C83C3C', role: 'Campaign Correlation & Clustering', icon: '\u25C6',
       bullets: ['Groups related threats into coordinated campaigns', 'AI-generates descriptive campaign names', 'Identifies shared infrastructure and attack patterns'],
       statKey: 'threat_campaigns', statLabel: 'active threat campaigns' },
-    { name: 'Observer', color: '#b388ff', role: 'Intelligence Synthesis & Trend Analysis', icon: '\u25CB',
+    { name: 'Observer', color: '#78A0C8', role: 'Intelligence Synthesis & Trend Analysis', icon: '\u25CB',
       bullets: ['Produces narrative threat intelligence briefings', 'Identifies emerging attack trends and shifts', 'Monitors brand-specific threat landscapes'],
       statKey: 'latest_insight_summary', statLabel: '' },
   ];
@@ -897,17 +897,17 @@ async function viewPublicSite(el, params) {
   // Threat category definitions with SVG icons
   const threatCategories = [
     { type: 'phishing', label: 'Phishing & Credential Harvesting', desc: 'Fake login pages designed to steal user credentials',
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff3b5c" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/></svg>' },
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/></svg>' },
     { type: 'typosquatting', label: 'Brand Impersonation & Typosquatting', desc: 'Lookalike domains exploiting brand trust',
       icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>' },
     { type: 'malware', label: 'Malware Distribution URLs', desc: 'URLs serving malicious payloads and downloaders',
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffb627" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l2 2"/></svg>' },
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l2 2"/></svg>' },
     { type: 'c2', label: 'Command & Control Infrastructure', desc: 'C2 servers controlling compromised hosts',
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' },
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>' },
     { type: 'botnet', label: 'Botnet Nodes', desc: 'Infected hosts participating in bot networks',
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b388ff" stroke-width="1.5"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M7.5 17.5L10 13M16.5 17.5L14 13"/></svg>' },
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M7.5 17.5L10 13M16.5 17.5L14 13"/></svg>' },
     { type: 'ssl_blacklist', label: 'Malicious SSL Certificates', desc: 'SSL certs associated with known malware',
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00e5a0" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>' },
+      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#28A050" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>' },
     { type: 'scanner', label: 'Scanning & Reconnaissance', desc: 'Hosts performing network scans and probes',
       icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7a8ba8" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>' },
   ];
@@ -915,17 +915,17 @@ async function viewPublicSite(el, params) {
   // Feed type badges
   const feedTypeBadge = (name) => {
     const n = name.toLowerCase();
-    if (n.includes('phish') || n.includes('openphish')) return { label: 'Phishing', color: '#ff3b5c' };
-    if (n.includes('urlhaus') || n.includes('malware') || n.includes('threatfox')) return { label: 'Malware', color: '#ffb627' };
-    if (n.includes('ssl') || n.includes('cert') || n.includes('ct_logs')) return { label: 'SSL', color: '#00e5a0' };
-    if (n.includes('cins') || n.includes('dshield') || n.includes('blocklist')) return { label: 'IP Intel', color: '#b388ff' };
-    if (n.includes('cloudflare')) return { label: 'Intel', color: '#00d4ff' };
+    if (n.includes('phish') || n.includes('openphish')) return { label: 'Phishing', color: '#C83C3C' };
+    if (n.includes('urlhaus') || n.includes('malware') || n.includes('threatfox')) return { label: 'Malware', color: '#E8923C' };
+    if (n.includes('ssl') || n.includes('cert') || n.includes('ct_logs')) return { label: 'SSL', color: '#28A050' };
+    if (n.includes('cins') || n.includes('dshield') || n.includes('blocklist')) return { label: 'IP Intel', color: '#78A0C8' };
+    if (n.includes('cloudflare')) return { label: 'Intel', color: '#78A0C8' };
     if (n.includes('nrd') || n.includes('hagezi')) return { label: 'Domains', color: '#ff6b35' };
     return { label: 'Intel', color: '#7a8ba8' };
   };
 
   el.innerHTML = `
-    ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" style="color:#00d4ff">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
+    ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" style="color:#C83C3C">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
 
     <!-- NAV -->
     <nav class="pub-nav">
@@ -955,7 +955,7 @@ async function viewPublicSite(el, params) {
       <div class="pub-hero-overlay"></div>
       <div class="pub-hero-content">
         <h1 class="pub-hero-title">See What Attackers See</h1>
-        <p class="pub-hero-sub">Trust Radar is an AI-powered threat intelligence observatory that watches the internet\u2019s attack surface 24/7. Five autonomous agents detect threat campaigns, map hostile infrastructure, and protect your brand \u2014 before damage is done.</p>
+        <p class="pub-hero-sub">Averrow is an AI-powered threat intelligence observatory that watches the internet\u2019s attack surface 24/7. Five autonomous agents detect threat campaigns, map hostile infrastructure, and protect your brand \u2014 before damage is done.</p>
         <div class="pub-hero-cta">
           <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Scan Your Brand</a>
           <a href="#agents" class="pub-btn pub-btn-outline pub-btn-lg">See It Live \u2193</a>
@@ -989,7 +989,7 @@ async function viewPublicSite(el, params) {
           <div class="pub-problem-src">Making takedowns harder than ever</div>
         </div>
       </div>
-      <p class="pub-problem-cta">Trust Radar changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong style="color:#00d4ff">every five minutes</strong>.</p>
+      <p class="pub-problem-cta">Averrow changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong style="color:#C83C3C">every five minutes</strong>.</p>
     </section>
 
     <!-- WHAT WE DETECT -->
@@ -1045,13 +1045,13 @@ async function viewPublicSite(el, params) {
         <div class="pub-step">
           <div class="pub-step-num">2</div>
           <h3>AI-Powered Analysis</h3>
-          <p>Five AI agents \u2014 <span style="color:#00d4ff">Sentinel</span>, <span style="color:#00e5a0">Analyst</span>, <span style="color:#ffb627">Cartographer</span>, <span style="color:#ff3b5c">Strategist</span>, and <span style="color:#b388ff">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
+          <p>Five AI agents \u2014 <span style="color:#C83C3C">Sentinel</span>, <span style="color:#28A050">Analyst</span>, <span style="color:#E8923C">Cartographer</span>, <span style="color:#C83C3C">Strategist</span>, and <span style="color:#78A0C8">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
           <div class="pub-step-agents">
-            <span class="pub-step-agent" style="--ac:#00d4ff">\u25C9</span>
-            <span class="pub-step-agent" style="--ac:#00e5a0">\u25C8</span>
-            <span class="pub-step-agent" style="--ac:#ffb627">\u25CE</span>
-            <span class="pub-step-agent" style="--ac:#ff3b5c">\u25C6</span>
-            <span class="pub-step-agent" style="--ac:#b388ff">\u25CB</span>
+            <span class="pub-step-agent" style="--ac:#C83C3C">\u25C9</span>
+            <span class="pub-step-agent" style="--ac:#28A050">\u25C8</span>
+            <span class="pub-step-agent" style="--ac:#E8923C">\u25CE</span>
+            <span class="pub-step-agent" style="--ac:#C83C3C">\u25C6</span>
+            <span class="pub-step-agent" style="--ac:#78A0C8">\u25CB</span>
           </div>
         </div>
         <div class="pub-step">
@@ -1117,11 +1117,11 @@ async function viewPublicSite(el, params) {
       </div>
       <div class="pub-footer-cta">
         <a href="#assessment" class="pub-btn pub-btn-primary pub-btn-lg">Get Your Free Assessment</a>
-        <a href="mailto:hello@trustradar.ca" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
+        <a href="mailto:hello@averrow.com" class="pub-btn pub-btn-outline pub-btn-lg">Request a Demo</a>
       </div>
       <div class="pub-footer-legal">
         <div>\u00A9 2026 LRX Enterprises Inc. \u{1F1E8}\u{1F1E6} Canadian owned and operated</div>
-        <div>trustradar.ca</div>
+        <div>averrow.com</div>
         <div class="pub-footer-links"><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></div>
       </div>
     </footer>
@@ -1157,10 +1157,10 @@ async function viewPublicSite(el, params) {
       // Plot public geo markers
       const geoRes = await fetch('/api/v1/public/geo').then(r => r.json()).catch(() => null);
       if (geoRes?.data) {
-        const colors = { critical: '#ff3b5c', high: '#ff6b35', medium: '#ffb627', low: '#00d4ff' };
+        const colors = { critical: '#C83C3C', high: '#ff6b35', medium: '#E8923C', low: '#78A0C8' };
         geoRes.data.slice(0, 200).forEach(p => {
           L.circleMarker([p.lat, p.lng], {
-            radius: 3, fillColor: colors[p.severity] || '#00d4ff',
+            radius: 3, fillColor: colors[p.severity] || '#78A0C8',
             fillOpacity: 0.6, stroke: false,
           }).addTo(map);
         });
@@ -1266,7 +1266,7 @@ async function viewPublicSite(el, params) {
       if (!grid || !feeds.length) return;
       grid.innerHTML = feeds.map(f => {
         const badge = feedTypeBadge(f.feed_name);
-        const statusColor = f.health_status === 'healthy' ? '#00e5a0' : f.health_status === 'degraded' ? '#ffb627' : '#ff3b5c';
+        const statusColor = f.health_status === 'healthy' ? '#28A050' : f.health_status === 'degraded' ? '#E8923C' : '#C83C3C';
         return `<div class="pub-feed-card">
           <div class="pub-feed-card-header">
             <span class="pub-feed-card-dot" style="background:${statusColor}"></span>
@@ -1288,7 +1288,7 @@ async function viewPublicSite(el, params) {
   async function runAssessment() {
     const domain = domainInput?.value?.trim();
     if (!domain || !domain.includes('.')) {
-      domainInput.style.borderColor = '#ff3b5c';
+      domainInput.style.borderColor = '#C83C3C';
       return;
     }
     domainInput.style.borderColor = '';
@@ -1319,7 +1319,7 @@ async function viewPublicSite(el, params) {
       }
 
       const d = res.data;
-      const scoreColor = d.grade === 'A' ? '#00d4ff' : d.grade === 'B' ? '#00e5a0' : d.grade === 'C' ? '#ffb627' : d.grade === 'D' ? '#ff6b35' : '#ff3b5c';
+      const scoreColor = d.grade === 'A' ? '#78A0C8' : d.grade === 'B' ? '#28A050' : d.grade === 'C' ? '#E8923C' : d.grade === 'D' ? '#ff6b35' : '#C83C3C';
       const pct = d.trust_score / 100;
       const radius = 60;
       const circ = 2 * Math.PI * radius;
@@ -1334,7 +1334,7 @@ async function viewPublicSite(el, params) {
       }
 
       const monitoredNote = d.is_monitored
-        ? '<div style="font-size:11px;color:var(--positive);margin-top:8px">This brand is actively monitored by Trust Radar</div>'
+        ? '<div style="font-size:11px;color:var(--positive);margin-top:8px">This brand is actively monitored by Averrow</div>'
         : '<div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">This brand is not currently monitored. <a href="#" style="color:var(--blue-primary)">Add it to get continuous protection.</a></div>';
 
       document.getElementById('pub-assess-results').style.display = 'block';
@@ -1349,8 +1349,8 @@ async function viewPublicSite(el, params) {
                   transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 1.5s ease">
                   <animate attributeName="stroke-dashoffset" from="${circ}" to="${offset}" dur="1.5s" fill="freeze"/>
                 </circle>
-                <text x="80" y="72" text-anchor="middle" font-family="'Chakra Petch',sans-serif" font-size="36" font-weight="700" fill="${scoreColor}">${d.trust_score}</text>
-                <text x="80" y="95" text-anchor="middle" font-family="'Chakra Petch',sans-serif" font-size="16" font-weight="600" fill="${scoreColor}">${d.grade}</text>
+                <text x="80" y="72" text-anchor="middle" font-family="'Plus Jakarta Sans',sans-serif" font-size="36" font-weight="700" fill="${scoreColor}">${d.trust_score}</text>
+                <text x="80" y="95" text-anchor="middle" font-family="'Plus Jakarta Sans',sans-serif" font-size="16" font-weight="600" fill="${scoreColor}">${d.grade}</text>
               </svg>
             </div>
             <div class="pub-results-stats">
@@ -1379,7 +1379,7 @@ async function viewPublicSite(el, params) {
           const vulnerabilityWarning = esScore < 50
             ? `<div class="pub-alert-bar pub-alert-danger">\u26A0 This domain has weak email security. Anyone could send emails pretending to be ${es.domain}.</div>`
             : esScore < 75
-            ? `<div class="pub-alert-bar" style="background:rgba(255,182,39,.08);border-color:rgba(255,182,39,.3);color:#ffb627">\uD83D\uDCA1 Email security could be improved. Some spoofing protection gaps detected.</div>`
+            ? `<div class="pub-alert-bar" style="background:rgba(255,182,39,.08);border-color:rgba(255,182,39,.3);color:#E8923C">\uD83D\uDCA1 Email security could be improved. Some spoofing protection gaps detected.</div>`
             : '';
           const esRecs = (es.recommendations || []).slice(0, 3).map(r => {
             const icon = r.startsWith('CRITICAL') ? '\uD83D\uDD34' : r.startsWith('WARNING') ? '\uD83D\uDFE1' : r.startsWith('GOOD') ? '\uD83D\uDFE2' : r.startsWith('Excellent') ? '\uD83C\uDFC6' : '\uD83D\uDCA1';
@@ -1426,7 +1426,7 @@ async function viewPublicSite(el, params) {
               <input type="text" id="pub-lead-company" placeholder="Company" required>
               <select id="pub-lead-role"><option value="">Select role...</option><option>CISO</option><option>Security Engineer</option><option>IT Director</option><option>Brand Manager</option><option>Legal/Compliance</option><option>Executive/C-Suite</option><option>Other</option></select>
             </div>
-            <div id="pub-lead-error" style="display:none;color:#ff3b5c;font-size:12px;margin-bottom:8px"></div>
+            <div id="pub-lead-error" style="display:none;color:#C83C3C;font-size:12px;margin-bottom:8px"></div>
             <button class="pub-btn pub-btn-primary pub-btn-lg" id="pub-lead-submit" style="width:100%">Send My Report \u2192</button>
           </div>
         `;
@@ -1514,10 +1514,10 @@ async function viewObservatory(el) {
       <button class="obs-tf-btn" data-period="all">ALL</button>
     </div>
     <div class="obs-sev-filter" id="obs-sev-filter">
-      <button class="obs-sev-btn active" data-sev="critical"><span class="obs-sev-dot" style="background:#ff3b5c"></span>Critical</button>
+      <button class="obs-sev-btn active" data-sev="critical"><span class="obs-sev-dot" style="background:#C83C3C"></span>Critical</button>
       <button class="obs-sev-btn active" data-sev="high"><span class="obs-sev-dot" style="background:#ff6b35"></span>High</button>
-      <button class="obs-sev-btn active" data-sev="medium"><span class="obs-sev-dot" style="background:#ffb627"></span>Medium</button>
-      <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#00d4ff"></span>Low</button>
+      <button class="obs-sev-btn active" data-sev="medium"><span class="obs-sev-dot" style="background:#E8923C"></span>Medium</button>
+      <button class="obs-sev-btn active" data-sev="low"><span class="obs-sev-dot" style="background:#78A0C8"></span>Low</button>
     </div>
     <div class="obs-source-filter" id="obs-source-filter" style="position:absolute;bottom:56px;left:12px;display:flex;gap:4px;z-index:10">
       <button class="obs-sev-btn active" data-source="all"><span class="obs-src-dot" style="background:var(--text-secondary)"></span><span class="obs-src-text">All Sources</span></button>
@@ -1734,11 +1734,11 @@ async function viewObservatory(el) {
   function _typeColorHex(type) {
     const map = {
       phishing: '#ff2d55', malware_distribution: '#ff6b35',
-      c2: '#b388ff', typosquatting: '#ffb627',
-      scanning: '#00d4ff', credential_harvesting: '#ff2d55',
+      c2: '#78A0C8', typosquatting: '#E8923C',
+      scanning: '#78A0C8', credential_harvesting: '#ff2d55',
       impersonation: '#ff6b35',
     };
-    return map[type] || '#00d4ff';
+    return map[type] || '#78A0C8';
   }
   function _sevColor(sev, alpha) {
     const a = alpha !== undefined ? alpha : 200;
@@ -1775,13 +1775,13 @@ async function viewObservatory(el) {
         if (object.volume != null && object.sourcePosition) {
           return {
             html: `<div class="deck-tooltip"><strong>${object.threat_type || 'threat'}</strong><span>Volume: ${object.volume} · ${object.severity || ''}</span></div>`,
-            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(0,212,255,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
+            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(200,60,60,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
           };
         }
         if (object.threat_count != null) {
           return {
             html: `<div class="deck-tooltip"><strong>${object.top_threat_type || 'threats'}</strong><span>${object.threat_count} threats · ${object.top_severity || ''}</span></div>`,
-            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(0,212,255,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
+            style: { background: 'rgba(10,16,32,0.92)', border: '1px solid rgba(200,60,60,0.4)', borderRadius: '6px', color: '#e8edf5', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', padding: '8px 12px' }
           };
         }
         return null;
@@ -2217,7 +2217,7 @@ async function viewObservatory(el) {
   // ────────────────────────────────────────────────────────────────
   // MODE 5 — RADAR SWEEP  (rotating sweep from HQ + illumination)
   // ────────────────────────────────────────────────────────────────
-  const HQ_POS = [-79.38, 43.65]; // Trust Radar HQ — Toronto, Canada
+  const HQ_POS = [-79.38, 43.65]; // Averrow HQ — Toronto, Canada
 
   function stopRadar() {
     _stopParticleLoop();
@@ -2318,8 +2318,8 @@ async function viewObservatory(el) {
           ctx.closePath();
           const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.7);
           const trailAlpha = Math.max(0, 0.18 - i * 0.025);
-          grd.addColorStop(0, `rgba(0,212,255,${trailAlpha})`);
-          grd.addColorStop(1, 'rgba(0,212,255,0)');
+          grd.addColorStop(0, `rgba(200,60,60,${trailAlpha})`);
+          grd.addColorStop(1, 'rgba(200,60,60,0)');
           ctx.fillStyle = grd;
           ctx.fill();
           ctx.restore();
@@ -2332,9 +2332,9 @@ async function viewObservatory(el) {
         ctx.arc(cx, cy, maxR, sweepAngle - sweepSpan, sweepAngle, false);
         ctx.closePath();
         const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-        grd.addColorStop(0, 'rgba(0,212,255,0.30)');
-        grd.addColorStop(0.4, 'rgba(0,212,255,0.14)');
-        grd.addColorStop(1, 'rgba(0,212,255,0)');
+        grd.addColorStop(0, 'rgba(200,60,60,0.30)');
+        grd.addColorStop(0.4, 'rgba(200,60,60,0.14)');
+        grd.addColorStop(1, 'rgba(200,60,60,0)');
         ctx.fillStyle = grd;
         ctx.fill();
         ctx.restore();
@@ -2344,7 +2344,7 @@ async function viewObservatory(el) {
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(cx + Math.cos(sweepAngle) * maxR, cy + Math.sin(sweepAngle) * maxR);
-        ctx.strokeStyle = 'rgba(0,212,255,0.75)';
+        ctx.strokeStyle = 'rgba(200,60,60,0.75)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
@@ -2354,15 +2354,15 @@ async function viewObservatory(el) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, cy, 10 + pulse * 4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0,212,255,${0.08 + pulse * 0.06})`;
+        ctx.fillStyle = `rgba(200,60,60,${0.08 + pulse * 0.06})`;
         ctx.fill();
         ctx.beginPath();
         ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0,212,255,${0.7 + pulse * 0.3})`;
+        ctx.fillStyle = `rgba(200,60,60,${0.7 + pulse * 0.3})`;
         ctx.fill();
         ctx.beginPath();
         ctx.arc(cx, cy, 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#00d4ff';
+        ctx.fillStyle = '#C83C3C';
         ctx.fill();
         ctx.restore();
 
@@ -2590,7 +2590,7 @@ async function viewObservatory(el) {
       ).join('');
 
       const insightItems = (insights?.data || []).map(ins => {
-        const colors = { sentinel: 'var(--blue-primary)', analyst: 'var(--positive)', cartographer: 'var(--threat-medium)', strategist: 'var(--negative)', observer: '#b388ff' };
+        const colors = { sentinel: 'var(--blue-primary)', analyst: 'var(--positive)', cartographer: 'var(--threat-medium)', strategist: 'var(--negative)', observer: '#78A0C8' };
         let linkBrand = null;
         try { if (ins.related_brand_ids) { const ids = JSON.parse(ins.related_brand_ids); if (ids.length) linkBrand = ids[0]; } } catch {}
         const linkCampaign = ins.related_campaign_id || null;
@@ -2794,7 +2794,7 @@ async function viewBrandsHub(el) {
       const trendHtml = tp !== 0 ? `<span class="trend-pct ${trendDir}">${tp > 0 ? '+' : ''}${tp}%</span>` : '<span class="trend-pct" style="color:var(--text-tertiary)">—</span>';
       const risingHtml = b.rising ? '<div class="rising-badge">Rising</div>' : '';
       const sparkData = b.sparkline || [];
-      const gradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
+      const gradeBg = {'A+':'#28A050','A':'#28A050','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const gradeTxt = b.email_security_grade || '—';
       const gradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
       const gradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
@@ -2850,7 +2850,7 @@ async function viewBrandsHub(el) {
       const color = tc > 0 ? _tColor(tc) : 'var(--positive)';
       const statusClass = tc > 0 ? 'active-threats' : b.status === 'new' ? 'new-status' : 'clean';
       const statusText = tc > 0 ? 'Active Threats' : b.status === 'new' ? 'New' : 'Clean';
-      const mGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
+      const mGradeBg = {'A+':'#28A050','A':'#28A050','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const mGradeTxt = b.email_security_grade || '—';
       const mGradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
       const mGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
@@ -2930,7 +2930,7 @@ async function viewBrandsHub(el) {
       const t = b.trend_pct || 0;
       const trendDir = t >= 0 ? 'up' : 'down';
       const initials = _brandInitials(b.name);
-      const tGradeBg = {'A+':'#00e5a0','A':'#00e5a0','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
+      const tGradeBg = {'A+':'#28A050','A':'#28A050','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
       const tGradeTxt = b.email_security_grade || '—';
       const tGradeColor = b.email_security_grade ? '#000' : 'rgba(255,255,255,0.5)';
       const tGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
@@ -3063,21 +3063,21 @@ function renderDmarcCta(dmarc) {
     // No DMARC at all — show full suggested record
     return `<div class="email-cta">
       <strong>No DMARC record — anyone can spoof this domain.</strong><br>
-      Add this DNS TXT record at <code>_dmarc.yourdomain.com</code> to start protecting it and receive spoofing intelligence in Trust Radar:<br>
-      <code style="display:block;margin-top:6px;word-break:break-all">v=DMARC1; p=none; rua=mailto:dmarc_rua@trustradar.ca</code>
+      Add this DNS TXT record at <code>_dmarc.yourdomain.com</code> to start protecting it and receive spoofing intelligence in Averrow:<br>
+      <code style="display:block;margin-top:6px;word-break:break-all">v=DMARC1; p=none; rua=mailto:dmarc_rua@averrow.com</code>
     </div>`;
   }
-  const inTrustRadar = dmarc.record && dmarc.record.includes('trustradar.ca');
+  const inTrustRadar = dmarc.record && dmarc.record.includes('averrow.com');
   if (inTrustRadar) {
-    // Already reporting to Trust Radar
-    return `<div class="email-cta" style="border-color:var(--positive);background:rgba(0,229,160,.06)">
-      \u2705 <strong>DMARC reports are flowing to Trust Radar</strong> — spoofing intelligence will appear in the Email Intelligence panel below.
+    // Already reporting to Averrow
+    return `<div class="email-cta" style="border-color:var(--positive);background:rgba(40,160,80,.06)">
+      \u2705 <strong>DMARC reports are flowing to Averrow</strong> — spoofing intelligence will appear in the Email Intelligence panel below.
     </div>`;
   }
-  // Has DMARC but not reporting to Trust Radar
+  // Has DMARC but not reporting to Averrow
   return `<div class="email-cta">
-    <strong>DMARC configured — add Trust Radar as a report receiver.</strong><br>
-    Append <code>mailto:dmarc_rua@trustradar.ca</code> to the <code>rua=</code> tag in your DMARC record to get full spoofing intelligence here.
+    <strong>DMARC configured — add Averrow as a report receiver.</strong><br>
+    Append <code>mailto:dmarc_rua@averrow.com</code> to the <code>rua=</code> tag in your DMARC record to get full spoofing intelligence here.
   </div>`;
 }
 
@@ -3097,7 +3097,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
           <div style="margin-bottom:10px;color:var(--text-tertiary)">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
           <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
             <strong>Activate DMARC reporting:</strong><br>
-            Add <code>rua=mailto:dmarc_rua@trustradar.ca</code> to your DMARC DNS record.<br>
+            Add <code>rua=mailto:dmarc_rua@averrow.com</code> to your DMARC DNS record.<br>
             Google, Microsoft, and Yahoo will send daily reports showing every IP that sent email claiming to be this domain.
           </div>
         </div>
@@ -3106,7 +3106,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
 
   const passRate = totals.total_emails > 0 ? Math.round((totals.total_pass / totals.total_emails) * 100) : 0;
   const failRate = 100 - passRate;
-  const passColor = passRate >= 90 ? '#00e5a0' : passRate >= 70 ? '#ffb627' : '#ff3b5c';
+  const passColor = passRate >= 90 ? '#28A050' : passRate >= 70 ? '#E8923C' : '#C83C3C';
 
   // Mini trend chart data (last 14 days)
   const chartDays = daily.slice(0, 14).reverse();
@@ -3116,7 +3116,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
       ${chartDays.map(d => {
         const h = Math.max(2, Math.round((d.email_count / maxEmails) * 36));
         const fr = d.email_count > 0 ? d.fail_count / d.email_count : 0;
-        const c = fr > 0.3 ? '#ff3b5c' : fr > 0.1 ? '#ffb627' : '#00e5a0';
+        const c = fr > 0.3 ? '#C83C3C' : fr > 0.1 ? '#E8923C' : '#28A050';
         return `<div title="${d.date}: ${d.email_count} emails, ${d.fail_count} failed" style="flex:1;height:${h}px;background:${c};border-radius:1px;min-width:4px"></div>`;
       }).join('')}
     </div>
@@ -3362,7 +3362,7 @@ async function viewBrandDetail(el, params) {
       : '';
 
     // Provider bar colors
-    const provColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3', '#4a5a73'];
+    const provColors = ['#C83C3C', '#ff6b35', '#E8923C', '#78A0C8', '#0091b3', '#4a5a73'];
     const maxProv = providers[0]?.count || providers[0]?.threat_count || 1;
 
     el.innerHTML = `
@@ -3467,7 +3467,7 @@ async function viewBrandDetail(el, params) {
       if (badge) badge.textContent = safeDomains.length;
 
       const srcBadge = (s) => {
-        const colors = { manual: '#00d4ff', csv_upload: '#ffb627', auto_detected: '#00e5a0' };
+        const colors = { manual: '#78A0C8', csv_upload: '#E8923C', auto_detected: '#28A050' };
         const labels = { manual: 'manual', csv_upload: 'csv', auto_detected: 'auto' };
         return `<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:${colors[s] || '#4a5a73'}22;color:${colors[s] || '#4a5a73'}">${labels[s] || s}</span>`;
       };
@@ -3494,7 +3494,7 @@ async function viewBrandDetail(el, params) {
           <button class="filter-pill" id="safe-add-btn" style="font-size:11px">Add</button>
         </div>
         <button class="filter-pill" id="safe-csv-btn" style="font-size:11px">&#8593; Upload CSV</button>
-        <button class="filter-pill" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(0,229,160,.3);color:var(--positive)" title="Remove active threats matching safe domains">Clean FP</button>
+        <button class="filter-pill" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(40,160,80,.3);color:var(--positive)" title="Remove active threats matching safe domains">Clean FP</button>
       </div>`;
       body.innerHTML = html;
 
@@ -4087,7 +4087,7 @@ async function viewBrandDetail(el, params) {
             <td><span class="date-cell">${date}</span></td>
             <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
             <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
-            <td><button class="mark-safe-btn" data-domain="${url}" title="Mark domain as safe/owned" style="background:none;border:1px solid rgba(0,229,160,.3);border-radius:4px;color:var(--positive);cursor:pointer;font-size:9px;padding:2px 6px;white-space:nowrap">&#10003; Safe</button></td>
+            <td><button class="mark-safe-btn" data-domain="${url}" title="Mark domain as safe/owned" style="background:none;border:1px solid rgba(40,160,80,.3);border-radius:4px;color:var(--positive);cursor:pointer;font-size:9px;padding:2px 6px;white-space:nowrap">&#10003; Safe</button></td>
           </tr>`;
         });
         html += '</tbody></table>';
@@ -4161,7 +4161,7 @@ async function viewBrandDetail(el, params) {
         const maxC = Math.max(...locations.map(l => l.count || 1));
         locations.forEach(loc => {
           const int = (loc.count || 1) / maxC;
-          const col = int >= 0.7 ? '#ff3b5c' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#ffb627' : '#00d4ff';
+          const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5, opacity: 0.6 }).addTo(_brandDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
             .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
@@ -4182,9 +4182,9 @@ async function viewBrandDetail(el, params) {
           labels: timeline.labels,
           datasets: [{
             label: 'Threats', data: timeline.values,
-            borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)',
+            borderColor: '#78A0C8', backgroundColor: 'rgba(200,60,60,0.06)',
             fill: true, tension: 0.35, pointRadius: 0,
-            pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff',
+            pointHoverRadius: 5, pointHoverBackgroundColor: '#78A0C8',
             pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2
           }]
         },
@@ -4194,8 +4194,8 @@ async function viewBrandDetail(el, params) {
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
-              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans'", size: 11, weight: '600' },
               bodyFont: { family: "'IBM Plex Mono'", size: 11 },
               titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
               displayColors: false,
@@ -4203,8 +4203,8 @@ async function viewBrandDetail(el, params) {
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { const [d, t] = l.split('T'); return t || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
-            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { const [d, t] = l.split('T'); return t || l; } return l; } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, beginAtZero: true }
           }
         }
       });
@@ -4232,7 +4232,7 @@ async function viewBrandDetail(el, params) {
       const body = document.getElementById('brand-analysis-body');
       const badge = document.getElementById('brand-analysis-badge');
       if (!body) return;
-      body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)"><span class="dash-spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,212,255,.3);border-top-color:var(--blue-primary);border-radius:50%;animation:trigger-spin 0.6s linear infinite"></span> Generating analysis...</div>';
+      body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)"><span class="dash-spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(200,60,60,.3);border-top-color:var(--blue-primary);border-radius:50%;animation:trigger-spin 0.6s linear infinite"></span> Generating analysis...</div>';
       try {
         const res = await api(`/brands/${params.id}/analysis`, { method: 'POST' });
         const d = res?.data;
@@ -4338,8 +4338,8 @@ function _renderPlatformStatusPills(brand) {
   return platforms.map(p => {
     const hasHandle = !!handles[p];
     const color = hasHandle ? 'var(--positive)' : 'rgba(122,139,168,0.4)';
-    const bg = hasHandle ? 'rgba(0,229,160,0.08)' : 'rgba(122,139,168,0.06)';
-    const border = hasHandle ? 'rgba(0,229,160,0.25)' : 'rgba(122,139,168,0.15)';
+    const bg = hasHandle ? 'rgba(40,160,80,0.08)' : 'rgba(122,139,168,0.06)';
+    const border = hasHandle ? 'rgba(40,160,80,0.25)' : 'rgba(122,139,168,0.15)';
     return `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;background:${bg};border:1px solid ${border};color:${color}">${icons[p] || p}</span>`;
   }).join('');
 }
@@ -4773,7 +4773,7 @@ async function viewProviderDetail(el, params) {
     const t30 = p.trend_30d_pct ?? p.trend_30d ?? 0;
     const respHrs = p.avg_response_time_hours ?? p.response_hrs;
     const repLabel = repScore >= 60 ? 'Responsive' : repScore >= 30 ? 'Slow' : 'Negligent';
-    const provColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3', '#4a5a73'];
+    const provColors = ['#C83C3C', '#ff6b35', '#E8923C', '#78A0C8', '#0091b3', '#4a5a73'];
     const maxBrand = brands[0]?.count || brands[0]?.threat_count || 1;
 
     el.innerHTML = `
@@ -4908,7 +4908,7 @@ async function viewProviderDetail(el, params) {
         const maxC = Math.max(...locations.map(l => l.count || 1));
         locations.forEach(loc => {
           const int = (loc.count || 1) / maxC;
-          const col = int >= 0.7 ? '#ff3b5c' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#ffb627' : '#00d4ff';
+          const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5 }).addTo(_provDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
             .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
@@ -4926,7 +4926,7 @@ async function viewProviderDetail(el, params) {
       _provDetailChart = new Chart(document.getElementById('prov-timeline-chart'), {
         type: 'line',
         data: { labels: tl.labels, datasets: [
-          { label: 'Threats', data: tl.values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)', fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2 }
+          { label: 'Threats', data: tl.values, borderColor: '#78A0C8', backgroundColor: 'rgba(200,60,60,0.06)', fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#78A0C8', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2 }
         ] },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -4934,8 +4934,8 @@ async function viewProviderDetail(el, params) {
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
-              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans'", size: 11, weight: '600' },
               bodyFont: { family: "'IBM Plex Mono'", size: 11 },
               titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
               displayColors: false,
@@ -4943,8 +4943,8 @@ async function viewProviderDetail(el, params) {
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
-            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, beginAtZero: true }
           }
         }
       });
@@ -5081,10 +5081,10 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
   // ── Column header row ──
   const colD = w * 0.15, colI = w * 0.5, colP = w * 0.85;
   const headerY = 18;
-  ctx.font = '600 11px "Chakra Petch"';
+  ctx.font = '600 11px "Plus Jakarta Sans"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  [['DOMAINS', colD, '#ff3b5c'], ['IPs', colI, '#00d4ff'], ['PROVIDERS', colP, '#ffb627']].forEach(([lbl, x, c]) => {
+  [['DOMAINS', colD, '#C83C3C'], ['IPs', colI, '#78A0C8'], ['PROVIDERS', colP, '#E8923C']].forEach(([lbl, x, c]) => {
     ctx.fillStyle = c;
     ctx.fillText(lbl, x, headerY);
   });
@@ -5145,7 +5145,7 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
       ctx.moveTo(x0, y0);
       const cpx = (x0 + x1) / 2;
       ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
-      ctx.strokeStyle = 'rgba(0,212,255,0.28)';
+      ctx.strokeStyle = 'rgba(200,60,60,0.28)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
       connections.push({ type: 'ip-prov', ii, pi, x0, y0, x1, y1 });
@@ -5155,7 +5155,7 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
   // ── Draw nodes ──
   const nodeRects = [];
   function drawNode(x, y, label, type, idx) {
-    const colors = { domain: ['rgba(255,59,92,0.18)', '#ff3b5c'], ip: ['rgba(0,212,255,0.14)', '#00d4ff'], provider: ['rgba(255,182,39,0.14)', '#ffb627'] };
+    const colors = { domain: ['rgba(255,59,92,0.18)', '#C83C3C'], ip: ['rgba(200,60,60,0.14)', '#78A0C8'], provider: ['rgba(255,182,39,0.14)', '#E8923C'] };
     const [bg, fg] = colors[type] || colors.ip;
     ctx.font = '500 11px "IBM Plex Mono"';
     const tw = ctx.measureText(label).width;
@@ -5184,9 +5184,9 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
   ctx.font = '500 10px "IBM Plex Mono"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (extra.extraDomains > 0) { ctx.fillStyle = '#ff3b5c80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
-  if (extra.extraIps > 0) { ctx.fillStyle = '#00d4ff80'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
-  if (extra.extraProviders > 0) { ctx.fillStyle = '#ffb62780'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
+  if (extra.extraDomains > 0) { ctx.fillStyle = '#C83C3C80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
+  if (extra.extraIps > 0) { ctx.fillStyle = '#78A0C880'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
+  if (extra.extraProviders > 0) { ctx.fillStyle = '#E8923C80'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
 
   // ── Hover highlight: highlight connected nodes and lines ──
   let hoveredNode = null;
@@ -5211,7 +5211,7 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
         ctx.moveTo(c.x0, c.y0);
         const cpx = (c.x0 + c.x1) / 2;
         ctx.bezierCurveTo(cpx, c.y0, cpx, c.y1, c.x1, c.y1);
-        ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.7)' : 'rgba(0,212,255,0.7)';
+        ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.7)' : 'rgba(200,60,60,0.7)';
         ctx.lineWidth = 2.5;
         ctx.stroke();
       }
@@ -5240,10 +5240,10 @@ function _campDrawInfraGraph(canvasEl, domains, ips, providers, overflow) {
 // Static base-draw helper for hover re-render (avoids full re-init)
 _campDrawInfraGraph.__drawBase = function(ctx, w, h, domains, ips, providers, domY, ipY, provY, colD, colI, colP, connections, nodeRects, extra, headerY) {
   // Header
-  ctx.font = '600 11px "Chakra Petch"';
+  ctx.font = '600 11px "Plus Jakarta Sans"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  [['DOMAINS', colD, '#ff3b5c'], ['IPs', colI, '#00d4ff'], ['PROVIDERS', colP, '#ffb627']].forEach(([lbl, x, c]) => {
+  [['DOMAINS', colD, '#C83C3C'], ['IPs', colI, '#78A0C8'], ['PROVIDERS', colP, '#E8923C']].forEach(([lbl, x, c]) => {
     ctx.fillStyle = c;
     ctx.fillText(lbl, x, headerY);
   });
@@ -5256,14 +5256,14 @@ _campDrawInfraGraph.__drawBase = function(ctx, w, h, domains, ips, providers, do
     ctx.moveTo(c.x0, c.y0);
     const cpx = (c.x0 + c.x1) / 2;
     ctx.bezierCurveTo(cpx, c.y0, cpx, c.y1, c.x1, c.y1);
-    ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.28)' : 'rgba(0,212,255,0.28)';
+    ctx.strokeStyle = c.type === 'domain-ip' ? 'rgba(255,59,92,0.28)' : 'rgba(200,60,60,0.28)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
   });
 
   // Nodes
   nodeRects.forEach(n => {
-    const colors = { domain: ['rgba(255,59,92,0.18)', '#ff3b5c'], ip: ['rgba(0,212,255,0.14)', '#00d4ff'], provider: ['rgba(255,182,39,0.14)', '#ffb627'] };
+    const colors = { domain: ['rgba(255,59,92,0.18)', '#C83C3C'], ip: ['rgba(200,60,60,0.14)', '#78A0C8'], provider: ['rgba(255,182,39,0.14)', '#E8923C'] };
     const [bg, fg] = colors[n.type] || colors.ip;
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.roundRect(n.x, n.y, n.w, n.h, 5); ctx.fill();
@@ -5275,9 +5275,9 @@ _campDrawInfraGraph.__drawBase = function(ctx, w, h, domains, ips, providers, do
 
   // +N more
   ctx.font = '500 10px "IBM Plex Mono"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (extra.extraDomains > 0) { ctx.fillStyle = '#ff3b5c80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
-  if (extra.extraIps > 0) { ctx.fillStyle = '#00d4ff80'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
-  if (extra.extraProviders > 0) { ctx.fillStyle = '#ffb62780'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
+  if (extra.extraDomains > 0) { ctx.fillStyle = '#C83C3C80'; ctx.fillText(`+${extra.extraDomains} more`, colD, h - 12); }
+  if (extra.extraIps > 0) { ctx.fillStyle = '#78A0C880'; ctx.fillText(`+${extra.extraIps} more`, colI, h - 12); }
+  if (extra.extraProviders > 0) { ctx.fillStyle = '#E8923C80'; ctx.fillText(`+${extra.extraProviders} more`, colP, h - 12); }
 };
 
 async function viewCampaignDetail(el, params) {
@@ -5297,7 +5297,7 @@ async function viewCampaignDetail(el, params) {
     const infra = infraRes?.data || {};
     const brands = brandsRes?.data || [];
     const maxBrand = brands[0]?.count || brands[0]?.threat_count || 1;
-    const brandColors = ['#ff3b5c', '#ff6b35', '#ffb627', '#00d4ff', '#0091b3'];
+    const brandColors = ['#C83C3C', '#ff6b35', '#E8923C', '#78A0C8', '#0091b3'];
     const sev = c.severity || 'medium';
     const sc = _campSevColor(sev);
     const stClass = c.status === 'active' ? 'active-s' : c.status;
@@ -5426,16 +5426,16 @@ async function viewCampaignDetail(el, params) {
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
-              titleFont: { family: "'Chakra Petch'", size: 11 },
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans'", size: 11 },
               bodyFont: { family: "'IBM Plex Mono'", size: 11 },
               titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6, displayColors: false,
               callbacks: { label: i => i.parsed.y + ' threats' }
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
-            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true }
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12, callback: function(val, idx) { const l = this.getLabelForValue(idx); if (l && l.includes('T')) { return l.split('T')[1] || l; } return l; } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false } },
+            y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, padding: 8 }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, beginAtZero: true }
           }
         }
       });
@@ -5462,7 +5462,7 @@ async function viewCampaignDetail(el, params) {
 }
 
 // ─── View: Trends (Step 12) ─────────────────────────────────
-const CHART_COLORS = ['#00d4ff', '#ff3b5c', '#ff6b35', '#ffb627', '#00e5a0', '#b388ff', '#0091b3', '#ff80ab', '#82b1ff', '#ccff90'];
+const CHART_COLORS = ['#78A0C8', '#C83C3C', '#ff6b35', '#E8923C', '#28A050', '#78A0C8', '#0091b3', '#ff80ab', '#82b1ff', '#ccff90'];
 let _trendChart = null;
 let _trendDimension = 'volume';
 let _trendPeriod = '7d';
@@ -5538,9 +5538,9 @@ async function viewTrends(el) {
       // Volume - total + severity overlay
       const values = data.values || (Array.isArray(data) ? data.map(d => d.total || d.count || 0) : []);
       datasets = [
-        { label: 'Total Threats', data: values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
-        ...(data.high_sev ? [{ label: 'High Severity', data: data.high_sev, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
-        ...(data.active ? [{ label: 'Active', data: data.active, borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
+        { label: 'Total Threats', data: values, borderColor: '#78A0C8', backgroundColor: 'rgba(200,60,60,0.10)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        ...(data.high_sev ? [{ label: 'High Severity', data: data.high_sev, borderColor: '#C83C3C', backgroundColor: 'rgba(255,59,92,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
+        ...(data.active ? [{ label: 'Active', data: data.active, borderColor: '#28A050', backgroundColor: 'rgba(40,160,80,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] : []),
       ];
     } else {
       datasets = series.map((s, i) => ({
@@ -5584,10 +5584,10 @@ async function viewTrends(el) {
         options: {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a1020', borderColor: 'rgba(0,212,255,0.3)', borderWidth: 1, titleFont: { family: "'Chakra Petch'" }, bodyFont: { family: "'IBM Plex Mono'", size: 11 } } },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a1020', borderColor: 'rgba(200,60,60,0.3)', borderWidth: 1, titleFont: { family: "'Plus Jakarta Sans'" }, bodyFont: { family: "'IBM Plex Mono'", size: 11 } } },
           scales: {
-            x: { stacked: isStacked, ticks: { color: '#4a5a73', font: { size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(0,212,255,0.06)' } },
-            y: { stacked: isStacked, ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(0,212,255,0.06)' } }
+            x: { stacked: isStacked, ticks: { color: '#4a5a73', font: { size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(200,60,60,0.06)' } },
+            y: { stacked: isStacked, ticks: { color: '#4a5a73', font: { size: 9 } }, grid: { color: 'rgba(200,60,60,0.06)' } }
           }
         }
       });
@@ -5899,8 +5899,8 @@ async function viewAgents(el) {
             labels,
             datasets: [
               { label: 'Duration (s)', data: runs.map(v => v / 1000), backgroundColor: meta.color + '40', borderColor: meta.color + '99', borderWidth: 1, borderRadius: 3, barPercentage: 0.6, yAxisID: 'y' },
-              { label: 'Outputs', data: outputCounts, type: 'line', borderColor: '#00e5a0', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: 0, pointHoverRadius: 4, yAxisID: 'y1' },
-              { label: 'Errors', data: errors, type: 'line', borderColor: '#ff3b5c', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: errors.map(e => e > 0 ? 5 : 0), pointBackgroundColor: '#ff3b5c', yAxisID: 'y1' },
+              { label: 'Outputs', data: outputCounts, type: 'line', borderColor: '#28A050', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: 0, pointHoverRadius: 4, yAxisID: 'y1' },
+              { label: 'Errors', data: errors, type: 'line', borderColor: '#C83C3C', backgroundColor: 'transparent', borderWidth: 2, tension: 0.35, pointRadius: errors.map(e => e > 0 ? 5 : 0), pointBackgroundColor: '#C83C3C', yAxisID: 'y1' },
             ]
           },
           options: {
@@ -5908,11 +5908,11 @@ async function viewAgents(el) {
             interaction: { intersect: false, mode: 'index' },
             plugins: {
               legend: { display: true, position: 'top', labels: { color: '#7a8ba8', font: { family: "'IBM Plex Mono'", size: 9 }, boxWidth: 12, padding: 12, usePointStyle: true } },
-              tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 11 }, bodyFont: { family: "'IBM Plex Mono'", size: 11 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6 }
+              tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1, titleFont: { family: "'Plus Jakarta Sans'", size: 11 }, bodyFont: { family: "'IBM Plex Mono'", size: 11 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6 }
             },
             scales: {
-              x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } },
-              y: { position: 'left', title: { display: true, text: 'Duration (s)', color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true },
+              x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false } },
+              y: { position: 'left', title: { display: true, text: 'Duration (s)', color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, beginAtZero: true },
               y1: { position: 'right', title: { display: true, text: 'Count', color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { display: false }, beginAtZero: true }
             }
           }
@@ -5943,18 +5943,18 @@ async function viewAdmin(el) {
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
-      <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/admin/users')"><div class="adm-action-icon">\u{1F464}</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-feeds"><div class="adm-action-icon">\u{1F504}</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #b388ff" id="adm-dash-agents"><div class="adm-action-icon">\u{1F9E0}</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon">\u{1F464}</div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-feeds"><div class="adm-action-icon">\u{1F504}</div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-agents"><div class="adm-action-icon">\u{1F9E0}</div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00a8ff" id="adm-dash-backfill"><div class="adm-action-icon">\u{1F6E1}</div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ffb627" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #00e5a0" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-tranco"><div class="adm-action-icon">\u{1F4E5}</div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-geo"><div class="adm-action-icon">\u{1F30D}</div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #ff6b6b" id="adm-dash-brand-match"><div class="adm-action-icon">\u{1F3AF}</div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #8b5cf6" id="adm-dash-ai-attr"><div class="adm-action-icon">\u{1F916}</div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #22d3ee" id="adm-dash-social"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #06b6d4" id="adm-dash-social-10x"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #667" onclick="navigate('/admin/audit')"><div class="adm-action-icon">\u{1F4CB}</div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #00d4ff" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon">\u{1F310}</div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel">
@@ -6027,7 +6027,7 @@ async function viewAdmin(el) {
     if (feedBadgeEl) feedBadgeEl.textContent = feeds.every(f => f.health_status === 'healthy' || !f.health_status) ? 'All healthy' : 'Issues detected';
     if (feeds.length && typeof Chart !== 'undefined') {
       const feedLabels = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
-      const feedColors = ['#00d4ff', '#00e5a0', '#ffb627', '#b388ff', '#ff6b35', '#ff3b5c'];
+      const feedColors = ['#78A0C8', '#28A050', '#E8923C', '#78A0C8', '#ff6b35', '#C83C3C'];
       if (_adminFeedChart) { _adminFeedChart.destroy(); _adminFeedChart = null; }
       // Fetch real ingestion job data for chart
       const jobsRes = await api('/feeds/jobs?limit=500').catch(() => null);
@@ -6047,8 +6047,8 @@ async function viewAdmin(el) {
       } else {
         _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
           type: 'line', data: { labels: feedLabels, datasets: feedDatasets },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
-            scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1, titleFont: { family: "'Plus Jakarta Sans'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
+            scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, stacked: true }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 8 } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, stacked: true, beginAtZero: true } } }
         });
       }
     }
@@ -6083,7 +6083,7 @@ async function viewAdmin(el) {
       document.getElementById('adm-events').innerHTML = groups.map(g => {
         const e = g.event;
         const ev = evIcons[e.action] || evIcons.login;
-        const countBadge = g.count > 1 ? `<span style="font-family:var(--font-mono);font-size:9px;background:rgba(0,212,255,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px;margin-left:4px">\u00d7${g.count}</span>` : '';
+        const countBadge = g.count > 1 ? `<span style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px;margin-left:4px">\u00d7${g.count}</span>` : '';
         return `<div class="adm-event-row"><div class="adm-ev-icon ${ev.cls}">${ev.icon}</div><div class="adm-ev-body"><div class="adm-ev-text">${e.summary || e.action || ''} <strong>${e.resource_type || ''}</strong>${countBadge}</div><div class="adm-ev-time">${e.timestamp ? relativeTime(Math.round((Date.now() - new Date(e.timestamp).getTime()) / 60000)) : ''}</div></div><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></div>`;
       }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No recent events</div>';
     }
@@ -6124,7 +6124,7 @@ async function viewAdmin(el) {
       const bl = backlogMap[a.name] || backlogMap[aid];
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,212,255,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
 
     // Email Security stats
@@ -6172,7 +6172,7 @@ async function viewAdmin(el) {
           tabsEl.innerHTML = ['F','D','C','all'].map(g => {
             const count = g === 'all' ? worstBrands.length : (gradeCounts[g] || 0);
             const active = activeFilter === g;
-            const gc = g === 'all' ? '#00d4ff' : (gradeColors[g] || '#666');
+            const gc = g === 'all' ? '#78A0C8' : (gradeColors[g] || '#666');
             return `<button data-esg="${g}" style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid ${active ? gc : 'var(--blue-border)'};background:${active ? gc+'22' : 'transparent'};color:${active ? gc : 'var(--text-tertiary)'};cursor:pointer">${g === 'all' ? 'All' : g} <span style="font-size:9px;opacity:.7">${count}</span></button>`;
           }).join('');
           tabsEl.querySelectorAll('button').forEach(btn => {
@@ -6185,7 +6185,7 @@ async function viewAdmin(el) {
           worstEl.innerHTML = filtered.map(b => {
             const gc = gradeColors[b.email_security_grade] || '#666';
             const atRisk = b.email_security_grade === 'F' && (b.active_threats || 0) > 0;
-            return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(0,212,255,.04)">
+            return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(200,60,60,.04)">
               <span style="font-family:var(--font-mono);font-size:10px;background:${gc};color:#000;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0">${b.email_security_grade}</span>
               <span style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${b.canonical_domain || ''}">${b.name}</span>
               ${atRisk ? '<span style="font-family:var(--font-mono);font-size:8px;background:rgba(255,59,92,.2);color:var(--negative);padding:1px 4px;border-radius:2px;font-weight:600;flex-shrink:0">AT RISK</span>' : ''}
@@ -6555,7 +6555,7 @@ async function viewAdminUsers(el) {
       <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="adm-action-btn" onclick="event.stopPropagation()">Change Role</button>
-          <button class="adm-action-btn" style="border-color:${u.status==='active'?'rgba(255,59,92,.2)':'rgba(0,229,160,.2)'};color:${u.status==='active'?'var(--negative)':'var(--positive)'}">${u.status==='active'?'Suspend':'Reactivate'}</button>
+          <button class="adm-action-btn" style="border-color:${u.status==='active'?'rgba(255,59,92,.2)':'rgba(40,160,80,.2)'};color:${u.status==='active'?'var(--negative)':'var(--positive)'}">${u.status==='active'?'Suspend':'Reactivate'}</button>
           <button class="adm-action-btn" onclick="navigate('/admin/audit')">View Audit Trail</button>
         </div>
       </div>`;
@@ -6686,9 +6686,9 @@ async function viewAdminFeeds(el) {
       const data = labels.map(d => dayMap[d] || 0);
       const displayLabels = labels.map(d => { const dt = new Date(d); return `${dt.getMonth() + 1}/${dt.getDate()}`; });
       _feedDetailChart = new Chart(ctx, {
-        type: 'bar', data: { labels: displayLabels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#ffb627', borderWidth: 1, borderRadius: 4 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(255,182,39,.3)', borderWidth: 1, titleFont: { family: "'Chakra Petch'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
-          scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false } }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(0,212,255,0.04)', drawBorder: false }, beginAtZero: true } } }
+        type: 'bar', data: { labels: displayLabels, datasets: [{ data, backgroundColor: 'rgba(255,182,39,0.3)', borderColor: '#E8923C', borderWidth: 1, borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(255,182,39,.3)', borderWidth: 1, titleFont: { family: "'Plus Jakarta Sans'", size: 10 }, bodyFont: { family: "'IBM Plex Mono'", size: 10 }, titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 8, cornerRadius: 6 } },
+          scales: { x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false } }, y: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 } }, grid: { color: 'rgba(200,60,60,0.04)', drawBorder: false }, beginAtZero: true } } }
       });
     }, 50);
 
@@ -6725,7 +6725,7 @@ async function viewAdminFeeds(el) {
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#00d4ff' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
 
     // Row click to detail
@@ -7020,11 +7020,11 @@ async function viewAdminLeads(el) {
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px" id="sp-actions">
-            ${l.status === 'outreach_drafted' ? '<button class="adm-btn-sm" data-spa="approve" style="background:rgba(0,212,255,.1);color:var(--blue-primary);border-color:var(--blue-primary)">Approve</button>' : ''}
+            ${l.status === 'outreach_drafted' ? '<button class="adm-btn-sm" data-spa="approve" style="background:rgba(200,60,60,.1);color:var(--blue-primary);border-color:var(--blue-primary)">Approve</button>' : ''}
             ${l.status === 'approved' ? '<button class="adm-btn-sm" data-spa="send" style="background:rgba(139,92,246,.1);color:var(--purple);border-color:var(--purple)">Mark Sent</button>' : ''}
             ${l.status === 'sent' ? '<button class="adm-btn-sm" data-spa="respond" style="background:rgba(34,211,238,.1);color:#22d3ee;border-color:#22d3ee">Log Response</button>' : ''}
             ${l.status === 'responded' ? '<button class="adm-btn-sm" data-spa="book" style="background:rgba(52,211,153,.1);color:#34d399;border-color:#34d399">Book Meeting</button>' : ''}
-            ${['responded','meeting_booked'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="convert" style="background:rgba(0,229,160,.1);color:var(--positive);border-color:var(--positive)">Convert</button>' : ''}
+            ${['responded','meeting_booked'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="convert" style="background:rgba(40,160,80,.1);color:var(--positive);border-color:var(--positive)">Convert</button>' : ''}
             ${!['converted','declined'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="decline" style="background:rgba(255,59,92,.05);color:var(--negative);border-color:var(--negative)">Decline</button>' : ''}
             <button class="adm-btn-sm" data-spa="delete" style="background:transparent;color:var(--text-tertiary);border-color:var(--text-tertiary)">Discard</button>
           </div>
@@ -7334,19 +7334,19 @@ async function viewAdminAudit(el) {
       const e = g.event;
       const cat = actionCategory(e.action);
       const details = deriveDetails(e);
-      const countBadge = g.count > 1 ? ` <span style="font-family:var(--font-mono);font-size:9px;background:rgba(0,212,255,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px">\u00d7${g.count}</span>` : '';
+      const countBadge = g.count > 1 ? ` <span style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px">\u00d7${g.count}</span>` : '';
       const timeRange = g.count > 1 && g.firstTs && g.lastTs ? g.firstTs.slice(11, 16) + '\u2013' + g.lastTs.slice(11, 16) : (e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-');
       const isExpanded = _expandedIdx === i;
       let expandHtml = '';
       if (isExpanded) {
-        expandHtml = `<tr><td colspan="7" style="padding:12px;background:rgba(0,212,255,.03);border-left:2px solid var(--blue-primary)"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;font-family:var(--font-mono)">
+        expandHtml = `<tr><td colspan="7" style="padding:12px;background:rgba(200,60,60,.03);border-left:2px solid var(--blue-primary)"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;font-family:var(--font-mono)">
           <div><span style="color:var(--text-tertiary)">Full timestamp:</span> ${e.timestamp || '-'}</div>
           <div><span style="color:var(--text-tertiary)">IP:</span> ${e.ip_address || '-'}</div>
           <div><span style="color:var(--text-tertiary)">User agent:</span> ${e.user_agent || e.details?.user_agent || '-'}</div>
           <div><span style="color:var(--text-tertiary)">Resource:</span> ${e.resource_type || '-'} ${e.resource_id || ''}</div>
         </div>${e.details ? `<pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-top:8px;padding:8px;background:rgba(0,0,0,.2);border-radius:4px">${JSON.stringify(e.details, null, 2)}</pre>` : ''}</td></tr>`;
       }
-      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(0,212,255,.05)' : ''}"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td style="font-size:10px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>${expandHtml}`;
+      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(200,60,60,.05)' : ''}"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td style="font-size:10px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>${expandHtml}`;
     }).join('')}</tbody></table></div>`;
   }
 
@@ -7701,7 +7701,7 @@ async function viewAdminSpamTrap(el) {
             labels: daily.map(d => d.date?.slice(5) || ''),
             datasets: [
               { label: 'Phishing', data: daily.map(d => d.phishing || 0), backgroundColor: 'rgba(255,59,92,.7)' },
-              { label: 'Spam', data: daily.map(d => d.spam || 0), backgroundColor: 'rgba(0,212,255,.5)' },
+              { label: 'Spam', data: daily.map(d => d.spam || 0), backgroundColor: 'rgba(200,60,60,.5)' },
               { label: 'Malware', data: daily.map(d => d.malware || 0), backgroundColor: 'rgba(255,107,53,.7)' },
             ],
           },
@@ -7799,7 +7799,7 @@ async function viewTenantDashboard(el) {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <span style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</span>
-                ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(0,212,255,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+                ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
               </div>
               <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:8px">${b.canonical_domain || ''}</div>
               <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
@@ -7825,9 +7825,9 @@ async function viewTenantDashboard(el) {
           labels: trendData.map(t => t.date),
           datasets: [{
             label: 'Threats', data: trendData.map(t => t.count),
-            borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.06)',
+            borderColor: '#78A0C8', backgroundColor: 'rgba(200,60,60,0.06)',
             fill: true, tension: 0.35, pointRadius: 2,
-            pointHoverRadius: 5, pointHoverBackgroundColor: '#00d4ff',
+            pointHoverRadius: 5, pointHoverBackgroundColor: '#78A0C8',
             pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2
           }]
         },
@@ -7837,8 +7837,8 @@ async function viewTenantDashboard(el) {
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(0,212,255,0.35)', borderWidth: 1,
-              titleFont: { family: "'Chakra Petch'", size: 11, weight: '600' },
+              backgroundColor: 'rgba(10,16,32,0.95)', borderColor: 'rgba(200,60,60,0.35)', borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans'", size: 11, weight: '600' },
               bodyFont: { family: "'IBM Plex Mono'", size: 11 },
               titleColor: '#e8edf5', bodyColor: '#7a8ba8', padding: 10, cornerRadius: 6,
               displayColors: false,
@@ -7846,8 +7846,8 @@ async function viewTenantDashboard(el) {
             }
           },
           scales: {
-            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(0,212,255,0.04)' } },
-            y: { beginAtZero: true, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, precision: 0 }, grid: { color: 'rgba(0,212,255,0.04)' } }
+            x: { ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(200,60,60,0.04)' } },
+            y: { beginAtZero: true, ticks: { color: '#4a5a73', font: { family: "'IBM Plex Mono'", size: 9 }, precision: 0 }, grid: { color: 'rgba(200,60,60,0.04)' } }
           }
         }
       });
@@ -7906,7 +7906,7 @@ async function viewTenantBrands(el) {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
               <span style="font-weight:700;font-size:14px;color:var(--text-primary)">${b.name}</span>
-              ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(0,212,255,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+              ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
             </div>
             <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:6px">${b.canonical_domain || ''} ${b.sector ? '&middot; ' + b.sector : ''}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
@@ -8360,7 +8360,7 @@ async function viewTenantAlerts(el) {
               });
               showToast('Takedown request created', 'success');
               e.target.textContent = 'Requested';
-              e.target.style.background = 'rgba(0,229,160,0.08)';
+              e.target.style.background = 'rgba(40,160,80,0.08)';
               e.target.style.color = 'var(--positive)';
               e.target.style.borderColor = 'var(--positive)';
             } catch (err) {
@@ -8884,7 +8884,7 @@ async function viewTenantTakedowns(el) {
           { key: 'taken_down', label: 'Resolved', count: (countMap.taken_down || 0) + (countMap.failed || 0) + (countMap.expired || 0) + (countMap.withdrawn || 0) },
         ];
         tabsEl.innerHTML = tabs.map(t =>
-          `<button class="tt-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(0,212,255,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer;font-weight:${currentFilter === t.key ? '600' : '400'}">${t.label} ${t.count}</button>`
+          `<button class="tt-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(200,60,60,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer;font-weight:${currentFilter === t.key ? '600' : '400'}">${t.label} ${t.count}</button>`
         ).join('');
         tabsEl.querySelectorAll('.tt-tab').forEach(btn => {
           btn.addEventListener('click', () => { currentFilter = btn.dataset.status; loadTakedowns(); });
@@ -8901,7 +8901,7 @@ async function viewTenantTakedowns(el) {
 
           const actionBtns = canHITL ? (() => {
             if (t.status === 'draft') return `
-              <button class="tt-action" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(0,212,255,0.08);color:var(--blue-primary);cursor:pointer">Submit Request</button>
+              <button class="tt-action" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);color:var(--blue-primary);cursor:pointer">Submit Request</button>
               <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
             if (t.status === 'requested') return `
               <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
@@ -8995,7 +8995,7 @@ async function viewAdminTakedowns(el) {
         ];
         tabsEl.innerHTML = tabs.map(t => {
           const c = t.key ? (countMap[t.key] || 0) : Object.values(countMap).reduce((a, b) => a + Number(b), 0);
-          return `<button class="at-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(0,212,255,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer">${t.label} ${c}</button>`;
+          return `<button class="at-tab" data-status="${t.key}" style="padding:4px 12px;font-size:11px;border:1px solid ${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--blue-border)'};border-radius:4px;background:${currentFilter === t.key ? 'rgba(200,60,60,0.1)' : 'var(--bg-card)'};color:${currentFilter === t.key ? 'var(--blue-primary)' : 'var(--text-secondary)'};cursor:pointer">${t.label} ${c}</button>`;
         }).join('');
         tabsEl.querySelectorAll('.at-tab').forEach(btn => {
           btn.addEventListener('click', () => { currentFilter = btn.dataset.status; loadAdminTakedowns(); });
@@ -9009,10 +9009,10 @@ async function viewAdminTakedowns(el) {
           const statusColor = { draft: 'var(--text-tertiary)', requested: 'var(--blue-primary)', submitted: 'var(--threat-medium)', pending_response: 'var(--threat-medium)', taken_down: 'var(--positive)', failed: 'var(--negative)', expired: '#4a5a73', withdrawn: '#4a5a73' }[t.status] || 'var(--text-tertiary)';
 
           let advanceBtns = '';
-          if (t.status === 'requested' || t.status === 'draft') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="submitted" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(0,212,255,0.08);color:var(--blue-primary);cursor:pointer">Mark Submitted</button>`;
+          if (t.status === 'requested' || t.status === 'draft') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="submitted" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);color:var(--blue-primary);cursor:pointer">Mark Submitted</button>`;
           if (t.status === 'submitted') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="pending_response" style="padding:3px 8px;font-size:9px;border:1px solid var(--threat-medium)44;border-radius:3px;background:rgba(255,182,39,0.08);color:var(--threat-medium);cursor:pointer">Pending Response</button>`;
           if (t.status === 'submitted' || t.status === 'pending_response') {
-            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="taken_down" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:rgba(0,229,160,0.08);color:var(--positive);cursor:pointer">Taken Down</button>`;
+            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="taken_down" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:rgba(40,160,80,0.08);color:var(--positive);cursor:pointer">Taken Down</button>`;
             advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="failed" style="padding:3px 8px;font-size:9px;border:1px solid var(--negative)44;border-radius:3px;background:rgba(255,59,92,0.08);color:var(--negative);cursor:pointer">Failed</button>`;
           }
 
