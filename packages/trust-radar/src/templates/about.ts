@@ -17,12 +17,12 @@ export function renderAboutPage(): string {
 
 .about-section { padding: 3rem 0; }
 .about-section:nth-child(even) { background: var(--bg-tertiary); }
-.about-content { max-width: 720px; margin: 0 auto; padding: 0 2rem; }
+.about-content { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
 .about-content h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
 .about-content p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem; font-size: 1rem; }
 
 .principles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-.principle-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; position: relative; overflow: hidden; }
+.principle-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; position: relative; overflow: hidden; transition: all 0.3s; }
 .principle-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; opacity: 0; transition: opacity 0.3s; }
 .principle-card:hover::before { opacity: 1; }
 .principle-card:nth-child(1)::before { background: var(--accent); }
@@ -33,14 +33,15 @@ export function renderAboutPage(): string {
 .principle-card h3 { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
 .principle-card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.65; }
 
-.facts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 900px; margin: 2rem auto 0; padding: 0 2rem; }
+.facts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1400px; margin: 2rem auto 0; padding: 0 2rem; }
 .fact-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; transition: border-color 0.2s; }
 .fact-card:hover { border-color: var(--accent); }
 .fact-value { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
 .fact-label { font-size: 0.78rem; color: var(--text-tertiary); }
 
-.tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; max-width: 800px; margin: 2rem auto 0; padding: 0 2rem; }
-.tech-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; }
+.tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; max-width: 1400px; margin: 2rem auto 0; padding: 0 2rem; }
+.tech-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; transition: all 0.3s; }
+.tech-item:hover { border-color: var(--accent); box-shadow: var(--shadow-glow); transform: translateY(-2px); }
 .tech-name { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent); margin-bottom: 0.35rem; }
 .tech-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 

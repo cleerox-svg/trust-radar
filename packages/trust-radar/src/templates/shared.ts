@@ -136,7 +136,6 @@ export function renderFooter(): string {
           <li><a href="/platform">Platform</a></li>
           <li><a href="/pricing">Pricing</a></li>
           <li><a href="/scan">Free Scan</a></li>
-          <li><a href="/changelog">Changelog</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -468,10 +467,10 @@ section {
 
 .section-label {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 10px;
   font-weight: 600;
   color: var(--accent);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   margin-bottom: 0.5rem;
 }
@@ -479,7 +478,7 @@ section {
 .section-title {
   font-family: var(--font-display);
   font-size: clamp(22px, 2.5vw, 32px);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.12;
   letter-spacing: -0.03em;
   margin-bottom: 0.5rem;

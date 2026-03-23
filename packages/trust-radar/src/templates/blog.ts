@@ -11,7 +11,7 @@ export function renderBlogPage(): string {
 <style>
 /* ── BLOG PAGE ── */
 .blog-hero {
-  padding: 10rem 0 4rem;
+  padding: 5rem 0 2.5rem;
   text-align: center;
   background: var(--gradient-hero);
 }
@@ -34,19 +34,19 @@ export function renderBlogPage(): string {
 }
 
 .blog-grid-section {
-  padding: 5rem 0 7rem;
+  padding: 3rem 0;
 }
 
 .blog-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
 .blog-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -69,7 +69,7 @@ export function renderBlogPage(): string {
 .blog-card:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-glow);
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .blog-card:hover::before {
@@ -174,10 +174,10 @@ export function renderBlogPage(): string {
     grid-template-columns: 1fr;
   }
   .blog-hero {
-    padding: 8rem 0 3rem;
+    padding: 5rem 0 2rem;
   }
   .blog-grid-section {
-    padding: 3rem 0 5rem;
+    padding: 2rem 0;
   }
 }
 </style>
