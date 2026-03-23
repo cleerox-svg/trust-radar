@@ -32,7 +32,7 @@ export function renderPlatformPage(): string {
 
 /* === CAP NAV === */
 .cap-nav { position: sticky; top: 64px; z-index: 50; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0.6rem 0; backdrop-filter: blur(12px); }
-.cap-nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+.cap-nav-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 .cap-tab { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; padding: 0.5rem 1.25rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: all 0.2s; }
 .cap-tab:hover, .cap-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
@@ -40,7 +40,7 @@ export function renderPlatformPage(): string {
 .cap-section { padding: 3rem 0; position: relative; }
 .cap-section:nth-of-type(odd)  { background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
 .cap-section:nth-of-type(even) { background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
-.cap-row { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
+.cap-row { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
 .cap-row.reversed { direction: rtl; }
 .cap-row.reversed > * { direction: ltr; }
 .cap-text .section-label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.75rem; }

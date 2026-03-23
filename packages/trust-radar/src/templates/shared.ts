@@ -272,7 +272,7 @@ a { color: inherit; text-decoration: none; }
 img { max-width: 100%; }
 
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 2rem;
 }
@@ -305,7 +305,7 @@ img { max-width: 100%; }
 }
 
 .nav-inner {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 2rem;
   height: 64px;
@@ -478,7 +478,7 @@ section {
 
 .section-title {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-size: clamp(22px, 2.5vw, 32px);
   font-weight: 800;
   line-height: 1.12;
   letter-spacing: -0.03em;
