@@ -1700,9 +1700,9 @@ router.post("/api/admin/honeypot/generate", async (request: Request, env: Env) =
   }
 });
 
-// ─── Public Landing Page (corporate site) ────────────────────
+// ─── Public Homepage (Averrow corporate site) ────────────────
 router.get("/", () =>
-  new Response(renderLandingPage(), {
+  new Response(renderHomepage(), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=300, s-maxage=600",
