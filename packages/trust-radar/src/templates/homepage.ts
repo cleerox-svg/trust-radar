@@ -409,15 +409,16 @@ export function renderHomepage(): string {
 .agent-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   padding: 20px 20px 20px 24px;
   border-left: 3px solid var(--agent-color, var(--border));
   transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .agent-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 
 .agent-name {
@@ -546,14 +547,15 @@ export function renderHomepage(): string {
 .cap-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   padding: 24px;
   transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .cap-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 
 .cap-icon {
@@ -708,7 +710,24 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 1100px) {
-  .hero-radar { display: none; }
+  .hero {
+    flex-direction: column;
+  }
+  .hero-content {
+    order: 1;
+  }
+  .hero-radar {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    width: 280px;
+    height: 220px;
+    margin: 16px auto 0;
+    opacity: 0.2;
+    display: block;
+    order: 2;
+  }
 }
 
 @keyframes radar-sweep {
@@ -779,36 +798,7 @@ html { scroll-behavior: smooth; }
   flex-shrink: 0;
 }
 
-/* Agent card glassmorphism */
-.agent-card {
-  backdrop-filter: blur(8px);
-  background: rgba(14, 26, 43, 0.75) !important;
-}
-
-.agent-card:hover {
-  box-shadow: 0 6px 28px rgba(0,0,0,0.2), 0 0 0 1px rgba(200,60,60,0.08) !important;
-}
-
-/* ── CAPABILITY CARD DEPTH ── */
-.cap-card {
-  backdrop-filter: blur(8px);
-  background: rgba(14, 26, 43, 0.75) !important;
-  position: relative;
-}
-
-.cap-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent 70%);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  pointer-events: none;
-}
-
-.cap-card:hover {
-  box-shadow: 0 6px 28px rgba(200, 60, 60, 0.10), 0 0 0 1px rgba(200,60,60,0.12) !important;
-}
+/* ── CARD CLEAN OVERRIDES ── */
 
 /* ── CTA ANIMATED BORDER ── */
 .cta-border-wrap {
