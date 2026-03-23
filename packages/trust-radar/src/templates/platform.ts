@@ -26,21 +26,21 @@ export function renderPlatformPage(): string {
 @keyframes shimmer { to { left: 120%; } }
 
 /* === HERO === */
-.plat-hero { padding: 8rem 0 4rem; text-align: center; background: var(--gradient-hero); position: relative; }
+.plat-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); position: relative; }
 .plat-hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem,4vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
 .plat-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto 2rem; line-height: 1.7; }
 
 /* === CAP NAV === */
-.cap-nav { position: sticky; top: 64px; z-index: 50; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0.75rem 0; backdrop-filter: blur(12px); }
+.cap-nav { position: sticky; top: 64px; z-index: 50; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0.6rem 0; backdrop-filter: blur(12px); }
 .cap-nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 .cap-tab { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; padding: 0.5rem 1.25rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: all 0.2s; }
 .cap-tab:hover, .cap-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
 /* === CAPABILITY SECTIONS — alternating gradient backgrounds === */
-.cap-section { padding: 5rem 0; position: relative; }
+.cap-section { padding: 3rem 0; position: relative; }
 .cap-section:nth-of-type(odd)  { background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
 .cap-section:nth-of-type(even) { background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
-.cap-row { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+.cap-row { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
 .cap-row.reversed { direction: rtl; }
 .cap-row.reversed > * { direction: ltr; }
 .cap-text .section-label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.75rem; }
@@ -114,7 +114,7 @@ export function renderPlatformPage(): string {
 .narrative-dot { width: 6px; height: 6px; background: #C83C3C; border-radius: 50%; animation: pulse 2s infinite; }
 
 /* === ARCHITECTURE SVG FLOW === */
-.arch-section { padding: 5rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
+.arch-section { padding: 3rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
 .arch-svg-wrap { max-width: 860px; margin: 2.5rem auto 0; padding: 0 1.5rem; overflow-x: auto; }
 .arch-svg-wrap svg { min-width: 580px; width: 100%; }
 .arch-box { fill: var(--bg-secondary); stroke: var(--border); stroke-width: 1; }
@@ -126,7 +126,7 @@ export function renderPlatformPage(): string {
 .arch-icon { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* === INTEGRATIONS === */
-.int-section { padding: 5rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
+.int-section { padding: 3rem 0; text-align: center; background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
 .int-grid { max-width: 900px; margin: 2rem auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .int-card { background: rgba(14,26,43,0.5); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 1.25rem; text-align: center; transition: all 0.3s ease; position: relative; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 [data-theme="light"] .int-card { background: rgba(255,255,255,0.68); }
@@ -143,7 +143,7 @@ export function renderPlatformPage(): string {
 .int-card-status.planned { background: var(--accent-bg); color: var(--text-tertiary); }
 
 /* === CTA === */
-.cta-block { padding: 5rem 0; text-align: center; }
+.cta-block { padding: 3rem 0; text-align: center; }
 .cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }

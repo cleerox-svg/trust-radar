@@ -12,12 +12,11 @@ export function renderHomepage(): string {
 
 /* ── HERO ── */
 .hero {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 120px 2rem 80px;
+  padding: 5rem 2rem 2.5rem;
   position: relative;
   overflow: hidden;
 }
@@ -364,7 +363,7 @@ export function renderHomepage(): string {
 
 /* ── AGENT SQUADRON ── */
 .squadron {
-  padding: 5rem 2rem;
+  padding: 3rem 2rem;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -390,7 +389,7 @@ export function renderHomepage(): string {
 .squadron-subtitle {
   font-size: 15px;
   color: var(--text-secondary);
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   line-height: 1.5;
 }
 
@@ -447,7 +446,7 @@ export function renderHomepage(): string {
 
 /* ── HOW IT WORKS ── */
 .how-it-works {
-  padding: 5rem 2rem;
+  padding: 3rem 2rem;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -456,7 +455,7 @@ export function renderHomepage(): string {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  margin-top: 40px;
+  margin-top: 20px;
 }
 
 @media (max-width: 720px) {
@@ -512,7 +511,7 @@ export function renderHomepage(): string {
 
 /* ── CAPABILITIES ── */
 .capabilities {
-  padding: 5rem 2rem;
+  padding: 3rem 2rem;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -529,7 +528,7 @@ export function renderHomepage(): string {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-top: 40px;
+  margin-top: 20px;
 }
 
 @media (max-width: 960px) and (min-width: 721px) {
@@ -582,7 +581,7 @@ export function renderHomepage(): string {
 
 /* ── CTA ── */
 .cta-section {
-  padding: 5rem 2rem;
+  padding: 3rem 2rem;
   max-width: 960px;
   margin: 0 auto;
   text-align: center;
@@ -741,7 +740,7 @@ html { scroll-behavior: smooth; }
 
 /* ── STAT ROW ── */
 .stat-row {
-  padding: 2rem 2rem 3rem;
+  padding: 1rem 2rem 1.5rem;
   max-width: 960px;
   margin: 0 auto;
   display: flex;
