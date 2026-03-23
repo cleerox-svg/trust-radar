@@ -213,25 +213,37 @@ export function parseAuthenticationResults(header: string): AuthResults {
 
   if (!header) return result;
 
-  // SPF
+  // SPF — handle both traditional and Cloudflare formats
+  // e.g. "spf=pass smtp.mailfrom=example.com" or "spf=pass (domain of example.com)"
   const spfMatch = header.match(/spf=(\w+)/i);
   if (spfMatch) result.spf = (spfMatch[1] ?? "").toLowerCase();
-  const spfDomainMatch = header.match(/spf=\w+[^;]*domain[:\s]+of\s+(\S+)/i) ||
+  const spfDomainMatch = header.match(/spf=\w+[^;]*smtp\.mailfrom=(\S+)/i) ||
+                          header.match(/spf=\w+[^;]*smtp\.helo=(\S+)/i) ||
+                          header.match(/spf=\w+[^;]*domain[:\s]+of\s+(\S+)/i) ||
                           header.match(/spf=\w+[^;]*\(.*?domain:?\s*(\S+)/i);
-  if (spfDomainMatch) result.spfDomain = (spfDomainMatch[1] ?? "").replace(/[)]/g, "");
+  if (spfDomainMatch) result.spfDomain = (spfDomainMatch[1] ?? "").replace(/[);]/g, "");
 
-  // DKIM
+  // DKIM — e.g. "dkim=pass header.d=example.com header.s=selector header.b=xxx"
   const dkimMatch = header.match(/dkim=(\w+)/i);
   if (dkimMatch) result.dkim = (dkimMatch[1] ?? "").toLowerCase();
-  const dkimDomainMatch = header.match(/dkim=\w+[^;]*header\.[dis]=@?(\S+)/i);
+  const dkimDomainMatch = header.match(/dkim=\w+[^;]*header\.d=@?(\S+)/i) ||
+                           header.match(/dkim=\w+[^;]*header\.[is]=@?(\S+)/i);
   if (dkimDomainMatch) result.dkimDomain = (dkimDomainMatch[1] ?? "").replace(/[;)]/g, "");
 
-  // DMARC
+  // DMARC — e.g. "dmarc=pass (p=reject dis=none) header.from=example.com"
   const dmarcMatch = header.match(/dmarc=(\w+)/i);
   if (dmarcMatch) result.dmarc = (dmarcMatch[1] ?? "").toLowerCase();
-  const dispMatch = header.match(/dmarc=\w+[^;]*dis=(\w+)/i) ||
-                    header.match(/dmarc=\w+[^;]*\(.*?dis[=:](\w+)/i);
-  if (dispMatch) result.dmarcDisposition = (dispMatch[1] ?? "").toLowerCase();
+  const dispMatch = header.match(/dmarc=\w+[^;]*\bp=(\w+)/i);
+  if (dispMatch) {
+    // "p=" is the policy; look for "dis=" for actual disposition
+    const disMatch = header.match(/dmarc=\w+[^;]*dis[=:](\w+)/i) ||
+                     header.match(/dmarc=\w+[^;]*\(.*?dis[=:](\w+)/i);
+    result.dmarcDisposition = disMatch ? (disMatch[1] ?? "").toLowerCase() : (dispMatch[1] ?? "").toLowerCase();
+  } else {
+    const disMatch = header.match(/dmarc=\w+[^;]*dis[=:](\w+)/i) ||
+                     header.match(/dmarc=\w+[^;]*\(.*?dis[=:](\w+)/i);
+    if (disMatch) result.dmarcDisposition = (disMatch[1] ?? "").toLowerCase();
+  }
 
   return result;
 }
@@ -364,12 +376,14 @@ async function streamToArrayBuffer(stream: ReadableStream<Uint8Array>): Promise<
 }
 
 function extractHeaders(rawText: string): Record<string, string> {
-  const headerEnd = rawText.indexOf("\r\n\r\n");
+  let headerEnd = rawText.indexOf("\r\n\r\n");
+  if (headerEnd < 0) headerEnd = rawText.indexOf("\n\n");
   const headerSection = headerEnd > 0 ? rawText.substring(0, headerEnd) : rawText.substring(0, 5000);
   const headers: Record<string, string> = {};
 
-  const unfolded = headerSection.replace(/\r\n(\s+)/g, " ");
-  const lines = unfolded.split("\r\n");
+  // Unfold continuation lines (handle both \r\n and \n)
+  const unfolded = headerSection.replace(/\r?\n(\s+)/g, " ");
+  const lines = unfolded.split(/\r?\n/);
 
   for (const line of lines) {
     const colonIdx = line.indexOf(":");
@@ -401,9 +415,62 @@ export function extractDomain(emailOrUrl: string): string {
 }
 
 function extractBody(rawText: string): string {
-  const headerEnd = rawText.indexOf("\r\n\r\n");
-  if (headerEnd < 0) return "";
-  return rawText.substring(headerEnd + 4);
+  // Try \r\n\r\n first (standard), then \n\n (Cloudflare Email Routing often normalises)
+  let headerEnd = rawText.indexOf("\r\n\r\n");
+  let body = "";
+  if (headerEnd >= 0) {
+    body = rawText.substring(headerEnd + 4);
+  } else {
+    headerEnd = rawText.indexOf("\n\n");
+    if (headerEnd >= 0) {
+      body = rawText.substring(headerEnd + 2);
+    }
+  }
+  if (!body) return "";
+
+  // For multipart MIME, extract text parts and decode quoted-printable
+  const boundaryMatch = rawText.match(/boundary="?([^"\r\n;]+)"?/i);
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1] ?? "";
+    const parts = body.split(`--${boundary}`);
+    const textParts: string[] = [];
+    for (const part of parts) {
+      const ctMatch = part.match(/Content-Type:\s*text\/(plain|html)/i);
+      if (!ctMatch) continue;
+      // Find the part body (after the blank line within this MIME part)
+      const partBodyStart = part.match(/(\r?\n){2}/);
+      if (!partBodyStart) continue;
+      let partBody = part.substring((partBodyStart.index ?? 0) + partBodyStart[0].length);
+      // Strip trailing boundary marker
+      const endBoundary = partBody.indexOf(`--${boundary}`);
+      if (endBoundary >= 0) partBody = partBody.substring(0, endBoundary);
+      // Decode quoted-printable if needed
+      if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
+        partBody = decodeQuotedPrintable(partBody);
+      }
+      // Decode base64 if needed
+      if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+        try { partBody = atob(partBody.replace(/\s/g, "")); } catch { /* leave as-is */ }
+      }
+      textParts.push(partBody.trim());
+    }
+    if (textParts.length > 0) return textParts.join("\n");
+  }
+
+  // Non-multipart: check if the single body is quoted-printable
+  if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(rawText)) {
+    return decodeQuotedPrintable(body);
+  }
+
+  return body;
+}
+
+function decodeQuotedPrintable(text: string): string {
+  return text
+    .replace(/=\r?\n/g, "")                           // soft line breaks
+    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>        // encoded chars
+      String.fromCharCode(parseInt(hex, 16))
+    );
 }
 
 function extractUrls(text: string): string[] {
