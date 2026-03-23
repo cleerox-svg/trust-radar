@@ -1,5 +1,6 @@
 /**
  * LRX Radar Honeypot Site — Full honeypot domain served at lrxradar.com.
+ * Operated by Averrow (averrow.com) — LRX Enterprises Inc.
  *
  * Professional-looking cybersecurity consulting site with trap addresses
  * embedded in visible links, schema.org JSON-LD, meta tags, HTML comments,
