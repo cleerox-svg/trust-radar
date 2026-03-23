@@ -11,7 +11,7 @@ export function renderSecurityPage(): string {
 <style>
 /* ── SECURITY PAGE STYLES ── */
 .sec-hero {
-  padding: 10rem 0 5rem;
+  padding: 5rem 0 2.5rem;
   text-align: center;
   background: var(--gradient-hero);
 }
@@ -40,7 +40,7 @@ export function renderSecurityPage(): string {
 }
 
 .sec-section {
-  padding: 4.5rem 0;
+  padding: 3rem 0;
 }
 
 .sec-section + .sec-section {
@@ -376,7 +376,7 @@ export function renderSecurityPage(): string {
 /* ── CTA ── */
 .sec-cta {
   text-align: center;
-  padding: 5rem 0;
+  padding: 3rem 0;
   border-top: 1px solid var(--border);
 }
 
@@ -390,11 +390,11 @@ export function renderSecurityPage(): string {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 640px) {
-  .sec-hero { padding: 8rem 0 3.5rem; }
-  .sec-section { padding: 3rem 0; }
+  .sec-hero { padding: 5rem 0 2rem; }
+  .sec-section { padding: 2rem 0; }
   .sec-disclosure-details { grid-template-columns: 1fr; }
   .sec-body { padding: 0 1.25rem; }
-  .sec-cta { padding: 3.5rem 0; }
+  .sec-cta { padding: 2rem 0; }
 }
 </style>
 

@@ -463,7 +463,7 @@ img { max-width: 100%; }
 
 /* ── SECTIONS ── */
 section {
-  padding: 7rem 0;
+  padding: 3rem 0;
 }
 
 .section-label {
@@ -473,7 +473,7 @@ section {
   color: var(--accent);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .section-title {
@@ -482,7 +482,7 @@ section {
   font-weight: 800;
   line-height: 1.12;
   letter-spacing: -0.03em;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   max-width: 640px;
 }
 
@@ -491,7 +491,7 @@ section {
   color: var(--text-secondary);
   line-height: 1.75;
   max-width: 560px;
-  margin-bottom: 3.5rem;
+  margin-bottom: 1.25rem;
 }
 
 /* ── DIVIDERS ── */
@@ -597,7 +597,7 @@ section {
 /* ── FOOTER ── */
 .footer {
   position: relative;
-  padding: 5rem 0 2.5rem;
+  padding: 3rem 0 2rem;
   transition: border 0.3s;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Ccircle cx='1.5' cy='1.5' r='0.6' fill='%23888888' fill-opacity='0.05'/%3E%3C/svg%3E");
   background-repeat: repeat;
@@ -621,7 +621,7 @@ section {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 3rem;
-  margin-bottom: 4rem;
+  margin-bottom: 2rem;
 }
 
 .footer-brand-block p {
@@ -740,7 +740,7 @@ section {
 }
 
 @media (max-width: 768px) {
-  section { padding: 4.5rem 0; }
+  section { padding: 2rem 0; }
   .nav-links { display: none; }
   .footer-grid { grid-template-columns: 1fr; }
 }

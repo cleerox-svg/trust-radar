@@ -12,11 +12,11 @@ export function renderContactPage(): string {
     "Get in touch with the Averrow team. Reach out for product demos, enterprise pricing, security reports, or general inquiries.",
     `
 <style>
-.contact-hero { padding: 10rem 0 4rem; text-align: center; }
+.contact-hero { padding: 5rem 0 2.5rem; text-align: center; }
 .contact-hero .section-title { max-width: 100%; margin-left: auto; margin-right: auto; }
 .contact-hero .section-desc { max-width: 560px; margin-left: auto; margin-right: auto; margin-bottom: 0; }
 
-.contact-grid { display: grid; grid-template-columns: 60% 40%; gap: 3rem; margin-bottom: 5rem; }
+.contact-grid { display: grid; grid-template-columns: 60% 40%; gap: 2rem; margin-bottom: 2rem; }
 .contact-form-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-sm); }
 .contact-form-card h3 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
 .contact-form-card .form-subtitle { font-size: 0.92rem; color: var(--text-secondary); margin-bottom: 2rem; }
@@ -73,7 +73,7 @@ export function renderContactPage(): string {
 .sidebar-info-text strong { display: block; color: var(--text-primary); font-weight: 600; margin-bottom: 0.1rem; }
 
 @media (max-width: 1024px) { .contact-grid { grid-template-columns: 1fr; } }
-@media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .contact-hero { padding-top: 7rem; padding-bottom: 2rem; } .contact-form-card { padding: 1.5rem; } .sidebar-card { padding: 1.5rem; } }
+@media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .contact-hero { padding-top: 5rem; padding-bottom: 2rem; } .contact-form-card { padding: 1.5rem; } .sidebar-card { padding: 1.5rem; } }
 </style>
 
 <section class="contact-hero">

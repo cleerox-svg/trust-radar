@@ -11,11 +11,11 @@ export function renderPricingPage(): string {
     "Simple, transparent pricing. AI-powered brand protection designed for AI-powered threats. From $799/mo. Free scan available.",
     `
 <style>
-.pricing-hero { padding: 8rem 0 4rem; text-align: center; background: var(--gradient-hero); }
+.pricing-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
 .pricing-hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem,4vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
 .pricing-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
 
-.pricing-section { padding: 4rem 0 5rem; }
+.pricing-section { padding: 3rem 0; }
 .pricing-grid { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
 .price-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; display: flex; flex-direction: column; position: relative; transition: all 0.3s; }
 .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
@@ -33,7 +33,7 @@ export function renderPricingPage(): string {
 .price-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
 .price-cta { margin-top: auto; }
 
-.compare-section { padding: 5rem 0; background: var(--bg-tertiary); }
+.compare-section { padding: 3rem 0; background: var(--bg-tertiary); }
 .compare-table-wrap { max-width: 900px; margin: 2rem auto 0; padding: 0 2rem; overflow-x: auto; }
 .compare-table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
 .compare-table th { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); text-align: left; padding: 1rem; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); }
@@ -42,7 +42,7 @@ export function renderPricingPage(): string {
 .compare-table tr:last-child td { border-bottom: none; }
 .compare-table td:first-child { font-weight: 600; color: var(--text-primary); }
 
-.faq-section { padding: 5rem 0; }
+.faq-section { padding: 3rem 0; }
 .faq-list { max-width: 720px; margin: 2rem auto 0; padding: 0 2rem; }
 .faq-item { border-bottom: 1px solid var(--border); }
 .faq-q { font-family: var(--font-body); font-size: 0.95rem; font-weight: 600; padding: 1.25rem 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: none; border: none; width: 100%; text-align: left; color: var(--text-primary); }
@@ -52,7 +52,7 @@ export function renderPricingPage(): string {
 .faq-item.open .faq-a { display: block; }
 .faq-item.open .faq-arrow { transform: rotate(180deg); }
 
-.cta-block { padding: 5rem 0; text-align: center; background: var(--bg-tertiary); }
+.cta-block { padding: 3rem 0; text-align: center; background: var(--bg-tertiary); }
 .cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
