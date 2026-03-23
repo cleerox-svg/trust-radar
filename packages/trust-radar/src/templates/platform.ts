@@ -1,5 +1,5 @@
 /**
- * Trust Radar — Platform Overview Page
+ * Averrow — Platform Overview Page
  * Served at /platform
  */
 import { wrapPage } from "./shared";
@@ -7,8 +7,8 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderPlatformPage(): string {
   return wrapPage(
-    "Platform — Trust Radar",
-    "Outside-in brand threat intelligence powered by AI. Threat detection, email security, social monitoring, and AI agents.",
+    "Platform — Averrow",
+    "AI-powered brand threat intelligence. Six agents defending your digital airspace. Radar sweep, email security posture, social airspace monitoring, and the full Agent Squadron.",
     `
 <style>
 .plat-hero { padding: 8rem 0 4rem; text-align: center; background: var(--gradient-hero); position: relative; }
@@ -30,8 +30,9 @@ export function renderPlatformPage(): string {
 .cap-text p { color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
 .cap-features { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .cap-features li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
-.cap-features li::before { content: '✓'; color: var(--green); font-weight: 700; }
-.callout { background: var(--accent-bg); border: 1px solid rgba(8,145,178,0.15); border-radius: var(--radius-md); padding: 1rem 1.25rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; margin-top: 1rem; }
+.cap-features li::before { content: '✓'; color: #28A050; font-weight: 700; }
+.cap-features li.alert::before { color: #C83C3C; }
+.callout { background: var(--accent-bg); border: 1px solid rgba(200,60,60,0.15); border-radius: var(--radius-md); padding: 1rem 1.25rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; margin-top: 1rem; }
 
 .cap-visual { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; }
 .feed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -41,10 +42,10 @@ export function renderPlatformPage(): string {
 .email-card { }
 .email-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
 .email-item:last-child { border-bottom: none; }
-.email-pass { font-family: var(--font-mono); font-size: 0.75rem; color: var(--green); font-weight: 600; }
-.email-fail { font-family: var(--font-mono); font-size: 0.75rem; color: var(--red); font-weight: 600; }
+.email-pass { font-family: var(--font-mono); font-size: 0.75rem; color: #28A050; font-weight: 600; }
+.email-fail { font-family: var(--font-mono); font-size: 0.75rem; color: #C83C3C; font-weight: 600; }
 .email-grade { text-align: center; padding: 1rem; margin-top: 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-md); }
-.email-grade-letter { font-family: var(--font-display); font-size: 2.5rem; font-weight: 800; color: var(--accent); }
+.email-grade-letter { font-family: var(--font-display); font-size: 2.5rem; font-weight: 800; color: #28A050; }
 
 .social-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
 .social-item { text-align: center; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md); }
@@ -52,24 +53,27 @@ export function renderPlatformPage(): string {
 .social-status { font-size: 0.7rem; }
 .social-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 0.25rem; vertical-align: middle; }
 
-.agent-card { margin-bottom: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md); }
-.agent-name { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); margin-bottom: 0.25rem; }
+.agent-card { margin-bottom: 0.75rem; padding: 1rem 1rem 1rem 1.25rem; background: var(--bg-tertiary); border-radius: var(--radius-md); border-left: 3px solid transparent; }
+.agent-name { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.agent-role { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; margin-bottom: 0.35rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.08em; }
 .agent-desc { font-size: 0.82rem; color: var(--text-secondary); }
-.narrative-block { border-left: 3px solid var(--accent); padding: 1rem 1.25rem; background: var(--bg-tertiary); border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; }
-.narrative-label { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem; }
-.narrative-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(8,145,178,0.4); } 50% { opacity:0.8; box-shadow:0 0 0 6px rgba(8,145,178,0); } }
+.narrative-block { border-left: 3px solid #C83C3C; padding: 1rem 1.25rem; background: var(--bg-tertiary); border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; }
+.narrative-label { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; color: #C83C3C; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem; }
+.narrative-dot { width: 6px; height: 6px; background: #C83C3C; border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(200,60,60,0.4); } 50% { opacity:0.8; box-shadow:0 0 0 6px rgba(200,60,60,0); } }
+
+.agent-grid { display: flex; flex-direction: column; gap: 0; }
 
 .arch-section { padding: 5rem 0; text-align: center; }
 .arch-flow { max-width: 800px; margin: 2rem auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
 .arch-node { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem 1.5rem; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 500; }
-.arch-arrow { font-size: 1.2rem; color: var(--accent); }
+.arch-arrow { font-size: 1.2rem; color: #C83C3C; }
 
 .int-section { padding: 5rem 0; background: var(--bg-tertiary); text-align: center; }
 .int-grid { max-width: 900px; margin: 2rem auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .int-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 1.25rem; text-align: center; transition: all 0.3s; position: relative; backdrop-filter: blur(10px); background: rgba(var(--bg-secondary-rgb, 255,255,255), 0.7); }
 [data-theme="dark"] .int-card { background: rgba(17,24,39,0.7); }
-.int-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 0 25px rgba(8,145,178,0.15); }
+.int-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 0 25px rgba(200,60,60,0.15); }
 .int-card-icon { width: 44px; height: 44px; margin: 0 auto 0.75rem; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); }
 .int-card-icon svg { width: 24px; height: 24px; }
 .int-card-icon.live { background: var(--green-bg); color: var(--green); }
@@ -97,29 +101,29 @@ export function renderPlatformPage(): string {
 <section class="plat-hero">
   <div class="container">
     <div class="section-label" style="text-align:center;">The Platform</div>
-    <h1>Outside-in brand threat intelligence,<br>powered by AI.</h1>
-    <p>Trust Radar monitors your brand's digital footprint across threat feeds, email infrastructure, social platforms, and the open web — delivering actionable intelligence through AI agents.</p>
+    <h1>The Averrow Platform</h1>
+    <p>AI-powered brand threat intelligence. Six agents defending your digital airspace.</p>
   </div>
 </section>
 
 <div class="cap-nav">
   <div class="cap-nav-inner">
-    <a href="#threat-detection" class="cap-tab active">Threat Detection</a>
-    <a href="#email-security" class="cap-tab">Email Security</a>
-    <a href="#social-monitoring" class="cap-tab">Social Monitoring</a>
-    <a href="#ai-agents" class="cap-tab">AI Agents</a>
+    <a href="#radar-sweep" class="cap-tab active">Radar Sweep</a>
+    <a href="#email-posture" class="cap-tab">Email Posture Engine</a>
+    <a href="#social-airspace" class="cap-tab">Social Airspace</a>
+    <a href="#agent-squadron" class="cap-tab">Agent Squadron</a>
   </div>
 </div>
 
-<!-- Capability 1: Threat Detection -->
-<section class="cap-section" id="threat-detection">
+<!-- Capability 1: Radar Sweep -->
+<section class="cap-section" id="radar-sweep">
   <div class="cap-row">
     <div class="cap-text">
       <div class="section-label">Capability 01</div>
-      <h2>Continuous Threat Detection</h2>
-      <p>Trust Radar continuously monitors threat intelligence feeds for brand mentions across phishing databases, malware URL feeds, and domain intelligence sources.</p>
+      <h2>Radar Sweep — Continuous Threat Detection</h2>
+      <p>Averrow continuously monitors threat intelligence feeds for brand mentions across phishing databases, malware URL feeds, and domain intelligence sources. Sentinel, our first-line detection agent, never stops scanning.</p>
       <ul class="cap-features">
-        <li>Continuous scanning across all feeds</li>
+        <li>Continuous scanning across all radar feeds</li>
         <li>Parallel feed processing for speed</li>
         <li>Automatic deduplication and false positive filtering</li>
         <li>Safe domains allowlist to reduce noise</li>
@@ -127,26 +131,26 @@ export function renderPlatformPage(): string {
       </ul>
     </div>
     <div class="cap-visual">
-      <div style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--text-tertiary);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">Connected Feeds</div>
+      <div style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--text-tertiary);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">Active Radar Feeds</div>
       <div class="feed-grid">
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--red)"></span> Phishing DBs</div>
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--coral)"></span> Malware URLs</div>
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--amber)"></span> Threat Intel</div>
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--accent)"></span> CT Logs</div>
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--green)"></span> DNS Intel</div>
-        <div class="feed-badge"><span class="feed-dot" style="background:var(--red)"></span> Breach Intel</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#C83C3C"></span> Phishing databases</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#E8923C"></span> Malware URL feeds</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#DCAA32"></span> Threat intel feeds</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#78A0C8"></span> CT logs</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#28A050"></span> DNS intelligence</div>
+        <div class="feed-badge"><span class="feed-dot" style="background:#C83C3C"></span> Breach intel</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Capability 2: Email Security -->
-<section class="cap-section" id="email-security">
+<!-- Capability 2: Email Security Posture Engine -->
+<section class="cap-section" id="email-posture">
   <div class="cap-row reversed">
     <div class="cap-text">
       <div class="section-label">Capability 02</div>
       <h2>Email Security Posture Engine</h2>
-      <p>Most brand protection platforms completely ignore email security. Trust Radar is different — we analyze your SPF, DKIM, DMARC, and MX configuration to identify gaps that attackers exploit.</p>
+      <p>Most brand protection platforms completely ignore email security. Averrow goes beyond detection — we analyze your SPF, DKIM, DMARC, and MX configuration to identify the gaps attackers exploit to spoof your domain.</p>
       <ul class="cap-features">
         <li>SPF record validation</li>
         <li>DKIM multi-selector verification (12+ enterprise selectors)</li>
@@ -154,7 +158,7 @@ export function renderPlatformPage(): string {
         <li>MX provider detection and scoring</li>
         <li>A+ through F grading methodology</li>
       </ul>
-      <div class="callout">No competitor in the brand protection space does this.</div>
+      <div class="callout">Designed for AI-powered threats that exploit email authentication gaps.</div>
     </div>
     <div class="cap-visual">
       <div class="email-card">
@@ -172,13 +176,13 @@ export function renderPlatformPage(): string {
   </div>
 </section>
 
-<!-- Capability 3: Social Monitoring -->
-<section class="cap-section" id="social-monitoring">
+<!-- Capability 3: Social Airspace Monitoring -->
+<section class="cap-section" id="social-airspace">
   <div class="cap-row">
     <div class="cap-text">
       <div class="section-label">Capability 03</div>
-      <h2>Social Brand Monitoring</h2>
-      <p>Monitor six social platforms for brand impersonation, handle squatting, and unauthorized brand usage. AI-powered profile assessment identifies the most dangerous impersonation attempts with confidence scoring.</p>
+      <h2>Social Airspace Monitoring</h2>
+      <p>Monitor six social platforms for brand impersonation, handle squatting, and unauthorized brand usage. Observer's AI-powered profile assessment identifies the most dangerous impersonation attempts with confidence scoring.</p>
       <ul class="cap-features">
         <li>AI-powered profile assessment (confidence scoring)</li>
         <li>Auto-discovery of brand accounts from company websites</li>
@@ -189,46 +193,70 @@ export function renderPlatformPage(): string {
       </ul>
     </div>
     <div class="cap-visual">
-      <div style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--text-tertiary);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">Platform Status</div>
+      <div style="font-family:var(--font-mono);font-size:0.72rem;font-weight:600;color:var(--text-tertiary);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">Airspace Status</div>
       <div class="social-grid">
-        <div class="social-item"><div class="social-name">Twitter/X</div><div class="social-status"><span class="social-dot" style="background:var(--green)"></span> Verified</div></div>
-        <div class="social-item"><div class="social-name">LinkedIn</div><div class="social-status"><span class="social-dot" style="background:var(--green)"></span> Verified</div></div>
-        <div class="social-item"><div class="social-name">Instagram</div><div class="social-status"><span class="social-dot" style="background:var(--amber)"></span> Unclaimed</div></div>
+        <div class="social-item"><div class="social-name">Twitter/X</div><div class="social-status"><span class="social-dot" style="background:#28A050"></span> Verified</div></div>
+        <div class="social-item"><div class="social-name">LinkedIn</div><div class="social-status"><span class="social-dot" style="background:#28A050"></span> Verified</div></div>
+        <div class="social-item"><div class="social-name">Instagram</div><div class="social-status"><span class="social-dot" style="background:#E8923C"></span> Unclaimed</div></div>
         <div class="social-item"><div class="social-name">TikTok</div><div class="social-status"><span class="social-dot" style="background:var(--text-tertiary)"></span> N/A</div></div>
-        <div class="social-item"><div class="social-name">GitHub</div><div class="social-status"><span class="social-dot" style="background:var(--green)"></span> Verified</div></div>
-        <div class="social-item"><div class="social-name">YouTube</div><div class="social-status"><span class="social-dot" style="background:var(--red)"></span> Squatted</div></div>
+        <div class="social-item"><div class="social-name">GitHub</div><div class="social-status"><span class="social-dot" style="background:#28A050"></span> Verified</div></div>
+        <div class="social-item"><div class="social-name">YouTube</div><div class="social-status"><span class="social-dot" style="background:#C83C3C"></span> Squatted</div></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Capability 4: AI Agents -->
-<section class="cap-section" id="ai-agents">
+<!-- Capability 4: Agent Squadron -->
+<section class="cap-section" id="agent-squadron">
   <div class="cap-row reversed">
     <div class="cap-text">
       <div class="section-label">Capability 04</div>
-      <h2>AI-Powered Intelligence</h2>
-      <p>Trust Radar's AI agents don't just detect threats — they reason about them. The Analyst correlates signals across email, domains, social platforms, and threat feeds to construct threat narratives and generate a composite Brand Exposure Score.</p>
+      <h2>Agent Squadron</h2>
+      <p>Averrow's six AI agents don't just detect threats — they reason about them. The squadron correlates signals across email, domains, social platforms, and radar feeds to produce intercept reports and a composite Brand Exposure Score.</p>
       <ul class="cap-features">
         <li>Cross-system signal fusion (email + social + threats + domains)</li>
         <li>Social intelligence correlation in risk scoring</li>
         <li>Composite Brand Exposure Score</li>
-        <li>Natural language threat narratives</li>
+        <li>Natural language intercept reports</li>
         <li>Automated takedown evidence generation</li>
-        <li>Daily intelligence briefings</li>
+        <li>Daily intelligence briefings from Observer</li>
       </ul>
     </div>
     <div class="cap-visual">
-      <div class="agent-card">
-        <div class="agent-name">Analyst Agent</div>
-        <div class="agent-desc">Evaluates threats, correlates signals across email security, social impersonation, threat feeds, and domain lookalikes. Generates composite risk assessments.</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name">Observer Agent</div>
-        <div class="agent-desc">Daily intelligence briefings, trend analysis, email security monitoring.</div>
+      <div class="agent-grid">
+        <div class="agent-card" style="border-left-color:#C83C3C;">
+          <div class="agent-name" style="color:#C83C3C;">Sentinel</div>
+          <div class="agent-role" style="color:#C83C3C;">Threat Detection</div>
+          <div class="agent-desc">Continuous radar sweep across all feeds. The first to detect contacts crossing into airspace.</div>
+        </div>
+        <div class="agent-card" style="border-left-color:#E8923C;">
+          <div class="agent-name" style="color:#E8923C;">ASTRA</div>
+          <div class="agent-role" style="color:#E8923C;">Fire Control</div>
+          <div class="agent-desc">Classifies, scores, and prioritizes threat severity. Named after the Arrow's fire control system.</div>
+        </div>
+        <div class="agent-card" style="border-left-color:#78A0C8;">
+          <div class="agent-name" style="color:#78A0C8;">Observer</div>
+          <div class="agent-role" style="color:#78A0C8;">Strategic Intel</div>
+          <div class="agent-desc">The eye in the sky. Daily briefings, macro trend analysis, and weekly summaries.</div>
+        </div>
+        <div class="agent-card" style="border-left-color:#5A80A8;">
+          <div class="agent-name" style="color:#5A80A8;">Navigator</div>
+          <div class="agent-role" style="color:#5A80A8;">Geo Mapping</div>
+          <div class="agent-desc">Plots threat origins, enriches IP infrastructure, maps attack geography.</div>
+        </div>
+        <div class="agent-card" style="border-left-color:#8A8F9C;">
+          <div class="agent-name" style="color:#8A8F9C;">Blackbox</div>
+          <div class="agent-role" style="color:#8A8F9C;">Flight Recorder</div>
+          <div class="agent-desc">Captures threat event history and timelines as narrative. The record that never lies.</div>
+        </div>
+        <div class="agent-card" style="border-left-color:#28A050;margin-bottom:1rem;">
+          <div class="agent-name" style="color:#28A050;">Pathfinder</div>
+          <div class="agent-role" style="color:#28A050;">Target Acquisition</div>
+          <div class="agent-desc">Identifies high-value prospects from platform data and generates personalized outreach.</div>
+        </div>
       </div>
       <div class="narrative-block">
-        <div class="narrative-label"><span class="narrative-dot"></span> Analyst Agent — Threat Narrative</div>
+        <div class="narrative-label"><span class="narrative-dot"></span> Blackbox — Flight Recorder</div>
         "A phishing domain matching your brand was registered 48 hours ago with active MX records, combined with your current DKIM gap on the proofpoint selector. This creates a HIGH-severity compound risk — attackers can send spoofed emails that pass basic checks."
       </div>
     </div>
@@ -239,16 +267,16 @@ export function renderPlatformPage(): string {
 <section class="arch-section">
   <div class="container">
     <div class="section-label" style="text-align:center;">Architecture</div>
-    <h2 style="font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.5rem;">How Data Flows Through Trust Radar</h2>
+    <h2 style="font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:0.5rem;">How Data Flows Through Averrow</h2>
     <p style="color:var(--text-secondary);margin-bottom:2rem;">From ingestion to intelligence in minutes.</p>
     <div class="arch-flow">
-      <div class="arch-node">Threat Feeds</div>
+      <div class="arch-node">Radar Feeds</div>
       <div class="arch-arrow">→</div>
       <div class="arch-node">Scanners</div>
       <div class="arch-arrow">→</div>
-      <div class="arch-node">AI Agents</div>
+      <div class="arch-node">Agent Squadron</div>
       <div class="arch-arrow">→</div>
-      <div class="arch-node">Dashboard</div>
+      <div class="arch-node">Observatory</div>
     </div>
   </div>
 </section>
