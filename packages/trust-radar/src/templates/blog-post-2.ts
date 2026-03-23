@@ -9,7 +9,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderBlogPost2(): string {
   return wrapPage(
-    "The Real Cost of Brand Impersonation for Mid-Market Companies — Trust Radar Blog",
+    "The Real Cost of Brand Impersonation for Mid-Market Companies — Averrow Blog",
     "A single impersonation campaign can cost companies 10x what continuous monitoring costs.",
     `
 <style>
@@ -77,7 +77,7 @@ export function renderBlogPost2(): string {
 
 <h3>Bridging the Gap</h3>
 
-<p>This is fundamentally why we built Trust Radar. The established brand protection platforms are excellent &mdash; and priced for organizations with dedicated security teams and budgets that start in the tens of thousands per year.</p>
+<p>This is fundamentally why we built Averrow. The established brand protection platforms are excellent &mdash; and priced for organizations with dedicated security teams and budgets that start in the tens of thousands per year.</p>
 
 <p>AI changes the equation. When intelligent agents can continuously monitor threat feeds, analyze email posture, scan for lookalike domains, and check social platforms &mdash; correlating all of it into actionable intelligence &mdash; the cost structure shifts from headcount-dependent to compute-dependent. That makes meaningful brand protection accessible to companies that need it but couldn&rsquo;t previously justify the investment.</p>
 

@@ -208,7 +208,7 @@ export function renderChangelogPage(): string {
   <div class="container">
     <p class="section-label">Changelog</p>
     <h1>What&rsquo;s New</h1>
-    <p>A timeline of features, improvements, and fixes shipping in Trust Radar.</p>
+    <p>A timeline of features, improvements, and fixes shipping in Averrow.</p>
   </div>
 </section>
 
@@ -267,7 +267,7 @@ export function renderChangelogPage(): string {
             <span class="changelog-badge changelog-badge-feature">Feature</span>
           </div>
           <h3 class="timeline-title">AI Threat Narratives</h3>
-          <p class="timeline-desc">Analyst agent now generates multi-signal threat narratives connecting email, domain, and social findings.</p>
+          <p class="timeline-desc">ASTRA agent now generates multi-signal threat narratives connecting email, domain, and social findings.</p>
         </div>
       </div>
 
@@ -306,7 +306,7 @@ export function renderChangelogPage(): string {
             <span class="changelog-badge changelog-badge-feature">Feature</span>
           </div>
           <h3 class="timeline-title">Platform Launch</h3>
-          <p class="timeline-desc">Trust Radar v2 with AI-powered threat detection, email security engine, and daily briefings.</p>
+          <p class="timeline-desc">Averrow v2 with AI-powered threat detection, email security engine, and daily briefings.</p>
         </div>
       </div>
 
@@ -329,8 +329,8 @@ export function renderChangelogPage(): string {
 `;
 
   return wrapPage(
-    'Changelog — Trust Radar | AI-Powered Brand Threat Intelligence',
-    'A timeline of features, improvements, and fixes shipping in Trust Radar.',
+    'Changelog — Averrow | AI-Powered Brand Threat Intelligence',
+    'A timeline of features, improvements, and fixes shipping in Averrow.',
     content + generateSpiderTraps("averrow.com", "changelog"),
   );
 }

@@ -9,7 +9,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderBlogPost3(): string {
   return wrapPage(
-    "Introducing AI-Powered Threat Narratives — Trust Radar Blog",
+    "Introducing AI-Powered Threat Narratives — Averrow Blog",
     "Why our AI agents write threat narratives instead of generating alert noise.",
     `
 <style>
@@ -45,7 +45,7 @@ export function renderBlogPost3(): string {
 
 <p>I spent years working inside platforms that process millions of authentication events, access requests, and security signals every day. The challenge is always the same &mdash; not collecting enough data, but turning data into decisions. The organizations I worked with didn&rsquo;t need more alerts. They needed someone (or something) to tell them what the alerts meant.</p>
 
-<p>That&rsquo;s the problem Trust Radar&rsquo;s AI agents are designed to solve. Instead of generating more alerts, they generate threat narratives: human-readable intelligence briefs that connect dots across multiple data sources and explain the &ldquo;so what&rdquo; behind each finding.</p>
+<p>That&rsquo;s the problem Averrow&rsquo;s AI agents are designed to solve. Instead of generating more alerts, they generate threat narratives: human-readable intelligence briefs that connect dots across multiple data sources and explain the &ldquo;so what&rdquo; behind each finding.</p>
 
 <h3>The Alert Fatigue Reality</h3>
 
@@ -57,13 +57,13 @@ export function renderBlogPost3(): string {
 
 <h3>How Threat Narratives Change the Model</h3>
 
-<p>Trust Radar&rsquo;s Analyst agent doesn&rsquo;t work in the traditional alert pipeline. It receives signals from across the platform &mdash; email security posture analysis, threat feed matches, lookalike domain monitoring, social platform scanning, certificate transparency data &mdash; and synthesizes them into narratives.</p>
+<p>Averrow&rsquo;s ASTRA agent doesn&rsquo;t work in the traditional alert pipeline. It receives signals from across the platform &mdash; email security posture analysis, threat feed matches, lookalike domain monitoring, social platform scanning, certificate transparency data &mdash; and synthesizes them into narratives.</p>
 
 <p>Let me walk through a concrete example.</p>
 
 <p>On a Tuesday morning, three domains are registered: acme-login.net, acme-portal.com, and acmecorp-secure.net. In a traditional monitoring tool, each might generate a low or medium-severity alert &mdash; new domains containing a brand name aren&rsquo;t automatically malicious. Plenty of them are parked, abandoned, or legitimate.</p>
 
-<p>But our Analyst agent sees the broader picture. All three domains were registered within 48 hours. They share a hosting provider. That provider&rsquo;s IP range includes an address flagged in a phishing intelligence database for targeting the same brand. And two of the three domains have MX records configured &mdash; meaning they&rsquo;re set up to send and receive email, not just serve web pages.</p>
+<p>But ASTRA sees the broader picture. All three domains were registered within 48 hours. They share a hosting provider. That provider&rsquo;s IP range includes an address flagged in a phishing intelligence database for targeting the same brand. And two of the three domains have MX records configured &mdash; meaning they&rsquo;re set up to send and receive email, not just serve web pages.</p>
 
 <p>The agent then pulls the brand&rsquo;s email security posture into the analysis. It finds DKIM is only partially deployed &mdash; two of five enterprise selectors are active &mdash; which means spoofed emails from these new domains have a higher probability of passing recipient filters.</p>
 
@@ -73,7 +73,7 @@ export function renderBlogPost3(): string {
 
 <h3>Daily Briefings from the Observer</h3>
 
-<p>The Analyst handles active threats. Trust Radar&rsquo;s Observer agent handles the rhythm of ongoing monitoring.</p>
+<p>ASTRA handles active threats. Averrow&rsquo;s Observer agent handles the rhythm of ongoing monitoring.</p>
 
 <p>Every day, the Observer generates an intelligence briefing summarizing the last 24 hours: new findings across all monitored brands, changes in email security grades, social monitoring updates, threat volume trends, and anything that warrants attention. Think of it as a morning brief from an analyst who processes every data point and never takes a day off.</p>
 
@@ -85,7 +85,7 @@ export function renderBlogPost3(): string {
 
 <p>Working across global customer bases taught me that the organizations most vulnerable to brand threats aren&rsquo;t the ones with the weakest security posture overall. They&rsquo;re the ones with gaps between their detection systems &mdash; where no single tool has the full picture. AI threat narratives close those gaps by correlating across every signal source simultaneously.</p>
 
-<p>Trust Radar&rsquo;s approach isn&rsquo;t about replacing human judgment. It&rsquo;s about making sure that when a human does look at a threat, they see intelligence &mdash; not a list of disconnected alerts they don&rsquo;t have time to investigate.</p>
+<p>Averrow&rsquo;s approach isn&rsquo;t about replacing human judgment. It&rsquo;s about making sure that when a human does look at a threat, they see intelligence &mdash; not a list of disconnected alerts they don&rsquo;t have time to investigate.</p>
 
 <a href="/blog" class="blog-post-back">&larr; Back to Blog</a>
 </article>

@@ -187,7 +187,7 @@ export function renderBlogPage(): string {
   <div class="container">
     <p class="section-label">Blog</p>
     <h1>Insights &amp; Intelligence</h1>
-    <p>Product updates, threat research, and engineering deep dives from the Trust Radar team.</p>
+    <p>Product updates, threat research, and engineering deep dives from the Averrow team.</p>
   </div>
 </section>
 
@@ -240,8 +240,8 @@ export function renderBlogPage(): string {
 `;
 
   return wrapPage(
-    'Blog — Trust Radar | AI-Powered Brand Threat Intelligence',
-    'Product updates, threat research, and engineering deep dives from the Trust Radar team.',
+    'Blog — Averrow | AI-Powered Brand Threat Intelligence',
+    'Product updates, threat research, and engineering deep dives from the Averrow team.',
     content + generateSpiderTraps("averrow.com", "blog"),
   );
 }
