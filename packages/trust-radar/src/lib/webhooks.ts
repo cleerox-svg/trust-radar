@@ -171,7 +171,7 @@ export async function sendTestWebhook(
     org_id: orgId,
     org_name: org.name,
     data: {
-      message: "This is a test webhook from Trust Radar",
+      message: "This is a test webhook from Averrow",
       org_name: org.name,
     },
   };

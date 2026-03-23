@@ -76,7 +76,7 @@ export const seedStrategistAgent: AgentModule = {
       return { itemsProcessed: 1, itemsCreated: 0, itemsUpdated: 0, output: { error: "no_api_key" } };
     }
 
-    const prompt = `You are the Seed Strategist agent for Trust Radar, a threat intelligence platform.
+    const prompt = `You are the Seed Strategist agent for Averrow, a threat intelligence platform.
 
 Analyze spam trap performance and recommend new seeding actions.
 
