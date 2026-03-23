@@ -1,4 +1,4 @@
-// Trust Radar v2 — Social Monitoring API Handlers
+// Averrow — Social Monitoring API Handlers
 // Refactored to use unified brand model (brands + social_profiles + brand_monitor_schedule)
 
 import { json } from "../lib/cors";

@@ -8,32 +8,32 @@ export function renderSocialDashboard(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Social Monitoring — Trust Radar</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Social Monitoring — Averrow</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ─── Section 8.1 Design Tokens ──────────────────────────────── */
 :root {
-  --bg-primary: #fafbfc; --bg-secondary: #ffffff; --bg-tertiary: #f1f5f9;
-  --text-primary: #0f172a; --text-secondary: #475569; --text-tertiary: #94a3b8;
-  --border-light: #e2e8f0; --border-strong: #cbd5e1;
-  --accent: #0891b2; --accent-hover: #0e7490;
-  --teal: #14b8a6; --teal-light: #ccfbf1; --teal-dark: #0f3d38;
-  --green: #10b981; --amber: #f59e0b; --coral: #f97316; --red: #ef4444;
+  --bg-primary: #F8F7F5; --bg-secondary: #FFFFFF; --bg-tertiary: #FAFAF8;
+  --text-primary: #1A1F2E; --text-secondary: #8A8F9C; --text-tertiary: #C8C2BA;
+  --border-light: #E0DCD6; --border-strong: #C8C2BA;
+  --accent: #C83C3C; --accent-hover: #A82E2E;
+  --teal: #C83C3C; --teal-light: #FDEAEA; --teal-dark: #5C0F0F;
+  --green: #28A050; --amber: #E8923C; --coral: #E8923C; --red: #C83C3C;
   --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04); --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
   --drawer-width: 420px;
 }
 [data-theme="dark"] {
-  --bg-primary: #0b1120; --bg-secondary: #111827; --bg-tertiary: #1a2332;
-  --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-tertiary: #64748b;
-  --border-light: #1e293b; --border-strong: #334155;
-  --teal-light: #0f3d38; --teal-dark: #ccfbf1;
+  --bg-primary: #080E18; --bg-secondary: #0E1A2B; --bg-tertiary: #142236;
+  --text-primary: #F0EDE8; --text-secondary: #78A0C8; --text-tertiary: #5A80A8;
+  --border-light: #1A2E48; --border-strong: #243A54;
+  --teal-light: #5C0F0F; --teal-dark: #FDEAEA;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.2); --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.4);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
 h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
 
@@ -48,10 +48,10 @@ h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
 
 /* ─── Layout ─────────────────────────────────────────────────── */
 .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-select.brand-select { font-family: 'DM Sans', sans-serif; font-size: 0.875rem; padding: 0.5rem 1rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; }
+select.brand-select { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.875rem; padding: 0.5rem 1rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; }
 
 /* ─── Buttons ────────────────────────────────────────────────── */
-.btn { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.15s; }
+.btn { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; font-weight: 500; padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.15s; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-outline { background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); }
@@ -102,10 +102,10 @@ select.brand-select { font-family: 'DM Sans', sans-serif; font-size: 0.875rem; p
 .severity-badge.HIGH { background: #fff7ed; color: var(--coral); }
 .severity-badge.MEDIUM { background: #fffbeb; color: var(--amber); }
 .severity-badge.LOW { background: #ecfdf5; color: var(--green); }
-[data-theme="dark"] .severity-badge.CRITICAL { background: #1c1017; }
-[data-theme="dark"] .severity-badge.HIGH { background: #1c1510; }
-[data-theme="dark"] .severity-badge.MEDIUM { background: #1c1a10; }
-[data-theme="dark"] .severity-badge.LOW { background: #0f1c17; }
+[data-theme="dark"] .severity-badge.CRITICAL { background: #2D0A0A; }
+[data-theme="dark"] .severity-badge.HIGH { background: #2D1A08; }
+[data-theme="dark"] .severity-badge.MEDIUM { background: #2D2208; }
+[data-theme="dark"] .severity-badge.LOW { background: #0A1F10; }
 
 /* ─── SVG Arc Gauge ──────────────────────────────────────────── */
 .arc-gauge { display: inline-block; position: relative; }

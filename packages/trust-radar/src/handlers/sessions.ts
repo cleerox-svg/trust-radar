@@ -1,4 +1,4 @@
-// Trust Radar v2 — Session Handlers
+// Averrow — Session Handlers
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";

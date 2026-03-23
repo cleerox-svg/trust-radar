@@ -1,4 +1,4 @@
-// Trust Radar v2 — Campaign API Endpoints
+// Averrow — Campaign API Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

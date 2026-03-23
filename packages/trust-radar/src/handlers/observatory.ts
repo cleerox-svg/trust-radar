@@ -1,4 +1,4 @@
-// Trust Radar — Observatory API Endpoints
+// Averrow — Observatory API Endpoints
 // Powers the deck.gl + MapLibre GL threat map visualization
 //
 // Endpoints:

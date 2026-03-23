@@ -1,4 +1,4 @@
-// Trust Radar v2 — Admin Handlers
+// Averrow — Admin Handlers
 
 import { z } from "zod";
 import { json } from "../lib/cors";
@@ -351,7 +351,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
 
     console.log(`[backfill-geo] Starting: ${totalPending} threats pending geo enrichment`);
 
-    // Call the SAME enrichThreatsGeo function the Cartographer uses.
+    // Call the SAME enrichThreatsGeo function the Navigator uses.
     // Each call processes up to 10 threats (5 actual IP lookups due to ipinfo cap).
     // Loop multiple rounds to make meaningful progress per click.
     let totalEnriched = 0;

@@ -1,4 +1,4 @@
-// Trust Radar v2 — Audit Log Viewer (Admin)
+// Averrow — Audit Log Viewer (Admin)
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

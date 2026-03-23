@@ -81,7 +81,7 @@ export async function handleSTIXExport(
     const bundle = buildSTIXBundle(threats.results, brandInput);
 
     // 5. Return as application/stix+json with download header
-    const filename = `trust-radar-stix-${brand.canonical_domain}-${Date.now()}.json`;
+    const filename = `averrow-stix-${brand.canonical_domain}-${Date.now()}.json`;
 
     return new Response(JSON.stringify(bundle, null, 2), {
       status: 200,

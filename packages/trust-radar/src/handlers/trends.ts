@@ -1,4 +1,4 @@
-// Trust Radar v2 — Trend API Endpoints
+// Averrow — Trend API Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

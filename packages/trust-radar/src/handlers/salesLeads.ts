@@ -1,5 +1,5 @@
 /**
- * Sales Leads Admin API — CRUD endpoints for Prospector-generated leads.
+ * Sales Leads Admin API — CRUD endpoints for Pathfinder-generated leads.
  */
 
 import { json } from "../lib/cors";
