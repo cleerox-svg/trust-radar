@@ -7778,18 +7778,27 @@ async function viewAdminSpamTrap(el) {
 // ─── Spam Trap Capture Detail ────────────────────────────────
 
 async function showCaptureDetail(id) {
-  // Create overlay
+  // Inject keyframes for modal appear animation
+  if (!document.getElementById('capture-modal-anim')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'capture-modal-anim';
+    styleEl.textContent = `
+      @keyframes captureModalIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+      .capture-overlay-bg { animation: captureOverlayIn 0.2s ease forwards; }
+      @keyframes captureOverlayIn { from { opacity:0; } to { opacity:1; } }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
   const overlay = document.createElement('div');
   overlay.id = 'capture-detail-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px';
+  overlay.className = 'capture-overlay-bg';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,8,16,0.85);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px';
 
-  overlay.innerHTML = `<div style="background:#0E1A2B;border:1px solid rgba(120,160,200,0.12);border-radius:8px;max-width:800px;width:100%;position:relative;margin:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid rgba(120,160,200,0.08)">
-      <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">Capture Detail</div>
-      <button id="capture-detail-close" style="background:none;border:none;color:#8A8F9C;font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Close">&times;</button>
-    </div>
-    <div id="capture-detail-body" style="padding:24px">
-      <div style="color:#78A0C8;font-family:var(--font-mono);font-size:12px">Loading...</div>
+  overlay.innerHTML = `<div style="background:#0E1A2B;border:1px solid rgba(120,160,200,0.1);border-radius:12px;max-width:720px;width:100%;position:relative;animation:captureModalIn 0.2s ease forwards;padding:28px">
+    <button id="capture-detail-close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:none;border:none;color:var(--text-secondary,#78A0C8);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s,background 0.15s" onmouseenter="this.style.color='#C83C3C';this.style.background='rgba(200,60,60,0.1)'" onmouseleave="this.style.color='';this.style.background='none'" title="Close">&times;</button>
+    <div id="capture-detail-body" style="max-height:85vh;overflow-y:auto;padding-right:4px">
+      <div style="color:#78A0C8;font-family:'IBM Plex Mono',monospace;font-size:12px">Loading...</div>
     </div>
   </div>`;
 
@@ -7806,120 +7815,207 @@ async function showCaptureDetail(id) {
     const c = res?.data || res;
     if (!c) throw new Error('No data returned');
 
-    const authPill = (result, domain) => {
-      const cls = result === 'pass' ? 'auth-pass' : result === 'fail' ? 'auth-fail' : 'auth-neutral';
-      const label = domain ? `${result || '-'} · ${domain}` : (result || '-');
-      return `<span class="${cls}">${label}</span>`;
+    // — helpers —
+    const esc = s => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const severityColors = { critical: '#C83C3C', high: '#E8923C', medium: '#DCAA32', low: '#78A0C8' };
+    const sevColor = severityColors[c.severity] || '#8A8F9C';
+    const divider = '<div style="border-top:1px solid var(--border,rgba(120,160,200,0.08));margin:20px 0"></div>';
+
+    // Resolve URLs and attachments — API returns parsed arrays
+    const urls = Array.isArray(c.urls) ? c.urls : (() => { try { return JSON.parse(c.urls_found || '[]'); } catch { return []; } })();
+    const attachments = Array.isArray(c.attachments) ? c.attachments : (() => { try { return JSON.parse(c.attachment_hashes || '[]'); } catch { return []; } })();
+    const confidence = c.brand_confidence ?? c.confidence_score ?? null;
+    const matchMethod = c.brand_match_method ?? c.match_method ?? null;
+    const brandName = c.brand_name ?? c.spoofed_brand ?? null;
+
+    // Auth result pill
+    const authPill = (result) => {
+      if (result === 'pass') return `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;background:rgba(40,160,80,0.12);color:#28A050">${result}</span>`;
+      if (result === 'fail') return `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;background:rgba(200,60,60,0.12);color:#C83C3C">${result}</span>`;
+      return `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;background:rgba(138,143,156,0.12);color:#8A8F9C">${result || 'none'}</span>`;
     };
 
-    const severityColor = s => ({ critical: '#C83C3C', high: '#E8923C', medium: '#DCAA32', low: '#78A0C8' })[s] || '#8A8F9C';
+    // Phishing indicator check for URLs
+    const phishIndicators = ['login', 'signin', 'verify', 'secure', 'account', 'update', 'confirm', 'password', 'credential', 'suspend', '.tk', '.ml', '.ga', '.cf', 'bit.ly', 'tinyurl'];
+    const isPhishy = u => phishIndicators.some(p => u.toLowerCase().includes(p));
 
-    const urls = (() => { try { return JSON.parse(c.extracted_urls || '[]'); } catch { return []; } })();
-    const attachments = (() => { try { return JSON.parse(c.attachment_hashes || '[]'); } catch { return []; } })();
+    // Section label helper
+    const sectionLabel = (text, badge) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">${text}</span>
+      ${badge !== undefined ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;background:${badge > 0 ? 'rgba(200,60,60,0.15);color:#C83C3C' : 'rgba(120,160,200,0.12);color:#78A0C8'}">${badge}</span>` : ''}
+    </div>`;
 
-    const section = (label, content) => `
-      <div style="margin-bottom:20px">
-        <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C;margin-bottom:10px">${label}</div>
-        ${content}
+    // Infra field helper — only renders if value is truthy
+    const infraField = (label, value) => {
+      if (!value) return '';
+      return `<div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8)">${label}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text-primary,#F0EDE8);word-break:break-all">${esc(value)}</div>
       </div>`;
-
-    const field = (label, value, mono = false) => value ? `
-      <div style="display:flex;gap:12px;padding:4px 0;border-bottom:1px solid rgba(120,160,200,0.05)">
-        <div style="font-family:var(--font-mono);font-size:10px;color:#8A8F9C;min-width:130px;flex-shrink:0">${label}</div>
-        <div style="font-family:${mono ? 'var(--font-mono)' : 'var(--font-display)'};font-size:${mono ? '10px' : '12px'};color:#F0EDE8;word-break:break-all">${value}</div>
-      </div>` : '';
+    };
 
     const hasGeo = c.country_code || c.city || c.asn || c.asn_org;
-    const hasBrand = c.spoofed_brand || c.spoofed_domain || c.match_method;
+    const hasBrand = brandName || c.spoofed_domain || matchMethod;
+    const bodyPreview = c.body_preview || '';
 
-    let urlsHtml = '';
-    if (urls.length) {
-      urlsHtml = `<div style="display:flex;flex-direction:column;gap:4px">${urls.map(u => `
-        <div style="display:flex;align-items:center;gap:8px;background:#142236;border-radius:4px;padding:6px 10px">
-          <div style="font-family:var(--font-mono);font-size:10px;color:#78A0C8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u}</div>
-          <button onclick="navigator.clipboard.writeText('${u.replace(/'/g, "\\'")}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Copy',1200)})" style="background:none;border:1px solid rgba(120,160,200,0.2);color:#8A8F9C;font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:3px;cursor:pointer;flex-shrink:0">Copy</button>
-        </div>`).join('')}</div>`;
+    // — build HTML —
+    let html = '';
+
+    // ── HEADER ──
+    html += `<div style="padding-right:28px">
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary,#F0EDE8);line-height:1.3;margin-bottom:6px">${esc(c.subject) || '(no subject)'}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C83C3C;margin-bottom:6px">${esc(c.from_address)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${c.severity ? `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;background:${sevColor}20;border:1px solid ${sevColor}30;color:${sevColor}">${c.severity}</span>` : ''}
+          ${c.category ? `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;background:rgba(120,160,200,0.1);border:1px solid rgba(120,160,200,0.2);color:#78A0C8">${c.category}</span>` : ''}
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-secondary,#78A0C8)">${(c.captured_at || '').slice(0, 19).replace('T', ' ')} UTC</div>
+      </div>
+    </div>`;
+
+    html += divider;
+
+    // ── AUTH RESULTS ──
+    html += sectionLabel('Auth Results');
+    html += `<div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">SPF</div>
+        ${authPill(c.spf_result)}
+        ${c.spf_domain ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">${esc(c.spf_domain)}</div>` : ''}
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">DKIM</div>
+        ${authPill(c.dkim_result)}
+        ${c.dkim_domain ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">${esc(c.dkim_domain)}</div>` : ''}
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">DMARC</div>
+        ${authPill(c.dmarc_result)}
+        ${c.dmarc_disposition && c.dmarc_disposition !== 'none' ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">disposition: ${esc(c.dmarc_disposition)}</div>` : ''}
+      </div>
+    </div>`;
+
+    html += divider;
+
+    // ── SENDER INFRASTRUCTURE ──
+    html += sectionLabel('Sender Infrastructure');
+    const infraFields = [
+      infraField('Sending IP', c.sending_ip),
+      infraField('Return-Path', c.return_path),
+      infraField('Reply-To', c.reply_to),
+      infraField('HELO Hostname', c.helo_hostname),
+      infraField('X-Mailer', c.x_mailer),
+    ].filter(Boolean);
+    if (infraFields.length) {
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px">${infraFields.join('')}</div>`;
     } else {
-      urlsHtml = '<div style="color:#8A8F9C;font-size:11px;font-family:var(--font-mono)">None extracted</div>';
+      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C">No sender infrastructure data</div>`;
     }
 
-    document.getElementById('capture-detail-body').innerHTML = `
-      ${section('', `
-        <div style="font-family:var(--font-display);font-size:18px;font-weight:600;color:#F0EDE8;margin-bottom:8px">${c.subject || '(no subject)'}</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
-          <span style="font-family:var(--font-mono);font-size:11px;color:#78A0C8">${c.from_address || ''}</span>
-          ${c.sending_ip ? `<span style="font-family:var(--font-mono);font-size:10px;color:#8A8F9C">${c.sending_ip}</span>` : ''}
-          <span style="font-family:var(--font-mono);font-size:10px;color:#8A8F9C">${(c.captured_at || '').slice(0, 19).replace('T', ' ')} UTC</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${c.severity ? `<span class="severity-pill ${c.severity}">${c.severity}</span>` : ''}
-          ${c.category ? `<span style="background:rgba(120,160,200,0.1);border:1px solid rgba(120,160,200,0.2);color:#78A0C8;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em">${c.category}</span>` : ''}
-        </div>
-      `)}
-
-      ${section('Auth Results', `
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div><div style="font-family:var(--font-mono);font-size:9px;color:#8A8F9C;margin-bottom:4px">SPF</div>${authPill(c.spf_result, c.spf_domain)}</div>
-          <div><div style="font-family:var(--font-mono);font-size:9px;color:#8A8F9C;margin-bottom:4px">DKIM</div>${authPill(c.dkim_result, c.dkim_domain)}</div>
-          <div><div style="font-family:var(--font-mono);font-size:9px;color:#8A8F9C;margin-bottom:4px">DMARC</div>${authPill(c.dmarc_result, c.dmarc_disposition ? `disposition:${c.dmarc_disposition}` : null)}</div>
-        </div>
-      `)}
-
-      ${section('Sender Infrastructure', `
-        ${field('Sending IP', c.sending_ip, true)}
-        ${field('X-Mailer', c.x_mailer, true)}
-        ${field('HELO Hostname', c.helo_hostname, true)}
-        ${field('Return-Path', c.return_path, true)}
-        ${field('Reply-To', c.reply_to, true)}
-        ${hasGeo ? [
-          field('Country', c.country_code),
-          field('City', c.city),
-          field('ASN', c.asn, true),
-          field('ASN Org', c.asn_org),
-        ].join('') : ''}
-      `)}
-
-      ${hasBrand ? section('Brand Match', `
-        ${field('Spoofed Brand', c.spoofed_brand)}
-        ${field('Spoofed Domain', c.spoofed_domain, true)}
-        ${field('Match Method', c.match_method)}
-        ${c.confidence_score != null ? `
-          <div style="display:flex;gap:12px;padding:4px 0;align-items:center">
-            <div style="font-family:var(--font-mono);font-size:10px;color:#8A8F9C;min-width:130px;flex-shrink:0">Confidence</div>
-            <div style="flex:1;display:flex;align-items:center;gap:8px">
-              <div style="flex:1;height:6px;background:rgba(120,160,200,0.15);border-radius:3px;overflow:hidden">
-                <div style="height:100%;width:${Math.round((c.confidence_score||0)*100)}%;background:${severityColor(c.severity)};border-radius:3px"></div>
-              </div>
-              <div style="font-family:var(--font-mono);font-size:10px;color:#F0EDE8">${Math.round((c.confidence_score||0)*100)}%</div>
-            </div>
+    // Geo enrichment sub-section
+    if (hasGeo) {
+      html += `<div style="margin-top:14px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:8px">Geo Enrichment</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px">
+          ${c.country_code ? `<div style="display:flex;align-items:center;gap:6px">
+            <span style="display:inline-block;padding:2px 6px;border-radius:3px;background:rgba(120,160,200,0.1);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#78A0C8">${esc(c.country_code)}</span>
+            ${c.city ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-primary,#F0EDE8)">${esc(c.city)}</span>` : ''}
           </div>` : ''}
-      `) : ''}
+          ${c.asn ? `<div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-primary,#F0EDE8);font-weight:500">${esc(c.asn)}</div>
+            ${c.asn_org ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C">${esc(c.asn_org)}</div>` : ''}
+          </div>` : ''}
+        </div>
+      </div>`;
+    }
 
-      ${c.body_preview ? section('Body Preview (first 500 characters)', `
-        <pre style="background:#142236;border:1px solid rgba(120,160,200,0.1);border-radius:4px;padding:12px;font-family:var(--font-mono);font-size:10px;color:#78A0C8;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:0">${c.body_preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-      `) : ''}
+    html += divider;
 
-      ${section(`Extracted URLs <span style="background:rgba(120,160,200,0.12);border:1px solid rgba(120,160,200,0.2);color:#78A0C8;padding:1px 6px;border-radius:10px;font-size:9px;margin-left:6px">${urls.length}</span>`, urlsHtml)}
+    // ── BRAND MATCH ──
+    if (hasBrand) {
+      html += sectionLabel('Brand Match');
+      html += `<div style="margin-bottom:8px">`;
+      if (brandName) html += `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text-primary,#F0EDE8);margin-bottom:4px">${esc(brandName)}</div>`;
+      if (c.spoofed_domain) html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-secondary,#78A0C8);margin-bottom:6px">${esc(c.spoofed_domain)}</div>`;
+      if (matchMethod) html += `<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;background:rgba(120,160,200,0.1);border:1px solid rgba(120,160,200,0.2);color:#78A0C8">${esc(matchMethod)}</span>`;
+      html += `</div>`;
+      if (confidence != null && confidence > 0) {
+        const confPct = Math.round(confidence);
+        html += `<div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);flex-shrink:0">Confidence</div>
+          <div style="flex:1;height:6px;background:rgba(120,160,200,0.1);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${confPct}%;background:#C83C3C;border-radius:3px;transition:width 0.3s ease"></div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--text-primary,#F0EDE8);flex-shrink:0">${confPct}%</div>
+        </div>`;
+      }
+      html += divider;
+    }
 
-      ${section(`Attachments <span style="background:rgba(120,160,200,0.12);border:1px solid rgba(120,160,200,0.2);color:#78A0C8;padding:1px 6px;border-radius:10px;font-size:9px;margin-left:6px">${attachments.length}</span>`,
-        attachments.length
-          ? `<div style="display:flex;flex-direction:column;gap:4px">${attachments.map(h => `<div style="font-family:var(--font-mono);font-size:10px;color:#78A0C8;background:#142236;border-radius:4px;padding:6px 10px">${h}</div>`).join('')}</div>`
-          : '<div style="color:#8A8F9C;font-size:11px;font-family:var(--font-mono)">None</div>'
-      )}
+    // ── BODY PREVIEW ──
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">Body Preview</span>
+      <span style="display:inline-block;padding:1px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;background:rgba(120,160,200,0.12);color:#78A0C8">${bodyPreview.length} chars</span>
+    </div>`;
+    if (bodyPreview) {
+      html += `<pre style="background:#0C1420;border:1px solid var(--border,rgba(120,160,200,0.08));border-radius:8px;padding:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;color:var(--text-primary,#F0EDE8);overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-word;margin:0">${esc(bodyPreview)}</pre>`;
+    } else {
+      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">No body content captured</div>`;
+    }
 
-      ${c.raw_headers ? `
-      <div style="margin-bottom:20px">
-        <button onclick="(function(btn){const block=document.getElementById('raw-headers-block');const isHidden=block.style.display==='none';block.style.display=isHidden?'block':'none';btn.querySelector('.rh-arrow').textContent=isHidden?'▾':'▸'})(this)" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px;margin-bottom:8px">
-          <span class="rh-arrow" style="font-size:10px;color:#8A8F9C">▸</span>
-          <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">Raw Headers</span>
+    html += divider;
+
+    // ── EXTRACTED URLs ──
+    html += sectionLabel('Extracted URLs', urls.length);
+    if (urls.length) {
+      html += `<div style="display:flex;flex-direction:column;gap:4px">${urls.map(u => {
+        const rowBg = isPhishy(u) ? 'rgba(200,60,60,0.06)' : 'transparent';
+        const rowBorder = isPhishy(u) ? '1px solid rgba(200,60,60,0.12)' : '1px solid rgba(120,160,200,0.06)';
+        return `<div style="display:flex;align-items:center;gap:8px;background:${rowBg};border:${rowBorder};border-radius:6px;padding:8px 10px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-primary,#F0EDE8);flex:1;word-break:break-all">${esc(u)}</div>
+          <button onclick="navigator.clipboard.writeText(this.dataset.url).then(()=>{this.textContent='COPIED';setTimeout(()=>this.textContent='COPY',1200)})" data-url="${u.replace(/"/g, '&quot;')}" style="background:none;border:1px solid rgba(120,160,200,0.15);color:#8A8F9C;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.06em;padding:3px 10px;border-radius:4px;cursor:pointer;flex-shrink:0;transition:border-color 0.15s,color 0.15s" onmouseenter="this.style.borderColor='rgba(120,160,200,0.4)';this.style.color='#F0EDE8'" onmouseleave="this.style.borderColor='rgba(120,160,200,0.15)';this.style.color='#8A8F9C'">COPY</button>
+        </div>`;
+      }).join('')}</div>`;
+    } else {
+      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">No URLs extracted</div>`;
+    }
+
+    html += divider;
+
+    // ── ATTACHMENTS ──
+    html += sectionLabel('Attachments', attachments.length);
+    if (attachments.length) {
+      html += `<div style="display:flex;flex-direction:column;gap:4px">${attachments.map(a => {
+        const att = typeof a === 'object' ? a : { filename: a, sha256: '', contentType: '' };
+        return `<div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(120,160,200,0.06);border-radius:6px;padding:8px 10px">
+          <div style="flex:1">
+            ${att.filename ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-primary,#F0EDE8);font-weight:500">${esc(att.filename)}</div>` : ''}
+            ${att.sha256 ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8F9C;margin-top:2px;word-break:break-all">${esc(att.sha256)}</div>` : ''}
+            ${att.contentType ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8F9C;margin-top:1px">${esc(att.contentType)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    } else {
+      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">None</div>`;
+    }
+
+    // ── RAW HEADERS ──
+    if (c.raw_headers) {
+      html += divider;
+      html += `<div>
+        <button onclick="(function(btn){const block=document.getElementById('raw-headers-block');const isHidden=block.style.display==='none';block.style.display=isHidden?'block':'none';btn.querySelector('.rh-arrow').textContent=isHidden?'\\u25BE RAW HEADERS':'\\u25B8 RAW HEADERS'})(this)" style="background:none;border:none;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:0;margin-bottom:8px">
+          <span class="rh-arrow" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">&#9656; RAW HEADERS</span>
         </button>
         <div id="raw-headers-block" style="display:none">
-          <pre style="background:#142236;border:1px solid rgba(120,160,200,0.1);border-radius:4px;padding:12px;font-family:var(--font-mono);font-size:9px;color:#78A0C8;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto">${c.raw_headers.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          <pre style="background:#0C1420;border:1px solid var(--border,rgba(120,160,200,0.08));border-radius:8px;padding:16px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;color:var(--text-primary,#F0EDE8);overflow:auto;max-height:400px;white-space:pre-wrap;word-break:break-word;margin:0">${esc(c.raw_headers)}</pre>
         </div>
-      </div>` : ''}
-    `;
+      </div>`;
+    }
+
+    document.getElementById('capture-detail-body').innerHTML = html;
   } catch (err) {
-    document.getElementById('capture-detail-body').innerHTML = `<div style="color:#C83C3C;font-family:var(--font-mono);font-size:12px">Failed to load capture details: ${err.message}</div>`;
+    document.getElementById('capture-detail-body').innerHTML = `<div style="color:#C83C3C;font-family:'IBM Plex Mono',monospace;font-size:12px">Failed to load capture details: ${err.message}</div>`;
   }
 }
 
