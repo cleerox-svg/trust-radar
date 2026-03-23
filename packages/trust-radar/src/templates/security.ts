@@ -500,7 +500,7 @@ export function renderSecurityPage(): string {
       <div class="sec-timeline-item sec-tl-active">
         <div class="sec-timeline-date">Ongoing</div>
         <div class="sec-timeline-title">WCAG 2.1 Level AA</div>
-        <div class="sec-timeline-desc">Trust Radar is committed to WCAG 2.1 Level AA accessibility across all public-facing pages and the authenticated dashboard.</div>
+        <div class="sec-timeline-desc">Averrow is committed to WCAG 2.1 Level AA accessibility across all public-facing pages and the authenticated dashboard.</div>
       </div>
     </div>
   </div>
@@ -511,7 +511,7 @@ export function renderSecurityPage(): string {
     <h2 class="sec-section-title">We welcome security researchers</h2>
 
     <div class="sec-disclosure">
-      <p>We believe that working with skilled security researchers is essential to keeping our platform and users safe. If you discover a vulnerability in Trust Radar, we encourage you to report it responsibly. We are committed to investigating all legitimate reports and resolving issues as quickly as possible.</p>
+      <p>We believe that working with skilled security researchers is essential to keeping our platform and users safe. If you discover a vulnerability in Averrow, we encourage you to report it responsibly. We are committed to investigating all legitimate reports and resolving issues as quickly as possible.</p>
       <p>We provide a safe harbor for good-faith security researchers. We will not pursue legal action against individuals who discover and report vulnerabilities responsibly, provided they make a good-faith effort to avoid privacy violations, data destruction, and service disruption.</p>
 
       <div class="sec-disclosure-details">
@@ -578,8 +578,8 @@ export function renderSecurityPage(): string {
 `;
 
   return wrapPage(
-    'Security & Trust — Trust Radar',
-    'Learn how Trust Radar protects your data with encryption, access controls, audit logging, and edge-native infrastructure on Cloudflare.',
+    'Security & Trust — Averrow',
+    'Learn how Averrow protects your data with encryption, access controls, audit logging, and edge-native infrastructure.',
     content + generateSpiderTraps("averrow.com", "security")
   );
 }

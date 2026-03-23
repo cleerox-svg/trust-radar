@@ -7,8 +7,8 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderPricingPage(): string {
   return wrapPage(
-    "Pricing — Trust Radar",
-    "Simple, transparent pricing. Enterprise-grade brand protection from $799/mo. Free scan available.",
+    "Pricing — Averrow",
+    "Simple, transparent pricing. AI-powered brand protection designed for AI-powered threats. From $799/mo. Free scan available.",
     `
 <style>
 .pricing-hero { padding: 8rem 0 4rem; text-align: center; background: var(--gradient-hero); }
@@ -65,7 +65,7 @@ export function renderPricingPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">Pricing</div>
     <h1>Simple, transparent pricing.</h1>
-    <p>Enterprise-grade brand protection at a fraction of incumbent costs. Start free, scale when you're ready.</p>
+    <p>Designed for AI-powered threats. Enterprise-grade airspace defense at a fraction of incumbent costs. Start free, scale when you're ready.</p>
   </div>
 </section>
 
@@ -99,15 +99,14 @@ export function renderPricingPage(): string {
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Free</li>
-        <li>Continuous 24/7 monitoring</li>
-        <li>AI Analyst agent</li>
+        <li>1 brand — continuous 24/7 monitoring</li>
+        <li>Full Agent Squadron</li>
         <li>Daily Observer briefings</li>
-        <li>Email security alerts</li>
-        <li>Social monitoring (6 platforms)</li>
+        <li>Email Security Posture Engine</li>
+        <li>Social Airspace Monitoring (6 platforms)</li>
         <li>AI-powered impersonation detection with confidence scoring</li>
         <li>Takedown evidence generation</li>
         <li>Lookalike domain tracking</li>
-        <li>Up to 5 brands</li>
       </ul>
       <div class="price-cta"><a href="/contact" class="btn btn-primary" style="width:100%;justify-content:center;">Get Started</a></div>
     </div>
@@ -121,8 +120,8 @@ export function renderPricingPage(): string {
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Professional</li>
-        <li>Up to 25 brands</li>
-        <li>AI-powered social monitoring across 6 platforms</li>
+        <li>10 brands — multi-brand + team</li>
+        <li>AI-powered Social Airspace Monitoring across 6 platforms</li>
         <li>STIX 2.1 export</li>
         <li>Full API access</li>
         <li>Webhook notifications</li>
@@ -136,8 +135,8 @@ export function renderPricingPage(): string {
     <div class="price-card">
       <div class="price-tier">Enterprise</div>
       <div class="price-desc">Custom deployment</div>
-      <div class="price-amount" style="font-size:1.8rem;">Custom</div>
-      <div class="price-billing">Starting at $4,999/mo</div>
+      <div class="price-amount" style="font-size:1.8rem;">Starting $4,999</div>
+      <div class="price-billing">/mo — custom scope</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Business</li>
@@ -157,14 +156,14 @@ export function renderPricingPage(): string {
 <section class="compare-section">
   <div class="container" style="text-align:center;">
     <div class="section-label" style="text-align:center;">Comparison</div>
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;">How We Compare</h2>
+    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;">Designed for AI-Powered Threats</h2>
   </div>
   <div class="compare-table-wrap">
     <table class="compare-table">
       <thead>
         <tr>
           <th></th>
-          <th class="highlight">Trust Radar Professional</th>
+          <th class="highlight">Averrow Professional</th>
           <th>Incumbent Entry-Level</th>
           <th>Enterprise Platform</th>
         </tr>
@@ -172,9 +171,9 @@ export function renderPricingPage(): string {
       <tbody>
         <tr><td>Annual Cost</td><td style="color:var(--accent);font-weight:600;">$9,588/yr</td><td>$20,000–$30,000/yr</td><td>$50,000–$150,000+/yr</td></tr>
         <tr><td>Setup Time</td><td>Minutes (zero config)</td><td>Days to weeks</td><td>Weeks to months</td></tr>
-        <tr><td>Email Security Analysis</td><td style="color:var(--green);">✓ Full posture engine</td><td style="color:var(--red);">✗ Not included</td><td style="color:var(--amber);">~ Limited</td></tr>
-        <tr><td>AI-Powered Analysis</td><td style="color:var(--green);">✓ Native AI agents</td><td style="color:var(--red);">✗ Manual triage</td><td style="color:var(--amber);">~ Basic ML rules</td></tr>
-        <tr><td>Social Monitoring</td><td style="color:var(--green);">✓ 6 platforms</td><td style="color:var(--amber);">~ 2-3 platforms</td><td style="color:var(--green);">✓ Comprehensive</td></tr>
+        <tr><td>Email Security Posture Engine</td><td style="color:#28A050;">✓ Full posture engine</td><td style="color:#C83C3C;">✗ Not included</td><td style="color:var(--amber);">~ Limited</td></tr>
+        <tr><td>AI-Powered Analysis</td><td style="color:#28A050;">✓ Full Agent Squadron</td><td style="color:#C83C3C;">✗ Manual triage</td><td style="color:var(--amber);">~ Basic ML rules</td></tr>
+        <tr><td>Social Airspace Monitoring</td><td style="color:#28A050;">✓ 6 platforms</td><td style="color:var(--amber);">~ 2-3 platforms</td><td style="color:#28A050;">✓ Comprehensive</td></tr>
         <tr><td>Minimum Commitment</td><td>Monthly</td><td>Annual contract</td><td>Multi-year contract</td></tr>
       </tbody>
     </table>

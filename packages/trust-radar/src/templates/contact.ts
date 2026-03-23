@@ -8,8 +8,8 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderContactPage(): string {
   return wrapPage(
-    "Contact Us — Trust Radar",
-    "Get in touch with the Trust Radar team. Reach out for product demos, enterprise pricing, partnerships, security reports, or general inquiries.",
+    "Contact Us — Averrow",
+    "Get in touch with the Averrow team. Reach out for product demos, enterprise pricing, security reports, or general inquiries.",
     `
 <style>
 .contact-hero { padding: 10rem 0 4rem; text-align: center; }
@@ -80,7 +80,7 @@ export function renderContactPage(): string {
   <div class="container">
     <div class="section-label">Contact Us</div>
     <h1 class="section-title">Get in Touch</h1>
-    <p class="section-desc">Have questions about Trust Radar? We'd love to hear from you. Fill out the form below and our team will get back to you shortly.</p>
+    <p class="section-desc">Have questions about Averrow? We'd love to hear from you. Fill out the form below and our team will get back to you shortly.</p>
   </div>
 </section>
 
@@ -124,7 +124,7 @@ export function renderContactPage(): string {
               <option value="general">General Inquiry</option>
               <option value="demo">Product Demo</option>
               <option value="enterprise">Enterprise Pricing</option>
-              <option value="partnership">Partnership</option>
+
               <option value="security">Security Report</option>
             </select>
           </div>

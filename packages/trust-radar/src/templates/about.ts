@@ -7,8 +7,8 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderAboutPage(): string {
   return wrapPage(
-    "About — Trust Radar",
-    "LRX Enterprises Inc. Making brand threat intelligence accessible. AI-native, edge-first, radically accessible.",
+    "About — Averrow",
+    "LRX Enterprises Inc. 🇨🇦 Making brand threat intelligence accessible. AI-native, edge-first, radically accessible.",
     `
 <style>
 .about-hero { padding: 8rem 0 4rem; text-align: center; background: var(--gradient-hero); }
@@ -59,7 +59,7 @@ export function renderAboutPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">About</div>
     <h1>Making brand threat intelligence<br>accessible.</h1>
-    <p>LRX Enterprises Inc. is building the trust infrastructure that every company deserves — not just enterprises with six-figure security budgets.</p>
+    <p>LRX Enterprises Inc. 🇨🇦 is building the airspace defense that every company deserves — not just enterprises with six-figure security budgets.</p>
   </div>
 </section>
 
@@ -67,8 +67,9 @@ export function renderAboutPage(): string {
 <section class="about-section">
   <div class="about-content">
     <h2>Our Story</h2>
+    <p>In 1958, Canada built the most advanced interceptor in the world — the Avro Arrow. Averrow carries that legacy into the digital domain. We detect, classify, and neutralize threats crossing into your brand's airspace before they reach their target.</p>
     <p>Enterprise brand protection platforms cost $20,000 to $150,000+ per year and require dedicated security analysts to operate. Meanwhile, mid-market companies — the ones actually being targeted by phishing campaigns and brand impersonation — have no affordable option.</p>
-    <p>Trust Radar exists to close that gap. Founded in Canada, built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do.</p>
+    <p>Averrow exists to close that gap. Founded in Canada by LRX Enterprises Inc., built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do — and intercept threats before they land.</p>
   </div>
 </section>
 
@@ -82,7 +83,7 @@ export function renderAboutPage(): string {
     <div class="principle-card">
       <div class="principle-num">01</div>
       <h3>Outside-In First</h3>
-      <p>See your brand the way attackers do. Trust Radar works instantly with zero setup — it scans the open internet and reports what it finds. Optionally connect your security platforms for deeper signal.</p>
+      <p>See your brand the way attackers do. Averrow works instantly with zero setup — it scans the open internet and reports what it finds. Optionally connect your security platforms for deeper signal.</p>
     </div>
     <div class="principle-card">
       <div class="principle-num">02</div>
@@ -103,7 +104,7 @@ export function renderAboutPage(): string {
     <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;margin-bottom:0.5rem;">Company Facts</h2>
   </div>
   <div class="facts-grid">
-    <div class="fact-card"><div class="fact-value">🇨🇦 Canada</div><div class="fact-label">Incorporated</div></div>
+    <div class="fact-card"><div class="fact-value">🇨🇦 LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
     <div class="fact-card"><div class="fact-value">AI-Native</div><div class="fact-label">Powered by advanced AI agents</div></div>
     <div class="fact-card"><div class="fact-value">Edge-First</div><div class="fact-label">Cloudflare Workers, zero cold starts</div></div>
     <div class="fact-card"><div class="fact-value">6+</div><div class="fact-label">Integrated threat intelligence feeds</div></div>
@@ -129,7 +130,7 @@ export function renderAboutPage(): string {
 <!-- CTA -->
 <section class="cta-block">
   <div class="container">
-    <h2>See what Trust Radar can do.</h2>
+    <h2>See what Averrow can do.</h2>
     <p>Explore the platform or run a free brand exposure scan.</p>
     <div class="cta-actions">
       <a href="/platform" class="btn btn-primary btn-lg">Explore Platform</a>
