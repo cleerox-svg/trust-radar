@@ -1,5 +1,5 @@
 /**
- * Trust Radar — Shared Components
+ * Averrow — Shared Components
  * Reusable nav, footer, head, and page wrapper for the corporate site.
  */
 
@@ -11,17 +11,49 @@ export function renderNav(): string {
 <nav class="nav">
   <div class="nav-inner">
     <a href="/" class="nav-brand">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
-        <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
-        <circle cx="14" cy="14" r="2" fill="var(--accent)"/>
-        <line x1="14" y1="14" x2="14" y2="3" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round">
-          <animateTransform attributeName="transform" type="rotate" from="0 14 14" to="360 14 14" dur="5s" repeatCount="indefinite"/>
-        </line>
+      <svg width="28" height="28" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+        <defs>
+          <linearGradient id="deltaGrad" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#C83C3C"/>
+            <stop offset="100%" stop-color="#78A0C8"/>
+          </linearGradient>
+          <filter id="vertexGlow"><feGaussianBlur stdDeviation="3" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Delta wing -->
+        <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGrad)"/>
+        <!-- Negative-space A crossbar -->
+        <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
+        <!-- Orbital ring 1 (red, heavy) -->
+        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="1.8" fill="none" opacity="0.7">
+          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/>
+        </ellipse>
+        <!-- Orbital ring 2 (blue, medium) -->
+        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#78A0C8" stroke-width="1.2" fill="none" opacity="0.5" transform="rotate(60 50 50)">
+          <animateTransform attributeName="transform" type="rotate" from="60 50 50" to="420 50 50" dur="16s" repeatCount="indefinite"/>
+        </ellipse>
+        <!-- Orbital ring 3 (red, light) -->
+        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="0.8" fill="none" opacity="0.35" transform="rotate(120 50 50)">
+          <animateTransform attributeName="transform" type="rotate" from="120 50 50" to="480 50 50" dur="20s" repeatCount="indefinite"/>
+        </ellipse>
+        <!-- Orbital dots -->
+        <circle cx="94" cy="50" r="2.5" fill="#C83C3C">
+          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="16s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="50" cy="34" r="2" fill="#78A0C8">
+          <animateTransform attributeName="transform" type="rotate" from="90 50 50" to="450 50 50" dur="16s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="6" cy="50" r="2.5" fill="#C83C3C">
+          <animateTransform attributeName="transform" type="rotate" from="180 50 50" to="540 50 50" dur="16s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="50" cy="66" r="2" fill="#78A0C8">
+          <animateTransform attributeName="transform" type="rotate" from="270 50 50" to="630 50 50" dur="16s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Vertex glow -->
+        <circle cx="50" cy="12" r="3" fill="#C83C3C" filter="url(#vertexGlow)" opacity="0.8"/>
       </svg>
       <div>
-        <span class="nav-brand-text">Trust Radar</span>
-        <span class="nav-brand-sub">by LRX Enterprises</span>
+        <span class="nav-brand-text">AVERROW</span>
+        <span class="nav-brand-sub">THREAT INTERCEPTOR</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -66,18 +98,23 @@ export function renderFooter(): string {
     <div class="footer-grid">
       <div class="footer-brand-block">
         <a href="/" class="nav-brand" style="margin-bottom:0.5rem">
-          <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
-            <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
-            <circle cx="14" cy="14" r="2" fill="var(--accent)"/>
+          <svg width="24" height="24" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+            <defs>
+              <linearGradient id="deltaGradFoot" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#C83C3C"/>
+                <stop offset="100%" stop-color="#78A0C8"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGradFoot)"/>
+            <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
           </svg>
           <div>
-            <span class="nav-brand-text" style="font-size:1rem">Trust Radar</span>
+            <span class="nav-brand-text" style="font-size:1rem">AVERROW</span>
           </div>
         </a>
-        <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered brand threat interceptor by LRX Enterprises Inc. 🇨🇦 Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
-          <a href="mailto:hello@trustradar.ca" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@trustradar.ca</a>
+          <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
       </div>
       <div class="footer-col">
@@ -129,10 +166,10 @@ export function renderHead(title: string, description: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <meta name="description" content="${description}">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
-   TRUST RADAR — DESIGN SYSTEM
+   AVERROW — DESIGN SYSTEM
    LRX Enterprises Inc.
    ═══════════════════════════════════════════════════════════ */
 
@@ -141,23 +178,21 @@ export function renderHead(title: string, description: string): string {
 /* ── THEME TOKENS ── */
 :root {
   --font-display: 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
-  /* Accent stays consistent across themes */
-  --accent: #0891b2;
-  --accent-hover: #0e7490;
-  --accent-light: #06b6d4;
-  --accent-ultra: #22d3ee;
-  --accent-bg: rgba(8, 145, 178, 0.08);
-  --accent-bg-strong: rgba(8, 145, 178, 0.15);
-  --coral: #f97316;
-  --coral-bg: rgba(249, 115, 22, 0.08);
-  --green: #10b981;
-  --green-bg: rgba(16, 185, 129, 0.08);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.08);
-  --amber: #f59e0b;
+  /* Accent — Signal Red */
+  --accent: #C83C3C;
+  --accent-hover: #A82E2E;
+  --accent-light: #E87070;
+  --accent-bg: rgba(200, 60, 60, 0.08);
+  --accent-bg-strong: rgba(200, 60, 60, 0.15);
+  --green: #28A050;
+  --green-bg: rgba(40, 160, 80, 0.08);
+  --red: #C83C3C;
+  --red-bg: rgba(200, 60, 60, 0.08);
+  --amber: #E8923C;
+  --blue: #78A0C8;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -166,47 +201,47 @@ export function renderHead(title: string, description: string): string {
 }
 
 [data-theme="light"] {
-  --bg-primary: #fafbfc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-code: #f8fafc;
-  --bg-elevated: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --text-inverse: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --bg-primary: #F8F7F5;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #FAFAF8;
+  --bg-code: #F0EDE8;
+  --bg-elevated: #FFFFFF;
+  --text-primary: #1A1F2E;
+  --text-secondary: #8A8F9C;
+  --text-tertiary: #C8C2BA;
+  --text-inverse: #F0EDE8;
+  --border: #E0DCD6;
+  --border-strong: #C8C2BA;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
-  --shadow-glow: 0 0 40px rgba(8,145,178,0.12);
-  --gradient-hero: linear-gradient(135deg, #fafbfc 0%, #f0f9ff 50%, #f0fdf4 100%);
-  --illustration-fill: #0f172a;
-  --illustration-stroke: #0891b2;
-  --nav-bg: rgba(250,251,252,0.85);
+  --shadow-glow: 0 0 40px rgba(200,60,60,0.12);
+  --gradient-hero: linear-gradient(135deg, #F8F7F5 0%, #FAFAF8 50%, #F8F7F5 100%);
+  --illustration-fill: #1A1F2E;
+  --illustration-stroke: #C83C3C;
+  --nav-bg: rgba(248,247,245,0.85);
 }
 
 [data-theme="dark"] {
-  --bg-primary: #0b1120;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1a2332;
-  --bg-code: #162036;
-  --bg-elevated: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-inverse: #0f172a;
-  --border: #1e293b;
-  --border-strong: #334155;
+  --bg-primary: #080E18;
+  --bg-secondary: #0E1A2B;
+  --bg-tertiary: #142236;
+  --bg-code: #0C1420;
+  --bg-elevated: #1A2E48;
+  --text-primary: #F0EDE8;
+  --text-secondary: #78A0C8;
+  --text-tertiary: #5A80A8;
+  --text-inverse: #1A1F2E;
+  --border: rgba(120, 160, 200, 0.08);
+  --border-strong: rgba(120, 160, 200, 0.15);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
-  --shadow-glow: 0 0 60px rgba(8,145,178,0.15);
-  --gradient-hero: linear-gradient(135deg, #0b1120 0%, #0c1a2e 50%, #0b1120 100%);
-  --illustration-fill: #f1f5f9;
-  --illustration-stroke: #22d3ee;
-  --nav-bg: rgba(11,17,32,0.85);
+  --shadow-glow: 0 0 60px rgba(200,60,60,0.15);
+  --gradient-hero: linear-gradient(135deg, #080E18 0%, #0E1A2B 50%, #080E18 100%);
+  --illustration-fill: #F0EDE8;
+  --illustration-stroke: #C83C3C;
+  --nav-bg: rgba(8,14,24,0.85);
 }
 
 html { scroll-behavior: smooth; }
@@ -261,20 +296,22 @@ img { max-width: 100%; }
 .nav-brand:hover svg { transform: rotate(15deg); }
 
 .nav-brand-text {
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 700;
   font-size: 1.1rem;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .nav-brand-sub {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.45rem;
   color: var(--text-tertiary);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   display: block;
-  margin-top: -2px;
+  margin-top: -1px;
+  font-weight: 400;
 }
 
 .nav-links {
@@ -286,11 +323,14 @@ img { max-width: 100%; }
 
 .nav-links a {
   padding: 0.5rem 0.85rem;
-  font-size: 0.88rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   font-weight: 500;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .nav-links a:hover {
@@ -331,9 +371,11 @@ img { max-width: 100%; }
   gap: 0.5rem;
   padding: 0.6rem 1.4rem;
   border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
@@ -362,7 +404,7 @@ img { max-width: 100%; }
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 0 20px rgba(8,145,178,0.35);
+  box-shadow: 0 0 20px rgba(200,60,60,0.35);
   transform: translateY(-1px);
 }
 
@@ -473,7 +515,7 @@ section {
 
 .platform-card:hover::before { opacity: 1; }
 .platform-card:nth-child(1)::before { background: var(--accent); }
-.platform-card:nth-child(2)::before { background: var(--coral); }
+.platform-card:nth-child(2)::before { background: var(--amber); }
 .platform-card:nth-child(3)::before { background: var(--green); }
 
 .pc-icon {
@@ -488,7 +530,7 @@ section {
 }
 
 .pc-icon-teal { background: var(--accent-bg); color: var(--accent); }
-.pc-icon-coral { background: var(--coral-bg); color: var(--coral); }
+.pc-icon-coral { background: rgba(232, 146, 60, 0.08); color: var(--amber); }
 .pc-icon-green { background: var(--green-bg); color: var(--green); }
 
 .platform-card h3 {
@@ -610,8 +652,8 @@ section {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(8,145,178,0.4); }
-  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(8,145,178,0); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(200,60,60,0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(200,60,60,0); }
 }
 
 /* ── RESPONSIVE ── */
@@ -701,11 +743,11 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   html.setAttribute('data-theme', next);
   document.getElementById('theme-icon').textContent = next === 'light' ? '\\u2600' : '\\u263E';
-  localStorage.setItem('tr-theme', next);
+  localStorage.setItem('averrow-theme', next);
 }
 
 // Load saved theme
-const saved = localStorage.getItem('tr-theme');
+const saved = localStorage.getItem('averrow-theme');
 if (saved) {
   document.documentElement.setAttribute('data-theme', saved);
   document.getElementById('theme-icon').textContent = saved === 'light' ? '\\u2600' : '\\u263E';
