@@ -203,14 +203,14 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
 
   // Phishing URL signals (last 30 days)
   const phishingSignals = await db.prepare(`
-    SELECT brand_id, COUNT(*) as signal_count
+    SELECT brand_match_id, COUNT(*) as signal_count
     FROM threat_signals
     WHERE signal_type = 'phishing_url'
       AND created_at >= datetime('now', '-30 days')
-      AND brand_id IS NOT NULL
-    GROUP BY brand_id
-  `).all<{ brand_id: string; signal_count: number }>();
-  const phishMap = new Map(phishingSignals.results.map(r => [r.brand_id, r.signal_count]));
+      AND brand_match_id IS NOT NULL
+    GROUP BY brand_match_id
+  `).all<{ brand_match_id: string; signal_count: number }>();
+  const phishMap = new Map(phishingSignals.results.map(r => [r.brand_match_id, r.signal_count]));
 
   // Spam trap catches (last 30 days)
   const trapCatches = await db.prepare(`
