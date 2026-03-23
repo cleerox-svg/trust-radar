@@ -1,5 +1,5 @@
 /**
- * Trust Radar — 404 Not Found Page
+ * Averrow — 404 Not Found Page
  *
  * Centered, minimal page with large 404 display,
  * subtitle, description, and two action buttons.
@@ -12,7 +12,7 @@ export function renderNotFoundPage(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Page Not Found — Trust Radar</title>
+<title>Page Not Found — Averrow</title>
 <meta name="description" content="The page you're looking for doesn't exist or has been moved.">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -22,19 +22,19 @@ export function renderNotFoundPage(): string {
   --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
-  --accent: #0891b2;
-  --accent-hover: #0e7490;
-  --accent-light: #06b6d4;
-  --accent-ultra: #22d3ee;
-  --accent-bg: rgba(8, 145, 178, 0.08);
-  --accent-bg-strong: rgba(8, 145, 178, 0.15);
-  --coral: #f97316;
-  --coral-bg: rgba(249, 115, 22, 0.08);
-  --green: #10b981;
-  --green-bg: rgba(16, 185, 129, 0.08);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.08);
-  --amber: #f59e0b;
+  --accent: #C83C3C;
+  --accent-hover: #A82E2E;
+  --accent-light: #E87070;
+  --accent-ultra: #F5B3B3;
+  --accent-bg: rgba(200, 60, 60, 0.08);
+  --accent-bg-strong: rgba(200, 60, 60, 0.15);
+  --coral: #E8923C;
+  --coral-bg: rgba(232, 146, 60, 0.08);
+  --green: #28A050;
+  --green-bg: rgba(40, 160, 80, 0.08);
+  --red: #C83C3C;
+  --red-bg: rgba(200, 60, 60, 0.08);
+  --amber: #DCAA32;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -56,8 +56,8 @@ export function renderNotFoundPage(): string {
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
-  --shadow-glow: 0 0 40px rgba(8,145,178,0.12);
-  --gradient-hero: linear-gradient(135deg, #fafbfc 0%, #f0f9ff 50%, #f0fdf4 100%);
+  --shadow-glow: 0 0 40px rgba(200,60,60,0.12);
+  --gradient-hero: linear-gradient(135deg, #fafbfc 0%, #fef5f5 50%, #f0fdf4 100%);
   --nav-bg: rgba(250,251,252,0.85);
 }
 
@@ -76,8 +76,8 @@ export function renderNotFoundPage(): string {
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
-  --shadow-glow: 0 0 60px rgba(8,145,178,0.15);
-  --gradient-hero: linear-gradient(135deg, #0b1120 0%, #0c1a2e 50%, #0b1120 100%);
+  --shadow-glow: 0 0 60px rgba(200,60,60,0.15);
+  --gradient-hero: linear-gradient(135deg, #080E18 0%, #0E1A2B 50%, #080E18 100%);
   --nav-bg: rgba(11,17,32,0.85);
 }
 
@@ -237,7 +237,7 @@ img { max-width: 100%; }
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 0 20px rgba(8,145,178,0.35);
+  box-shadow: 0 0 20px rgba(200,60,60,0.35);
   transform: translateY(-1px);
 }
 
@@ -459,16 +459,15 @@ img { max-width: 100%; }
   <div class="nav-inner">
     <a href="/" class="nav-brand">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
-        <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
-        <circle cx="14" cy="14" r="2" fill="var(--accent)"/>
-        <line x1="14" y1="14" x2="14" y2="3" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round">
-          <animateTransform attributeName="transform" type="rotate" from="0 14 14" to="360 14 14" dur="5s" repeatCount="indefinite"/>
-        </line>
+        <polygon points="14,2 26,24 2,24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="8" y1="18" x2="20" y2="18" stroke="var(--accent)" stroke-width="1.5"/>
+        <ellipse cx="14" cy="13" rx="10" ry="5" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.4">
+          <animateTransform attributeName="transform" type="rotate" from="0 14 13" to="360 14 13" dur="6s" repeatCount="indefinite"/>
+        </ellipse>
       </svg>
       <div>
-        <span class="nav-brand-text">Trust Radar</span>
-        <span class="nav-brand-sub">by LRX Enterprises</span>
+        <span class="nav-brand-text">Averrow</span>
+        <span class="nav-brand-sub">Threat Interceptor</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -520,15 +519,14 @@ img { max-width: 100%; }
       <div class="footer-brand-block">
         <a href="/" class="nav-brand" style="margin-bottom:0.5rem">
           <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="2"/>
-            <circle cx="14" cy="14" r="7" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
-            <circle cx="14" cy="14" r="2" fill="var(--accent)"/>
+            <polygon points="14,2 26,24 2,24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+            <line x1="8" y1="18" x2="20" y2="18" stroke="var(--accent)" stroke-width="1.5"/>
           </svg>
           <div>
-            <span class="nav-brand-text" style="font-size:1rem">Trust Radar</span>
+            <span class="nav-brand-text" style="font-size:1rem">Averrow</span>
           </div>
         </a>
-        <p>AI-powered brand threat intelligence platform by LRX Enterprises Inc. Continuous monitoring for impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered airspace defense platform by LRX Enterprises Inc. Continuous monitoring for brand impersonation, phishing, and domain abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
@@ -580,11 +578,11 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   html.setAttribute('data-theme', next);
   document.getElementById('theme-icon').textContent = next === 'light' ? '\\u2600' : '\\u263E';
-  localStorage.setItem('tr-theme', next);
+  localStorage.setItem('av-theme', next);
 }
 
 // Load saved theme
-const saved = localStorage.getItem('tr-theme');
+const saved = localStorage.getItem('av-theme');
 if (saved) {
   document.documentElement.setAttribute('data-theme', saved);
   document.getElementById('theme-icon').textContent = saved === 'light' ? '\\u2600' : '\\u263E';
