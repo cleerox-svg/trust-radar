@@ -1,5 +1,5 @@
 /**
- * Trust Radar — Free Brand Exposure Scan Page
+ * Averrow — Free Brand Exposure Scan Page
  *
  * Public tool at /scan that lets anyone scan a domain and get
  * a shareable Brand Exposure Report.
@@ -12,71 +12,70 @@ export function renderScanPage(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Free Brand Exposure Scan — Trust Radar</title>
-<meta name="description" content="Scan any domain for email security vulnerabilities, lookalike domains, threat feed mentions, and social media impersonation risks. Free Brand Exposure Report by Trust Radar.">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Free Brand Exposure Report — Averrow</title>
+<meta name="description" content="Scan any domain for email security vulnerabilities, lookalike domains, threat feed mentions, and social media impersonation risks. Free Brand Exposure Report by Averrow.">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --font-display: 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
-  --accent: #0891b2;
-  --accent-hover: #0e7490;
-  --accent-light: #06b6d4;
-  --accent-ultra: #22d3ee;
-  --accent-bg: rgba(8, 145, 178, 0.08);
-  --accent-bg-strong: rgba(8, 145, 178, 0.15);
-  --green: #10b981;
-  --green-bg: rgba(16, 185, 129, 0.08);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.08);
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.08);
-  --coral: #f97316;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --accent: #C83C3C;
+  --accent-hover: #A82E2E;
+  --accent-light: #E87070;
+  --accent-bg: rgba(200, 60, 60, 0.08);
+  --accent-bg-strong: rgba(200, 60, 60, 0.15);
+  --green: #28A050;
+  --green-bg: rgba(40, 160, 80, 0.08);
+  --red: #C83C3C;
+  --red-bg: rgba(200, 60, 60, 0.08);
+  --amber: #E8923C;
+  --amber-bg: rgba(232, 146, 60, 0.08);
+  --coral: #E8923C;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 [data-theme="light"] {
-  --bg-primary: #fafbfc;
+  --bg-primary: #F8F7F5;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-code: #f8fafc;
+  --bg-tertiary: #F0EDE8;
+  --bg-code: #FAFAF8;
   --bg-elevated: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
+  --text-primary: #1A1F2E;
+  --text-secondary: #8A8F9C;
+  --text-tertiary: #C8C2BA;
   --text-inverse: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --border: #E0DCD6;
+  --border-strong: rgba(26, 31, 46, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
-  --shadow-glow: 0 0 40px rgba(8,145,178,0.12);
-  --nav-bg: rgba(250,251,252,0.85);
+  --shadow-glow: 0 0 40px rgba(200,60,60,0.12);
+  --nav-bg: rgba(248,247,245,0.9);
 }
 
 [data-theme="dark"] {
-  --bg-primary: #0b1120;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1a2332;
-  --bg-code: #162036;
-  --bg-elevated: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-inverse: #0f172a;
-  --border: #1e293b;
-  --border-strong: #334155;
+  --bg-primary: #080E18;
+  --bg-secondary: #0C1420;
+  --bg-tertiary: #0E1A2B;
+  --bg-code: #0C1420;
+  --bg-elevated: #142236;
+  --text-primary: #F0EDE8;
+  --text-secondary: #78A0C8;
+  --text-tertiary: #5A80A8;
+  --text-inverse: #1A1F2E;
+  --border: rgba(120, 160, 200, 0.08);
+  --border-strong: rgba(120, 160, 200, 0.15);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
-  --shadow-glow: 0 0 60px rgba(8,145,178,0.15);
-  --nav-bg: rgba(11,17,32,0.85);
+  --shadow-glow: 0 0 60px rgba(200,60,60,0.15);
+  --nav-bg: rgba(8,14,24,0.9);
 }
 
 html { scroll-behavior: smooth; }
@@ -101,9 +100,11 @@ body {
   display: flex; align-items: center; justify-content: space-between;
 }
 .nav-brand {
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-primary);
   text-decoration: none;
 }
@@ -189,12 +190,14 @@ body {
 .btn-scan {
   padding: 0.85rem 1.75rem;
   background: var(--accent);
-  color: #fff;
+  color: #F0EDE8;
   border: none;
   border-radius: var(--radius-md);
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
   white-space: nowrap;
@@ -237,7 +240,7 @@ body {
 .form-group input {
   width: 100%;
   padding: 0.65rem 0.85rem;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: 0.9rem;
   background: var(--bg-tertiary);
   color: var(--text-primary);
@@ -523,13 +526,15 @@ body {
 }
 .btn-secondary {
   padding: 0.7rem 1.25rem;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(200, 60, 60, 0.4);
   border-radius: var(--radius-md);
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
@@ -537,16 +542,18 @@ body {
   align-items: center;
   gap: 0.4rem;
 }
-.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-secondary:hover { border-color: var(--accent); background: var(--accent-bg); }
 .btn-cta {
   padding: 0.7rem 1.25rem;
   background: var(--accent);
-  color: #fff;
+  color: #F0EDE8;
   border: none;
   border-radius: var(--radius-md);
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
@@ -599,7 +606,7 @@ body {
 
 <!-- Nav -->
 <nav class="nav">
-  <a href="/" class="nav-brand">Trust<span>Radar</span></a>
+  <a href="/" class="nav-brand">AVERROW</a>
   <div class="nav-actions">
     <a href="/" class="nav-link">Home</a>
     <a href="/scan" class="nav-link" style="color: var(--accent);">Scan</a>
@@ -640,7 +647,7 @@ body {
   <!-- Loading -->
   <div class="loading" id="loading">
     <div class="loading-spinner"></div>
-    <p>Scanning domain...</p>
+    <p>Launching sortie...</p>
     <p class="loading-detail">Checking email security, lookalike domains, threat feeds, and social handles</p>
   </div>
 
@@ -649,7 +656,7 @@ body {
 
   <!-- Footer -->
   <div class="footer">
-    <p>Powered by <a href="/">Trust Radar</a> by LRX Enterprises Inc.</p>
+    <p>Powered by <a href="/">Averrow</a> by LRX Enterprises Inc.</p>
     <p style="margin-top: 0.3rem;">Scans are cached for 24 hours. Data sourced from DNS records, threat intelligence feeds, and public profiles.</p>
   </div>
 
@@ -661,14 +668,14 @@ body {
 <script>
 // ── Theme toggle ──
 function getPreferredTheme() {
-  const saved = localStorage.getItem('tr-theme');
+  const saved = localStorage.getItem('averrow-theme');
   if (saved) return saved;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('themeIcon').textContent = t === 'dark' ? '\\u2600' : '\\u263E';
-  localStorage.setItem('tr-theme', t);
+  localStorage.setItem('averrow-theme', t);
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
@@ -694,10 +701,10 @@ function showToast(msg) {
 
 // ── Score ring color ──
 function scoreColor(score) {
-  if (score >= 75) return '#ef4444';
-  if (score >= 50) return '#f97316';
-  if (score >= 25) return '#f59e0b';
-  return '#10b981';
+  if (score >= 75) return '#C83C3C';
+  if (score >= 50) return '#E8923C';
+  if (score >= 25) return '#DCAA32';
+  return '#28A050';
 }
 
 function statusClass(s) {
@@ -747,7 +754,7 @@ async function runScan() {
   }
 
   btn.disabled = true;
-  btn.textContent = 'Scanning...';
+  btn.textContent = 'Scanning...';  // brief flash before loading panel takes over
   loadingEl.classList.add('visible');
 
   try {
@@ -772,7 +779,7 @@ async function runScan() {
     errEl.classList.add('visible');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Scan Domain';
+    btn.textContent = 'Scan Domain';  // reset after sortie completes
     loadingEl.classList.remove('visible');
   }
 }
