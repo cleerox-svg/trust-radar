@@ -8,7 +8,6 @@ import {
   handleObservatoryBrandArcs, handleObservatoryStats,
 } from "./handlers/observatory";
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
-import { renderLandingPage } from "./templates/landing";
 import { renderScanPage } from "./templates/scan";
 import { renderSocialDashboard } from "./templates/social-dashboard";
 import { renderPlatformPage } from "./templates/platform";

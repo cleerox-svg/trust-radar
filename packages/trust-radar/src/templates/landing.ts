@@ -1,3 +1,6 @@
+// DEPRECATED: This is the old Trust Radar landing page. No longer served at any route.
+// Retained temporarily for reference. Safe to delete after full rebrand is verified.
+
 /**
  * Trust Radar — Corporate Landing Page
  * Full single-page corporate site served at /
