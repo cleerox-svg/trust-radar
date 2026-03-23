@@ -116,6 +116,19 @@ export function renderFooter(): string {
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
+        <svg width="36" height="36" viewBox="0 0 100 100" fill="none" class="footer-orbital-mark" aria-hidden="true">
+          <defs>
+            <linearGradient id="deltaGradFootMark" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#C83C3C"/>
+              <stop offset="100%" stop-color="#78A0C8"/>
+            </linearGradient>
+          </defs>
+          <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGradFootMark)"/>
+          <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
+          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="1.5" fill="none" opacity="0.7"/>
+          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#78A0C8" stroke-width="1" fill="none" opacity="0.5" transform="rotate(60 50 50)"/>
+          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="0.7" fill="none" opacity="0.3" transform="rotate(120 50 50)"/>
+        </svg>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Product</div>
@@ -273,7 +286,22 @@ img { max-width: 100%; }
   background: var(--nav-bg);
   backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid var(--border);
-  transition: background 0.3s, border 0.3s;
+  transition: background 0.3s, border 0.3s, backdrop-filter 0.3s;
+}
+.nav::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, transparent 10%, #C83C3C 50%, transparent 90%, transparent 100%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.nav-scrolled {
+  backdrop-filter: blur(40px) saturate(220%);
+  background: var(--nav-bg);
 }
 
 .nav-inner {
@@ -404,8 +432,8 @@ img { max-width: 100%; }
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 0 20px rgba(200,60,60,0.35);
-  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(200,60,60,0.3);
+  transform: scale(1.02);
 }
 
 .btn-outline {
@@ -417,6 +445,7 @@ img { max-width: 100%; }
 .btn-outline:hover {
   border-color: var(--accent);
   color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .btn-ghost {
@@ -567,9 +596,25 @@ section {
 
 /* ── FOOTER ── */
 .footer {
+  position: relative;
   padding: 5rem 0 2.5rem;
-  border-top: 1px solid var(--border);
   transition: border 0.3s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Ccircle cx='1.5' cy='1.5' r='0.6' fill='%23888888' fill-opacity='0.05'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, transparent 10%, #C83C3C 50%, transparent 90%, transparent 100%);
+  opacity: 0.55;
+}
+.footer-orbital-mark {
+  opacity: 0.35;
+  margin-top: 1.25rem;
 }
 
 .footer-grid {
@@ -643,6 +688,39 @@ section {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+}
+
+/* ── SCROLL ANIMATIONS ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── PAGE TRANSITION ── */
+.page-content {
+  animation: pageIn 0.4s ease;
+}
+@keyframes pageIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── CARD SYSTEM ── */
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  transition: all 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
 }
 
 /* ── ANIMATIONS ── */
@@ -732,7 +810,9 @@ ${renderHead(title, description)}
 
 ${renderNav()}
 
+<div class="page-content">
 ${content}
+</div>
 
 ${renderFooter()}
 
@@ -764,8 +844,19 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-// Intersection observer for scroll animations
-const observer = new IntersectionObserver((entries) => {
+// Scroll animations — .reveal class
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('revealed');
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// Legacy inline observer for cards without .reveal
+const cardObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
       entry.target.style.opacity = '1';
@@ -775,11 +866,23 @@ const observer = new IntersectionObserver((entries) => {
 }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
 
 document.querySelectorAll('.platform-card, .feature-row, .price-card, .fact-card').forEach(el => {
-  el.style.opacity = '0';
-  el.style.transform = 'translateY(24px)';
-  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border 0.3s, box-shadow 0.3s';
-  observer.observe(el);
+  if (!el.classList.contains('reveal')) {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(24px)';
+    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border 0.3s, box-shadow 0.3s';
+    cardObserver.observe(el);
+  }
 });
+
+// Nav scroll — stronger blur on scroll
+const nav = document.querySelector('.nav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 20) {
+    nav && nav.classList.add('nav-scrolled');
+  } else {
+    nav && nav.classList.remove('nav-scrolled');
+  }
+}, { passive: true });
 
 // Mobile menu
 function toggleMobileMenu() {
