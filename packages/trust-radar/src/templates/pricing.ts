@@ -16,7 +16,7 @@ export function renderPricingPage(): string {
 .pricing-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
 
 .pricing-section { padding: 3rem 0; }
-.pricing-grid { max-width: 1200px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+.pricing-grid { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
 .price-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; display: flex; flex-direction: column; position: relative; transition: all 0.3s; }
 .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .price-card.popular { border-color: var(--accent); box-shadow: var(--shadow-glow); }

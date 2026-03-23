@@ -46,7 +46,7 @@ export function renderHomepage(): string {
 
 .hero-h1 {
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: clamp(32px, 4vw, 56px);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.03em;
@@ -364,7 +364,7 @@ export function renderHomepage(): string {
 /* ── AGENT SQUADRON ── */
 .squadron {
   padding: 3rem 2rem;
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -380,7 +380,7 @@ export function renderHomepage(): string {
 
 .squadron-title {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: clamp(22px, 2.5vw, 32px);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
@@ -447,7 +447,7 @@ export function renderHomepage(): string {
 /* ── HOW IT WORKS ── */
 .how-it-works {
   padding: 3rem 2rem;
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -512,13 +512,13 @@ export function renderHomepage(): string {
 /* ── CAPABILITIES ── */
 .capabilities {
   padding: 3rem 2rem;
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
 .capabilities-title {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: clamp(22px, 2.5vw, 32px);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
@@ -582,7 +582,7 @@ export function renderHomepage(): string {
 /* ── CTA ── */
 .cta-section {
   padding: 3rem 2rem;
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
   text-align: center;
 }
@@ -695,37 +695,40 @@ html { scroll-behavior: smooth; }
   z-index: 0;
 }
 
-/* ── RADAR HERO GRAPHIC ── */
+/* ── RADAR HERO GRAPHIC — centered behind content ── */
 .hero-radar {
   position: absolute;
-  right: -40px;
+  left: 50%;
   top: 50%;
-  transform: translateY(-50%);
-  width: 500px;
-  height: 400px;
-  opacity: 0.18;
+  transform: translate(-50%, -50%);
+  width: 700px;
+  height: 560px;
   pointer-events: none;
   z-index: 1;
 }
 
+[data-theme="dark"] .hero-radar { opacity: 0.42; }
+[data-theme="light"] .hero-radar { opacity: 0.2; }
+
+/* Readability over radar */
+.hero-content {
+  text-shadow: 0 1px 8px rgba(0,0,0,0.12);
+}
+[data-theme="dark"] .hero-content {
+  text-shadow: 0 2px 16px rgba(8,14,24,0.6);
+}
+
 @media (max-width: 1100px) {
-  .hero {
-    flex-direction: column;
-  }
-  .hero-content {
-    order: 1;
-  }
   .hero-radar {
-    position: relative;
-    right: auto;
-    top: auto;
-    transform: none;
-    width: 280px;
-    height: 220px;
-    margin: 16px auto 0;
-    opacity: 0.2;
-    display: block;
-    order: 2;
+    width: 500px;
+    height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-radar {
+    width: 340px;
+    height: 270px;
   }
 }
 
@@ -741,7 +744,7 @@ html { scroll-behavior: smooth; }
 /* ── STAT ROW ── */
 .stat-row {
   padding: 1rem 2rem 1.5rem;
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
   display: flex;
   justify-content: space-around;
@@ -852,41 +855,44 @@ ${pageStyles}
 <section class="hero">
   <div class="hero-bg"></div>
 
-  <!-- Animated radar/aerospace graphic -->
+  <!-- Animated radar/aerospace graphic — centered behind hero -->
   <div class="hero-radar" aria-hidden="true">
-    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" width="500" height="400">
+    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <defs>
         <radialGradient id="sweepGrad" cx="250" cy="200" r="195" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stop-color="#C83C3C" stop-opacity="0.9"/>
           <stop offset="100%" stop-color="#C83C3C" stop-opacity="0"/>
         </radialGradient>
       </defs>
-      <!-- Faint grid -->
-      <line x1="0" y1="100" x2="500" y2="100" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <line x1="0" y1="200" x2="500" y2="200" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <line x1="0" y1="300" x2="500" y2="300" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <line x1="125" y1="0" x2="125" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <line x1="250" y1="0" x2="250" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <line x1="375" y1="0" x2="375" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
-      <!-- Defense perimeter circles -->
-      <circle cx="250" cy="200" r="80"  stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.55"/>
-      <circle cx="250" cy="200" r="140" stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.35"/>
-      <circle cx="250" cy="200" r="192" stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.2"/>
-      <!-- Rotating radar sweep -->
+      <!-- Grid lines -->
+      <line x1="0" y1="100" x2="500" y2="100" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.15"/>
+      <line x1="0" y1="200" x2="500" y2="200" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.2"/>
+      <line x1="0" y1="300" x2="500" y2="300" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.15"/>
+      <line x1="125" y1="0" x2="125" y2="400" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.15"/>
+      <line x1="250" y1="0" x2="250" y2="400" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.2"/>
+      <line x1="375" y1="0" x2="375" y2="400" stroke="var(--accent, #C83C3C)" stroke-width="0.5" opacity="0.15"/>
+      <!-- Concentric defense circles -->
+      <circle cx="250" cy="200" r="50"  stroke="var(--accent, #C83C3C)" stroke-width="1.5" stroke-dasharray="4 3" fill="none" opacity="0.4"/>
+      <circle cx="250" cy="200" r="95"  stroke="var(--accent, #C83C3C)" stroke-width="1.8" stroke-dasharray="5 4" fill="none" opacity="0.5"/>
+      <circle cx="250" cy="200" r="140" stroke="var(--accent, #C83C3C)" stroke-width="1.8" stroke-dasharray="5 4" fill="none" opacity="0.45"/>
+      <circle cx="250" cy="200" r="192" stroke="var(--accent, #C83C3C)" stroke-width="1.5" stroke-dasharray="5 4" fill="none" opacity="0.35"/>
+      <!-- Rotating radar sweep arm -->
       <g class="radar-sweep-arm" style="transform-origin: 250px 200px; transform-box: view-box;">
-        <line x1="250" y1="200" x2="250" y2="8" stroke="#C83C3C" stroke-width="1.5" opacity="0.85" stroke-linecap="round"/>
-        <path d="M250 200 L250 8 A192 192 0 0 0 58 200 Z" fill="url(#sweepGrad)" opacity="0.1"/>
+        <line x1="250" y1="200" x2="250" y2="8" stroke="#C83C3C" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
+        <path d="M250 200 L250 8 A192 192 0 0 0 58 200 Z" fill="url(#sweepGrad)" opacity="0.12"/>
       </g>
       <!-- Contact dots: red=threat, blue=tracked, green=clear -->
-      <circle cx="312" cy="118" r="3.5" fill="#C83C3C" opacity="0.95"/>
-      <circle cx="176" cy="148" r="3"   fill="#78A0C8" opacity="0.9"/>
-      <circle cx="342" cy="265" r="3"   fill="#28A050" opacity="0.9"/>
-      <circle cx="158" cy="282" r="3.5" fill="#C83C3C" opacity="0.95"/>
-      <circle cx="384" cy="178" r="2.5" fill="#28A050" opacity="0.9"/>
-      <circle cx="196" cy="88"  r="2.5" fill="#78A0C8" opacity="0.9"/>
-      <!-- Delta wing at center -->
-      <path d="M250 175 L264 218 L250 212 L236 218 Z" fill="#F0EDE8" opacity="0.9"/>
-      <line x1="250" y1="192" x2="250" y2="204" stroke="#C83C3C" stroke-width="1.5" opacity="0.7"/>
+      <circle cx="312" cy="118" r="5"   fill="#C83C3C" opacity="0.85"/>
+      <circle cx="176" cy="148" r="4.5" fill="#78A0C8" opacity="0.8"/>
+      <circle cx="342" cy="265" r="4.5" fill="#28A050" opacity="0.8"/>
+      <circle cx="158" cy="282" r="5"   fill="#C83C3C" opacity="0.85"/>
+      <circle cx="384" cy="178" r="4"   fill="#28A050" opacity="0.8"/>
+      <circle cx="196" cy="88"  r="4"   fill="#78A0C8" opacity="0.8"/>
+      <circle cx="290" cy="240" r="4"   fill="#C83C3C" opacity="0.75"/>
+      <circle cx="210" cy="180" r="3.5" fill="#78A0C8" opacity="0.7"/>
+      <!-- Delta wing center mark -->
+      <path d="M250 172 L268 222 L250 214 L232 222 Z" fill="#F0EDE8" opacity="0.8"/>
+      <line x1="250" y1="190" x2="250" y2="206" stroke="#C83C3C" stroke-width="2" opacity="0.8"/>
     </svg>
   </div>
 
