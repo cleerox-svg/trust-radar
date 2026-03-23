@@ -1,4 +1,4 @@
-// Trust Radar v2 — Brand Safe Domains (Known/Owned Domain Allowlist)
+// Averrow — Brand Safe Domains (Known/Owned Domain Allowlist)
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

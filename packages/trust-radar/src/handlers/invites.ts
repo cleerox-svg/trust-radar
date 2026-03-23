@@ -1,4 +1,4 @@
-// Trust Radar v2 — Invitation Handlers (hash-based tokens, email-bound)
+// Averrow — Invitation Handlers (hash-based tokens, email-bound)
 
 import { json } from "../lib/cors";
 import { generateInviteToken, hashToken } from "../lib/hash";

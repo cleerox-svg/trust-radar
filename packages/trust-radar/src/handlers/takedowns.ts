@@ -1,4 +1,4 @@
-// Trust Radar v2 — Takedown Request Handlers (org-scoped + admin queue)
+// Averrow — Takedown Request Handlers (org-scoped + admin queue)
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";

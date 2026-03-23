@@ -1,4 +1,4 @@
-// Trust Radar v2 — Dashboard API Endpoints
+// Averrow — Dashboard API Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

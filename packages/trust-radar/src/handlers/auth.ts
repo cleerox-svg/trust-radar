@@ -1,4 +1,4 @@
-// Trust Radar v2 — Authentication Handlers (Google OAuth + JWT refresh)
+// Averrow — Authentication Handlers (Google OAuth + JWT refresh)
 
 import { json } from "../lib/cors";
 import { signJWT, ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL, ABSOLUTE_SESSION_TTL } from "../lib/jwt";

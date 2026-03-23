@@ -1,4 +1,4 @@
-// Trust Radar v2 — Organization CRUD, Member Management, Brand Assignment
+// Averrow — Organization CRUD, Member Management, Brand Assignment
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";

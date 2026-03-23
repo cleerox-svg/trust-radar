@@ -1,4 +1,4 @@
-// Trust Radar v2 — Insight & Notification Endpoints
+// Averrow — Insight & Notification Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

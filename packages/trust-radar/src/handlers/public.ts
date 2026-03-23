@@ -1,5 +1,5 @@
 /**
- * Trust Radar — Public API Endpoints (no auth required)
+ * Averrow — Public API Endpoints (no auth required)
  * All endpoints rate-limited. No sensitive data exposed.
  */
 
@@ -215,7 +215,7 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
     setHaikuCategory("on_demand");
     const aiResult = await callHaikuRaw(
       env,
-      "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Trust Radar by name.",
+      "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Averrow by name.",
       `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}${spamTrapCount > 0 ? ` Our trap network intercepted ${spamTrapCount} spoofed emails impersonating this domain from ${spamTrapIps} unique IPs in the last 30 days.` : ""}`,
     );
     if (aiResult.success && aiResult.text) {

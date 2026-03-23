@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// TRUST RADAR — GLOBAL THREAT HEATMAP COMPONENT
+// AVERROW — GLOBAL THREAT HEATMAP COMPONENT
 //
 // Overhauled from trust-radar-heatmap.html reference implementation.
 // Includes inlined Leaflet.heat (no CDN dependency), stats row,
@@ -45,8 +45,8 @@ export const HEATMAP_CSS = `
     margin-bottom: 16px;
   }
   .hm-stat-card {
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.12));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.08));
     border-radius: 8px;
     padding: 14px 16px;
     position: relative;
@@ -58,38 +58,38 @@ export const HEATMAP_CSS = `
     top: 0; left: 0; right: 0;
     height: 2px;
   }
-  .hm-stat-card.c::before { background: var(--cyan, #00F5FF); }
-  .hm-stat-card.a::before { background: var(--amber, #F59E0B); }
-  .hm-stat-card.r::before { background: var(--red, #EF4444); }
-  .hm-stat-card.g::before { background: var(--green, #22C55E); }
+  .hm-stat-card.c::before { background: var(--cyan, #78A0C8); }
+  .hm-stat-card.a::before { background: var(--amber, #E8923C); }
+  .hm-stat-card.r::before { background: var(--red, #C83C3C); }
+  .hm-stat-card.g::before { background: var(--green, #28A050); }
   .hm-stat-label {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-bottom: 6px;
   }
   .hm-stat-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 22px;
     font-weight: 700;
     line-height: 1;
-    color: var(--text, #E2E8F0);
+    color: var(--text, #F0EDE8);
   }
   .hm-stat-value .unit {
     font-size: 12px;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-left: 3px;
   }
   .hm-stat-delta { font-size: 11px; margin-top: 4px; }
-  .hm-stat-delta.up { color: var(--red, #EF4444); }
-  .hm-stat-delta.dn { color: var(--green, #22C55E); }
+  .hm-stat-delta.up { color: var(--red, #C83C3C); }
+  .hm-stat-delta.dn { color: var(--green, #28A050); }
 
   /* ── MAP PANEL ──────────────────────────────────────────────────────────── */
   .hm-map-panel {
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.12));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.08));
     border-radius: 8px;
     overflow: hidden;
     position: relative;
@@ -99,16 +99,16 @@ export const HEATMAP_CSS = `
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--border, rgba(0,245,255,0.12));
+    border-bottom: 1px solid var(--border, rgba(120,160,200,0.08));
     flex-wrap: wrap;
     gap: 8px;
   }
   .hm-map-title {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--text, #E2E8F0);
+    color: var(--text, #F0EDE8);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -121,40 +121,40 @@ export const HEATMAP_CSS = `
   .hm-filter-btn {
     padding: 5px 12px;
     border-radius: 4px;
-    border: 1px solid var(--border, rgba(0,245,255,0.12));
+    border: 1px solid var(--border, rgba(120,160,200,0.08));
     cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     background: transparent;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     transition: all 0.2s;
   }
-  .hm-filter-btn:hover { color: var(--text, #E2E8F0); border-color: var(--cyan, #00F5FF); }
+  .hm-filter-btn:hover { color: var(--text, #F0EDE8); border-color: var(--cyan, #C83C3C); }
   .hm-filter-btn.active {
-    background: rgba(0,245,255,0.08);
-    color: var(--cyan, #00F5FF);
-    border-color: var(--cyan, #00F5FF);
+    background: rgba(200,60,60,0.08);
+    color: var(--cyan, #C83C3C);
+    border-color: var(--cyan, #C83C3C);
   }
   [data-theme="light"] .hm-filter-btn.active {
-    background: rgba(0,102,204,0.08);
-    color: var(--cyan);
-    border-color: var(--cyan);
+    background: rgba(200,60,60,0.08);
+    color: var(--cyan, #C83C3C);
+    border-color: var(--cyan, #C83C3C);
   }
 
   /* ── LEAFLET CONTROLS — DARK MODE ────────────────────────────────────── */
   [data-theme="dark"] .leaflet-control-zoom a {
-    background: #0F1628;
-    color: #E2E8F0;
-    border-color: rgba(0,245,255,0.15);
+    background: #080E18;
+    color: #F0EDE8;
+    border-color: rgba(120,160,200,0.15);
   }
   [data-theme="dark"] .leaflet-control-zoom a:hover {
-    background: #1A2340;
+    background: #0C1420;
   }
   [data-theme="dark"] .leaflet-control-attribution {
-    background: rgba(10,14,26,0.75);
-    color: #64748B;
+    background: rgba(8,14,24,0.85);
+    color: #8A8F9C;
     font-size: 10px;
   }
 
@@ -175,10 +175,10 @@ export const HEATMAP_CSS = `
 
   /* ── TOOLTIPS ─────────────────────────────────────────────────────────── */
   .leaflet-tooltip-threat {
-    background: var(--surface, #0F1628) !important;
-    border: 1px solid var(--border, rgba(0,245,255,0.15)) !important;
-    color: var(--text, #E2E8F0) !important;
-    font-family: 'JetBrains Mono', monospace !important;
+    background: var(--surface, #080E18) !important;
+    border: 1px solid var(--border, rgba(120,160,200,0.12)) !important;
+    color: var(--text, #F0EDE8) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
     font-size: 11px !important;
     border-radius: 5px !important;
     padding: 6px 10px !important;
@@ -196,8 +196,8 @@ export const HEATMAP_CSS = `
     position: absolute;
     top: 14px; left: 14px;
     z-index: 500;
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.15));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.12));
     border-radius: 6px;
     padding: 8px 14px;
     pointer-events: none;
@@ -207,28 +207,28 @@ export const HEATMAP_CSS = `
     background: rgba(255,255,255,0.9);
   }
   .map-live-badge .count {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 18px;
     font-weight: 700;
-    color: var(--cyan, #00F5FF);
+    color: var(--cyan, #C83C3C);
     line-height: 1;
   }
   .map-live-badge .label {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-top: 2px;
     letter-spacing: 0.5px;
   }
   [data-theme="light"] .map-live-badge .count {
-    color: #0066CC;
+    color: #C83C3C;
   }
 
   /* ── MODE TOGGLE ─────────────────────────────────────────────────────── */
   .map-mode-toggle {
     display: flex;
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.15));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.12));
     border-radius: 6px;
     padding: 3px;
     gap: 2px;
@@ -238,17 +238,17 @@ export const HEATMAP_CSS = `
     border-radius: 4px;
     border: none;
     cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     background: transparent;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     transition: all 0.2s;
   }
   .map-mode-btn.active {
-    background: var(--surface2, #1A2340);
-    color: var(--text, #E2E8F0);
+    background: var(--surface2, #0C1420);
+    color: var(--text, #F0EDE8);
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
   [data-theme="light"] .map-mode-btn.active {
@@ -268,19 +268,19 @@ export const HEATMAP_CSS = `
 
   /* ── LIVE FEED ───────────────────────────────────────────────────────── */
   .hm-threat-feed {
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.12));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.08));
     border-radius: 8px;
     overflow: hidden;
   }
   .hm-feed-header {
     padding: 10px 14px;
-    border-bottom: 1px solid var(--border, rgba(0,245,255,0.12));
-    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px solid var(--border, rgba(120,160,200,0.08));
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -294,7 +294,7 @@ export const HEATMAP_CSS = `
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
-    border-bottom: 1px solid var(--border, rgba(0,245,255,0.12));
+    border-bottom: 1px solid var(--border, rgba(120,160,200,0.08));
     animation: hm-feed-in 0.4s ease;
     font-size: 12px;
   }
@@ -307,48 +307,48 @@ export const HEATMAP_CSS = `
     border-radius: 50%;
     flex-shrink: 0;
   }
-  .hm-feed-dot.phishing { background: var(--red, #EF4444); }
-  .hm-feed-dot.malware  { background: var(--amber, #F59E0B); }
-  .hm-feed-dot.scam     { background: #a78bfa; }
-  .hm-feed-dot.safe     { background: var(--green, #22C55E); }
+  .hm-feed-dot.phishing { background: var(--red, #C83C3C); }
+  .hm-feed-dot.malware  { background: var(--amber, #E8923C); }
+  .hm-feed-dot.scam     { background: #78A0C8; }
+  .hm-feed-dot.safe     { background: var(--green, #28A050); }
   .hm-feed-domain {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    color: var(--text, #E2E8F0);
+    color: var(--text, #F0EDE8);
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .hm-feed-meta {
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     font-size: 11px;
     white-space: nowrap;
   }
   .hm-feed-score {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 3px;
   }
-  .hm-feed-score.high  { background: rgba(239,68,68,0.15);  color: var(--red, #EF4444); }
-  .hm-feed-score.med   { background: rgba(245,158,11,0.15); color: var(--amber, #F59E0B); }
-  .hm-feed-score.low   { background: rgba(34,197,94,0.15);  color: var(--green, #22C55E); }
+  .hm-feed-score.high  { background: rgba(200,60,60,0.15);  color: var(--red, #C83C3C); }
+  .hm-feed-score.med   { background: rgba(232,146,60,0.15); color: var(--amber, #E8923C); }
+  .hm-feed-score.low   { background: rgba(40,160,80,0.15);  color: var(--green, #28A050); }
 
   /* ── LEGEND PANEL ────────────────────────────────────────────────────── */
   .hm-legend-panel {
-    background: var(--surface, #0F1628);
-    border: 1px solid var(--border, rgba(0,245,255,0.12));
+    background: var(--surface, #080E18);
+    border: 1px solid var(--border, rgba(120,160,200,0.08));
     border-radius: 8px;
     padding: 14px 16px;
   }
   .hm-legend-title {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-bottom: 12px;
   }
   .hm-legend-gradient {
@@ -357,17 +357,17 @@ export const HEATMAP_CSS = `
     margin-bottom: 6px;
   }
   [data-theme="dark"] .hm-legend-gradient {
-    background: linear-gradient(to right, #00f5ff, #f59e0b, #ef4444);
+    background: linear-gradient(to right, #78A0C8, #E8923C, #C83C3C);
   }
   [data-theme="light"] .hm-legend-gradient {
-    background: linear-gradient(to right, #0066cc, #d97706, #dc2626);
+    background: linear-gradient(to right, #5A80A8, #C47428, #A82E2E);
   }
   .hm-legend-labels {
     display: flex;
     justify-content: space-between;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-bottom: 14px;
   }
   .hm-legend-item {
@@ -376,7 +376,7 @@ export const HEATMAP_CSS = `
     gap: 8px;
     margin-bottom: 8px;
     font-size: 12px;
-    color: var(--text, #E2E8F0);
+    color: var(--text, #F0EDE8);
   }
   .hm-legend-swatch {
     width: 28px; height: 8px;
@@ -385,11 +385,11 @@ export const HEATMAP_CSS = `
   }
   .hm-top-countries { margin-top: 14px; }
   .hm-tc-title {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     margin-bottom: 10px;
   }
   .hm-tc-row {
@@ -400,24 +400,24 @@ export const HEATMAP_CSS = `
     font-size: 12px;
   }
   .hm-tc-flag { font-size: 14px; }
-  .hm-tc-name { flex: 1; color: var(--text, #E2E8F0); }
+  .hm-tc-name { flex: 1; color: var(--text, #F0EDE8); }
   .hm-tc-bar-track {
     width: 70px;
     height: 4px;
-    background: var(--surface2, #1A2340);
+    background: var(--surface2, #0C1420);
     border-radius: 2px;
     overflow: hidden;
   }
   .hm-tc-bar-fill {
     height: 100%;
     border-radius: 2px;
-    background: var(--cyan, #00F5FF);
+    background: var(--cyan, #78A0C8);
     transition: width 1s ease;
   }
   .hm-tc-count {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    color: var(--subtext, #64748B);
+    color: var(--subtext, #8A8F9C);
     width: 32px;
     text-align: right;
   }
@@ -425,7 +425,7 @@ export const HEATMAP_CSS = `
   /* ── LIVE DOT ────────────────────────────────────────────────────────── */
   .hm-live-dot {
     width: 7px; height: 7px;
-    background: var(--red, #EF4444);
+    background: var(--red, #C83C3C);
     border-radius: 50%;
     animation: hm-pulse-dot 1.5s ease-in-out infinite;
   }
@@ -503,15 +503,15 @@ export const HEATMAP_HTML = `
       <span>High risk</span>
     </div>
     <div class="hm-legend-item">
-      <div class="hm-legend-swatch" style="background:rgba(239,68,68,0.8)"></div>
+      <div class="hm-legend-swatch" style="background:rgba(200,60,60,0.8)"></div>
       Phishing / High Threat
     </div>
     <div class="hm-legend-item">
-      <div class="hm-legend-swatch" style="background:rgba(245,158,11,0.8)"></div>
+      <div class="hm-legend-swatch" style="background:rgba(232,146,60,0.8)"></div>
       Malware / Suspicious
     </div>
     <div class="hm-legend-item">
-      <div class="hm-legend-swatch" style="background:rgba(0,245,255,0.6)"></div>
+      <div class="hm-legend-swatch" style="background:rgba(120,160,200,0.6)"></div>
       Low Risk / Monitored
     </div>
 
@@ -721,14 +721,14 @@ export const HEATMAP_SCRIPTS = `
   var TILE_CONFIGS = {
     dark: {
       url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      gradient: { 0.15: '#00f5ff', 0.45: '#f59e0b', 0.75: '#ef4444', 1.0: '#ff0000' },
+      gradient: { 0.15: '#78A0C8', 0.45: '#E8923C', 0.75: '#C83C3C', 1.0: '#8B1A1A' },
       minOpacity: 0.07,
       blur: 28,
       radius: 38
     },
     light: {
       url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      gradient: { 0.15: '#1a56db', 0.45: '#c05621', 0.75: '#991b1b', 1.0: '#7f1d1d' },
+      gradient: { 0.15: '#5A80A8', 0.45: '#C47428', 0.75: '#A82E2E', 1.0: '#8B1A1A' },
       minOpacity: 0.25,
       blur: 22,
       radius: 38
@@ -819,7 +819,7 @@ export const HEATMAP_SCRIPTS = `
   function addMarkers(points) {
     points.forEach(function(p) {
       var score = Math.round((1 - p.intensity) * 100);
-      var color = score < 30 ? '#ef4444' : score < 60 ? '#f59e0b' : '#22c55e';
+      var color = score < 30 ? '#C83C3C' : score < 60 ? '#E8923C' : '#28A050';
       L.circleMarker([p.lat, p.lng], {
         radius: 5,
         color: color,

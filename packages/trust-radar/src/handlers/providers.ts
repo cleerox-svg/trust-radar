@@ -1,4 +1,4 @@
-// Trust Radar v2 — Provider Intelligence API Endpoints
+// Averrow — Provider Intelligence API Endpoints
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";

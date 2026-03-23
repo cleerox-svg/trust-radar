@@ -1,4 +1,4 @@
-// Trust Radar v2 — Brand API Endpoints
+// Averrow — Brand API Endpoints
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";

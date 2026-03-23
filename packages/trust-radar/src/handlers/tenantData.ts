@@ -1,4 +1,4 @@
-// Trust Radar v2 — Tenant Data Endpoints (org-scoped, data-isolated)
+// Averrow — Tenant Data Endpoints (org-scoped, data-isolated)
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
