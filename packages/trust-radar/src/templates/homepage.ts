@@ -673,6 +673,187 @@ export function renderHomepage(): string {
   border-color: var(--accent);
   background: rgba(200, 60, 60, 0.06);
 }
+
+/* ══════════════════════════════════════════════════════════
+   VISUAL UPLIFT — Phase 2D
+   ══════════════════════════════════════════════════════════ */
+
+/* ── GLOBAL POLISH ── */
+html { scroll-behavior: smooth; }
+
+/* Noise texture on hero */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── RADAR HERO GRAPHIC ── */
+.hero-radar {
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 500px;
+  height: 400px;
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (max-width: 1100px) {
+  .hero-radar { display: none; }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.radar-sweep-arm {
+  animation: radar-sweep 8s linear infinite;
+}
+
+/* ── STAT ROW ── */
+.stat-row {
+  padding: 2rem 2rem 3rem;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-item {
+  text-align: center;
+  flex: 1;
+  min-width: 120px;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ── FADE-IN SECTIONS ── */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.fade-in-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── AGENT CARD ICONS ── */
+.agent-icon {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 10px;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Agent card glassmorphism */
+.agent-card {
+  backdrop-filter: blur(8px);
+  background: rgba(14, 26, 43, 0.75) !important;
+}
+
+.agent-card:hover {
+  box-shadow: 0 6px 28px rgba(0,0,0,0.2), 0 0 0 1px rgba(200,60,60,0.08) !important;
+}
+
+/* ── CAPABILITY CARD DEPTH ── */
+.cap-card {
+  backdrop-filter: blur(8px);
+  background: rgba(14, 26, 43, 0.75) !important;
+  position: relative;
+}
+
+.cap-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent 70%);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  pointer-events: none;
+}
+
+.cap-card:hover {
+  box-shadow: 0 6px 28px rgba(200, 60, 60, 0.10), 0 0 0 1px rgba(200,60,60,0.12) !important;
+}
+
+/* ── CTA ANIMATED BORDER ── */
+.cta-border-wrap {
+  position: relative;
+  border-radius: var(--radius-sm);
+  padding: 1.5px;
+  overflow: hidden;
+}
+
+.cta-border-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -200%;
+  background: conic-gradient(from 0deg, #C83C3C 0%, transparent 25%, #78A0C8 50%, transparent 75%, #C83C3C 100%);
+  animation: cta-border-spin 6s linear infinite;
+  z-index: 0;
+  border-radius: 0;
+}
+
+@keyframes cta-border-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cta-border-wrap .cta-inner {
+  position: relative;
+  z-index: 1;
+  border: none !important;
+}
+
+/* ── CTA DELTA WING WATERMARK ── */
+.cta-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.035;
+}
+
+.cta-watermark svg {
+  width: 200px;
+  height: auto;
+}
 </style>`;
 
   const content = `
@@ -681,6 +862,45 @@ ${pageStyles}
 <!-- HERO -->
 <section class="hero">
   <div class="hero-bg"></div>
+
+  <!-- Animated radar/aerospace graphic -->
+  <div class="hero-radar" aria-hidden="true">
+    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" width="500" height="400">
+      <defs>
+        <radialGradient id="sweepGrad" cx="250" cy="200" r="195" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#C83C3C" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#C83C3C" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- Faint grid -->
+      <line x1="0" y1="100" x2="500" y2="100" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <line x1="0" y1="200" x2="500" y2="200" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <line x1="0" y1="300" x2="500" y2="300" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <line x1="125" y1="0" x2="125" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <line x1="250" y1="0" x2="250" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <line x1="375" y1="0" x2="375" y2="400" stroke="#78A0C8" stroke-width="0.5" opacity="0.25"/>
+      <!-- Defense perimeter circles -->
+      <circle cx="250" cy="200" r="80"  stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.55"/>
+      <circle cx="250" cy="200" r="140" stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.35"/>
+      <circle cx="250" cy="200" r="192" stroke="#78A0C8" stroke-width="1" stroke-dasharray="5 4" fill="none" opacity="0.2"/>
+      <!-- Rotating radar sweep -->
+      <g class="radar-sweep-arm" style="transform-origin: 250px 200px; transform-box: view-box;">
+        <line x1="250" y1="200" x2="250" y2="8" stroke="#C83C3C" stroke-width="1.5" opacity="0.85" stroke-linecap="round"/>
+        <path d="M250 200 L250 8 A192 192 0 0 0 58 200 Z" fill="url(#sweepGrad)" opacity="0.1"/>
+      </g>
+      <!-- Contact dots: red=threat, blue=tracked, green=clear -->
+      <circle cx="312" cy="118" r="3.5" fill="#C83C3C" opacity="0.95"/>
+      <circle cx="176" cy="148" r="3"   fill="#78A0C8" opacity="0.9"/>
+      <circle cx="342" cy="265" r="3"   fill="#28A050" opacity="0.9"/>
+      <circle cx="158" cy="282" r="3.5" fill="#C83C3C" opacity="0.95"/>
+      <circle cx="384" cy="178" r="2.5" fill="#28A050" opacity="0.9"/>
+      <circle cx="196" cy="88"  r="2.5" fill="#78A0C8" opacity="0.9"/>
+      <!-- Delta wing at center -->
+      <path d="M250 175 L264 218 L250 212 L236 218 Z" fill="#F0EDE8" opacity="0.9"/>
+      <line x1="250" y1="192" x2="250" y2="204" stroke="#C83C3C" stroke-width="1.5" opacity="0.7"/>
+    </svg>
+  </div>
+
   <div class="hero-content">
     <div class="hero-tag">Threat Interceptor</div>
     <h1 class="hero-h1">Canada's most advanced interceptor.<br>Designed for AI&#8209;powered threats.</h1>
@@ -695,49 +915,123 @@ ${pageStyles}
 
 <hr class="tr-divider-animated">
 
+<!-- STAT ROW -->
+<div class="stat-row fade-in-section">
+  <div class="stat-item">
+    <div class="stat-value">24/7</div>
+    <div class="stat-label">Continuous monitoring</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">6</div>
+    <div class="stat-label">AI agents deployed</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">&lt;5min</div>
+    <div class="stat-label">Threat detection time</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">45+</div>
+    <div class="stat-label">Threat intelligence feeds</div>
+  </div>
+</div>
+
 <!-- AGENT SQUADRON -->
-<section class="squadron">
+<section class="squadron fade-in-section">
   <div class="section-label">Agent Squadron</div>
   <h2 class="squadron-title">Six AI agents. One mission.</h2>
   <p class="squadron-subtitle">Continuous autonomous defense across every threat vector — scanning, classifying, and intercepting around the clock.</p>
   <div class="agent-grid">
+
+    <!-- Sentinel — Signal Red — radar sweep -->
     <div class="agent-card" style="--agent-color: #C83C3C;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#C83C3C">
+        <circle cx="14" cy="14" r="5"  stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.4"/>
+        <circle cx="14" cy="14" r="1.5" fill="currentColor"/>
+        <line x1="14" y1="14" x2="14" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="20.5" cy="7.5" r="1.5" fill="#C83C3C" opacity="0.95"/>
+        <circle cx="6"    cy="19"  r="1.2" fill="#78A0C8"  opacity="0.85"/>
+      </svg>
       <div class="agent-name">Sentinel</div>
       <div class="agent-role">Threat Detection</div>
       <div class="agent-desc">Continuous radar sweep across all feeds</div>
     </div>
+
+    <!-- ASTRA — Amber — targeting diamond -->
     <div class="agent-card" style="--agent-color: #E8923C;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#E8923C">
+        <path d="M14 3 L25 14 L14 25 L3 14 Z" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="14" y1="3"  x2="14" y2="25" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+        <line x1="3"  y1="14" x2="25" y2="14" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+        <circle cx="14" cy="14" r="3" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+        <circle cx="14" cy="14" r="1.5" fill="currentColor"/>
+      </svg>
       <div class="agent-name">ASTRA</div>
       <div class="agent-role">Fire Control</div>
       <div class="agent-desc">Classifies, scores, and prioritizes threat severity</div>
     </div>
+
+    <!-- Observer — Blue — eye with iris -->
     <div class="agent-card" style="--agent-color: #78A0C8;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#78A0C8">
+        <path d="M2 14 Q14 4 26 14 Q14 24 2 14 Z" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="2"   fill="currentColor"/>
+        <line x1="14" y1="4"  x2="14" y2="7"  stroke="currentColor" stroke-width="1" opacity="0.45" stroke-linecap="round"/>
+        <line x1="14" y1="21" x2="14" y2="24" stroke="currentColor" stroke-width="1" opacity="0.45" stroke-linecap="round"/>
+      </svg>
       <div class="agent-name">Observer</div>
       <div class="agent-role">Strategic Intel</div>
       <div class="agent-desc">Daily briefings and macro trend analysis</div>
     </div>
+
+    <!-- Navigator — Blue-600 — globe with pin -->
     <div class="agent-card" style="--agent-color: #5A80A8;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#5A80A8">
+        <circle cx="14" cy="16" r="10" stroke="currentColor" stroke-width="1.5"/>
+        <ellipse cx="14" cy="16" rx="4" ry="10" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+        <line x1="4" y1="16" x2="24" y2="16" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+        <line x1="14" y1="2"  x2="14" y2="9"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="14" cy="5.5" r="2.5" fill="currentColor"/>
+      </svg>
       <div class="agent-name">Navigator</div>
       <div class="agent-role">Geo Mapping</div>
       <div class="agent-desc">Plots threat origins and infrastructure</div>
     </div>
+
+    <!-- Blackbox — Slate — flight recorder with EKG -->
     <div class="agent-card" style="--agent-color: #8A8F9C;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#8A8F9C">
+        <rect x="2" y="6" width="24" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="3,14 6,14 8,9 10.5,18.5 13,11 15,16 17,14 25,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="23.5" cy="8.5" r="2" fill="#C83C3C" opacity="0.9"/>
+      </svg>
       <div class="agent-name">Blackbox</div>
       <div class="agent-role">Flight Recorder</div>
       <div class="agent-desc">Captures threat timelines and narratives</div>
     </div>
+
+    <!-- Pathfinder — Green — path with waypoints -->
     <div class="agent-card" style="--agent-color: #28A050;">
+      <svg class="agent-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:#28A050">
+        <path d="M7 24 Q9 18 13 13 Q17 8 20 4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2" stroke-linecap="round"/>
+        <circle cx="7"  cy="24" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="13" cy="13" r="2"   fill="currentColor" opacity="0.75"/>
+        <path d="M17.5 2.5 L20 5.5 L22.5 2.5 L20 0 Z" fill="currentColor"/>
+        <circle cx="22" cy="9"  r="1.5" fill="currentColor" opacity="0.5"/>
+      </svg>
       <div class="agent-name">Pathfinder</div>
       <div class="agent-role">Target Acquisition</div>
       <div class="agent-desc">Identifies prospects and generates outreach</div>
     </div>
+
   </div>
 </section>
 
 <hr class="tr-divider-animated">
 
 <!-- HOW IT WORKS -->
-<section class="how-it-works">
+<section class="how-it-works fade-in-section">
   <div class="section-label">How It Works</div>
   <div class="steps-row">
     <div class="step">
@@ -765,7 +1059,7 @@ ${pageStyles}
 <!-- CAPABILITIES SECTION — Phase 2C -->
 <hr class="tr-divider-animated">
 
-<section class="capabilities">
+<section class="capabilities fade-in-section">
   <div class="section-label">Capabilities</div>
   <h2 class="capabilities-title">Full-spectrum airspace defense</h2>
   <div class="capabilities-grid">
@@ -849,13 +1143,23 @@ ${pageStyles}
 <!-- CTA SECTION — Phase 2C -->
 <hr class="tr-divider-animated">
 
-<section class="cta-section">
+<section class="cta-section fade-in-section">
+  <div class="cta-border-wrap">
   <div class="cta-inner">
+    <!-- Delta wing watermark -->
+    <div class="cta-watermark" aria-hidden="true">
+      <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+        <path d="M100 8 L185 152 L100 135 L15 152 Z" fill="#F0EDE8"/>
+        <!-- Negative-space A crossbar -->
+        <path d="M55 125 L145 125 L135 108 L65 108 Z" fill="#080E18"/>
+      </svg>
+    </div>
     <h2 class="cta-headline">Defend your airspace</h2>
     <div class="cta-buttons">
       <a href="/scan" class="cta-btn-primary">Launch Free Scan</a>
       <a href="/pricing" class="cta-btn-secondary">View Pricing</a>
     </div>
+  </div>
   </div>
 </section>
 
@@ -1021,6 +1325,24 @@ document.getElementById('domainInput').addEventListener('keydown', function(e) {
     document.getElementById('scanForm').dispatchEvent(new Event('submit'));
   }
 });
+
+// Fade-in on scroll (IntersectionObserver)
+(function() {
+  var sections = document.querySelectorAll('.fade-in-section');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('is-visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    sections.forEach(function(el) { io.observe(el); });
+  } else {
+    sections.forEach(function(el) { el.classList.add('is-visible'); });
+  }
+})();
 </script>
 ${spiderTraps}`;
 
