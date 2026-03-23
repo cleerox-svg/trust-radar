@@ -880,10 +880,10 @@ async function viewPublicSite(el, params) {
     { name: 'Sentinel', color: '#C83C3C', role: 'Certificate & Domain Surveillance', icon: '\u25C9',
       bullets: ['Monitors Certificate Transparency logs in real-time', 'Detects newly registered suspicious domains', 'Flags typosquatting and homoglyph attacks'],
       statKey: 'certificates_today', statLabel: 'certificates scanned today' },
-    { name: 'Analyst', color: '#28A050', role: 'Threat Classification & Brand Matching', icon: '\u25C8',
+    { name: 'ASTRA', color: '#E8923C', role: 'Threat Classification & Brand Matching', icon: '\u25C8',
       bullets: ['AI-powered URL analysis using Claude Haiku', 'Matches threats to target brands automatically', 'Scores confidence and assigns severity levels'],
       statKey: 'threats_classified_today', statLabel: 'threats classified today' },
-    { name: 'Cartographer', color: '#E8923C', role: 'Infrastructure Mapping & Provider Scoring', icon: '\u25CE',
+    { name: 'Navigator', color: '#5A80A8', role: 'Infrastructure Mapping & Provider Scoring', icon: '\u25CE',
       bullets: ['Maps IP addresses to hosting providers and ASNs', 'Scores provider abuse rates and response times', 'Identifies infrastructure patterns across campaigns'],
       statKey: 'providers_mapped', statLabel: 'providers mapped' },
     { name: 'Strategist', color: '#C83C3C', role: 'Campaign Correlation & Clustering', icon: '\u25C6',
@@ -1045,7 +1045,7 @@ async function viewPublicSite(el, params) {
         <div class="pub-step">
           <div class="pub-step-num">2</div>
           <h3>AI-Powered Analysis</h3>
-          <p>Five AI agents \u2014 <span style="color:#C83C3C">Sentinel</span>, <span style="color:#28A050">Analyst</span>, <span style="color:#E8923C">Cartographer</span>, <span style="color:#C83C3C">Strategist</span>, and <span style="color:#78A0C8">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
+          <p>Five AI agents \u2014 <span style="color:#C83C3C">Sentinel</span>, <span style="color:#E8923C">ASTRA</span>, <span style="color:#5A80A8">Navigator</span>, <span style="color:#C83C3C">Strategist</span>, and <span style="color:#78A0C8">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
           <div class="pub-step-agents">
             <span class="pub-step-agent" style="--ac:#C83C3C">\u25C9</span>
             <span class="pub-step-agent" style="--ac:#28A050">\u25C8</span>
@@ -4893,9 +4893,9 @@ async function viewProviderDetail(el, params) {
 
     renderProvThreats();
 
-    // ── Cartographer AI assessment card ──
+    // ── Navigator AI assessment card ──
     document.getElementById('prov-ai-insight').innerHTML = `<div class="ai-card">
-      <div class="ai-agent">Cartographer</div>
+      <div class="ai-agent">Navigator</div>
       <div class="ai-text">Attackers are ${t7 > 0 ? 'increasingly' : 'decreasingly'} using <strong>${p.name}</strong> (${p.asn || ''}) to host attack infrastructure. ${respHrs != null ? `Average abuse response time is <strong>${respHrs} hours</strong>${respHrs > 24 ? ', significantly above the industry average of 8 hours' : ''}.` : 'No abuse response data available.'} ${t7 > 20 ? `This provider has seen a <strong>${t7}% surge</strong> in hosted threats this week \u2014 attackers may be exploiting lax enforcement.` : `Threat volume is ${t7 > 0 ? 'gradually increasing' : 'declining'}.`}</div>
     </div>`;
 
@@ -5655,12 +5655,12 @@ function agentIcon(agentId, size = 24) {
 
 // ─── View: Agents (Step 13) ─────────────────────────────────
 const AGENT_META = {
-  sentinel: { iconClass: 'sentinel', color: '#22d3ee', role: 'Certificate & Domain Surveillance' },
-  analyst: { iconClass: 'analyst', color: '#4ade80', role: 'Threat Classification & Brand Matching' },
-  cartographer: { iconClass: 'cartographer', color: '#f59e0b', role: 'Infrastructure Mapping & Provider Scoring' },
+  sentinel: { iconClass: 'sentinel', color: '#C83C3C', role: 'Certificate & Domain Surveillance' },
+  analyst: { iconClass: 'analyst', color: '#E8923C', role: 'Threat Classification & Brand Matching' },
+  cartographer: { iconClass: 'cartographer', color: '#5A80A8', role: 'Infrastructure Mapping & Provider Scoring' },
   strategist: { iconClass: 'strategist', color: '#f87171', role: 'Campaign Correlation & Clustering' },
-  observer: { iconClass: 'observer', color: '#a78bfa', role: 'Trend Analysis & Intelligence Synthesis' },
-  prospector: { iconClass: 'prospector', color: '#F59E0B', role: 'Sales Intelligence & Lead Generation' },
+  observer: { iconClass: 'observer', color: '#78A0C8', role: 'Trend Analysis & Intelligence Synthesis' },
+  prospector: { iconClass: 'prospector', color: '#28A050', role: 'Sales Intelligence & Lead Generation' },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -6956,7 +6956,7 @@ async function viewAdminLeads(el) {
       const pc = PITCH_COLORS[l.pitch_angle] || 'var(--text-tertiary)';
       const pl = PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-';
       return `<tr data-slid="${l.id}" style="cursor:pointer"><td style="font-weight:500">${l.company_name || '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td style="font-size:11px">${l.target_name ? `${l.target_name}<br><span style="font-size:9px;color:var(--text-tertiary)">${l.target_title || ''}</span>` : '<span style="color:var(--text-tertiary)">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td style="font-family:var(--font-mono);font-size:11px">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-tertiary);padding:24px">No sales leads yet. The Prospector agent runs weekly.</td></tr>';
+    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-tertiary);padding:24px">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
     tbody.querySelectorAll('tr[data-slid]').forEach(r => r.addEventListener('click', () => openSalesLeadDetail(r.dataset.slid)));
   }
 
