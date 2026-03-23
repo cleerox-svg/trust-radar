@@ -9,7 +9,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderBlogPost4(): string {
   return wrapPage(
-    "Lookalike Domains: The Threat Hiding in Plain Sight — Trust Radar Blog",
+    "Lookalike Domains: The Threat Hiding in Plain Sight — Averrow Blog",
     "How attackers register typosquat and homoglyph domains to impersonate your brand.",
     `
 <style>
@@ -55,9 +55,9 @@ export function renderBlogPost4(): string {
 
 <p>Attackers exploit this with several well-established techniques:</p>
 
-<p><strong>Character omission</strong> is the simplest &mdash; remove one letter and see if anyone notices. &ldquo;trustradar&rdquo; becomes &ldquo;trustadar.&rdquo; The missing &lsquo;r&rsquo; is nearly invisible when you&rsquo;re scanning quickly, particularly in an email hyperlink.</p>
+<p><strong>Character omission</strong> is the simplest &mdash; remove one letter and see if anyone notices. &ldquo;averrow&rdquo; becomes &ldquo;averow.&rdquo; The missing &lsquo;r&rsquo; is nearly invisible when you&rsquo;re scanning quickly, particularly in an email hyperlink.</p>
 
-<p><strong>Adjacent character swaps</strong> transpose neighboring letters. &ldquo;trustradar&rdquo; becomes &ldquo;trusrtadar.&rdquo; Our brains are surprisingly good at reading transposed text &mdash; it&rsquo;s the same reason you can understand a sentence with jumbled middle letters &mdash; which is precisely what makes the attack effective.</p>
+<p><strong>Adjacent character swaps</strong> transpose neighboring letters. &ldquo;averrow&rdquo; becomes &ldquo;avrerow.&rdquo; Our brains are surprisingly good at reading transposed text &mdash; it&rsquo;s the same reason you can understand a sentence with jumbled middle letters &mdash; which is precisely what makes the attack effective.</p>
 
 <p><strong>Homoglyph substitution</strong> is the nastiest variant. It replaces characters with visually identical ones from different Unicode character sets. The Latin &lsquo;a&rsquo; and Cyrillic &lsquo;&#1072;&rsquo; are indistinguishable in virtually every font, but they&rsquo;re different code points. A domain registered with Cyrillic substitutions can appear absolutely identical to the legitimate one. Having worked with authentication systems that verify identity across hundreds of applications, I can tell you that this kind of deception &mdash; where something looks exactly right but isn&rsquo;t &mdash; is the hardest class of attack to defend against.</p>
 
@@ -79,7 +79,7 @@ export function renderBlogPost4(): string {
 
 <p>Proactive monitoring works differently. You generate the full set of plausible permutations for your domain, covering every technique: omission, swap, homoglyph, TLD, keyword addition, and subdomain tricks. You check which permutations are registered. For those that are, you monitor for signs of weaponization &mdash; active web content, MX records indicating email capability, freshly issued SSL certificates.</p>
 
-<p>That&rsquo;s the approach we built into Trust Radar. When you add a brand, the domain permutation engine generates hundreds of variants, checks their registration and DNS configuration, and feeds the results to our AI engine for risk scoring. A parked domain scores differently than one with active hosting, an MX record, and a certificate issued yesterday.</p>
+<p>That&rsquo;s the approach we built into Averrow. When you add a brand, the domain permutation engine generates hundreds of variants, checks their registration and DNS configuration, and feeds the results to our AI engine for risk scoring. A parked domain scores differently than one with active hosting, an MX record, and a certificate issued yesterday.</p>
 
 <h3>What You Can Do Right Now</h3>
 

@@ -9,7 +9,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 
 export function renderBlogPost1(): string {
   return wrapPage(
-    "Why Email Security Posture Is Your First Line of Brand Defense — Trust Radar Blog",
+    "Why Email Security Posture Is Your First Line of Brand Defense — Averrow Blog",
     "Most brand protection platforms ignore email security entirely. Here's why that's a critical gap.",
     `
 <style>
@@ -65,13 +65,13 @@ export function renderBlogPost1(): string {
 
 <h3>The Blind Spot in Brand Protection</h3>
 
-<p>Here&rsquo;s what genuinely surprised me when we built Trust Radar: none of the major brand protection platforms analyze email authentication as part of their monitoring. Not one.</p>
+<p>Here&rsquo;s what genuinely surprised me when we built Averrow: none of the major brand protection platforms analyze email authentication as part of their monitoring. Not one.</p>
 
 <p>They&rsquo;ll detect a phishing URL. They&rsquo;ll flag a fake social media account. They&rsquo;ll find your brand name on a dark web forum. But they won&rsquo;t tell you that your DKIM is half-configured and your DMARC policy is set to &ldquo;none&rdquo; &mdash; which means every one of those other threats is significantly more dangerous than it needs to be.</p>
 
 <p>Having worked on platforms where authentication was the core product, this gap was impossible to ignore. Email authentication is identity verification for your domain. If you can&rsquo;t prove that an email came from you, you can&rsquo;t prove that one didn&rsquo;t.</p>
 
-<p>That&rsquo;s why we built email security posture analysis into the core of Trust Radar. We check SPF validity, verify DKIM across multiple enterprise email security selectors, assess DMARC policy enforcement, and detect your MX provider. We grade the whole picture from A+ to F and track it over time.</p>
+<p>That&rsquo;s why we built email security posture analysis into the core of Averrow. We check SPF validity, verify DKIM across multiple enterprise email security selectors, assess DMARC policy enforcement, and detect your MX provider. We grade the whole picture from A+ to F and track it over time.</p>
 
 <h3>Why This Hits Mid-Market Companies Hardest</h3>
 

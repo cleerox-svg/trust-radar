@@ -23,13 +23,13 @@ export function renderPrivacyPage(): string {
 
   <h2>Introduction</h2>
   <p>
-    Trust Radar is operated by LRX Enterprises Inc. ("we", "us", "our"), a Canadian company.
+    Averrow is operated by LRX Enterprises Inc. ("we", "us", "our"), a Canadian company.
     We are committed to protecting the privacy and personal information of our users. This
     Privacy Policy explains how we collect, use, disclose, and safeguard your information
-    when you use the Trust Radar platform and related services.
+    when you use the Averrow platform and related services.
   </p>
   <p>
-    By accessing or using Trust Radar, you consent to the collection and use of your
+    By accessing or using Averrow, you consent to the collection and use of your
     information as described in this policy. If you do not agree, please do not use our
     services.
   </p>
@@ -46,7 +46,7 @@ export function renderPrivacyPage(): string {
   <h2>How We Use Your Information</h2>
   <p>We use the information we collect for the following purposes:</p>
   <ul>
-    <li><strong>Service Delivery:</strong> To provide, operate, and maintain the Trust Radar platform, including running scans, generating reports, and delivering alerts.</li>
+    <li><strong>Service Delivery:</strong> To provide, operate, and maintain the Averrow platform, including running scans, generating reports, and delivering alerts.</li>
     <li><strong>Threat Intelligence:</strong> To analyse submitted domains against threat feeds, detect impersonation, phishing attempts, and brand abuse across platforms.</li>
     <li><strong>Platform Improvement:</strong> To understand usage patterns, diagnose technical issues, and develop new features that better serve your needs.</li>
     <li><strong>Communications:</strong> To send service notifications, security alerts, product updates, and respond to your inquiries or support requests.</li>
@@ -60,7 +60,7 @@ export function renderPrivacyPage(): string {
   </ul>
 
   <h2>Third-Party Processors</h2>
-  <p>We use the following third-party service providers to operate Trust Radar:</p>
+  <p>We use the following third-party service providers to operate Averrow:</p>
   <ul>
     <li><strong>Cloudflare:</strong> Infrastructure, content delivery network (CDN), and edge compute services. Cloudflare processes requests on our behalf to ensure fast, secure delivery of the platform.</li>
     <li><strong>AI Provider:</strong> We use an artificial intelligence provider for threat analysis, content classification, and risk scoring. Data shared with this provider is limited to what is necessary for analysis and is processed in accordance with our data processing agreements.</li>
@@ -112,14 +112,14 @@ export function renderPrivacyPage(): string {
     data practices, please contact us at:
   </p>
   <p>
-    <strong>LRX Enterprises Inc.</strong><br>
+    <strong>LRX Enterprises Inc. operating as Averrow</strong><br>
     Email: <a href="mailto:privacy@averrow.com">privacy@averrow.com</a>
   </p>
 </div>`;
 
   return wrapPage(
-    "Privacy Policy — Trust Radar",
-    "Privacy Policy for Trust Radar by LRX Enterprises Inc. Learn how we collect, use, and protect your personal information in compliance with PIPEDA.",
+    "Privacy Policy — Averrow",
+    "Privacy Policy for Averrow by LRX Enterprises Inc. Learn how we collect, use, and protect your personal information in compliance with PIPEDA.",
     content
   );
 }

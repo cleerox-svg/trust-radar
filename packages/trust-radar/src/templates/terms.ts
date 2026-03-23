@@ -23,7 +23,7 @@ export function renderTermsPage(): string {
 
   <h2>Acceptance of Terms</h2>
   <p>
-    By accessing or using Trust Radar ("the Service"), operated by LRX Enterprises Inc.
+    By accessing or using Averrow ("the Service"), operated by LRX Enterprises Inc.
     ("we", "us", "our"), you agree to be bound by these Terms of Service. If you do not
     agree to these terms, you may not access or use the Service. These terms apply to all
     users, including visitors, free-tier users, and paid subscribers.
@@ -31,7 +31,7 @@ export function renderTermsPage(): string {
 
   <h2>Service Description</h2>
   <p>
-    Trust Radar is an AI-powered brand threat intelligence platform. The Service provides
+    Averrow is an AI-powered brand threat intelligence platform. The Service provides
     domain scanning, impersonation detection, phishing analysis, social media monitoring,
     and threat feed matching to help organizations identify and respond to brand abuse and
     online threats.
@@ -80,7 +80,7 @@ export function renderTermsPage(): string {
 
   <h2>Subscription Terms</h2>
   <p>
-    Trust Radar offers free and paid subscription plans. By subscribing to a paid plan,
+    Averrow offers free and paid subscription plans. By subscribing to a paid plan,
     you agree to the following:
   </p>
   <ul>
@@ -154,14 +154,14 @@ export function renderTermsPage(): string {
     If you have questions or concerns about these Terms of Service, please contact us at:
   </p>
   <p>
-    <strong>LRX Enterprises Inc.</strong><br>
+    <strong>LRX Enterprises Inc. operating as Averrow</strong><br>
     Email: <a href="mailto:legal@averrow.com">legal@averrow.com</a>
   </p>
 </div>`;
 
   return wrapPage(
-    "Terms of Service — Trust Radar",
-    "Terms of Service for Trust Radar by LRX Enterprises Inc. Read the terms governing your use of our AI-powered brand threat intelligence platform.",
+    "Terms of Service — Averrow",
+    "Terms of Service for Averrow by LRX Enterprises Inc. Read the terms governing your use of our AI-powered brand threat intelligence platform.",
     content
   );
 }
