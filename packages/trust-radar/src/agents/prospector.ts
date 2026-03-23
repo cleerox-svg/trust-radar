@@ -248,14 +248,14 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
 
   // AI phishing detection
   const aiPhishing = await db.prepare(`
-    SELECT brand_id, COUNT(*) as ai_count
+    SELECT brand_targeted, COUNT(*) as ai_count
     FROM phishing_pattern_signals
     WHERE ai_generated_probability > 0.7
       AND created_at >= datetime('now', '-30 days')
-      AND brand_id IS NOT NULL
-    GROUP BY brand_id
-  `).all<{ brand_id: string; ai_count: number }>();
-  const aiMap = new Map(aiPhishing.results.map(r => [r.brand_id, r.ai_count]));
+      AND brand_targeted IS NOT NULL
+    GROUP BY brand_targeted
+  `).all<{ brand_targeted: string; ai_count: number }>();
+  const aiMap = new Map(aiPhishing.results.map(r => [r.brand_targeted, r.ai_count]));
 
   // Distinct campaigns per brand (last 30 days)
   const campaignCounts = await db.prepare(`
