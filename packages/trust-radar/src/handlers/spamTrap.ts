@@ -76,7 +76,8 @@ export async function handleSpamTrapCaptures(request: Request, env: Env): Promis
       SELECT id, trap_address, trap_channel, from_address, from_domain, subject,
         spf_result, dkim_result, dmarc_result, dmarc_disposition,
         sending_ip, spoofed_brand_id, spoofed_domain, category, severity,
-        url_count, attachment_count, country_code, captured_at, threat_id
+        url_count, attachment_count, country_code, captured_at, threat_id,
+        SUBSTR(body_preview, 1, 80) as body_preview
       FROM spam_trap_captures
       ORDER BY captured_at DESC
       LIMIT ? OFFSET ?
@@ -344,6 +345,46 @@ export async function handleInitialSeed(request: Request, env: Env): Promise<Res
     }
 
     return json({ success: true, data: { addresses_created: created } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ── GET /api/spam-trap/captures/:id ───────────────────────────────
+
+export async function handleSpamTrapCaptureDetail(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const capture = await env.DB.prepare(`
+      SELECT * FROM spam_trap_captures WHERE id = ?
+    `).bind(id).first<Record<string, unknown>>();
+
+    if (!capture) {
+      return json({ success: false, error: "Capture not found" }, 404, origin);
+    }
+
+    let urls: unknown[] = [];
+    let attachments: unknown[] = [];
+    try { urls = JSON.parse(capture["urls_found"] as string || "[]"); } catch { /* empty */ }
+    try { attachments = JSON.parse(capture["attachment_hashes"] as string || "[]"); } catch { /* empty */ }
+
+    let brand_name: string | null = null;
+    if (capture["spoofed_brand_id"]) {
+      const brand = await env.DB.prepare(
+        "SELECT name FROM brands WHERE id = ?"
+      ).bind(capture["spoofed_brand_id"]).first<{ name: string }>();
+      brand_name = brand?.name ?? null;
+    }
+
+    return json({
+      success: true,
+      data: {
+        ...capture,
+        urls,
+        attachments,
+        brand_name,
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

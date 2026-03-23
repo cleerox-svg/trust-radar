@@ -165,9 +165,10 @@ import { serveHoneypotPage } from "./honeypot";
 import { serveLrxRadarPage } from "./templates/honeypot-lrx";
 import {
   handleSpamTrapStats, handleSpamTrapCaptures, handleSpamTrapCapturesByBrand,
-  handleSpamTrapSources, handleSpamTrapCampaigns, handleCreateSpamTrapCampaign,
-  handleExecuteSpamTrapCampaign, handleUpdateSpamTrapCampaign,
-  handleSpamTrapAddresses, handleInitialSeed, handleRunStrategist,
+  handleSpamTrapCaptureDetail, handleSpamTrapSources, handleSpamTrapCampaigns,
+  handleCreateSpamTrapCampaign, handleExecuteSpamTrapCampaign,
+  handleUpdateSpamTrapCampaign, handleSpamTrapAddresses, handleInitialSeed,
+  handleRunStrategist,
 } from "./handlers/spamTrap";
 import {
   handleListSalesLeads, handleGetSalesLead, handleUpdateSalesLead,
@@ -1552,6 +1553,11 @@ router.get("/api/spam-trap/captures/brand/:brandId", async (request: Request & {
   const ctx = await requireAuth(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleSpamTrapCapturesByBrand(request, env, request.params["brandId"] ?? "");
+});
+router.get("/api/spam-trap/captures/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapCaptureDetail(request, env, request.params["id"] ?? "");
 });
 router.get("/api/spam-trap/sources", async (request: Request, env: Env) => {
   const ctx = await requireAdmin(request, env);
