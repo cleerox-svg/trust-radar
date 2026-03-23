@@ -85,7 +85,7 @@ export function renderBlogPost1(): string {
 
 <a href="/blog" class="blog-post-back">&larr; Back to Blog</a>
 </article>
-${generateSpiderTraps("trustradar.ca", "blog-post-1")}
+${generateSpiderTraps("averrow.com", "blog-post-1")}
 `
   );
 }

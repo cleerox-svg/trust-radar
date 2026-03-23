@@ -1,7 +1,7 @@
 /**
  * Spam Trap Email Receiver
  *
- * Processes all non-DMARC emails arriving at trustradar.ca (lrxradar.com retained for legacy compat).
+ * Processes all non-DMARC emails arriving at averrow.com (trustradar.ca and lrxradar.com retained for legacy compat).
  * Extracts authentication signals, IOCs, brand matches, and creates threat records.
  * This is Trust Radar's proprietary data source.
  *

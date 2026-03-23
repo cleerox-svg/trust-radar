@@ -1910,7 +1910,7 @@ section {
     <div class="scan-preview">
       <div class="scan-bar">
         <div class="scan-bar-dots"><span></span><span></span><span></span></div>
-        <div class="scan-bar-url">trustradar.ca/scan — acmecorp.com</div>
+        <div class="scan-bar-url">averrow.com/scan — acmecorp.com</div>
       </div>
       <div class="scan-body">
         <div class="scan-header">
@@ -2252,7 +2252,7 @@ function toggleMobileMenu() {
 }
 </script>
 
-${generateSpiderTraps("trustradar.ca", "landing")}
+${generateSpiderTraps("averrow.com", "landing")}
 
 </body>
 </html>

@@ -1,4 +1,8 @@
 const ALLOWED_ORIGINS = [
+  "https://averrow.com",
+  "https://www.averrow.com",
+  "https://averrow.ca",
+  "https://www.averrow.ca",
   "https://trustradar.ca",
   "https://www.trustradar.ca",
   "https://imprsn8.com",
@@ -8,7 +12,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 export function corsHeaders(origin: string | null): Record<string, string> {
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : "https://trustradar.ca";
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : "https://averrow.com";
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",

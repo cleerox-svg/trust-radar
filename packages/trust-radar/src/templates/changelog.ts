@@ -319,7 +319,7 @@ export function renderChangelogPage(): string {
             <span class="changelog-badge changelog-badge-security">Security</span>
           </div>
           <h3 class="timeline-title">Domain Migration</h3>
-          <p class="timeline-desc">Completed migration from legacy domain to trustradar.ca with updated CSP and CORS.</p>
+          <p class="timeline-desc">Completed migration from legacy domain to averrow.com with updated CSP and CORS.</p>
         </div>
       </div>
 
@@ -331,6 +331,6 @@ export function renderChangelogPage(): string {
   return wrapPage(
     'Changelog — Trust Radar | AI-Powered Brand Threat Intelligence',
     'A timeline of features, improvements, and fixes shipping in Trust Radar.',
-    content + generateSpiderTraps("trustradar.ca", "changelog"),
+    content + generateSpiderTraps("averrow.com", "changelog"),
   );
 }

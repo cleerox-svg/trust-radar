@@ -1911,7 +1911,7 @@ export default {
     const to = message.to;
 
     // Route DMARC reports to existing handler
-    if (to === "dmarc_rua@trustradar.ca") {
+    if (to === "dmarc_rua@averrow.com" || to === "dmarc_rua@trustradar.ca") {
       ctx.waitUntil(handleDmarcEmail(message, env));
       return;
     }
@@ -1924,9 +1924,17 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // www → non-www redirect for trustradar.ca
-      if (url.hostname === "www.trustradar.ca" && !url.pathname.startsWith("/api/")) {
-        return Response.redirect(`https://trustradar.ca${url.pathname}${url.search}`, 301);
+      // www → non-www redirect for averrow.com
+      if (url.hostname === "www.averrow.com" && !url.pathname.startsWith("/api/")) {
+        return Response.redirect(`https://averrow.com${url.pathname}${url.search}`, 301);
+      }
+      // averrow.ca → averrow.com redirect
+      if ((url.hostname === "averrow.ca" || url.hostname === "www.averrow.ca") && !url.pathname.startsWith("/api/")) {
+        return Response.redirect(`https://averrow.com${url.pathname}${url.search}`, 301);
+      }
+      // Legacy trustradar.ca → averrow.com 301 redirect
+      if ((url.hostname === "trustradar.ca" || url.hostname === "www.trustradar.ca") && !url.pathname.startsWith("/api/")) {
+        return Response.redirect(`https://averrow.com${url.pathname}${url.search}`, 301);
       }
       // www.lrxradar.com → lrxradar.com redirect
       if (url.hostname === "www.lrxradar.com" && !url.pathname.startsWith("/api/")) {
@@ -1936,7 +1944,7 @@ export default {
       // Honeypot domain routing — serve KV-stored sites for throwaway domains
       // For each honeypot domain, add to wrangler.toml:
       //   { pattern = "example-business.xyz", custom_domain = true },
-      const knownDomains = ["trustradar.ca", "www.trustradar.ca", "lrxradar.com", "www.lrxradar.com"];
+      const knownDomains = ["averrow.com", "www.averrow.com", "averrow.ca", "www.averrow.ca", "trustradar.ca", "www.trustradar.ca", "lrxradar.com", "www.lrxradar.com"];
       if (!knownDomains.includes(url.hostname)) {
         const honeypotDomains = await env.CACHE.get("honeypot:domains").then(
           v => v ? JSON.parse(v) as string[] : [],
@@ -1951,8 +1959,8 @@ export default {
         return applySecurityHeaders(serveLrxRadarPage(url.pathname));
       }
 
-      // Honeypot pages on trustradar.ca — only /team and /careers (not /contact or /about)
-      if (["trustradar.ca", "www.trustradar.ca"].includes(url.hostname)) {
+      // Honeypot pages on averrow.com — only /team and /careers (not /contact or /about)
+      if (["averrow.com", "www.averrow.com"].includes(url.hostname)) {
         const honeypotPages = ["/team", "/careers"];
         if (honeypotPages.includes(url.pathname)) {
           const serveDomain = url.hostname.replace(/^www\./, "");

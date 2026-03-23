@@ -5,6 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 
 # ─── Routes ──────────────────────────────────────────────────
 routes = [
+  { pattern = "averrow.com", custom_domain = true },
+  { pattern = "www.averrow.com", custom_domain = true },
+  { pattern = "averrow.ca", custom_domain = true },
+  { pattern = "www.averrow.ca", custom_domain = true },
   { pattern = "trustradar.ca", custom_domain = true },
   { pattern = "www.trustradar.ca", custom_domain = true },
   { pattern = "lrxradar.com", custom_domain = true },
@@ -69,6 +73,7 @@ ENVIRONMENT = "production"
 [env.staging]
 name = "trust-radar-staging"
 routes = [
+  { pattern = "staging.averrow.com", custom_domain = true },
   { pattern = "staging.trustradar.ca", custom_domain = true }
 ]
 vars = { ENVIRONMENT = "staging" }

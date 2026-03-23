@@ -242,6 +242,6 @@ export function renderBlogPage(): string {
   return wrapPage(
     'Blog — Trust Radar | AI-Powered Brand Threat Intelligence',
     'Product updates, threat research, and engineering deep dives from the Trust Radar team.',
-    content + generateSpiderTraps("trustradar.ca", "blog"),
+    content + generateSpiderTraps("averrow.com", "blog"),
   );
 }

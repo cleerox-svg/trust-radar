@@ -315,7 +315,7 @@ export async function handleInitialSeed(request: Request, env: Env): Promise<Res
     let created = 0;
 
     // Generic traps on both domains
-    for (const domain of ["trustradar.ca", "lrxradar.com"]) {
+    for (const domain of ["averrow.com", "trustradar.ca", "lrxradar.com"]) {
       for (const prefix of genericPrefixes) {
         await env.DB.prepare(`
           INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)
@@ -325,21 +325,21 @@ export async function handleInitialSeed(request: Request, env: Env): Promise<Res
       }
     }
 
-    // Brand traps on trustradar.ca
+    // Brand traps on averrow.com
     for (const trap of brandTraps) {
       await env.DB.prepare(`
         INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)
-        VALUES (?, 'trustradar.ca', 'brand', ?)
-      `).bind(`${trap.prefix}@trustradar.ca`, trap.brand).run();
+        VALUES (?, 'averrow.com', 'brand', ?)
+      `).bind(`${trap.prefix}@averrow.com`, trap.brand).run();
       created++;
     }
 
-    // Employee traps on trustradar.ca
+    // Employee traps on averrow.com
     for (const prefix of employeePrefixes) {
       await env.DB.prepare(`
         INSERT OR IGNORE INTO seed_addresses (address, domain, channel)
-        VALUES (?, 'trustradar.ca', 'employee')
-      `).bind(`${prefix}@trustradar.ca`).run();
+        VALUES (?, 'averrow.com', 'employee')
+      `).bind(`${prefix}@averrow.com`).run();
       created++;
     }
 

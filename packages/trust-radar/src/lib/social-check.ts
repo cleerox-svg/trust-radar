@@ -83,7 +83,7 @@ async function checkPlatform(
     const res = await fetch(url, {
       method: 'HEAD',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TrustRadar/1.0; +https://trustradar.ca)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Averrow/1.0; +https://averrow.com)',
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(2000),
