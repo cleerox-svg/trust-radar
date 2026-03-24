@@ -1294,28 +1294,91 @@ router.get("/api/admin/sales-leads/:id/activity", async (request: Request & { pa
 // ─── Pathfinder Debug (TEMPORARY) ──────────────────────────
 router.get("/api/admin/pathfinder-debug", async (request: Request, env: Env) => {
   try {
-    // Run the same brand query as prospector.ts identifyProspects()
+    const MIN_SCORE = 20;
+
+    // Step 1: Get brand candidates (same query as prospector)
     const brands = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.threat_count,
-        b.email_security_grade, b.tranco_rank,
-        (SELECT COUNT(*) FROM threats WHERE target_brand_id = b.id AND created_at > datetime('now', '-30 days')) as recent_threats,
-        (SELECT COUNT(*) FROM spam_trap_captures WHERE spoofed_brand_id = b.id AND captured_at > datetime('now', '-30 days')) as trap_catches
+        b.email_security_grade, b.tranco_rank
       FROM brands b
       WHERE b.id NOT IN (SELECT brand_id FROM org_brands)
       AND b.id NOT IN (SELECT brand_id FROM sales_leads WHERE created_at > datetime('now', '-30 days'))
       ORDER BY b.threat_count DESC
-      LIMIT 20
+      LIMIT 50
     `).all();
-    const leads = await env.DB.prepare("SELECT COUNT(*) as c FROM sales_leads").first();
-    const orgBrands = await env.DB.prepare("SELECT COUNT(*) as c FROM org_brands").first();
-    const totalBrands = await env.DB.prepare("SELECT COUNT(*) as c FROM brands").first();
+    const scored = [];
+    const errors = [];
+    for (const brand of (brands.results || []).slice(0, 10)) {
+      try {
+        let score = 0;
+        const factors = [];
+        // DMARC check
+        const es = await env.DB.prepare(
+          "SELECT dmarc_record FROM email_security_scans WHERE domain = ? ORDER BY scanned_at DESC LIMIT 1"
+        ).bind(brand.canonical_domain).first();
+
+        if (!es || !es.dmarc_record) {
+          score += 20;
+          factors.push("no_dmarc:+20");
+        }
+        // Email grade
+        const grade = brand.email_security_grade;
+        if (grade === 'F' || grade === 'D') {
+          score += 30;
+          factors.push(`email_grade_${grade}:+30`);
+        } else if (grade === 'C') {
+          score += 15;
+          factors.push("email_grade_C:+15");
+        }
+        // Active threats
+        const threats = await env.DB.prepare(
+          "SELECT COUNT(*) as c FROM threats WHERE target_brand_id = ? AND created_at > datetime('now', '-30 days')"
+        ).bind(brand.id).first();
+
+        if ((threats?.c || 0) >= 10) {
+          score += 25;
+          factors.push(`active_threats_${threats.c}:+25`);
+        } else if ((threats?.c || 0) >= 3) {
+          score += 15;
+          factors.push(`active_threats_${threats.c}:+15`);
+        }
+        // Phishing URLs
+        const phishing = await env.DB.prepare(
+          "SELECT COUNT(*) as c FROM threat_signals WHERE brand_match_id = ? AND signal_type = 'phishing_url'"
+        ).bind(brand.id).first();
+
+        if ((phishing?.c || 0) > 0) {
+          score += 20;
+          factors.push(`phishing_urls_${phishing.c}:+20`);
+        }
+        // Spam trap catches
+        const traps = await env.DB.prepare(
+          "SELECT COUNT(*) as c FROM spam_trap_captures WHERE spoofed_brand_id = ? AND captured_at > datetime('now', '-30 days')"
+        ).bind(brand.id).first();
+
+        if ((traps?.c || 0) > 0) {
+          score += 30;
+          factors.push(`trap_catches_${traps.c}:+30`);
+        }
+        scored.push({
+          name: brand.name,
+          domain: brand.canonical_domain,
+          email_grade: brand.email_security_grade,
+          score,
+          factors,
+          qualifies: score >= MIN_SCORE,
+        });
+      } catch (err) {
+        errors.push({ brand: brand.name, error: String(err) });
+      }
+    }
     return new Response(JSON.stringify({
-      total_brands: totalBrands?.c,
-      brands_in_orgs: orgBrands?.c,
-      existing_leads: leads?.c,
-      candidates_found: brands.results?.length,
-      top_candidates: brands.results?.slice(0, 10),
-      min_score: 20,
+      candidates: brands.results?.length,
+      scored: scored.length,
+      qualified: scored.filter(s => s.qualifies).length,
+      errors: errors,
+      results: scored,
+      min_score: MIN_SCORE,
     }, null, 2), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
