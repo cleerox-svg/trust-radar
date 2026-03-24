@@ -15,7 +15,7 @@ export function renderLandingPage(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trust Radar — AI-Powered Brand Threat Intelligence | LRX Enterprises</title>
+<title>Averrow — AI-Powered Brand Threat Intelligence | LRX Enterprises</title>
 <meta name="description" content="Trust Radar continuously monitors for brand impersonation, phishing, email vulnerabilities, and social media abuse. AI-powered threat intelligence by LRX Enterprises Inc.">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
