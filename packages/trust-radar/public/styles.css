@@ -3687,6 +3687,200 @@ a.campaign-card:hover { text-decoration: none; }
 /* Official card handle color */
 .social-profile-card .social-classification-badge.official + * .social-card-handle { color: #28A050; }
 
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT CLASS LIBRARY
+   Replaces inline styles in app.js — see CODE_REVIEW_PLAN.md Phase 5
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Layout ─── */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.gap-4 { gap: 4px; }
+.gap-6 { gap: 6px; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.cursor-pointer { cursor: pointer; }
+
+/* ─── Spacing ─── */
+.mb-4 { margin-bottom: 4px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.p-12 { padding: 12px; }
+.p-16 { padding: 16px; }
+.p-20 { padding: 20px; }
+
+/* ─── Typography ─── */
+.mono { font-family: var(--font-mono); }
+.sans { font-family: var(--font-display); }
+.text-9 { font-size: 9px; }
+.text-10 { font-size: 10px; }
+.text-11 { font-size: 11px; }
+.text-12 { font-size: 12px; }
+.text-13 { font-size: 13px; }
+.text-14 { font-size: 14px; }
+.text-16 { font-size: 16px; }
+.text-20 { font-size: 20px; }
+.text-24 { font-size: 24px; }
+.text-28 { font-size: 28px; }
+.fw-500 { font-weight: 500; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+.fw-800 { font-weight: 800; }
+.uppercase { text-transform: uppercase; }
+.ls-wide { letter-spacing: 0.08em; }
+
+/* ─── Colors ─── */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-accent { color: var(--accent); }
+.text-positive { color: var(--positive); }
+.text-negative { color: var(--negative); }
+.text-warning { color: var(--threat-medium); }
+.text-blue { color: var(--blue-primary, #78A0C8); }
+
+/* ─── Backgrounds ─── */
+.bg-card { background: var(--bg-card, #0E1A2B); }
+.bg-elevated { background: var(--bg-elevated); }
+.bg-surface { background: var(--bg-surface, #0a1020); }
+
+/* ─── Borders ─── */
+.border { border: 1px solid var(--border); }
+.border-accent { border: 1px solid rgba(200, 60, 60, 0.25); }
+.rounded-sm { border-radius: 3px; }
+.rounded { border-radius: 4px; }
+.rounded-md { border-radius: 6px; }
+.rounded-lg { border-radius: 10px; }
+
+/* ─── Cards ─── */
+.card {
+  background: var(--bg-card, #0E1A2B);
+  border: 1px solid rgba(120, 160, 200, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+.card:hover {
+  border-color: rgba(200, 60, 60, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* ─── Section labels ─── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, #C83C3C);
+  margin-bottom: 8px;
+}
+
+/* ─── Page titles ─── */
+.page-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+/* ─── Data labels (small mono text) ─── */
+.data-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.data-sublabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ─── Data values ─── */
+.data-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ─── Empty states ─── */
+.empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ─── Stat values ─── */
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+/* ─── Badges ─── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.badge-critical { background: rgba(200,60,60,0.12); color: #C83C3C; border: 1px solid rgba(200,60,60,0.25); }
+.badge-high { background: rgba(232,146,60,0.12); color: #E8923C; border: 1px solid rgba(232,146,60,0.25); }
+.badge-medium { background: rgba(220,170,50,0.12); color: #DCAA32; border: 1px solid rgba(220,170,50,0.25); }
+.badge-low { background: rgba(120,160,200,0.12); color: #78A0C8; border: 1px solid rgba(120,160,200,0.25); }
+.badge-success { background: rgba(40,160,80,0.12); color: #28A050; border: 1px solid rgba(40,160,80,0.25); }
+.badge-info { background: rgba(120,160,200,0.08); color: #78A0C8; border: 1px solid rgba(120,160,200,0.15); }
+
+/* ─── Action buttons ─── */
+.btn-action {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+.btn-action:hover { transform: translateY(-1px); }
+.btn-action-primary { background: #C83C3C; color: #fff; }
+.btn-action-success { background: #28A050; color: #fff; }
+.btn-action-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+
 /* ─── Global inline-style overrides (1050 inline styles in app.js) ─── */
 
 /* Universal font smoothing */
