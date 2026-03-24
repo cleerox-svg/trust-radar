@@ -393,7 +393,7 @@ async function _loadNotifications() {
     if (items.length === 0) {
       list.innerHTML = `<div class="notif-empty">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <div style="margin-top:8px">No notifications yet</div>
+        <div class="mt-8">No notifications yet</div>
       </div>`;
       return;
     }
@@ -532,7 +532,7 @@ function renderNotifBell() {
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
       <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
-    <span class="notif-badge" style="display:none">0</span>
+    <span class="notif-badge hidden">0</span>
     <div class="notif-dropdown" id="notif-dropdown">
       <div class="notif-dropdown-header">
         <span>Notifications</span>
@@ -944,7 +944,7 @@ async function viewPublicSite(el, params) {
         </div>
         <button class="pub-hamburger" id="pub-hamburger">\u2630</button>
       </div>
-      <div class="pub-mobile-menu" id="pub-mobile-menu" style="display:none">
+      <div class="pub-mobile-menu" id="pub-mobile-menu" class="hidden">
         <a href="#detect">Detection</a><a href="#agents">Agents</a><a href="#feeds">Feeds</a><a href="#assessment">Assessment</a>
         <a href="/login">Login</a><a href="#assessment" class="pub-btn pub-btn-primary" style="text-align:center">Sign Up</a>
       </div>
@@ -980,7 +980,7 @@ async function viewPublicSite(el, params) {
           <div class="pub-problem-src">Source: Anti-Phishing Working Group</div>
         </div>
         <div class="pub-problem-card">
-          <div class="pub-problem-num" style="color:var(--threat-medium)">21 days</div>
+          <div class="pub-problem-num text-warning">21 days</div>
           <div class="pub-problem-label">Average time to detect brand impersonation</div>
           <div class="pub-problem-src">Your customers are at risk before you even know</div>
         </div>
@@ -1099,12 +1099,12 @@ async function viewPublicSite(el, params) {
         </div>
         <div class="pub-assess-note">Free assessment \u2022 No credit card \u2022 Results in 30 seconds</div>
       </div>
-      <div id="pub-assess-loading" style="display:none" class="pub-assess-loading">
+      <div id="pub-assess-loading" class="hidden pub-assess-loading">
         ${heroLogo}
         <div>Scanning threat landscape...</div>
       </div>
-      <div id="pub-assess-results" style="display:none"></div>
-      <div id="pub-lead-form" style="display:none"></div>
+      <div id="pub-assess-results" class="hidden"></div>
+      <div id="pub-lead-form" class="hidden"></div>
     </section>
 
     <!-- CTA FOOTER -->
@@ -1329,14 +1329,14 @@ async function viewPublicSite(el, params) {
       // Build threat types breakdown if available
       let typesHtml = '';
       if (d.threat_types && d.threat_types.length > 0) {
-        typesHtml = '<div class="pub-assess-types"><div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Threat Breakdown</div>' +
-          d.threat_types.map(t => `<div class="pub-assess-type-row"><span>${t.threat_type}</span><span class="text-blue" style="font-family:var(--font-mono)">${t.count}</span></div>`).join('') +
+        typesHtml = '<div class="pub-assess-types"><div class="text-tertiary text-11 mb-6">Threat Breakdown</div>' +
+          d.threat_types.map(t => `<div class="pub-assess-type-row"><span>${t.threat_type}</span><span class="text-blue mono">${t.count}</span></div>`).join('') +
           '</div>';
       }
 
       const monitoredNote = d.is_monitored
-        ? '<div class="text-positive" style="font-size:11px;margin-top:8px">This brand is actively monitored by Averrow</div>'
-        : '<div class="text-tertiary" style="font-size:11px;margin-top:8px">This brand is not currently monitored. <a href="#" class="text-blue">Add it to get continuous protection.</a></div>';
+        ? '<div class="text-positive text-11 mt-8">This brand is actively monitored by Averrow</div>'
+        : '<div class="text-tertiary text-11 mt-8">This brand is not currently monitored. <a href="#" class="text-blue">Add it to get continuous protection.</a></div>';
 
       document.getElementById('pub-assess-results').style.display = 'block';
       document.getElementById('pub-assess-results').innerHTML = `
@@ -1355,8 +1355,8 @@ async function viewPublicSite(el, params) {
               </svg>
             </div>
             <div class="pub-results-stats">
-              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-critical)">${d.threat_count}</div><div class="pub-result-stat-label">Threats Found</div></div>
-              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-medium)">${d.provider_count}</div><div class="pub-result-stat-label">Providers Involved</div></div>
+              <div class="pub-result-stat"><div class="pub-result-stat-val text-negative">${d.threat_count}</div><div class="pub-result-stat-label">Threats Found</div></div>
+              <div class="pub-result-stat"><div class="pub-result-stat-val text-warning">${d.provider_count}</div><div class="pub-result-stat-label">Providers Involved</div></div>
               <div class="pub-result-stat"><div class="pub-result-stat-val text-blue">${d.campaign_count}</div><div class="pub-result-stat-label">Campaigns Detected</div></div>
             </div>
           </div>
@@ -1388,12 +1388,12 @@ async function viewPublicSite(el, params) {
           }).join('');
 
           const emailHtml = `
-            <div class="pub-results-card" style="margin-top:16px">
+            <div class="pub-results-card mt-16">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
                 <div style="font-family:var(--font-display);font-size:15px;font-weight:700">\uD83D\uDCE7 Email Security Posture</div>
                 <div style="display:flex;align-items:center;gap:12px">
                   <span style="background:${esGradeColor};color:#000;padding:4px 12px;border-radius:4px;font-weight:700;font-size:18px;font-family:var(--font-mono)">${es.grade}</span>
-                  <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span class="text-tertiary" style="font-size:12px">/100</span></span>
+                  <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span class="text-tertiary text-12">/100</span></span>
                 </div>
               </div>
               ${vulnerabilityWarning}
@@ -1403,9 +1403,9 @@ async function viewPublicSite(el, params) {
                 <div class="protocol-check ${es.dkim?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.dkim?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">DKIM</div><div class="protocol-detail">${dkimStatus}</div></div>
                 <div class="protocol-check ${es.mx?.exists ? 'pass' : 'fail'}"><div class="protocol-icon">${es.mx?.exists ? '\u2705' : '\u274C'}</div><div class="protocol-name">MX</div><div class="protocol-detail">${mxStatus}</div></div>
               </div>
-              ${esRecs ? `<div style="margin-top:12px">${esRecs}</div>` : ''}
+              ${esRecs ? `<div class="mt-12">${esRecs}</div>` : ''}
               <div style="margin-top:16px;text-align:center">
-                <a href="/login" class="pub-btn pub-btn-primary" style="font-size:12px">Monitor This Domain \u2192</a>
+                <a href="/login" class="pub-btn pub-btn-primary text-12">Monitor This Domain \u2192</a>
               </div>
             </div>`;
 
@@ -1454,7 +1454,7 @@ async function viewPublicSite(el, params) {
             }).then(r => r.json());
 
             if (lRes?.success) {
-              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 class="text-positive" style="margin-top:16px">\u2713 Report Requested</h3><p class="text-secondary">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
+              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 class="text-positive mt-16">\u2713 Report Requested</h3><p class="text-secondary">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
             } else {
               errEl.style.display = 'block'; errEl.textContent = lRes?.error || 'Failed to submit';
               btn.disabled = false; btn.textContent = 'Send My Report \u2192';
@@ -1532,7 +1532,7 @@ async function viewObservatory(el) {
     </div>
     <button class="obs-fullscreen-btn" id="obs-fullscreen-btn" title="Toggle Fullscreen">⛶</button>
     <div class="obs-ticker" id="obs-ticker"></div>
-    <div class="obs-brand-overlay" id="obs-brand-overlay" style="display:none">
+    <div class="obs-brand-overlay" id="obs-brand-overlay" class="hidden">
       <div class="obs-brand-name" id="obs-brand-name"></div>
       <div class="obs-brand-stats" id="obs-brand-stats"></div>
     </div>
@@ -2755,7 +2755,7 @@ function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--
 
 async function viewBrandsHub(el) {
   el.innerHTML = `
-    <div style="padding:20px 24px 0"><div class="page-title" style="margin-bottom:16px">Brands Intelligence</div></div>
+    <div style="padding:20px 24px 0"><div class="page-title mb-16">Brands Intelligence</div></div>
     <div class="agg-stats" id="brands-agg"></div>
     <div class="sub-tabs" id="brands-tabs">
       <button class="sub-tab active" data-tab="top-targeted">Top Targeted<span class="tab-count" id="tc-top">--</span></button>
@@ -2776,8 +2776,8 @@ async function viewBrandsHub(el) {
     document.getElementById('brands-agg').innerHTML = `
       <div class="agg-card"><div class="agg-val text-blue">${s.total_tracked || 0}</div><div class="agg-lbl">Brands tracked</div><div class="agg-sub">Across all feeds</div></div>
       <div class="agg-card"><div class="agg-val text-positive">+${s.new_this_week || 0}</div><div class="agg-lbl">New this week</div><div class="agg-sub">First seen in feeds</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.fastest_rising || '-'}</div><div class="agg-lbl">Fastest rising</div><div class="agg-sub">${s.fastest_rising_pct ? '+' + s.fastest_rising_pct + '% in 24h' : ''}</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.top_threat_type || 'Phishing'}</div><div class="agg-lbl">Top threat type</div><div class="agg-sub">${s.top_threat_type_pct || 0}% of all threats</div></div>`;
+      <div class="agg-card"><div class="agg-val text-negative">${s.fastest_rising || '-'}</div><div class="agg-lbl">Fastest rising</div><div class="agg-sub">${s.fastest_rising_pct ? '+' + s.fastest_rising_pct + '% in 24h' : ''}</div></div>
+      <div class="agg-card"><div class="agg-val text-warning">${s.top_threat_type || 'Phishing'}</div><div class="agg-lbl">Top threat type</div><div class="agg-sub">${s.top_threat_type_pct || 0}% of all threats</div></div>`;
   }).catch(() => {});
 
   const loadTopTargeted = async (period) => {
@@ -2939,10 +2939,10 @@ async function viewBrandsHub(el) {
       const tGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
       html += `<tr data-id="${id}" data-name="${(b.name || '').toLowerCase()}" data-domain="${(b.canonical_domain || '').toLowerCase()}" data-sector="${b.sector || ''}">
         <td><span class="star-toggle ${mon ? 'on' : 'off'}">${mon ? '\u2605' : '\u2606'}</span></td>
-        <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div style="font-weight:500">${b.name}</div><div class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${b.canonical_domain || ''}</div></div></a></td>
-        <td class="text-secondary" style="font-size:11px">${b.sector || ''}</td>
+        <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div class="fw-500">${b.name}</div><div class="text-tertiary mono text-9">${b.canonical_domain || ''}</div></div></a></td>
+        <td class="text-secondary text-11">${b.sector || ''}</td>
         <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${color}">${tc}</span></td>
-        <td>${t !== 0 ? `<span class="trend-pct ${trendDir}" style="font-size:11px">${t > 0 ? '+' : ''}${t}%</span>` : '<span class="text-tertiary" style="font-size:11px">—</span>'}</td>
+        <td>${t !== 0 ? `<span class="trend-pct ${trendDir} text-11">${t > 0 ? '+' : ''}${t}%</span>` : '<span class="text-tertiary text-11">—</span>'}</td>
         <td>${b.top_threat_type ? `<span class="type-pill ${b.top_threat_type}">${b.top_threat_type}</span>` : '-'}</td>
         <td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${tGradeBg};color:${tGradeColor};padding:1px 5px;border-radius:3px;border:${tGradeBorder}">${tGradeTxt}</span></td>
       </tr>`;
@@ -3007,8 +3007,8 @@ async function viewBrandsHub(el) {
        <div class="form-group"><label class="form-label">Domain</label><input class="form-input" placeholder="e.g. acmecorp.com" id="modal-domain"></div>
        <div class="form-group"><label class="form-label">Brand Name (optional)</label><input class="form-input" placeholder="Auto-detected if left blank" id="modal-name"></div>
        <div style="display:flex;gap:12px">
-         <div class="form-group" style="flex:1"><label class="form-label">Sector</label><select class="form-select" id="modal-sector"><option value="">Auto-detect</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Government</option><option>Social Media</option></select></div>
-         <div class="form-group" style="flex:1"><label class="form-label">Reason</label><select class="form-select" id="modal-reason"><option>Prospect</option><option>Competitor</option><option>Client request</option><option>Threat research</option></select></div>
+         <div class="form-group flex-1"><label class="form-label">Sector</label><select class="form-select" id="modal-sector"><option value="">Auto-detect</option><option>Financial Services</option><option>Technology</option><option>E-commerce</option><option>Cryptocurrency</option><option>Healthcare</option><option>Government</option><option>Social Media</option></select></div>
+         <div class="form-group flex-1"><label class="form-label">Reason</label><select class="form-select" id="modal-reason"><option>Prospect</option><option>Competitor</option><option>Client request</option><option>Threat research</option></select></div>
        </div>
        <div class="form-group"><label class="form-label">Notes</label><input class="form-input" placeholder="Internal notes..." id="modal-notes"></div>
        <div class="social-handles-section">
@@ -3094,9 +3094,9 @@ function renderEmailIntelCard(stats, sources, brandId) {
   if (!totals || !totals.total_emails) {
     const inTrustRadar = false; // handled by CTA in posture card
     return `
-      <div class="panel" style="margin-bottom:16px">
+      <div class="panel mb-16">
         <div class="phead"><span>\uD83D\uDCCA Email Intelligence</span><span class="badge">No data</span></div>
-        <div class="panel-body padded text-secondary" style="font-size:12px">
+        <div class="panel-body padded text-secondary text-12">
           <div class="text-tertiary" style="margin-bottom:10px">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
           <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
             <strong>Activate DMARC reporting:</strong><br>
@@ -3140,7 +3140,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
   }).join('');
 
   return `
-    <div class="panel" style="margin-bottom:16px">
+    <div class="panel mb-16">
       <div class="phead">
         <span>\uD83D\uDCCA Email Intelligence</span>
         <span class="data-label">${totals.report_count} reports · ${totals.reporter_count} senders</span>
@@ -3166,7 +3166,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
         </div>
         ${barChart}
         ${srcRows ? `
-          <div style="margin-top:12px">
+          <div class="mt-12">
             <div class="text-secondary" style="font-size:11px;font-weight:600;margin-bottom:6px">Top Spoofing Sources</div>
             ${srcRows}
           </div>` : ''}
@@ -3190,11 +3190,11 @@ async function loadEmailIntel(brandId) {
 
 function renderEmailSecurityCard(es, brandId) {
   if (!es) return `
-    <div class="panel email-security-card" style="margin-bottom:16px">
+    <div class="panel email-security-card mb-16">
       <div class="phead"><span>\uD83D\uDCE7 Email Security Posture</span>
-        <button class="filter-pill" style="font-size:10px" onclick="scanEmailSecurity('${brandId}')">Scan Now</button>
+        <button class="filter-pill text-10" onclick="scanEmailSecurity('${brandId}')">Scan Now</button>
       </div>
-      <div class="panel-body padded text-tertiary" style="font-size:12px">No email security scan available. Click "Scan Now" to check this domain's email authentication.</div>
+      <div class="panel-body padded text-tertiary text-12">No email security scan available. Click "Scan Now" to check this domain's email authentication.</div>
     </div>`;
 
   const gradeColor = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'}[es.email_security_grade] || '#666';
@@ -3210,12 +3210,12 @@ function renderEmailSecurityCard(es, brandId) {
   const recs = buildEmailRecs({ dmarc, spf, dkim, mx });
 
   return `
-    <div class="panel email-security-card" style="margin-bottom:16px">
+    <div class="panel email-security-card mb-16">
       <div class="phead">
         <span>\uD83D\uDCE7 Email Security Posture</span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="email-grade" style="background:${gradeColor};color:#000;padding:3px 10px;border-radius:4px;font-weight:700;font-size:15px;font-family:var(--font-mono)">${grade}</span>
-          <button class="filter-pill" style="font-size:10px" onclick="scanEmailSecurity('${brandId}')">Re-scan</button>
+          <button class="filter-pill text-10" onclick="scanEmailSecurity('${brandId}')">Re-scan</button>
         </div>
       </div>
       <div class="panel-body padded">
@@ -3254,7 +3254,7 @@ function renderEmailSecurityCard(es, brandId) {
           }).join('')}
         </div>` : ''}
         ${renderDmarcCta(dmarc)}
-        <div class="data-label" style="margin-top:12px">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
+        <div class="data-label mt-12">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
       </div>
     </div>`;
 }
@@ -3282,7 +3282,7 @@ function buildEmailRecs({ dmarc, spf, dkim, mx }) {
 async function scanEmailSecurity(brandId) {
   const wrap = document.getElementById('email-security-panel-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '<div class="panel" style="margin-bottom:16px"><div class="panel-body padded text-tertiary" style="font-size:12px">Scanning email security...</div></div>';
+  wrap.innerHTML = '<div class="panel mb-16"><div class="panel-body padded text-tertiary text-12">Scanning email security...</div></div>';
   try {
     const res = await api(`/email-security/scan/${brandId}`, { method: 'POST' });
     if (res?.success && res.data) {
@@ -3376,7 +3376,7 @@ async function viewBrandDetail(el, params) {
           <div class="detail-header-title">${b.name}<span class="sector-pill">${b.sector || 'Unknown'}</span></div>
           <div class="detail-header-sub">${b.canonical_domain || ''} \u2014 First tracked: ${b.first_tracked || b.created_at?.slice(0, 10) || '-'}</div>
           <div class="detail-header-stats">
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--threat-critical)">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
+            <div class="header-stat"><div class="header-stat-val text-negative">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${trendColor}">${(stats.trend_pct || 0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7-day trend</div></div>
             <div class="header-stat"><div class="header-stat-val text-blue">${stats.countries || locationsRes?.totalCountries || locations.length}</div><div class="header-stat-label">Countries</div></div>
             <div class="header-stat"><div class="header-stat-val text-blue">${stats.provider_count || providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
@@ -3385,11 +3385,11 @@ async function viewBrandDetail(el, params) {
         </div>
         ${trustRingHtml}
       </div>
-      <div class="panel" id="brand-analysis-panel" style="margin-bottom:16px">
+      <div class="panel" id="brand-analysis-panel" class="mb-16">
         <div class="phead"><span>AI Threat Analysis</span><span class="badge" id="brand-analysis-badge">${analysisRes?.data ? (analysisRes.data.stale ? 'Stale' : 'Current') : 'Not generated'}</span></div>
         <div class="panel-body padded" id="brand-analysis-body">${analysisRes?.data ? `
           <div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${analysisRes.data.analysis || ''}</div>
-          ${analysisRes.data.key_findings?.length ? `<div style="margin-bottom:12px">${analysisRes.data.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+          ${analysisRes.data.key_findings?.length ? `<div class="mb-12">${analysisRes.data.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
           ${analysisRes.data.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:${analysisRes.data.risk_level === 'critical' ? 'rgba(255,59,92,.12)' : analysisRes.data.risk_level === 'high' ? 'rgba(255,107,53,.1)' : 'rgba(255,182,39,.1)'};color:${analysisRes.data.risk_level === 'critical' ? 'var(--negative)' : analysisRes.data.risk_level === 'high' ? 'var(--threat-high)' : 'var(--threat-medium)'}">${analysisRes.data.risk_level} risk</span>` : ''}
           ${analysisRes.data.updated_at ? `<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
           <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>
@@ -3397,12 +3397,12 @@ async function viewBrandDetail(el, params) {
       </div>
       <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between">
         <div>
-          <button class="filter-pill" id="brand-deep-scan" style="font-size:11px">\uD83D\uDD0D AI Deep Scan</button>
+          <button class="filter-pill" id="brand-deep-scan" class="text-11">\uD83D\uDD0D AI Deep Scan</button>
           <span class="text-tertiary" style="font-size:9px;margin-left:8px">Uses AI credits (~$0.01 per 20 threats scanned)</span>
         </div>
-        <span id="deep-scan-result" class="text-secondary" style="font-size:11px"></span>
+        <span id="deep-scan-result" class="text-secondary text-11"></span>
       </div>
-      <div class="panel" id="safe-domains-panel" style="margin-bottom:16px">
+      <div class="panel" id="safe-domains-panel" class="mb-16">
         <div class="phead">
           <span style="display:flex;align-items:center;gap:6px"><span class="text-positive">&#9432;</span> Safe Domains</span>
           <span class="badge" id="safe-domains-count">${safeDomains.length}</span>
@@ -3426,7 +3426,7 @@ async function viewBrandDetail(el, params) {
         ${renderEmailSecurityCard(emailSecRes?.data, params.id)}
       </div>
       <div id="email-intel-wrap">
-        <div class="panel" style="margin-bottom:16px"><div class="panel-body padded text-tertiary" style="font-size:12px">Loading email intelligence\u2026</div></div>
+        <div class="panel mb-16"><div class="panel-body padded text-tertiary text-12">Loading email intelligence\u2026</div></div>
       </div>
       <div id="spam-trap-intel-wrap"></div>
       <div class="detail-grid">
@@ -3444,7 +3444,7 @@ async function viewBrandDetail(el, params) {
           <div class="panel"><div class="phead"><span>Active Campaigns</span><span class="badge">${campaigns.length}</span></div><div class="panel-body padded">${campaigns.length ?
             campaigns.map(c => `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card-sm">
               <div class="ccard-name">${c.name}</div>
-              <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span class="text-blue">${c.brand_count || 1}</span> brands</span><span class="text-tertiary">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
+              <div class="ccard-meta"><span><span class="text-negative">${c.threat_count || 0}</span> threats</span><span><span class="text-blue">${c.brand_count || 1}</span> brands</span><span class="text-tertiary">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
             </a>`).join('') :
             '<div class="empty-state"><div class="message">No campaigns detected<br><span class="data-label">Campaigns are created when the Strategist agent clusters related threats</span></div></div>'
           }</div></div>
@@ -3482,7 +3482,7 @@ async function viewBrandDetail(el, params) {
           html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
             <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);flex:1">${sd.domain}</span>
             ${srcBadge(sd.source)}
-            <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${(sd.added_at || '').slice(0, 10)}</span>
+            <span class="text-tertiary mono text-9">${(sd.added_at || '').slice(0, 10)}</span>
             <button class="safe-domain-rm text-tertiary" data-id="${sd.id}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px" title="Remove">&times;</button>
           </div>`;
         });
@@ -3494,9 +3494,9 @@ async function viewBrandDetail(el, params) {
       html += `<div style="display:flex;gap:8px;align-items:center">
         <div id="safe-add-form" style="display:flex;gap:6px;flex:1">
           <input type="text" id="safe-domain-input" placeholder="*.brand.com or subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
-          <button class="filter-pill" id="safe-add-btn" style="font-size:11px">Add</button>
+          <button class="filter-pill" id="safe-add-btn" class="text-11">Add</button>
         </div>
-        <button class="filter-pill" id="safe-csv-btn" style="font-size:11px">&#8593; Upload CSV</button>
+        <button class="filter-pill" id="safe-csv-btn" class="text-11">&#8593; Upload CSV</button>
         <button class="filter-pill text-positive" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(40,160,80,.3)" title="Remove active threats matching safe domains">Clean FP</button>
       </div>`;
       body.innerHTML = html;
@@ -3696,11 +3696,11 @@ async function viewBrandDetail(el, params) {
         if (p.impersonation_score != null) {
           html += `<div class="impersonation-score-bar"><div class="impersonation-score-fill" style="width:${p.impersonation_score}%;background:${_impersonationScoreColor(p.impersonation_score)}"></div></div>
             <div style="display:flex;justify-content:space-between;margin-top:2px">
-              <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">Impersonation score</span>
+              <span class="text-tertiary mono text-9">Impersonation score</span>
               <span style="font-family:var(--font-mono);font-size:9px;font-weight:600;color:${_impersonationScoreColor(p.impersonation_score)}">${p.impersonation_score}%</span>
             </div>`;
         }
-        if (p.severity) html += `<div style="margin-top:4px">${_severityBadge(p.severity)}</div>`;
+        if (p.severity) html += `<div class="mt-4">${_severityBadge(p.severity)}</div>`;
         if (p.impersonation_signals && p.impersonation_signals.length) {
           const sigs = typeof p.impersonation_signals === 'string' ? JSON.parse(p.impersonation_signals) : p.impersonation_signals;
           html += `<ul class="social-signals-list">${sigs.slice(0, 5).map(s => `<li>${s}</li>`).join('')}</ul>`;
@@ -3709,7 +3709,7 @@ async function viewBrandDetail(el, params) {
 
       // Severity badge (shown for AI-assessed profiles too)
       if (p.severity && (p.ai_assessment || isSuspicious)) {
-        if (p.ai_assessment) html += `<div style="margin-top:4px">${_severityBadge(p.severity)}</div>`;
+        if (p.ai_assessment) html += `<div class="mt-4">${_severityBadge(p.severity)}</div>`;
       }
 
       // Action buttons
@@ -3747,16 +3747,16 @@ async function viewBrandDetail(el, params) {
 
       const suspiciousCount = socialProfiles.filter(p => p.classification === 'suspicious' || p.classification === 'impersonation').length;
 
-      let html = `<div class="panel panel-collapsible" id="social-profiles-panel" style="margin-bottom:16px">
+      let html = `<div class="panel panel-collapsible" id="social-profiles-panel" class="mb-16">
         <div class="phead">
           <div class="social-panel-header">
             <span>Social Profiles</span>
             <span class="badge">${socialProfiles.length}</span>
           </div>
           <div class="social-panel-actions">
-            <button class="filter-pill" id="social-add-handle-btn" style="font-size:10px">+ Add Handle</button>
-            <button class="filter-pill" id="social-scan-btn" style="font-size:10px">🔍 Scan Now</button>
-            <button class="filter-pill" id="social-discover-btn" style="font-size:10px">🌐 Auto-Discover</button>
+            <button class="filter-pill" id="social-add-handle-btn" class="text-10">+ Add Handle</button>
+            <button class="filter-pill" id="social-scan-btn" class="text-10">🔍 Scan Now</button>
+            <button class="filter-pill" id="social-discover-btn" class="text-10">🌐 Auto-Discover</button>
           </div>
         </div>
         <div class="social-sub-tabs" id="social-profile-tabs">
@@ -3767,7 +3767,7 @@ async function viewBrandDetail(el, params) {
         </div>`;
 
       if (!socialProfiles.length && !Object.keys(socialConfig.official_handles || {}).length) {
-        html += `<div class="social-empty-state"><div class="message">No social monitoring configured.<br>Add your brand's official handles to start detecting impersonation.</div><button class="filter-pill" id="social-empty-add-btn" style="font-size:11px;margin-top:8px">+ Add Handles</button></div>`;
+        html += `<div class="social-empty-state"><div class="message">No social monitoring configured.<br>Add your brand's official handles to start detecting impersonation.</div><button class="filter-pill" id="social-empty-add-btn" class="text-11 mt-8">+ Add Handles</button></div>`;
       } else if (!filtered.length) {
         html += `<div class="social-empty-state"><div class="message">No profiles match this filter.</div></div>`;
       } else {
@@ -3805,7 +3805,7 @@ async function viewBrandDetail(el, params) {
            <div class="form-group"><label class="form-label">Handle</label><input class="form-input" placeholder="@acmecorp" id="social-modal-handle"></div>
            <div class="form-group" style="display:flex;align-items:center;gap:8px">
              <input type="checkbox" id="social-modal-official" checked style="accent-color:var(--blue-primary)">
-             <label for="social-modal-official" class="text-secondary" style="font-size:12px">This is our official account</label>
+             <label for="social-modal-official" class="text-secondary text-12">This is our official account</label>
            </div>`,
           async (overlay) => {
             const platform = document.getElementById('social-modal-platform')?.value;
@@ -3998,7 +3998,7 @@ async function viewBrandDetail(el, params) {
                 previewHtml += `<div class="text-secondary" style="font-family:var(--font-mono);padding:2px 0">${d}</div>`;
               });
               if (parsedDomains.length > 10) {
-                previewHtml += `<div class="text-tertiary" style="margin-top:4px">...and ${parsedDomains.length - 10} more</div>`;
+                previewHtml += `<div class="text-tertiary mt-4">...and ${parsedDomains.length - 10} more</div>`;
               }
             }
             csvPreview.innerHTML = previewHtml;
@@ -4242,7 +4242,7 @@ async function viewBrandDetail(el, params) {
         if (d?.analysis) {
           if (badge) badge.textContent = 'Current';
           body.innerHTML = `<div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${d.analysis}</div>
-            ${d.key_findings?.length ? `<div style="margin-bottom:12px">${d.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+            ${d.key_findings?.length ? `<div class="mb-12">${d.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
             ${d.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.1);color:var(--threat-medium)">${d.risk_level} risk</span>` : ''}
             <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Just now</span>
             <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>`;
@@ -4416,7 +4416,7 @@ async function viewSocialMonitor(el) {
       <div class="agg-card"><div class="agg-val text-blue">${brands.length}</div><div class="agg-lbl">Brands monitored</div><div class="agg-sub">Across 6 platforms</div></div>
       <div class="agg-card"><div class="agg-val text-negative">${critCount}</div><div class="agg-lbl">Critical alerts</div><div class="agg-sub">Require immediate action</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-high)">${highCount}</div><div class="agg-lbl">High severity</div><div class="agg-sub">Likely impersonation</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${atRisk}</div><div class="agg-lbl">Brands at risk</div><div class="agg-sub">Open findings</div></div>`;
+      <div class="agg-card"><div class="agg-val text-warning">${atRisk}</div><div class="agg-lbl">Brands at risk</div><div class="agg-sub">Open findings</div></div>`;
   })();
 
   // ── Brand Coverage tab ──
@@ -4430,7 +4430,7 @@ async function viewSocialMonitor(el) {
     if (tcEl) tcEl.textContent = brands.length;
 
     if (!brands.length) {
-      content.innerHTML = `<div class="empty-state"><div class="message">No brands monitored yet<br><span class="text-tertiary" style="font-size:11px">Add your first brand to start monitoring social platforms</span></div><button class="btn-monitor" onclick="_socialSubTab='add';document.querySelectorAll('#social-tabs .sub-tab').forEach(t=>t.classList.remove('active'));document.querySelector('#social-tabs .sub-tab[data-tab=add]').classList.add('active');_renderAddBrandForm()">+ Add First Brand</button></div>`;
+      content.innerHTML = `<div class="empty-state"><div class="message">No brands monitored yet<br><span class="text-tertiary text-11">Add your first brand to start monitoring social platforms</span></div><button class="btn-monitor" onclick="_socialSubTab='add';document.querySelectorAll('#social-tabs .sub-tab').forEach(t=>t.classList.remove('active'));document.querySelector('#social-tabs .sub-tab[data-tab=add]').classList.add('active');_renderAddBrandForm()">+ Add First Brand</button></div>`;
       return;
     }
 
@@ -4442,7 +4442,7 @@ async function viewSocialMonitor(el) {
           ${_brandLogoImg(brandName, 36)}
           <div class="brand-card-info">
             <div class="brand-card-name">${brandName}</div>
-            <div class="brand-card-sector" style="font-family:var(--font-mono);font-size:10px">${b.domain || ''}</div>
+            <div class="brand-card-sector mono-10">${b.domain || ''}</div>
           </div>
         </div>
         <div class="brand-card-stats" style="margin:10px 0 8px">
@@ -4453,7 +4453,7 @@ async function viewSocialMonitor(el) {
           <div style="display:flex;gap:6px;align-items:center">
             ${(b.monitoring?.open_critical || 0) > 0 ? `<span class="type-pill phishing">${b.monitoring.open_critical} critical</span>` : ''}
             ${(b.monitoring?.open_high || 0) > 0 ? `<span class="type-pill typosquat">${b.monitoring.open_high} high</span>` : ''}
-            ${!(b.monitoring?.open_critical) && !(b.monitoring?.open_high) ? `<span class="text-positive" style="font-size:11px">✓ Clear</span>` : ''}
+            ${!(b.monitoring?.open_critical) && !(b.monitoring?.open_high) ? `<span class="text-positive text-11">✓ Clear</span>` : ''}
             <button class="btn-monitor" style="font-size:10px;padding:3px 8px" onclick="triggerSocialScan('${brandId}','${brandName.replace(/'/g, "\\'")}',event)">↻ Scan</button>
           </div>
         </div>
@@ -4488,22 +4488,22 @@ async function viewSocialMonitor(el) {
     );
 
     content.innerHTML = `${filterHtml}
-      <table class="data-table" style="margin-top:12px">
+      <table class="data-table mt-12">
         <thead><tr><th>Handle</th><th>Platform</th><th>Brand</th><th>Severity</th><th>Score</th><th>Detected</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>${alerts.map(a => {
           const score = Math.round((a.impersonation_score || 0) * 100);
           const scoreColor = a.severity === 'CRITICAL' ? 'var(--negative)' : a.severity === 'HIGH' ? 'var(--threat-high)' : a.severity === 'MEDIUM' ? 'var(--threat-medium)' : 'var(--positive)';
           return `<tr>
-            <td style="font-family:var(--font-mono);font-size:11px">@${a.handle_checked || a.suspicious_account_name || '-'}</td>
+            <td class="mono-11">@${a.handle_checked || a.suspicious_account_name || '-'}</td>
             <td><span class="type-pill ${a.platform || ''}">${a.platform || '-'}</span></td>
-            <td style="font-size:12px">${a.brand_name || '-'}</td>
+            <td class="text-12">${a.brand_name || '-'}</td>
             <td><span class="sev ${(a.severity || '').toLowerCase()}">${a.severity || '-'}</span></td>
             <td style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${scoreColor}">${score}%</td>
             <td class="data-label">${a.created_at ? timeAgo(a.created_at) : '-'}</td>
             <td><span class="status-badge-sm ${a.status || 'open'}">${a.status || 'open'}</span></td>
             <td>
-              ${a.suspicious_account_url ? `<a href="${a.suspicious_account_url}" target="_blank" rel="noopener" class="adm-action-btn" style="font-size:10px">View Profile</a>` : ''}
-              <button class="adm-action-btn" style="font-size:10px" onclick="dismissSocialAlert('${a.id}',event)">Dismiss</button>
+              ${a.suspicious_account_url ? `<a href="${a.suspicious_account_url}" target="_blank" rel="noopener" class="adm-action-btn text-10">View Profile</a>` : ''}
+              <button class="adm-action-btn text-10" onclick="dismissSocialAlert('${a.id}',event)">Dismiss</button>
             </td>
           </tr>`;
         }).join('')}</tbody>
@@ -4532,7 +4532,7 @@ async function viewSocialMonitor(el) {
       <div class="text-secondary" style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.5px;margin:16px 0 8px">OFFICIAL HANDLES (optional)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
         ${['twitter','instagram','linkedin','tiktok','youtube','github'].map(p =>
-          `<div class="form-group" style="margin:0"><label class="form-label" style="font-size:10px;text-transform:capitalize">${p}</label><input class="form-input" id="social-handle-${p}" placeholder="handle (without @)" style="font-family:var(--font-mono);font-size:12px"></div>`
+          `<div class="form-group" style="margin:0"><label class="form-label" style="font-size:10px;text-transform:capitalize">${p}</label><input class="form-input" id="social-handle-${p}" placeholder="handle (without @)" class="mono-12"></div>`
         ).join('')}
       </div>
       <div style="display:flex;gap:10px">
@@ -4616,7 +4616,7 @@ async function viewSocialMonitor(el) {
 
 async function viewProvidersHub(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Infrastructure Intelligence</div>
+    <div class="page-title mb-16">Infrastructure Intelligence</div>
     <div class="agg-stats" id="prov-agg"></div>
     <div class="sub-tabs" id="prov-tabs">
       <button class="sub-tab active" data-tab="worst">Worst Actors<span class="tab-count" id="tc-worst">--</span></button>
@@ -4633,9 +4633,9 @@ async function viewProvidersHub(el) {
     const s = res?.data || {};
     document.getElementById('prov-agg').innerHTML = `
       <div class="agg-card"><div class="agg-val text-blue">${s.total_tracked || 0}</div><div class="agg-lbl">Providers tracked</div><div class="agg-sub">Across all feeds</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.worst_this_week_name || s.worst_this_week || '-'}</div><div class="agg-lbl">Worst this week</div><div class="agg-sub">${s.worst_this_week_threats || ''} active threats</div></div>
+      <div class="agg-card"><div class="agg-val text-negative">${s.worst_this_week_name || s.worst_this_week || '-'}</div><div class="agg-lbl">Worst this week</div><div class="agg-sub">${s.worst_this_week_threats || ''} active threats</div></div>
       <div class="agg-card"><div class="agg-val text-positive">${s.most_improved_name || s.most_improved || '-'}</div><div class="agg-lbl">Most improved</div><div class="agg-sub">${s.most_improved_pct || ''}% this week</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.avg_response_time || '-'}</div><div class="agg-lbl">Avg response time</div><div class="agg-sub">Across all providers</div></div>`;
+      <div class="agg-card"><div class="agg-val text-warning">${s.avg_response_time || '-'}</div><div class="agg-lbl">Avg response time</div><div class="agg-sub">Across all providers</div></div>`;
   }).catch(() => {});
 
   const loadWorst = async (period) => {
@@ -4687,12 +4687,12 @@ async function viewProvidersHub(el) {
         const t30 = p.trend_30d_pct ?? p.trend_30d ?? 0;
         const respHrs = p.avg_response_time_hours ?? p.response_hrs;
         html += `<tr data-id="${p.provider_id || p.id || p.name}">
-          <td style="font-weight:500">${flag} ${p.name}</td>
+          <td class="fw-500">${flag} ${p.name}</td>
           <td class="data-label">${p.asn || ''}</td>
           <td>${p.country_code || p.country || ''}</td>
           <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${tc}">${threats}</span></td>
-          <td><span class="trend-pct ${t7 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t7 >= 0 ? '+' : ''}${t7}%</span></td>
-          <td><span class="trend-pct ${t30 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t30 >= 0 ? '+' : ''}${t30}%</span></td>
+          <td><span class="trend-pct ${t7 >= 0 ? 'up' : 'down'} text-11">${t7 >= 0 ? '+' : ''}${t7}%</span></td>
+          <td><span class="trend-pct ${t30 >= 0 ? 'up' : 'down'} text-11">${t30 >= 0 ? '+' : ''}${t30}%</span></td>
           <td><span style="font-family:var(--font-mono);font-size:11px;color:${rc}">${rep}/100</span></td>
           <td class="data-label">${respHrs != null ? respHrs + 'h' : '\u2014'}</td>
         </tr>`;
@@ -4852,7 +4852,7 @@ async function viewProviderDetail(el, params) {
           html += `<tr>
             <td><div class="td-url">${url}</div></td>
             <td><span class="type-pill ${type}">${type}</span></td>
-            <td class="text-secondary" style="font-size:11px">${brand}</td>
+            <td class="text-secondary text-11">${brand}</td>
             <td><span class="data-label">${date}</span></td>
             <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
             <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
@@ -4985,7 +4985,7 @@ function _campSpark(data, color) {
 
 async function viewCampaignsHub(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Campaign Intelligence</div>
+    <div class="page-title mb-16">Campaign Intelligence</div>
     <div class="agg-stats" id="camp-agg"></div>
     <div class="sub-tabs" id="camp-tabs">
       <button class="sub-tab active" data-tab="active">Active<span class="tab-count" id="tc-active">--</span></button>
@@ -4999,7 +4999,7 @@ async function viewCampaignsHub(el) {
     const s = res?.data || {};
     document.getElementById('camp-agg').innerHTML = `
       <div class="agg-card"><div class="agg-val text-negative">${s.active_count || 0}</div><div class="agg-lbl">Active campaigns</div><div class="agg-sub">${s.active_threats || ''} associated threats</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.dormant_count || 0}</div><div class="agg-lbl">Dormant</div><div class="agg-sub">No activity 7+ days</div></div>
+      <div class="agg-card"><div class="agg-val text-warning">${s.dormant_count || 0}</div><div class="agg-lbl">Dormant</div><div class="agg-sub">No activity 7+ days</div></div>
       <div class="agg-card"><div class="agg-val text-positive">${s.disrupted_count || 0}</div><div class="agg-lbl">Disrupted</div><div class="agg-sub">All threats remediated</div></div>
       <div class="agg-card"><div class="agg-val text-blue">${s.brands_affected || 0}</div><div class="agg-lbl">Brands affected</div><div class="agg-sub">Across all campaigns</div></div>`;
     if (document.getElementById('tc-active')) document.getElementById('tc-active').textContent = s.active_count || 0;
@@ -5038,7 +5038,7 @@ async function viewCampaignsHub(el) {
         <div class="campaign-metrics">
           <div class="campaign-metric"><div class="campaign-metric-val" style="color:${sc}">${c.threat_count || 0}</div><div class="campaign-metric-label">Threats</div></div>
           <div class="campaign-metric"><div class="campaign-metric-val text-blue">${brandCount}</div><div class="campaign-metric-label">Brands</div></div>
-          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--threat-medium)">${provCount}</div><div class="campaign-metric-label">Providers</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val text-warning">${provCount}</div><div class="campaign-metric-label">Providers</div></div>
           <div class="campaign-metric"><div class="campaign-metric-val text-secondary">${domainCount}</div><div class="campaign-metric-label">Domains</div></div>
         </div>
         <div class="campaign-card-footer">
@@ -5320,7 +5320,7 @@ async function viewCampaignDetail(el, params) {
         <div class="camp-stats">
           <div class="camp-stat"><div class="camp-stat-val" style="color:${sc}">${c.threat_count || 0}</div><div class="camp-stat-label">Total threats</div></div>
           <div class="camp-stat"><div class="camp-stat-val text-blue">${brands.length || c.brand_count || 0}</div><div class="camp-stat-label">Brands targeted</div></div>
-          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--threat-medium)">${provCount}</div><div class="camp-stat-label">Hosting providers</div></div>
+          <div class="camp-stat"><div class="camp-stat-val text-warning">${provCount}</div><div class="camp-stat-label">Hosting providers</div></div>
           <div class="camp-stat"><div class="camp-stat-val text-secondary">${domainCount}</div><div class="camp-stat-label">Domains</div></div>
           <div class="camp-stat"><div class="camp-stat-val text-secondary">${ipCount}</div><div class="camp-stat-label">Unique IPs</div></div>
           <div class="camp-stat"><div class="camp-stat-val text-secondary">${regCount}</div><div class="camp-stat-label">Registrars</div></div>
@@ -5356,8 +5356,8 @@ async function viewCampaignDetail(el, params) {
       return `<tr>
               <td><div class="td-url">${url}</div></td>
               <td><span class="type-pill ${type}">${type}</span></td>
-              <td class="text-secondary" style="font-size:11px">${brand}</td>
-              <td class="text-tertiary" style="font-size:11px">${prov}</td>
+              <td class="text-secondary text-11">${brand}</td>
+              <td class="text-tertiary text-11">${prov}</td>
               <td><span class="status-badge-sm ${status}">${status}</span></td>
             </tr>`;
     }).join('') || '<tr><td colspan="5" class="text-tertiary" style="text-align:center;padding:24px">No threats</td></tr>'}
@@ -5483,7 +5483,7 @@ function aggregateByField(rows, field, countField) {
 
 async function viewTrends(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Trend Explorer</div>
+    <div class="page-title mb-16">Trend Explorer</div>
     <div class="insights-row" id="trend-insights"></div>
     <div class="trend-controls" id="trend-controls">
       <div class="ctrl-group">
@@ -5501,11 +5501,11 @@ async function viewTrends(el) {
       </div>
       <div class="ctrl-divider"></div>
       <div class="compare-toggle">
-        <span class="text-secondary" style="font-size:10px">Compare</span>
+        <span class="text-secondary text-10">Compare</span>
         <div class="toggle-switch" id="compare-toggle"><div class="toggle-dot"></div></div>
       </div>
     </div>
-    <div class="ai-trend-panel" id="ai-trend-panel" style="display:none"><div class="ai-head"><div class="ai-dot"></div><span class="ai-agent">Observer</span></div><div class="ai-trend-text" id="ai-trend-text"></div></div>
+    <div class="ai-trend-panel" id="ai-trend-panel" class="hidden"><div class="ai-head"><div class="ai-dot"></div><span class="ai-agent">Observer</span></div><div class="ai-trend-text" id="ai-trend-text"></div></div>
     <div class="trend-legend" id="trend-legend"></div>
     <div class="chart-container"><canvas id="trend-chart"></canvas></div>`;
 
@@ -5695,7 +5695,7 @@ function timeAgo(dateStr) {
 
 async function viewAgents(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">AI Agent Operations</div>
+    <div class="page-title mb-16">AI Agent Operations</div>
     <div class="agg-stats" id="agents-agg"></div>
     <div class="agent-grid" id="agent-grid"></div>
     <div class="agent-detail-panel" id="agent-detail"></div>
@@ -5944,7 +5944,7 @@ async function scanBrand(brandId) {
 
 async function viewAdmin(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">System Overview</div>
+    <div class="page-title mb-16">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
       <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><line x1="18" y1="4" x2="18" y2="10"/><line x1="15" y1="7" x2="21" y2="7"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
@@ -5964,15 +5964,15 @@ async function viewAdmin(el) {
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">\uD83D\uDCE7 Email Security Coverage</div><div class="adm-pbadge" id="adm-es-badge">-</div></div>
         <div class="adm-padded" id="adm-es-grades"></div>
-        <div class="adm-padded" style="margin-top:8px">
-          <button class="filter-pill" style="font-size:11px" id="adm-scan-all-email">Scan All Brands</button>
+        <div class="adm-padded mt-8">
+          <button class="filter-pill text-11" id="adm-scan-all-email">Scan All Brands</button>
           <span id="adm-scan-all-status" class="text-tertiary" style="font-size:11px;margin-left:8px"></span>
         </div>
       </div>
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
     </div>
     <div class="adm-grid-2">
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" class="text-tertiary" style="font-size:11px;margin-top:8px"></div></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" class="text-tertiary text-11 mt-8"></div></div></div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">-</div></div>
         <div style="padding:8px 12px;display:flex;gap:4px;border-bottom:1px solid var(--blue-border)" id="adm-es-grade-tabs"></div>
@@ -6022,8 +6022,8 @@ async function viewAdmin(el) {
 
     document.getElementById('adm-metrics').innerHTML = `
       <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value text-blue">${userTotal}</div><div class="adm-metric-sub"><span class="text-positive">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value text-positive">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span class="text-positive">${healthyFeeds} healthy</span>${degradedFeeds?`<span style="color:var(--threat-medium)">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span class="text-negative">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value" style="color:var(--threat-medium)">${leadTotal}</div><div class="adm-metric-sub"><span class="text-negative">${leadNew} new</span><span class="text-positive">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value text-positive">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span class="text-positive">${healthyFeeds} healthy</span>${degradedFeeds?`<span class="text-warning">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span class="text-negative">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value text-warning">${leadTotal}</div><div class="adm-metric-sub"><span class="text-negative">${leadNew} new</span><span class="text-positive">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
       <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span class="text-positive">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
 
     // Feed ingestion chart
@@ -6105,7 +6105,7 @@ async function viewAdmin(el) {
     const pipeBadge = document.getElementById('adm-pipe-badge');
     if (pipeBadge) pipeBadge.textContent = `${leads.length} total`;
     document.getElementById('adm-pipeline').innerHTML = pipeStages.map(s => `<div class="adm-pipe-stage"><div class="adm-pipe-v" style="color:${s.color}">${s.count}</div><div class="adm-pipe-l">${s.label}</div></div>`).join('');
-    document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span class="text-secondary" style="font-family:var(--font-mono)">--</span> \u00b7 Conversion rate: <span class="text-positive" style="font-family:var(--font-mono)">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
+    document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span class="text-secondary mono">--</span> \u00b7 Conversion rate: <span class="text-positive mono">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
 
     // Agent summary with backlog stats
     const agentBadge = document.getElementById('adm-agent-badge');
@@ -6128,7 +6128,7 @@ async function viewAdmin(el) {
       const bl = backlogMap[a.name] || backlogMap[aid];
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div class="text-secondary mono-10">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
     }).join('') || '<div class="text-tertiary" style="padding:12px;text-align:center">No agents configured</div>';
 
     // Email Security stats
@@ -6142,7 +6142,7 @@ async function viewAdmin(el) {
       if (gradesEl && esData.grade_distribution?.length) {
         const total = esData.grade_distribution.reduce((s, g) => s + g.count, 0) || 1;
         gradesEl.innerHTML = `
-          <div class="text-tertiary" style="font-size:11px;margin-bottom:8px">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
+          <div class="text-tertiary text-11 mb-8">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
           <div style="display:flex;gap:6px;margin-bottom:10px">
             ${esData.grade_distribution.map(g => {
               const pct = Math.round(g.count / total * 100);
@@ -6154,7 +6154,7 @@ async function viewAdmin(el) {
             }).join('')}
           </div>`;
       } else if (gradesEl) {
-        gradesEl.innerHTML = '<div class="text-tertiary" style="font-size:11px">No email security scans yet. Click "Scan All Brands" to start.</div>';
+        gradesEl.innerHTML = '<div class="text-tertiary text-11">No email security scans yet. Click "Scan All Brands" to start.</div>';
       }
 
       const worstEl = document.getElementById('adm-es-worst');
@@ -6633,7 +6633,7 @@ async function viewAdminUsers(el) {
 let _feedDetailChart = null;
 async function viewAdminFeeds(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Feed Management</div>
+    <div class="page-title mb-16">Feed Management</div>
     <div class="adm-agg" id="adm-feed-agg"></div>
     <div id="adm-feed-list-view" class="visible"><div class="adm-panel" id="adm-feeds-table"><div class="empty">Loading...</div></div></div>
     <div id="adm-feed-detail-view"><button class="adm-back-btn" id="adm-feed-back">\u2190 Back to Feeds</button><div id="adm-feed-detail-content"></div></div>`;
@@ -6661,9 +6661,9 @@ async function viewAdminFeeds(el) {
       <div class="adm-detail-header"><div class="adm-dh-left"><div class="adm-dh-dot" style="background:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'}"></div><div><div class="adm-dh-name">${f.display_name || f.feed_name}</div><div class="adm-dh-meta">${f.source_url || f.feed_name} \u2014 ${f.schedule_cron || '-'}</div></div></div><div class="adm-dh-right"><button class="adm-action-btn adm-trigger-btn" data-feed="${fid}" style="font-size:11px;padding:8px 16px">Trigger Now</button><button class="adm-toggle-btn ${f.enabled !== false ? 'enabled' : 'disabled'}">${f.enabled !== false ? 'Enabled' : 'Disabled'}</button></div></div>
       <div class="adm-grid-2">
         <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Ingestion (7d)</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-detail-chart"></canvas></div></div>
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Configuration</div><button class="adm-action-btn" style="font-size:9px">Edit</button></div><div class="adm-padded">
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Configuration</div><button class="adm-action-btn text-9">Edit</button></div><div class="adm-padded">
           <div class="adm-config-row"><span class="adm-cfg-label">Schedule (cron)</span><span class="adm-cfg-val">${f.schedule_cron || '*/5 * * * *'}</span></div>
-          <div class="adm-config-row"><span class="adm-cfg-label">Source URL</span><span class="adm-cfg-val" style="font-size:9px">${f.source_url || '-'}</span></div>
+          <div class="adm-config-row"><span class="adm-cfg-label">Source URL</span><span class="adm-cfg-val text-9">${f.source_url || '-'}</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">API Key</span><span class="adm-cfg-val">${f.api_key_encrypted ? 'Configured \u2713' : 'Not required'}</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">Rate Limit</span><span class="adm-cfg-val">${f.rate_limit || 60} req/min</span></div>
           <div class="adm-config-row"><span class="adm-cfg-label">Batch Size</span><span class="adm-cfg-val">${f.batch_size || 500} records</span></div>
@@ -6729,7 +6729,7 @@ async function viewAdminFeeds(el) {
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td class="data-label">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td class="data-label">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td class="text-secondary mono-10">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="empty">No feeds configured</div>';
 
     // Row click to detail
@@ -6853,7 +6853,7 @@ async function viewAdminLeads(el) {
     el.innerHTML = `<div class="adm-panel"><div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>${sorted.map(l => {
       const sc = leadScoreColor(l.trust_score || l.score || 0);
       const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
-      return `<tr data-lid="${l.id}"><td style="font-weight:500">${l.company || l.domain || '-'}</td><td class="text-secondary" style="font-size:11px">${l.contact_name || ''}<br><span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${l.email || ''}</span></td><td class="data-label">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td class="text-secondary" style="font-size:11px">${l.assigned_to || 'Unassigned'}</td><td class="data-label">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
+      return `<tr data-lid="${l.id}"><td class="fw-500">${l.company || l.domain || '-'}</td><td class="text-secondary text-11">${l.contact_name || ''}<br><span class="text-tertiary mono text-9">${l.email || ''}</span></td><td class="data-label">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td class="text-secondary text-11">${l.assigned_to || 'Unassigned'}</td><td class="data-label">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
     }).join('')}</tbody></table></div></div>`;
     el.querySelectorAll('tr[data-lid]').forEach(r => r.addEventListener('click', () => openLeadDetail(r.dataset.lid)));
   }
@@ -6882,11 +6882,11 @@ async function viewAdminLeads(el) {
       ${risks.length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Risk Indicators</div><div class="adm-risk-indicators">${risks.map(r => `<span class="adm-risk-ind ${typeof r === 'string' && (r.includes('None') || r.includes('phishing') || r.includes('No ')) ? 'bad' : typeof r === 'string' && (r.includes('Weak') || r.includes('Partial')) ? 'warn' : 'ok'}">${typeof r === 'string' ? r : r.label || ''}</span>`).join('')}</div></div>` : ''}
       <div class="adm-so-section"><div class="adm-so-sect-title">Pipeline</div>
         <div class="adm-so-row"><span class="adm-so-row-l">Status</span><span class="adm-so-row-v"><select class="adm-so-status-sel">${LEAD_STAGES.map(s => `<option value="${s.key}" ${s.key === l.status ? 'selected' : ''}>${s.label}</option>`).join('')}</select></span></div>
-        <div class="adm-so-row" style="margin-top:8px"><span class="adm-so-row-l">Assigned to</span><span class="adm-so-row-v">${l.assigned_to || 'Unassigned'}</span></div>
-        <div style="margin-top:12px"><button class="adm-btn-sm" style="width:100%;text-align:center;display:block">View Full Assessment Report</button></div>
+        <div class="adm-so-row mt-8"><span class="adm-so-row-l">Assigned to</span><span class="adm-so-row-v">${l.assigned_to || 'Unassigned'}</span></div>
+        <div class="mt-12"><button class="adm-btn-sm" style="width:100%;text-align:center;display:block">View Full Assessment Report</button></div>
       </div>
       <div class="adm-so-section"><div class="adm-so-sect-title">Notes</div>
-        ${notes.map(n => `<div class="adm-note-item"><div class="adm-note-time">${n.created_at || n.time || ''} \u00b7 <span class="adm-note-by">${n.author || n.by || 'System'}</span></div><div class="adm-note-text">${n.text || n.content || ''}</div></div>`).join('') || '<div class="text-tertiary" style="font-size:11px">No notes yet</div>'}
+        ${notes.map(n => `<div class="adm-note-item"><div class="adm-note-time">${n.created_at || n.time || ''} \u00b7 <span class="adm-note-by">${n.author || n.by || 'System'}</span></div><div class="adm-note-text">${n.text || n.content || ''}</div></div>`).join('') || '<div class="text-tertiary text-11">No notes yet</div>'}
         <textarea class="adm-note-input" placeholder="Add a note..."></textarea>
         <button class="adm-btn-sm">Add Note</button>
       </div>`;
@@ -6959,7 +6959,7 @@ async function viewAdminLeads(el) {
       const stage = SALES_STAGES.find(s => s.key === l.status) || { label: l.status, color: 'var(--text-tertiary)' };
       const pc = PITCH_COLORS[l.pitch_angle] || 'var(--text-tertiary)';
       const pl = PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-';
-      return `<tr data-slid="${l.id}" style="cursor:pointer"><td style="font-weight:500">${l.company_name || '-'}</td><td class="data-label">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td style="font-size:11px">${l.target_name ? `${l.target_name}<br><span class="text-tertiary" style="font-size:9px">${l.target_title || ''}</span>` : '<span class="text-tertiary">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td style="font-family:var(--font-mono);font-size:11px">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td class="data-label">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
+      return `<tr data-slid="${l.id}" style="cursor:pointer"><td class="fw-500">${l.company_name || '-'}</td><td class="data-label">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td class="text-11">${l.target_name ? `${l.target_name}<br><span class="text-tertiary text-9">${l.target_title || ''}</span>` : '<span class="text-tertiary">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td class="mono-11">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td class="data-label">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
     }).join('') || '<tr><td colspan="9" class="text-tertiary" style="text-align:center;padding:24px">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
     tbody.querySelectorAll('tr[data-slid]').forEach(r => r.addEventListener('click', () => openSalesLeadDetail(r.dataset.slid)));
   }
@@ -6987,38 +6987,38 @@ async function viewAdminLeads(el) {
         </div>
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Company</div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v" style="font-weight:500">${l.company_name || '-'}</span></div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Domain</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-size:11px">${l.company_domain || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v fw-500">${l.company_name || '-'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Domain</span><span class="adm-so-row-v mono-11">${l.company_domain || '-'}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Industry</span><span class="adm-so-row-v">${l.company_industry || '-'}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Size</span><span class="adm-so-row-v">${l.company_size || '-'}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">HQ</span><span class="adm-so-row-v">${l.company_hq || '-'}</span></div>
         </div>
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Security Leader</div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v" style="font-weight:500">${l.target_name || 'Not found'}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v fw-500">${l.target_name || 'Not found'}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Title</span><span class="adm-so-row-v">${l.target_title || '-'}</span></div>
-          ${l.target_linkedin ? `<div class="adm-so-row"><span class="adm-so-row-l">LinkedIn</span><span class="adm-so-row-v"><a href="${l.target_linkedin}" target="_blank" style="font-size:11px">Profile</a></span></div>` : ''}
-          ${l.target_email ? `<div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v text-blue" style="font-family:var(--font-mono);font-size:11px">${l.target_email}</span></div>` : ''}
+          ${l.target_linkedin ? `<div class="adm-so-row"><span class="adm-so-row-l">LinkedIn</span><span class="adm-so-row-v"><a href="${l.target_linkedin}" target="_blank" class="text-11">Profile</a></span></div>` : ''}
+          ${l.target_email ? `<div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v text-blue mono-11">${l.target_email}</span></div>` : ''}
         </div>
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Platform Findings</div>
           <div class="adm-so-row"><span class="adm-so-row-l">Email Grade</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-weight:700;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Threats (30d)</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.threat_count_30d ?? 0}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Threats (30d)</span><span class="adm-so-row-v mono">${l.threat_count_30d ?? 0}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Phishing URLs</span><span class="adm-so-row-v" style="font-family:var(--font-mono);color:${(l.phishing_urls_active||0)>0?'var(--negative)':'var(--text-secondary)'}">${l.phishing_urls_active ?? 0}</span></div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Trap Catches</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.trap_catches_30d ?? 0}</span></div>
-          <div class="adm-so-row"><span class="adm-so-row-l">Risk Score</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.composite_risk_score ?? '-'}/100</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Trap Catches</span><span class="adm-so-row-v mono">${l.trap_catches_30d ?? 0}</span></div>
+          <div class="adm-so-row"><span class="adm-so-row-l">Risk Score</span><span class="adm-so-row-v mono">${l.composite_risk_score ?? '-'}/100</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Pitch Angle</span><span class="adm-so-row-v" style="color:${PITCH_COLORS[l.pitch_angle]||'var(--text-secondary)'}">${PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-'}</span></div>
           ${l.findings_summary ? `<div class="text-secondary" style="margin-top:8px;font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border)">${l.findings_summary}</div>` : ''}
         </div>
 
-        ${Object.keys(breakdown).length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Score Breakdown</div>${Object.entries(breakdown).map(([k,v]) => `<div class="adm-so-row"><span class="adm-so-row-l" style="font-size:10px">${k.replace(/_/g,' ')}</span><span class="adm-so-row-v text-blue" style="font-family:var(--font-mono)">+${v}</span></div>`).join('')}</div>` : ''}
+        ${Object.keys(breakdown).length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Score Breakdown</div>${Object.entries(breakdown).map(([k,v]) => `<div class="adm-so-row"><span class="adm-so-row-l text-10">${k.replace(/_/g,' ')}</span><span class="adm-so-row-v text-blue mono">+${v}</span></div>`).join('')}</div>` : ''}
 
         ${v1.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 1 — Intelligence Briefing</div>
-          <div class="text-blue" style="font-size:11px;margin-bottom:4px">Subject: ${v1.subject}</div>
+          <div class="text-blue text-11 mb-4">Subject: ${v1.subject}</div>
           <div class="text-secondary" style="font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v1.body}</div>
         </div>` : ''}
         ${v2.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 2 — Peer Benchmark</div>
-          <div class="text-blue" style="font-size:11px;margin-bottom:4px">Subject: ${v2.subject}</div>
+          <div class="text-blue text-11 mb-4">Subject: ${v2.subject}</div>
           <div class="text-secondary" style="font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v2.body}</div>
         </div>` : ''}
 
@@ -7034,7 +7034,7 @@ async function viewAdminLeads(el) {
           </div>
         </div>
 
-        ${activities.length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Activity Timeline</div>${activities.map(a => `<div class="adm-note-item"><div class="adm-note-time">${a.created_at ? relativeTime(a.created_at) : '-'} \u00b7 <span class="adm-note-by">${a.performed_by || 'system'}</span></div><div class="adm-note-text" style="font-size:11px">${a.activity_type.replace(/_/g,' ')}</div></div>`).join('')}</div>` : ''}
+        ${activities.length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Activity Timeline</div>${activities.map(a => `<div class="adm-note-item"><div class="adm-note-time">${a.created_at ? relativeTime(a.created_at) : '-'} \u00b7 <span class="adm-note-by">${a.performed_by || 'system'}</span></div><div class="adm-note-text text-11">${a.activity_type.replace(/_/g,' ')}</div></div>`).join('')}</div>` : ''}
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Notes</div>
           <textarea class="adm-note-input" placeholder="Add notes..." id="sp-notes-input">${l.notes || ''}</textarea>
@@ -7130,7 +7130,7 @@ async function viewAdminApiKeys(el) {
   try {
     const res = await api('/admin/api-keys').catch(() => null);
     const keys = res?.data || [];
-    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td style="font-weight:500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${k.rate_limit || 60} req/min</td><td class="text-secondary" style="font-size:11px">${k.created_by || '-'}</td><td class="data-label">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td class="data-label">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div class="text-tertiary" style="padding:40px;text-align:center"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div style="font-size:12px">Create your first API key for external integrations</div></div>';
+    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td class="fw-500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td class="mono-10">${k.rate_limit || 60} req/min</td><td class="text-secondary text-11">${k.created_by || '-'}</td><td class="data-label">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td class="data-label">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div class="text-tertiary" style="padding:40px;text-align:center"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div class="text-12">Create your first API key for external integrations</div></div>';
   } catch (err) { showToast(err.message, 'error'); }
 
   document.getElementById('adm-create-key-btn')?.addEventListener('click', () => {
@@ -7151,7 +7151,7 @@ async function viewAdminApiKeys(el) {
       if (key) {
         document.getElementById('adm-key-modal-title').textContent = 'API Key Created';
         document.getElementById('adm-key-modal-desc').textContent = 'Copy this key now. It will not be shown again.';
-        document.getElementById('adm-key-modal-body').innerHTML = `<div class="text-positive" style="background:var(--bg-panel);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;font-family:var(--font-mono);font-size:11px;word-break:break-all;margin-bottom:12px">${key}</div><div class="text-negative" style="font-size:11px">Warning: This key will not be shown again. Copy it now.</div>`;
+        document.getElementById('adm-key-modal-body').innerHTML = `<div class="text-positive" style="background:var(--bg-panel);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;font-family:var(--font-mono);font-size:11px;word-break:break-all;margin-bottom:12px">${key}</div><div class="text-negative text-11">Warning: This key will not be shown again. Copy it now.</div>`;
         document.getElementById('adm-key-create').style.display = 'none';
       } else {
         showToast('API key created', 'success');
@@ -7166,7 +7166,7 @@ async function viewAdminApiKeys(el) {
 // ─── View: Admin Agent Config (Step 18b) ────────────────────
 async function viewAdminAgentConfig(el) {
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Agent Configuration</div>
+    <div class="page-title mb-16">Agent Configuration</div>
     <div class="adm-panel" id="adm-agent-config-table"><div class="empty">Loading...</div></div>
     <div style="margin-top:20px" id="adm-agent-config-detail"></div>
     <div class="adm-panel" style="margin-top:20px">
@@ -7190,7 +7190,7 @@ async function viewAdminAgentConfig(el) {
       const cfg = configs[aid] || {};
       const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
       const avgDur = a.avg_duration_ms ? (a.avg_duration_ms / 1000).toFixed(1) + 's' : '-';
-      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td class="data-label">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
+      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td class="data-label">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td class="text-secondary mono-10">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="empty">No agents configured</div>';
 
     // API usage section — KV-backed accurate per-day tracking
@@ -7202,21 +7202,21 @@ async function viewAdminAgentConfig(el) {
     const limitPct = Math.min(100, Math.round(callsToday / dailyLimit * 100));
     document.getElementById('adm-api-usage').innerHTML = `
       <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div><div class="text-blue" style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens24h.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (24h)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_24h || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (7d)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_7d || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (30d)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_30d || '$0.00'}</div></div>
+        <div><div class="text-blue" style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens24h.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (24h)</div><div class="text-tertiary text-9">${usage.estimated_cost_24h || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (7d)</div><div class="text-tertiary text-9">${usage.estimated_cost_7d || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (30d)</div><div class="text-tertiary text-9">${usage.estimated_cost_30d || '$0.00'}</div></div>
       </div>
-      <div style="margin-bottom:16px">
+      <div class="mb-16">
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span class="text-secondary">Today: ${callsToday} calls</span><span class="text-tertiary">limit: 300 soft / ${dailyLimit} hard</span></div>
         <div style="height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${limitPct}%;background:${limitPct >= 100 ? 'var(--negative)' : limitPct >= 60 ? 'var(--threat-medium)' : 'var(--positive)'};border-radius:3px;transition:width .3s"></div></div>
       </div>
       <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="font-size:11px"><span class="text-secondary">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span class="text-tertiary" style="font-size:9px"> (${usage.agent_calls_30d || 0} calls)</span></div>
-        <div style="font-size:11px"><span class="text-secondary">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span class="text-tertiary" style="font-size:9px"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
+        <div class="text-11"><span class="text-secondary">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.agent_calls_30d || 0} calls)</span></div>
+        <div class="text-11"><span class="text-secondary">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
       </div>
       <div style="padding-top:12px;border-top:1px solid var(--blue-border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span class="text-secondary" style="font-size:11px">Anthropic API Key</span>
+          <span class="text-secondary text-11">Anthropic API Key</span>
           <span style="font-family:var(--font-mono);font-size:11px;color:${usage.api_key_configured ? 'var(--positive)' : 'var(--negative)'}">${usage.api_key_configured ? 'Configured \u2713' : 'Not set \u26a0'}</span>
         </div>
       </div>`;
@@ -7306,10 +7306,10 @@ async function viewAdminAudit(el) {
       <div class="page-title">Audit Log</div>
       <a href="/api/v1/admin/audit/export?since=${new Date(Date.now() - 30 * 86400000).toISOString()}" class="adm-btn adm-btn-primary" target="_blank">Export CSV</a>
     </div>
-    <div style="margin-bottom:12px">
+    <div class="mb-12">
       <input class="adm-search" id="adm-audit-search" placeholder="Search by action, user, or IP..." style="width:100%;max-width:400px">
     </div>
-    <div class="adm-controls" style="margin-bottom:16px">
+    <div class="adm-controls mb-16">
       <select class="adm-sel" id="adm-audit-user"><option value="">All Users</option></select>
       <select class="adm-sel" id="adm-audit-action"><option value="">All Actions</option><option value="login">Login</option><option value="login_failed">Login Failed</option><option value="role_change">Role Change</option><option value="invitation">Invitation</option><option value="feed_config">Feed Config</option><option value="config_change">Config Change</option><option value="data_export">Data Export</option></select>
       <select class="adm-sel" id="adm-audit-outcome"><option value="">All Outcomes</option><option value="success">Success</option><option value="failure">Failure</option><option value="denied">Denied</option></select>
@@ -7356,7 +7356,7 @@ async function viewAdminAudit(el) {
           <div><span class="text-tertiary">Resource:</span> ${e.resource_type || '-'} ${e.resource_id || ''}</div>
         </div>${e.details ? `<pre class="text-secondary" style="font-family:var(--font-mono);font-size:10px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-top:8px;padding:8px;background:rgba(0,0,0,.2);border-radius:4px">${JSON.stringify(e.details, null, 2)}</pre>` : ''}</td></tr>`;
       }
-      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(200,60,60,.05)' : ''}"><td class="data-label">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td class="text-secondary" style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td class="data-label">${e.ip_address || '-'}</td></tr>${expandHtml}`;
+      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(200,60,60,.05)' : ''}"><td class="data-label">${timeRange}</td><td class="text-11">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td class="text-11">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td class="text-secondary" style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td class="data-label">${e.ip_address || '-'}</td></tr>${expandHtml}`;
     }).join('')}</tbody></table></div>`;
   }
 
@@ -7447,7 +7447,7 @@ async function viewBrandReport(el, params) {
             <img src="${r.brand?.logo_url || ''}" alt="" style="width:32px;height:32px;border-radius:6px" onerror="this.style.display='none'">
             <div>
               <div style="font-size:20px;font-weight:700;font-family:var(--font-display)">${r.brand?.name || 'Brand Report'}</div>
-              <div class="text-tertiary" style="font-size:12px">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
+              <div class="text-tertiary text-12">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
             </div>
           </div>
           <div style="display:flex;gap:8px">
@@ -7459,24 +7459,24 @@ async function viewBrandReport(el, params) {
         <!-- Executive Summary -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Trust Score</div>
+            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Trust Score</div>
             <div style="font-size:32px;font-weight:800;color:${scoreColor}">${exec.trustScore ?? '-'}</div>
             <div style="font-size:11px;color:${scoreColor};font-weight:600">${exec.riskLevel || ''} Risk</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Total Threats</div>
+            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Total Threats</div>
             <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.totalThreats ?? 0}</div>
-            <div class="text-negative" style="font-size:11px">${exec.activeThreats ?? 0} active</div>
+            <div class="text-negative text-11">${exec.activeThreats ?? 0} active</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Campaigns</div>
+            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Campaigns</div>
             <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.campaignsIdentified ?? 0}</div>
-            <div class="text-tertiary" style="font-size:11px">${exec.countriesInvolved ?? 0} countries</div>
+            <div class="text-tertiary text-11">${exec.countriesInvolved ?? 0} countries</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Remediated</div>
+            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Remediated</div>
             <div class="text-positive" style="font-size:32px;font-weight:800">${exec.remediatedThreats ?? 0}</div>
-            <div class="text-tertiary" style="font-size:11px">${exec.hostingProviders ?? 0} providers</div>
+            <div class="text-tertiary text-11">${exec.hostingProviders ?? 0} providers</div>
           </div>
         </div>
 
@@ -7489,29 +7489,29 @@ async function viewBrandReport(el, params) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
           <!-- Threat Breakdown by Type -->
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Threats by Type</div>
+            <div class="sans text-13 fw-700 mb-12">Threats by Type</div>
             ${(r.threatBreakdown?.byType || []).map(t => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize">${t.type}</span>
                 <span style="font-size:12px;font-weight:600">${t.count}</span>
-              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No threats detected</div>'}
+              </div>`).join('') || '<div class="text-tertiary text-12">No threats detected</div>'}
           </div>
 
           <!-- Threat Breakdown by Severity -->
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Threats by Severity</div>
+            <div class="sans text-13 fw-700 mb-12">Threats by Severity</div>
             ${(r.threatBreakdown?.bySeverity || []).map(s => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize;color:${severityColors[s.severity] || 'var(--text-primary)'}">${s.severity}</span>
                 <span style="font-size:12px;font-weight:600">${s.count}</span>
-              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No data</div>'}
+              </div>`).join('') || '<div class="text-tertiary text-12">No data</div>'}
           </div>
         </div>
 
         <!-- Top Threats Table -->
         <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Top Threats</div>
-          <table class="data-table" style="font-size:12px">
+          <div class="sans text-13 fw-700 mb-12">Top Threats</div>
+          <table class="data-table text-12">
             <thead><tr><th>Domain/URL</th><th>Type</th><th>Severity</th><th>Status</th><th>First Seen</th></tr></thead>
             <tbody>${(r.threatBreakdown?.topThreats || []).map(t => `
               <tr>
@@ -7528,28 +7528,28 @@ async function viewBrandReport(el, params) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
           <!-- Infrastructure: Top Providers -->
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Hosting Providers</div>
+            <div class="sans text-13 fw-700 mb-12">Hosting Providers</div>
             ${(r.infrastructure?.providers || []).slice(0, 8).map(p => `
               <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
-                <span style="font-size:12px">${p.name}</span>
-                <span class="text-tertiary" style="font-size:11px">${p.threat_count} threats (${p.active_count} active)</span>
-              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No provider data</div>'}
+                <span class="text-12">${p.name}</span>
+                <span class="text-tertiary text-11">${p.threat_count} threats (${p.active_count} active)</span>
+              </div>`).join('') || '<div class="text-tertiary text-12">No provider data</div>'}
           </div>
 
           <!-- Campaigns -->
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Campaigns</div>
+            <div class="sans text-13 fw-700 mb-12">Campaigns</div>
             ${(r.campaigns || []).slice(0, 8).map(c => `
               <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
-                <span style="font-size:12px">${c.name}</span>
-                <span class="text-tertiary" style="font-size:11px">${c.threat_count} threats &middot; ${c.status}</span>
-              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No campaigns</div>'}
+                <span class="text-12">${c.name}</span>
+                <span class="text-tertiary text-11">${c.threat_count} threats &middot; ${c.status}</span>
+              </div>`).join('') || '<div class="text-tertiary text-12">No campaigns</div>'}
           </div>
         </div>
 
         <!-- Recommendations -->
         <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Recommendations</div>
+          <div class="sans text-13 fw-700 mb-12">Recommendations</div>
           <ul class="text-secondary" style="margin:0;padding-left:20px;font-size:13px;line-height:1.8">
             ${(r.recommendations || []).map(rec => `<li>${rec}</li>`).join('')}
           </ul>
@@ -7573,7 +7573,7 @@ async function loadSpamTrapIntel(brandId) {
     const d = res?.data;
     if (!d || d.total === 0) { wrap.innerHTML = ''; return; }
     wrap.innerHTML = `
-      <div class="panel" style="margin-bottom:16px">
+      <div class="panel mb-16">
         <div class="phead"><span>Spam Trap Intelligence</span><span class="badge" style="background:rgba(245,158,11,.15);color:#F59E0B">${d.total} caught</span></div>
         <div class="panel-body padded">
           <div style="display:flex;gap:24px;margin-bottom:12px">
@@ -7600,29 +7600,29 @@ async function loadSpamTrapIntel(brandId) {
 async function viewAdminSpamTrap(el) {
   el.innerHTML = `
     <div class="admin-content" style="max-width:1200px;margin:0 auto;padding:20px">
-    <div class="page-title" style="margin-bottom:16px">Spam Trap Command Center</div>
+    <div class="page-title mb-16">Spam Trap Command Center</div>
     <div class="adm-metrics" id="st-metrics"></div>
     <div class="adm-grid-2">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Trap Health</div></div>
         <div class="adm-padded" id="st-health">Loading...</div>
-        <div class="adm-padded" style="margin-top:8px">
-          <button class="filter-pill" id="st-deploy-seeds" style="font-size:11px">Deploy Initial Seeds</button>
+        <div class="adm-padded mt-8">
+          <button class="filter-pill" id="st-deploy-seeds" class="text-11">Deploy Initial Seeds</button>
         </div>
       </div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Seed Campaigns</div></div>
         <div id="st-campaigns" style="max-height:300px;overflow-y:auto">Loading...</div>
-        <div class="adm-padded" style="margin-top:8px">
-          <button class="filter-pill" id="st-run-strategist" style="font-size:11px">Run Strategist</button>
+        <div class="adm-padded mt-8">
+          <button class="filter-pill" id="st-run-strategist" class="text-11">Run Strategist</button>
         </div>
       </div>
     </div>
-    <div class="adm-panel" style="margin-top:16px">
+    <div class="adm-panel mt-16">
       <div class="adm-phead"><div class="adm-ptitle">Recent Captures</div><div class="adm-pbadge" id="st-total-badge">-</div></div>
       <div id="st-captures" style="max-height:400px;overflow-y:auto">Loading...</div>
     </div>
-    <div class="adm-grid-2" style="margin-top:16px">
+    <div class="adm-grid-2 mt-16">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Daily Catch Chart (30d)</div></div>
         <div class="adm-chart-wrap"><canvas id="st-daily-chart"></canvas></div>
@@ -7696,7 +7696,7 @@ async function viewAdminSpamTrap(el) {
             <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;background:${cfg.color}22;color:${cfg.color};padding:2px 9px;border-radius:4px">${h.count}</span>
           </div>`;
         }).join('')
-      : '<div class="text-tertiary" style="font-size:12px">No seed addresses deployed yet</div>';
+      : '<div class="text-tertiary text-12">No seed addresses deployed yet</div>';
 
     // Campaigns
     document.getElementById('st-campaigns').innerHTML = campaigns.length
@@ -7730,11 +7730,11 @@ async function viewAdminSpamTrap(el) {
     // Top sources
     document.getElementById('st-sources').innerHTML = sources.length
       ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>IP</th><th>Emails</th><th>Brands Hit</th><th>Country</th><th>ASN</th><th>Last Seen</th></tr></thead><tbody>${sources.slice(0, 20).map(s => `<tr>
-          <td style="font-family:var(--font-mono);font-size:10px">${s.sending_ip}</td>
+          <td class="mono-10">${s.sending_ip}</td>
           <td>${s.emails_caught}</td>
           <td>${s.brands_hit}</td>
           <td>${s.country_code || '-'}</td>
-          <td style="font-size:10px">${s.asn || '-'}</td>
+          <td class="text-10">${s.asn || '-'}</td>
           <td class="data-label">${(s.last_seen || '').slice(0, 16).replace('T', ' ')}</td>
         </tr>`).join('')}</tbody></table></div>`
       : '<div class="text-tertiary" style="padding:12px;text-align:center;font-size:12px">No source data yet</div>';
@@ -7995,7 +7995,7 @@ async function showCaptureDetail(id) {
       html += `<div style="display:flex;flex-direction:column;gap:4px">${attachments.map(a => {
         const att = typeof a === 'object' ? a : { filename: a, sha256: '', contentType: '' };
         return `<div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(120,160,200,0.06);border-radius:6px;padding:8px 10px">
-          <div style="flex:1">
+          <div class="flex-1">
             ${att.filename ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-primary,#F0EDE8);font-weight:500">${esc(att.filename)}</div>` : ''}
             ${att.sha256 ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8F9C;margin-top:2px;word-break:break-all">${esc(att.sha256)}</div>` : ''}
             ${att.contentType ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8F9C;margin-top:1px">${esc(att.contentType)}</div>` : ''}
@@ -8013,7 +8013,7 @@ async function showCaptureDetail(id) {
         <button onclick="(function(btn){const block=document.getElementById('raw-headers-block');const isHidden=block.style.display==='none';block.style.display=isHidden?'block':'none';btn.querySelector('.rh-arrow').textContent=isHidden?'\\u25BE RAW HEADERS':'\\u25B8 RAW HEADERS'})(this)" style="background:none;border:none;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:0;margin-bottom:8px">
           <span class="rh-arrow" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">&#9656; RAW HEADERS</span>
         </button>
-        <div id="raw-headers-block" style="display:none">
+        <div id="raw-headers-block" class="hidden">
           <pre style="background:#0C1420;border:1px solid var(--border,rgba(120,160,200,0.08));border-radius:8px;padding:16px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;color:var(--text-primary,#F0EDE8);overflow:auto;max-height:400px;white-space:pre-wrap;word-break:break-word;margin:0">${esc(c.raw_headers)}</pre>
         </div>
       </div>`;
@@ -8097,8 +8097,8 @@ async function viewTenantDashboard(el) {
               <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
                 <span class="text-secondary">Email: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
                 <span class="text-secondary">Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
-                <span class="text-secondary">Social: <span style="font-weight:600">${b.social_profiles_count}</span>${Number(b.impersonation_count) > 0 ? ' <span style="color:var(--threat-critical)">(' + b.impersonation_count + ' impersonation)</span>' : ''}</span>
-                ${b.social_risk_score != null ? '<span class="text-secondary">Risk: <span style="font-weight:600">' + b.social_risk_score + '</span></span>' : ''}
+                <span class="text-secondary">Social: <span class="fw-600">${b.social_profiles_count}</span>${Number(b.impersonation_count) > 0 ? ' <span class="text-negative">(' + b.impersonation_count + ' impersonation)</span>' : ''}</span>
+                ${b.social_risk_score != null ? '<span class="text-secondary">Risk: <span class="fw-600">' + b.social_risk_score + '</span></span>' : ''}
               </div>
             </div>
           </div>
@@ -8176,7 +8176,7 @@ async function viewTenantBrands(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
 
-  el.innerHTML = '<div class="page-title" style="margin-bottom:16px">Your Brands</div><div id="tb-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">Loading...</div>';
+  el.innerHTML = '<div class="page-title mb-16">Your Brands</div><div id="tb-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">Loading...</div>';
 
   try {
     const res = await api('/orgs/' + org.id + '/dashboard');
@@ -8204,7 +8204,7 @@ async function viewTenantBrands(el) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
               <span class="text-secondary">Email Grade: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
               <span class="text-secondary">Active Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
-              <span class="text-secondary">Social: <span style="font-weight:600">${b.social_profiles_count}</span> profiles</span>
+              <span class="text-secondary">Social: <span class="fw-600">${b.social_profiles_count}</span> profiles</span>
               <span class="text-secondary">Impersonation: <span style="font-weight:600;color:${Number(b.impersonation_count) > 0 ? 'var(--threat-critical)' : 'var(--positive)'}">${b.impersonation_count}</span></span>
             </div>
             <div class="data-label" style="margin-top:6px">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
@@ -8237,7 +8237,7 @@ async function viewTenantBrandDetail(el) {
     const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[brand.email_security_grade] || 'var(--text-tertiary)';
 
     el.innerHTML = `
-      <div style="margin-bottom:16px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/brands')" class="text-blue" style="font-size:12px;text-decoration:none">&larr; Back to Brands</a></div>
+      <div class="mb-16"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/brands')" class="text-blue" style="font-size:12px;text-decoration:none">&larr; Back to Brands</a></div>
       <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px">
         <div style="position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="90" height="90" viewBox="0 0 90 90"><circle cx="45" cy="45" r="38" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="45" cy="45" r="38" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="238.8" stroke-dashoffset="${score != null ? 238.8 * (1 - score / 100) : 238.8}" stroke-linecap="round" transform="rotate(-90 45 45)"/></svg>
@@ -8265,12 +8265,12 @@ async function viewTenantBrandDetail(el) {
         </div>
       </div>
 
-      <div class="adm-panel" style="margin-top:16px">
+      <div class="adm-panel mt-16">
         <div class="adm-phead"><div class="adm-ptitle">Recent Alerts</div><div class="adm-pbadge">${recent_alerts.length}</div></div>
         <div class="adm-padded" id="tbd-alerts" style="max-height:400px;overflow-y:auto"></div>
       </div>
 
-      <div class="adm-panel" style="margin-top:16px">
+      <div class="adm-panel mt-16">
         <div class="adm-phead"><div class="adm-ptitle">Monitoring Rules</div></div>
         <div class="adm-padded" id="tbd-monitoring-config">Loading...</div>
       </div>`;
@@ -8284,12 +8284,12 @@ async function viewTenantBrandDetail(el) {
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
             <span style="width:8px;height:8px;border-radius:50%;background:${sColor}"></span>
             <span style="font-size:11px;font-weight:600;color:${sColor};text-transform:uppercase">${t.severity || 'unknown'}</span>
-            <span class="text-secondary" style="font-size:11px">${(t.threat_type || '').replace(/_/g, ' ')}</span>
+            <span class="text-secondary text-11">${(t.threat_type || '').replace(/_/g, ' ')}</span>
           </div>
           <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-primary);word-break:break-all">${t.malicious_domain || t.malicious_url || 'N/A'}</div>
           <div class="data-label" style="margin-top:2px">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
         </div>`;
-      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" class="text-blue" style="font-size:11px">View all threats</a></div>` : '')
+      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" class="text-blue text-11">View all threats</a></div>` : '')
       : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No active threats</div>';
     }
 
@@ -8409,8 +8409,8 @@ async function viewTenantBrandDetail(el) {
         monEl.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Alert Severity Filter</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-severities">
+              <div class="text-tertiary text-11 mb-6">Alert Severity Filter</div>
+              <div class="flex flex-wrap gap-6" id="mc-severities">
                 ${allSeverities.map(s => {
                   const checked = (mc.alert_severity_filter || []).includes(s);
                   return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
@@ -8418,8 +8418,8 @@ async function viewTenantBrandDetail(el) {
               </div>
             </div>
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Social Platforms</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-platforms">
+              <div class="text-tertiary text-11 mb-6">Social Platforms</div>
+              <div class="flex flex-wrap gap-6" id="mc-platforms">
                 ${allPlatforms.map(p => {
                   const checked = (mc.social_platforms_monitored || []).includes(p);
                   return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
@@ -8427,26 +8427,26 @@ async function viewTenantBrandDetail(el) {
               </div>
             </div>
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Email Notifications</div>
+              <div class="text-tertiary text-11 mb-6">Email Notifications</div>
               <label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-bottom:4px"><input type="checkbox" id="mc-email-toggle" ${mc.email_notifications ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Enabled</label>
               <select id="mc-email-threshold" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
                 ${allSeverities.map(s => `<option value="${s}" ${mc.email_notification_threshold === s ? 'selected' : ''}>${s}+</option>`).join('')}
               </select>
             </div>
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Weekly Digest</div>
+              <div class="text-tertiary text-11 mb-6">Weekly Digest</div>
               <label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
             </div>
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Custom Keywords</div>
+              <div class="text-tertiary text-11 mb-6">Custom Keywords</div>
               <input type="text" id="mc-keywords" value="${(mc.custom_keywords || []).join(', ')}" placeholder="keyword1, keyword2" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
             <div>
-              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Excluded Domains</div>
+              <div class="text-tertiary text-11 mb-6">Excluded Domains</div>
               <input type="text" id="mc-excluded" value="${(mc.excluded_domains || []).join(', ')}" placeholder="safe-domain.com, internal.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
           </div>
-          ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" class="data-label" style="margin-right:8px"></span></div>' : '<div class="data-label" style="margin-top:8px">Read-only (requires analyst+ role to modify)</div>'}`;
+          ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" class="data-label" style="margin-right:8px"></span></div>' : '<div class="data-label mt-8">Read-only (requires analyst+ role to modify)</div>'}`;
 
         if (isOrgAdmin) {
           let saveTimeout;
@@ -8479,7 +8479,7 @@ async function viewTenantBrandDetail(el) {
           monEl.querySelectorAll('input[type="text"]').forEach(el => el.addEventListener('input', debouncedSave));
         }
       } catch (err) {
-        monEl.innerHTML = '<div class="text-tertiary" style="font-size:12px">Failed to load monitoring config</div>';
+        monEl.innerHTML = '<div class="text-tertiary text-12">Failed to load monitoring config</div>';
       }
     }
   } catch (err) {
@@ -8498,7 +8498,7 @@ async function viewTenantAlerts(el) {
   const PAGE_SIZE = 20;
 
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Alerts</div>
+    <div class="page-title mb-16">Alerts</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="ta-filters">
       <select id="ta-status" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
         <option value="">All Statuses</option><option value="new">New</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option><option value="false_positive">False Positive</option>
@@ -8582,11 +8582,11 @@ async function viewTenantAlerts(el) {
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${a.severity}</span>
-                <span class="text-secondary" style="font-size:12px">${typeLabel}</span>
+                <span class="text-secondary text-12">${typeLabel}</span>
                 <span class="text-tertiary" style="font-size:10px;padding:2px 8px;border-radius:3px;background:var(--bg-surface);margin-left:auto">${statusLabel}</span>
               </div>
               <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px">${a.title}</div>
-              <div class="text-secondary" style="font-size:11px;margin-bottom:4px">${a.summary || ''}</div>
+              <div class="text-secondary text-11 mb-4">${a.summary || ''}</div>
               <div class="data-label" style="display:flex;justify-content:space-between">
                 <span>${a.brand_name || ''}</span>
                 <span>${timeAgo(a.created_at)}</span>
@@ -8705,16 +8705,16 @@ async function viewTenantTeam(el) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <div class="page-title">Team</div>
-      ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" style="font-size:12px;padding:6px 14px">+ Invite Member</button>' : ''}
+      ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" class="pill-btn">+ Invite Member</button>' : ''}
     </div>
     <div id="tt-member-count" class="text-tertiary" style="font-size:12px;margin-bottom:16px"></div>
     <div id="tt-invite-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end">
-        <div style="flex:1"><label class="data-sublabel">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
+        <div class="flex-1"><label class="data-sublabel">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
         <div><label class="data-sublabel">Role</label><select id="tt-invite-role" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
-        <button class="btn btn-primary" id="tt-send-invite" style="font-size:12px;padding:6px 14px">Send Invite</button>
+        <button class="btn btn-primary" id="tt-send-invite" class="pill-btn">Send Invite</button>
       </div>
-      <div id="tt-invite-result" style="font-size:11px;margin-top:8px"></div>
+      <div id="tt-invite-result" class="text-11 mt-8"></div>
     </div>
     <div id="tt-members">Loading...</div>
     <div id="tt-pending" style="margin-top:20px"></div>`;
@@ -8776,17 +8776,17 @@ async function viewTenantTeam(el) {
         ? `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Active Members</div></div><div class="data-table"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th>${isOrgAdmin ? '<th style="width:120px">Actions</th>' : ''}</tr></thead><tbody>${members.map(m => {
           const isOwner = m.role === 'owner';
           const isSelf = String(m.user_id) === String(currentUser?.id);
-          const youLabel = isSelf ? ' <span class="text-tertiary" style="font-size:10px">(you)</span>' : '';
+          const youLabel = isSelf ? ' <span class="text-tertiary text-10">(you)</span>' : '';
           const canEdit = isOrgAdmin && !isOwner;
           const roleCell = canEdit
             ? `<select class="tt-role-select" data-user-id="${m.user_id}" style="${selectStyle}">${roleOptions.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r}</option>`).join('')}</select>`
-            : `<span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span>`;
+            : `<span class="role-pill ${m.role} text-10">${m.role}</span>`;
           const actionCell = isOrgAdmin
             ? (isOwner || isSelf
-              ? '<span class="text-tertiary" style="font-size:11px">' + (isOwner ? '--' : '--') + '</span>'
+              ? '<span class="text-tertiary text-11">' + (isOwner ? '--' : '--') + '</span>'
               : `<button class="tt-remove-btn" data-user-id="${m.user_id}" data-user-name="${m.user_name || m.email}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-critical);border-radius:4px;background:transparent;color:var(--threat-critical);cursor:pointer">Remove</button>`)
             : '';
-          return `<tr><td>${(m.user_name || '-') + youLabel}</td><td style="font-family:var(--font-mono);font-size:11px">${m.email}</td><td>${roleCell}</td>${isOrgAdmin ? '<td>' + actionCell + '</td>' : ''}</tr>`;
+          return `<tr><td>${(m.user_name || '-') + youLabel}</td><td class="mono-11">${m.email}</td><td>${roleCell}</td>${isOrgAdmin ? '<td>' + actionCell + '</td>' : ''}</tr>`;
         }).join('')}</tbody></table></div></div>`
         : '<div class="empty-state"><div class="message">No members</div></div>';
 
@@ -8835,7 +8835,7 @@ async function viewTenantTeam(el) {
         return;
       }
 
-      pendingEl.innerHTML = `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pending Invites</div></div><div class="data-table"><table><thead><tr><th>Email</th><th>Role</th><th>Invited</th><th>Expires</th><th style="width:80px">Action</th></tr></thead><tbody>${invites.map(inv => `<tr><td style="font-family:var(--font-mono);font-size:11px">${inv.email}</td><td><span class="role-pill ${inv.org_role}" style="font-size:10px">${inv.org_role}</span></td><td class="text-tertiary" style="font-size:11px">${timeAgo(inv.created_at)}</td><td class="text-tertiary" style="font-size:11px">${hoursLeft(inv.expires_at)}</td><td><button class="tt-revoke-btn" data-invite-id="${inv.id}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-medium);border-radius:4px;background:transparent;color:var(--threat-medium);cursor:pointer">Revoke</button></td></tr>`).join('')}</tbody></table></div></div>`;
+      pendingEl.innerHTML = `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pending Invites</div></div><div class="data-table"><table><thead><tr><th>Email</th><th>Role</th><th>Invited</th><th>Expires</th><th style="width:80px">Action</th></tr></thead><tbody>${invites.map(inv => `<tr><td class="mono-11">${inv.email}</td><td><span class="role-pill ${inv.org_role} text-10">${inv.org_role}</span></td><td class="text-tertiary text-11">${timeAgo(inv.created_at)}</td><td class="text-tertiary text-11">${hoursLeft(inv.expires_at)}</td><td><button class="tt-revoke-btn" data-invite-id="${inv.id}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-medium);border-radius:4px;background:transparent;color:var(--threat-medium);cursor:pointer">Revoke</button></td></tr>`).join('')}</tbody></table></div></div>`;
 
       // Bind revoke handlers
       document.querySelectorAll('.tt-revoke-btn').forEach(btn => {
@@ -8877,15 +8877,15 @@ async function viewTenantSettings(el) {
   ];
 
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">Organization Settings</div>
+    <div class="page-title mb-16">Organization Settings</div>
     <div class="adm-grid-2">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Organization Details</div></div>
         <div class="adm-padded">
-          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org.name || '-'}</div></div>
-          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Slug</span><div class="text-secondary" style="font-family:var(--font-mono);font-size:12px">${org.slug || '-'}</div></div>
-          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org.plan || '-'}</span></div></div>
-          <div><span class="text-tertiary" style="font-size:11px">Your Role</span><div><span class="role-pill ${org.role}" style="font-size:10px">${org.role || '-'}</span></div></div>
+          <div class="mb-12"><span class="text-tertiary text-11">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org.name || '-'}</div></div>
+          <div class="mb-12"><span class="text-tertiary text-11">Slug</span><div class="text-secondary mono-12">${org.slug || '-'}</div></div>
+          <div class="mb-12"><span class="text-tertiary text-11">Plan</span><div><span class="role-pill admin text-10">${org.plan || '-'}</span></div></div>
+          <div><span class="text-tertiary text-11">Your Role</span><div><span class="role-pill ${org.role} text-10">${org.role || '-'}</span></div></div>
         </div>
       </div>
       <div class="adm-panel">
@@ -8893,13 +8893,13 @@ async function viewTenantSettings(el) {
         <div class="adm-padded" id="ts-usage">Loading...</div>
       </div>
     </div>
-    <div style="margin-top:16px">
+    <div class="mt-16">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Webhooks</div></div>
         <div class="adm-padded" id="ts-webhook">Loading...</div>
       </div>
     </div>
-    <div style="margin-top:16px">
+    <div class="mt-16">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">SSO / SAML</div></div>
         <div class="adm-padded text-tertiary" style="font-size:12px;padding:20px;text-align:center">
@@ -8928,7 +8928,7 @@ async function viewTenantSettings(el) {
       const memberColor = memberPct >= 90 ? 'var(--threat-critical)' : memberPct >= 70 ? 'var(--threat-medium)' : 'var(--positive)';
 
       usageEl.innerHTML = `
-        <div style="margin-bottom:16px">
+        <div class="mb-16">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
             <span class="text-secondary">Brands</span>
             <span style="color:var(--text-primary);font-weight:600">${brandCount} / ${maxBrands}</span>
@@ -8949,7 +8949,7 @@ async function viewTenantSettings(el) {
     }
   } catch (err) {
     const usageEl = document.getElementById('ts-usage');
-    if (usageEl) usageEl.innerHTML = '<div class="text-tertiary" style="font-size:12px">Failed to load usage data</div>';
+    if (usageEl) usageEl.innerHTML = '<div class="text-tertiary text-12">Failed to load usage data</div>';
   }
 
   // Load webhook config
@@ -8997,7 +8997,7 @@ async function viewTenantSettings(el) {
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px">
           <button id="wh-test-btn" class="text-secondary" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer">Test Webhook</button>
-          <button id="wh-save-btn" class="btn btn-primary" style="font-size:12px;padding:6px 14px">Save</button>
+          <button id="wh-save-btn" class="btn btn-primary pill-btn">Save</button>
           <span id="wh-status" style="font-size:11px;align-self:center"></span>
         </div>
         <div class="text-tertiary" style="display:flex;gap:20px;font-size:11px;margin-bottom:10px">
@@ -9005,8 +9005,8 @@ async function viewTenantSettings(el) {
           <span>Failures (24h): ${config.webhook_failures_24h || 0}</span>
         </div>
         <div class="text-tertiary" style="font-size:11px;border-top:1px solid var(--blue-border);padding-top:10px">
-          <div>Format: JSON with HMAC-SHA256 signature in <code style="font-size:10px">X-Trust-Radar-Signature</code></div>
-          <div style="margin-top:4px">Compatible with: Splunk HEC, Elastic, Microsoft Sentinel, generic webhook receivers</div>
+          <div>Format: JSON with HMAC-SHA256 signature in <code class="text-10">X-Trust-Radar-Signature</code></div>
+          <div class="mt-4">Compatible with: Splunk HEC, Elastic, Microsoft Sentinel, generic webhook receivers</div>
         </div>`;
 
       // Save webhook
@@ -9086,7 +9086,7 @@ async function viewTenantTakedowns(el) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div class="page-title">Takedown Requests</div>
-      ${canHITL ? '<button class="btn btn-primary" id="tt-new-btn" style="font-size:12px;padding:6px 14px">+ New Request</button>' : ''}
+      ${canHITL ? '<button class="btn btn-primary" id="tt-new-btn" class="pill-btn">+ New Request</button>' : ''}
     </div>
     <div id="tt-new-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px">New Takedown Request</div>
@@ -9099,7 +9099,7 @@ async function viewTenantTakedowns(el) {
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
         <button id="tt-cancel" class="text-secondary" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer">Cancel</button>
-        <button class="btn btn-primary" id="tt-submit" style="font-size:12px;padding:6px 14px">Create Draft</button>
+        <button class="btn btn-primary" id="tt-submit" class="pill-btn">Create Draft</button>
       </div>
     </div>
     <div id="tt-status-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
@@ -9210,7 +9210,7 @@ async function viewTenantTakedowns(el) {
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${statusLabel}</span>
               </div>
               <div class="text-secondary" style="font-size:12px;margin-bottom:4px">Brand: ${t.brand_name || 'Unknown'}</div>
-              <div class="text-secondary" style="font-size:11px;margin-bottom:4px">${t.evidence_summary || ''}</div>
+              <div class="text-secondary text-11 mb-4">${t.evidence_summary || ''}</div>
               ${t.provider_name ? '<div class="data-label" style="margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
               ${t.response_notes ? '<div class="data-label" style="margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px">Response: ' + t.response_notes + '</div>' : ''}
               <div class="data-label" style="display:flex;justify-content:space-between;align-items:center">
@@ -9252,7 +9252,7 @@ async function viewAdminTakedowns(el) {
   let currentFilter = '';
 
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:16px">SOC Takedown Queue</div>
+    <div class="page-title mb-16">SOC Takedown Queue</div>
     <div id="at-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <select id="at-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
@@ -9306,24 +9306,24 @@ async function viewAdminTakedowns(el) {
 
           let actionArea = '';
           if (t.status === 'requested') {
-            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+            actionArea = `<div class="flex flex-wrap gap-6">
               <button class="at-act" data-id="${t.id}" data-status="submitted" style="${btnPrimary}">Submit to Provider</button>
               <button class="at-act" data-id="${t.id}" data-status="rejected" style="${btnGhost}">Reject</button>
             </div>`;
           } else if (t.status === 'submitted') {
-            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+            actionArea = `<div class="flex flex-wrap gap-6">
               <button class="at-act" data-id="${t.id}" data-status="pending_response" style="${btnPrimary}">Mark Pending Response</button>
               <button class="at-act" data-id="${t.id}" data-status="taken_down" style="${btnSuccess}">Mark Taken Down</button>
               <button class="at-act" data-id="${t.id}" data-status="failed" style="${btnGhost}">Mark Failed</button>
             </div>`;
           } else if (t.status === 'pending_response') {
-            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+            actionArea = `<div class="flex flex-wrap gap-6">
               <button class="at-act" data-id="${t.id}" data-status="taken_down" style="${btnSuccess}">Mark Taken Down</button>
               <button class="at-act" data-id="${t.id}" data-status="failed" style="${btnGhost}">Mark Failed</button>
               <button class="at-act" data-id="${t.id}" data-status="expired" style="${btnGhost}">Mark Expired</button>
             </div>`;
           } else if (t.status === 'draft') {
-            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+            actionArea = `<div class="flex flex-wrap gap-6">
               <button class="at-act" data-id="${t.id}" data-status="submitted" style="${btnPrimary}">Submit</button>
               <button class="at-act" data-id="${t.id}" data-status="withdrawn" style="${btnGhost}">Withdraw</button>
             </div>`;
@@ -9345,13 +9345,13 @@ async function viewAdminTakedowns(el) {
                 <div style="margin-left:auto;display:flex;align-items:center;gap:6px">${actionArea}</div>
               </div>
               <div class="text-secondary" style="font-size:11px;margin-top:6px">
-                <span style="font-weight:600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}${t.target_platform ? ' &middot; ' + t.target_platform : ''}
+                <span class="fw-600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}${t.target_platform ? ' &middot; ' + t.target_platform : ''}
               </div>
             </div>
             <div class="at-detail" id="at-detail-${t.id}" style="display:none;padding:14px 16px;background:#0E1A2B;border-top:1px solid rgba(26,46,72,0.6)">
-              ${t.evidence_summary ? `<div class="text-secondary" style="font-size:11px;margin-bottom:8px">${t.evidence_summary}</div>` : ''}
+              ${t.evidence_summary ? `<div class="text-secondary text-11 mb-8">${t.evidence_summary}</div>` : ''}
               ${t.evidence_detail ? `<div class="data-label" style="margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
-              ${t.provider_name ? `<div class="data-label" style="margin-bottom:8px">Provider: <span class="text-secondary" style="font-weight:600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
+              ${t.provider_name ? `<div class="data-label" style="margin-bottom:8px">Provider: <span class="text-secondary fw-600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
               <div style="margin-bottom:10px">
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${t.severity}</span>
               </div>
@@ -9408,7 +9408,7 @@ async function viewAdminOrgs(el) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div class="page-title">Organizations</div>
-      <button class="btn btn-primary" id="ao-create-btn" style="font-size:12px;padding:6px 14px">Create Organization</button>
+      <button class="btn btn-primary" id="ao-create-btn" class="pill-btn">Create Organization</button>
     </div>
     <div id="ao-create-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -9416,9 +9416,9 @@ async function viewAdminOrgs(el) {
         <div><label class="data-sublabel">Plan</label><select id="ao-plan" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></div>
         <div><label class="data-sublabel">Max Brands</label><input type="number" id="ao-max-brands" value="5" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
         <div><label class="data-sublabel">Max Members</label><input type="number" id="ao-max-members" value="10" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
-        <button class="btn btn-primary" id="ao-create-submit" style="font-size:12px;padding:6px 14px">Create</button>
+        <button class="btn btn-primary" id="ao-create-submit" class="pill-btn">Create</button>
       </div>
-      <div id="ao-create-result" style="font-size:11px;margin-top:8px"></div>
+      <div id="ao-create-result" class="text-11 mt-8"></div>
     </div>
     <div id="ao-list">Loading...</div>`;
 
@@ -9452,7 +9452,7 @@ async function viewAdminOrgs(el) {
       const res = await api('/admin/organizations');
       const orgs = res?.data || [];
       document.getElementById('ao-list').innerHTML = orgs.length
-        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td class="text-blue" style="font-weight:600">${o.name}</td><td style="font-family:var(--font-mono);font-size:11px">${o.slug}</td><td><span class="role-pill admin" style="font-size:10px">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td style="font-family:var(--font-mono);font-size:10px">${o.invite_code || '-'}</td><td class="text-tertiary" style="font-size:11px">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td class="text-blue fw-600">${o.name}</td><td class="mono-11">${o.slug}</td><td><span class="role-pill admin text-10">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td class="mono-10">${o.invite_code || '-'}</td><td class="text-tertiary text-11">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty-state"><div class="message">No organizations yet. Create one above.</div></div>';
     } catch (err) {
       document.getElementById('ao-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load organizations</div></div>';
@@ -9475,12 +9475,12 @@ async function viewAdminOrgDetail(el, params) {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <a href="/admin/organizations" class="text-tertiary" style="font-size:12px">&larr; All Organizations</a>
+        <a href="/admin/organizations" class="text-tertiary text-12">&larr; All Organizations</a>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div class="page-title">${org.name}</div>
-          <div class="text-tertiary" style="font-size:12px">Slug: ${org.slug} &middot; Plan: <span class="text-blue">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code style="font-size:11px">${org.invite_code || '-'}</code></div>
+          <div class="text-tertiary text-12">Slug: ${org.slug} &middot; Plan: <span class="text-blue">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code class="text-11">${org.invite_code || '-'}</code></div>
         </div>
       </div>
       <div class="adm-grid-2">
@@ -9488,28 +9488,28 @@ async function viewAdminOrgDetail(el, params) {
           <div class="adm-phead"><div class="adm-ptitle">Members (${members.length}/${org.max_members})</div></div>
           <div class="adm-padded" id="aod-invite-form" style="border-bottom:1px solid var(--blue-border)">
             <div style="display:flex;gap:6px;align-items:flex-end">
-              <div style="flex:1"><input type="email" id="aod-invite-email" placeholder="email@example.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+              <div class="flex-1"><input type="email" id="aod-invite-email" placeholder="email@example.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
               <select id="aod-invite-role" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option><option value="owner">Owner</option></select>
               <button class="btn btn-primary" id="aod-invite-submit" style="font-size:11px;padding:4px 10px">Invite</button>
             </div>
-            <div id="aod-invite-result" style="font-size:10px;margin-top:4px"></div>
+            <div id="aod-invite-result" class="text-10 mt-4"></div>
           </div>
           <div id="aod-members" style="max-height:300px;overflow-y:auto">
-            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span class="data-label" style="margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span><span class="data-label" style="margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No members</div>'}
+            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span class="data-label" style="margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role} text-10">${m.role}</span><span class="data-label" style="margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No members</div>'}
           </div>
         </div>
         <div class="adm-panel">
           <div class="adm-phead"><div class="adm-ptitle">Brands (${brands.length}/${org.max_brands})</div></div>
           <div class="adm-padded" id="aod-brand-form" style="border-bottom:1px solid var(--blue-border)">
             <div style="display:flex;gap:6px;align-items:flex-end">
-              <div style="flex:1"><input type="text" id="aod-brand-id" placeholder="Brand ID" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+              <div class="flex-1"><input type="text" id="aod-brand-id" placeholder="Brand ID" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
               <label class="data-label" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="aod-brand-primary"> Primary</label>
               <button class="btn btn-primary" id="aod-brand-submit" style="font-size:11px;padding:4px 10px">Assign</button>
             </div>
-            <div id="aod-brand-result" style="font-size:10px;margin-top:4px"></div>
+            <div id="aod-brand-result" class="text-10 mt-4"></div>
           </div>
           <div id="aod-brands" style="max-height:300px;overflow-y:auto">
-            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" class="text-blue" style="font-weight:600;font-size:12px">${b.brand_name}</a><span class="data-label" style="margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span class="text-positive" style="font-size:10px">Primary</span>' : ''}<button class="btn text-negative" style="font-size:10px;padding:2px 6px;margin-left:6px" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No brands assigned</div>'}
+            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" class="text-blue" style="font-weight:600;font-size:12px">${b.brand_name}</a><span class="data-label" style="margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span class="text-positive text-10">Primary</span>' : ''}<button class="btn text-negative" style="font-size:10px;padding:2px 6px;margin-left:6px" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No brands assigned</div>'}
           </div>
         </div>
       </div>`;
