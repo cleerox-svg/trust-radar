@@ -11,6 +11,7 @@
 
 import type { Env } from "./types";
 import type { EmailMessage } from "./dmarc-receiver";
+import { extractDomain } from "./lib/domain-utils";
 
 // ─── Interfaces ────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
   const sendingIp = extractSendingIp(headers);
 
   // Extract From domain
-  const fromDomain = extractDomain(from);
+  const fromDomain = extractDomain(from) ?? '';
 
   // Extract URLs from body
   const body = extractBody(rawText);
@@ -253,7 +254,7 @@ export function parseAuthenticationResults(header: string): AuthResults {
 async function matchBrand(
   from: string, subject: string, urls: string[], replyTo: string, env: Env
 ): Promise<BrandMatch | null> {
-  const fromDomain = extractDomain(from);
+  const fromDomain = extractDomain(from) ?? '';
 
   // Method 1: From domain matches a monitored brand's canonical_domain
   const directMatch = await env.DB.prepare(
@@ -403,17 +404,6 @@ function extractSendingIp(headers: Record<string, string>): string | null {
   return ipMatch?.[1] || null;
 }
 
-export function extractDomain(emailOrUrl: string): string {
-  if (emailOrUrl.includes("@")) {
-    return emailOrUrl.split("@").pop()?.toLowerCase().trim() || "";
-  }
-  try {
-    const url = emailOrUrl.startsWith("http") ? emailOrUrl : `https://${emailOrUrl}`;
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return emailOrUrl.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] ?? "";
-  }
-}
 
 function extractBody(rawText: string): string {
   // Try \r\n\r\n first (standard), then \n\n (Cloudflare Email Routing often normalises)

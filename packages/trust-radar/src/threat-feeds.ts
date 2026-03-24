@@ -13,6 +13,7 @@
 
 import type { Env } from "./types";
 import { fuzzyMatchBrand, type BrandRow } from "./lib/brandDetect";
+import { extractDomain } from "./lib/domain-utils";
 
 // ─── Common Types ──────────────────────────────────────────────────
 
@@ -105,13 +106,6 @@ async function insertSignal(db: D1Database, signal: ThreatSignal): Promise<void>
   ).run();
 }
 
-function extractDomain(url: string): string | null {
-  try {
-    return new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
-  } catch {
-    return null;
-  }
-}
 
 /** KV-based rate limit tracker for daily-capped APIs */
 async function checkDailyLimit(cache: KVNamespace, key: string, limit: number): Promise<boolean> {

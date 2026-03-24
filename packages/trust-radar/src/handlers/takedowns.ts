@@ -3,6 +3,7 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { deliverWebhook } from "../lib/webhooks";
+import { computePriorityScore } from "../lib/scoring-utils";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -46,15 +47,6 @@ const ADMIN_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending_response: ["taken_down", "failed", "expired"],
 };
 
-function computePriorityScore(severity: string | null): number {
-  switch ((severity || "").toUpperCase()) {
-    case "CRITICAL": return 90;
-    case "HIGH": return 70;
-    case "MEDIUM": return 50;
-    case "LOW": return 30;
-    default: return 50;
-  }
-}
 
 // ─── POST /api/orgs/:orgId/takedowns ─────────────────────────
 

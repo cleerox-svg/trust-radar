@@ -7,6 +7,8 @@ import { discoverSocialProfiles } from "../lib/social-discovery";
 import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
+import { generateBrandKeywords } from "../lib/brand-utils";
+import { getBrandById, getBrandByDomain, getBrandThreatCount } from "../db/brands";
 import type { Env } from "../types";
 
 // GET /api/brands/stats
@@ -237,40 +239,40 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     const brandName = body.name || domain.split(".")[0]!.charAt(0).toUpperCase() + domain.split(".")[0]!.slice(1);
 
     // Find existing brand by canonical_domain, or create one
-    let brand = await env.DB.prepare(
-      "SELECT id FROM brands WHERE canonical_domain = ?"
-    ).bind(domain).first<{ id: string }>();
+    const existingBrand = await getBrandByDomain(env, domain);
+    let currentBrandId: string;
 
-    if (!brand) {
-      const newId = `brand_${domain.replace(/[^a-z0-9]+/g, "_")}`;
+    if (existingBrand) {
+      currentBrandId = existingBrand.id;
+    } else {
+      currentBrandId = `brand_${domain.replace(/[^a-z0-9]+/g, "_")}`;
       await env.DB.prepare(
         `INSERT OR IGNORE INTO brands (id, name, canonical_domain, sector, first_seen, threat_count)
          VALUES (?, ?, ?, ?, datetime('now'), 0)`
-      ).bind(newId, brandName, domain, body.sector ?? null).run();
-      brand = { id: newId };
+      ).bind(currentBrandId, brandName, domain, body.sector ?? null).run();
     }
 
     // Insert into monitored_brands (PK is brand_id + tenant_id)
     await env.DB.prepare(
       `INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, notes, status)
        VALUES (?, '__internal__', ?, ?, 'active')`
-    ).bind(brand.id, userId, body.notes ?? null).run();
+    ).bind(currentBrandId, userId, body.notes ?? null).run();
 
     // ─── Auto-add canonical domain to safe domains allowlist ───
     await env.DB.prepare(
       `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
        VALUES (?, ?, ?, ?, 'auto_detected')`
-    ).bind(crypto.randomUUID(), brand.id, domain, userId).run();
+    ).bind(crypto.randomUUID(), currentBrandId, domain, userId).run();
     // Also add www variant
     await env.DB.prepare(
       `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
        VALUES (?, ?, ?, ?, 'auto_detected')`
-    ).bind(crypto.randomUUID(), brand.id, "www." + domain, userId).run();
+    ).bind(crypto.randomUUID(), currentBrandId, "www." + domain, userId).run();
     // Also add wildcard for all subdomains
     await env.DB.prepare(
       `INSERT OR IGNORE INTO brand_safe_domains (id, brand_id, domain, added_by, source)
        VALUES (?, ?, ?, ?, 'auto_detected')`
-    ).bind(crypto.randomUUID(), brand.id, "*." + domain, userId).run();
+    ).bind(crypto.randomUUID(), currentBrandId, "*." + domain, userId).run();
 
     // ─── Populate social monitoring fields if provided ───
     const socialDomain = domain;
@@ -300,7 +302,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     }
 
     if (socialUpdates.length > 0) {
-      socialValues.push(brand.id);
+      socialValues.push(currentBrandId);
       await env.DB.prepare(
         `UPDATE brands SET ${socialUpdates.join(", ")} WHERE id = ?`
       ).bind(...socialValues).run();
@@ -313,7 +315,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
         INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
         VALUES (?, ?, 'social', ?, 24, 1)
         ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
-      `).bind(schedId, brand.id, platform).run();
+      `).bind(schedId, currentBrandId, platform).run();
     }
 
     // ─── Auto-discover social profiles from brand website (non-fatal) ───
@@ -328,7 +330,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
               (id, brand_id, platform, handle, profile_url, classification,
                classified_by, classification_confidence, status)
             VALUES (?, ?, ?, ?, ?, 'official', 'auto_discovery', ?, 'active')
-          `).bind(profileId, brand.id, profile.platform, profile.handle,
+          `).bind(profileId, currentBrandId, profile.platform, profile.handle,
                   profile.profileUrl, profile.confidence).run();
 
           if (!discoveredHandles[profile.platform]) {
@@ -341,7 +343,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
         const merged = { ...discoveredHandles, ...existingHandles };
         await env.DB.prepare(
           "UPDATE brands SET official_handles = ?, website_url = COALESCE(website_url, ?) WHERE id = ?"
-        ).bind(JSON.stringify(merged), `https://${domain}`, brand.id).run();
+        ).bind(JSON.stringify(merged), `https://${domain}`, currentBrandId).run();
 
         // Create monitor schedules for discovered platforms
         for (const platform of Object.keys(discoveredHandles)) {
@@ -351,18 +353,18 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
               INSERT INTO brand_monitor_schedule (id, brand_id, monitor_type, platform, check_interval_hours, enabled)
               VALUES (?, ?, 'social', ?, 24, 1)
               ON CONFLICT (brand_id, monitor_type, platform) DO UPDATE SET enabled = 1
-            `).bind(schedId, brand.id, platform).run();
+            `).bind(schedId, currentBrandId, platform).run();
           }
         }
 
         logger.info("brand_social_discovery", {
-          brand_id: brand.id, domain, discovered: discovered.length,
+          brand_id: currentBrandId, domain, discovered: discovered.length,
           platforms: [...new Set(discovered.map(d => d.platform))],
         });
       }
     } catch (err) {
       logger.error("brand_social_discovery_error", {
-        brand_id: brand.id, domain,
+        brand_id: currentBrandId, domain,
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -380,7 +382,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     const likeClause = patterns.map(() => "malicious_url LIKE ?").join(" OR ");
     const domainLikeClause = `malicious_domain LIKE ? OR malicious_url LIKE ?`;
     const linkQuery = `UPDATE threats SET target_brand_id = ? WHERE target_brand_id IS NULL AND (${likeClause} OR ${domainLikeClause}) `;
-    const bindValues = [brand.id, ...patterns, `%${domain}%`, `%${domain}%`];
+    const bindValues = [currentBrandId, ...patterns, `%${domain}%`, `%${domain}%`];
 
     const linkResult = await env.DB.prepare(linkQuery).bind(...bindValues).run();
     const threatsLinked = linkResult.meta?.changes ?? 0;
@@ -392,11 +394,11 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
            threat_count = (SELECT COUNT(*) FROM threats WHERE target_brand_id = ?),
            last_threat_seen = (SELECT MAX(created_at) FROM threats WHERE target_brand_id = ?)
          WHERE id = ?`
-      ).bind(brand.id, brand.id, brand.id).run();
+      ).bind(currentBrandId, currentBrandId, currentBrandId).run();
     }
 
-    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: brand.id, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
-    return json({ success: true, data: { brand_id: brand.id, domain, name: brandName, threats_linked: threatsLinked, message: threatsLinked > 0 ? `Found ${threatsLinked} existing threats matching this brand` : "No existing threats matched" } }, 201, origin);
+    await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: currentBrandId, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
+    return json({ success: true, data: { brand_id: currentBrandId, domain, name: brandName, threats_linked: threatsLinked, message: threatsLinked > 0 ? `Found ${threatsLinked} existing threats matching this brand` : "No existing threats matched" } }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -418,9 +420,7 @@ export async function handleRemoveMonitoredBrand(request: Request, env: Env, bra
 export async function handleGetBrand(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain, sector, first_seen FROM brands WHERE id = ?",
-    ).bind(brandId).first();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     const [stats, providers] = await Promise.all([
@@ -465,6 +465,7 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
       ORDER BY created_at DESC LIMIT ? OFFSET ?
     `).bind(brandId, brandId, limit, offset).all();
 
+    // TODO: migrate to getThreatsByBrand() from db/threats.ts when safe-domain filtering is supported there
     const total = await env.DB.prepare(
       `SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ?
          AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)`
@@ -586,12 +587,7 @@ export async function handleBrandCampaigns(request: Request, env: Env, brandId: 
 export async function handleGetBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain, threat_analysis, analysis_updated_at FROM brands WHERE id = ?",
-    ).bind(brandId).first<{
-      id: string; name: string; canonical_domain: string;
-      threat_analysis: string | null; analysis_updated_at: string | null;
-    }>();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     // Return cached analysis if fresh (< 6 hours old)
@@ -617,9 +613,7 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
   const origin = request.headers.get("Origin");
   setHaikuCategory("on_demand");
   try {
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain FROM brands WHERE id = ?",
-    ).bind(brandId).first<{ id: string; name: string; canonical_domain: string }>();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     // Gather threat data for the brand
@@ -689,9 +683,7 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
   const origin = request.headers.get("Origin");
   setHaikuCategory("on_demand");
   try {
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain FROM brands WHERE id = ?"
-    ).bind(brandId).first<{ id: string; name: string; canonical_domain: string }>();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     // Fetch up to 200 unlinked threats that haven't been AI-scored yet
@@ -780,18 +772,6 @@ export async function handleCleanFalsePositives(request: Request, env: Env, bran
 
 const SUPPORTED_PLATFORMS = ["twitter", "linkedin", "instagram", "tiktok", "github", "youtube"] as const;
 
-/** Auto-generate brand keywords from domain + brand name */
-function generateBrandKeywords(domain: string, brandName: string): string[] {
-  const keywords = new Set<string>();
-  const domainBase = domain.split(".")[0]!.toLowerCase();
-  keywords.add(domainBase);
-  keywords.add(brandName.toLowerCase());
-  const noSpace = brandName.toLowerCase().replace(/\s+/g, "");
-  if (noSpace !== domainBase) keywords.add(noSpace);
-  const hyphenated = brandName.toLowerCase().replace(/\s+/g, "-");
-  if (hyphenated !== domainBase) keywords.add(hyphenated);
-  return [...keywords];
-}
 
 // ─── PATCH /api/brands/:id/social-config — Update social monitoring config ───
 
@@ -801,7 +781,7 @@ export async function handleUpdateBrandSocialConfig(
   const origin = request.headers.get("Origin");
   try {
     // Verify brand exists and user has access (via monitored_brands or admin)
-    const brand = await env.DB.prepare("SELECT id FROM brands WHERE id = ?").bind(brandId).first<{ id: string }>();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     const ownership = await env.DB.prepare(
@@ -963,7 +943,7 @@ export async function handleGetBrandSocialProfiles(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const brand = await env.DB.prepare("SELECT id FROM brands WHERE id = ?").bind(brandId).first();
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     const url = new URL(request.url);
@@ -1115,13 +1095,7 @@ export async function handleDiscoverSocialLinks(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain, official_handles, website_url FROM brands WHERE id = ?"
-    ).bind(brandId).first<{
-      id: string; name: string; canonical_domain: string;
-      official_handles: string | null; website_url: string | null;
-    }>();
-
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     // Verify user monitors this brand or is admin
@@ -1245,13 +1219,7 @@ export async function handleReassessSocialProfile(
 
     if (!profile) return json({ success: false, error: "Social profile not found" }, 404, origin);
 
-    const brand = await env.DB.prepare(
-      "SELECT id, name, canonical_domain, official_handles, aliases, brand_keywords FROM brands WHERE id = ?"
-    ).bind(brandId).first<{
-      id: string; name: string; canonical_domain: string;
-      official_handles: string | null; aliases: string | null; brand_keywords: string | null;
-    }>();
-
+    const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
 
     // Verify authorization
@@ -1401,8 +1369,7 @@ export async function handleComputeBrandScore(request: Request, env: Env, brandI
   const origin = request.headers.get("Origin");
   try {
     // Verify brand exists
-    const brand = await env.DB.prepare("SELECT id, name, email_security_grade FROM brands WHERE id = ?")
-      .bind(brandId).first<{ id: string; name: string; email_security_grade: string | null }>();
+    const brand = await getBrandById(env, brandId);
     if (!brand) {
       return json({ success: false, error: "Brand not found" }, 404, origin);
     }

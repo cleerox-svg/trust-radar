@@ -8,6 +8,7 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { generateAndStoreLookalikes } from "../scanners/lookalike-domains";
 import { logger } from "../lib/logger";
+import { generateBrandKeywords } from "../lib/brand-utils";
 import type { Env } from "../types";
 
 // ─── Tier limits ─────────────────────────────────────────────
@@ -22,20 +23,6 @@ const SUPPORTED_PLATFORMS = ["twitter", "linkedin", "instagram", "tiktok", "gith
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-/** Auto-generate brand keywords from domain + brand name */
-function generateKeywords(domain: string, brandName: string): string[] {
-  const keywords = new Set<string>();
-  const domainBase = domain.split(".")[0]!.toLowerCase();
-  keywords.add(domainBase);
-  keywords.add(brandName.toLowerCase());
-  // Add no-space variant if brand name has spaces
-  const noSpace = brandName.toLowerCase().replace(/\s+/g, "");
-  if (noSpace !== domainBase) keywords.add(noSpace);
-  // Add hyphenated variant
-  const hyphenated = brandName.toLowerCase().replace(/\s+/g, "-");
-  if (hyphenated !== domainBase) keywords.add(hyphenated);
-  return [...keywords];
-}
 
 /** Normalize a domain string */
 function normalizeDomain(raw: string): string {
@@ -91,7 +78,7 @@ export async function handleCreateBrand(request: Request, env: Env, userId: stri
     }
 
     const id = crypto.randomUUID();
-    const keywords = generateKeywords(domain, brandName);
+    const keywords = generateBrandKeywords(domain, brandName);
     const aliases = body.aliases ?? [];
     const handles = body.official_handles ?? {};
 
