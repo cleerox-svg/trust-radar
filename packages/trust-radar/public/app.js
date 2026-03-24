@@ -386,7 +386,7 @@ async function toggleNotifDropdown(e) {
 async function _loadNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
-  list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary)">Loading...</div>';
+  list.innerHTML = '<div class="text-tertiary" style="text-align:center;padding:24px">Loading...</div>';
   try {
     const res = await api('/notifications?limit=30');
     const items = res?.data || [];
@@ -411,7 +411,7 @@ async function _loadNotifications() {
       </div>`;
     }).join('');
   } catch (err) {
-    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--negative)">Failed to load</div>';
+    list.innerHTML = '<div class="text-negative" style="text-align:center;padding:24px">Failed to load</div>';
   }
 }
 
@@ -633,7 +633,7 @@ function renderTopbar() {
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
-          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -673,7 +673,7 @@ function renderAdminTopbar(activePath) {
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
-          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -701,7 +701,7 @@ function renderTenantTopbar(activePath) {
   return `<div class="topbar">
     <div class="topbar-logo"><svg width="160" height="28" viewBox="0 0 160 28"><defs><linearGradient id="nav-lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(14,14)"><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#C83C3C" stroke-width="0.6" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#78A0C8" stroke-width="0.4" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-10 L6,8 H-6 Z" fill="url(#nav-lg)"/><path d="M-1.5,5 H1.5 L0,1 Z" fill="#080E18"/><circle cx="0" cy="-10" r="1.2" fill="#C83C3C"/></g><text x="32" y="18" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="14" letter-spacing="2" fill="#F0EDE8">AVERROW</text></svg></div>
     <nav class="topbar-nav">
-      <span style="font-family:var(--font-display);font-size:11px;color:var(--text-secondary);padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;margin-right:8px">${orgName}</span>
+      <span class="text-secondary" style="font-family:var(--font-display);font-size:11px;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;margin-right:8px">${orgName}</span>
       ${tenantNav.map(n => `<a href="${n.href}" class="${activePath === n.href || (n.href !== '/tenant/dashboard' && activePath.startsWith(n.href)) ? 'active' : ''}">${n.label}</a>`).join('')}
     </nav>
     <div class="topbar-right">
@@ -709,7 +709,7 @@ function renderTenantTopbar(activePath) {
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
         <div class="user-dropdown" style="right:0">
-          <div style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill client">${u?.organization?.role || 'member'}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -844,12 +844,12 @@ async function viewRootRedirect(el) {
 function viewLogin(el) {
   el.innerHTML = `<div class="login-screen">
     <div class="login-logo"><svg width="280" height="80" viewBox="0 0 280 80"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(40,40)"><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#C83C3C" stroke-width="0.8" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#78A0C8" stroke-width="0.5" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#C83C3C" stroke-width="0.4" fill="none" opacity="0.15"><animateTransform attributeName="transform" type="rotate" from="120" to="480" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-22 L12,18 H-12 Z" fill="url(#lg)"/><path d="M-3.5,10 H3.5 L0,2 Z" fill="var(--bg-void)"/><circle cx="0" cy="-22" r="2.5" fill="#C83C3C" opacity="0.9"/></g><text x="90" y="38" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="28" letter-spacing="4" fill="var(--text-primary)">AVERROW</text><text x="90" y="56" font-family="'IBM Plex Mono',monospace" font-weight="400" font-size="10" letter-spacing="3" fill="var(--text-secondary)" opacity="0.7">THREAT INTERCEPTOR</text></svg></div>
-    <p style="color:var(--text-secondary);font-size:13px">Threat Interceptor</p>
+    <p class="text-secondary" style="font-size:13px">Threat Interceptor</p>
     <a class="login-btn" href="/api/auth/login">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Sign in with Google
     </a>
-    <div style="text-align:center;padding:16px 0 0;font-size:10px;color:var(--text-secondary)">Operated by <span style="color:var(--text-tertiary)">LRX Enterprises Inc.</span> <span class="ca-flag">🇨🇦</span> Canadian owned and operated</div>
+    <div class="text-secondary" style="text-align:center;padding:16px 0 0;font-size:10px">Operated by <span class="text-tertiary">LRX Enterprises Inc.</span> <span class="ca-flag">🇨🇦</span> Canadian owned and operated</div>
   </div>`;
 }
 
@@ -861,7 +861,7 @@ function viewAuthError(el) {
   const msg = new URLSearchParams(location.search).get('message') || 'Authentication failed';
   el.innerHTML = `<div class="login-screen">
     <div class="login-logo"><svg width="160" height="28" viewBox="0 0 160 28"><defs><linearGradient id="nav-lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(14,14)"><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#C83C3C" stroke-width="0.6" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#78A0C8" stroke-width="0.4" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-10 L6,8 H-6 Z" fill="url(#nav-lg)"/><path d="M-1.5,5 H1.5 L0,1 Z" fill="var(--bg-void)"/><circle cx="0" cy="-10" r="1.2" fill="#C83C3C"/></g><text x="32" y="18" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="14" letter-spacing="2" fill="var(--text-primary)">AVERROW</text></svg></div>
-    <p style="color:var(--negative);font-size:13px">${msg}</p>
+    <p class="text-negative" style="font-size:13px">${msg}</p>
     <a class="login-btn" href="/api/auth/login">Try Again</a>
   </div>`;
 }
@@ -1061,7 +1061,7 @@ async function viewPublicSite(el, params) {
           <p>Every threat is checked against monitored brands using domain matching, homoglyph detection, and certificate analysis. Typosquats are caught within minutes of registration.</p>
           <div class="pub-step-demo">
             <span class="pub-step-threat">paypal-secure.com</span>
-            <span style="color:var(--text-tertiary)">\u2192</span>
+            <span class="text-tertiary">\u2192</span>
             <span class="pub-step-match">Matched to PayPal</span>
           </div>
         </div>
@@ -1084,7 +1084,7 @@ async function viewPublicSite(el, params) {
       <h2 class="pub-section-title">Powered by <span id="pub-feed-total">14</span> Threat Intelligence Feeds</h2>
       <p class="pub-section-sub">Real-time data from the world\u2019s leading threat intelligence sources. Every feed is monitored for health and freshness.</p>
       <div class="pub-feeds-grid" id="pub-feeds-grid">
-        <div style="text-align:center;padding:32px;color:var(--text-tertiary)">Loading feeds...</div>
+        <div class="text-tertiary" style="text-align:center;padding:32px">Loading feeds...</div>
       </div>
     </section>
 
@@ -1223,7 +1223,7 @@ async function viewPublicSite(el, params) {
         if (i === 4 && d.latest_insight_summary) {
           el.innerHTML = '<span style="font-size:10px;color:' + a.color + '">Latest: ' + d.latest_insight_summary.slice(0, 60) + '...</span>';
         } else {
-          el.innerHTML = '<span style="font-family:var(--font-mono);font-size:12px;color:' + a.color + '">' + (agentStats[i] || 0).toLocaleString() + '</span> <span style="font-size:10px;color:var(--text-tertiary)">' + a.statLabel + '</span>';
+          el.innerHTML = '<span style="font-family:var(--font-mono);font-size:12px;color:' + a.color + '">' + (agentStats[i] || 0).toLocaleString() + '</span> <span class="data-label">' + a.statLabel + '</span>';
         }
       });
 
@@ -1329,14 +1329,14 @@ async function viewPublicSite(el, params) {
       // Build threat types breakdown if available
       let typesHtml = '';
       if (d.threat_types && d.threat_types.length > 0) {
-        typesHtml = '<div class="pub-assess-types"><div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Threat Breakdown</div>' +
-          d.threat_types.map(t => `<div class="pub-assess-type-row"><span>${t.threat_type}</span><span style="color:var(--blue-primary);font-family:var(--font-mono)">${t.count}</span></div>`).join('') +
+        typesHtml = '<div class="pub-assess-types"><div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Threat Breakdown</div>' +
+          d.threat_types.map(t => `<div class="pub-assess-type-row"><span>${t.threat_type}</span><span class="text-blue" style="font-family:var(--font-mono)">${t.count}</span></div>`).join('') +
           '</div>';
       }
 
       const monitoredNote = d.is_monitored
-        ? '<div style="font-size:11px;color:var(--positive);margin-top:8px">This brand is actively monitored by Averrow</div>'
-        : '<div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">This brand is not currently monitored. <a href="#" style="color:var(--blue-primary)">Add it to get continuous protection.</a></div>';
+        ? '<div class="text-positive" style="font-size:11px;margin-top:8px">This brand is actively monitored by Averrow</div>'
+        : '<div class="text-tertiary" style="font-size:11px;margin-top:8px">This brand is not currently monitored. <a href="#" class="text-blue">Add it to get continuous protection.</a></div>';
 
       document.getElementById('pub-assess-results').style.display = 'block';
       document.getElementById('pub-assess-results').innerHTML = `
@@ -1357,7 +1357,7 @@ async function viewPublicSite(el, params) {
             <div class="pub-results-stats">
               <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-critical)">${d.threat_count}</div><div class="pub-result-stat-label">Threats Found</div></div>
               <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--threat-medium)">${d.provider_count}</div><div class="pub-result-stat-label">Providers Involved</div></div>
-              <div class="pub-result-stat"><div class="pub-result-stat-val" style="color:var(--blue-primary)">${d.campaign_count}</div><div class="pub-result-stat-label">Campaigns Detected</div></div>
+              <div class="pub-result-stat"><div class="pub-result-stat-val text-blue">${d.campaign_count}</div><div class="pub-result-stat-label">Campaigns Detected</div></div>
             </div>
           </div>
           ${d.threat_count > 0 ? '<div class="pub-alert-bar pub-alert-danger">\u26A0 Your brand has active threats in the wild.</div>' : '<div class="pub-alert-bar pub-alert-safe">\u2713 No threats detected. Stay ahead by monitoring your brand.</div>'}
@@ -1393,7 +1393,7 @@ async function viewPublicSite(el, params) {
                 <div style="font-family:var(--font-display);font-size:15px;font-weight:700">\uD83D\uDCE7 Email Security Posture</div>
                 <div style="display:flex;align-items:center;gap:12px">
                   <span style="background:${esGradeColor};color:#000;padding:4px 12px;border-radius:4px;font-weight:700;font-size:18px;font-family:var(--font-mono)">${es.grade}</span>
-                  <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span style="font-size:12px;color:var(--text-tertiary)">/100</span></span>
+                  <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span class="text-tertiary" style="font-size:12px">/100</span></span>
                 </div>
               </div>
               ${vulnerabilityWarning}
@@ -1420,7 +1420,7 @@ async function viewPublicSite(el, params) {
         leadForm.innerHTML = `
           <div class="pub-lead-card">
             <h3>Get the Full Threat Report</h3>
-            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px">We\u2019ll send you a detailed analysis with every threat domain, hosting provider, and campaign targeting your brand.</p>
+            <p class="text-secondary" style="font-size:14px;margin-bottom:20px">We\u2019ll send you a detailed analysis with every threat domain, hosting provider, and campaign targeting your brand.</p>
             <div class="pub-lead-fields">
               <input type="email" id="pub-lead-email" placeholder="Business email" required>
               <input type="text" id="pub-lead-name" placeholder="Full name" required>
@@ -1454,7 +1454,7 @@ async function viewPublicSite(el, params) {
             }).then(r => r.json());
 
             if (lRes?.success) {
-              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 style="color:var(--positive);margin-top:16px">\u2713 Report Requested</h3><p style="color:var(--text-secondary)">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
+              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 class="text-positive" style="margin-top:16px">\u2713 Report Requested</h3><p class="text-secondary">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
             } else {
               errEl.style.display = 'block'; errEl.textContent = lRes?.error || 'Failed to submit';
               btn.disabled = false; btn.textContent = 'Send My Report \u2192';
@@ -2579,7 +2579,7 @@ async function viewObservatory(el) {
           ${_providerLogoImg(p.name, 22)}
           <div class="prov-info"><div class="prov-name">${p.name}</div><div class="prov-asn">${p.asn || ''}</div></div>
           <span class="prov-count">${p.threat_count}</span>
-          <span class="prov-trend" style="color:var(--negative)">${p.trend_7d_pct >= 0 ? '+' : ''}${p.trend_7d_pct || 0}%</span>
+          <span class="prov-trend text-negative">${p.trend_7d_pct >= 0 ? '+' : ''}${p.trend_7d_pct || 0}%</span>
         </a>`
       ).join('');
 
@@ -2588,7 +2588,7 @@ async function viewObservatory(el) {
           ${_providerLogoImg(p.name, 22)}
           <div class="prov-info"><div class="prov-name">${p.name}</div><div class="prov-asn">${p.asn || ''}</div></div>
           <span class="prov-count">${p.threat_count}</span>
-          <span class="prov-trend" style="color:var(--positive)">${p.trend_7d_pct || 0}%</span>
+          <span class="prov-trend text-positive">${p.trend_7d_pct || 0}%</span>
         </a>`
       ).join('');
 
@@ -2755,7 +2755,7 @@ function _scoreColor(s) { return s >= 90 ? 'var(--positive)' : s >= 80 ? 'var(--
 
 async function viewBrandsHub(el) {
   el.innerHTML = `
-    <div style="padding:20px 24px 0"><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Brands Intelligence</div></div>
+    <div style="padding:20px 24px 0"><div class="page-title" style="margin-bottom:16px">Brands Intelligence</div></div>
     <div class="agg-stats" id="brands-agg"></div>
     <div class="sub-tabs" id="brands-tabs">
       <button class="sub-tab active" data-tab="top-targeted">Top Targeted<span class="tab-count" id="tc-top">--</span></button>
@@ -2774,8 +2774,8 @@ async function viewBrandsHub(el) {
   api('/brands/stats').then(res => {
     const s = res?.data || {};
     document.getElementById('brands-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.total_tracked || 0}</div><div class="agg-lbl">Brands tracked</div><div class="agg-sub">Across all feeds</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">+${s.new_this_week || 0}</div><div class="agg-lbl">New this week</div><div class="agg-sub">First seen in feeds</div></div>
+      <div class="agg-card"><div class="agg-val text-blue">${s.total_tracked || 0}</div><div class="agg-lbl">Brands tracked</div><div class="agg-sub">Across all feeds</div></div>
+      <div class="agg-card"><div class="agg-val text-positive">+${s.new_this_week || 0}</div><div class="agg-lbl">New this week</div><div class="agg-sub">First seen in feeds</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.fastest_rising || '-'}</div><div class="agg-lbl">Fastest rising</div><div class="agg-sub">${s.fastest_rising_pct ? '+' + s.fastest_rising_pct + '% in 24h' : ''}</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.top_threat_type || 'Phishing'}</div><div class="agg-lbl">Top threat type</div><div class="agg-sub">${s.top_threat_type_pct || 0}% of all threats</div></div>`;
   }).catch(() => {});
@@ -2794,7 +2794,7 @@ async function viewBrandsHub(el) {
       const color = _tColor(tc);
       const tp = b.trend_pct || 0;
       const trendDir = tp >= 0 ? 'up' : 'down';
-      const trendHtml = tp !== 0 ? `<span class="trend-pct ${trendDir}">${tp > 0 ? '+' : ''}${tp}%</span>` : '<span class="trend-pct" style="color:var(--text-tertiary)">—</span>';
+      const trendHtml = tp !== 0 ? `<span class="trend-pct ${trendDir}">${tp > 0 ? '+' : ''}${tp}%</span>` : '<span class="trend-pct text-tertiary">—</span>';
       const risingHtml = b.rising ? '<div class="rising-badge">Rising</div>' : '';
       const sparkData = b.sparkline || [];
       const gradeBg = {'A+':'#28A050','A':'#28A050','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff4444'}[b.email_security_grade] || 'rgba(255,255,255,0.1)';
@@ -2939,10 +2939,10 @@ async function viewBrandsHub(el) {
       const tGradeBorder = b.email_security_grade ? 'none' : '1px solid rgba(255,255,255,0.15)';
       html += `<tr data-id="${id}" data-name="${(b.name || '').toLowerCase()}" data-domain="${(b.canonical_domain || '').toLowerCase()}" data-sector="${b.sector || ''}">
         <td><span class="star-toggle ${mon ? 'on' : 'off'}">${mon ? '\u2605' : '\u2606'}</span></td>
-        <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div style="font-weight:500">${b.name}</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${b.canonical_domain || ''}</div></div></a></td>
-        <td style="font-size:11px;color:var(--text-secondary)">${b.sector || ''}</td>
+        <td><a href="/brands/${id}" class="brand-table-link"><div class="brand-table-icon" style="color:${color}">${initials}</div><div><div style="font-weight:500">${b.name}</div><div class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${b.canonical_domain || ''}</div></div></a></td>
+        <td class="text-secondary" style="font-size:11px">${b.sector || ''}</td>
         <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${color}">${tc}</span></td>
-        <td>${t !== 0 ? `<span class="trend-pct ${trendDir}" style="font-size:11px">${t > 0 ? '+' : ''}${t}%</span>` : '<span style="font-size:11px;color:var(--text-tertiary)">—</span>'}</td>
+        <td>${t !== 0 ? `<span class="trend-pct ${trendDir}" style="font-size:11px">${t > 0 ? '+' : ''}${t}%</span>` : '<span class="text-tertiary" style="font-size:11px">—</span>'}</td>
         <td>${b.top_threat_type ? `<span class="type-pill ${b.top_threat_type}">${b.top_threat_type}</span>` : '-'}</td>
         <td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;background:${tGradeBg};color:${tGradeColor};padding:1px 5px;border-radius:3px;border:${tGradeBorder}">${tGradeTxt}</span></td>
       </tr>`;
@@ -3096,8 +3096,8 @@ function renderEmailIntelCard(stats, sources, brandId) {
     return `
       <div class="panel" style="margin-bottom:16px">
         <div class="phead"><span>\uD83D\uDCCA Email Intelligence</span><span class="badge">No data</span></div>
-        <div class="panel-body padded" style="font-size:12px;color:var(--text-secondary)">
-          <div style="margin-bottom:10px;color:var(--text-tertiary)">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
+        <div class="panel-body padded text-secondary" style="font-size:12px">
+          <div class="text-tertiary" style="margin-bottom:10px">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
           <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
             <strong>Activate DMARC reporting:</strong><br>
             Add <code>rua=mailto:dmarc_rua@averrow.com</code> to your DMARC DNS record.<br>
@@ -3123,7 +3123,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
         return `<div title="${d.date}: ${d.email_count} emails, ${d.fail_count} failed" style="flex:1;height:${h}px;background:${c};border-radius:1px;min-width:4px"></div>`;
       }).join('')}
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-tertiary)">
+    <div class="text-tertiary" style="display:flex;justify-content:space-between;font-size:9px">
       <span>${chartDays[0]?.date?.slice(5) || ''}</span><span>${chartDays[chartDays.length-1]?.date?.slice(5) || ''}</span>
     </div>` : '';
 
@@ -3132,9 +3132,9 @@ function renderEmailIntelCard(stats, sources, brandId) {
     const flag = s.country_code ? `\uD83C${String.fromCodePoint(0xDDE6 + (s.country_code.charCodeAt(0) - 65))}${String.fromCodePoint(0xDDE6 + (s.country_code.charCodeAt(1) - 65))}` : '\u{1F310}';
     const label = s.org ? s.org.slice(0, 28) : s.source_ip;
     return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
-      <span style="font-family:var(--font-mono);color:var(--text-tertiary);min-width:100px">${s.source_ip}</span>
+      <span class="text-tertiary" style="font-family:var(--font-mono);min-width:100px">${s.source_ip}</span>
       <span>${flag}</span>
-      <span style="flex:1;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+      <span class="text-secondary" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
       <span style="color:var(--threat-high);font-weight:600;font-family:var(--font-mono)">${s.fail_messages.toLocaleString()}</span>
     </div>`;
   }).join('');
@@ -3143,31 +3143,31 @@ function renderEmailIntelCard(stats, sources, brandId) {
     <div class="panel" style="margin-bottom:16px">
       <div class="phead">
         <span>\uD83D\uDCCA Email Intelligence</span>
-        <span style="font-size:10px;color:var(--text-tertiary)">${totals.report_count} reports · ${totals.reporter_count} senders</span>
+        <span class="data-label">${totals.report_count} reports · ${totals.reporter_count} senders</span>
       </div>
       <div class="panel-body padded">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
           <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary)">${(totals.total_emails||0).toLocaleString()}</div>
-            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Emails analyzed</div>
+            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Emails analyzed</div>
           </div>
           <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:${passColor}">${passRate}%</div>
-            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Pass rate</div>
+            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Pass rate</div>
           </div>
           <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--threat-high)">${(totals.total_fail||0).toLocaleString()}</div>
-            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Failed DMARC</div>
+            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Failed DMARC</div>
           </div>
           <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
-            <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--blue-primary)">${failRate}%</div>
-            <div style="font-size:9px;color:var(--text-tertiary);margin-top:2px">Fail rate</div>
+            <div class="text-blue" style="font-size:18px;font-weight:700;font-family:var(--font-mono)">${failRate}%</div>
+            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Fail rate</div>
           </div>
         </div>
         ${barChart}
         ${srcRows ? `
           <div style="margin-top:12px">
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Top Spoofing Sources</div>
+            <div class="text-secondary" style="font-size:11px;font-weight:600;margin-bottom:6px">Top Spoofing Sources</div>
             ${srcRows}
           </div>` : ''}
       </div>
@@ -3194,7 +3194,7 @@ function renderEmailSecurityCard(es, brandId) {
       <div class="phead"><span>\uD83D\uDCE7 Email Security Posture</span>
         <button class="filter-pill" style="font-size:10px" onclick="scanEmailSecurity('${brandId}')">Scan Now</button>
       </div>
-      <div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">No email security scan available. Click "Scan Now" to check this domain's email authentication.</div>
+      <div class="panel-body padded text-tertiary" style="font-size:12px">No email security scan available. Click "Scan Now" to check this domain's email authentication.</div>
     </div>`;
 
   const gradeColor = {'A+':'#00ff88','A':'#00dd66','B':'#ffcc00','C':'#ff8800','D':'#ff4444','F':'#ff0000'}[es.email_security_grade] || '#666';
@@ -3220,7 +3220,7 @@ function renderEmailSecurityCard(es, brandId) {
       </div>
       <div class="panel-body padded">
         <div class="email-score-bar">
-          <div class="score-label" style="font-size:11px;color:var(--text-secondary);min-width:140px">Email Security Score</div>
+          <div class="score-label text-secondary" style="font-size:11px;min-width:140px">Email Security Score</div>
           <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${score}%;background:${gradeColor}"></div></div>
           <span class="score-value" style="font-family:var(--font-mono);font-size:12px;color:${gradeColor};min-width:48px;text-align:right">${score}/100</span>
         </div>
@@ -3247,14 +3247,14 @@ function renderEmailSecurityCard(es, brandId) {
           </div>
         </div>
         ${recs.length ? `<div class="email-recommendations">
-          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Recommendations</div>
+          <div class="text-secondary" style="font-size:11px;font-weight:600;margin-bottom:8px">Recommendations</div>
           ${recs.map(r => {
             const icon = r.startsWith('CRITICAL') ? '\uD83D\uDD34' : r.startsWith('WARNING') ? '\uD83D\uDFE1' : r.startsWith('GOOD') ? '\uD83D\uDFE2' : r.startsWith('Excellent') ? '\uD83C\uDFC6' : '\uD83D\uDCA1';
             return `<div class="recommendation-item">${icon} ${r}</div>`;
           }).join('')}
         </div>` : ''}
         ${renderDmarcCta(dmarc)}
-        <div style="font-size:10px;color:var(--text-tertiary);margin-top:12px">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
+        <div class="data-label" style="margin-top:12px">Last scanned: ${es.scanned_at ? new Date(es.scanned_at).toLocaleString() : 'Never'}</div>
       </div>
     </div>`;
 }
@@ -3282,7 +3282,7 @@ function buildEmailRecs({ dmarc, spf, dkim, mx }) {
 async function scanEmailSecurity(brandId) {
   const wrap = document.getElementById('email-security-panel-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '<div class="panel" style="margin-bottom:16px"><div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">Scanning email security...</div></div>';
+  wrap.innerHTML = '<div class="panel" style="margin-bottom:16px"><div class="panel-body padded text-tertiary" style="font-size:12px">Scanning email security...</div></div>';
   try {
     const res = await api(`/email-security/scan/${brandId}`, { method: 'POST' });
     if (res?.success && res.data) {
@@ -3378,8 +3378,8 @@ async function viewBrandDetail(el, params) {
           <div class="detail-header-stats">
             <div class="header-stat"><div class="header-stat-val" style="color:var(--threat-critical)">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${trendColor}">${(stats.trend_pct || 0) >= 0 ? '+' : ''}${stats.trend_pct || 0}%</div><div class="header-stat-label">7-day trend</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.countries || locationsRes?.totalCountries || locations.length}</div><div class="header-stat-label">Countries</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--blue-primary)">${stats.provider_count || providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
+            <div class="header-stat"><div class="header-stat-val text-blue">${stats.countries || locationsRes?.totalCountries || locations.length}</div><div class="header-stat-label">Countries</div></div>
+            <div class="header-stat"><div class="header-stat-val text-blue">${stats.provider_count || providers.length}</div><div class="header-stat-label">Hosting providers</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${b.social_risk_score != null ? (b.social_risk_score >= 70 ? 'var(--threat-critical)' : b.social_risk_score >= 40 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)'}">${b.social_risk_score != null ? b.social_risk_score + '/100' : '\u2014'}</div><div class="header-stat-label">${b.social_risk_score != null ? 'Social risk' : 'No social scan yet'}</div></div>
           </div>
         </div>
@@ -3389,22 +3389,22 @@ async function viewBrandDetail(el, params) {
         <div class="phead"><span>AI Threat Analysis</span><span class="badge" id="brand-analysis-badge">${analysisRes?.data ? (analysisRes.data.stale ? 'Stale' : 'Current') : 'Not generated'}</span></div>
         <div class="panel-body padded" id="brand-analysis-body">${analysisRes?.data ? `
           <div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${analysisRes.data.analysis || ''}</div>
-          ${analysisRes.data.key_findings?.length ? `<div style="margin-bottom:12px">${analysisRes.data.key_findings.map(f => `<div style="display:flex;gap:8px;padding:4px 0;font-size:11px;color:var(--text-secondary)"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+          ${analysisRes.data.key_findings?.length ? `<div style="margin-bottom:12px">${analysisRes.data.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
           ${analysisRes.data.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:${analysisRes.data.risk_level === 'critical' ? 'rgba(255,59,92,.12)' : analysisRes.data.risk_level === 'high' ? 'rgba(255,107,53,.1)' : 'rgba(255,182,39,.1)'};color:${analysisRes.data.risk_level === 'critical' ? 'var(--negative)' : analysisRes.data.risk_level === 'high' ? 'var(--threat-high)' : 'var(--threat-medium)'}">${analysisRes.data.risk_level} risk</span>` : ''}
-          ${analysisRes.data.updated_at ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
+          ${analysisRes.data.updated_at ? `<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
           <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>
-        ` : `<div style="text-align:center;padding:12px"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
+        ` : `<div style="text-align:center;padding:12px"><div class="text-tertiary" style="font-size:12px;margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
       </div>
       <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between">
         <div>
           <button class="filter-pill" id="brand-deep-scan" style="font-size:11px">\uD83D\uDD0D AI Deep Scan</button>
-          <span style="font-size:9px;color:var(--text-tertiary);margin-left:8px">Uses AI credits (~$0.01 per 20 threats scanned)</span>
+          <span class="text-tertiary" style="font-size:9px;margin-left:8px">Uses AI credits (~$0.01 per 20 threats scanned)</span>
         </div>
-        <span id="deep-scan-result" style="font-size:11px;color:var(--text-secondary)"></span>
+        <span id="deep-scan-result" class="text-secondary" style="font-size:11px"></span>
       </div>
       <div class="panel" id="safe-domains-panel" style="margin-bottom:16px">
         <div class="phead">
-          <span style="display:flex;align-items:center;gap:6px"><span style="color:var(--positive)">&#9432;</span> Safe Domains</span>
+          <span style="display:flex;align-items:center;gap:6px"><span class="text-positive">&#9432;</span> Safe Domains</span>
           <span class="badge" id="safe-domains-count">${safeDomains.length}</span>
         </div>
         <div class="panel-body padded" id="safe-domains-body"></div>
@@ -3412,8 +3412,8 @@ async function viewBrandDetail(el, params) {
       <div id="csv-upload-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center">
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:480px;width:90%">
           <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Upload Known Domains</div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:16px">Upload a CSV file of domains owned by this brand. These domains will be excluded from threat detection.</div>
-          <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" style="margin-bottom:12px;font-size:12px;color:var(--text-secondary)">
+          <div class="text-secondary" style="font-size:11px;margin-bottom:16px">Upload a CSV file of domains owned by this brand. These domains will be excluded from threat detection.</div>
+          <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" class="text-secondary" style="margin-bottom:12px;font-size:12px">
           <div id="csv-preview" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg-elevated);border-radius:6px;font-size:11px;max-height:180px;overflow-y:auto"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="filter-pill" id="csv-cancel-btn">Cancel</button>
@@ -3426,7 +3426,7 @@ async function viewBrandDetail(el, params) {
         ${renderEmailSecurityCard(emailSecRes?.data, params.id)}
       </div>
       <div id="email-intel-wrap">
-        <div class="panel" style="margin-bottom:16px"><div class="panel-body padded" style="color:var(--text-tertiary);font-size:12px">Loading email intelligence\u2026</div></div>
+        <div class="panel" style="margin-bottom:16px"><div class="panel-body padded text-tertiary" style="font-size:12px">Loading email intelligence\u2026</div></div>
       </div>
       <div id="spam-trap-intel-wrap"></div>
       <div class="detail-grid">
@@ -3439,14 +3439,14 @@ async function viewBrandDetail(el, params) {
               const pct = maxProv > 0 ? Math.round(cnt / maxProv * 100) : 0;
               return `<div class="pbar-row"><span class="pbar-lbl">${p.name || p.provider_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
             }).join('') :
-            '<div class="empty-state"><div class="message">No provider data yet<br><span style="font-size:10px;color:var(--text-tertiary)">Providers appear after geo enrichment resolves threat IPs</span></div></div>'
+            '<div class="empty-state"><div class="message">No provider data yet<br><span class="data-label">Providers appear after geo enrichment resolves threat IPs</span></div></div>'
           }</div></div>
           <div class="panel"><div class="phead"><span>Active Campaigns</span><span class="badge">${campaigns.length}</span></div><div class="panel-body padded">${campaigns.length ?
             campaigns.map(c => `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card-sm">
               <div class="ccard-name">${c.name}</div>
-              <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span style="color:var(--blue-primary)">${c.brand_count || 1}</span> brands</span><span style="color:var(--text-tertiary)">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
+              <div class="ccard-meta"><span><span style="color:var(--threat-critical)">${c.threat_count || 0}</span> threats</span><span><span class="text-blue">${c.brand_count || 1}</span> brands</span><span class="text-tertiary">Since ${(c.first_seen || c.created_at || '').slice(0, 10)}</span></div>
             </a>`).join('') :
-            '<div class="empty-state"><div class="message">No campaigns detected<br><span style="font-size:10px;color:var(--text-tertiary)">Campaigns are created when the Strategist agent clusters related threats</span></div></div>'
+            '<div class="empty-state"><div class="message">No campaigns detected<br><span class="data-label">Campaigns are created when the Strategist agent clusters related threats</span></div></div>'
           }</div></div>
         </div>
       </div>
@@ -3482,22 +3482,22 @@ async function viewBrandDetail(el, params) {
           html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
             <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);flex:1">${sd.domain}</span>
             ${srcBadge(sd.source)}
-            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${(sd.added_at || '').slice(0, 10)}</span>
-            <button class="safe-domain-rm" data-id="${sd.id}" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;padding:0 4px" title="Remove">&times;</button>
+            <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${(sd.added_at || '').slice(0, 10)}</span>
+            <button class="safe-domain-rm text-tertiary" data-id="${sd.id}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px" title="Remove">&times;</button>
           </div>`;
         });
         html += '</div>';
       } else {
-        html += '<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px">No safe domains configured. Add domains owned by this brand to prevent false positive alerts.</div>';
+        html += '<div class="text-tertiary" style="font-size:11px;margin-bottom:12px">No safe domains configured. Add domains owned by this brand to prevent false positive alerts.</div>';
       }
-      html += `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">Use <code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px">*.brand.com</code> to mark all subdomains as safe</div>`;
+      html += `<div class="data-label" style="margin-bottom:8px">Use <code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px">*.brand.com</code> to mark all subdomains as safe</div>`;
       html += `<div style="display:flex;gap:8px;align-items:center">
         <div id="safe-add-form" style="display:flex;gap:6px;flex:1">
           <input type="text" id="safe-domain-input" placeholder="*.brand.com or subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
           <button class="filter-pill" id="safe-add-btn" style="font-size:11px">Add</button>
         </div>
         <button class="filter-pill" id="safe-csv-btn" style="font-size:11px">&#8593; Upload CSV</button>
-        <button class="filter-pill" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(40,160,80,.3);color:var(--positive)" title="Remove active threats matching safe domains">Clean FP</button>
+        <button class="filter-pill text-positive" id="safe-clean-fp-btn" style="font-size:11px;border-color:rgba(40,160,80,.3)" title="Remove active threats matching safe domains">Clean FP</button>
       </div>`;
       body.innerHTML = html;
 
@@ -3650,7 +3650,7 @@ async function viewBrandDetail(el, params) {
             ${p.bio ? `<div class="social-card-bio">"${p.bio}"</div>` : ''}
             <div class="social-card-meta">
               <span>${_formatFollowers(p.follower_count)} followers</span>
-              ${p.is_verified ? '<span style="color:var(--positive)">Verified ✓</span>' : '<span style="color:var(--text-tertiary)">Not Verified</span>'}
+              ${p.is_verified ? '<span class="text-positive">Verified ✓</span>' : '<span class="text-tertiary">Not Verified</span>'}
               <span>Last checked: ${_timeAgo(p.last_checked)}</span>
             </div>
           </div>
@@ -3672,7 +3672,7 @@ async function viewBrandDetail(el, params) {
           </div>`;
 
         if (p.ai_assessment) {
-          html += `<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:6px">${p.ai_assessment}</div>`;
+          html += `<div class="text-secondary" style="font-size:11px;line-height:1.5;margin-bottom:6px">${p.ai_assessment}</div>`;
         }
 
         // Parse and show signals
@@ -3684,8 +3684,8 @@ async function viewBrandDetail(el, params) {
         } catch { signals = []; }
 
         if (signals.length > 0) {
-          html += `<div style="margin-top:6px"><div style="font-size:10px;font-weight:600;color:var(--text-tertiary);margin-bottom:3px">Signals:</div>
-            <ul style="margin:0;padding-left:16px;font-size:10px;color:var(--text-secondary);line-height:1.6">${signals.slice(0, 8).map(s => `<li>${s}</li>`).join('')}</ul></div>`;
+          html += `<div style="margin-top:6px"><div class="text-tertiary" style="font-size:10px;font-weight:600;margin-bottom:3px">Signals:</div>
+            <ul class="text-secondary" style="margin:0;padding-left:16px;font-size:10px;line-height:1.6">${signals.slice(0, 8).map(s => `<li>${s}</li>`).join('')}</ul></div>`;
         }
 
         html += `</div>`;
@@ -3696,7 +3696,7 @@ async function viewBrandDetail(el, params) {
         if (p.impersonation_score != null) {
           html += `<div class="impersonation-score-bar"><div class="impersonation-score-fill" style="width:${p.impersonation_score}%;background:${_impersonationScoreColor(p.impersonation_score)}"></div></div>
             <div style="display:flex;justify-content:space-between;margin-top:2px">
-              <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">Impersonation score</span>
+              <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">Impersonation score</span>
               <span style="font-family:var(--font-mono);font-size:9px;font-weight:600;color:${_impersonationScoreColor(p.impersonation_score)}">${p.impersonation_score}%</span>
             </div>`;
         }
@@ -3762,7 +3762,7 @@ async function viewBrandDetail(el, params) {
         <div class="social-sub-tabs" id="social-profile-tabs">
           <button class="social-sub-tab ${_socialFilterTab === 'all' ? 'active' : ''}" data-stab="all">All Profiles</button>
           <button class="social-sub-tab ${_socialFilterTab === 'official' ? 'active' : ''}" data-stab="official">Official</button>
-          <button class="social-sub-tab ${_socialFilterTab === 'suspicious' ? 'active' : ''}" data-stab="suspicious">Suspicious${suspiciousCount ? ` <span class="badge" style="background:rgba(255,59,92,.12);color:var(--negative);margin-left:4px">${suspiciousCount}</span>` : ''}</button>
+          <button class="social-sub-tab ${_socialFilterTab === 'suspicious' ? 'active' : ''}" data-stab="suspicious">Suspicious${suspiciousCount ? ` <span class="badge text-negative" style="background:rgba(255,59,92,.12);margin-left:4px">${suspiciousCount}</span>` : ''}</button>
           <button class="social-sub-tab ${_socialFilterTab === 'safe' ? 'active' : ''}" data-stab="safe">Safe</button>
         </div>`;
 
@@ -3805,7 +3805,7 @@ async function viewBrandDetail(el, params) {
            <div class="form-group"><label class="form-label">Handle</label><input class="form-input" placeholder="@acmecorp" id="social-modal-handle"></div>
            <div class="form-group" style="display:flex;align-items:center;gap:8px">
              <input type="checkbox" id="social-modal-official" checked style="accent-color:var(--blue-primary)">
-             <label for="social-modal-official" style="font-size:12px;color:var(--text-secondary)">This is our official account</label>
+             <label for="social-modal-official" class="text-secondary" style="font-size:12px">This is our official account</label>
            </div>`,
           async (overlay) => {
             const platform = document.getElementById('social-modal-platform')?.value;
@@ -3992,13 +3992,13 @@ async function viewBrandDetail(el, params) {
             csvPreview.style.display = 'block';
             let previewHtml = `<div style="font-weight:600;color:var(--text-primary);margin-bottom:6px">Found ${parsedDomains.length} domains in your file</div>`;
             if (parsedDomains.length === 0) {
-              previewHtml += '<div style="color:var(--negative)">No valid domains found. Check file format.</div>';
+              previewHtml += '<div class="text-negative">No valid domains found. Check file format.</div>';
             } else {
               parsedDomains.slice(0, 10).forEach(d => {
-                previewHtml += `<div style="font-family:var(--font-mono);padding:2px 0;color:var(--text-secondary)">${d}</div>`;
+                previewHtml += `<div class="text-secondary" style="font-family:var(--font-mono);padding:2px 0">${d}</div>`;
               });
               if (parsedDomains.length > 10) {
-                previewHtml += `<div style="color:var(--text-tertiary);margin-top:4px">...and ${parsedDomains.length - 10} more</div>`;
+                previewHtml += `<div class="text-tertiary" style="margin-top:4px">...and ${parsedDomains.length - 10} more</div>`;
               }
             }
             csvPreview.innerHTML = previewHtml;
@@ -4068,7 +4068,7 @@ async function viewBrandDetail(el, params) {
       // Filter controls
       html += `<div class="threats-controls"><div class="filter-row" id="threat-type-filter">
         ${threatTypes.map(t => `<button class="filter-pill ${t === activeFilter ? 'active' : ''}" data-type="${t}">${t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join('')}
-      </div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${start + 1}\u2013${Math.min(start + _brandThreatsPerPage, filtered.length)} of ${filtered.length}</span></div>`;
+      </div><span class="data-label">${start + 1}\u2013${Math.min(start + _brandThreatsPerPage, filtered.length)} of ${filtered.length}</span></div>`;
 
       if (!pageThreats.length) {
         html += '<div class="empty-state"><div class="message">No threats matching filter</div></div>';
@@ -4090,7 +4090,7 @@ async function viewBrandDetail(el, params) {
             <td><span class="date-cell">${date}</span></td>
             <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
             <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
-            <td><button class="mark-safe-btn" data-domain="${url}" title="Mark domain as safe/owned" style="background:none;border:1px solid rgba(40,160,80,.3);border-radius:4px;color:var(--positive);cursor:pointer;font-size:9px;padding:2px 6px;white-space:nowrap">&#10003; Safe</button></td>
+            <td><button class="mark-safe-btn text-positive" data-domain="${url}" title="Mark domain as safe/owned" style="background:none;border:1px solid rgba(40,160,80,.3);border-radius:4px;cursor:pointer;font-size:9px;padding:2px 6px;white-space:nowrap">&#10003; Safe</button></td>
           </tr>`;
         });
         html += '</tbody></table>';
@@ -4167,7 +4167,7 @@ async function viewBrandDetail(el, params) {
           const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5, opacity: 0.6 }).addTo(_brandDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
-            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
             .addTo(_brandDetailMap);
         });
         const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
@@ -4235,23 +4235,23 @@ async function viewBrandDetail(el, params) {
       const body = document.getElementById('brand-analysis-body');
       const badge = document.getElementById('brand-analysis-badge');
       if (!body) return;
-      body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)"><span class="dash-spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(200,60,60,.3);border-top-color:var(--blue-primary);border-radius:50%;animation:trigger-spin 0.6s linear infinite"></span> Generating analysis...</div>';
+      body.innerHTML = '<div class="text-tertiary" style="text-align:center;padding:16px"><span class="dash-spinner" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(200,60,60,.3);border-top-color:var(--blue-primary);border-radius:50%;animation:trigger-spin 0.6s linear infinite"></span> Generating analysis...</div>';
       try {
         const res = await api(`/brands/${params.id}/analysis`, { method: 'POST' });
         const d = res?.data;
         if (d?.analysis) {
           if (badge) badge.textContent = 'Current';
           body.innerHTML = `<div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${d.analysis}</div>
-            ${d.key_findings?.length ? `<div style="margin-bottom:12px">${d.key_findings.map(f => `<div style="display:flex;gap:8px;padding:4px 0;font-size:11px;color:var(--text-secondary)"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+            ${d.key_findings?.length ? `<div style="margin-bottom:12px">${d.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span style="color:var(--threat-medium)">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
             ${d.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.1);color:var(--threat-medium)">${d.risk_level} risk</span>` : ''}
-            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);margin-left:8px">Just now</span>
+            <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Just now</span>
             <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>`;
           body.querySelector('#brand-refresh-analysis')?.addEventListener('click', triggerBrandAnalysis);
         } else {
-          body.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-tertiary)">Analysis generation failed — check API key configuration</div>';
+          body.innerHTML = '<div class="text-tertiary" style="text-align:center;padding:12px">Analysis generation failed — check API key configuration</div>';
         }
       } catch (err) {
-        body.innerHTML = `<div style="text-align:center;padding:12px;color:var(--negative)">${err.message || 'Failed to generate analysis'}</div>`;
+        body.innerHTML = `<div class="text-negative" style="text-align:center;padding:12px">${err.message || 'Failed to generate analysis'}</div>`;
       }
     }
     document.getElementById('brand-gen-analysis')?.addEventListener('click', triggerBrandAnalysis);
@@ -4315,8 +4315,8 @@ function _renderProvCard(p, i, isImproving) {
       <div class="provider-icon">${_providerLogoImg(p.name, 32)}</div>
       <div class="provider-card-info" style="min-width:0">
         <div class="provider-card-name" style="font-size:14px;font-weight:700;white-space:normal;word-wrap:break-word;overflow-wrap:break-word">${p.name}</div>
-        ${(p.country_code || p.country) ? `<span style="display:inline-block;font-size:10px;padding:1px 6px;background:var(--bg-elevated);border-radius:4px;color:var(--text-secondary);margin-top:3px">${p.country_code || p.country}</span>` : ''}
-        ${p.asn ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);margin-top:2px;white-space:normal;word-wrap:break-word">${p.asn}</div>` : ''}
+        ${(p.country_code || p.country) ? `<span class="text-secondary" style="display:inline-block;font-size:10px;padding:1px 6px;background:var(--bg-elevated);border-radius:4px;margin-top:3px">${p.country_code || p.country}</span>` : ''}
+        ${p.asn ? `<div class="data-label" style="margin-top:2px;white-space:normal;word-wrap:break-word">${p.asn}</div>` : ''}
       </div>
     </div>
     <div class="provider-card-stats">
@@ -4384,7 +4384,7 @@ let _loadSocialAlerts = null;
 async function viewSocialMonitor(el) {
   el.innerHTML = `
     <div style="padding:20px 24px 0">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px;letter-spacing:1px">
+      <div class="page-title" style="margin-bottom:16px;letter-spacing:1px">
         SOCIAL BRAND MONITOR
       </div>
     </div>
@@ -4413,8 +4413,8 @@ async function viewSocialMonitor(el) {
     ).length;
     const aggEl = document.getElementById('social-agg');
     if (aggEl) aggEl.innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${brands.length}</div><div class="agg-lbl">Brands monitored</div><div class="agg-sub">Across 6 platforms</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${critCount}</div><div class="agg-lbl">Critical alerts</div><div class="agg-sub">Require immediate action</div></div>
+      <div class="agg-card"><div class="agg-val text-blue">${brands.length}</div><div class="agg-lbl">Brands monitored</div><div class="agg-sub">Across 6 platforms</div></div>
+      <div class="agg-card"><div class="agg-val text-negative">${critCount}</div><div class="agg-lbl">Critical alerts</div><div class="agg-sub">Require immediate action</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-high)">${highCount}</div><div class="agg-lbl">High severity</div><div class="agg-sub">Likely impersonation</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${atRisk}</div><div class="agg-lbl">Brands at risk</div><div class="agg-sub">Open findings</div></div>`;
   })();
@@ -4430,7 +4430,7 @@ async function viewSocialMonitor(el) {
     if (tcEl) tcEl.textContent = brands.length;
 
     if (!brands.length) {
-      content.innerHTML = `<div class="empty-state"><div class="message">No brands monitored yet<br><span style="font-size:11px;color:var(--text-tertiary)">Add your first brand to start monitoring social platforms</span></div><button class="btn-monitor" onclick="_socialSubTab='add';document.querySelectorAll('#social-tabs .sub-tab').forEach(t=>t.classList.remove('active'));document.querySelector('#social-tabs .sub-tab[data-tab=add]').classList.add('active');_renderAddBrandForm()">+ Add First Brand</button></div>`;
+      content.innerHTML = `<div class="empty-state"><div class="message">No brands monitored yet<br><span class="text-tertiary" style="font-size:11px">Add your first brand to start monitoring social platforms</span></div><button class="btn-monitor" onclick="_socialSubTab='add';document.querySelectorAll('#social-tabs .sub-tab').forEach(t=>t.classList.remove('active'));document.querySelector('#social-tabs .sub-tab[data-tab=add]').classList.add('active');_renderAddBrandForm()">+ Add First Brand</button></div>`;
       return;
     }
 
@@ -4449,11 +4449,11 @@ async function viewSocialMonitor(el) {
           <div class="social-platform-grid">${_renderPlatformStatusPills(b)}</div>
         </div>
         <div class="brand-card-footer">
-          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">Last scan: ${b.last_full_scan ? timeAgo(b.last_full_scan) : 'Never'}</span>
+          <span class="data-label">Last scan: ${b.last_full_scan ? timeAgo(b.last_full_scan) : 'Never'}</span>
           <div style="display:flex;gap:6px;align-items:center">
             ${(b.monitoring?.open_critical || 0) > 0 ? `<span class="type-pill phishing">${b.monitoring.open_critical} critical</span>` : ''}
             ${(b.monitoring?.open_high || 0) > 0 ? `<span class="type-pill typosquat">${b.monitoring.open_high} high</span>` : ''}
-            ${!(b.monitoring?.open_critical) && !(b.monitoring?.open_high) ? `<span style="color:var(--positive);font-size:11px">✓ Clear</span>` : ''}
+            ${!(b.monitoring?.open_critical) && !(b.monitoring?.open_high) ? `<span class="text-positive" style="font-size:11px">✓ Clear</span>` : ''}
             <button class="btn-monitor" style="font-size:10px;padding:3px 8px" onclick="triggerSocialScan('${brandId}','${brandName.replace(/'/g, "\\'")}',event)">↻ Scan</button>
           </div>
         </div>
@@ -4499,7 +4499,7 @@ async function viewSocialMonitor(el) {
             <td style="font-size:12px">${a.brand_name || '-'}</td>
             <td><span class="sev ${(a.severity || '').toLowerCase()}">${a.severity || '-'}</span></td>
             <td style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${scoreColor}">${score}%</td>
-            <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.created_at ? timeAgo(a.created_at) : '-'}</td>
+            <td class="data-label">${a.created_at ? timeAgo(a.created_at) : '-'}</td>
             <td><span class="status-badge-sm ${a.status || 'open'}">${a.status || 'open'}</span></td>
             <td>
               ${a.suspicious_account_url ? `<a href="${a.suspicious_account_url}" target="_blank" rel="noopener" class="adm-action-btn" style="font-size:10px">View Profile</a>` : ''}
@@ -4526,10 +4526,10 @@ async function viewSocialMonitor(el) {
     if (!content) return;
     content.innerHTML = `<div style="max-width:560px">
       <div style="font-family:var(--font-display);font-size:14px;font-weight:700;margin-bottom:4px;letter-spacing:.5px">Add Brand Profile</div>
-      <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:20px">Add your brand to start monitoring impersonation across 6 platforms.</div>
+      <div class="text-tertiary" style="font-size:12px;margin-bottom:20px">Add your brand to start monitoring impersonation across 6 platforms.</div>
       <div class="form-group"><label class="form-label">Brand Name</label><input class="form-input" id="social-add-name" placeholder="Acme Corporation"></div>
       <div class="form-group"><label class="form-label">Domain</label><input class="form-input" id="social-add-domain" placeholder="acmecorp.com"></div>
-      <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-secondary);margin:16px 0 8px">OFFICIAL HANDLES (optional)</div>
+      <div class="text-secondary" style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.5px;margin:16px 0 8px">OFFICIAL HANDLES (optional)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
         ${['twitter','instagram','linkedin','tiktok','youtube','github'].map(p =>
           `<div class="form-group" style="margin:0"><label class="form-label" style="font-size:10px;text-transform:capitalize">${p}</label><input class="form-input" id="social-handle-${p}" placeholder="handle (without @)" style="font-family:var(--font-mono);font-size:12px"></div>`
@@ -4539,7 +4539,7 @@ async function viewSocialMonitor(el) {
         <button class="btn-monitor" id="social-add-submit">+ Start Monitoring</button>
         <button class="filter-pill" id="social-add-cancel">Cancel</button>
       </div>
-      <div id="social-add-error" style="display:none;color:var(--negative);font-size:12px;margin-top:8px"></div>
+      <div id="social-add-error" class="text-negative" style="display:none;font-size:12px;margin-top:8px"></div>
     </div>`;
 
     document.getElementById('social-add-submit')?.addEventListener('click', async () => {
@@ -4616,7 +4616,7 @@ async function viewSocialMonitor(el) {
 
 async function viewProvidersHub(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Infrastructure Intelligence</div>
+    <div class="page-title" style="margin-bottom:16px">Infrastructure Intelligence</div>
     <div class="agg-stats" id="prov-agg"></div>
     <div class="sub-tabs" id="prov-tabs">
       <button class="sub-tab active" data-tab="worst">Worst Actors<span class="tab-count" id="tc-worst">--</span></button>
@@ -4632,9 +4632,9 @@ async function viewProvidersHub(el) {
   api('/providers/stats').then(res => {
     const s = res?.data || {};
     document.getElementById('prov-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.total_tracked || 0}</div><div class="agg-lbl">Providers tracked</div><div class="agg-sub">Across all feeds</div></div>
+      <div class="agg-card"><div class="agg-val text-blue">${s.total_tracked || 0}</div><div class="agg-lbl">Providers tracked</div><div class="agg-sub">Across all feeds</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-critical)">${s.worst_this_week_name || s.worst_this_week || '-'}</div><div class="agg-lbl">Worst this week</div><div class="agg-sub">${s.worst_this_week_threats || ''} active threats</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.most_improved_name || s.most_improved || '-'}</div><div class="agg-lbl">Most improved</div><div class="agg-sub">${s.most_improved_pct || ''}% this week</div></div>
+      <div class="agg-card"><div class="agg-val text-positive">${s.most_improved_name || s.most_improved || '-'}</div><div class="agg-lbl">Most improved</div><div class="agg-sub">${s.most_improved_pct || ''}% this week</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.avg_response_time || '-'}</div><div class="agg-lbl">Avg response time</div><div class="agg-sub">Across all providers</div></div>`;
   }).catch(() => {});
 
@@ -4688,13 +4688,13 @@ async function viewProvidersHub(el) {
         const respHrs = p.avg_response_time_hours ?? p.response_hrs;
         html += `<tr data-id="${p.provider_id || p.id || p.name}">
           <td style="font-weight:500">${flag} ${p.name}</td>
-          <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${p.asn || ''}</td>
+          <td class="data-label">${p.asn || ''}</td>
           <td>${p.country_code || p.country || ''}</td>
           <td><span style="font-family:var(--font-display);font-weight:700;font-size:14px;color:${tc}">${threats}</span></td>
           <td><span class="trend-pct ${t7 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t7 >= 0 ? '+' : ''}${t7}%</span></td>
           <td><span class="trend-pct ${t30 >= 0 ? 'up' : 'down'}" style="font-size:11px">${t30 >= 0 ? '+' : ''}${t30}%</span></td>
           <td><span style="font-family:var(--font-mono);font-size:11px;color:${rc}">${rep}/100</span></td>
-          <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${respHrs != null ? respHrs + 'h' : '\u2014'}</td>
+          <td class="data-label">${respHrs != null ? respHrs + 'h' : '\u2014'}</td>
         </tr>`;
       });
       html += '</tbody></table></div>';
@@ -4790,7 +4790,7 @@ async function viewProviderDetail(el, params) {
             <div class="header-stat"><div class="header-stat-val" style="color:${_tColor(totalThreats)}">${totalThreats}</div><div class="header-stat-label">Active threats</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${t7 >= 0 ? 'var(--threat-medium)' : 'var(--positive)'}">${t7 >= 0 ? '+' : ''}${t7}%</div><div class="header-stat-label">7-day trend</div></div>
             <div class="header-stat"><div class="header-stat-val" style="color:${t30 >= 0 ? 'var(--threat-high)' : 'var(--positive)'}">${t30 >= 0 ? '+' : ''}${t30}%</div><div class="header-stat-label">30-day trend</div></div>
-            <div class="header-stat"><div class="header-stat-val" style="color:var(--text-secondary)">${respHrs != null ? respHrs + 'h' : 'N/A'}</div><div class="header-stat-label">Avg response</div></div>
+            <div class="header-stat"><div class="header-stat-val text-secondary">${respHrs != null ? respHrs + 'h' : 'N/A'}</div><div class="header-stat-label">Avg response</div></div>
           </div>
         </div>
         <div class="rep-ring"><div style="width:72px;height:72px;position:relative"><svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${rc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - repScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg><div class="rep-ring-val" style="color:${rc}">${repScore}</div></div><div class="rep-ring-label" style="color:${rc}">${repLabel}</div></div>
@@ -4805,7 +4805,7 @@ async function viewProviderDetail(el, params) {
               const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
               return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${provColors[i] || provColors[5]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
             }).join('') :
-            '<div class="empty-state"><div class="message">No brand data yet<br><span style="font-size:10px;color:var(--text-tertiary)">Brand links appear after threat-brand matching runs</span></div></div>'
+            '<div class="empty-state"><div class="message">No brand data yet<br><span class="data-label">Brand links appear after threat-brand matching runs</span></div></div>'
           }</div></div>
           <div class="panel"><div class="phead"><span>AI Assessment</span></div><div class="panel-body padded" id="prov-ai-insight"></div></div>
         </div>
@@ -4835,7 +4835,7 @@ async function viewProviderDetail(el, params) {
       let html = `<div class="phead"><span>Threats Hosted</span><span class="badge">${totalThreats} total</span></div>`;
       html += `<div class="prov-threats-controls"><div class="prov-tfilter" id="prov-threat-filter">
         ${threatTypes.map(t => `<button class="prov-fp ${t === activeFilter ? 'active' : ''}" data-type="${t}">${t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join('')}
-      </div><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${filtered.length > 0 ? (start + 1) + '\u2013' + Math.min(start + _provThreatsPerPage, filtered.length) + ' of ' + filtered.length : '0'}</span></div>`;
+      </div><span class="data-label">${filtered.length > 0 ? (start + 1) + '\u2013' + Math.min(start + _provThreatsPerPage, filtered.length) + ' of ' + filtered.length : '0'}</span></div>`;
 
       if (!pageThreats.length) {
         html += '<div class="empty-state"><div class="message">No threats matching filter</div></div>';
@@ -4852,8 +4852,8 @@ async function viewProviderDetail(el, params) {
           html += `<tr>
             <td><div class="td-url">${url}</div></td>
             <td><span class="type-pill ${type}">${type}</span></td>
-            <td style="font-size:11px;color:var(--text-secondary)">${brand}</td>
-            <td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${date}</span></td>
+            <td class="text-secondary" style="font-size:11px">${brand}</td>
+            <td><span class="data-label">${date}</span></td>
             <td><span class="status-badge-sm ${statusClass}">${status}</span></td>
             <td><span class="ev-icon ${hasEv ? 'captured' : ''}">${hasEv ? '\u25c9' : '\u25cb'}</span></td>
           </tr>`;
@@ -4914,7 +4914,7 @@ async function viewProviderDetail(el, params) {
           const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5 }).addTo(_provDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
-            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text-secondary)">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
             .addTo(_provDetailMap);
         });
         _provDetailMap.fitBounds(L.latLngBounds(locations.map(l => [l.lat, l.lng])), { padding: [20, 20], maxZoom: 5 });
@@ -4985,7 +4985,7 @@ function _campSpark(data, color) {
 
 async function viewCampaignsHub(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Campaign Intelligence</div>
+    <div class="page-title" style="margin-bottom:16px">Campaign Intelligence</div>
     <div class="agg-stats" id="camp-agg"></div>
     <div class="sub-tabs" id="camp-tabs">
       <button class="sub-tab active" data-tab="active">Active<span class="tab-count" id="tc-active">--</span></button>
@@ -4998,10 +4998,10 @@ async function viewCampaignsHub(el) {
   api('/campaigns/stats').then(res => {
     const s = res?.data || {};
     document.getElementById('camp-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--negative)">${s.active_count || 0}</div><div class="agg-lbl">Active campaigns</div><div class="agg-sub">${s.active_threats || ''} associated threats</div></div>
+      <div class="agg-card"><div class="agg-val text-negative">${s.active_count || 0}</div><div class="agg-lbl">Active campaigns</div><div class="agg-sub">${s.active_threats || ''} associated threats</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--threat-medium)">${s.dormant_count || 0}</div><div class="agg-lbl">Dormant</div><div class="agg-sub">No activity 7+ days</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${s.disrupted_count || 0}</div><div class="agg-lbl">Disrupted</div><div class="agg-sub">All threats remediated</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${s.brands_affected || 0}</div><div class="agg-lbl">Brands affected</div><div class="agg-sub">Across all campaigns</div></div>`;
+      <div class="agg-card"><div class="agg-val text-positive">${s.disrupted_count || 0}</div><div class="agg-lbl">Disrupted</div><div class="agg-sub">All threats remediated</div></div>
+      <div class="agg-card"><div class="agg-val text-blue">${s.brands_affected || 0}</div><div class="agg-lbl">Brands affected</div><div class="agg-sub">Across all campaigns</div></div>`;
     if (document.getElementById('tc-active')) document.getElementById('tc-active').textContent = s.active_count || 0;
     if (document.getElementById('tc-dormant')) document.getElementById('tc-dormant').textContent = s.dormant_count || 0;
     if (document.getElementById('tc-disrupted')) document.getElementById('tc-disrupted').textContent = s.disrupted_count || 0;
@@ -5027,7 +5027,7 @@ async function viewCampaignsHub(el) {
       const sparkData = c.sparkline || c.spark || [];
       const brandIcons = brandNames.slice(0, 3).map(b =>
         `<div class="brand-ico">${_brandInitials(b)}</div>`
-      ).join('') + (brandCount > 3 ? `<div class="brand-ico" style="color:var(--text-tertiary)">+${brandCount - 3}</div>` : '');
+      ).join('') + (brandCount > 3 ? `<div class="brand-ico text-tertiary">+${brandCount - 3}</div>` : '');
       return `<a href="/campaigns/${c.id || c.campaign_id}" class="campaign-card">
         <div class="campaign-card-top">
           <div class="campaign-name">${c.name}</div>
@@ -5037,9 +5037,9 @@ async function viewCampaignsHub(el) {
         ${c.description ? `<div class="campaign-desc">${c.description}</div>` : ''}
         <div class="campaign-metrics">
           <div class="campaign-metric"><div class="campaign-metric-val" style="color:${sc}">${c.threat_count || 0}</div><div class="campaign-metric-label">Threats</div></div>
-          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--blue-primary)">${brandCount}</div><div class="campaign-metric-label">Brands</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val text-blue">${brandCount}</div><div class="campaign-metric-label">Brands</div></div>
           <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--threat-medium)">${provCount}</div><div class="campaign-metric-label">Providers</div></div>
-          <div class="campaign-metric"><div class="campaign-metric-val" style="color:var(--text-secondary)">${domainCount}</div><div class="campaign-metric-label">Domains</div></div>
+          <div class="campaign-metric"><div class="campaign-metric-val text-secondary">${domainCount}</div><div class="campaign-metric-label">Domains</div></div>
         </div>
         <div class="campaign-card-footer">
           <div class="brand-icons">${brandIcons}</div>
@@ -5319,11 +5319,11 @@ async function viewCampaignDetail(el, params) {
         <div class="camp-sub">First seen: ${c.first_seen ? c.first_seen.slice(0, 10) : '-'} \u2014 Last activity: ${c.last_seen ? c.last_seen.slice(0, 10) : 'present'}</div>
         <div class="camp-stats">
           <div class="camp-stat"><div class="camp-stat-val" style="color:${sc}">${c.threat_count || 0}</div><div class="camp-stat-label">Total threats</div></div>
-          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--blue-primary)">${brands.length || c.brand_count || 0}</div><div class="camp-stat-label">Brands targeted</div></div>
+          <div class="camp-stat"><div class="camp-stat-val text-blue">${brands.length || c.brand_count || 0}</div><div class="camp-stat-label">Brands targeted</div></div>
           <div class="camp-stat"><div class="camp-stat-val" style="color:var(--threat-medium)">${provCount}</div><div class="camp-stat-label">Hosting providers</div></div>
-          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${domainCount}</div><div class="camp-stat-label">Domains</div></div>
-          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${ipCount}</div><div class="camp-stat-label">Unique IPs</div></div>
-          <div class="camp-stat"><div class="camp-stat-val" style="color:var(--text-secondary)">${regCount}</div><div class="camp-stat-label">Registrars</div></div>
+          <div class="camp-stat"><div class="camp-stat-val text-secondary">${domainCount}</div><div class="camp-stat-label">Domains</div></div>
+          <div class="camp-stat"><div class="camp-stat-val text-secondary">${ipCount}</div><div class="camp-stat-label">Unique IPs</div></div>
+          <div class="camp-stat"><div class="camp-stat-val text-secondary">${regCount}</div><div class="camp-stat-label">Registrars</div></div>
         </div>
       </div>
 
@@ -5356,11 +5356,11 @@ async function viewCampaignDetail(el, params) {
       return `<tr>
               <td><div class="td-url">${url}</div></td>
               <td><span class="type-pill ${type}">${type}</span></td>
-              <td style="font-size:11px;color:var(--text-secondary)">${brand}</td>
-              <td style="font-size:11px;color:var(--text-tertiary)">${prov}</td>
+              <td class="text-secondary" style="font-size:11px">${brand}</td>
+              <td class="text-tertiary" style="font-size:11px">${prov}</td>
               <td><span class="status-badge-sm ${status}">${status}</span></td>
             </tr>`;
-    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px">No threats</td></tr>'}
+    }).join('') || '<tr><td colspan="5" class="text-tertiary" style="text-align:center;padding:24px">No threats</td></tr>'}
           </tbody></table>
         </div>
         <div style="display:flex;flex-direction:column;gap:16px">
@@ -5370,7 +5370,7 @@ async function viewCampaignDetail(el, params) {
         const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
         return `<div class="pbar-row"><span class="pbar-lbl">${b.name || b.brand_name}</span><div class="pbar-trk"><div class="pbar-fill" style="width:${pct}%;background:${brandColors[i] || brandColors[4]}"></div></div><span class="pbar-ct">${cnt}</span></div>`;
       }).join('') :
-      '<div class="empty-state"><div class="message">No brands linked yet<br><span style="font-size:10px;color:var(--text-tertiary)">Brands appear after threat-brand matching</span></div></div>'
+      '<div class="empty-state"><div class="message">No brands linked yet<br><span class="data-label">Brands appear after threat-brand matching</span></div></div>'
     }</div></div>
           <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Stats</span></div><div class="padded">
             <div class="infra-stat"><span class="infra-stat-label">TLD Distribution</span><span class="infra-stat-val">${Object.entries(tldDist).map(([t, v]) => `${t}: ${v}`).join(', ') || '\u2014'}</span></div>
@@ -5483,7 +5483,7 @@ function aggregateByField(rows, field, countField) {
 
 async function viewTrends(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Trend Explorer</div>
+    <div class="page-title" style="margin-bottom:16px">Trend Explorer</div>
     <div class="insights-row" id="trend-insights"></div>
     <div class="trend-controls" id="trend-controls">
       <div class="ctrl-group">
@@ -5501,7 +5501,7 @@ async function viewTrends(el) {
       </div>
       <div class="ctrl-divider"></div>
       <div class="compare-toggle">
-        <span style="font-size:10px;color:var(--text-secondary)">Compare</span>
+        <span class="text-secondary" style="font-size:10px">Compare</span>
         <div class="toggle-switch" id="compare-toggle"><div class="toggle-dot"></div></div>
       </div>
     </div>
@@ -5695,7 +5695,7 @@ function timeAgo(dateStr) {
 
 async function viewAgents(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">AI Agent Operations</div>
+    <div class="page-title" style="margin-bottom:16px">AI Agent Operations</div>
     <div class="agg-stats" id="agents-agg"></div>
     <div class="agent-grid" id="agent-grid"></div>
     <div class="agent-detail-panel" id="agent-detail"></div>
@@ -5721,8 +5721,8 @@ async function viewAgents(el) {
     const activeCount = agents.filter(isOperational).length;
 
     document.getElementById('agents-agg').innerHTML = `
-      <div class="agg-card"><div class="agg-val" style="color:var(--positive)">${activeCount}/${agents.length}</div><div class="agg-lbl">Agents operational</div><div class="agg-sub">${agents.filter(a => !isOperational(a)).length} idle</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--blue-primary)">${totalJobs}</div><div class="agg-lbl">Jobs (24h)</div><div class="agg-sub">Analysis runs completed</div></div>
+      <div class="agg-card"><div class="agg-val text-positive">${activeCount}/${agents.length}</div><div class="agg-lbl">Agents operational</div><div class="agg-sub">${agents.filter(a => !isOperational(a)).length} idle</div></div>
+      <div class="agg-card"><div class="agg-val text-blue">${totalJobs}</div><div class="agg-lbl">Jobs (24h)</div><div class="agg-sub">Analysis runs completed</div></div>
       <div class="agg-card"><div class="agg-val" style="color:var(--text-accent)">${totalOutputs}</div><div class="agg-lbl">Outputs (24h)</div><div class="agg-sub">Insights + classifications</div></div>
       <div class="agg-card"><div class="agg-val" style="color:${totalErrors > 0 ? 'var(--negative)' : 'var(--positive)'}">${totalErrors}</div><div class="agg-lbl">Errors (24h)</div><div class="agg-sub">${totalErrors === 0 ? 'All systems nominal' : 'Attention needed'}</div></div>`;
 
@@ -5802,7 +5802,7 @@ async function viewAgents(el) {
           { agent: 'strategist', label: 'Tranco', value: `${trancoCount.toLocaleString()} brands \u00b7 daily`, count: 0 },
         ];
         stripEl.innerHTML = `
-          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Pipeline Automation</div>
+          <div class="text-secondary" style="font-family:var(--font-display);font-size:14px;font-weight:700;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Pipeline Automation</div>
           <div id="adm-automation-status">${pills.map(p => {
             const meta = AGENT_META[p.agent] || { color: '#22d3ee' };
             return `<div class="auto-pill" data-pipeline="${p.agent}">
@@ -5858,7 +5858,7 @@ async function viewAgents(el) {
           <div class="dh-info">
             <div class="dh-name">${meta.label || agent?.display_name || agentId} <span class="status-label ${agent?.status || 'idle'}">${agent?.status || 'idle'}</span></div>
             <div class="dh-desc">${agent?.description || meta.role}</div>
-            ${latestSummary ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Last: ${latestSummary}${latestOutput?.created_at ? ' · ' + timeAgo(latestOutput.created_at) : ''}</div>` : ''}
+            ${latestSummary ? `<div class="data-label" style="margin-top:2px">Last: ${latestSummary}${latestOutput?.created_at ? ' · ' + timeAgo(latestOutput.created_at) : ''}</div>` : ''}
             ${agentId === 'strategist' && correlations > 0 ? `<div style="font-size:10px;color:#F472B6;margin-top:2px">${correlations} correlation${correlations > 1 ? 's' : ''} detected</div>` : ''}
             ${agentId === 'observer' && weeklyIntel ? `<div style="font-size:10px;color:#FBBF24;margin-top:2px">Weekly intel report available</div>` : ''}
           </div>
@@ -5944,7 +5944,7 @@ async function scanBrand(brandId) {
 
 async function viewAdmin(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
+    <div class="page-title" style="margin-bottom:16px">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
       <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><line x1="18" y1="4" x2="18" y2="10"/><line x1="15" y1="7" x2="21" y2="7"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
@@ -5966,13 +5966,13 @@ async function viewAdmin(el) {
         <div class="adm-padded" id="adm-es-grades"></div>
         <div class="adm-padded" style="margin-top:8px">
           <button class="filter-pill" style="font-size:11px" id="adm-scan-all-email">Scan All Brands</button>
-          <span id="adm-scan-all-status" style="font-size:11px;color:var(--text-tertiary);margin-left:8px"></span>
+          <span id="adm-scan-all-status" class="text-tertiary" style="font-size:11px;margin-left:8px"></span>
         </div>
       </div>
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">AI Agent Health</div><div class="adm-pbadge" id="adm-agent-badge">-</div></div><div class="adm-padded" id="adm-agent-summary"></div></div>
     </div>
     <div class="adm-grid-2">
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Lead Pipeline</div><div class="adm-pbadge" id="adm-pipe-badge">-</div></div><div class="adm-padded"><div class="adm-pipeline" id="adm-pipeline"></div><div id="adm-pipe-meta" class="text-tertiary" style="font-size:11px;margin-top:8px"></div></div></div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Worst Email Security</div><div class="adm-pbadge" id="adm-es-worst-badge">-</div></div>
         <div style="padding:8px 12px;display:flex;gap:4px;border-bottom:1px solid var(--blue-border)" id="adm-es-grade-tabs"></div>
@@ -5982,7 +5982,7 @@ async function viewAdmin(el) {
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Feed Ingestion (24h)</div><div class="adm-pbadge" id="adm-feed-badge">Loading</div></div><div class="adm-chart-wrap"><canvas id="adm-feed-chart"></canvas></div><div class="adm-padded" id="adm-feed-list"></div></div>
-      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div style="display:flex;justify-content:flex-end;padding:4px 8px"><button id="adm-events-noise-toggle" style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--blue-border);background:transparent;color:var(--text-tertiary);cursor:pointer">Show all</button></div><div id="adm-events" style="max-height:400px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
+      <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent System Events</div><div class="adm-pbadge" id="adm-events-badge">-</div></div><div style="display:flex;justify-content:flex-end;padding:4px 8px"><button id="adm-events-noise-toggle" class="text-tertiary" style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--blue-border);background:transparent;cursor:pointer">Show all</button></div><div id="adm-events" style="max-height:400px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-elevated) transparent"></div></div>
     </div>`;
 
   try {
@@ -6021,10 +6021,10 @@ async function viewAdmin(el) {
     const agentErrors = agents.reduce((s, a) => s + (a.error_count_24h || 0), 0);
 
     document.getElementById('adm-metrics').innerHTML = `
-      <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value" style="color:var(--blue-primary)">${userTotal}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value" style="color:var(--positive)">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${healthyFeeds} healthy</span>${degradedFeeds?`<span style="color:var(--threat-medium)">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span style="color:var(--negative)">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value" style="color:var(--threat-medium)">${leadTotal}</div><div class="adm-metric-sub"><span style="color:var(--negative)">${leadNew} new</span><span style="color:var(--positive)">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span style="color:var(--positive)">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
+      <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value text-blue">${userTotal}</div><div class="adm-metric-sub"><span class="text-positive">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value text-positive">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span class="text-positive">${healthyFeeds} healthy</span>${degradedFeeds?`<span style="color:var(--threat-medium)">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span class="text-negative">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value" style="color:var(--threat-medium)">${leadTotal}</div><div class="adm-metric-sub"><span class="text-negative">${leadNew} new</span><span class="text-positive">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
+      <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span class="text-positive">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
 
     // Feed ingestion chart
     const feedBadgeEl = document.getElementById('adm-feed-badge');
@@ -6047,7 +6047,7 @@ async function viewAdmin(el) {
       });
       const hasData = feedDatasets.some(ds => ds.data.some(v => v > 0));
       if (!hasData) {
-        document.getElementById('adm-feed-chart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">No ingestion data in last 24h \u2014 trigger a feed pull</div>';
+        document.getElementById('adm-feed-chart').parentElement.innerHTML = '<div class="text-tertiary" style="display:flex;align-items:center;justify-content:center;height:200px;font-size:12px;font-family:var(--font-mono)">No ingestion data in last 24h \u2014 trigger a feed pull</div>';
       } else {
         _adminFeedChart = new Chart(document.getElementById('adm-feed-chart'), {
           type: 'line', data: { labels: feedLabels, datasets: feedDatasets },
@@ -6087,9 +6087,9 @@ async function viewAdmin(el) {
       document.getElementById('adm-events').innerHTML = groups.map(g => {
         const e = g.event;
         const ev = evIcons[e.action] || evIcons.login;
-        const countBadge = g.count > 1 ? `<span style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px;margin-left:4px">\u00d7${g.count}</span>` : '';
+        const countBadge = g.count > 1 ? `<span class="text-blue" style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);padding:1px 5px;border-radius:3px;margin-left:4px">\u00d7${g.count}</span>` : '';
         return `<div class="adm-event-row"><div class="adm-ev-icon ${ev.cls}">${ev.icon}</div><div class="adm-ev-body"><div class="adm-ev-text">${e.summary || e.action || ''} <strong>${e.resource_type || ''}</strong>${countBadge}</div><div class="adm-ev-time">${e.timestamp ? relativeTime(Math.round((Date.now() - new Date(e.timestamp).getTime()) / 60000)) : ''}</div></div><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></div>`;
-      }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No recent events</div>';
+      }).join('') || '<div class="empty">No recent events</div>';
     }
     renderEvents();
     document.getElementById('adm-events-noise-toggle')?.addEventListener('click', () => { _evHideNoise = !_evHideNoise; renderEvents(); });
@@ -6105,7 +6105,7 @@ async function viewAdmin(el) {
     const pipeBadge = document.getElementById('adm-pipe-badge');
     if (pipeBadge) pipeBadge.textContent = `${leads.length} total`;
     document.getElementById('adm-pipeline').innerHTML = pipeStages.map(s => `<div class="adm-pipe-stage"><div class="adm-pipe-v" style="color:${s.color}">${s.count}</div><div class="adm-pipe-l">${s.label}</div></div>`).join('');
-    document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span style="font-family:var(--font-mono);color:var(--text-secondary)">--</span> \u00b7 Conversion rate: <span style="font-family:var(--font-mono);color:var(--positive)">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
+    document.getElementById('adm-pipe-meta').innerHTML = `Avg time to contact: <span class="text-secondary" style="font-family:var(--font-mono)">--</span> \u00b7 Conversion rate: <span class="text-positive" style="font-family:var(--font-mono)">${leads.length > 0 ? Math.round(leadConverted / leads.length * 100) : 0}%</span>`;
 
     // Agent summary with backlog stats
     const agentBadge = document.getElementById('adm-agent-badge');
@@ -6128,8 +6128,8 @@ async function viewAdmin(el) {
       const bl = backlogMap[a.name] || backlogMap[aid];
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
-    }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
+    }).join('') || '<div class="text-tertiary" style="padding:12px;text-align:center">No agents configured</div>';
 
     // Email Security stats
     const esData = emailStatsRes?.data;
@@ -6142,19 +6142,19 @@ async function viewAdmin(el) {
       if (gradesEl && esData.grade_distribution?.length) {
         const total = esData.grade_distribution.reduce((s, g) => s + g.count, 0) || 1;
         gradesEl.innerHTML = `
-          <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
+          <div class="text-tertiary" style="font-size:11px;margin-bottom:8px">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
           <div style="display:flex;gap:6px;margin-bottom:10px">
             ${esData.grade_distribution.map(g => {
               const pct = Math.round(g.count / total * 100);
               return `<div style="text-align:center;flex:1">
                 <div style="font-family:var(--font-mono);font-weight:700;color:${gradeColors[g.grade]||'#666'};font-size:14px">${g.count}</div>
                 <div style="height:4px;background:${gradeColors[g.grade]||'#666'};border-radius:2px;margin:3px 0;opacity:.7"></div>
-                <div style="font-size:10px;color:var(--text-tertiary)">${g.grade}</div>
+                <div class="data-label">${g.grade}</div>
               </div>`;
             }).join('')}
           </div>`;
       } else if (gradesEl) {
-        gradesEl.innerHTML = '<div style="font-size:11px;color:var(--text-tertiary)">No email security scans yet. Click "Scan All Brands" to start.</div>';
+        gradesEl.innerHTML = '<div class="text-tertiary" style="font-size:11px">No email security scans yet. Click "Scan All Brands" to start.</div>';
       }
 
       const worstEl = document.getElementById('adm-es-worst');
@@ -6192,16 +6192,16 @@ async function viewAdmin(el) {
             return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(200,60,60,.04)">
               <span style="font-family:var(--font-mono);font-size:10px;background:${gc};color:#000;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0">${b.email_security_grade}</span>
               <span style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${b.canonical_domain || ''}">${b.name}</span>
-              ${atRisk ? '<span style="font-family:var(--font-mono);font-size:8px;background:rgba(255,59,92,.2);color:var(--negative);padding:1px 4px;border-radius:2px;font-weight:600;flex-shrink:0">AT RISK</span>' : ''}
+              ${atRisk ? '<span class="text-negative" style="font-family:var(--font-mono);font-size:8px;background:rgba(255,59,92,.2);padding:1px 4px;border-radius:2px;font-weight:600;flex-shrink:0">AT RISK</span>' : ''}
               <span style="font-family:var(--font-mono);font-size:10px;color:${gc};flex-shrink:0">${b.email_security_score}</span>
-              <button onclick="event.stopPropagation();scanBrand('${b.id}')" style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--blue-border);background:transparent;color:var(--text-secondary);cursor:pointer;flex-shrink:0">Scan</button>
+              <button onclick="event.stopPropagation();scanBrand('${b.id}')" class="text-secondary" style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--blue-border);background:transparent;cursor:pointer;flex-shrink:0">Scan</button>
             </div>`;
-          }).join('') || '<div style="padding:12px;font-size:11px;color:var(--text-tertiary)">No brands for this grade</div>';
+          }).join('') || '<div class="text-tertiary" style="padding:12px;font-size:11px">No brands for this grade</div>';
         }
 
         // CSV export
         if (footerEl) {
-          footerEl.innerHTML = '<a href="#" id="adm-es-export-csv" style="font-size:10px;color:var(--blue-primary);text-decoration:none;font-family:var(--font-mono)">Export CSV</a>';
+          footerEl.innerHTML = '<a href="#" id="adm-es-export-csv" class="text-blue" style="font-size:10px;text-decoration:none;font-family:var(--font-mono)">Export CSV</a>';
           document.getElementById('adm-es-export-csv')?.addEventListener('click', (e) => {
             e.preventDefault();
             const csv = 'Grade,Name,Domain,Score,Active Threats\n' + worstBrands.map(b =>
@@ -6217,7 +6217,7 @@ async function viewAdmin(el) {
         renderWorstTabs();
         renderWorstList();
       } else if (worstEl) {
-        worstEl.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--text-tertiary)">No scan data yet</div>';
+        worstEl.innerHTML = '<div class="text-tertiary" style="padding:12px;font-size:11px">No scan data yet</div>';
         if (tabsEl) tabsEl.style.display = 'none';
         if (footerEl) footerEl.style.display = 'none';
       }
@@ -6487,12 +6487,12 @@ async function viewAdminUsers(el) {
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Users & Roles</div>
+      <div class="page-title">Users & Roles</div>
       <button class="adm-btn adm-btn-primary" id="adm-invite-btn"><span style="font-size:14px">+</span> Invite User</button>
     </div>
     <div class="adm-page-tabs">
-      <div class="adm-ptab active" data-tab="users">Active Users<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)" id="user-count">-</span></div>
-      <div class="adm-ptab" data-tab="invites">Pending Invitations<span style="font-family:var(--font-mono);font-size:9px;margin-left:6px;color:var(--text-tertiary)" id="inv-count">-</span></div>
+      <div class="adm-ptab active" data-tab="users">Active Users<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:6px" id="user-count">-</span></div>
+      <div class="adm-ptab" data-tab="invites">Pending Invitations<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:6px" id="inv-count">-</span></div>
     </div>
     <div class="adm-ptab-c visible" id="tab-users">
       <div class="adm-controls">
@@ -6500,9 +6500,9 @@ async function viewAdminUsers(el) {
         <select class="adm-sel" id="adm-role-filter"><option value="">All Roles</option><option value="super_admin">Super Admin</option><option value="admin">Admin</option><option value="analyst">Analyst</option></select>
         <select class="adm-sel" id="adm-status-filter"><option value="">All Status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
       </div>
-      <div class="adm-panel" id="users-table-wrap"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+      <div class="adm-panel" id="users-table-wrap"><div class="empty">Loading...</div></div>
     </div>
-    <div class="adm-ptab-c" id="tab-invites"><div id="inv-list"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div></div>
+    <div class="adm-ptab-c" id="tab-invites"><div id="inv-list"><div class="empty">Loading...</div></div></div>
     <div class="adm-modal-ov" id="adm-inv-modal">
       <div class="adm-modal">
         <div class="adm-modal-t">Invite User</div>
@@ -6518,11 +6518,11 @@ async function viewAdminUsers(el) {
   let allInvites = [];
 
   function renderUsersTable(users) {
-    if (!users.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No users found</div>';
+    if (!users.length) return '<div class="empty">No users found</div>';
     return `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Last Active</th><th>Actions</th></tr></thead><tbody>${users.map(u => {
       const roleColors = { super_admin: 'var(--threat-medium)', admin: 'var(--purple)', analyst: 'var(--blue-primary)' };
       const c = roleColors[u.role] || 'var(--blue-primary)';
-      return `<tr data-uid="${u.id}"><td><div class="adm-user-cell"><div class="adm-avatar" style="color:${c}">${ini(u.name)}</div><div><div class="adm-user-name">${u.name}</div><div class="adm-user-email">${u.email}</div></div></div></td><td><span class="adm-role-pill ${u.role}">${(u.role || '').replace('_', ' ')}</span></td><td><span class="adm-status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${u.last_active_at ? relativeTime(Math.round((Date.now() - new Date(u.last_active_at).getTime()) / 60000)) : '-'}</td><td><button class="adm-action-btn" onclick="event.stopPropagation()">Details</button></td></tr>`;
+      return `<tr data-uid="${u.id}"><td><div class="adm-user-cell"><div class="adm-avatar" style="color:${c}">${ini(u.name)}</div><div><div class="adm-user-name">${u.name}</div><div class="adm-user-email">${u.email}</div></div></div></td><td><span class="adm-role-pill ${u.role}">${(u.role || '').replace('_', ' ')}</span></td><td><span class="adm-status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td><td class="data-label">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</td><td class="data-label">${u.last_active_at ? relativeTime(Math.round((Date.now() - new Date(u.last_active_at).getTime()) / 60000)) : '-'}</td><td><button class="adm-action-btn" onclick="event.stopPropagation()">Details</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
 
@@ -6554,7 +6554,7 @@ async function viewAdminUsers(el) {
         <div class="adm-so-row"><span class="adm-so-row-l">Last login</span><span class="adm-so-row-v">${u.last_login ? relativeTime(Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)) : '-'}</span></div>
       </div>
       <div class="adm-so-section"><div class="adm-so-sect-title">Active Sessions (${u.sessions?.length || 0})</div>
-        ${(u.sessions || []).length ? (u.sessions || []).map(s => `<div class="adm-session-row"><div style="width:6px;height:6px;border-radius:50%;background:var(--positive);flex-shrink:0"></div><div class="adm-sess-device">${s.device || 'Unknown'}<br><span class="adm-sess-ip">${s.ip || ''}</span></div><div class="adm-sess-active">${s.active || '-'}</div><button class="adm-revoke-btn">Revoke</button></div>`).join('') : '<div style="font-size:11px;color:var(--text-tertiary);padding:8px 0">No active sessions</div>'}
+        ${(u.sessions || []).length ? (u.sessions || []).map(s => `<div class="adm-session-row"><div style="width:6px;height:6px;border-radius:50%;background:var(--positive);flex-shrink:0"></div><div class="adm-sess-device">${s.device || 'Unknown'}<br><span class="adm-sess-ip">${s.ip || ''}</span></div><div class="adm-sess-active">${s.active || '-'}</div><button class="adm-revoke-btn">Revoke</button></div>`).join('') : '<div class="text-tertiary" style="font-size:11px;padding:8px 0">No active sessions</div>'}
       </div>
       <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -6591,8 +6591,8 @@ async function viewAdminUsers(el) {
         <div class="adm-inv-role"><span class="adm-role-pill ${inv.role || 'analyst'}">${inv.role || 'analyst'}</span></div>
         <div class="adm-inv-sent">Sent ${inv.created_at ? relativeTime(Math.round((Date.now() - new Date(inv.created_at).getTime()) / 60000)) : '-'}</div>
         <div class="adm-inv-status"><span class="adm-status-pill ${inv.status === 'pending' ? 'pending-inv' : 'expired'}">${inv.status || 'pending'}</span></div>
-        <div style="display:flex;gap:4px"><button class="adm-action-btn">Resend</button><button class="adm-action-btn" style="border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke</button></div>
-      </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No pending invitations</div>';
+        <div style="display:flex;gap:4px"><button class="adm-action-btn">Resend</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></div>
+      </div>`).join('') : '<div class="empty">No pending invitations</div>';
   } catch (err) { showToast(err.message, 'error'); }
 
   // Search/filter handlers
@@ -6633,9 +6633,9 @@ async function viewAdminUsers(el) {
 let _feedDetailChart = null;
 async function viewAdminFeeds(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Feed Management</div>
+    <div class="page-title" style="margin-bottom:16px">Feed Management</div>
     <div class="adm-agg" id="adm-feed-agg"></div>
-    <div id="adm-feed-list-view" class="visible"><div class="adm-panel" id="adm-feeds-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div></div>
+    <div id="adm-feed-list-view" class="visible"><div class="adm-panel" id="adm-feeds-table"><div class="empty">Loading...</div></div></div>
     <div id="adm-feed-detail-view"><button class="adm-back-btn" id="adm-feed-back">\u2190 Back to Feeds</button><div id="adm-feed-detail-content"></div></div>`;
 
   let allFeeds = [];
@@ -6671,8 +6671,8 @@ async function viewAdminFeeds(el) {
         </div></div>
       </div>
       <div class="adm-grid-2">
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">${pulls.length ? 'Last ' + pulls.length : 'No pulls'}</div></div><div style="max-height:300px;overflow-y:auto">${pulls.length ? pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count" style="color:var(--text-tertiary)">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('') : '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:12px">No pull history yet</div>'}</div></div>
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div style="text-align:center;padding:24px;color:var(--positive);font-size:12px">No errors recorded</div>'}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">${pulls.length ? 'Last ' + pulls.length : 'No pulls'}</div></div><div style="max-height:300px;overflow-y:auto">${pulls.length ? pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count text-tertiary">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('') : '<div class="text-tertiary" style="text-align:center;padding:24px;font-size:12px">No pull history yet</div>'}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div class="text-positive" style="text-align:center;padding:24px;font-size:12px">No errors recorded</div>'}</div></div>
       </div>`;
 
     // Detail chart — use real pull history data aggregated by day
@@ -6722,15 +6722,15 @@ async function viewAdminFeeds(el) {
     const healthyCount = allFeeds.filter(f => f.health_status === 'healthy' || !f.health_status).length;
 
     document.getElementById('adm-feed-agg').innerHTML = `
-      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--positive)">${healthyCount}/${allFeeds.length}</div><div class="adm-ac-l">Feeds healthy</div></div>
-      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--blue-primary)">${totalToday.toLocaleString()}</div><div class="adm-ac-l">Records today</div></div>
-      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--positive)">0.2%</div><div class="adm-ac-l">Error rate (24h)</div></div>
+      <div class="adm-ac"><div class="adm-ac-v text-positive">${healthyCount}/${allFeeds.length}</div><div class="adm-ac-l">Feeds healthy</div></div>
+      <div class="adm-ac"><div class="adm-ac-v text-blue">${totalToday.toLocaleString()}</div><div class="adm-ac-l">Records today</div></div>
+      <div class="adm-ac"><div class="adm-ac-v text-positive">0.2%</div><div class="adm-ac-l">Error rate (24h)</div></div>
       <div class="adm-ac"><div class="adm-ac-v" style="color:var(--text-primary)">2.0s</div><div class="adm-ac-l">Avg pull latency</div></div>`;
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
-    }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No feeds configured</div>';
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td class="data-label">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty">No feeds configured</div>';
 
     // Row click to detail
     document.querySelectorAll('#adm-feeds-table tr[data-fid]').forEach(tr => {
@@ -6813,7 +6813,7 @@ function leadGradeColor(g) { return { A: 'var(--positive)', B: 'var(--blue-prima
 async function viewAdminLeads(el) {
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Lead Management</div>
+      <div class="page-title">Lead Management</div>
       <div style="display:flex;align-items:center;gap:12px">
         <div class="adm-view-toggle" id="adm-lead-tabs">
           <button class="adm-vt-btn active" data-ltab="scan" style="background:#C83C3C;color:#fff;border:1px solid #C83C3C">Scan Leads</button>
@@ -6853,7 +6853,7 @@ async function viewAdminLeads(el) {
     el.innerHTML = `<div class="adm-panel"><div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Company</th><th>Contact</th><th>Domain</th><th>Score</th><th>Grade</th><th>Status</th><th>Assigned</th><th>Created</th></tr></thead><tbody>${sorted.map(l => {
       const sc = leadScoreColor(l.trust_score || l.score || 0);
       const gc = leadGradeColor(l.trust_grade || l.grade || 'F');
-      return `<tr data-lid="${l.id}"><td style="font-weight:500">${l.company || l.domain || '-'}</td><td style="font-size:11px;color:var(--text-secondary)">${l.contact_name || ''}<br><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary)">${l.email || ''}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${l.assigned_to || 'Unassigned'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
+      return `<tr data-lid="${l.id}"><td style="font-weight:500">${l.company || l.domain || '-'}</td><td class="text-secondary" style="font-size:11px">${l.contact_name || ''}<br><span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px">${l.email || ''}</span></td><td class="data-label">${l.domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.trust_score || l.score || 0}</span></td><td><span class="adm-grade-badge" style="background:${gc}20;color:${gc}">${l.trust_grade || l.grade || '?'}</span></td><td><span class="adm-status-pill ${l.status}">${(l.status || '').replace('_', ' ')}</span></td><td class="text-secondary" style="font-size:11px">${l.assigned_to || 'Unassigned'}</td><td class="data-label">${l.created_at ? relativeTime(Math.round((Date.now() - new Date(l.created_at).getTime()) / 60000)) : '-'}</td></tr>`;
     }).join('')}</tbody></table></div></div>`;
     el.querySelectorAll('tr[data-lid]').forEach(r => r.addEventListener('click', () => openLeadDetail(r.dataset.lid)));
   }
@@ -6875,7 +6875,7 @@ async function viewAdminLeads(el) {
       <div class="adm-so-section"><div class="adm-so-sect-title">Contact</div>
         <div class="adm-so-row"><span class="adm-so-row-l">Company</span><span class="adm-so-row-v" style="font-weight:500;font-family:var(--font-body)">${l.company || '-'}</span></div>
         <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v">${l.contact_name || '-'}</span></div>
-        <div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v" style="color:var(--blue-primary)">${l.email || '-'}</span></div>
+        <div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v text-blue">${l.email || '-'}</span></div>
         <div class="adm-so-row"><span class="adm-so-row-l">Phone</span><span class="adm-so-row-v">${l.phone || '\u2014'}</span></div>
         <div class="adm-so-row"><span class="adm-so-row-l">Domain</span><span class="adm-so-row-v">${l.domain || '-'}</span></div>
       </div>
@@ -6886,7 +6886,7 @@ async function viewAdminLeads(el) {
         <div style="margin-top:12px"><button class="adm-btn-sm" style="width:100%;text-align:center;display:block">View Full Assessment Report</button></div>
       </div>
       <div class="adm-so-section"><div class="adm-so-sect-title">Notes</div>
-        ${notes.map(n => `<div class="adm-note-item"><div class="adm-note-time">${n.created_at || n.time || ''} \u00b7 <span class="adm-note-by">${n.author || n.by || 'System'}</span></div><div class="adm-note-text">${n.text || n.content || ''}</div></div>`).join('') || '<div style="font-size:11px;color:var(--text-tertiary)">No notes yet</div>'}
+        ${notes.map(n => `<div class="adm-note-item"><div class="adm-note-time">${n.created_at || n.time || ''} \u00b7 <span class="adm-note-by">${n.author || n.by || 'System'}</span></div><div class="adm-note-text">${n.text || n.content || ''}</div></div>`).join('') || '<div class="text-tertiary" style="font-size:11px">No notes yet</div>'}
         <textarea class="adm-note-input" placeholder="Add a note..."></textarea>
         <button class="adm-btn-sm">Add Note</button>
       </div>`;
@@ -6922,11 +6922,11 @@ async function viewAdminLeads(el) {
 
     pv.innerHTML = `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-        ${stageData.map(s => `<div style="flex:1;min-width:90px;text-align:center;padding:14px 10px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:800;font-size:28px;color:${s.color}">${s.count}</div><div style="font-size:12px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
+        ${stageData.map(s => `<div style="flex:1;min-width:90px;text-align:center;padding:14px 10px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:800;font-size:28px;color:${s.color}">${s.count}</div><div class="text-tertiary" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
-        <div style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px;color:var(--text-secondary)">Response rate: <span style="font-family:var(--font-mono);font-weight:600;color:var(--blue-primary)">${rr}%</span></div>
-        <div style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px;color:var(--text-secondary)">Conversion rate: <span style="font-family:var(--font-mono);font-weight:600;color:var(--positive)">${cr}%</span></div>
+        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Response rate: <span class="text-blue" style="font-family:var(--font-mono);font-weight:600">${rr}%</span></div>
+        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Conversion rate: <span class="text-positive" style="font-family:var(--font-mono);font-weight:600">${cr}%</span></div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <select class="adm-sel" id="sp-status-filter" style="min-width:120px"><option value="">All Statuses</option>${SALES_STAGES.map(s => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
@@ -6959,8 +6959,8 @@ async function viewAdminLeads(el) {
       const stage = SALES_STAGES.find(s => s.key === l.status) || { label: l.status, color: 'var(--text-tertiary)' };
       const pc = PITCH_COLORS[l.pitch_angle] || 'var(--text-tertiary)';
       const pl = PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-';
-      return `<tr data-slid="${l.id}" style="cursor:pointer"><td style="font-weight:500">${l.company_name || '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td style="font-size:11px">${l.target_name ? `${l.target_name}<br><span style="font-size:9px;color:var(--text-tertiary)">${l.target_title || ''}</span>` : '<span style="color:var(--text-tertiary)">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td style="font-family:var(--font-mono);font-size:11px">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-tertiary);padding:24px">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
+      return `<tr data-slid="${l.id}" style="cursor:pointer"><td style="font-weight:500">${l.company_name || '-'}</td><td class="data-label">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td style="font-size:11px">${l.target_name ? `${l.target_name}<br><span class="text-tertiary" style="font-size:9px">${l.target_title || ''}</span>` : '<span class="text-tertiary">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td style="font-family:var(--font-mono);font-size:11px">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td class="data-label">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="text-tertiary" style="text-align:center;padding:24px">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
     tbody.querySelectorAll('tr[data-slid]').forEach(r => r.addEventListener('click', () => openSalesLeadDetail(r.dataset.slid)));
   }
 
@@ -6998,7 +6998,7 @@ async function viewAdminLeads(el) {
           <div class="adm-so-row"><span class="adm-so-row-l">Name</span><span class="adm-so-row-v" style="font-weight:500">${l.target_name || 'Not found'}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Title</span><span class="adm-so-row-v">${l.target_title || '-'}</span></div>
           ${l.target_linkedin ? `<div class="adm-so-row"><span class="adm-so-row-l">LinkedIn</span><span class="adm-so-row-v"><a href="${l.target_linkedin}" target="_blank" style="font-size:11px">Profile</a></span></div>` : ''}
-          ${l.target_email ? `<div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v" style="font-family:var(--font-mono);font-size:11px;color:var(--blue-primary)">${l.target_email}</span></div>` : ''}
+          ${l.target_email ? `<div class="adm-so-row"><span class="adm-so-row-l">Email</span><span class="adm-so-row-v text-blue" style="font-family:var(--font-mono);font-size:11px">${l.target_email}</span></div>` : ''}
         </div>
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Platform Findings</div>
@@ -7008,29 +7008,29 @@ async function viewAdminLeads(el) {
           <div class="adm-so-row"><span class="adm-so-row-l">Trap Catches</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.trap_catches_30d ?? 0}</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Risk Score</span><span class="adm-so-row-v" style="font-family:var(--font-mono)">${l.composite_risk_score ?? '-'}/100</span></div>
           <div class="adm-so-row"><span class="adm-so-row-l">Pitch Angle</span><span class="adm-so-row-v" style="color:${PITCH_COLORS[l.pitch_angle]||'var(--text-secondary)'}">${PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-'}</span></div>
-          ${l.findings_summary ? `<div style="margin-top:8px;font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border)">${l.findings_summary}</div>` : ''}
+          ${l.findings_summary ? `<div class="text-secondary" style="margin-top:8px;font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border)">${l.findings_summary}</div>` : ''}
         </div>
 
-        ${Object.keys(breakdown).length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Score Breakdown</div>${Object.entries(breakdown).map(([k,v]) => `<div class="adm-so-row"><span class="adm-so-row-l" style="font-size:10px">${k.replace(/_/g,' ')}</span><span class="adm-so-row-v" style="font-family:var(--font-mono);color:var(--blue-primary)">+${v}</span></div>`).join('')}</div>` : ''}
+        ${Object.keys(breakdown).length ? `<div class="adm-so-section"><div class="adm-so-sect-title">Score Breakdown</div>${Object.entries(breakdown).map(([k,v]) => `<div class="adm-so-row"><span class="adm-so-row-l" style="font-size:10px">${k.replace(/_/g,' ')}</span><span class="adm-so-row-v text-blue" style="font-family:var(--font-mono)">+${v}</span></div>`).join('')}</div>` : ''}
 
         ${v1.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 1 — Intelligence Briefing</div>
-          <div style="font-size:11px;color:var(--blue-primary);margin-bottom:4px">Subject: ${v1.subject}</div>
-          <div style="font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v1.body}</div>
+          <div class="text-blue" style="font-size:11px;margin-bottom:4px">Subject: ${v1.subject}</div>
+          <div class="text-secondary" style="font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v1.body}</div>
         </div>` : ''}
         ${v2.subject ? `<div class="adm-so-section"><div class="adm-so-sect-title">Outreach Variant 2 — Peer Benchmark</div>
-          <div style="font-size:11px;color:var(--blue-primary);margin-bottom:4px">Subject: ${v2.subject}</div>
-          <div style="font-size:11px;color:var(--text-secondary);padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v2.body}</div>
+          <div class="text-blue" style="font-size:11px;margin-bottom:4px">Subject: ${v2.subject}</div>
+          <div class="text-secondary" style="font-size:11px;padding:8px;background:var(--bg-void);border-radius:4px;border:1px solid var(--blue-border);white-space:pre-wrap">${v2.body}</div>
         </div>` : ''}
 
         <div class="adm-so-section"><div class="adm-so-sect-title">Actions</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px" id="sp-actions">
-            ${l.status === 'outreach_drafted' ? '<button class="adm-btn-sm" data-spa="approve" style="background:rgba(200,60,60,.1);color:var(--blue-primary);border-color:var(--blue-primary)">Approve</button>' : ''}
+            ${l.status === 'outreach_drafted' ? '<button class="adm-btn-sm text-blue" data-spa="approve" style="background:rgba(200,60,60,.1);border-color:var(--blue-primary)">Approve</button>' : ''}
             ${l.status === 'approved' ? '<button class="adm-btn-sm" data-spa="send" style="background:rgba(139,92,246,.1);color:var(--purple);border-color:var(--purple)">Mark Sent</button>' : ''}
             ${l.status === 'sent' ? '<button class="adm-btn-sm" data-spa="respond" style="background:rgba(34,211,238,.1);color:#22d3ee;border-color:#22d3ee">Log Response</button>' : ''}
             ${l.status === 'responded' ? '<button class="adm-btn-sm" data-spa="book" style="background:rgba(52,211,153,.1);color:#34d399;border-color:#34d399">Book Meeting</button>' : ''}
-            ${['responded','meeting_booked'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="convert" style="background:rgba(40,160,80,.1);color:var(--positive);border-color:var(--positive)">Convert</button>' : ''}
-            ${!['converted','declined'].includes(l.status) ? '<button class="adm-btn-sm" data-spa="decline" style="background:rgba(255,59,92,.05);color:var(--negative);border-color:var(--negative)">Decline</button>' : ''}
-            <button class="adm-btn-sm" data-spa="delete" style="background:transparent;color:var(--text-tertiary);border-color:var(--text-tertiary)">Discard</button>
+            ${['responded','meeting_booked'].includes(l.status) ? '<button class="adm-btn-sm text-positive" data-spa="convert" style="background:rgba(40,160,80,.1);border-color:var(--positive)">Convert</button>' : ''}
+            ${!['converted','declined'].includes(l.status) ? '<button class="adm-btn-sm text-negative" data-spa="decline" style="background:rgba(255,59,92,.05);border-color:var(--negative)">Decline</button>' : ''}
+            <button class="adm-btn-sm text-tertiary" data-spa="delete" style="background:transparent;border-color:var(--text-tertiary)">Discard</button>
           </div>
         </div>
 
@@ -7110,10 +7110,10 @@ async function viewAdminLeads(el) {
 async function viewAdminApiKeys(el) {
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">API Key Management</div>
+      <div class="page-title">API Key Management</div>
       <button class="adm-btn adm-btn-primary" id="adm-create-key-btn"><span style="font-size:14px">+</span> Create API Key</button>
     </div>
-    <div class="adm-panel" id="adm-keys-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    <div class="adm-panel" id="adm-keys-table"><div class="empty">Loading...</div></div>
     <div class="adm-modal-ov" id="adm-key-modal">
       <div class="adm-modal">
         <div class="adm-modal-t" id="adm-key-modal-title">Create API Key</div>
@@ -7130,7 +7130,7 @@ async function viewAdminApiKeys(el) {
   try {
     const res = await api('/admin/api-keys').catch(() => null);
     const keys = res?.data || [];
-    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td style="font-weight:500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${k.rate_limit || 60} req/min</td><td style="font-size:11px;color:var(--text-secondary)">${k.created_by || '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn" style="border-color:rgba(255,59,92,.2);color:var(--negative)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div style="padding:40px;text-align:center;color:var(--text-tertiary)"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div style="font-size:12px">Create your first API key for external integrations</div></div>';
+    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td style="font-weight:500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td style="font-family:var(--font-mono);font-size:10px">${k.rate_limit || 60} req/min</td><td class="text-secondary" style="font-size:11px">${k.created_by || '-'}</td><td class="data-label">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td class="data-label">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div class="text-tertiary" style="padding:40px;text-align:center"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div style="font-size:12px">Create your first API key for external integrations</div></div>';
   } catch (err) { showToast(err.message, 'error'); }
 
   document.getElementById('adm-create-key-btn')?.addEventListener('click', () => {
@@ -7151,7 +7151,7 @@ async function viewAdminApiKeys(el) {
       if (key) {
         document.getElementById('adm-key-modal-title').textContent = 'API Key Created';
         document.getElementById('adm-key-modal-desc').textContent = 'Copy this key now. It will not be shown again.';
-        document.getElementById('adm-key-modal-body').innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;font-family:var(--font-mono);font-size:11px;word-break:break-all;color:var(--positive);margin-bottom:12px">${key}</div><div style="font-size:11px;color:var(--negative)">Warning: This key will not be shown again. Copy it now.</div>`;
+        document.getElementById('adm-key-modal-body').innerHTML = `<div class="text-positive" style="background:var(--bg-panel);border:1px solid var(--blue-border);border-radius:var(--radius);padding:12px;font-family:var(--font-mono);font-size:11px;word-break:break-all;margin-bottom:12px">${key}</div><div class="text-negative" style="font-size:11px">Warning: This key will not be shown again. Copy it now.</div>`;
         document.getElementById('adm-key-create').style.display = 'none';
       } else {
         showToast('API key created', 'success');
@@ -7166,12 +7166,12 @@ async function viewAdminApiKeys(el) {
 // ─── View: Admin Agent Config (Step 18b) ────────────────────
 async function viewAdminAgentConfig(el) {
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Agent Configuration</div>
-    <div class="adm-panel" id="adm-agent-config-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>
+    <div class="page-title" style="margin-bottom:16px">Agent Configuration</div>
+    <div class="adm-panel" id="adm-agent-config-table"><div class="empty">Loading...</div></div>
     <div style="margin-top:20px" id="adm-agent-config-detail"></div>
     <div class="adm-panel" style="margin-top:20px">
       <div class="adm-phead"><div class="adm-ptitle">Haiku API Usage</div></div>
-      <div class="adm-padded" id="adm-api-usage"><div style="color:var(--text-tertiary)">Loading usage data...</div></div>
+      <div class="adm-padded" id="adm-api-usage"><div class="text-tertiary">Loading usage data...</div></div>
     </div>`;
 
   try {
@@ -7190,8 +7190,8 @@ async function viewAdminAgentConfig(el) {
       const cfg = configs[aid] || {};
       const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
       const avgDur = a.avg_duration_ms ? (a.avg_duration_ms / 1000).toFixed(1) + 's' : '-';
-      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
-    }).join('')}</tbody></table></div>` : '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No agents configured</div>';
+      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td class="data-label">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td class="text-secondary" style="font-family:var(--font-mono);font-size:10px">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty">No agents configured</div>';
 
     // API usage section — KV-backed accurate per-day tracking
     const tokens24h = usage.tokens_24h || 0;
@@ -7202,21 +7202,21 @@ async function viewAdminAgentConfig(el) {
     const limitPct = Math.min(100, Math.round(callsToday / dailyLimit * 100));
     document.getElementById('adm-api-usage').innerHTML = `
       <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--blue-primary)">${tokens24h.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (24h)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_24h || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (7d)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_7d || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Tokens (30d)</div><div style="font-size:9px;color:var(--text-tertiary)">${usage.estimated_cost_30d || '$0.00'}</div></div>
+        <div><div class="text-blue" style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens24h.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (24h)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_24h || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (7d)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_7d || '$0.00'}</div></div>
+        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (30d)</div><div class="text-tertiary" style="font-size:9px">${usage.estimated_cost_30d || '$0.00'}</div></div>
       </div>
       <div style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text-secondary)">Today: ${callsToday} calls</span><span style="color:var(--text-tertiary)">limit: 300 soft / ${dailyLimit} hard</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span class="text-secondary">Today: ${callsToday} calls</span><span class="text-tertiary">limit: 300 soft / ${dailyLimit} hard</span></div>
         <div style="height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${limitPct}%;background:${limitPct >= 100 ? 'var(--negative)' : limitPct >= 60 ? 'var(--threat-medium)' : 'var(--positive)'};border-radius:3px;transition:width .3s"></div></div>
       </div>
       <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="font-size:11px"><span style="color:var(--text-secondary)">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span style="color:var(--text-tertiary);font-size:9px"> (${usage.agent_calls_30d || 0} calls)</span></div>
-        <div style="font-size:11px"><span style="color:var(--text-secondary)">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span style="color:var(--text-tertiary);font-size:9px"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
+        <div style="font-size:11px"><span class="text-secondary">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span class="text-tertiary" style="font-size:9px"> (${usage.agent_calls_30d || 0} calls)</span></div>
+        <div style="font-size:11px"><span class="text-secondary">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span class="text-tertiary" style="font-size:9px"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
       </div>
       <div style="padding-top:12px;border-top:1px solid var(--blue-border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:11px;color:var(--text-secondary)">Anthropic API Key</span>
+          <span class="text-secondary" style="font-size:11px">Anthropic API Key</span>
           <span style="font-family:var(--font-mono);font-size:11px;color:${usage.api_key_configured ? 'var(--positive)' : 'var(--negative)'}">${usage.api_key_configured ? 'Configured \u2713' : 'Not set \u26a0'}</span>
         </div>
       </div>`;
@@ -7303,7 +7303,7 @@ async function viewAdminAudit(el) {
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Audit Log</div>
+      <div class="page-title">Audit Log</div>
       <a href="/api/v1/admin/audit/export?since=${new Date(Date.now() - 30 * 86400000).toISOString()}" class="adm-btn adm-btn-primary" target="_blank">Export CSV</a>
     </div>
     <div style="margin-bottom:12px">
@@ -7315,7 +7315,7 @@ async function viewAdminAudit(el) {
       <select class="adm-sel" id="adm-audit-outcome"><option value="">All Outcomes</option><option value="success">Success</option><option value="failure">Failure</option><option value="denied">Denied</option></select>
       <select class="adm-sel" id="adm-audit-category"><option value="">All Categories</option><option value="Auth">Auth</option><option value="Admin" selected>Admin</option><option value="Feeds">Feeds</option><option value="Agents">Agents</option><option value="System">System</option></select>
     </div>
-    <div class="adm-panel" id="adm-audit-table"><div style="padding:20px;text-align:center;color:var(--text-tertiary)">Loading...</div></div>`;
+    <div class="adm-panel" id="adm-audit-table"><div class="empty">Loading...</div></div>`;
 
   let allEntries = [];
   let allUsers = [];
@@ -7338,25 +7338,25 @@ async function viewAdminAudit(el) {
   }
 
   function renderAuditTable(entries) {
-    if (!entries.length) return '<div style="padding:20px;text-align:center;color:var(--text-tertiary)">No audit entries found</div>';
+    if (!entries.length) return '<div class="empty">No audit entries found</div>';
     const groups = deduplicateAuditEntries(entries);
     return `<div class="adm-table-scroll" style="max-height:600px;overflow-y:auto"><table class="adm-table"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Category</th><th>Details</th><th>Outcome</th><th>IP Address</th></tr></thead><tbody>${groups.map((g, i) => {
       const e = g.event;
       const cat = actionCategory(e.action);
       const details = deriveDetails(e);
-      const countBadge = g.count > 1 ? ` <span style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);color:var(--blue-primary);padding:1px 5px;border-radius:3px">\u00d7${g.count}</span>` : '';
+      const countBadge = g.count > 1 ? ` <span class="text-blue" style="font-family:var(--font-mono);font-size:9px;background:rgba(200,60,60,.1);padding:1px 5px;border-radius:3px">\u00d7${g.count}</span>` : '';
       const timeRange = g.count > 1 && g.firstTs && g.lastTs ? g.firstTs.slice(11, 16) + '\u2013' + g.lastTs.slice(11, 16) : (e.timestamp ? e.timestamp.slice(0, 19).replace('T', ' ') : '-');
       const isExpanded = _expandedIdx === i;
       let expandHtml = '';
       if (isExpanded) {
         expandHtml = `<tr><td colspan="7" style="padding:12px;background:rgba(200,60,60,.03);border-left:2px solid var(--blue-primary)"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;font-family:var(--font-mono)">
-          <div><span style="color:var(--text-tertiary)">Full timestamp:</span> ${e.timestamp || '-'}</div>
-          <div><span style="color:var(--text-tertiary)">IP:</span> ${e.ip_address || '-'}</div>
-          <div><span style="color:var(--text-tertiary)">User agent:</span> ${e.user_agent || e.details?.user_agent || '-'}</div>
-          <div><span style="color:var(--text-tertiary)">Resource:</span> ${e.resource_type || '-'} ${e.resource_id || ''}</div>
-        </div>${e.details ? `<pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-top:8px;padding:8px;background:rgba(0,0,0,.2);border-radius:4px">${JSON.stringify(e.details, null, 2)}</pre>` : ''}</td></tr>`;
+          <div><span class="text-tertiary">Full timestamp:</span> ${e.timestamp || '-'}</div>
+          <div><span class="text-tertiary">IP:</span> ${e.ip_address || '-'}</div>
+          <div><span class="text-tertiary">User agent:</span> ${e.user_agent || e.details?.user_agent || '-'}</div>
+          <div><span class="text-tertiary">Resource:</span> ${e.resource_type || '-'} ${e.resource_id || ''}</div>
+        </div>${e.details ? `<pre class="text-secondary" style="font-family:var(--font-mono);font-size:10px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin-top:8px;padding:8px;background:rgba(0,0,0,.2);border-radius:4px">${JSON.stringify(e.details, null, 2)}</pre>` : ''}</td></tr>`;
       }
-      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(200,60,60,.05)' : ''}"><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td style="font-size:10px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">${e.ip_address || '-'}</td></tr>${expandHtml}`;
+      return `<tr data-gidx="${i}" style="cursor:pointer;${isExpanded ? 'background:rgba(200,60,60,.05)' : ''}"><td class="data-label">${timeRange}</td><td style="font-size:11px">${e.user_name || e.user_email || (e.user_id ? e.user_id.slice(0, 8) : 'system')}</td><td style="font-size:11px">${e.action || '-'}${countBadge}</td><td><span class="audit-cat-badge audit-cat-${cat.toLowerCase()}">${cat}</span></td><td class="text-secondary" style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${details}</td><td><span class="adm-ev-outcome ${e.outcome || 'success'}">${e.outcome || 'success'}</span></td><td class="data-label">${e.ip_address || '-'}</td></tr>${expandHtml}`;
     }).join('')}</tbody></table></div>`;
   }
 
@@ -7429,7 +7429,7 @@ async function viewAdminAudit(el) {
 
 // ─── Brand Report View ──────────────────────────────────────
 async function viewBrandReport(el, params) {
-  el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">Generating report...</div>';
+  el.innerHTML = '<div class="text-tertiary" style="padding:40px;text-align:center">Generating report...</div>';
   try {
     const res = await api(`/brands/${params.id}/report`);
     const r = res?.data;
@@ -7447,7 +7447,7 @@ async function viewBrandReport(el, params) {
             <img src="${r.brand?.logo_url || ''}" alt="" style="width:32px;height:32px;border-radius:6px" onerror="this.style.display='none'">
             <div>
               <div style="font-size:20px;font-weight:700;font-family:var(--font-display)">${r.brand?.name || 'Brand Report'}</div>
-              <div style="font-size:12px;color:var(--text-tertiary)">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
+              <div class="text-tertiary" style="font-size:12px">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
             </div>
           </div>
           <div style="display:flex;gap:8px">
@@ -7459,31 +7459,31 @@ async function viewBrandReport(el, params) {
         <!-- Executive Summary -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Trust Score</div>
+            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Trust Score</div>
             <div style="font-size:32px;font-weight:800;color:${scoreColor}">${exec.trustScore ?? '-'}</div>
             <div style="font-size:11px;color:${scoreColor};font-weight:600">${exec.riskLevel || ''} Risk</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Total Threats</div>
+            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Total Threats</div>
             <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.totalThreats ?? 0}</div>
-            <div style="font-size:11px;color:var(--negative)">${exec.activeThreats ?? 0} active</div>
+            <div class="text-negative" style="font-size:11px">${exec.activeThreats ?? 0} active</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Campaigns</div>
+            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Campaigns</div>
             <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.campaignsIdentified ?? 0}</div>
-            <div style="font-size:11px;color:var(--text-tertiary)">${exec.countriesInvolved ?? 0} countries</div>
+            <div class="text-tertiary" style="font-size:11px">${exec.countriesInvolved ?? 0} countries</div>
           </div>
           <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px">Remediated</div>
-            <div style="font-size:32px;font-weight:800;color:var(--positive)">${exec.remediatedThreats ?? 0}</div>
-            <div style="font-size:11px;color:var(--text-tertiary)">${exec.hostingProviders ?? 0} providers</div>
+            <div class="text-tertiary" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">Remediated</div>
+            <div class="text-positive" style="font-size:32px;font-weight:800">${exec.remediatedThreats ?? 0}</div>
+            <div class="text-tertiary" style="font-size:11px">${exec.hostingProviders ?? 0} providers</div>
           </div>
         </div>
 
         <!-- AI Summary -->
         <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
           <div style="font-size:13px;font-weight:700;margin-bottom:8px;font-family:var(--font-display)">Executive Summary</div>
-          <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${exec.aiSummary || 'No summary available.'}</div>
+          <div class="text-secondary" style="font-size:13px;line-height:1.6">${exec.aiSummary || 'No summary available.'}</div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -7494,7 +7494,7 @@ async function viewBrandReport(el, params) {
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize">${t.type}</span>
                 <span style="font-size:12px;font-weight:600">${t.count}</span>
-              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No threats detected</div>'}
+              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No threats detected</div>'}
           </div>
 
           <!-- Threat Breakdown by Severity -->
@@ -7504,7 +7504,7 @@ async function viewBrandReport(el, params) {
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize;color:${severityColors[s.severity] || 'var(--text-primary)'}">${s.severity}</span>
                 <span style="font-size:12px;font-weight:600">${s.count}</span>
-              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No data</div>'}
+              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No data</div>'}
           </div>
         </div>
 
@@ -7520,7 +7520,7 @@ async function viewBrandReport(el, params) {
                 <td style="color:${severityColors[t.severity] || 'var(--text-primary)'};text-transform:capitalize">${t.severity || '-'}</td>
                 <td>${t.status || '-'}</td>
                 <td>${t.first_seen ? new Date(t.first_seen).toLocaleDateString() : '-'}</td>
-              </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary)">No threats</td></tr>'}
+              </tr>`).join('') || '<tr><td colspan="5" class="text-tertiary" style="text-align:center">No threats</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -7532,8 +7532,8 @@ async function viewBrandReport(el, params) {
             ${(r.infrastructure?.providers || []).slice(0, 8).map(p => `
               <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px">${p.name}</span>
-                <span style="font-size:11px;color:var(--text-tertiary)">${p.threat_count} threats (${p.active_count} active)</span>
-              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No provider data</div>'}
+                <span class="text-tertiary" style="font-size:11px">${p.threat_count} threats (${p.active_count} active)</span>
+              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No provider data</div>'}
           </div>
 
           <!-- Campaigns -->
@@ -7542,20 +7542,20 @@ async function viewBrandReport(el, params) {
             ${(r.campaigns || []).slice(0, 8).map(c => `
               <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px">${c.name}</span>
-                <span style="font-size:11px;color:var(--text-tertiary)">${c.threat_count} threats &middot; ${c.status}</span>
-              </div>`).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">No campaigns</div>'}
+                <span class="text-tertiary" style="font-size:11px">${c.threat_count} threats &middot; ${c.status}</span>
+              </div>`).join('') || '<div class="text-tertiary" style="font-size:12px">No campaigns</div>'}
           </div>
         </div>
 
         <!-- Recommendations -->
         <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;margin-bottom:20px">
           <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:var(--font-display)">Recommendations</div>
-          <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:var(--text-secondary)">
+          <ul class="text-secondary" style="margin:0;padding-left:20px;font-size:13px;line-height:1.8">
             ${(r.recommendations || []).map(rec => `<li>${rec}</li>`).join('')}
           </ul>
         </div>
 
-        <div style="text-align:center;font-size:11px;color:var(--text-tertiary);padding:16px 0">
+        <div class="text-tertiary" style="text-align:center;font-size:11px;padding:16px 0">
           Generated ${r.generatedAt ? new Date(r.generatedAt).toLocaleString() : ''} &middot; ${r.reportId || ''}
         </div>
       </div>`;
@@ -7577,14 +7577,14 @@ async function loadSpamTrapIntel(brandId) {
         <div class="phead"><span>Spam Trap Intelligence</span><span class="badge" style="background:rgba(245,158,11,.15);color:#F59E0B">${d.total} caught</span></div>
         <div class="panel-body padded">
           <div style="display:flex;gap:24px;margin-bottom:12px">
-            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.total}</div><div style="font-size:10px;color:var(--text-tertiary)">Spoofed emails caught</div></div>
-            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.unique_ips}</div><div style="font-size:10px;color:var(--text-tertiary)">Unique source IPs</div></div>
-            <div><div style="font-size:20px;font-weight:700;color:${d.auth_fail_pct > 80 ? 'var(--negative)' : 'var(--text-primary)'}">${d.auth_fail_pct}%</div><div style="font-size:10px;color:var(--text-tertiary)">Auth failure rate</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.total}</div><div class="data-label">Spoofed emails caught</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.unique_ips}</div><div class="data-label">Unique source IPs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:${d.auth_fail_pct > 80 ? 'var(--negative)' : 'var(--text-primary)'}">${d.auth_fail_pct}%</div><div class="data-label">Auth failure rate</div></div>
           </div>
           ${(d.recent || []).map(c => `
             <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
-              <span style="font-family:var(--font-mono);color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</span>
-              <span style="color:var(--text-tertiary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.subject || '').substring(0, 60)}</span>
+              <span class="text-secondary" style="font-family:var(--font-mono);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</span>
+              <span class="text-tertiary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.subject || '').substring(0, 60)}</span>
               <span>SPF:<span style="color:${c.spf_result === 'fail' ? 'var(--negative)' : 'var(--positive)'}">${c.spf_result || '-'}</span></span>
               <span>DKIM:<span style="color:${c.dkim_result === 'fail' ? 'var(--negative)' : 'var(--positive)'}">${c.dkim_result || '-'}</span></span>
             </div>
@@ -7600,7 +7600,7 @@ async function loadSpamTrapIntel(brandId) {
 async function viewAdminSpamTrap(el) {
   el.innerHTML = `
     <div class="admin-content" style="max-width:1200px;margin:0 auto;padding:20px">
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Spam Trap Command Center</div>
+    <div class="page-title" style="margin-bottom:16px">Spam Trap Command Center</div>
     <div class="adm-metrics" id="st-metrics"></div>
     <div class="adm-grid-2">
       <div class="adm-panel">
@@ -7657,7 +7657,7 @@ async function viewAdminSpamTrap(el) {
       const sc = sparkColor || '#C83C3C';
       return `<div class="adm-metric" style="border-left:3px solid #C83C3C;background:#0E1A2B;border:1px solid rgba(120,160,200,0.06);border-left:3px solid #C83C3C;border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:2px">
         <div style="font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--text-primary);line-height:1.1">${val}</div>
-        <div style="font-family:var(--font-mono);font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin-top:4px">${label}</div>
+        <div class="text-secondary" style="font-family:var(--font-mono);font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;margin-top:4px">${label}</div>
         ${sub ? `<div style="font-family:var(--font-mono);font-size:10px;color:#C83C3C;margin-top:2px">${sub}</div>` : ''}
         <svg width="48" height="14" viewBox="0 0 48 14" fill="none" style="margin-top:6px;opacity:0.45"><polyline points="0,11 8,7 16,9 24,4 32,6 40,2 48,5" stroke="${sc}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>`;
@@ -7696,12 +7696,12 @@ async function viewAdminSpamTrap(el) {
             <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;background:${cfg.color}22;color:${cfg.color};padding:2px 9px;border-radius:4px">${h.count}</span>
           </div>`;
         }).join('')
-      : '<div style="color:var(--text-tertiary);font-size:12px">No seed addresses deployed yet</div>';
+      : '<div class="text-tertiary" style="font-size:12px">No seed addresses deployed yet</div>';
 
     // Campaigns
     document.getElementById('st-campaigns').innerHTML = campaigns.length
       ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Name</th><th>Channel</th><th>Catches</th><th>Status</th></tr></thead><tbody>${campaigns.map(c => `<tr><td>${c.name}</td><td>${c.channel}</td><td>${c.total_catches}</td><td><span style="color:${c.status === 'active' ? 'var(--positive)' : 'var(--text-tertiary)'}">${c.status}</span></td></tr>`).join('')}</tbody></table></div>`
-      : '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px">No campaigns yet</div>';
+      : '<div class="text-tertiary" style="padding:12px;text-align:center;font-size:12px">No campaigns yet</div>';
 
     // Recent captures
     const _thStyle = `style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#C83C3C"`;
@@ -7722,10 +7722,10 @@ async function viewAdminSpamTrap(el) {
             <td style="${_tdBase}">${authPill(c.dmarc_result)}</td>
             <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;text-transform:capitalize">${c.category || '-'}</td>
             <td style="${_tdBase}"><span class="severity-pill ${c.severity}">${c.severity || '-'}</span></td>
-            <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
+            <td class="text-secondary" style="${_tdBase};font-family:var(--font-mono);font-size:11px">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
           </tr>`;
         }).join('')}</tbody></table></div>`
-      : '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:12px">No captures yet — deploy initial seeds to start catching emails</div>';
+      : '<div class="text-tertiary" style="padding:24px;text-align:center;font-size:12px">No captures yet — deploy initial seeds to start catching emails</div>';
 
     // Top sources
     document.getElementById('st-sources').innerHTML = sources.length
@@ -7735,9 +7735,9 @@ async function viewAdminSpamTrap(el) {
           <td>${s.brands_hit}</td>
           <td>${s.country_code || '-'}</td>
           <td style="font-size:10px">${s.asn || '-'}</td>
-          <td style="font-size:10px;color:var(--text-tertiary)">${(s.last_seen || '').slice(0, 16).replace('T', ' ')}</td>
+          <td class="data-label">${(s.last_seen || '').slice(0, 16).replace('T', ' ')}</td>
         </tr>`).join('')}</tbody></table></div>`
-      : '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px">No source data yet</div>';
+      : '<div class="text-tertiary" style="padding:12px;text-align:center;font-size:12px">No source data yet</div>';
 
     // Daily chart
     if (daily.length && typeof Chart !== 'undefined') {
@@ -7758,7 +7758,7 @@ async function viewAdminSpamTrap(el) {
       }
     }
   } catch (err) {
-    document.getElementById('st-metrics').innerHTML = `<div style="color:var(--negative)">Failed to load: ${err.message}</div>`;
+    document.getElementById('st-metrics').innerHTML = `<div class="text-negative">Failed to load: ${err.message}</div>`;
   }
 
   // Button handlers
@@ -8034,8 +8034,8 @@ async function viewTenantDashboard(el) {
   if (!org) { navigate('/observatory', true); return; }
 
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:4px">${org.name}</div>
-    <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:24px">Plan: <span style="color:var(--blue-primary)">${org.plan}</span> &middot; Role: <span style="color:var(--positive)">${org.role}</span></div>
+    <div class="page-title" style="margin-bottom:4px">${org.name}</div>
+    <div class="text-tertiary" style="font-size:12px;margin-bottom:24px">Plan: <span class="text-blue">${org.plan}</span> &middot; Role: <span class="text-positive">${org.role}</span></div>
     <div class="agg-stats" id="td-stats">
       ${renderStatCard('&#9733;', 'brands', '-', 'Brands')}
       ${renderStatCard('&#9888;', 'threats', '-', 'Active Threats')}
@@ -8045,7 +8045,7 @@ async function viewTenantDashboard(el) {
     </div>
     <div style="margin-top:20px;font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:12px">Brand Health</div>
     <div id="td-brand-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
-      <div style="color:var(--text-tertiary);font-size:12px;padding:20px">Loading...</div>
+      <div class="text-tertiary" style="font-size:12px;padding:20px">Loading...</div>
     </div>
     <div class="adm-grid-2" style="margin-top:20px">
       <div class="adm-panel">
@@ -8091,19 +8091,19 @@ async function viewTenantDashboard(el) {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <span style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</span>
-                ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+                ${b.is_primary ? '<span class="text-blue" style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
               </div>
-              <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:8px">${b.canonical_domain || ''}</div>
+              <div class="text-tertiary" style="font-size:11px;font-family:var(--font-mono);margin-bottom:8px">${b.canonical_domain || ''}</div>
               <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
-                <span style="color:var(--text-secondary)">Email: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
-                <span style="color:var(--text-secondary)">Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
-                <span style="color:var(--text-secondary)">Social: <span style="font-weight:600">${b.social_profiles_count}</span>${Number(b.impersonation_count) > 0 ? ' <span style="color:var(--threat-critical)">(' + b.impersonation_count + ' impersonation)</span>' : ''}</span>
-                ${b.social_risk_score != null ? '<span style="color:var(--text-secondary)">Risk: <span style="font-weight:600">' + b.social_risk_score + '</span></span>' : ''}
+                <span class="text-secondary">Email: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
+                <span class="text-secondary">Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
+                <span class="text-secondary">Social: <span style="font-weight:600">${b.social_profiles_count}</span>${Number(b.impersonation_count) > 0 ? ' <span style="color:var(--threat-critical)">(' + b.impersonation_count + ' impersonation)</span>' : ''}</span>
+                ${b.social_risk_score != null ? '<span class="text-secondary">Risk: <span style="font-weight:600">' + b.social_risk_score + '</span></span>' : ''}
               </div>
             </div>
           </div>
         </div>`;
-      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:20px">No brands assigned yet</div>';
+      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:20px">No brands assigned yet</div>';
     }
 
     // Threat trend chart
@@ -8144,7 +8144,7 @@ async function viewTenantDashboard(el) {
         }
       });
     } else if (canvas && !trendData.length) {
-      canvas.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:12px">No threat data in the last 7 days</div>';
+      canvas.parentElement.innerHTML = '<div class="text-tertiary" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:12px">No threat data in the last 7 days</div>';
     }
 
     // Recent alerts
@@ -8159,12 +8159,12 @@ async function viewTenantDashboard(el) {
             <span style="font-size:10px;font-weight:600;color:${sevColor};text-transform:uppercase">${a.severity}</span>
             <span style="font-size:11px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${a.title}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);padding-left:16px">
+          <div class="data-label" style="display:flex;justify-content:space-between;padding-left:16px">
             <span>${a.brand_name} &middot; ${(a.alert_type || '').replace(/_/g, ' ')}</span>
             <span>${timeAgo(a.created_at)}</span>
           </div>
         </div>`;
-      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">No open alerts</div>';
+      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:20px;text-align:center">No open alerts</div>';
     }
   } catch (err) {
     console.error('Tenant dashboard load error:', err);
@@ -8176,7 +8176,7 @@ async function viewTenantBrands(el) {
   const org = currentUser?.organization;
   if (!org) { navigate('/observatory', true); return; }
 
-  el.innerHTML = '<div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Your Brands</div><div id="tb-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">Loading...</div>';
+  el.innerHTML = '<div class="page-title" style="margin-bottom:16px">Your Brands</div><div id="tb-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">Loading...</div>';
 
   try {
     const res = await api('/orgs/' + org.id + '/dashboard');
@@ -8198,16 +8198,16 @@ async function viewTenantBrands(el) {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
               <span style="font-weight:700;font-size:14px;color:var(--text-primary)">${b.name}</span>
-              ${b.is_primary ? '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15);color:var(--blue-primary)">PRIMARY</span>' : ''}
+              ${b.is_primary ? '<span class="text-blue" style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
             </div>
-            <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:6px">${b.canonical_domain || ''} ${b.sector ? '&middot; ' + b.sector : ''}</div>
+            <div class="text-tertiary" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px">${b.canonical_domain || ''} ${b.sector ? '&middot; ' + b.sector : ''}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
-              <span style="color:var(--text-secondary)">Email Grade: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
-              <span style="color:var(--text-secondary)">Active Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
-              <span style="color:var(--text-secondary)">Social: <span style="font-weight:600">${b.social_profiles_count}</span> profiles</span>
-              <span style="color:var(--text-secondary)">Impersonation: <span style="font-weight:600;color:${Number(b.impersonation_count) > 0 ? 'var(--threat-critical)' : 'var(--positive)'}">${b.impersonation_count}</span></span>
+              <span class="text-secondary">Email Grade: <span style="font-weight:600;color:${gradeColor}">${b.email_security_grade || 'N/A'}</span></span>
+              <span class="text-secondary">Active Threats: <span style="font-weight:600;color:${Number(b.active_threats) > 0 ? 'var(--threat-high)' : 'var(--positive)'}">${b.active_threats}</span></span>
+              <span class="text-secondary">Social: <span style="font-weight:600">${b.social_profiles_count}</span> profiles</span>
+              <span class="text-secondary">Impersonation: <span style="font-weight:600;color:${Number(b.impersonation_count) > 0 ? 'var(--threat-critical)' : 'var(--positive)'}">${b.impersonation_count}</span></span>
             </div>
-            <div style="font-size:10px;color:var(--text-tertiary);margin-top:6px">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
+            <div class="data-label" style="margin-top:6px">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
           </div>
         </div>
       </div>`;
@@ -8224,7 +8224,7 @@ async function viewTenantBrandDetail(el) {
   if (!brandId) { navigate('/tenant/brands', true); return; }
   const canHITL = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
 
-  el.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;padding:20px">Loading brand details...</div>';
+  el.innerHTML = '<div class="text-tertiary" style="font-size:12px;padding:20px">Loading brand details...</div>';
 
   try {
     const res = await api('/orgs/' + org.id + '/brands/' + brandId + '/detail');
@@ -8237,7 +8237,7 @@ async function viewTenantBrandDetail(el) {
     const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[brand.email_security_grade] || 'var(--text-tertiary)';
 
     el.innerHTML = `
-      <div style="margin-bottom:16px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/brands')" style="color:var(--blue-primary);font-size:12px;text-decoration:none">&larr; Back to Brands</a></div>
+      <div style="margin-bottom:16px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/brands')" class="text-blue" style="font-size:12px;text-decoration:none">&larr; Back to Brands</a></div>
       <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px">
         <div style="position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="90" height="90" viewBox="0 0 90 90"><circle cx="45" cy="45" r="38" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="45" cy="45" r="38" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="238.8" stroke-dashoffset="${score != null ? 238.8 * (1 - score / 100) : 238.8}" stroke-linecap="round" transform="rotate(-90 45 45)"/></svg>
@@ -8245,11 +8245,11 @@ async function viewTenantBrandDetail(el) {
         </div>
         <div>
           <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${brand.name}</div>
-          <div style="font-size:12px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:8px">${brand.canonical_domain || ''} ${brand.sector ? '&middot; ' + brand.sector : ''}</div>
+          <div class="text-tertiary" style="font-size:12px;font-family:var(--font-mono);margin-bottom:8px">${brand.canonical_domain || ''} ${brand.sector ? '&middot; ' + brand.sector : ''}</div>
           <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap">
             <span style="padding:4px 10px;border-radius:4px;background:${gradeColor}22;color:${gradeColor};border:1px solid ${gradeColor}44;font-weight:600">Email: ${brand.email_security_grade || 'N/A'}</span>
-            <span style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--blue-border)">Threats: ${active_threats_count}</span>
-            <span style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--blue-border)">Social Risk: ${brand.social_risk_score ?? 'N/A'}</span>
+            <span class="text-secondary" style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border)">Threats: ${active_threats_count}</span>
+            <span class="text-secondary" style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border)">Social Risk: ${brand.social_risk_score ?? 'N/A'}</span>
           </div>
         </div>
       </div>
@@ -8284,13 +8284,13 @@ async function viewTenantBrandDetail(el) {
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
             <span style="width:8px;height:8px;border-radius:50%;background:${sColor}"></span>
             <span style="font-size:11px;font-weight:600;color:${sColor};text-transform:uppercase">${t.severity || 'unknown'}</span>
-            <span style="font-size:11px;color:var(--text-secondary)">${(t.threat_type || '').replace(/_/g, ' ')}</span>
+            <span class="text-secondary" style="font-size:11px">${(t.threat_type || '').replace(/_/g, ' ')}</span>
           </div>
           <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-primary);word-break:break-all">${t.malicious_domain || t.malicious_url || 'N/A'}</div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
+          <div class="data-label" style="margin-top:2px">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
         </div>`;
-      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" style="color:var(--blue-primary);font-size:11px">View all threats</a></div>` : '')
-      : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No active threats</div>';
+      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" class="text-blue" style="font-size:11px">View all threats</a></div>` : '')
+      : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No active threats</div>';
     }
 
     // Social profiles
@@ -8302,14 +8302,14 @@ async function viewTenantBrandDetail(el) {
         return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${p.handle || p.display_name || 'Unknown'}</div>
-            <div style="font-size:10px;color:var(--text-tertiary)">${p.platform || ''} &middot; ${timeAgo(p.last_scanned)}</div>
+            <div class="data-label">${p.platform || ''} &middot; ${timeAgo(p.last_scanned)}</div>
           </div>
           <div style="display:flex;align-items:center">
             <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${classColor}22;color:${classColor};border:1px solid ${classColor}44">${p.classification || 'unclassified'}</span>
             ${takedownBtn}
           </div>
         </div>`;
-      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No social profiles tracked</div>';
+      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No social profiles tracked</div>';
 
       // Social profile takedown buttons
       socialEl.querySelectorAll('.tbd-social-takedown').forEach(btn => {
@@ -8355,22 +8355,22 @@ async function viewTenantBrandDetail(el) {
         const statusLabel = (a.status || 'new').replace(/_/g, ' ');
         const hitlBtns = canHITL && a.status !== 'resolved' && a.status !== 'false_positive' ? `
           <div style="display:flex;gap:4px;margin-top:6px">
-            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="acknowledged" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-elevated);color:var(--blue-primary);cursor:pointer">Ack</button>
-            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="resolved" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:var(--bg-elevated);color:var(--positive);cursor:pointer">Resolve</button>
-            <button class="tbd-alert-btn" data-alert="${a.id}" data-status="false_positive" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">FP</button>
+            <button class="tbd-alert-btn text-blue" data-alert="${a.id}" data-status="acknowledged" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-elevated);cursor:pointer">Ack</button>
+            <button class="tbd-alert-btn text-positive" data-alert="${a.id}" data-status="resolved" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Resolve</button>
+            <button class="tbd-alert-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">FP</button>
           </div>` : '';
         return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border)">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
             <span style="width:8px;height:8px;border-radius:50%;background:${sevColor}"></span>
             <span style="font-size:10px;font-weight:600;color:${sevColor}">${a.severity}</span>
             <span style="font-size:11px;color:var(--text-primary);flex:1">${a.title}</span>
-            <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:var(--bg-surface);color:var(--text-tertiary)">${statusLabel}</span>
-            <span style="font-size:10px;color:var(--text-tertiary)">${timeAgo(a.created_at)}</span>
+            <span class="text-tertiary" style="font-size:9px;padding:2px 6px;border-radius:3px;background:var(--bg-surface)">${statusLabel}</span>
+            <span class="data-label">${timeAgo(a.created_at)}</span>
           </div>
-          ${a.summary ? '<div style="font-size:11px;color:var(--text-secondary);padding-left:14px">' + a.summary + '</div>' : ''}
+          ${a.summary ? '<div class="text-secondary" style="font-size:11px;padding-left:14px">' + a.summary + '</div>' : ''}
           ${hitlBtns}
         </div>`;
-      }).join('') : '<div style="color:var(--text-tertiary);font-size:12px;padding:12px;text-align:center">No alerts for this brand</div>';
+      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No alerts for this brand</div>';
 
       // HITL buttons
       alertsEl.querySelectorAll('.tbd-alert-btn').forEach(btn => {
@@ -8409,44 +8409,44 @@ async function viewTenantBrandDetail(el) {
         monEl.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Alert Severity Filter</div>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Alert Severity Filter</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-severities">
                 ${allSeverities.map(s => {
                   const checked = (mc.alert_severity_filter || []).includes(s);
-                  return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
+                  return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
                 }).join('')}
               </div>
             </div>
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Social Platforms</div>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Social Platforms</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap" id="mc-platforms">
                 ${allPlatforms.map(p => {
                   const checked = (mc.social_platforms_monitored || []).includes(p);
-                  return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
+                  return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
                 }).join('')}
               </div>
             </div>
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Email Notifications</div>
-              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;margin-bottom:4px"><input type="checkbox" id="mc-email-toggle" ${mc.email_notifications ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Enabled</label>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Email Notifications</div>
+              <label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-bottom:4px"><input type="checkbox" id="mc-email-toggle" ${mc.email_notifications ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Enabled</label>
               <select id="mc-email-threshold" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
                 ${allSeverities.map(s => `<option value="${s}" ${mc.email_notification_threshold === s ? 'selected' : ''}>${s}+</option>`).join('')}
               </select>
             </div>
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Weekly Digest</div>
-              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Weekly Digest</div>
+              <label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
             </div>
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Custom Keywords</div>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Custom Keywords</div>
               <input type="text" id="mc-keywords" value="${(mc.custom_keywords || []).join(', ')}" placeholder="keyword1, keyword2" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
             <div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">Excluded Domains</div>
+              <div class="text-tertiary" style="font-size:11px;margin-bottom:6px">Excluded Domains</div>
               <input type="text" id="mc-excluded" value="${(mc.excluded_domains || []).join(', ')}" placeholder="safe-domain.com, internal.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
           </div>
-          ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" style="font-size:10px;color:var(--text-tertiary);margin-right:8px"></span></div>' : '<div style="margin-top:8px;font-size:10px;color:var(--text-tertiary)">Read-only (requires analyst+ role to modify)</div>'}`;
+          ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" class="data-label" style="margin-right:8px"></span></div>' : '<div class="data-label" style="margin-top:8px">Read-only (requires analyst+ role to modify)</div>'}`;
 
         if (isOrgAdmin) {
           let saveTimeout;
@@ -8479,7 +8479,7 @@ async function viewTenantBrandDetail(el) {
           monEl.querySelectorAll('input[type="text"]').forEach(el => el.addEventListener('input', debouncedSave));
         }
       } catch (err) {
-        monEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load monitoring config</div>';
+        monEl.innerHTML = '<div class="text-tertiary" style="font-size:12px">Failed to load monitoring config</div>';
       }
     }
   } catch (err) {
@@ -8498,7 +8498,7 @@ async function viewTenantAlerts(el) {
   const PAGE_SIZE = 20;
 
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Alerts</div>
+    <div class="page-title" style="margin-bottom:16px">Alerts</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="ta-filters">
       <select id="ta-status" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
         <option value="">All Statuses</option><option value="new">New</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option><option value="false_positive">False Positive</option>
@@ -8570,24 +8570,24 @@ async function viewTenantAlerts(el) {
           const takedownBtn = canTakedown ? `<button class="ta-takedown-btn" data-alert-id="${a.id}" data-brand-id="${a.brand_id}" data-alert-type="${a.alert_type}" data-summary="${(a.summary || a.title || '').replace(/"/g, '&quot;')}" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-critical)44;border-radius:4px;background:rgba(255,59,92,0.08);color:var(--threat-critical);cursor:pointer;font-weight:600">Request Takedown</button>` : '';
           const hitlButtons = canHITL && a.status !== 'resolved' && a.status !== 'false_positive' ? `
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              ${a.status !== 'acknowledged' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="acknowledged" style="padding:4px 10px;font-size:10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-elevated);color:var(--blue-primary);cursor:pointer">Acknowledge</button>' : ''}
+              ${a.status !== 'acknowledged' ? '<button class="ta-action-btn text-blue" data-alert="' + a.id + '" data-status="acknowledged" style="padding:4px 10px;font-size:10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-elevated);cursor:pointer">Acknowledge</button>' : ''}
               ${a.status !== 'investigating' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="investigating" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-medium)44;border-radius:4px;background:var(--bg-elevated);color:var(--threat-medium);cursor:pointer">Investigate</button>' : ''}
-              <button class="ta-action-btn" data-alert="${a.id}" data-status="resolved" style="padding:4px 10px;font-size:10px;border:1px solid var(--positive)44;border-radius:4px;background:var(--bg-elevated);color:var(--positive);cursor:pointer">Resolve</button>
-              <button class="ta-action-btn" data-alert="${a.id}" data-status="false_positive" style="padding:4px 10px;font-size:10px;border:1px solid #4a5a73;border-radius:4px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">False Positive</button>
+              <button class="ta-action-btn text-positive" data-alert="${a.id}" data-status="resolved" style="padding:4px 10px;font-size:10px;border:1px solid var(--positive)44;border-radius:4px;background:var(--bg-elevated);cursor:pointer">Resolve</button>
+              <button class="ta-action-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" style="padding:4px 10px;font-size:10px;border:1px solid #4a5a73;border-radius:4px;background:var(--bg-elevated);cursor:pointer">False Positive</button>
               ${takedownBtn}
             </div>` : '';
-          const aiSection = a.ai_assessment ? `<div style="margin-top:8px;padding:8px;border-radius:4px;background:var(--bg-surface);font-size:11px;color:var(--text-secondary);display:none" id="ta-ai-${a.id}"><strong style="color:var(--blue-primary)">AI Assessment:</strong> ${a.ai_assessment}</div><button onclick="document.getElementById('ta-ai-${a.id}').style.display=document.getElementById('ta-ai-${a.id}').style.display==='none'?'block':'none'" style="margin-top:4px;font-size:10px;color:var(--blue-primary);background:none;border:none;cursor:pointer;padding:0">Toggle AI Assessment</button>` : '';
+          const aiSection = a.ai_assessment ? `<div class="text-secondary" style="margin-top:8px;padding:8px;border-radius:4px;background:var(--bg-surface);font-size:11px;display:none" id="ta-ai-${a.id}"><strong class="text-blue">AI Assessment:</strong> ${a.ai_assessment}</div><button onclick="document.getElementById('ta-ai-${a.id}').style.display=document.getElementById('ta-ai-${a.id}').style.display==='none'?'block':'none'" class="text-blue" style="margin-top:4px;font-size:10px;background:none;border:none;cursor:pointer;padding:0">Toggle AI Assessment</button>` : '';
           return `<div class="adm-panel" style="margin-bottom:10px">
             <div class="adm-padded">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${a.severity}</span>
-                <span style="font-size:12px;color:var(--text-secondary)">${typeLabel}</span>
-                <span style="font-size:10px;padding:2px 8px;border-radius:3px;background:var(--bg-surface);color:var(--text-tertiary);margin-left:auto">${statusLabel}</span>
+                <span class="text-secondary" style="font-size:12px">${typeLabel}</span>
+                <span class="text-tertiary" style="font-size:10px;padding:2px 8px;border-radius:3px;background:var(--bg-surface);margin-left:auto">${statusLabel}</span>
               </div>
               <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px">${a.title}</div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${a.summary || ''}</div>
-              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary)">
+              <div class="text-secondary" style="font-size:11px;margin-bottom:4px">${a.summary || ''}</div>
+              <div class="data-label" style="display:flex;justify-content:space-between">
                 <span>${a.brand_name || ''}</span>
                 <span>${timeAgo(a.created_at)}</span>
               </div>
@@ -8671,7 +8671,7 @@ async function viewTenantAlerts(el) {
         const currentPage = Math.floor(currentOffset / PAGE_SIZE) + 1;
         pagEl.innerHTML = `
           <button ${currentPage <= 1 ? 'disabled' : ''} id="ta-prev" style="padding:4px 12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px;cursor:pointer">Prev</button>
-          <span style="font-size:11px;color:var(--text-secondary);padding:4px 8px">${currentPage} / ${totalPages} (${total} total)</span>
+          <span class="text-secondary" style="font-size:11px;padding:4px 8px">${currentPage} / ${totalPages} (${total} total)</span>
           <button ${currentPage >= totalPages ? 'disabled' : ''} id="ta-next" style="padding:4px 12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px;cursor:pointer">Next</button>`;
         document.getElementById('ta-prev')?.addEventListener('click', () => { currentOffset = Math.max(0, currentOffset - PAGE_SIZE); loadAlerts(); });
         document.getElementById('ta-next')?.addEventListener('click', () => { currentOffset += PAGE_SIZE; loadAlerts(); });
@@ -8704,14 +8704,14 @@ async function viewTenantTeam(el) {
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Team</div>
+      <div class="page-title">Team</div>
       ${isOrgAdmin ? '<button class="btn btn-primary" id="tt-invite-btn" style="font-size:12px;padding:6px 14px">+ Invite Member</button>' : ''}
     </div>
-    <div id="tt-member-count" style="font-size:12px;color:var(--text-tertiary);margin-bottom:16px"></div>
+    <div id="tt-member-count" class="text-tertiary" style="font-size:12px;margin-bottom:16px"></div>
     <div id="tt-invite-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end">
-        <div style="flex:1"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Role</label><select id="tt-invite-role" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
+        <div style="flex:1"><label class="data-sublabel">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
+        <div><label class="data-sublabel">Role</label><select id="tt-invite-role" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
         <button class="btn btn-primary" id="tt-send-invite" style="font-size:12px;padding:6px 14px">Send Invite</button>
       </div>
       <div id="tt-invite-result" style="font-size:11px;margin-top:8px"></div>
@@ -8730,17 +8730,17 @@ async function viewTenantTeam(el) {
     const email = document.getElementById('tt-invite-email').value;
     const orgRole = document.getElementById('tt-invite-role').value;
     const result = document.getElementById('tt-invite-result');
-    if (!email) { result.innerHTML = '<span style="color:var(--negative)">Email required</span>'; return; }
+    if (!email) { result.innerHTML = '<span class="text-negative">Email required</span>'; return; }
     try {
       const res = await api('/orgs/' + org.id + '/invite', { method: 'POST', body: JSON.stringify({ email, org_role: orgRole }) });
       if (res?.data?.invite_url) {
-        result.innerHTML = '<span style="color:var(--positive)">Invite sent! URL: <code style="font-size:10px;word-break:break-all">' + res.data.invite_url + '</code></span>';
+        result.innerHTML = '<span class="text-positive">Invite sent! URL: <code style="font-size:10px;word-break:break-all">' + res.data.invite_url + '</code></span>';
         loadPendingInvites();
       } else {
-        result.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+        result.innerHTML = '<span class="text-negative">' + (res?.error || 'Failed') + '</span>';
       }
     } catch (err) {
-      result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+      result.innerHTML = '<span class="text-negative">' + err.message + '</span>';
     }
   });
 
@@ -8776,14 +8776,14 @@ async function viewTenantTeam(el) {
         ? `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Active Members</div></div><div class="data-table"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th>${isOrgAdmin ? '<th style="width:120px">Actions</th>' : ''}</tr></thead><tbody>${members.map(m => {
           const isOwner = m.role === 'owner';
           const isSelf = String(m.user_id) === String(currentUser?.id);
-          const youLabel = isSelf ? ' <span style="color:var(--text-tertiary);font-size:10px">(you)</span>' : '';
+          const youLabel = isSelf ? ' <span class="text-tertiary" style="font-size:10px">(you)</span>' : '';
           const canEdit = isOrgAdmin && !isOwner;
           const roleCell = canEdit
             ? `<select class="tt-role-select" data-user-id="${m.user_id}" style="${selectStyle}">${roleOptions.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r}</option>`).join('')}</select>`
             : `<span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span>`;
           const actionCell = isOrgAdmin
             ? (isOwner || isSelf
-              ? '<span style="color:var(--text-tertiary);font-size:11px">' + (isOwner ? '--' : '--') + '</span>'
+              ? '<span class="text-tertiary" style="font-size:11px">' + (isOwner ? '--' : '--') + '</span>'
               : `<button class="tt-remove-btn" data-user-id="${m.user_id}" data-user-name="${m.user_name || m.email}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-critical);border-radius:4px;background:transparent;color:var(--threat-critical);cursor:pointer">Remove</button>`)
             : '';
           return `<tr><td>${(m.user_name || '-') + youLabel}</td><td style="font-family:var(--font-mono);font-size:11px">${m.email}</td><td>${roleCell}</td>${isOrgAdmin ? '<td>' + actionCell + '</td>' : ''}</tr>`;
@@ -8835,7 +8835,7 @@ async function viewTenantTeam(el) {
         return;
       }
 
-      pendingEl.innerHTML = `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pending Invites</div></div><div class="data-table"><table><thead><tr><th>Email</th><th>Role</th><th>Invited</th><th>Expires</th><th style="width:80px">Action</th></tr></thead><tbody>${invites.map(inv => `<tr><td style="font-family:var(--font-mono);font-size:11px">${inv.email}</td><td><span class="role-pill ${inv.org_role}" style="font-size:10px">${inv.org_role}</span></td><td style="font-size:11px;color:var(--text-tertiary)">${timeAgo(inv.created_at)}</td><td style="font-size:11px;color:var(--text-tertiary)">${hoursLeft(inv.expires_at)}</td><td><button class="tt-revoke-btn" data-invite-id="${inv.id}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-medium);border-radius:4px;background:transparent;color:var(--threat-medium);cursor:pointer">Revoke</button></td></tr>`).join('')}</tbody></table></div></div>`;
+      pendingEl.innerHTML = `<div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pending Invites</div></div><div class="data-table"><table><thead><tr><th>Email</th><th>Role</th><th>Invited</th><th>Expires</th><th style="width:80px">Action</th></tr></thead><tbody>${invites.map(inv => `<tr><td style="font-family:var(--font-mono);font-size:11px">${inv.email}</td><td><span class="role-pill ${inv.org_role}" style="font-size:10px">${inv.org_role}</span></td><td class="text-tertiary" style="font-size:11px">${timeAgo(inv.created_at)}</td><td class="text-tertiary" style="font-size:11px">${hoursLeft(inv.expires_at)}</td><td><button class="tt-revoke-btn" data-invite-id="${inv.id}" style="padding:3px 8px;font-size:11px;border:1px solid var(--threat-medium);border-radius:4px;background:transparent;color:var(--threat-medium);cursor:pointer">Revoke</button></td></tr>`).join('')}</tbody></table></div></div>`;
 
       // Bind revoke handlers
       document.querySelectorAll('.tt-revoke-btn').forEach(btn => {
@@ -8877,15 +8877,15 @@ async function viewTenantSettings(el) {
   ];
 
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">Organization Settings</div>
+    <div class="page-title" style="margin-bottom:16px">Organization Settings</div>
     <div class="adm-grid-2">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Organization Details</div></div>
         <div class="adm-padded">
-          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org.name || '-'}</div></div>
-          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Slug</span><div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${org.slug || '-'}</div></div>
-          <div style="margin-bottom:12px"><span style="font-size:11px;color:var(--text-tertiary)">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org.plan || '-'}</span></div></div>
-          <div><span style="font-size:11px;color:var(--text-tertiary)">Your Role</span><div><span class="role-pill ${org.role}" style="font-size:10px">${org.role || '-'}</span></div></div>
+          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Name</span><div style="font-size:14px;font-weight:600;color:var(--text-primary)">${org.name || '-'}</div></div>
+          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Slug</span><div class="text-secondary" style="font-family:var(--font-mono);font-size:12px">${org.slug || '-'}</div></div>
+          <div style="margin-bottom:12px"><span class="text-tertiary" style="font-size:11px">Plan</span><div><span class="role-pill admin" style="font-size:10px">${org.plan || '-'}</span></div></div>
+          <div><span class="text-tertiary" style="font-size:11px">Your Role</span><div><span class="role-pill ${org.role}" style="font-size:10px">${org.role || '-'}</span></div></div>
         </div>
       </div>
       <div class="adm-panel">
@@ -8902,8 +8902,8 @@ async function viewTenantSettings(el) {
     <div style="margin-top:16px">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">SSO / SAML</div></div>
-        <div class="adm-padded" style="color:var(--text-tertiary);font-size:12px;padding:20px;text-align:center">
-          <div style="font-size:13px;margin-bottom:4px;color:var(--text-secondary)">Not configured</div>
+        <div class="adm-padded text-tertiary" style="font-size:12px;padding:20px;text-align:center">
+          <div class="text-secondary" style="font-size:13px;margin-bottom:4px">Not configured</div>
           <div>SSO setup available in Phase E.</div>
         </div>
       </div>
@@ -8930,7 +8930,7 @@ async function viewTenantSettings(el) {
       usageEl.innerHTML = `
         <div style="margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span style="color:var(--text-secondary)">Brands</span>
+            <span class="text-secondary">Brands</span>
             <span style="color:var(--text-primary);font-weight:600">${brandCount} / ${maxBrands}</span>
           </div>
           <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
@@ -8939,7 +8939,7 @@ async function viewTenantSettings(el) {
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span style="color:var(--text-secondary)">Members</span>
+            <span class="text-secondary">Members</span>
             <span style="color:var(--text-primary);font-weight:600">${memberCount} / ${maxMembers}</span>
           </div>
           <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
@@ -8949,7 +8949,7 @@ async function viewTenantSettings(el) {
     }
   } catch (err) {
     const usageEl = document.getElementById('ts-usage');
-    if (usageEl) usageEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px">Failed to load usage data</div>';
+    if (usageEl) usageEl.innerHTML = '<div class="text-tertiary" style="font-size:12px">Failed to load usage data</div>';
   }
 
   // Load webhook config
@@ -8958,7 +8958,7 @@ async function viewTenantSettings(el) {
     if (!webhookEl) return;
 
     if (!isOrgAdmin) {
-      webhookEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px">Webhook configuration requires admin access.</div>';
+      webhookEl.innerHTML = '<div class="text-tertiary" style="font-size:12px;text-align:center;padding:20px">Webhook configuration requires admin access.</div>';
       return;
     }
 
@@ -8979,32 +8979,32 @@ async function viewTenantSettings(el) {
 
       webhookEl.innerHTML = `
         <div style="margin-bottom:14px">
-          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Webhook URL</label>
+          <label class="data-sublabel">Webhook URL</label>
           <input type="url" id="wh-url" value="${config.webhook_url || ''}" placeholder="https://your-siem.example.com/api/webhook" style="${inputStyle}">
         </div>
         <div style="margin-bottom:14px">
-          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Secret (HMAC-SHA256 signing)</label>
+          <label class="data-sublabel">Secret (HMAC-SHA256 signing)</label>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="password" id="wh-secret-display" value="${config.has_secret ? '••••••••••••••••' : ''}" readonly style="${inputStyle};flex:1;background:var(--bg-surface)">
-            ${isOrgOwner ? '<button id="wh-regen-btn" style="padding:6px 12px;font-size:11px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer;white-space:nowrap">Regenerate</button>' : ''}
+            ${isOrgOwner ? '<button id="wh-regen-btn" class="text-secondary" style="padding:6px 12px;font-size:11px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer;white-space:nowrap">Regenerate</button>' : ''}
           </div>
         </div>
         <div style="margin-bottom:14px">
-          <label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:8px">Event Types</label>
+          <label class="text-tertiary" style="font-size:11px;display:block;margin-bottom:8px">Event Types</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-            ${allEventTypes.map(evt => `<label style="font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center"><input type="checkbox" class="wh-event-cb" value="${evt.key}" ${subscribedEvents.includes(evt.key) ? 'checked' : ''} style="${checkStyle}">${evt.label}</label>`).join('')}
+            ${allEventTypes.map(evt => `<label class="text-secondary" style="font-size:12px;cursor:pointer;display:flex;align-items:center"><input type="checkbox" class="wh-event-cb" value="${evt.key}" ${subscribedEvents.includes(evt.key) ? 'checked' : ''} style="${checkStyle}">${evt.label}</label>`).join('')}
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px">
-          <button id="wh-test-btn" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer">Test Webhook</button>
+          <button id="wh-test-btn" class="text-secondary" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer">Test Webhook</button>
           <button id="wh-save-btn" class="btn btn-primary" style="font-size:12px;padding:6px 14px">Save</button>
           <span id="wh-status" style="font-size:11px;align-self:center"></span>
         </div>
-        <div style="display:flex;gap:20px;font-size:11px;color:var(--text-tertiary);margin-bottom:10px">
-          <span>Last delivery: ${timeAgoShort(config.webhook_last_success)} ${config.webhook_last_success ? '<span style="color:var(--positive)">&#10003;</span>' : ''}</span>
+        <div class="text-tertiary" style="display:flex;gap:20px;font-size:11px;margin-bottom:10px">
+          <span>Last delivery: ${timeAgoShort(config.webhook_last_success)} ${config.webhook_last_success ? '<span class="text-positive">&#10003;</span>' : ''}</span>
           <span>Failures (24h): ${config.webhook_failures_24h || 0}</span>
         </div>
-        <div style="font-size:11px;color:var(--text-tertiary);border-top:1px solid var(--blue-border);padding-top:10px">
+        <div class="text-tertiary" style="font-size:11px;border-top:1px solid var(--blue-border);padding-top:10px">
           <div>Format: JSON with HMAC-SHA256 signature in <code style="font-size:10px">X-Trust-Radar-Signature</code></div>
           <div style="margin-top:4px">Compatible with: Splunk HEC, Elastic, Microsoft Sentinel, generic webhook receivers</div>
         </div>`;
@@ -9017,7 +9017,7 @@ async function viewTenantSettings(el) {
         try {
           const res = await api('/orgs/' + org.id + '/webhook', { method: 'PATCH', body: JSON.stringify({ webhook_url: url, webhook_events: events }) });
           if (res?.success) {
-            statusEl.innerHTML = '<span style="color:var(--positive)">Saved</span>';
+            statusEl.innerHTML = '<span class="text-positive">Saved</span>';
             if (res.data?.webhook_secret) {
               document.getElementById('wh-secret-display').type = 'text';
               document.getElementById('wh-secret-display').value = res.data.webhook_secret;
@@ -9026,26 +9026,26 @@ async function viewTenantSettings(el) {
               showToast('Webhook configuration saved', 'success');
             }
           } else {
-            statusEl.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+            statusEl.innerHTML = '<span class="text-negative">' + (res?.error || 'Failed') + '</span>';
           }
         } catch (err) {
-          statusEl.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+          statusEl.innerHTML = '<span class="text-negative">' + err.message + '</span>';
         }
       });
 
       // Test webhook
       document.getElementById('wh-test-btn')?.addEventListener('click', async () => {
         const statusEl = document.getElementById('wh-status');
-        statusEl.innerHTML = '<span style="color:var(--text-tertiary)">Testing...</span>';
+        statusEl.innerHTML = '<span class="text-tertiary">Testing...</span>';
         try {
           const res = await api('/orgs/' + org.id + '/webhook/test', { method: 'POST' });
           if (res?.success) {
-            statusEl.innerHTML = '<span style="color:var(--positive)">Test delivered (HTTP ' + (res.data?.status || '200') + ')</span>';
+            statusEl.innerHTML = '<span class="text-positive">Test delivered (HTTP ' + (res.data?.status || '200') + ')</span>';
           } else {
-            statusEl.innerHTML = '<span style="color:var(--negative)">Failed: ' + (res?.data?.error || res?.error || 'Unknown error') + '</span>';
+            statusEl.innerHTML = '<span class="text-negative">Failed: ' + (res?.data?.error || res?.error || 'Unknown error') + '</span>';
           }
         } catch (err) {
-          statusEl.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+          statusEl.innerHTML = '<span class="text-negative">' + err.message + '</span>';
         }
       });
 
@@ -9067,7 +9067,7 @@ async function viewTenantSettings(el) {
         }
       });
     } catch (err) {
-      webhookEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px">Failed to load webhook configuration</div>';
+      webhookEl.innerHTML = '<div class="text-tertiary" style="font-size:12px;text-align:center;padding:20px">Failed to load webhook configuration</div>';
     }
   }
 
@@ -9085,20 +9085,20 @@ async function viewTenantTakedowns(el) {
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Takedown Requests</div>
+      <div class="page-title">Takedown Requests</div>
       ${canHITL ? '<button class="btn btn-primary" id="tt-new-btn" style="font-size:12px;padding:6px 14px">+ New Request</button>' : ''}
     </div>
     <div id="tt-new-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px">New Takedown Request</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Brand</label><select id="tt-brand" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></select></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Target Type</label><select id="tt-target-type" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="social_profile">Social Profile</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option></select></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Target Value</label><input type="text" id="tt-target-value" placeholder="@handle or domain.com" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Platform</label><input type="text" id="tt-platform" placeholder="twitter, linkedin, etc." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
-        <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Evidence Summary</label><textarea id="tt-evidence" rows="3" placeholder="Brief description of the violation..." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px;resize:vertical"></textarea></div>
+        <div><label class="data-sublabel">Brand</label><select id="tt-brand" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></select></div>
+        <div><label class="data-sublabel">Target Type</label><select id="tt-target-type" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="social_profile">Social Profile</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option></select></div>
+        <div><label class="data-sublabel">Target Value</label><input type="text" id="tt-target-value" placeholder="@handle or domain.com" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div><label class="data-sublabel">Platform</label><input type="text" id="tt-platform" placeholder="twitter, linkedin, etc." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div style="grid-column:1/-1"><label class="data-sublabel">Evidence Summary</label><textarea id="tt-evidence" rows="3" placeholder="Brief description of the violation..." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px;resize:vertical"></textarea></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-        <button id="tt-cancel" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer">Cancel</button>
+        <button id="tt-cancel" class="text-secondary" style="padding:6px 14px;font-size:12px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer">Cancel</button>
         <button class="btn btn-primary" id="tt-submit" style="font-size:12px;padding:6px 14px">Create Draft</button>
       </div>
     </div>
@@ -9193,10 +9193,10 @@ async function viewTenantTakedowns(el) {
 
           const actionBtns = canHITL ? (() => {
             if (t.status === 'draft') return `
-              <button class="tt-action" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);color:var(--blue-primary);cursor:pointer">Submit Request</button>
-              <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
+              <button class="tt-action text-blue" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);cursor:pointer">Submit Request</button>
+              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Withdraw</button>`;
             if (t.status === 'requested') return `
-              <button class="tt-action" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);color:var(--text-tertiary);cursor:pointer">Withdraw</button>`;
+              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Withdraw</button>`;
             return '';
           })() : '';
 
@@ -9206,14 +9206,14 @@ async function viewTenantTakedowns(el) {
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${t.severity}</span>
                 <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
-                <span style="font-size:10px;color:var(--text-tertiary)">&mdash; ${(t.target_type || '').replace(/_/g, ' ')}</span>
+                <span class="data-label">&mdash; ${(t.target_type || '').replace(/_/g, ' ')}</span>
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${statusLabel}</span>
               </div>
-              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Brand: ${t.brand_name || 'Unknown'}</div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${t.evidence_summary || ''}</div>
-              ${t.provider_name ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
-              ${t.response_notes ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px">Response: ' + t.response_notes + '</div>' : ''}
-              <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text-tertiary)">
+              <div class="text-secondary" style="font-size:12px;margin-bottom:4px">Brand: ${t.brand_name || 'Unknown'}</div>
+              <div class="text-secondary" style="font-size:11px;margin-bottom:4px">${t.evidence_summary || ''}</div>
+              ${t.provider_name ? '<div class="data-label" style="margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
+              ${t.response_notes ? '<div class="data-label" style="margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px">Response: ' + t.response_notes + '</div>' : ''}
+              <div class="data-label" style="display:flex;justify-content:space-between;align-items:center">
                 <span>${timeAgo(t.created_at)}</span>
                 <div style="display:flex;gap:4px">${actionBtns}</div>
               </div>
@@ -9252,7 +9252,7 @@ async function viewAdminTakedowns(el) {
   let currentFilter = '';
 
   el.innerHTML = `
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">SOC Takedown Queue</div>
+    <div class="page-title" style="margin-bottom:16px">SOC Takedown Queue</div>
     <div id="at-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <select id="at-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
@@ -9339,19 +9339,19 @@ async function viewAdminTakedowns(el) {
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor}">${t.severity}</span>
                 <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
-                <span style="font-size:10px;color:var(--text-tertiary)">${(t.target_type || '').replace(/_/g, ' ')}</span>
+                <span class="data-label">${(t.target_type || '').replace(/_/g, ' ')}</span>
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
-                <span style="font-size:10px;color:var(--text-tertiary);margin-left:4px">${timeAgo(t.created_at)}</span>
+                <span class="data-label" style="margin-left:4px">${timeAgo(t.created_at)}</span>
                 <div style="margin-left:auto;display:flex;align-items:center;gap:6px">${actionArea}</div>
               </div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">
+              <div class="text-secondary" style="font-size:11px;margin-top:6px">
                 <span style="font-weight:600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}${t.target_platform ? ' &middot; ' + t.target_platform : ''}
               </div>
             </div>
             <div class="at-detail" id="at-detail-${t.id}" style="display:none;padding:14px 16px;background:#0E1A2B;border-top:1px solid rgba(26,46,72,0.6)">
-              ${t.evidence_summary ? `<div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">${t.evidence_summary}</div>` : ''}
-              ${t.evidence_detail ? `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
-              ${t.provider_name ? `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">Provider: <span style="color:var(--text-secondary);font-weight:600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
+              ${t.evidence_summary ? `<div class="text-secondary" style="font-size:11px;margin-bottom:8px">${t.evidence_summary}</div>` : ''}
+              ${t.evidence_detail ? `<div class="data-label" style="margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
+              ${t.provider_name ? `<div class="data-label" style="margin-bottom:8px">Provider: <span class="text-secondary" style="font-weight:600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
               <div style="margin-bottom:10px">
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${t.severity}</span>
               </div>
@@ -9407,15 +9407,15 @@ async function viewAdminTakedowns(el) {
 async function viewAdminOrgs(el) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Organizations</div>
+      <div class="page-title">Organizations</div>
       <button class="btn btn-primary" id="ao-create-btn" style="font-size:12px;padding:6px 14px">Create Organization</button>
     </div>
     <div id="ao-create-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Name</label><input type="text" id="ao-name" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="Acme Corp"></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Plan</label><select id="ao-plan" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Max Brands</label><input type="number" id="ao-max-brands" value="5" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
-        <div><label style="font-size:11px;color:var(--text-tertiary);display:block;margin-bottom:4px">Max Members</label><input type="number" id="ao-max-members" value="10" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div style="flex:1;min-width:200px"><label class="data-sublabel">Name</label><input type="text" id="ao-name" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="Acme Corp"></div>
+        <div><label class="data-sublabel">Plan</label><select id="ao-plan" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></div>
+        <div><label class="data-sublabel">Max Brands</label><input type="number" id="ao-max-brands" value="5" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div><label class="data-sublabel">Max Members</label><input type="number" id="ao-max-members" value="10" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
         <button class="btn btn-primary" id="ao-create-submit" style="font-size:12px;padding:6px 14px">Create</button>
       </div>
       <div id="ao-create-result" style="font-size:11px;margin-top:8px"></div>
@@ -9433,17 +9433,17 @@ async function viewAdminOrgs(el) {
     const maxBrands = parseInt(document.getElementById('ao-max-brands').value) || 5;
     const maxMembers = parseInt(document.getElementById('ao-max-members').value) || 10;
     const result = document.getElementById('ao-create-result');
-    if (!name) { result.innerHTML = '<span style="color:var(--negative)">Name required</span>'; return; }
+    if (!name) { result.innerHTML = '<span class="text-negative">Name required</span>'; return; }
     try {
       const res = await api('/admin/organizations', { method: 'POST', body: JSON.stringify({ name, plan, max_brands: maxBrands, max_members: maxMembers }) });
       if (res?.data) {
-        result.innerHTML = '<span style="color:var(--positive)">Created! Invite code: <code>' + (res.data.invite_code || '') + '</code></span>';
+        result.innerHTML = '<span class="text-positive">Created! Invite code: <code>' + (res.data.invite_code || '') + '</code></span>';
         loadOrgList();
       } else {
-        result.innerHTML = '<span style="color:var(--negative)">' + (res?.error || 'Failed') + '</span>';
+        result.innerHTML = '<span class="text-negative">' + (res?.error || 'Failed') + '</span>';
       }
     } catch (err) {
-      result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+      result.innerHTML = '<span class="text-negative">' + err.message + '</span>';
     }
   });
 
@@ -9452,7 +9452,7 @@ async function viewAdminOrgs(el) {
       const res = await api('/admin/organizations');
       const orgs = res?.data || [];
       document.getElementById('ao-list').innerHTML = orgs.length
-        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td style="font-weight:600;color:var(--blue-primary)">${o.name}</td><td style="font-family:var(--font-mono);font-size:11px">${o.slug}</td><td><span class="role-pill admin" style="font-size:10px">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td style="font-family:var(--font-mono);font-size:10px">${o.invite_code || '-'}</td><td style="font-size:11px;color:var(--text-tertiary)">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td class="text-blue" style="font-weight:600">${o.name}</td><td style="font-family:var(--font-mono);font-size:11px">${o.slug}</td><td><span class="role-pill admin" style="font-size:10px">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td style="font-family:var(--font-mono);font-size:10px">${o.invite_code || '-'}</td><td class="text-tertiary" style="font-size:11px">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty-state"><div class="message">No organizations yet. Create one above.</div></div>';
     } catch (err) {
       document.getElementById('ao-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load organizations</div></div>';
@@ -9475,12 +9475,12 @@ async function viewAdminOrgDetail(el, params) {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <a href="/admin/organizations" style="color:var(--text-tertiary);font-size:12px">&larr; All Organizations</a>
+        <a href="/admin/organizations" class="text-tertiary" style="font-size:12px">&larr; All Organizations</a>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
-          <div style="font-family:var(--font-display);font-size:20px;font-weight:700">${org.name}</div>
-          <div style="font-size:12px;color:var(--text-tertiary)">Slug: ${org.slug} &middot; Plan: <span style="color:var(--blue-primary)">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code style="font-size:11px">${org.invite_code || '-'}</code></div>
+          <div class="page-title">${org.name}</div>
+          <div class="text-tertiary" style="font-size:12px">Slug: ${org.slug} &middot; Plan: <span class="text-blue">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code style="font-size:11px">${org.invite_code || '-'}</code></div>
         </div>
       </div>
       <div class="adm-grid-2">
@@ -9495,7 +9495,7 @@ async function viewAdminOrgDetail(el, params) {
             <div id="aod-invite-result" style="font-size:10px;margin-top:4px"></div>
           </div>
           <div id="aod-members" style="max-height:300px;overflow-y:auto">
-            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div style="padding:12px;color:var(--text-tertiary);font-size:12px">No members</div>'}
+            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span class="data-label" style="margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role}" style="font-size:10px">${m.role}</span><span class="data-label" style="margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No members</div>'}
           </div>
         </div>
         <div class="adm-panel">
@@ -9503,13 +9503,13 @@ async function viewAdminOrgDetail(el, params) {
           <div class="adm-padded" id="aod-brand-form" style="border-bottom:1px solid var(--blue-border)">
             <div style="display:flex;gap:6px;align-items:flex-end">
               <div style="flex:1"><input type="text" id="aod-brand-id" placeholder="Brand ID" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
-              <label style="font-size:10px;color:var(--text-tertiary);display:flex;align-items:center;gap:4px"><input type="checkbox" id="aod-brand-primary"> Primary</label>
+              <label class="data-label" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="aod-brand-primary"> Primary</label>
               <button class="btn btn-primary" id="aod-brand-submit" style="font-size:11px;padding:4px 10px">Assign</button>
             </div>
             <div id="aod-brand-result" style="font-size:10px;margin-top:4px"></div>
           </div>
           <div id="aod-brands" style="max-height:300px;overflow-y:auto">
-            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" style="font-weight:600;color:var(--blue-primary);font-size:12px">${b.brand_name}</a><span style="font-size:10px;color:var(--text-tertiary);margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span style="font-size:10px;color:var(--positive)">Primary</span>' : ''}<button class="btn" style="font-size:10px;padding:2px 6px;margin-left:6px;color:var(--negative)" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div style="padding:12px;color:var(--text-tertiary);font-size:12px">No brands assigned</div>'}
+            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" class="text-blue" style="font-weight:600;font-size:12px">${b.brand_name}</a><span class="data-label" style="margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span class="text-positive" style="font-size:10px">Primary</span>' : ''}<button class="btn text-negative" style="font-size:10px;padding:2px 6px;margin-left:6px" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No brands assigned</div>'}
           </div>
         </div>
       </div>`;
@@ -9519,16 +9519,16 @@ async function viewAdminOrgDetail(el, params) {
       const email = document.getElementById('aod-invite-email').value;
       const orgRole = document.getElementById('aod-invite-role').value;
       const result = document.getElementById('aod-invite-result');
-      if (!email) { result.innerHTML = '<span style="color:var(--negative)">Email required</span>'; return; }
+      if (!email) { result.innerHTML = '<span class="text-negative">Email required</span>'; return; }
       try {
         const r = await api('/orgs/' + orgId + '/invite', { method: 'POST', body: JSON.stringify({ email, org_role: orgRole }) });
         if (r?.data?.invite_url) {
-          result.innerHTML = '<span style="color:var(--positive)">Invite created! <code style="font-size:9px;word-break:break-all">' + r.data.invite_url + '</code></span>';
+          result.innerHTML = '<span class="text-positive">Invite created! <code style="font-size:9px;word-break:break-all">' + r.data.invite_url + '</code></span>';
         } else {
-          result.innerHTML = '<span style="color:var(--negative)">' + (r?.error || 'Failed') + '</span>';
+          result.innerHTML = '<span class="text-negative">' + (r?.error || 'Failed') + '</span>';
         }
       } catch (err) {
-        result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+        result.innerHTML = '<span class="text-negative">' + err.message + '</span>';
       }
     });
 
@@ -9537,17 +9537,17 @@ async function viewAdminOrgDetail(el, params) {
       const brandId = document.getElementById('aod-brand-id').value;
       const isPrimary = document.getElementById('aod-brand-primary').checked;
       const result = document.getElementById('aod-brand-result');
-      if (!brandId) { result.innerHTML = '<span style="color:var(--negative)">Brand ID required</span>'; return; }
+      if (!brandId) { result.innerHTML = '<span class="text-negative">Brand ID required</span>'; return; }
       try {
         const r = await api('/orgs/' + orgId + '/brands', { method: 'POST', body: JSON.stringify({ brand_id: brandId, is_primary: isPrimary }) });
         if (r?.success) {
-          result.innerHTML = '<span style="color:var(--positive)">Brand assigned!</span>';
+          result.innerHTML = '<span class="text-positive">Brand assigned!</span>';
           setTimeout(() => navigate('/admin/organizations/' + orgId), 500);
         } else {
-          result.innerHTML = '<span style="color:var(--negative)">' + (r?.error || 'Failed') + '</span>';
+          result.innerHTML = '<span class="text-negative">' + (r?.error || 'Failed') + '</span>';
         }
       } catch (err) {
-        result.innerHTML = '<span style="color:var(--negative)">' + err.message + '</span>';
+        result.innerHTML = '<span class="text-negative">' + err.message + '</span>';
       }
     });
   } catch (err) {
