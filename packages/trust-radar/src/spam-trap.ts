@@ -56,8 +56,16 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
   // Extract headers
   const headers = extractHeaders(rawText);
 
-  // Parse Authentication-Results
-  const authResults = parseAuthenticationResults(headers["authentication-results"] || "");
+  // Parse Authentication-Results — check both standard and ARC headers (Cloudflare Email Routing)
+  const authHeader = headers["authentication-results"]
+    || headers["arc-authentication-results"]
+    || "";
+  if (!authHeader) {
+    console.log("[spam-trap] No authentication-results header found. Available headers:", Object.keys(headers).join(", "));
+  } else {
+    console.log("[spam-trap] Raw auth header:", authHeader.substring(0, 500));
+  }
+  const authResults = parseAuthenticationResults(authHeader);
 
   // Extract sending IP from Received headers
   const sendingIp = extractSendingIp(headers);
@@ -390,7 +398,8 @@ function extractHeaders(rawText: string): Record<string, string> {
     if (colonIdx > 0) {
       const name = line.substring(0, colonIdx).trim().toLowerCase();
       const value = line.substring(colonIdx + 1).trim();
-      headers[name] = value;
+      // Concatenate duplicate headers (e.g. multiple authentication-results)
+      headers[name] = headers[name] ? headers[name] + "; " + value : value;
     }
   }
   return headers;

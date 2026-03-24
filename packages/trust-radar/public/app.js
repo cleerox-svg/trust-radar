@@ -266,7 +266,7 @@ async function render() {
     route.view(document.getElementById('view'), params);
     // Append footer at bottom of main content
     const mainEl = document.querySelector('.main');
-    if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(200,60,60,.15);font-size:10px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> <span class="ca-flag">🇨🇦</span> Canadian owned and operated</div>');
+    if (mainEl) mainEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;padding:16px;border-top:1px solid rgba(200,60,60,.15);font-size:12px;color:#4a5a73">Operated by <span style="color:#7a8ba8">LRX Enterprises Inc.</span> <span class="ca-flag">🇨🇦</span> Canadian owned and operated</div>');
     startFeedStatusUpdater();
     startNotificationPoller();
     _initUserMenu();
@@ -6816,8 +6816,8 @@ async function viewAdminLeads(el) {
       <div style="font-family:var(--font-display);font-size:20px;font-weight:700">Lead Management</div>
       <div style="display:flex;align-items:center;gap:12px">
         <div class="adm-view-toggle" id="adm-lead-tabs">
-          <button class="adm-vt-btn active" data-ltab="scan">Scan Leads</button>
-          <button class="adm-vt-btn" data-ltab="pipeline">Sales Pipeline</button>
+          <button class="adm-vt-btn active" data-ltab="scan" style="background:#C83C3C;color:#fff;border:1px solid #C83C3C">Scan Leads</button>
+          <button class="adm-vt-btn" data-ltab="pipeline" style="background:transparent;color:#C83C3C;border:1px solid #C83C3C">Sales Pipeline</button>
         </div>
       </div>
     </div>
@@ -6922,7 +6922,7 @@ async function viewAdminLeads(el) {
 
     pv.innerHTML = `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-        ${stageData.map(s => `<div style="flex:1;min-width:80px;text-align:center;padding:8px 6px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:${s.color}">${s.count}</div><div style="font-size:9px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
+        ${stageData.map(s => `<div style="flex:1;min-width:90px;text-align:center;padding:14px 10px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:800;font-size:28px;color:${s.color}">${s.count}</div><div style="font-size:12px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <div style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px;color:var(--text-secondary)">Response rate: <span style="font-family:var(--font-mono);font-weight:600;color:var(--blue-primary)">${rr}%</span></div>
@@ -7087,8 +7087,14 @@ async function viewAdminLeads(el) {
 
   // Tab switching: Scan Leads vs Sales Pipeline
   document.getElementById('adm-lead-tabs')?.querySelectorAll('.adm-vt-btn').forEach(b => b.addEventListener('click', async () => {
-    document.getElementById('adm-lead-tabs')?.querySelectorAll('.adm-vt-btn').forEach(x => x.classList.remove('active'));
+    document.getElementById('adm-lead-tabs')?.querySelectorAll('.adm-vt-btn').forEach(x => {
+      x.classList.remove('active');
+      if (x.dataset.ltab === 'scan') { x.style.background = 'transparent'; x.style.color = '#C83C3C'; x.style.border = '1px solid #C83C3C'; }
+      else if (x.dataset.ltab === 'pipeline') { x.style.background = 'transparent'; x.style.color = '#C83C3C'; x.style.border = '1px solid #C83C3C'; }
+    });
     b.classList.add('active');
+    if (b.dataset.ltab === 'scan') { b.style.background = '#C83C3C'; b.style.color = '#fff'; b.style.border = '1px solid #C83C3C'; }
+    else if (b.dataset.ltab === 'pipeline') { b.style.background = '#C83C3C'; b.style.color = '#fff'; b.style.border = '1px solid #C83C3C'; }
     const tab = b.dataset.ltab;
     document.getElementById('adm-scan-view')?.classList.toggle('visible', tab === 'scan');
     document.getElementById('adm-pipeline-view')?.classList.toggle('visible', tab === 'pipeline');
@@ -9529,13 +9535,15 @@ document.addEventListener('click', () => {
 
 // ─── Platform-aware Canadian flag: image fallback on Windows ─
 if(navigator.platform.indexOf('Win')>-1||navigator.userAgent.indexOf('Windows')>-1){
-  const observer=new MutationObserver(function(){
+  function replaceFlags(){
     document.querySelectorAll('.ca-flag').forEach(function(el){
       if(!el.querySelector('img')){
-        el.innerHTML='<img src="https://flagcdn.com/20x15/ca.png" srcset="https://flagcdn.com/40x30/ca.png 2x" width="20" height="15" alt="Canada" style="vertical-align:-3px;margin:0 2px">';
+        el.innerHTML='<img src="https://flagcdn.com/20x15/ca.png" srcset="https://flagcdn.com/40x30/ca.png 2x" width="20" height="15" alt="\ud83c\udde8\ud83c\udde6" style="vertical-align:-3px;margin:0 2px" onerror="this.outerHTML=\'\ud83c\udde8\ud83c\udde6\'">';
       }
     });
-  });
+  }
+  replaceFlags();
+  const observer=new MutationObserver(replaceFlags);
   observer.observe(document.body,{childList:true,subtree:true});
 }
 
