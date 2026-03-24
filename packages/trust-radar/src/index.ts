@@ -1314,10 +1314,10 @@ router.get("/api/admin/pathfinder-debug", async (request: Request, env: Env) => 
         const factors = [];
         // DMARC check
         const es = await env.DB.prepare(
-          "SELECT dmarc_record FROM email_security_scans WHERE domain = ? ORDER BY scanned_at DESC LIMIT 1"
+          "SELECT dmarc_exists, dmarc_raw FROM email_security_scans WHERE domain = ? ORDER BY scanned_at DESC LIMIT 1"
         ).bind(brand.canonical_domain).first();
 
-        if (!es || !es.dmarc_record) {
+        if (!es || !es.dmarc_exists) {
           score += 20;
           factors.push("no_dmarc:+20");
         }
