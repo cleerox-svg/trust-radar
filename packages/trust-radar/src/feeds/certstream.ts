@@ -39,11 +39,8 @@ export const certstream: FeedModule = {
       keyword: b.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
       domain: b.canonical_domain.toLowerCase(),
     }));
-    console.log(`[ct_logs] loaded ${brandKeywords.length} monitored brands for matching`);
-
     // Load safe domains to skip owned domains
     const safeSet = await loadSafeDomainSet(ctx.env.DB);
-    console.log(`[ct_logs] loaded ${safeSet.size} safe domains for allowlist`);
 
     // ─── Build search keyword list ──────────────────────────
     // Use monitored brand names + hardcoded fallback keywords for crt.sh query
@@ -56,9 +53,7 @@ export const certstream: FeedModule = {
     const keyword = allSearchKeywords[Math.floor(Date.now() / 900_000) % allSearchKeywords.length]!;
 
     const url = `${ctx.feedUrl}?q=%25${keyword}%25&output=json&limit=100`;
-    console.log(`[ct_logs] fetching: ${url}`);
     const res = await fetch(url, { headers: { Accept: "application/json" } });
-    console.log(`[ct_logs] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[ct_logs] error body: ${body.slice(0, 500)}`);
@@ -66,7 +61,6 @@ export const certstream: FeedModule = {
     }
 
     const rawText = await res.text();
-    console.log(`[ct_logs] response body length: ${rawText.length} chars, first 200: ${rawText.slice(0, 200)}`);
 
     let data: Array<{
       id?: number;
@@ -84,7 +78,6 @@ export const certstream: FeedModule = {
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
     const items = (Array.isArray(data) ? data : []).slice(0, 500);
-    console.log(`[ct_logs] parsed ${items.length} certificates`);
     const suspiciousPatterns = /(?:paypal|apple|google|microsoft|amazon|netflix|bank|login|secure|verify|account|update|signin|support)/i;
 
     // Track brand threats for batched notifications
@@ -157,7 +150,6 @@ export const certstream: FeedModule = {
           severity: "medium",
           confidence_score: 65,
         });
-        if (itemsNew < 3) console.log(`[ct_logs] inserting threat: domain=${domain}`);
         await markSeen(ctx.env, "domain", domain);
         itemsNew++;
       } catch (e) {
@@ -188,7 +180,6 @@ export const certstream: FeedModule = {
       }
     }
 
-    console.log(`[ct_logs] done: fetched=${items.length}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

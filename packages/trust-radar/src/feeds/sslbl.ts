@@ -16,14 +16,11 @@ export const sslbl: FeedModule = {
 
     // 1. Fetch SSL certificate blacklist
     const certUrl = ctx.feedUrl || SSLBL_CSV_URL;
-    console.log(`[sslbl] fetching cert blacklist: ${certUrl}`);
     const certRes = await fetch(certUrl);
-    console.log(`[sslbl] cert response: HTTP ${certRes.status}`);
     if (!certRes.ok) throw new Error(`SSLBL cert HTTP ${certRes.status}`);
 
     const certText = await certRes.text();
     const certLines = certText.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
-    console.log(`[sslbl] parsed ${certLines.length} cert entries`);
 
     const certItems = certLines.slice(0, 500);
     itemsFetched += certItems.length;
@@ -60,7 +57,6 @@ export const sslbl: FeedModule = {
 
     // 2. Fetch IP blacklist for enrichment
     try {
-      console.log(`[sslbl] fetching IP blacklist: ${SSLBL_IP_URL}`);
       const ipRes = await fetch(SSLBL_IP_URL);
       if (ipRes.ok) {
         const ipText = await ipRes.text();
@@ -85,13 +81,11 @@ export const sslbl: FeedModule = {
             enriched++;
           }
         }
-        console.log(`[sslbl] IP enrichment: ${enriched} threats updated`);
       }
     } catch (err) {
       console.warn(`[sslbl] IP blacklist fetch failed (non-fatal): ${err}`);
     }
 
-    console.log(`[sslbl] done: fetched=${itemsFetched}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched, itemsNew, itemsDuplicate, itemsError };
   },
 };

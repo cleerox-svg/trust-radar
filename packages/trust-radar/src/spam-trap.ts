@@ -45,8 +45,6 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
   const from = message.from;
   const subject = message.headers.get("subject") || "";
 
-  console.log(`[SpamTrap] Captured: to=${to} from=${from} subject="${subject.substring(0, 80)}"`);
-
   const trapInfo = parseTrapAddress(to);
 
   // Read raw email
@@ -60,11 +58,6 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
   const authHeader = headers["authentication-results"]
     || headers["arc-authentication-results"]
     || "";
-  if (!authHeader) {
-    console.log("[spam-trap] No authentication-results header found. Available headers:", Object.keys(headers).join(", "));
-  } else {
-    console.log("[spam-trap] Raw auth header:", authHeader.substring(0, 500));
-  }
   const authResults = parseAuthenticationResults(authHeader);
 
   // Extract sending IP from Received headers
@@ -163,7 +156,6 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
     }
   }
 
-  console.log(`[SpamTrap] Processed in ${Date.now() - startTime}ms: brand=${brandMatch?.spoofedDomain || "unknown"} category=${classification.category} severity=${severity}`);
 }
 
 // ─── Trap Address Parser ───────────────────────────────────────────

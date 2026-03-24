@@ -136,7 +136,6 @@ export async function executeAgent(
 
     // Persist agent outputs if any
     let outputsGenerated = 0;
-    console.log(`[agentRunner] ${agentModule.name}: result has ${result.agentOutputs?.length ?? 0} outputs to persist`);
     if (result.agentOutputs && result.agentOutputs.length > 0) {
       for (const output of result.agentOutputs) {
         const outputId = crypto.randomUUID();
@@ -153,7 +152,6 @@ export async function executeAgent(
             output.relatedProviderIds ? JSON.stringify(output.relatedProviderIds) : null,
           ).run();
           outputsGenerated++;
-          console.log(`[agentRunner] ${agentModule.name}: persisted output ${outputId} (type=${output.type})`);
         } catch (err) {
           console.error(`[agentRunner] ${agentModule.name}: FAILED to persist output:`, err);
         }

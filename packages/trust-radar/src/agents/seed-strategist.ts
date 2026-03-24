@@ -26,8 +26,6 @@ export const seedStrategistAgent: AgentModule = {
       return { itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, output: { skipped: true, reason: blocked } };
     }
 
-    console.log("[SeedStrategist] Starting daily analysis...");
-
     const outputs: AgentOutputEntry[] = [];
     let itemsCreated = 0;
     let itemsUpdated = 0;
@@ -197,7 +195,6 @@ Format your response as JSON:
         details: { recommendations: plan.recommendations?.length || 0, retired: plan.retire?.length || 0 },
       });
 
-      console.log(`[SeedStrategist] Generated ${plan.recommendations?.length || 0} recommendations`);
     } catch (e) {
       console.error("[SeedStrategist] Failed to parse AI response:", e);
       await env.DB.prepare(`

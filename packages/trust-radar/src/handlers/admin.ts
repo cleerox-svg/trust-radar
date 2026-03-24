@@ -279,8 +279,6 @@ export async function handleBackfillClassifications(request: Request, env: Env):
 
       if (batch.results.length === 0) break;
 
-      console.log(`[backfill-classify] Batch ${batchNum}: ${batch.results.length} threats`);
-
       for (const threat of batch.results) {
         const result = await classifyThreat(env, {
           malicious_url: threat.malicious_url,
@@ -322,8 +320,6 @@ export async function handleBackfillClassifications(request: Request, env: Env):
       }
     }
 
-    console.log(`[backfill-classify] Done: ${classified} classified, ${failed} haiku failures (rule-based fallback used)`);
-
     return json({
       success: true,
       data: { total, classified, haikuFailures: failed, batches: batchNum },
@@ -349,8 +345,6 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       return json({ success: true, data: { message: "No threats need geo enrichment", total: 0, enriched: 0, remaining: 0 } }, 200, origin);
     }
 
-    console.log(`[backfill-geo] Starting: ${totalPending} threats pending geo enrichment`);
-
     // Call the SAME enrichThreatsGeo function the Navigator uses.
     // Each call processes up to 10 threats (5 actual IP lookups due to ipinfo cap).
     // Loop multiple rounds to make meaningful progress per click.
@@ -362,7 +356,6 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     const MAX_ROUNDS = 20;  // 20 rounds × 5 IPs = up to 100 IPs per click
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
-      console.log(`[backfill-geo] Round ${round}/${MAX_ROUNDS}...`);
       const result = await enrichThreatsGeo(env.DB, env.CACHE, env.IPINFO_TOKEN);
 
       totalEnriched += result.enriched;
@@ -370,11 +363,8 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       totalSkippedNoResult += result.skippedNoResult;
       allErrors.push(...result.errors);
 
-      console.log(`[backfill-geo] Round ${round}: enriched=${result.enriched}, private=${result.skippedPrivate}, noResult=${result.skippedNoResult}, total_selected=${result.total}`);
-
       // Collect sample IPs from first round for debugging
       if (round === 1 && result.total === 0) {
-        console.log(`[backfill-geo] No threats selected in first round — nothing to do`);
         break;
       }
 
@@ -396,8 +386,6 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     } catch { /* non-critical */ }
 
     const remaining = Math.max(0, totalPending - totalEnriched - totalSkippedPrivate - totalSkippedNoResult);
-    console.log(`[backfill-geo] Done: enriched=${totalEnriched}, skippedPrivate=${totalSkippedPrivate}, skippedNoResult=${totalSkippedNoResult}, remaining=${remaining}, errors=${allErrors.length}`);
-
     return json({
       success: true,
       data: {
@@ -468,7 +456,6 @@ export async function runBrandMatchBackfill(env: Env): Promise<{ matched: number
   }
 
   const pending = Math.max(0, totalPending - rows.results.length);
-  console.log(`[backfill-brand-match] Done: ${matched} matched out of ${rows.results.length} checked, ${pending} remaining`);
   return { matched, checked: rows.results.length, pending };
 }
 
@@ -489,7 +476,6 @@ export async function handleBackfillBrandMatch(request: Request, env: Env): Prom
       totalMatched += result.matched;
       totalChecked += result.checked;
       lastPending = result.pending;
-      console.log(`[backfill-brand-match] Round ${i + 1}/${rounds}: matched=${result.matched}, checked=${result.checked}, pending=${result.pending}`);
       if (result.pending === 0 || result.checked === 0) break;
     }
 
@@ -860,7 +846,6 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
           `DELETE FROM brands WHERE source = 'tranco' AND threat_count = 0 AND LOWER(name) = ?`
         ).bind(generic).run();
       }
-      console.log('[import-tranco] cleaned up false positive brands');
     } catch (cleanupErr) {
       console.error('[import-tranco] cleanup error:', cleanupErr);
     }
@@ -871,7 +856,6 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       for (let i = 0; i < 10; i++) {
         const bf = await runBrandMatchBackfill(env);
         backfillMatched += bf.matched;
-        console.log(`[import-tranco] backfill round ${i + 1}/10: matched=${bf.matched}, pending=${bf.pending}`);
         if (bf.pending === 0 || bf.checked === 0) break;
       }
     }

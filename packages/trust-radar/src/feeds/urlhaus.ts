@@ -10,11 +10,9 @@ export const urlhaus: FeedModule = {
     const url = ctx.feedUrl.includes("/urls/recent")
       ? ctx.feedUrl
       : "https://urlhaus-api.abuse.ch/v1/urls/recent/";
-    console.log(`[urlhaus] fetching: ${url}`);
     const res = await diagnosticFetch(ctx.env.DB, "urlhaus", url, {
       headers: { "Auth-Key": ctx.env.ABUSECH_AUTH_KEY },
     });
-    console.log(`[urlhaus] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`URLhaus HTTP ${res.status}`);
 
     const body = await res.json() as {
@@ -24,10 +22,8 @@ export const urlhaus: FeedModule = {
         date_added: string; threat: string; tags: string[] | null;
       }>;
     };
-    console.log(`[urlhaus] query_status=${body.query_status}, urls=${body.urls?.length ?? 0}`);
 
     if (!body.urls) {
-      console.log(`[urlhaus] no urls in response, returning empty`);
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 

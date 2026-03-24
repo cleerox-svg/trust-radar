@@ -14,7 +14,6 @@ export async function generateDailySnapshots(
   date?: string,
 ): Promise<{ brandSnapshots: number; providerSnapshots: number }> {
   const targetDate = date ?? new Date().toISOString().slice(0, 10);
-  console.log(`[snapshots] Generating daily snapshots for date=${targetDate}`);
 
   // ─── Brand Snapshots ───────────────────────────────────────────
   const brandSnapshotsResult = await db.prepare(`
@@ -73,8 +72,6 @@ export async function generateDailySnapshots(
          WHERE entity_type = 'provider' AND entity_id = hosting_providers.id AND date = date(?, '-7 days')), 0
       )
   `).bind(targetDate, targetDate).run();
-
-  console.log(`[snapshots] Done: brands=${brandSnapshotsResult.meta.changes ?? 0}, providers=${providerSnapshotsResult.meta.changes ?? 0}`);
 
   return {
     brandSnapshots: brandSnapshotsResult.meta.changes ?? 0,

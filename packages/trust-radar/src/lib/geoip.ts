@@ -106,11 +106,9 @@ async function lookupSingleIP(ip: string, token?: string): Promise<LookupResult>
     const bodyText = await res.text();
     // Log raw response for first 3 IPs to diagnose API issues
     if (_rawLogCount < 3) {
-      console.log(`[geoip] RAW response for ${ip}: ${bodyText.slice(0, 500)}`);
       _rawLogCount++;
     }
     const data = JSON.parse(bodyText) as IpinfoResponse;
-    console.log(`[geoip] lookup ${ip}: HTTP ${res.status} loc=${data.loc ?? 'MISSING'} country=${data.country ?? 'MISSING'} org=${(data.org ?? 'MISSING').slice(0, 60)} bogon=${data.bogon ?? false}`);
     if (data.bogon) {
       return { geo: null, rateLimited: false };
     }
@@ -180,11 +178,9 @@ export async function batchGeoLookup(
   const publicIps = [...new Set(ips)].filter(ip => !isPrivateIP(ip));
   const skippedCount = new Set(ips).size - publicIps.length;
   if (skippedCount > 0) {
-    console.log(`[geoip] Filtered out ${skippedCount} private/bogon IPs`);
   }
 
   if (publicIps.length === 0) {
-    console.log(`[geoip] No public IPs to look up after filtering`);
     return { results, attempted };
   }
 
@@ -196,14 +192,11 @@ export async function batchGeoLookup(
       return { results, attempted };
     }
     const remaining = GEO_MONTHLY_LIMIT - usage;
-    console.log(`[geoip] Monthly usage: ${usage}/${GEO_MONTHLY_LIMIT} (${remaining} remaining)`);
   }
 
   // Cap per cycle: 5 without token, 50 with token
   const capPerCycle = token ? 50 : 5;
   const batch = publicIps.slice(0, capPerCycle);
-  console.log(`[geoip] Looking up ${batch.length} IPs via ipinfo.io (${publicIps.length} eligible, capped at ${capPerCycle}, token=${!!token})`);
-
   let successCount = 0;
 
   // Process sequentially — no concurrency needed at batch size 5
@@ -231,15 +224,8 @@ export async function batchGeoLookup(
   // Track usage in KV
   if (kv && successCount > 0) {
     const newTotal = await incrementGeoUsage(kv, successCount);
-    console.log(`[geoip] Usage updated: +${successCount} → ${newTotal} this month`);
   }
 
-  console.log(`[geoip] Resolved ${results.size}/${batch.length} IPs`);
-
-  if (results.size > 0) {
-    const sample = results.values().next().value;
-    console.log(`[geoip] Sample: ip=${sample?.ip} country=${sample?.countryCode} lat=${sample?.lat} lng=${sample?.lng} org=${sample?.org} asn=${sample?.as}`);
-  }
 
   return { results, attempted };
 }
@@ -273,8 +259,6 @@ export const PRIVATE_IP_SQL_FILTER = `
 export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?: string): Promise<GeoEnrichResult> {
   const result: GeoEnrichResult = { enriched: 0, total: 0, skippedPrivate: 0, skippedNoResult: 0, errors: [] };
 
-  console.log(`[geo] token present: ${!!token}`);
-
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL
@@ -287,8 +271,6 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
   result.total = rows.results.length;
   if (result.total === 0) return result;
 
-  console.log(`[geo] enrichThreatsGeo: ${result.total} threats selected for geo enrichment`);
-
   // Pre-filter: mark private/bogon IPs as 'PRIV' so they exit the queue
   const publicRows: typeof rows.results = [];
   for (const row of rows.results) {
@@ -298,7 +280,6 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
           "UPDATE threats SET country_code = 'PRIV' WHERE id = ?"
         ).bind(row.id).run();
         result.skippedPrivate++;
-        console.log(`[geo] marked private IP ${row.ip_address} (${row.id}) as PRIV`);
       } catch (err) {
         result.errors.push(`mark-private ${row.id}: ${err}`);
       }
@@ -308,15 +289,11 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
   }
 
   if (publicRows.length === 0) {
-    console.log(`[geo] all ${result.total} IPs were private — nothing to look up`);
     return result;
   }
 
   const ips = publicRows.map((r) => r.ip_address);
-  console.log(`[geo] Submitting ${ips.length} public IPs to batchGeoLookup`);
   const { results: geoMap, attempted } = await batchGeoLookup(ips, kv, token);
-
-  console.log(`[geo] batchGeoLookup returned: ${geoMap.size} results, ${attempted.size} attempted out of ${ips.length} submitted`);
 
   for (const row of publicRows) {
     const geo = geoMap.get(row.ip_address);
@@ -330,12 +307,10 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
             "UPDATE threats SET country_code = 'XX' WHERE id = ? AND country_code IS NULL"
           ).bind(row.id).run();
           result.skippedNoResult++;
-          console.log(`[geo] no result for ${row.ip_address} (${row.id}) — marked XX`);
         } catch (err) {
           result.errors.push(`mark-xx ${row.id}: ${err}`);
         }
       } else {
-        console.log(`[geo] ${row.ip_address} (${row.id}) not attempted (over cap) — will retry next cycle`);
       }
       continue;
     }
@@ -347,8 +322,7 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
         providerId = await upsertHostingProvider(db, providerName, geo.as, geo.countryCode);
       }
 
-      console.log(`[geoip] Writing to DB:`, { id: row.id, ip: row.ip_address, lat: geo.lat, lng: geo.lng, country: geo.countryCode, asn: geo.as, providerId });
-      const dbResult = await db.prepare(
+      await db.prepare(
         `UPDATE threats SET
           country_code = COALESCE(?, country_code),
           asn = COALESCE(?, asn),
@@ -359,16 +333,13 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
       ).bind(
         geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
       ).run();
-      console.log(`[geoip] DB result:`, JSON.stringify(dbResult.meta));
       result.enriched++;
-      console.log(`[geo] enriched ${row.ip_address} (${row.id}): country=${geo.countryCode} lat=${geo.lat} lng=${geo.lng}`);
     } catch (err) {
       console.error(`[geoip] update failed for ${row.id}:`, err);
       result.errors.push(`update ${row.id}: ${err}`);
     }
   }
 
-  console.log(`[geo] enrichThreatsGeo done: enriched=${result.enriched}, private=${result.skippedPrivate}, no_result=${result.skippedNoResult}, errors=${result.errors.length}`);
   return result;
 }
 

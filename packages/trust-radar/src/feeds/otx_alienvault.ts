@@ -12,12 +12,9 @@ import { diagnosticFetch } from "../lib/feedDiagnostic";
 export const otx_alienvault: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "https://otx.alienvault.com/api/v1/pulses/activity";
-    console.log(`[otx] ingest() called — feedUrl=${feedUrl}`);
-
     const res = await diagnosticFetch(ctx.env.DB, "otx_alienvault", feedUrl, {
       headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
     });
-    console.log(`[otx] response: HTTP ${res.status}, content-type=${res.headers.get("content-type")}`);
     if (!res.ok) throw new Error(`OTX HTTP ${res.status}`);
 
     let body: {
@@ -35,12 +32,6 @@ export const otx_alienvault: FeedModule = {
     }
 
     const pulses = body.results ?? [];
-    console.log(`[otx] parsed ${pulses.length} pulses`);
-    if (pulses.length > 0) {
-      const first = pulses[0]!;
-      console.log(`[otx] sample pulse: name="${first.name}", tags=${JSON.stringify(first.tags?.slice(0, 5))}, indicators=${first.indicators?.length ?? 0}`);
-    }
-
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
     let total = 0;
 
@@ -87,7 +78,6 @@ export const otx_alienvault: FeedModule = {
       }
     }
 
-    console.log(`[otx] done: fetched=${total}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: total, itemsNew, itemsDuplicate, itemsError };
   },
 };

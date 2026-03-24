@@ -190,14 +190,11 @@ export async function handleTriggerAgent(
   try {
     const mod = agentModules[agentName];
     if (!mod) {
-      console.log(`[triggerAgent] Agent "${agentName}" not found — available: ${Object.keys(agentModules).join(", ")}`);
       return json({ success: false, error: "Agent not found" }, 404, origin);
     }
 
-    console.log(`[triggerAgent] Executing "${agentName}" (triggered by ${userId})`);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const result = await executeAgent(env, mod, body.input as Record<string, unknown> ?? {}, userId, "manual");
-    console.log(`[triggerAgent] "${agentName}" completed: status=${result.status}, runId=${result.runId}${result.error ? `, error=${result.error}` : ""}`);
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
@@ -214,10 +211,8 @@ export async function handleTriggerAllAgents(
   try {
     const results: Record<string, { status: string; runId: string; error?: string }> = {};
     for (const [name, mod] of Object.entries(agentModules)) {
-      console.log(`[triggerAll] Executing "${name}"`);
       const result = await executeAgent(env, mod, {}, userId, "manual");
       results[name] = { status: result.status, runId: result.runId, error: result.error };
-      console.log(`[triggerAll] "${name}": ${result.status}`);
     }
     return json({ success: true, data: results }, 200, origin);
   } catch (err) {

@@ -121,14 +121,11 @@ export async function runFeed(
     feedUrl: config.source_url ?? "",
   };
 
-  console.log(`[runFeed] ${config.feed_name}: starting ingest (feedUrl=${ctx.feedUrl})`);
   const start = Date.now();
 
   try {
     const result = await feedModule.ingest(ctx);
     const durationMs = Date.now() - start;
-    console.log(`[runFeed] ${config.feed_name}: ingest completed in ${durationMs}ms — fetched=${result.itemsFetched}, new=${result.itemsNew}, dup=${result.itemsDuplicate}, err=${result.itemsError}`);
-
     // Log success in pull history
     const pullUpdate = await env.DB.prepare(
       `UPDATE feed_pull_history SET
@@ -136,7 +133,6 @@ export async function runFeed(
          duration_ms = ?, completed_at = datetime('now')
        WHERE id = ?`
     ).bind(result.itemsNew, result.itemsDuplicate + result.itemsError, durationMs, pullId).run();
-    console.log(`[runFeed] ${config.feed_name}: pull_history updated, changes=${pullUpdate.meta.changes}`);
 
     // Ensure feed_status row exists (INSERT OR IGNORE), then update
     await env.DB.prepare(
@@ -152,7 +148,6 @@ export async function runFeed(
          last_error = NULL
        WHERE feed_name = ?`
     ).bind(result.itemsNew, result.itemsFetched, config.feed_name).run();
-    console.log(`[runFeed] ${config.feed_name}: feed_status updated, changes=${statusUpdate.meta.changes}`);
 
     return result;
   } catch (err) {
@@ -219,17 +214,14 @@ export async function runAllFeeds(
   totalNew: number;
 }> {
   // Fetch enabled feed configs
-  console.log("[feedRunner] querying feed_configs WHERE enabled = 1...");
   const configs = await env.DB.prepare(
     "SELECT * FROM feed_configs WHERE enabled = 1"
   ).all<FeedConfigRow>();
-  console.log(`[feedRunner] found ${configs.results.length} enabled feed configs:`, configs.results.map(c => c.feed_name).join(", "));
 
   // Fetch feed status for last-run checks
   const statuses = await env.DB.prepare(
     "SELECT * FROM feed_status"
   ).all<FeedStatusRow>();
-  console.log(`[feedRunner] feed_status rows:`, JSON.stringify(statuses.results));
   const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
 
   let feedsRun = 0;
@@ -245,7 +237,6 @@ export async function runAllFeeds(
   for (const config of configs.results) {
     const mod = feedModules[config.feed_name];
     if (!mod) {
-      console.log(`[feedRunner] SKIP ${config.feed_name}: no module registered`);
       feedsSkipped++;
       continue;
     }
@@ -253,7 +244,6 @@ export async function runAllFeeds(
     const status = statusMap.get(config.feed_name);
     const shouldRun = shouldRunNow(config, status, now);
     if (!shouldRun) {
-      console.log(`[feedRunner] SKIP ${config.feed_name}: shouldRunNow=false (last_pull=${status?.last_successful_pull}, cron=${config.schedule_cron})`);
       feedsSkipped++;
 
       // Write persistent diagnostic for CF scanner skips
@@ -273,12 +263,10 @@ export async function runAllFeeds(
       continue;
     }
 
-    console.log(`[feedRunner] WILL RUN ${config.feed_name} (source_url=${config.source_url})`);
     toRun.push({ config, mod });
   }
 
   // Run all eligible feeds concurrently
-  console.log(`[feedRunner] running ${toRun.length} feeds concurrently...`);
   const results = await Promise.allSettled(
     toRun.map(({ config, mod }) => runFeed(env, config, mod))
   );
@@ -288,14 +276,12 @@ export async function runAllFeeds(
     feedsRun++;
     if (r.status === "fulfilled") {
       totalNew += r.value.itemsNew;
-      console.log(`[feedRunner] ${name}: fulfilled — new=${r.value.itemsNew}, fetched=${r.value.itemsFetched}`);
     } else {
       feedsFailed++;
       console.error(`[feedRunner] ${name}: REJECTED — ${r.reason}`);
     }
   }
 
-  console.log(`[feedRunner] SUMMARY: run=${feedsRun}, skipped=${feedsSkipped}, failed=${feedsFailed}, totalNew=${totalNew}`);
   return { feedsRun, feedsSkipped, feedsFailed, totalNew };
 }
 

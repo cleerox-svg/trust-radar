@@ -24,11 +24,8 @@ export const analystAgent: AgentModule = {
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
 
-    // ─── Diagnostic logging ───────────────────────────────────
-    console.log("[analyst] === STARTING ===");
     const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
     const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
-    console.log(`[analyst] API key: source=${keySource}, configured=${!!apiKey}${apiKey ? ", prefix=" + apiKey.slice(0, 8) + "..." : ""}`);
 
     // Get threats without brand assignment that rule-based detection missed
     const threats = await env.DB.prepare(
@@ -41,24 +38,19 @@ export const analystAgent: AgentModule = {
       malicious_domain: string | null; source_feed: string; threat_type: string;
     }>();
 
-    console.log("[analyst] Threats without brand (target_brand_id IS NULL, domain NOT NULL):", threats.results.length);
-
     // Also check total threats for context
     const totalCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>();
     const noBrandCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL").first<{ n: number }>();
     const noBrandWithDomain = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL").first<{ n: number }>();
-    console.log("[analyst] Total threats:", totalCount?.n ?? 0, "| No brand:", noBrandCount?.n ?? 0, "| No brand + has domain:", noBrandWithDomain?.n ?? 0);
 
     // Load known brands for context
     const brands = await env.DB.prepare(
       "SELECT name FROM brands ORDER BY threat_count DESC LIMIT 100"
     ).all<{ name: string }>();
     const brandNames = brands.results.map((b) => b.name);
-    console.log("[analyst] Known brands loaded:", brandNames.length, brandNames.length > 0 ? `(first: ${brandNames[0]})` : "(none)");
 
     // Load safe domains for allowlist filtering
     const safeSet = await loadSafeDomainSet(env.DB);
-    console.log("[analyst] Safe domain set loaded:", safeSet.size, "entries");
 
     let itemsProcessed = 0;
     let itemsUpdated = 0;
@@ -144,19 +136,12 @@ export const analystAgent: AgentModule = {
 
       if (result.data.confidence < 70) {
         lowConfidence++;
-        if (lowConfidence <= 3) {
-          console.log(`[analyst] Low confidence for ${threat.id}: brand="${result.data.brand_name}", confidence=${result.data.confidence}`);
-        }
         continue;
       }
 
       haikuSuccesses++;
       if (result.tokens_used) totalTokens += result.tokens_used;
       if (result.model) model = result.model;
-
-      if (haikuSuccesses <= 3) {
-        console.log(`[analyst] Haiku SUCCESS for ${threat.id}: brand="${result.data.brand_name}", confidence=${result.data.confidence}`);
-      }
 
       // Find or create the brand
       const matchedBrand = result.data.brand_name;
@@ -173,7 +158,6 @@ export const analystAgent: AgentModule = {
              VALUES (?, ?, ?, 0, datetime('now'))`
           ).bind(newId, matchedBrand, domain).run();
           brandId = { id: newId };
-          console.log(`[analyst] Created new brand: ${matchedBrand} (${newId})`);
         } catch (err) {
           console.error(`[analyst] Brand creation failed for ${matchedBrand}:`, err);
           continue;
@@ -199,7 +183,6 @@ export const analystAgent: AgentModule = {
             await env.DB.prepare(
               "UPDATE threats SET severity = 'critical' WHERE id = ?"
             ).bind(threat.id).run();
-            console.log(`[analyst] Escalated threat ${threat.id} to CRITICAL: ${matchedBrand} has email security grade ${emailSec.email_security_grade}`);
           }
           outputs.push({
             type: 'classification',
@@ -359,8 +342,6 @@ export const analystAgent: AgentModule = {
       }
     }
 
-    console.log(`[analyst] Processing complete: processed=${itemsProcessed}, matched=${itemsUpdated}, haiku_ok=${haikuSuccesses}, haiku_fail=${haikuFailures}, low_confidence=${lowConfidence}, safe_skipped=${safeSkipped}`);
-
     // Always generate an output so agent_outputs gets populated
     outputs.push({
       type: "classification",
@@ -384,9 +365,6 @@ export const analystAgent: AgentModule = {
         enhanced_fields: ['attack_vector', 'target_audience', 'sophistication'],
       },
     });
-
-    console.log("[analyst] agentOutputs to persist:", outputs.length, "entries");
-    console.log("[analyst] === DONE ===");
 
     return {
       itemsProcessed,

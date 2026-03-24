@@ -6,7 +6,6 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 export const phishtank: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "http://data.phishtank.com/data/online-valid.json";
-    console.log(`[phishtank] fetching: ${feedUrl}`);
     let res: Response;
     try {
       res = await fetch(feedUrl, {
@@ -17,7 +16,6 @@ export const phishtank: FeedModule = {
       console.error(`[phishtank] fetch error:`, fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
       throw new Error(`PhishTank fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
     }
-    console.log(`[phishtank] response: HTTP ${res.status}, content-type=${res.headers.get('content-type')}`);
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       console.error(`[phishtank] HTTP ${res.status}: ${body.slice(0, 200)}`);
@@ -28,8 +26,6 @@ export const phishtank: FeedModule = {
       phish_id: number; url: string; phish_detail_url?: string;
       submission_time?: string; verified?: string; target?: string;
     }>;
-    console.log(`[phishtank] parsed ${Array.isArray(data) ? data.length : 0} entries`);
-
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
     const items = (Array.isArray(data) ? data : []).slice(0, 2000);
 
@@ -57,7 +53,6 @@ export const phishtank: FeedModule = {
       }
     }
 
-    console.log(`[phishtank] done: fetched=${items.length}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

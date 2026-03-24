@@ -228,11 +228,9 @@ export async function syncPhishtankFeed(env: Env): Promise<{ fetched: number; ma
   try {
     const infoRes = await safeFetch(`${CIRCL_BASE}/api/v1/info`);
     if (!infoRes.ok) {
-      console.log("[phishtank-circl] info endpoint unavailable, skipping");
       return { fetched: 0, matched: 0 };
     }
   } catch {
-    console.log("[phishtank-circl] info fetch failed, skipping");
     return { fetched: 0, matched: 0 };
   }
 
@@ -241,7 +239,6 @@ export async function syncPhishtankFeed(env: Env): Promise<{ fetched: number; ma
   try {
     const res = await safeFetch(`${CIRCL_BASE}/api/v1/urls/`);
     if (!res.ok) {
-      console.log(`[phishtank-circl] bulk fetch HTTP ${res.status}`);
       return { fetched: 0, matched: 0 };
     }
     const data = await res.json();
@@ -299,7 +296,6 @@ export async function syncPhishtankFeed(env: Env): Promise<{ fetched: number; ma
     }
   }
 
-  console.log(`[phishtank-circl] synced: fetched=${entries.length}, brand_matches=${matched}`);
   return { fetched: entries.length, matched };
 }
 
@@ -340,7 +336,6 @@ export async function syncUrlhausFeed(env: Env): Promise<{ fetched: number; matc
   try {
     const res = await safeFetch("https://urlhaus-api.abuse.ch/v1/urls/recent/");
     if (!res.ok) {
-      console.log(`[urlhaus-signals] HTTP ${res.status}`);
       return { fetched: 0, matched: 0 };
     }
     const body = await res.json() as { urls?: typeof urls };
@@ -389,7 +384,6 @@ export async function syncUrlhausFeed(env: Env): Promise<{ fetched: number; matc
     }
   }
 
-  console.log(`[urlhaus-signals] synced: fetched=${urls.length}, brand_matches=${matched}`);
   return { fetched: urls.length, matched };
 }
 
@@ -415,7 +409,6 @@ export async function checkIpReputation(
   // Check daily rate limit
   const limitKey = "abuseipdb:daily_count";
   if (!(await checkDailyLimit(env.CACHE, limitKey, 1000))) {
-    console.log("[abuseipdb] daily limit reached");
     return null;
   }
 
@@ -461,7 +454,6 @@ export async function checkEmailReputation(
   // Check daily rate limit
   const limitKey = "emailrep:daily_count";
   if (!(await checkDailyLimit(env.CACHE, limitKey, 200))) {
-    console.log("[emailrep] daily limit reached");
     return null;
   }
 

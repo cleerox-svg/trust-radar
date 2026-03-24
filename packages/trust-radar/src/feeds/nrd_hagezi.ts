@@ -23,9 +23,7 @@ const HOMOGLYPHS: Record<string, string[]> = {
 export const nrd_hagezi: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || NRD_URL;
-    console.log(`[nrd_hagezi] fetching: ${url}`);
     const res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", url);
-    console.log(`[nrd_hagezi] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`NRD Hagezi HTTP ${res.status}`);
 
     const text = await res.text();
@@ -34,8 +32,6 @@ export const nrd_hagezi: FeedModule = {
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"))
       .map((d) => d.replace(/^\*\./, "").replace(/\.$/, "").toLowerCase());
-    console.log(`[nrd_hagezi] parsed ${domains.length} NRD domains`);
-
     // Fetch monitored brands
     const brands = await ctx.env.DB.prepare(
       `SELECT b.id, b.name, b.canonical_domain
@@ -45,7 +41,6 @@ export const nrd_hagezi: FeedModule = {
     ).all<{ id: string; name: string; canonical_domain: string }>();
 
     if (!brands.results.length) {
-      console.log(`[nrd_hagezi] no monitored brands found, skipping`);
       return { itemsFetched: domains.length, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 
@@ -55,8 +50,6 @@ export const nrd_hagezi: FeedModule = {
       keyword: b.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
       domain: b.canonical_domain.toLowerCase(),
     }));
-    console.log(`[nrd_hagezi] checking against ${brandKeywords.length} monitored brands`);
-
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
 
     for (const domain of domains) {
@@ -88,7 +81,6 @@ export const nrd_hagezi: FeedModule = {
       }
     }
 
-    console.log(`[nrd_hagezi] NRD scan: checked ${domains.length} domains against ${brandKeywords.length} monitored brands, found ${itemsNew} suspicious matches`);
     return { itemsFetched: domains.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

@@ -42,8 +42,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     providerCountsUpdated: 0,
   };
 
-  console.log("[enrich] === PIPELINE STARTING ===");
-
   // Count what needs enrichment
   const counts = await env.DB.prepare(`
     SELECT
@@ -53,8 +51,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
       (SELECT COUNT(*) FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL) as needs_brand,
       (SELECT COUNT(*) FROM threats) as total
   `).first<{ needs_dns: number; needs_geo: number; needs_whois: number; needs_brand: number; total: number }>();
-
-  console.log(`[enrich] Threats needing enrichment: dns=${counts?.needs_dns}, geo=${counts?.needs_geo}, whois=${counts?.needs_whois}, brand=${counts?.needs_brand} (total=${counts?.total})`);
 
   // Write diagnostic agent_output every run for visibility
   try {
@@ -76,8 +72,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
 
   // Log monthly geo usage
   try {
-    const geoUsage = await getGeoUsage(env.CACHE);
-    console.log(`[enrich] Monthly geo API usage: ${geoUsage}/45000`);
+    await getGeoUsage(env.CACHE);
   } catch { /* non-fatal */ }
 
   // ─── Stage 1: DNS Resolution ──────────────────────────────────
@@ -88,20 +83,16 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
      LIMIT 10`,
   ).all<{ id: string; malicious_domain: string }>();
 
-  console.log(`[enrich] Stage 1 DNS: ${needsDns.results.length} threats to resolve`);
-
   if (needsDns.results.length > 0) {
     const domains = needsDns.results.map((r) => r.malicious_domain);
     try {
       const dnsMap = await batchResolve(domains);
-      console.log(`[enrich] DNS resolved: ${dnsMap.size}/${domains.length} domains got IPs`);
 
       for (const row of needsDns.results) {
         const ip = dnsMap.get(row.malicious_domain);
         if (!ip) continue;
         // Skip storing private IPs — they can't be geo-enriched
         if (isPrivateIP(ip)) {
-          console.log(`[enrich] Skipping private IP ${ip} for ${row.malicious_domain}`);
           continue;
         }
         try {
@@ -118,8 +109,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     }
   }
 
-  console.log(`[enrich] Stage 1 complete: ${result.dnsResolved} IPs resolved`);
-
   // ─── Stage 2: GeoIP + ASN + Hosting Provider ─────────────────
   // Select threats needing geo: missing country_code OR asn OR hosting_provider_id OR lat
   // Prioritize brand-matched threats first (most valuable for map/brand views)
@@ -134,14 +123,11 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
 
   const needsGeo = needsGeoRows.results;
   const brandedCount = needsGeo.filter(r => r.target_brand_id).length;
-  console.log(`[enrich] Stage 2 GeoIP: ${needsGeo.length} threats selected (${brandedCount} branded + ${needsGeo.length - brandedCount} unbranded), token present: ${!!env.IPINFO_TOKEN}`);
-
   if (needsGeo.length > 0) {
     const ips = needsGeo.map((r) => r.ip_address);
 
     try {
       const { results: geoMap } = await batchGeoLookup(ips, env.CACHE, env.IPINFO_TOKEN);
-      console.log(`[enrich] GeoIP resolved: ${geoMap.size}/${ips.length} IPs got location data`);
 
       if (geoMap.size === 0 && ips.length > 0) {
         console.error("[enrich] WARNING: GeoIP returned 0 results — ipinfo.io may be rate limiting or blocking");
@@ -190,8 +176,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     }
   }
 
-  console.log(`[enrich] Stage 2 complete: ${result.geoEnriched} threats geo-enriched, ${result.providersUpserted} providers upserted`);
-
   // ─── Stage 3: WHOIS/RDAP ──────────────────────────────────────
   // Only enrich high/critical severity threats without registrar data
   const needsWhois = await env.DB.prepare(
@@ -201,13 +185,10 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
      LIMIT 20`,
   ).all<{ id: string; malicious_domain: string }>();
 
-  console.log(`[enrich] Stage 3 WHOIS: ${needsWhois.results.length} threats to look up`);
-
   if (needsWhois.results.length > 0) {
     const domains = needsWhois.results.map((r) => r.malicious_domain);
     try {
       const rdapMap = await batchRDAPLookup(domains);
-      console.log(`[enrich] WHOIS resolved: ${rdapMap.size}/${domains.length} domains got registrar data`);
 
       for (const row of needsWhois.results) {
         const rdap = rdapMap.get(row.malicious_domain);
@@ -227,13 +208,10 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     }
   }
 
-  console.log(`[enrich] Stage 3 complete: ${result.whoisEnriched} registrars resolved`);
-
   // ─── Stage 4: Brand Auto-Detection ────────────────────────────
   try {
     const brandResult = await enrichBrands(env.DB);
     result.brandsMatched = brandResult.matched;
-    console.log(`[enrich] Stage 4 complete: ${result.brandsMatched} brands matched`);
   } catch (err) {
     console.error("[enrich] Stage 4 brand detection failed:", err);
   }
@@ -251,8 +229,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
            AND confidence_score BETWEEN 30 AND 70
          LIMIT 5`,
       ).all<{ id: string; malicious_domain: string }>();
-
-      console.log(`[enrich] Stage 4b Domain Rank: ${ambiguous.results.length} ambiguous threats to check`);
 
       for (const row of ambiguous.results) {
         try {
@@ -294,7 +270,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
             await env.DB.prepare(
               "UPDATE threats SET confidence_score = MAX(confidence_score - 15, 0) WHERE id = ?",
             ).bind(row.id).run();
-            console.log(`[enrich] ${row.malicious_domain} ranked #${rank} — lowered confidence`);
           }
 
           result.domainRanksChecked++;
@@ -305,7 +280,6 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      console.log(`[enrich] Stage 4b complete: ${result.domainRanksChecked} domain ranks checked`);
     } catch (err) {
       console.error("[enrich] Stage 4b domain ranking failed:", err);
     }
@@ -325,11 +299,9 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
         )
     `).run();
     result.providerCountsUpdated = providerUpdate.meta.changes ?? 0;
-    console.log(`[enrich] Stage 5 complete: ${result.providerCountsUpdated} provider counts synced`);
   } catch (err) {
     console.error("[enrich] Stage 5 provider count update failed:", err);
   }
 
-  console.log(`[enrich] === PIPELINE COMPLETE === ${JSON.stringify(result)}`);
   return result;
 }
