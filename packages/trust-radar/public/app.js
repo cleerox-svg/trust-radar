@@ -9296,61 +9296,99 @@ async function viewAdminTakedowns(el) {
 
       const listEl = document.getElementById('at-list');
       if (listEl) {
+        const btnPrimary = "background:#C83C3C;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;padding:6px 14px;border-radius:4px;border:none;cursor:pointer;font-weight:600;letter-spacing:0.04em";
+        const btnSuccess = "background:#28A050;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;padding:6px 14px;border-radius:4px;border:none;cursor:pointer;font-weight:600;letter-spacing:0.04em";
+        const btnGhost = "background:transparent;border:1px solid var(--border,#1A2E48);color:var(--text-secondary,#78A0C8);font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;padding:6px 14px;border-radius:4px;cursor:pointer;font-weight:600;letter-spacing:0.04em";
+
         listEl.innerHTML = takedowns.length ? takedowns.map(t => {
           const sevColor = { CRITICAL: 'var(--threat-critical)', HIGH: 'var(--threat-high)', MEDIUM: 'var(--threat-medium)', LOW: '#4a5a73' }[t.severity] || 'var(--text-tertiary)';
-          const statusColor = { draft: 'var(--text-tertiary)', requested: 'var(--blue-primary)', submitted: 'var(--threat-medium)', pending_response: 'var(--threat-medium)', taken_down: 'var(--positive)', failed: 'var(--negative)', expired: '#4a5a73', withdrawn: '#4a5a73' }[t.status] || 'var(--text-tertiary)';
+          const statusColor = { draft: 'var(--text-tertiary)', requested: '#C83C3C', submitted: 'var(--threat-medium)', pending_response: 'var(--threat-medium)', taken_down: '#28A050', failed: '#4a5a73', expired: '#4a5a73', withdrawn: '#4a5a73' }[t.status] || 'var(--text-tertiary)';
 
-          let advanceBtns = '';
-          if (t.status === 'requested' || t.status === 'draft') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="submitted" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);color:var(--blue-primary);cursor:pointer">Mark Submitted</button>`;
-          if (t.status === 'submitted') advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="pending_response" style="padding:3px 8px;font-size:9px;border:1px solid var(--threat-medium)44;border-radius:3px;background:rgba(255,182,39,0.08);color:var(--threat-medium);cursor:pointer">Pending Response</button>`;
-          if (t.status === 'submitted' || t.status === 'pending_response') {
-            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="taken_down" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:rgba(40,160,80,0.08);color:var(--positive);cursor:pointer">Taken Down</button>`;
-            advanceBtns += `<button class="at-adv" data-id="${t.id}" data-status="failed" style="padding:3px 8px;font-size:9px;border:1px solid var(--negative)44;border-radius:3px;background:rgba(255,59,92,0.08);color:var(--negative);cursor:pointer">Failed</button>`;
+          let actionArea = '';
+          if (t.status === 'requested') {
+            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="at-act" data-id="${t.id}" data-status="submitted" style="${btnPrimary}">Submit to Provider</button>
+              <button class="at-act" data-id="${t.id}" data-status="rejected" style="${btnGhost}">Reject</button>
+            </div>`;
+          } else if (t.status === 'submitted') {
+            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="at-act" data-id="${t.id}" data-status="pending_response" style="${btnPrimary}">Mark Pending Response</button>
+              <button class="at-act" data-id="${t.id}" data-status="taken_down" style="${btnSuccess}">Mark Taken Down</button>
+              <button class="at-act" data-id="${t.id}" data-status="failed" style="${btnGhost}">Mark Failed</button>
+            </div>`;
+          } else if (t.status === 'pending_response') {
+            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="at-act" data-id="${t.id}" data-status="taken_down" style="${btnSuccess}">Mark Taken Down</button>
+              <button class="at-act" data-id="${t.id}" data-status="failed" style="${btnGhost}">Mark Failed</button>
+              <button class="at-act" data-id="${t.id}" data-status="expired" style="${btnGhost}">Mark Expired</button>
+            </div>`;
+          } else if (t.status === 'draft') {
+            actionArea = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="at-act" data-id="${t.id}" data-status="submitted" style="${btnPrimary}">Submit</button>
+              <button class="at-act" data-id="${t.id}" data-status="withdrawn" style="${btnGhost}">Withdraw</button>
+            </div>`;
+          } else if (t.status === 'taken_down') {
+            actionArea = `<span style="font-size:11px;padding:4px 12px;border-radius:4px;background:#28A050;color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:0.04em">&#10003; RESOLVED</span>`;
+          } else if (['failed','expired','withdrawn'].includes(t.status)) {
+            actionArea = `<span style="font-size:11px;padding:4px 12px;border-radius:4px;background:rgba(74,90,115,0.2);color:#4a5a73;font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:0.04em;border:1px solid rgba(74,90,115,0.27)">${(t.status).toUpperCase()}</span>`;
           }
 
-          return `<div class="adm-panel" style="margin-bottom:10px">
+          return `<div class="adm-panel at-row" data-id="${t.id}" style="margin-bottom:10px;cursor:pointer">
             <div class="adm-padded">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="width:10px;height:10px;border-radius:50%;background:${sevColor}"></span>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor}">${t.severity}</span>
                 <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
                 <span style="font-size:10px;color:var(--text-tertiary)">${(t.target_type || '').replace(/_/g, ' ')}</span>
-                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
+                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
+                <span style="font-size:10px;color:var(--text-tertiary);margin-left:4px">${timeAgo(t.created_at)}</span>
+                <div style="margin-left:auto;display:flex;align-items:center;gap:6px">${actionArea}</div>
               </div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">
-                <span style="font-weight:600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}
-                ${t.target_platform ? ' &middot; ' + t.target_platform : ''}
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">
+                <span style="font-weight:600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}${t.target_platform ? ' &middot; ' + t.target_platform : ''}
               </div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px">${t.evidence_summary || ''}</div>
-              ${t.evidence_detail ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px;max-height:80px;overflow-y:auto">' + t.evidence_detail + '</div>' : ''}
-              ${t.provider_name ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:var(--blue-primary)">' + t.provider_abuse_contact + '</a>' : '') + '</div>' : ''}
-              ${t.response_notes ? '<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px"><strong>Response:</strong> ' + t.response_notes + '</div>' : ''}
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-                <span style="font-size:10px;color:var(--text-tertiary)">${timeAgo(t.created_at)}</span>
-                <div style="display:flex;gap:4px;align-items:center">
-                  <input class="at-notes-input" data-id="${t.id}" placeholder="Response notes..." style="padding:3px 6px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-card);color:var(--text-primary);width:160px;display:${['submitted', 'pending_response'].includes(t.status) ? 'inline' : 'none'}">
-                  ${advanceBtns}
-                </div>
+            </div>
+            <div class="at-detail" id="at-detail-${t.id}" style="display:none;padding:14px 16px;background:#0E1A2B;border-top:1px solid rgba(26,46,72,0.6)">
+              ${t.evidence_summary ? `<div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">${t.evidence_summary}</div>` : ''}
+              ${t.evidence_detail ? `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
+              ${t.provider_name ? `<div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">Provider: <span style="color:var(--text-secondary);font-weight:600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
+              <div style="margin-bottom:10px">
+                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${t.severity}</span>
               </div>
+              <textarea class="at-notes-input" data-id="${t.id}" placeholder="Add notes before submitting..." style="width:100%;padding:8px;font-size:11px;border:1px solid rgba(26,46,72,0.8);border-radius:4px;background:rgba(4,8,16,0.4);color:var(--text-primary);resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit">${t.response_notes || ''}</textarea>
             </div>
           </div>`;
         }).join('') : '<div class="empty-state"><div class="message">No takedown requests</div></div>';
 
-        listEl.querySelectorAll('.at-adv').forEach(btn => {
+        listEl.querySelectorAll('.at-row').forEach(row => {
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('.at-act') || e.target.tagName === 'A' || e.target.tagName === 'TEXTAREA') return;
+            const id = row.dataset.id;
+            const detail = document.getElementById('at-detail-' + id);
+            if (detail) detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+          });
+        });
+
+        listEl.querySelectorAll('.at-act').forEach(btn => {
           btn.addEventListener('click', async (e) => {
-            const id = e.target.dataset.id;
-            const newStatus = e.target.dataset.status;
+            e.stopPropagation();
+            const id = e.currentTarget.dataset.id;
+            const newStatus = e.currentTarget.dataset.status;
             const notesInput = listEl.querySelector('.at-notes-input[data-id="' + id + '"]');
             const body = { status: newStatus };
             if (notesInput?.value) body.response_notes = notesInput.value;
-            e.target.disabled = true;
+            e.currentTarget.disabled = true;
             try {
-              await api('/admin/takedowns/' + id, { method: 'PATCH', body: JSON.stringify(body) });
-              showToast('Takedown ' + newStatus.replace(/_/g, ' '), 'success');
+              await fetch('/api/admin/takedowns/' + id, {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer ' + getAccessToken(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+              });
+              showToast('Status updated to ' + newStatus.replace(/_/g, ' '), 'success');
               loadAdminTakedowns();
             } catch (err) {
               showToast('Failed: ' + err.message, 'error');
-              e.target.disabled = false;
+              e.currentTarget.disabled = false;
             }
           });
         });
