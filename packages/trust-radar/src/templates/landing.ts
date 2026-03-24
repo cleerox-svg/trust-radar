@@ -1997,7 +1997,7 @@ section {
       <div>
         <div class="company-facts">
           <div class="fact-card">
-            <div class="fact-num">🇨🇦</div>
+            <div class="fact-num"><svg width="18" height="12" viewBox="0 0 18 12" style="vertical-align:middle;margin:0 2px"><rect width="4.5" height="12" fill="#C83C3C"/><rect x="4.5" width="9" height="12" fill="#fff"/><rect x="13.5" width="4.5" height="12" fill="#C83C3C"/><path d="M9 2.5l-.6 1.8H6.8l1.3.9-.5 1.6L9 5.9l1.4.9-.5-1.6 1.3-.9H9.6z" fill="#C83C3C"/></svg></div>
             <div class="fact-label">Canadian-incorporated cybersecurity company</div>
           </div>
           <div class="fact-card">

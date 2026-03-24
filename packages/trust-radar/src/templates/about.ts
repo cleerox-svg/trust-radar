@@ -8,7 +8,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 export function renderAboutPage(): string {
   return wrapPage(
     "About — Averrow",
-    "LRX Enterprises Inc. 🇨🇦 Making brand threat intelligence accessible. AI-native, edge-first, radically accessible.",
+    "LRX Enterprises Inc. — Making brand threat intelligence accessible. AI-native, edge-first, radically accessible.",
     `
 <style>
 .about-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
@@ -20,6 +20,15 @@ export function renderAboutPage(): string {
 .about-content { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
 .about-content h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
 .about-content p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem; font-size: 1rem; }
+
+.our-story-container {
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 2.5rem 3rem;
+}
+[data-theme="light"] .our-story-container { background: rgba(200,60,60,0.02); }
+[data-theme="dark"] .our-story-container { background: rgba(200,60,60,0.04); }
+.our-story-container p:last-child { margin-bottom: 0; }
 
 .principles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 .principle-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; position: relative; overflow: hidden; transition: all 0.3s; }
@@ -60,7 +69,7 @@ export function renderAboutPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">About</div>
     <h1>Making brand threat intelligence<br>accessible.</h1>
-    <p>LRX Enterprises Inc. 🇨🇦 is building the airspace defense that every company deserves — not just enterprises with six-figure security budgets.</p>
+    <p>LRX Enterprises Inc. <svg width="18" height="12" viewBox="0 0 18 12" style="vertical-align:middle;margin:0 2px"><rect width="4.5" height="12" fill="#C83C3C"/><rect x="4.5" width="9" height="12" fill="#fff"/><rect x="13.5" width="4.5" height="12" fill="#C83C3C"/><path d="M9 2.5l-.6 1.8H6.8l1.3.9-.5 1.6L9 5.9l1.4.9-.5-1.6 1.3-.9H9.6z" fill="#C83C3C"/></svg> is building the airspace defense that every company deserves — not just enterprises with six-figure security budgets.</p>
   </div>
 </section>
 
@@ -68,9 +77,11 @@ export function renderAboutPage(): string {
 <section class="about-section">
   <div class="about-content">
     <h2>Our Story</h2>
-    <p>In 1958, Canada built the most advanced interceptor in the world — the Avro Arrow. Averrow carries that legacy into the digital domain. We detect, classify, and neutralize threats crossing into your brand's airspace before they reach their target.</p>
-    <p>Enterprise brand protection platforms cost $20,000 to $150,000+ per year and require dedicated security analysts to operate. Meanwhile, mid-market companies — the ones actually being targeted by phishing campaigns and brand impersonation — have no affordable option.</p>
-    <p>Averrow exists to close that gap. Founded in Canada by LRX Enterprises Inc., built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do — and intercept threats before they land.</p>
+    <div class="our-story-container">
+      <p>In 1958, Canada built the most advanced interceptor in the world — the Avro Arrow. Averrow carries that legacy into the digital domain. We detect, classify, and neutralize threats crossing into your brand's airspace before they reach their target.</p>
+      <p>Enterprise brand protection platforms cost $20,000 to $150,000+ per year and require dedicated security analysts to operate. Meanwhile, mid-market companies — the ones actually being targeted by phishing campaigns and brand impersonation — have no affordable option.</p>
+      <p>Averrow exists to close that gap. Founded in Canada by LRX Enterprises Inc., built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do — and intercept threats before they land.</p>
+    </div>
   </div>
 </section>
 
@@ -105,7 +116,7 @@ export function renderAboutPage(): string {
     <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;margin-bottom:0.5rem;">Company Facts</h2>
   </div>
   <div class="facts-grid">
-    <div class="fact-card"><div class="fact-value">🇨🇦 LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
+    <div class="fact-card"><div class="fact-value"><svg width="18" height="12" viewBox="0 0 18 12" style="vertical-align:middle;margin:0 2px"><rect width="4.5" height="12" fill="#C83C3C"/><rect x="4.5" width="9" height="12" fill="#fff"/><rect x="13.5" width="4.5" height="12" fill="#C83C3C"/><path d="M9 2.5l-.6 1.8H6.8l1.3.9-.5 1.6L9 5.9l1.4.9-.5-1.6 1.3-.9H9.6z" fill="#C83C3C"/></svg> LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
     <div class="fact-card"><div class="fact-value">AI-Native</div><div class="fact-label">Powered by advanced AI agents</div></div>
     <div class="fact-card"><div class="fact-value">Edge-First</div><div class="fact-label">Zero cold starts, globally distributed</div></div>
     <div class="fact-card"><div class="fact-value">6+</div><div class="fact-label">Integrated threat intelligence feeds</div></div>
