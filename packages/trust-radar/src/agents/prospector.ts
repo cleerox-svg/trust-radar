@@ -1,12 +1,18 @@
 /**
- * Prospector Agent — Sales intelligence & lead generation pipeline.
+ * Pathfinder (Prospector) Agent — Sales intelligence & lead generation pipeline.
  *
- * Three-stage pipeline:
- *   1. Identify prospects by scoring brands from platform data
- *   2. Research company & security leadership via Haiku + web search
- *   3. Generate personalized outreach drafts
+ * Two-phase architecture to prevent Worker timeouts:
  *
- * Runs weekly. Processes max 3 leads per run to prevent Worker timeout.
+ *   Phase 1 — identifyAndCreate():
+ *     Score brands from platform data, insert qualified leads immediately.
+ *     No AI calls. Completes in < 10s for 10+ brands.
+ *
+ *   Phase 2 — enrichLeadWithAI():
+ *     Pick up ONE unenriched lead, call Haiku for summary + outreach + research,
+ *     then mark it enriched. Separate execution, 25s timeout guard.
+ *
+ * The main run() calls both phases on every cron tick, so leads are created fast
+ * and enriched incrementally over subsequent runs.
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -30,39 +36,11 @@ interface ProspectCandidate {
   findings_summary: string;
 }
 
-interface ProspectResearch {
-  company_name: string;
-  company_domain: string;
-  company_industry: string | null;
-  company_size: string | null;
-  company_revenue_range: string | null;
-  company_hq: string | null;
-  target_name: string | null;
-  target_title: string | null;
-  target_linkedin: string | null;
-  target_email: string | null;
-  security_maturity: string | null;
-  compliance_frameworks: string[];
-  recent_security_news: string | null;
-  hiring_security: boolean;
-  research_confidence: string;
-  raw_research: string;
-}
-
-interface OutreachDrafts {
-  variant_1_subject: string;
-  variant_1_body: string;
-  variant_2_subject: string;
-  variant_2_body: string;
-}
-
-interface SalesLead {
+interface UnenrichedLead {
   id: number;
   brand_id: string;
   company_name: string | null;
   company_domain: string | null;
-  company_industry: string | null;
-  company_size: string | null;
   email_security_grade: string | null;
   threat_count_30d: number | null;
   phishing_urls_active: number | null;
@@ -70,9 +48,7 @@ interface SalesLead {
   composite_risk_score: number | null;
   pitch_angle: string | null;
   findings_summary: string | null;
-  target_name: string | null;
-  target_title: string | null;
-  research_json: string | null;
+  prospect_score: number | null;
 }
 
 // ─── Scoring weights ────────────────────────────────────────────
@@ -96,11 +72,11 @@ const SCORING = {
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_LEADS_PER_RUN = 3;
 const MAX_IDENTIFIED = 20;
 const MIN_SCORE = 20;
+const AI_TIMEOUT_MS = 25000;
 
-// ─── Haiku API helpers ──────────────────────────────────────────
+// ─── Haiku API helper ────────────────────────────────────────────
 
 async function callHaikuJSON<T>(
   env: Env,
@@ -122,6 +98,9 @@ async function callHaikuJSON<T>(
   };
   if (tools) body.tools = tools;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
   try {
     const res = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
@@ -131,8 +110,10 @@ async function callHaikuJSON<T>(
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
+      signal: controller.signal,
     });
+
+    clearTimeout(timer);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -161,17 +142,29 @@ async function callHaikuJSON<T>(
       tokens_used: apiResponse.usage.input_tokens + apiResponse.usage.output_tokens,
     };
   } catch (err) {
+    clearTimeout(timer);
     return { success: false, error: String(err) };
   }
 }
 
-// ─── Stage 1: Prospect Identification ───────────────────────────
+// ─── Phase 1: Identify & Create ─────────────────────────────────
 
-async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
-  // Get brands with their latest email security grade
-  let emailGrades: { results: Array<{ brand_id: string; brand_name: string; brand_domain: string; tranco_rank: number | null; email_security_grade: string | null; dmarc_policy: string | null; }> };
+export async function identifyAndCreate(env: Env): Promise<{
+  candidates_found: number;
+  leads_created: number;
+  errors: number;
+}> {
+  console.log("[Pathfinder] Phase 1: identifyAndCreate starting");
+
+  // Get brands with their latest email security grade, excluding already-monitored
+  // orgs and leads created in the last 90 days
+  let emailGrades: { results: Array<{
+    brand_id: string; brand_name: string; brand_domain: string;
+    tranco_rank: number | null; email_security_grade: string | null; dmarc_policy: string | null;
+  }> };
+
   try {
-    emailGrades = await db.prepare(`
+    emailGrades = await env.DB.prepare(`
       SELECT b.id as brand_id, b.name as brand_name, b.canonical_domain as brand_domain,
              b.tranco_rank,
              ess.email_security_grade, ess.dmarc_policy
@@ -194,96 +187,94 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
     throw err;
   }
 
-  if (!emailGrades.results.length) return [];
+  if (!emailGrades.results.length) {
+    return { candidates_found: 0, leads_created: 0, errors: 0 };
+  }
 
-  // Threat counts per brand (last 30 days)
-  const threatCounts = await db.prepare(`
-    SELECT target_brand_id as brand_id,
-           COUNT(*) as threat_count,
-           SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) as phishing_count
-    FROM threats
-    WHERE created_at >= datetime('now', '-30 days')
-      AND target_brand_id IS NOT NULL
-    GROUP BY target_brand_id
-  `).all<{ brand_id: string; threat_count: number; phishing_count: number }>();
+  // Parallel lookups for scoring signals
+  const [threatCounts, phishingSignals, trapCatches, riskScores, prevRiskScores, aiPhishing, campaignCounts] =
+    await Promise.all([
+      env.DB.prepare(`
+        SELECT target_brand_id as brand_id,
+               COUNT(*) as threat_count,
+               SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) as phishing_count
+        FROM threats
+        WHERE created_at >= datetime('now', '-30 days')
+          AND target_brand_id IS NOT NULL
+        GROUP BY target_brand_id
+      `).all<{ brand_id: string; threat_count: number; phishing_count: number }>(),
+
+      env.DB.prepare(`
+        SELECT brand_match_id, COUNT(*) as signal_count
+        FROM threat_signals
+        WHERE signal_type = 'phishing_url'
+          AND created_at >= datetime('now', '-30 days')
+          AND brand_match_id IS NOT NULL
+        GROUP BY brand_match_id
+      `).all<{ brand_match_id: string; signal_count: number }>(),
+
+      env.DB.prepare(`
+        SELECT spoofed_brand_id, COUNT(*) as catch_count
+        FROM spam_trap_captures
+        WHERE captured_at >= datetime('now', '-30 days')
+          AND spoofed_brand_id IS NOT NULL
+        GROUP BY spoofed_brand_id
+      `).all<{ spoofed_brand_id: string; catch_count: number }>(),
+
+      env.DB.prepare(`
+        SELECT brand_id, composite_risk_score
+        FROM brand_threat_assessments
+        WHERE id IN (
+          SELECT id FROM brand_threat_assessments bta2
+          WHERE bta2.brand_id = brand_threat_assessments.brand_id
+          ORDER BY bta2.assessed_at DESC LIMIT 1
+        )
+      `).all<{ brand_id: string; composite_risk_score: number }>(),
+
+      env.DB.prepare(`
+        SELECT brand_id, composite_risk_score
+        FROM brand_threat_assessments
+        WHERE id IN (
+          SELECT id FROM brand_threat_assessments bta2
+          WHERE bta2.brand_id = brand_threat_assessments.brand_id
+          ORDER BY bta2.assessed_at DESC LIMIT 1 OFFSET 1
+        )
+      `).all<{ brand_id: string; composite_risk_score: number }>(),
+
+      env.DB.prepare(`
+        SELECT brand_targeted, COUNT(*) as ai_count
+        FROM phishing_pattern_signals
+        WHERE ai_generated_probability > 0.7
+          AND created_at >= datetime('now', '-30 days')
+          AND brand_targeted IS NOT NULL
+        GROUP BY brand_targeted
+      `).all<{ brand_targeted: string; ai_count: number }>(),
+
+      env.DB.prepare(`
+        SELECT target_brand_id as brand_id, COUNT(DISTINCT campaign_id) as campaign_count
+        FROM threats
+        WHERE created_at >= datetime('now', '-30 days')
+          AND target_brand_id IS NOT NULL
+          AND campaign_id IS NOT NULL
+        GROUP BY target_brand_id
+      `).all<{ brand_id: string; campaign_count: number }>(),
+    ]);
+
   const threatMap = new Map(threatCounts.results.map(r => [r.brand_id, r]));
-
-  // Phishing URL signals (last 30 days)
-  const phishingSignals = await db.prepare(`
-    SELECT brand_match_id, COUNT(*) as signal_count
-    FROM threat_signals
-    WHERE signal_type = 'phishing_url'
-      AND created_at >= datetime('now', '-30 days')
-      AND brand_match_id IS NOT NULL
-    GROUP BY brand_match_id
-  `).all<{ brand_match_id: string; signal_count: number }>();
   const phishMap = new Map(phishingSignals.results.map(r => [r.brand_match_id, r.signal_count]));
-
-  // Spam trap catches (last 30 days)
-  const trapCatches = await db.prepare(`
-    SELECT spoofed_brand_id, COUNT(*) as catch_count
-    FROM spam_trap_captures
-    WHERE captured_at >= datetime('now', '-30 days')
-      AND spoofed_brand_id IS NOT NULL
-    GROUP BY spoofed_brand_id
-  `).all<{ spoofed_brand_id: string; catch_count: number }>();
   const trapMap = new Map(trapCatches.results.map(r => [r.spoofed_brand_id, r.catch_count]));
-
-  // Risk scores
-  const riskScores = await db.prepare(`
-    SELECT brand_id, composite_risk_score
-    FROM brand_threat_assessments
-    WHERE id IN (
-      SELECT id FROM brand_threat_assessments bta2
-      WHERE bta2.brand_id = brand_threat_assessments.brand_id
-      ORDER BY bta2.assessed_at DESC LIMIT 1
-    )
-  `).all<{ brand_id: string; composite_risk_score: number }>();
   const riskMap = new Map(riskScores.results.map(r => [r.brand_id, r.composite_risk_score]));
-
-  // Previous risk scores (for spike detection)
-  const prevRiskScores = await db.prepare(`
-    SELECT brand_id, composite_risk_score
-    FROM brand_threat_assessments
-    WHERE id IN (
-      SELECT id FROM brand_threat_assessments bta2
-      WHERE bta2.brand_id = brand_threat_assessments.brand_id
-      ORDER BY bta2.assessed_at DESC LIMIT 1 OFFSET 1
-    )
-  `).all<{ brand_id: string; composite_risk_score: number }>();
   const prevRiskMap = new Map(prevRiskScores.results.map(r => [r.brand_id, r.composite_risk_score]));
-
-  // AI phishing detection
-  const aiPhishing = await db.prepare(`
-    SELECT brand_targeted, COUNT(*) as ai_count
-    FROM phishing_pattern_signals
-    WHERE ai_generated_probability > 0.7
-      AND created_at >= datetime('now', '-30 days')
-      AND brand_targeted IS NOT NULL
-    GROUP BY brand_targeted
-  `).all<{ brand_targeted: string; ai_count: number }>();
   const aiMap = new Map(aiPhishing.results.map(r => [r.brand_targeted, r.ai_count]));
-
-  // Distinct campaigns per brand (last 30 days)
-  const campaignCounts = await db.prepare(`
-    SELECT target_brand_id as brand_id, COUNT(DISTINCT campaign_id) as campaign_count
-    FROM threats
-    WHERE created_at >= datetime('now', '-30 days')
-      AND target_brand_id IS NOT NULL
-      AND campaign_id IS NOT NULL
-    GROUP BY target_brand_id
-  `).all<{ brand_id: string; campaign_count: number }>();
   const campaignMap = new Map(campaignCounts.results.map(r => [r.brand_id, r.campaign_count]));
 
   // Score each brand
   const candidates: ProspectCandidate[] = [];
-  let qualifiedCount = 0;
 
   for (const brand of emailGrades.results) {
     const breakdown: Record<string, number> = {};
     let score = 0;
 
-    // Email grade scoring
     const grade = brand.email_security_grade?.toUpperCase();
     if (grade === 'F' || grade === 'D') {
       breakdown.email_grade_f_or_d = SCORING.email_grade_f_or_d;
@@ -293,64 +284,55 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
       score += SCORING.email_grade_c;
     }
 
-    // DMARC
     const dmarc = brand.dmarc_policy?.toLowerCase();
     if (!dmarc || dmarc === 'none') {
       breakdown.dmarc_none_or_missing = SCORING.dmarc_none_or_missing;
       score += SCORING.dmarc_none_or_missing;
     }
 
-    // Active phishing URLs
     const phishCount = phishMap.get(brand.brand_id) ?? 0;
     if (phishCount > 0) {
       breakdown.active_phishing_urls = SCORING.active_phishing_urls;
       score += SCORING.active_phishing_urls;
     }
 
-    // Spam trap catches
     const trapCount = trapMap.get(brand.brand_id) ?? 0;
     if (trapCount > 0) {
       breakdown.spam_trap_catches = SCORING.spam_trap_catches;
       score += SCORING.spam_trap_catches;
     }
 
-    // High risk score
     const riskScore = riskMap.get(brand.brand_id);
     if (riskScore && riskScore > 60) {
       breakdown.high_risk_score = SCORING.high_risk_score;
       score += SCORING.high_risk_score;
     }
 
-    // AI phishing
     const aiCount = aiMap.get(brand.brand_id) ?? 0;
     if (aiCount > 0) {
       breakdown.ai_phishing_detected = SCORING.ai_phishing_detected;
       score += SCORING.ai_phishing_detected;
     }
 
-    // Tranco top 10k
     if (brand.tranco_rank && brand.tranco_rank <= 10000) {
       breakdown.tranco_top_10k = SCORING.tranco_top_10k;
       score += SCORING.tranco_top_10k;
     }
 
-    // Multiple campaigns
     const campCount = campaignMap.get(brand.brand_id) ?? 0;
     if (campCount >= 3) {
       breakdown.multiple_campaigns = SCORING.multiple_campaigns;
       score += SCORING.multiple_campaigns;
     }
 
-    // Risk spike
     const prevScore = prevRiskMap.get(brand.brand_id);
     if (riskScore && prevScore && riskScore - prevScore >= 20) {
       breakdown.recent_risk_spike = SCORING.recent_risk_spike;
       score += SCORING.recent_risk_spike;
     }
 
-    // Social impersonation risk (from social_profiles)
     try {
-      const socialIntel = await getBrandSocialIntel({ DB: db } as Env, brand.brand_id);
+      const socialIntel = await getBrandSocialIntel({ DB: env.DB } as Env, brand.brand_id);
       if (socialIntel.impersonationProfiles > 0) {
         breakdown.social_impersonation = SCORING.social_impersonation;
         score += SCORING.social_impersonation;
@@ -363,31 +345,35 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
         breakdown.social_takedown_needed = SCORING.social_takedown_needed;
         score += SCORING.social_takedown_needed;
       }
-    } catch { /* social intel is best-effort for scoring */ }
+    } catch { /* social intel is best-effort */ }
 
     if (score < MIN_SCORE) continue;
-    qualifiedCount++;
 
-    // Determine pitch angle
-    const hasPhishing = phishCount > 0;
-    const hasTrap = trapCount > 0;
-    const hasBadEmail = grade === 'F' || grade === 'D';
-    const hasDmarcNone = !dmarc || dmarc === 'none';
-    const hasAI = aiCount > 0;
-    const hasMultiCampaign = campCount >= 3;
+    // Determine pitch angle from highest-weighted factor
+    const emailScore = breakdown.email_grade_f_or_d ?? breakdown.email_grade_c ?? 0;
+    const threatScore = breakdown.active_phishing_urls ?? 0;
+    const brandScore = (breakdown.spam_trap_catches ?? 0) + (breakdown.social_impersonation ?? 0);
 
-    const hasSocialImpersonation = !!(breakdown.social_impersonation);
+    let pitchAngle: string;
+    if (emailScore >= threatScore && emailScore >= brandScore) {
+      pitchAngle = 'email_security_gap';
+    } else if (threatScore >= brandScore) {
+      pitchAngle = 'high_threat_volume';
+    } else {
+      pitchAngle = 'brand_protection';
+    }
 
-    let pitchAngle = 'brand_protection';
-    if (hasBadEmail && hasPhishing) pitchAngle = 'urgent_exposure';
-    else if (hasPhishing && hasTrap) pitchAngle = 'active_attack';
-    else if (hasSocialImpersonation && hasPhishing) pitchAngle = 'coordinated_attack';
-    else if (hasBadEmail && hasDmarcNone) pitchAngle = 'email_security';
-    else if (hasSocialImpersonation) pitchAngle = 'social_impersonation';
-    else if (hasAI) pitchAngle = 'ai_threat';
-    else if (hasMultiCampaign) pitchAngle = 'campaign_targeting';
+    // Template-based findings summary — no AI required
+    const recentThreats = threatMap.get(brand.brand_id)?.threat_count ?? 0;
+    const emailGrade = brand.email_security_grade ?? 'unknown';
+    const factors: string[] = [];
+    if (phishCount > 0) factors.push(`${phishCount} active phishing URLs`);
+    if (trapCount > 0) factors.push(`${trapCount} spam trap catches`);
+    if (!dmarc || dmarc === 'none') factors.push('no DMARC enforcement');
+    if (grade === 'F' || grade === 'D') factors.push(`email grade ${grade}`);
+    if (breakdown.social_impersonation) factors.push('social media impersonation');
 
-    const threatData = threatMap.get(brand.brand_id);
+    const findingsSummary = `${brand.brand_name} (${brand.brand_domain}) has ${recentThreats} active threats in the last 30 days with an email security grade of ${emailGrade}. Risk factors: ${factors.length ? factors.join(', ') : 'composite risk indicators'}.`;
 
     candidates.push({
       brand_id: brand.brand_id,
@@ -396,374 +382,202 @@ async function identifyProspects(db: D1Database): Promise<ProspectCandidate[]> {
       prospect_score: score,
       score_breakdown: breakdown,
       email_security_grade: brand.email_security_grade,
-      threat_count_30d: threatData?.threat_count ?? 0,
+      threat_count_30d: recentThreats,
       phishing_urls_active: phishCount,
       trap_catches_30d: trapCount,
       composite_risk_score: riskScore ?? null,
       pitch_angle: pitchAngle,
-      findings_summary: "", // Generated by Haiku below
+      findings_summary: findingsSummary,
     });
   }
 
-  console.log("[Pathfinder] Qualified brands above MIN_SCORE:", qualifiedCount);
+  console.log("[Pathfinder] Qualified brands above MIN_SCORE:", candidates.length);
 
-  // Sort by score descending, take top 20
+  // Sort by score descending, take top MAX_IDENTIFIED
   candidates.sort((a, b) => b.prospect_score - a.prospect_score);
-  return candidates.slice(0, MAX_IDENTIFIED);
-}
+  const topCandidates = candidates.slice(0, MAX_IDENTIFIED);
 
-// ─── Generate findings summary via Haiku ────────────────────────
+  // Insert leads — no AI, just data
+  let leadsCreated = 0;
+  let errors = 0;
 
-async function generateFindingsSummary(
-  env: Env,
-  candidate: ProspectCandidate,
-): Promise<string> {
-  const result = await callHaikuJSON<{ summary: string }>(
-    env,
-    `You are a concise threat intelligence writer. Write a 2-3 sentence factual summary of security findings for a brand. Reference specific numbers. Output JSON: {"summary": "..."}`,
-    `Brand: ${candidate.brand_name} (${candidate.brand_domain})
-Email security grade: ${candidate.email_security_grade || 'Not scanned'}
-Active phishing URLs detected (30d): ${candidate.phishing_urls_active}
-Spam trap catches (brand impersonation, 30d): ${candidate.trap_catches_30d}
-Total threats (30d): ${candidate.threat_count_30d}
-Composite risk score: ${candidate.composite_risk_score ?? 'N/A'}/100
-Pitch angle: ${candidate.pitch_angle}`,
-    256,
-  );
+  for (const candidate of topCandidates) {
+    try {
+      await env.DB.prepare(`
+        INSERT INTO sales_leads (
+          brand_id, prospect_score, score_breakdown_json, status,
+          company_name, company_domain,
+          email_security_grade, threat_count_30d, phishing_urls_active,
+          trap_catches_30d, composite_risk_score, pitch_angle, findings_summary,
+          identified_by, ai_enriched,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'prospector_agent', 0, datetime('now'), datetime('now'))
+      `).bind(
+        candidate.brand_id,
+        candidate.prospect_score,
+        JSON.stringify(candidate.score_breakdown),
+        candidate.brand_name,
+        candidate.brand_domain,
+        candidate.email_security_grade,
+        candidate.threat_count_30d,
+        candidate.phishing_urls_active,
+        candidate.trap_catches_30d,
+        candidate.composite_risk_score,
+        candidate.pitch_angle,
+        candidate.findings_summary,
+      ).run();
 
-  return result.data?.summary ?? `Averrow detected ${candidate.threat_count_30d} threats targeting ${candidate.brand_name} in the past 30 days, including ${candidate.phishing_urls_active} active phishing URLs. Email security grade: ${candidate.email_security_grade || 'unknown'}.`;
-}
-
-// ─── Stage 2: Company & CISO Research ───────────────────────────
-
-async function researchProspect(
-  candidate: ProspectCandidate,
-  env: Env,
-): Promise<ProspectResearch> {
-  const systemPrompt = `You are a sales intelligence researcher for Averrow, a brand threat intelligence platform that detects phishing, brand impersonation, and email security vulnerabilities.
-
-Research this company to build a sales prospect profile:
-
-Company: ${candidate.brand_name}
-Domain: ${candidate.brand_domain}
-
-Find and return as JSON:
-1. company_industry: Their primary industry
-2. company_size: "startup" (<50), "smb" (50-500), "mid-market" (500-5000), "enterprise" (5000+)
-3. company_revenue_range: Approximate annual revenue bracket if findable
-4. company_hq: Headquarters city/country
-5. target_name: Name of their CISO, VP Security, Head of Security, or Director of InfoSec
-6. target_title: Their exact title
-7. target_linkedin: LinkedIn profile URL if findable
-8. target_email: Work email ONLY if publicly listed (e.g. on company security page, press releases)
-9. security_maturity: "high" if they have SOC2/ISO27001/bug bounty, "medium" if they have a security page, "low" if no visible security program
-10. compliance_frameworks: Array of frameworks they likely comply with based on industry
-11. recent_security_news: Any breaches, incidents, or security announcements in the last 12 months (one sentence summary or null)
-12. hiring_security: true if they have open security job postings
-
-IMPORTANT RULES:
-- Only include information you can verify from search results
-- If you cannot find a field, return null — do NOT fabricate
-- For target identification, prioritize: CISO > VP Security > Head of InfoSec > Director of Security
-- Do not include personal contact info that isn't publicly available
-- Return ONLY valid JSON, no markdown, no explanation`;
-
-  const result = await callHaikuJSON<{
-    company_industry?: string | null;
-    company_size?: string | null;
-    company_revenue_range?: string | null;
-    company_hq?: string | null;
-    target_name?: string | null;
-    target_title?: string | null;
-    target_linkedin?: string | null;
-    target_email?: string | null;
-    security_maturity?: string | null;
-    compliance_frameworks?: string[];
-    recent_security_news?: string | null;
-    hiring_security?: boolean;
-  }>(
-    env,
-    systemPrompt,
-    `Research the company "${candidate.brand_name}" (${candidate.brand_domain}) and return the requested JSON profile.`,
-    2048,
-    [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-  );
-
-  if (!result.success || !result.data) {
-    console.error(`[prospector] Research failed for ${candidate.brand_name}:`, result.error);
-    return {
-      company_name: candidate.brand_name,
-      company_domain: candidate.brand_domain,
-      company_industry: null,
-      company_size: null,
-      company_revenue_range: null,
-      company_hq: null,
-      target_name: null,
-      target_title: null,
-      target_linkedin: null,
-      target_email: null,
-      security_maturity: null,
-      compliance_frameworks: [],
-      recent_security_news: null,
-      hiring_security: false,
-      research_confidence: "low",
-      raw_research: result.error ?? "Research failed",
-    };
+      leadsCreated++;
+    } catch (err) {
+      console.error(`[Pathfinder] Failed to insert lead for ${candidate.brand_name}:`, String(err));
+      errors++;
+    }
   }
 
-  const d = result.data;
-  return {
-    company_name: candidate.brand_name,
-    company_domain: candidate.brand_domain,
-    company_industry: d.company_industry ?? null,
-    company_size: d.company_size ?? null,
-    company_revenue_range: d.company_revenue_range ?? null,
-    company_hq: d.company_hq ?? null,
-    target_name: d.target_name ?? null,
-    target_title: d.target_title ?? null,
-    target_linkedin: d.target_linkedin ?? null,
-    target_email: d.target_email ?? null,
-    security_maturity: d.security_maturity ?? null,
-    compliance_frameworks: d.compliance_frameworks ?? [],
-    recent_security_news: d.recent_security_news ?? null,
-    hiring_security: d.hiring_security ?? false,
-    research_confidence: d.target_name ? (d.company_industry ? "high" : "medium") : "low",
-    raw_research: JSON.stringify(d),
-  };
+  console.log(`[Pathfinder] Phase 1 complete: candidates=${topCandidates.length}, created=${leadsCreated}, errors=${errors}`);
+  return { candidates_found: topCandidates.length, leads_created: leadsCreated, errors };
 }
 
-// ─── Stage 3: Outreach Generation ───────────────────────────────
+// ─── Phase 2: AI Enrichment ──────────────────────────────────────
 
-async function generateOutreach(
-  lead: SalesLead,
-  research: ProspectResearch,
-  env: Env,
-): Promise<OutreachDrafts> {
-  const systemPrompt = `You are drafting outreach emails from Averrow to a security leader.
+export async function enrichLeadWithAI(env: Env): Promise<{
+  enriched: boolean;
+  lead_id?: number;
+  company_name?: string;
+  error?: string;
+}> {
+  console.log("[Pathfinder] Phase 2: enrichLeadWithAI starting");
 
-RECIPIENT:
-Name: ${research.target_name}
-Title: ${research.target_title}
-Company: ${research.company_name}
-Industry: ${research.company_industry ?? 'Unknown'}
-Size: ${research.company_size ?? 'Unknown'}
+  // Pick the highest-scored unenriched lead
+  const lead = await env.DB.prepare(`
+    SELECT * FROM sales_leads
+    WHERE ai_enriched = 0
+    ORDER BY prospect_score DESC
+    LIMIT 1
+  `).first<UnenrichedLead>();
+
+  if (!lead) {
+    console.log("[Pathfinder] No unenriched leads found — skipping");
+    return { enriched: false };
+  }
+
+  console.log(`[Pathfinder] Enriching lead ${lead.id} (${lead.company_name ?? 'unknown'})`);
+
+  try {
+    // ── (a) Detailed findings summary ──────────────────────────
+    const summaryResult = await callHaikuJSON<{ summary: string }>(
+      env,
+      `You are a concise threat intelligence writer for Averrow, a brand protection platform. Write a 2-3 sentence factual summary of security findings. Reference specific numbers. Output JSON: {"summary": "..."}`,
+      `Brand: ${lead.company_name} (${lead.company_domain})
+Email security grade: ${lead.email_security_grade || 'Not scanned'}
+Active phishing URLs detected (30d): ${lead.phishing_urls_active ?? 0}
+Spam trap catches (brand impersonation, 30d): ${lead.trap_catches_30d ?? 0}
+Total threats (30d): ${lead.threat_count_30d ?? 0}
+Composite risk score: ${lead.composite_risk_score ?? 'N/A'}/100
+Pitch angle: ${lead.pitch_angle ?? 'brand_protection'}`,
+      256,
+    );
+
+    const findingsSummary = summaryResult.data?.summary ?? lead.findings_summary;
+
+    // ── (b) Personalized outreach email variants ────────────────
+    const outreachResult = await callHaikuJSON<{
+      variant_1_subject: string;
+      variant_1_body: string;
+      variant_2_subject: string;
+      variant_2_body: string;
+    }>(
+      env,
+      `You are drafting outreach emails from Averrow to a security leader at a company. Be direct and professional.
 
 AVERROW FINDINGS (share at HIGH LEVEL only — do not reveal specific URLs, IPs, or detailed IOCs):
-${lead.findings_summary}
+${findingsSummary}
 
 Email security grade: ${lead.email_security_grade ?? 'Unknown'}
 Active phishing URLs detected: ${lead.phishing_urls_active ?? 0}
 Spam trap catches (brand impersonation): ${lead.trap_catches_30d ?? 0}
 Overall risk score: ${lead.composite_risk_score ?? 'N/A'}/100
 
-${research.recent_security_news ? `Recent security news: ${research.recent_security_news}` : ''}
-${research.compliance_frameworks?.length ? `Compliance frameworks: ${research.compliance_frameworks.join(', ')}` : ''}
+Generate TWO email variants as JSON: variant_1_subject, variant_1_body, variant_2_subject, variant_2_body.
 
-Generate TWO email variants as JSON with keys: variant_1_subject, variant_1_body, variant_2_subject, variant_2_body.
+VARIANT 1 — "Intelligence briefing" angle: lead with a specific finding, frame as sharing intelligence, offer a 15-minute threat briefing, under 150 words body.
+VARIANT 2 — "Peer benchmark" angle: compare their security posture to industry peers, reference specific gaps, offer a free assessment report, under 150 words body.
 
-VARIANT 1 — "Intelligence briefing" angle:
-- Lead with a specific finding that would concern a CISO
-- Frame as sharing intelligence, not selling
-- Offer a 15-minute threat briefing
-- Under 150 words body
+RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off as "Averrow Threat Intelligence Team". Return ONLY valid JSON.`,
+      `Draft the two outreach email variants for ${lead.company_name} (${lead.company_domain}).`,
+      1024,
+    );
 
-VARIANT 2 — "Peer benchmark" angle:
-- Compare their security posture to industry peers
-- Reference specific gaps (email security grade, DMARC)
-- Offer a free assessment report
-- Under 150 words body
+    // ── (c) Company research ────────────────────────────────────
+    const researchResult = await callHaikuJSON<{
+      company_industry?: string | null;
+      company_size?: string | null;
+      company_hq?: string | null;
+      target_name?: string | null;
+      target_title?: string | null;
+      security_maturity?: string | null;
+      recent_security_news?: string | null;
+    }>(
+      env,
+      `You are a sales intelligence researcher. Research the company and return a JSON profile. If you cannot find a field, return null — do NOT fabricate. Return ONLY valid JSON.`,
+      `Research "${lead.company_name}" (${lead.company_domain}). Return JSON with: company_industry, company_size (startup/smb/mid-market/enterprise), company_hq, target_name (CISO or VP Security), target_title, security_maturity (high/medium/low), recent_security_news (one sentence or null).`,
+      1024,
+      [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+    );
 
-RULES FOR BOTH:
-- Professional, direct tone — CISOs have zero patience for fluff
-- No buzzwords: no "revolutionary", "cutting-edge", "game-changing", "leverage"
-- No exclamation marks
-- Reference exactly ONE specific finding to hook interest
-- Do NOT reveal exact phishing URLs, IP addresses, or detailed IOCs
-- Include a clear call to action (15-min call or briefing)
-- Sign off as "Averrow Threat Intelligence Team"
-- Return ONLY valid JSON, no markdown`;
+    const research = researchResult.data ?? {};
 
-  const result = await callHaikuJSON<OutreachDrafts>(
-    env,
-    systemPrompt,
-    "Generate the two outreach email variants as described.",
-    2048,
-  );
+    // ── Update the lead ─────────────────────────────────────────
+    await env.DB.prepare(`
+      UPDATE sales_leads SET
+        findings_summary = ?,
+        outreach_variant_1 = ?,
+        outreach_variant_2 = ?,
+        research_json = ?,
+        ai_enriched = 1,
+        ai_enriched_at = datetime('now'),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(
+      findingsSummary,
+      outreachResult.data
+        ? JSON.stringify({ subject: outreachResult.data.variant_1_subject, body: outreachResult.data.variant_1_body })
+        : null,
+      outreachResult.data
+        ? JSON.stringify({ subject: outreachResult.data.variant_2_subject, body: outreachResult.data.variant_2_body })
+        : null,
+      JSON.stringify(research),
+      lead.id,
+    ).run();
 
-  if (!result.success || !result.data) {
-    console.error(`[prospector] Outreach generation failed for ${lead.company_name}:`, result.error);
-    return {
-      variant_1_subject: `Threat Intelligence Briefing: ${lead.company_name}`,
-      variant_1_body: "Outreach generation failed — please draft manually.",
-      variant_2_subject: `Security Assessment: ${lead.company_name}`,
-      variant_2_body: "Outreach generation failed — please draft manually.",
-    };
+    console.log(`[Pathfinder] Phase 2 complete: enriched lead ${lead.id} (${lead.company_name})`);
+    return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined };
+
+  } catch (err) {
+    // Do NOT mark as enriched — it will be retried next run
+    console.error(`[Pathfinder] AI enrichment failed for lead ${lead.id}:`, String(err));
+    return { enriched: false, lead_id: lead.id, error: String(err) };
   }
-
-  return result.data;
 }
 
-// ─── Database helpers ───────────────────────────────────────────
+// ─── Main run() ─────────────────────────────────────────────────
 
-async function insertLead(db: D1Database, candidate: ProspectCandidate): Promise<number> {
-  const result = await db.prepare(`
-    INSERT INTO sales_leads (
-      brand_id, prospect_score, score_breakdown_json, status,
-      company_name, company_domain,
-      email_security_grade, threat_count_30d, phishing_urls_active,
-      trap_catches_30d, composite_risk_score, pitch_angle, findings_summary,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-  `).bind(
-    candidate.brand_id, candidate.prospect_score, JSON.stringify(candidate.score_breakdown),
-    candidate.brand_name, candidate.brand_domain,
-    candidate.email_security_grade, candidate.threat_count_30d, candidate.phishing_urls_active,
-    candidate.trap_catches_30d, candidate.composite_risk_score, candidate.pitch_angle,
-    candidate.findings_summary,
-  ).run();
-
-  // Get the inserted ID
-  const row = await db.prepare(
-    "SELECT id FROM sales_leads WHERE brand_id = ? ORDER BY id DESC LIMIT 1"
-  ).bind(candidate.brand_id).first<{ id: number }>();
-  return row?.id ?? 0;
-}
-
-async function logActivity(
-  db: D1Database,
-  leadId: number,
-  activityType: string,
-  details: Record<string, unknown>,
-  performedBy = "prospector_agent",
-): Promise<void> {
-  await db.prepare(`
-    INSERT INTO lead_activity_log (lead_id, activity_type, details_json, performed_by, created_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `).bind(leadId, activityType, JSON.stringify(details), performedBy).run();
-}
-
-async function updateLeadResearch(
-  db: D1Database,
-  leadId: number,
-  research: ProspectResearch,
-): Promise<void> {
-  await db.prepare(`
-    UPDATE sales_leads SET
-      company_industry = ?, company_size = ?, company_revenue_range = ?,
-      company_hq = ?, target_name = ?, target_title = ?,
-      target_linkedin = ?, target_email = ?,
-      research_json = ?, researched_at = datetime('now'),
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).bind(
-    research.company_industry, research.company_size, research.company_revenue_range,
-    research.company_hq, research.target_name, research.target_title,
-    research.target_linkedin, research.target_email,
-    research.raw_research, leadId,
-  ).run();
-}
-
-async function updateLeadOutreach(
-  db: D1Database,
-  leadId: number,
-  outreach: OutreachDrafts,
-): Promise<void> {
-  await db.prepare(`
-    UPDATE sales_leads SET
-      outreach_variant_1 = ?, outreach_variant_2 = ?,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).bind(
-    JSON.stringify({ subject: outreach.variant_1_subject, body: outreach.variant_1_body }),
-    JSON.stringify({ subject: outreach.variant_2_subject, body: outreach.variant_2_body }),
-    leadId,
-  ).run();
-}
-
-async function updateLeadStatus(db: D1Database, leadId: number, status: string): Promise<void> {
-  await db.prepare(
-    "UPDATE sales_leads SET status = ?, updated_at = datetime('now') WHERE id = ?"
-  ).bind(status, leadId).run();
-}
-
-async function getLeadById(db: D1Database, leadId: number): Promise<SalesLead | null> {
-  return db.prepare("SELECT * FROM sales_leads WHERE id = ?").bind(leadId).first<SalesLead>();
-}
-
-// ─── Main pipeline ──────────────────────────────────────────────
-
-export async function runProspectorPipeline(env: Env): Promise<{
-  identified: number;
-  researched: number;
-  outreachDrafted: number;
-  errors: number;
+async function run(env: Env): Promise<{
+  phase1: { candidates_found: number; leads_created: number; errors: number };
+  phase2: { enriched: boolean; lead_id?: number; company_name?: string; error?: string };
 }> {
-  console.log("[prospector] Starting pipeline");
+  console.log("[Pathfinder] run() starting — Phase 1 then Phase 2");
 
-  // Stage 1: Identify prospects
-  const candidates = await identifyProspects(env.DB);
-  console.log(`[prospector] Stage 1: ${candidates.length} candidates identified`);
+  // Phase 1: always run — identify and create new leads (no AI)
+  const phase1 = await identifyAndCreate(env);
 
-  if (candidates.length === 0) {
-    return { identified: 0, researched: 0, outreachDrafted: 0, errors: 0 };
-  }
+  // Phase 2: always run — enrich one existing unenriched lead (AI)
+  const phase2 = await enrichLeadWithAI(env);
 
-  // Filter out brands already in sales_leads recently
-  const existingLeads = await env.DB.prepare(
-    "SELECT brand_id FROM sales_leads WHERE created_at > datetime('now', '-90 days')"
-  ).all<{ brand_id: string }>();
-  const existingSet = new Set(existingLeads.results.map(r => r.brand_id));
-
-  const toProcess = candidates
-    .filter(c => !existingSet.has(c.brand_id))
-    .slice(0, MAX_LEADS_PER_RUN);
-
-  console.log(`[prospector] Processing ${toProcess.length} new prospects`);
-
-  let researched = 0;
-  let outreachDrafted = 0;
-  let errors = 0;
-
-  for (const candidate of toProcess) {
-    try {
-      // Generate findings summary via Haiku
-      candidate.findings_summary = await generateFindingsSummary(env, candidate);
-
-      // Insert lead row
-      const leadId = await insertLead(env.DB, candidate);
-      await logActivity(env.DB, leadId, "identified", candidate.score_breakdown);
-
-      // Stage 2: Research
-      const research = await researchProspect(candidate, env);
-      await updateLeadResearch(env.DB, leadId, research);
-      await logActivity(env.DB, leadId, "researched", { confidence: research.research_confidence });
-      researched++;
-
-      // Stage 3: Generate outreach (only if research found a target)
-      if (research.target_name) {
-        const lead = await getLeadById(env.DB, leadId);
-        if (lead) {
-          const outreach = await generateOutreach(lead, research, env);
-          await updateLeadOutreach(env.DB, leadId, outreach);
-          await logActivity(env.DB, leadId, "outreach_generated", { variants: 2 });
-          await updateLeadStatus(env.DB, leadId, "outreach_drafted");
-          outreachDrafted++;
-        }
-      } else {
-        await updateLeadStatus(env.DB, leadId, "researched");
-      }
-    } catch (err) {
-      console.error(`[Pathfinder] Failed to process ${candidate.brand_name}: ${err}`);
-      errors++;
-      continue;
-    }
-  }
-
-  console.log(`[prospector] Pipeline complete: identified=${candidates.length}, researched=${researched}, outreach=${outreachDrafted}, errors=${errors}`);
-  return { identified: candidates.length, researched, outreachDrafted, errors };
+  return { phase1, phase2 };
 }
 
-// ─── Agent Module ───────────────────────────────────────────────
+// ─── Agent Module ────────────────────────────────────────────────
 
 export const prospectorAgent: AgentModule = {
   name: "prospector",
@@ -777,42 +591,36 @@ export const prospectorAgent: AgentModule = {
     const { env } = ctx;
     const outputs: AgentOutputEntry[] = [];
 
-    // Check weekly throttle
+    // Check weekly throttle for Phase 1 (lead creation)
     const lastRun = await env.CACHE.get("prospector:last_run");
-    if (lastRun && Date.now() - parseInt(lastRun) < 7 * 24 * 60 * 60 * 1000) {
-      console.log("[prospector] Throttled — last run was", new Date(parseInt(lastRun)).toISOString());
-      outputs.push({
-        type: "insight",
-        summary: "Prospector skipped — last run was less than 7 days ago",
-        severity: "info",
-        details: { lastRun: new Date(parseInt(lastRun)).toISOString() },
-      });
-      return {
-        itemsProcessed: 0,
-        itemsCreated: 0,
-        itemsUpdated: 0,
-        output: { skipped: true, reason: "throttled" },
-        agentOutputs: outputs,
-      };
+    const throttled = lastRun && Date.now() - parseInt(lastRun) < 7 * 24 * 60 * 60 * 1000;
+
+    let phase1 = { candidates_found: 0, leads_created: 0, errors: 0 };
+
+    if (throttled) {
+      console.log("[Pathfinder] Phase 1 throttled — last run was", new Date(parseInt(lastRun!)).toISOString());
+    } else {
+      phase1 = await identifyAndCreate(env);
+      await env.CACHE.put("prospector:last_run", Date.now().toString());
     }
 
-    const result = await runProspectorPipeline(env);
-
-    // Update throttle
-    await env.CACHE.put("prospector:last_run", Date.now().toString());
+    // Phase 2 always runs — enrich one lead on every cron tick
+    const phase2 = await enrichLeadWithAI(env);
 
     outputs.push({
       type: "insight",
-      summary: `Prospector identified ${result.identified} prospects, researched ${result.researched}, drafted outreach for ${result.outreachDrafted}${result.errors > 0 ? `, ${result.errors} errors` : ""}`,
-      severity: result.outreachDrafted > 0 ? "medium" : "info",
-      details: result,
+      summary: throttled
+        ? `Pathfinder: lead creation throttled. Enriched ${phase2.enriched ? `lead ${phase2.lead_id} (${phase2.company_name})` : "no leads (none pending)"}.`
+        : `Pathfinder created ${phase1.leads_created} leads from ${phase1.candidates_found} candidates. ${phase2.enriched ? `AI-enriched lead ${phase2.lead_id} (${phase2.company_name}).` : "No unenriched leads to process."}`,
+      severity: phase1.leads_created > 0 || phase2.enriched ? "medium" : "info",
+      details: { phase1, phase2, throttled: !!throttled },
     });
 
     return {
-      itemsProcessed: result.identified,
-      itemsCreated: result.outreachDrafted,
-      itemsUpdated: result.researched,
-      output: result,
+      itemsProcessed: phase1.candidates_found,
+      itemsCreated: phase1.leads_created,
+      itemsUpdated: phase2.enriched ? 1 : 0,
+      output: { phase1, phase2 },
       agentOutputs: outputs,
     };
   },
