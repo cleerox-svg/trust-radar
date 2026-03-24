@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 import { json } from "../lib/cors";
 import type { Env, CreateTicketBody, UpdateTicketBody, AddEvidenceBody, CreateErasureBody, UpdateErasureBody } from "../types";
 

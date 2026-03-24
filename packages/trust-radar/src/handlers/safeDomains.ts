@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Brand Safe Domains (Known/Owned Domain Allowlist)
 
 import { json } from "../lib/cors";

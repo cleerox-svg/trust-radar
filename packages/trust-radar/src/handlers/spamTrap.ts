@@ -14,82 +14,69 @@
  */
 
 import { json } from "../lib/cors";
+import { handler, parsePagination, success, error, parseBody } from "../lib/handler-utils";
 import type { Env } from "../types";
 import { executePasteSeeding } from "../seeders/paste-seeder";
 
 // ── GET /api/spam-trap/stats ──────────────────────────────────────
 
-export async function handleSpamTrapStats(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const stats = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as total_captures,
-        COUNT(DISTINCT spoofed_brand_id) as brands_spoofed,
-        COUNT(DISTINCT sending_ip) as unique_ips,
-        ROUND(
-          CAST(SUM(CASE WHEN spf_result = 'fail' OR dkim_result = 'fail' OR dmarc_result = 'fail' THEN 1 ELSE 0 END) AS REAL)
-          / MAX(COUNT(*), 1) * 100, 1
-        ) as auth_fail_rate,
-        SUM(CASE WHEN captured_at > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as last_24h
-      FROM spam_trap_captures
-    `).first();
+export const handleSpamTrapStats = handler(async (_request, env, ctx) => {
+  const stats = await env.DB.prepare(`
+    SELECT
+      COUNT(*) as total_captures,
+      COUNT(DISTINCT spoofed_brand_id) as brands_spoofed,
+      COUNT(DISTINCT sending_ip) as unique_ips,
+      ROUND(
+        CAST(SUM(CASE WHEN spf_result = 'fail' OR dkim_result = 'fail' OR dmarc_result = 'fail' THEN 1 ELSE 0 END) AS REAL)
+        / MAX(COUNT(*), 1) * 100, 1
+      ) as auth_fail_rate,
+      SUM(CASE WHEN captured_at > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as last_24h
+    FROM spam_trap_captures
+  `).first();
 
-    // Daily chart data (30 days)
-    const daily = await env.DB.prepare(`
-      SELECT
-        date(captured_at) as date,
-        COUNT(*) as total,
-        SUM(CASE WHEN category = 'phishing' THEN 1 ELSE 0 END) as phishing,
-        SUM(CASE WHEN category = 'spam' THEN 1 ELSE 0 END) as spam,
-        SUM(CASE WHEN category = 'malware' THEN 1 ELSE 0 END) as malware
-      FROM spam_trap_captures
-      WHERE captured_at > datetime('now', '-30 days')
-      GROUP BY date(captured_at)
-      ORDER BY date ASC
-    `).all();
+  const daily = await env.DB.prepare(`
+    SELECT
+      date(captured_at) as date,
+      COUNT(*) as total,
+      SUM(CASE WHEN category = 'phishing' THEN 1 ELSE 0 END) as phishing,
+      SUM(CASE WHEN category = 'spam' THEN 1 ELSE 0 END) as spam,
+      SUM(CASE WHEN category = 'malware' THEN 1 ELSE 0 END) as malware
+    FROM spam_trap_captures
+    WHERE captured_at > datetime('now', '-30 days')
+    GROUP BY date(captured_at)
+    ORDER BY date ASC
+  `).all();
 
-    // Trap health by channel
-    const health = await env.DB.prepare(`
-      SELECT channel, COUNT(*) as count
-      FROM seed_addresses
-      WHERE status = 'active'
-      GROUP BY channel
-    `).all();
+  const health = await env.DB.prepare(`
+    SELECT channel, COUNT(*) as count
+    FROM seed_addresses
+    WHERE status = 'active'
+    GROUP BY channel
+  `).all();
 
-    return json({ success: true, data: { stats, daily: daily.results, health: health.results } }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success({ stats, daily: daily.results, health: health.results }, ctx.origin);
+});
 
 // ── GET /api/spam-trap/captures ───────────────────────────────────
 
-export async function handleSpamTrapCaptures(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  const url = new URL(request.url);
-  const limit = Math.min(100, parseInt(url.searchParams.get("limit") || "50", 10));
-  const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+export const handleSpamTrapCaptures = handler(async (request, env, ctx) => {
+  const { limit, offset } = parsePagination(request);
 
-  try {
-    const rows = await env.DB.prepare(`
-      SELECT id, trap_address, trap_channel, from_address, from_domain, subject,
-        spf_result, dkim_result, dmarc_result, dmarc_disposition,
-        sending_ip, spoofed_brand_id, spoofed_domain, category, severity,
-        url_count, attachment_count, country_code, captured_at, threat_id,
-        SUBSTR(body_preview, 1, 80) as body_preview
-      FROM spam_trap_captures
-      ORDER BY captured_at DESC
-      LIMIT ? OFFSET ?
-    `).bind(limit, offset).all();
+  const rows = await env.DB.prepare(`
+    SELECT id, trap_address, trap_channel, from_address, from_domain, subject,
+      spf_result, dkim_result, dmarc_result, dmarc_disposition,
+      sending_ip, spoofed_brand_id, spoofed_domain, category, severity,
+      url_count, attachment_count, country_code, captured_at, threat_id,
+      SUBSTR(body_preview, 1, 80) as body_preview
+    FROM spam_trap_captures
+    ORDER BY captured_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(limit, offset).all();
 
-    const total = await env.DB.prepare("SELECT COUNT(*) as c FROM spam_trap_captures").first<{ c: number }>();
+  const total = await env.DB.prepare("SELECT COUNT(*) as c FROM spam_trap_captures").first<{ c: number }>();
 
-    return json({ success: true, data: rows.results, total: total?.c || 0 }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return json({ success: true, data: rows.results, total: total?.c || 0 }, 200, ctx.origin);
+});
 
 // ── GET /api/spam-trap/captures/brand/:brandId ────────────────────
 
@@ -117,105 +104,86 @@ export async function handleSpamTrapCapturesByBrand(request: Request, env: Env, 
       LIMIT 10
     `).bind(brandId).all();
 
-    return json({
-      success: true,
-      data: {
-        total: summary?.total || 0,
-        unique_ips: summary?.unique_ips || 0,
-        auth_fail_pct: summary?.auth_fail_pct || 0,
-        recent: recent.results,
-      },
-    }, 200, origin);
+    return success({
+      total: summary?.total || 0,
+      unique_ips: summary?.unique_ips || 0,
+      auth_fail_pct: summary?.auth_fail_pct || 0,
+      recent: recent.results,
+    }, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ── GET /api/spam-trap/sources ────────────────────────────────────
 
-export async function handleSpamTrapSources(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const rows = await env.DB.prepare(`
-      SELECT
-        sending_ip,
-        COUNT(*) as emails_caught,
-        COUNT(DISTINCT spoofed_brand_id) as brands_hit,
-        country_code, asn, org,
-        MAX(captured_at) as last_seen
-      FROM spam_trap_captures
-      WHERE sending_ip IS NOT NULL
-      GROUP BY sending_ip
-      ORDER BY emails_caught DESC
-      LIMIT 50
-    `).all();
+export const handleSpamTrapSources = handler(async (_request, env, ctx) => {
+  const rows = await env.DB.prepare(`
+    SELECT
+      sending_ip,
+      COUNT(*) as emails_caught,
+      COUNT(DISTINCT spoofed_brand_id) as brands_hit,
+      country_code, asn, org,
+      MAX(captured_at) as last_seen
+    FROM spam_trap_captures
+    WHERE sending_ip IS NOT NULL
+    GROUP BY sending_ip
+    ORDER BY emails_caught DESC
+    LIMIT 50
+  `).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success(rows.results, ctx.origin);
+});
 
 // ── GET /api/spam-trap/campaigns ──────────────────────────────────
 
-export async function handleSpamTrapCampaigns(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const rows = await env.DB.prepare(`
-      SELECT id, name, channel, status, target_brands, addresses_seeded,
-        total_catches, unique_ips_caught, brands_spoofed,
-        last_catch_at, created_by, strategist_notes,
-        created_at, updated_at
-      FROM seed_campaigns
-      ORDER BY created_at DESC
-    `).all();
+export const handleSpamTrapCampaigns = handler(async (_request, env, ctx) => {
+  const rows = await env.DB.prepare(`
+    SELECT id, name, channel, status, target_brands, addresses_seeded,
+      total_catches, unique_ips_caught, brands_spoofed,
+      last_catch_at, created_by, strategist_notes,
+      created_at, updated_at
+    FROM seed_campaigns
+    ORDER BY created_at DESC
+  `).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success(rows.results, ctx.origin);
+});
 
 // ── POST /api/spam-trap/campaigns ─────────────────────────────────
 
-export async function handleCreateSpamTrapCampaign(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const body = await request.json() as {
-      name: string;
-      channel: string;
-      target_brands?: string[];
-      addresses?: string[];
-      config?: Record<string, unknown>;
-    };
+export const handleCreateSpamTrapCampaign = handler(async (request, env, ctx) => {
+  const body = await parseBody<{
+    name: string;
+    channel: string;
+    target_brands?: string[];
+    addresses?: string[];
+    config?: Record<string, unknown>;
+  }>(request);
 
-    const result = await env.DB.prepare(`
-      INSERT INTO seed_campaigns (name, channel, target_brands, config, addresses_seeded)
+  const result = await env.DB.prepare(`
+    INSERT INTO seed_campaigns (name, channel, target_brands, config, addresses_seeded)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    body.name, body.channel,
+    JSON.stringify(body.target_brands || []),
+    JSON.stringify({ ...body.config, addresses: body.addresses || [] }),
+    (body.addresses || []).length
+  ).run();
+
+  for (const addr of body.addresses || []) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO seed_addresses (address, domain, channel, campaign_id, brand_target)
       VALUES (?, ?, ?, ?, ?)
     `).bind(
-      body.name, body.channel,
-      JSON.stringify(body.target_brands || []),
-      JSON.stringify({ ...body.config, addresses: body.addresses || [] }),
-      (body.addresses || []).length
+      addr, addr.split("@")[1], body.channel,
+      result.meta?.last_row_id,
+      body.target_brands?.[0] || null
     ).run();
-
-    // Create seed addresses
-    for (const addr of body.addresses || []) {
-      await env.DB.prepare(`
-        INSERT OR IGNORE INTO seed_addresses (address, domain, channel, campaign_id, brand_target)
-        VALUES (?, ?, ?, ?, ?)
-      `).bind(
-        addr, addr.split("@")[1], body.channel,
-        result.meta?.last_row_id,
-        body.target_brands?.[0] || null
-      ).run();
-    }
-
-    return json({ success: true, data: { id: result.meta?.last_row_id } }, 201, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
   }
-}
+
+  return success({ id: result.meta?.last_row_id }, ctx.origin, 201);
+});
 
 // ── POST /api/spam-trap/campaigns/:id/execute ─────────────────────
 
@@ -226,14 +194,12 @@ export async function handleExecuteSpamTrapCampaign(request: Request, env: Env, 
       "SELECT id, config, target_brands FROM seed_campaigns WHERE id = ?"
     ).bind(campaignId).first<{ id: number; config: string; target_brands: string }>();
 
-    if (!campaign) {
-      return json({ success: false, error: "Campaign not found" }, 404, origin);
-    }
+    if (!campaign) return error("Campaign not found", 404, origin);
 
     const result = await executePasteSeeding(env, campaign);
-    return json({ success: true, data: result }, 200, origin);
+    return success(result, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
@@ -242,7 +208,7 @@ export async function handleExecuteSpamTrapCampaign(request: Request, env: Env, 
 export async function handleUpdateSpamTrapCampaign(request: Request, env: Env, campaignId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as { status?: string; name?: string };
+    const body = await parseBody<{ status?: string; name?: string }>(request);
 
     if (body.status) {
       await env.DB.prepare(
@@ -257,98 +223,85 @@ export async function handleUpdateSpamTrapCampaign(request: Request, env: Env, c
 
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ── GET /api/spam-trap/addresses ──────────────────────────────────
 
-export async function handleSpamTrapAddresses(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const rows = await env.DB.prepare(`
-      SELECT id, address, domain, channel, campaign_id, brand_target,
-        seeded_at, seeded_location, total_catches, last_catch_at, status
-      FROM seed_addresses
-      ORDER BY total_catches DESC
-    `).all();
+export const handleSpamTrapAddresses = handler(async (_request, env, ctx) => {
+  const rows = await env.DB.prepare(`
+    SELECT id, address, domain, channel, campaign_id, brand_target,
+      seeded_at, seeded_location, total_catches, last_catch_at, status
+    FROM seed_addresses
+    ORDER BY total_catches DESC
+  `).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success(rows.results, ctx.origin);
+});
 
 // ── POST /api/spam-trap/seed/initial ──────────────────────────────
 
-export async function handleInitialSeed(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const genericPrefixes = [
-      "admin", "info", "support", "billing", "security", "contact",
-      "help", "sales", "hr", "finance", "webmaster", "postmaster",
-      "abuse", "noreply",
-    ];
+export const handleInitialSeed = handler(async (_request, env, ctx) => {
+  const genericPrefixes = [
+    "admin", "info", "support", "billing", "security", "contact",
+    "help", "sales", "hr", "finance", "webmaster", "postmaster",
+    "abuse", "noreply",
+  ];
 
-    const brandTraps = [
-      { prefix: "amazon-support", brand: "brand_amazon_com" },
-      { prefix: "amazon-billing", brand: "brand_amazon_com" },
-      { prefix: "apple-support", brand: "brand_apple_com" },
-      { prefix: "apple-id", brand: "brand_apple_com" },
-      { prefix: "google-security", brand: "brand_google_com" },
-      { prefix: "microsoft-account", brand: "brand_microsoft_com" },
-      { prefix: "netflix-billing", brand: "brand_netflix_com" },
-      { prefix: "paypal-support", brand: null },
-      { prefix: "docusign-sign", brand: "brand_docusign_net" },
-      { prefix: "coinbase-verify", brand: "brand_coinbase" },
-      { prefix: "instagram-help", brand: "brand_instagram_com" },
-      { prefix: "facebook-security", brand: "brand_facebook_com" },
-      { prefix: "whatsapp-verify", brand: "brand_whatsapp_com" },
-      { prefix: "roblox-support", brand: "brand_roblox_com" },
-      { prefix: "disney-plus", brand: "brand_disney" },
-    ];
+  const brandTraps = [
+    { prefix: "amazon-support", brand: "brand_amazon_com" },
+    { prefix: "amazon-billing", brand: "brand_amazon_com" },
+    { prefix: "apple-support", brand: "brand_apple_com" },
+    { prefix: "apple-id", brand: "brand_apple_com" },
+    { prefix: "google-security", brand: "brand_google_com" },
+    { prefix: "microsoft-account", brand: "brand_microsoft_com" },
+    { prefix: "netflix-billing", brand: "brand_netflix_com" },
+    { prefix: "paypal-support", brand: null as string | null },
+    { prefix: "docusign-sign", brand: "brand_docusign_net" },
+    { prefix: "coinbase-verify", brand: "brand_coinbase" },
+    { prefix: "instagram-help", brand: "brand_instagram_com" },
+    { prefix: "facebook-security", brand: "brand_facebook_com" },
+    { prefix: "whatsapp-verify", brand: "brand_whatsapp_com" },
+    { prefix: "roblox-support", brand: "brand_roblox_com" },
+    { prefix: "disney-plus", brand: "brand_disney" },
+  ];
 
-    const employeePrefixes = [
-      "james.wilson", "sarah.chen", "michael.patel", "jennifer.smith",
-      "david.johnson", "lisa.rodriguez", "ceo", "cfo", "cto",
-    ];
+  const employeePrefixes = [
+    "james.wilson", "sarah.chen", "michael.patel", "jennifer.smith",
+    "david.johnson", "lisa.rodriguez", "ceo", "cfo", "cto",
+  ];
 
-    let created = 0;
+  let created = 0;
 
-    // Generic traps on both domains
-    for (const domain of ["averrow.com", "trustradar.ca", "lrxradar.com"]) {
-      for (const prefix of genericPrefixes) {
-        await env.DB.prepare(`
-          INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)
-          VALUES (?, ?, 'generic', NULL)
-        `).bind(`${prefix}@${domain}`, domain).run();
-        created++;
-      }
-    }
-
-    // Brand traps on averrow.com
-    for (const trap of brandTraps) {
+  for (const domain of ["averrow.com", "trustradar.ca", "lrxradar.com"]) {
+    for (const prefix of genericPrefixes) {
       await env.DB.prepare(`
         INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)
-        VALUES (?, 'averrow.com', 'brand', ?)
-      `).bind(`${trap.prefix}@averrow.com`, trap.brand).run();
+        VALUES (?, ?, 'generic', NULL)
+      `).bind(`${prefix}@${domain}`, domain).run();
       created++;
     }
-
-    // Employee traps on averrow.com
-    for (const prefix of employeePrefixes) {
-      await env.DB.prepare(`
-        INSERT OR IGNORE INTO seed_addresses (address, domain, channel)
-        VALUES (?, 'averrow.com', 'employee')
-      `).bind(`${prefix}@averrow.com`).run();
-      created++;
-    }
-
-    return json({ success: true, data: { addresses_created: created } }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
   }
-}
+
+  for (const trap of brandTraps) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO seed_addresses (address, domain, channel, brand_target)
+      VALUES (?, 'averrow.com', 'brand', ?)
+    `).bind(`${trap.prefix}@averrow.com`, trap.brand).run();
+    created++;
+  }
+
+  for (const prefix of employeePrefixes) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO seed_addresses (address, domain, channel)
+      VALUES (?, 'averrow.com', 'employee')
+    `).bind(`${prefix}@averrow.com`).run();
+    created++;
+  }
+
+  return success({ addresses_created: created }, ctx.origin);
+});
 
 // ── GET /api/spam-trap/captures/:id ───────────────────────────────
 
@@ -359,9 +312,7 @@ export async function handleSpamTrapCaptureDetail(request: Request, env: Env, id
       SELECT * FROM spam_trap_captures WHERE id = ?
     `).bind(id).first<Record<string, unknown>>();
 
-    if (!capture) {
-      return json({ success: false, error: "Capture not found" }, 404, origin);
-    }
+    if (!capture) return error("Capture not found", 404, origin);
 
     let urls: unknown[] = [];
     let attachments: unknown[] = [];
@@ -376,71 +327,53 @@ export async function handleSpamTrapCaptureDetail(request: Request, env: Env, id
       brand_name = brand?.name ?? null;
     }
 
-    return json({
-      success: true,
-      data: {
-        ...capture,
-        urls,
-        attachments,
-        brand_name,
-      },
-    }, 200, origin);
+    return success({ ...capture, urls, attachments, brand_name }, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ── POST /api/spam-trap/reparse-auth ──────────────────────────────
 
-export async function handleSpamTrapReparseAuth(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const rows = await env.DB.prepare(
-      "SELECT id, raw_headers FROM spam_trap_captures WHERE raw_headers IS NOT NULL"
-    ).all();
+export const handleSpamTrapReparseAuth = handler(async (_request, env, ctx) => {
+  const rows = await env.DB.prepare(
+    "SELECT id, raw_headers FROM spam_trap_captures WHERE raw_headers IS NOT NULL"
+  ).all();
 
-    let updated = 0;
-    for (const row of rows.results) {
-      const headers = row.raw_headers as string;
-      const authMatch = headers.match(/(?:arc-)?authentication-results:\s*([^\n]+(?:\n\s+[^\n]+)*)/i);
-      if (!authMatch) continue;
+  let updated = 0;
+  for (const row of rows.results) {
+    const headers = row.raw_headers as string;
+    const authMatch = headers.match(/(?:arc-)?authentication-results:\s*([^\n]+(?:\n\s+[^\n]+)*)/i);
+    if (!authMatch) continue;
 
-      const auth = (authMatch[1] ?? '').replace(/\n\s+/g, ' ');
-      const spf = auth.match(/spf=(pass|fail|softfail|neutral|none|temperror|permerror)/i);
-      const spfDomain = auth.match(/spf=\S+[^;]*?(?:domain|sender|from)=([^\s;]+)/i);
-      const dkim = auth.match(/dkim=(pass|fail|neutral|none|temperror|permerror)/i);
-      const dkimDomain = auth.match(/dkim=\S+[^;]*?(?:header\.d|d)=([^\s;]+)/i);
-      const dmarc = auth.match(/dmarc=(pass|fail|none|bestguesspass)/i);
-      const dmarcDisp = auth.match(/dmarc=\S+[^;]*?(?:action|disposition)=([^\s;]+)/i);
+    const auth = (authMatch[1] ?? '').replace(/\n\s+/g, ' ');
+    const spf = auth.match(/spf=(pass|fail|softfail|neutral|none|temperror|permerror)/i);
+    const spfDomain = auth.match(/spf=\S+[^;]*?(?:domain|sender|from)=([^\s;]+)/i);
+    const dkim = auth.match(/dkim=(pass|fail|neutral|none|temperror|permerror)/i);
+    const dkimDomain = auth.match(/dkim=\S+[^;]*?(?:header\.d|d)=([^\s;]+)/i);
+    const dmarc = auth.match(/dmarc=(pass|fail|none|bestguesspass)/i);
+    const dmarcDisp = auth.match(/dmarc=\S+[^;]*?(?:action|disposition)=([^\s;]+)/i);
 
-      if (spf || dkim || dmarc) {
-        await env.DB.prepare(
-          "UPDATE spam_trap_captures SET spf_result=?, spf_domain=?, dkim_result=?, dkim_domain=?, dmarc_result=?, dmarc_disposition=? WHERE id=?"
-        ).bind(
-          spf?.[1] || null, spfDomain?.[1] || null,
-          dkim?.[1] || null, dkimDomain?.[1] || null,
-          dmarc?.[1] || null, dmarcDisp?.[1] || null,
-          row.id
-        ).run();
-        updated++;
-      }
+    if (spf || dkim || dmarc) {
+      await env.DB.prepare(
+        "UPDATE spam_trap_captures SET spf_result=?, spf_domain=?, dkim_result=?, dkim_domain=?, dmarc_result=?, dmarc_disposition=? WHERE id=?"
+      ).bind(
+        spf?.[1] || null, spfDomain?.[1] || null,
+        dkim?.[1] || null, dkimDomain?.[1] || null,
+        dmarc?.[1] || null, dmarcDisp?.[1] || null,
+        row.id
+      ).run();
+      updated++;
     }
-    return json({ success: true, updated }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
   }
-}
+  return json({ success: true, updated }, 200, ctx.origin);
+});
 
 // ── POST /api/spam-trap/strategist/run ────────────────────────────
 
-export async function handleRunStrategist(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const { seedStrategistAgent } = await import("../agents/seed-strategist");
-    const { executeAgent } = await import("../lib/agentRunner");
-    const result = await executeAgent(env, seedStrategistAgent, {}, "manual", "manual");
-    return json({ success: true, data: result }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+export const handleRunStrategist = handler(async (_request, env, ctx) => {
+  const { seedStrategistAgent } = await import("../agents/seed-strategist");
+  const { executeAgent } = await import("../lib/agentRunner");
+  const result = await executeAgent(env, seedStrategistAgent, {}, "manual", "manual");
+  return success(result, ctx.origin);
+});

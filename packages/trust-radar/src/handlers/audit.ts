@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Audit Log Viewer (Admin)
 
 import { json } from "../lib/cors";

@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 import { json } from "../lib/cors";
 import { sanitize, sanitizeTags, sanitizeDomain } from "../lib/sanitize";
 import type { Env, IngestSignalBody } from "../types";

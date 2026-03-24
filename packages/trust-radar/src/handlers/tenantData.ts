@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Tenant Data Endpoints (org-scoped, data-isolated)
 
 import { json } from "../lib/cors";

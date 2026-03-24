@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Lookalike Domain API Handlers — CRUD and trigger endpoints for
  * continuous lookalike domain monitoring.

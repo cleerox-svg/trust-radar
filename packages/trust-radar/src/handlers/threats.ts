@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 import { json } from "../lib/cors";
 import { enrichThreatsGeo } from "../lib/geoip";
 import type { Env, UpdateThreatBody } from "../types";
