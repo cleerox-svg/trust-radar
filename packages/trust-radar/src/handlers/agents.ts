@@ -2,6 +2,7 @@ import { json } from "../lib/cors";
 import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
 import { getDailyUsage } from "../lib/haiku";
+import { handler, parsePagination, parseFilters, buildWhereClause, success, error, parseBody } from "../lib/handler-utils";
 import type { Env } from "../types";
 
 // ─── Schedule labels for each agent ─────────────────────────────
@@ -15,170 +16,149 @@ const AGENT_SCHEDULES: Record<string, string> = {
 };
 
 // ─── List all agent definitions + their latest run ──────────────
-export async function handleListAgents(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    // Run all aggregation queries in parallel
-    const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations] = await Promise.all([
-      // Latest run per agent
-      env.DB.prepare(
-        `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
-         FROM agent_runs
-         WHERE id IN (
-           SELECT id FROM agent_runs r2
-           WHERE r2.agent_id = agent_runs.agent_id
-           ORDER BY r2.started_at DESC LIMIT 1
-         )`
-      ).all<{ agent_id: string; status: string; started_at: string; completed_at: string | null; duration_ms: number | null; error_message: string | null }>(),
+export const handleListAgents = handler(async (_request, env, ctx) => {
+  const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations] = await Promise.all([
+    env.DB.prepare(
+      `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
+       FROM agent_runs
+       WHERE id IN (
+         SELECT id FROM agent_runs r2
+         WHERE r2.agent_id = agent_runs.agent_id
+         ORDER BY r2.started_at DESC LIMIT 1
+       )`
+    ).all<{ agent_id: string; status: string; started_at: string; completed_at: string | null; duration_ms: number | null; error_message: string | null }>(),
 
-      // Jobs + errors in last 24h per agent
-      env.DB.prepare(
-        `SELECT agent_id,
-                COUNT(*) as jobs_24h,
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as error_count_24h
-         FROM agent_runs
-         WHERE started_at >= datetime('now', '-1 day')
-         GROUP BY agent_id`
-      ).all<{ agent_id: string; jobs_24h: number; error_count_24h: number }>(),
+    env.DB.prepare(
+      `SELECT agent_id,
+              COUNT(*) as jobs_24h,
+              SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as error_count_24h
+       FROM agent_runs
+       WHERE started_at >= datetime('now', '-1 day')
+       GROUP BY agent_id`
+    ).all<{ agent_id: string; jobs_24h: number; error_count_24h: number }>(),
 
-      // Outputs in last 24h per agent
-      env.DB.prepare(
-        `SELECT agent_id,
-                COUNT(*) as outputs_24h
-         FROM agent_outputs
-         WHERE created_at >= datetime('now', '-1 day')
-         GROUP BY agent_id`
-      ).all<{ agent_id: string; outputs_24h: number }>(),
+    env.DB.prepare(
+      `SELECT agent_id,
+              COUNT(*) as outputs_24h
+       FROM agent_outputs
+       WHERE created_at >= datetime('now', '-1 day')
+       GROUP BY agent_id`
+    ).all<{ agent_id: string; outputs_24h: number }>(),
 
-      // Hourly activity (last 24h) for activity bar
-      env.DB.prepare(
-        `SELECT agent_id,
-                CAST(strftime('%H', started_at) AS INTEGER) AS hour,
-                COUNT(*) AS cnt
-         FROM agent_runs
-         WHERE started_at >= datetime('now', '-1 day')
-         GROUP BY agent_id, hour`
-      ).all<{ agent_id: string; hour: number; cnt: number }>(),
+    env.DB.prepare(
+      `SELECT agent_id,
+              CAST(strftime('%H', started_at) AS INTEGER) AS hour,
+              COUNT(*) AS cnt
+       FROM agent_runs
+       WHERE started_at >= datetime('now', '-1 day')
+       GROUP BY agent_id, hour`
+    ).all<{ agent_id: string; hour: number; cnt: number }>(),
 
-      // Last output time per agent
-      env.DB.prepare(
-        `SELECT agent_id, MAX(created_at) as last_output_at
-         FROM agent_outputs
-         GROUP BY agent_id`
-      ).all<{ agent_id: string; last_output_at: string }>(),
+    env.DB.prepare(
+      `SELECT agent_id, MAX(created_at) as last_output_at
+       FROM agent_outputs
+       GROUP BY agent_id`
+    ).all<{ agent_id: string; last_output_at: string }>(),
 
-      // Average duration per agent
-      env.DB.prepare(
-        `SELECT agent_id, AVG(duration_ms) as avg_duration_ms
-         FROM agent_runs
-         WHERE status = 'success'
-         GROUP BY agent_id`
-      ).all<{ agent_id: string; avg_duration_ms: number }>(),
-    ]);
+    env.DB.prepare(
+      `SELECT agent_id, AVG(duration_ms) as avg_duration_ms
+       FROM agent_runs
+       WHERE status = 'success'
+       GROUP BY agent_id`
+    ).all<{ agent_id: string; avg_duration_ms: number }>(),
+  ]);
 
-    // Build lookup maps
-    const latestRunMap = new Map(latestRuns.results.map((r) => [r.agent_id, r]));
-    const statsMap = new Map(runStats24h.results.map((r) => [r.agent_id, r]));
-    const outputMap = new Map(outputStats24h.results.map((r) => [r.agent_id, r.outputs_24h]));
-    const lastOutputMap = new Map(lastOutputTimes.results.map((r) => [r.agent_id, r.last_output_at]));
-    const avgDurMap = new Map(avgDurations.results.map((r) => [r.agent_id, r.avg_duration_ms]));
+  const latestRunMap = new Map(latestRuns.results.map((r) => [r.agent_id, r]));
+  const statsMap = new Map(runStats24h.results.map((r) => [r.agent_id, r]));
+  const outputMap = new Map(outputStats24h.results.map((r) => [r.agent_id, r.outputs_24h]));
+  const lastOutputMap = new Map(lastOutputTimes.results.map((r) => [r.agent_id, r.last_output_at]));
+  const avgDurMap = new Map(avgDurations.results.map((r) => [r.agent_id, r.avg_duration_ms]));
 
-    // Build hourly activity arrays (24 segments)
-    const activityMap = new Map<string, number[]>();
-    const currentHour = new Date().getUTCHours();
-    for (const row of hourlyActivity.results) {
-      if (!activityMap.has(row.agent_id)) {
-        activityMap.set(row.agent_id, new Array(24).fill(0));
-      }
-      // Map hour to array index relative to current hour
-      const idx = (row.hour - currentHour + 24) % 24;
-      activityMap.get(row.agent_id)![idx] = row.cnt;
+  const activityMap = new Map<string, number[]>();
+  const currentHour = new Date().getUTCHours();
+  for (const row of hourlyActivity.results) {
+    if (!activityMap.has(row.agent_id)) {
+      activityMap.set(row.agent_id, new Array(24).fill(0));
     }
-
-    // Derive status from latest run
-    function deriveStatus(agentName: string): string {
-      const latest = latestRunMap.get(agentName);
-      if (!latest) return "idle";
-      if (latest.status === "failed") return "error";
-      if (latest.status === "partial") return "degraded";
-      // Check if run is recent enough to be "active"
-      const lastRun = new Date(latest.started_at).getTime();
-      const ageMs = Date.now() - lastRun;
-      const twoHours = 2 * 60 * 60 * 1000;
-      return ageMs < twoHours ? "active" : "idle";
-    }
-
-    const agents = AGENT_DEFINITIONS.map((def) => {
-      const stats = statsMap.get(def.name);
-      const latestRun = latestRunMap.get(def.name);
-      return {
-        agent_id: def.name,
-        name: def.name,
-        display_name: def.displayName,
-        description: def.description,
-        color: def.color,
-        trigger: def.trigger,
-        requiresApproval: def.requiresApproval,
-        status: deriveStatus(def.name),
-        schedule: AGENT_SCHEDULES[def.name] ?? "-",
-        jobs_24h: stats?.jobs_24h ?? 0,
-        outputs_24h: outputMap.get(def.name) ?? 0,
-        error_count_24h: stats?.error_count_24h ?? 0,
-        activity: activityMap.get(def.name) ?? new Array(24).fill(0),
-        last_run_at: latestRun?.started_at ?? null,
-        last_run_status: latestRun?.status ?? null,
-        last_run_duration_ms: latestRun?.duration_ms ?? null,
-        last_run_error: latestRun?.error_message ?? null,
-        last_output_at: lastOutputMap.get(def.name) ?? null,
-        avg_duration_ms: avgDurMap.get(def.name) ?? null,
-      };
-    });
-
-    return json({ success: true, data: agents }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    const idx = (row.hour - currentHour + 24) % 24;
+    activityMap.get(row.agent_id)![idx] = row.cnt;
   }
-}
+
+  function deriveStatus(agentName: string): string {
+    const latest = latestRunMap.get(agentName);
+    if (!latest) return "idle";
+    if (latest.status === "failed") return "error";
+    if (latest.status === "partial") return "degraded";
+    const lastRun = new Date(latest.started_at).getTime();
+    const ageMs = Date.now() - lastRun;
+    const twoHours = 2 * 60 * 60 * 1000;
+    return ageMs < twoHours ? "active" : "idle";
+  }
+
+  const agents = AGENT_DEFINITIONS.map((def) => {
+    const stats = statsMap.get(def.name);
+    const latestRun = latestRunMap.get(def.name);
+    return {
+      agent_id: def.name,
+      name: def.name,
+      display_name: def.displayName,
+      description: def.description,
+      color: def.color,
+      trigger: def.trigger,
+      requiresApproval: def.requiresApproval,
+      status: deriveStatus(def.name),
+      schedule: AGENT_SCHEDULES[def.name] ?? "-",
+      jobs_24h: stats?.jobs_24h ?? 0,
+      outputs_24h: outputMap.get(def.name) ?? 0,
+      error_count_24h: stats?.error_count_24h ?? 0,
+      activity: activityMap.get(def.name) ?? new Array(24).fill(0),
+      last_run_at: latestRun?.started_at ?? null,
+      last_run_status: latestRun?.status ?? null,
+      last_run_duration_ms: latestRun?.duration_ms ?? null,
+      last_run_error: latestRun?.error_message ?? null,
+      last_output_at: lastOutputMap.get(def.name) ?? null,
+      avg_duration_ms: avgDurMap.get(def.name) ?? null,
+    };
+  });
+
+  return success(agents, ctx.origin);
+});
 
 // ─── Get agent detail with run history ──────────────────────────
 export async function handleGetAgent(request: Request, env: Env, agentName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const def = AGENT_DEFINITIONS.find((d) => d.name === agentName);
-    if (!def) return json({ success: false, error: "Agent not found" }, 404, origin);
+    if (!def) return error("Agent not found", 404, origin);
 
-    const runs = await env.DB.prepare(
-      `SELECT id, status, records_processed, outputs_generated,
-              duration_ms, error_message, started_at, completed_at
-       FROM agent_runs WHERE agent_id = ?
-       ORDER BY started_at DESC LIMIT 50`
-    ).bind(agentName).all();
+    const [runs, outputs, stats] = await Promise.all([
+      env.DB.prepare(
+        `SELECT id, status, records_processed, outputs_generated,
+                duration_ms, error_message, started_at, completed_at
+         FROM agent_runs WHERE agent_id = ?
+         ORDER BY started_at DESC LIMIT 50`
+      ).bind(agentName).all(),
+      env.DB.prepare(
+        `SELECT id, type, summary, severity, details, related_brand_ids,
+                related_campaign_id, related_provider_ids, created_at
+         FROM agent_outputs WHERE agent_id = ?
+         ORDER BY created_at DESC LIMIT 20`
+      ).bind(agentName).all(),
+      env.DB.prepare(
+        `SELECT
+           COUNT(*) as total_runs,
+           SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
+           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
+           SUM(records_processed) as total_processed,
+           SUM(outputs_generated) as total_outputs,
+           AVG(duration_ms) as avg_duration_ms
+         FROM agent_runs WHERE agent_id = ?`
+      ).bind(agentName).first(),
+    ]);
 
-    // Get agent outputs
-    const outputs = await env.DB.prepare(
-      `SELECT id, type, summary, severity, details, related_brand_ids,
-              related_campaign_id, related_provider_ids, created_at
-       FROM agent_outputs WHERE agent_id = ?
-       ORDER BY created_at DESC LIMIT 20`
-    ).bind(agentName).all();
-
-    const stats = await env.DB.prepare(
-      `SELECT
-         COUNT(*) as total_runs,
-         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
-         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
-         SUM(records_processed) as total_processed,
-         SUM(outputs_generated) as total_outputs,
-         AVG(duration_ms) as avg_duration_ms
-       FROM agent_runs WHERE agent_id = ?`
-    ).bind(agentName).first();
-
-    return json({
-      success: true,
-      data: { agent: def, runs: runs.results, outputs: outputs.results, stats },
-    }, 200, origin);
+    return success({ agent: def, runs: runs.results, outputs: outputs.results, stats }, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
@@ -189,17 +169,15 @@ export async function handleTriggerAgent(
   const origin = request.headers.get("Origin");
   try {
     const mod = agentModules[agentName];
-    if (!mod) {
-      return json({ success: false, error: "Agent not found" }, 404, origin);
-    }
+    if (!mod) return error("Agent not found", 404, origin);
 
     const body = await request.json().catch(() => ({})) as { input?: Record<string, unknown> };
     const result = await executeAgent(env, mod, body.input ?? {}, userId, "manual");
 
-    return json({ success: true, data: result }, 200, origin);
+    return success(result, origin);
   } catch (err) {
     console.error(`[triggerAgent] "${agentName}" threw:`, err);
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
@@ -214,77 +192,58 @@ export async function handleTriggerAllAgents(
       const result = await executeAgent(env, mod, {}, userId, "manual");
       results[name] = { status: result.status, runId: result.runId, error: result.error };
     }
-    return json({ success: true, data: results }, 200, origin);
+    return success(results, origin);
   } catch (err) {
     console.error("[triggerAll] threw:", err);
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ─── Get run history across all agents ──────────────────────────
-export async function handleAgentRuns(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const url = new URL(request.url);
-    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
-    const agentFilter = url.searchParams.get("agent");
+export const handleAgentRuns = handler(async (request, env, ctx) => {
+  const { limit } = parsePagination(request);
+  const agentFilter = new URL(request.url).searchParams.get("agent");
 
-    let query = `SELECT id, agent_id, status, records_processed, outputs_generated,
-                        duration_ms, error_message, started_at, completed_at
-                 FROM agent_runs`;
+  let query = `SELECT id, agent_id, status, records_processed, outputs_generated,
+                      duration_ms, error_message, started_at, completed_at
+               FROM agent_runs`;
 
-    if (agentFilter) {
-      query += ` WHERE agent_id = ?`;
-      const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
-        .bind(agentFilter, limit).all();
-      return json({ success: true, data: rows.results }, 200, origin);
-    }
-
+  if (agentFilter) {
+    query += ` WHERE agent_id = ?`;
     const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
-      .bind(limit).all();
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+      .bind(agentFilter, limit).all();
+    return success(rows.results, ctx.origin);
   }
-}
+
+  const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
+    .bind(limit).all();
+  return success(rows.results, ctx.origin);
+});
 
 // ─── Get latest agent outputs (insights, classifications, etc.) ─
-export async function handleAgentOutputs(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const url = new URL(request.url);
-    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "20", 10));
-    const type = url.searchParams.get("type");
-    const agentFilter = url.searchParams.get("agent");
+export const handleAgentOutputs = handler(async (request, env, ctx) => {
+  const { limit } = parsePagination(request, { limit: 20 });
+  const filters = parseFilters(request, ["type", "agent"]);
+  const { clause, bindings } = buildWhereClause(filters, { type: "type", agent: "agent_id" });
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+  const where = clause !== "1=1" ? `WHERE ${clause}` : "";
+  bindings.push(limit);
 
-    if (type) { conditions.push("type = ?"); params.push(type); }
-    if (agentFilter) { conditions.push("agent_id = ?"); params.push(agentFilter); }
+  const rows = await env.DB.prepare(
+    `SELECT id, agent_id, type, summary, severity, details,
+            related_brand_ids, related_campaign_id, related_provider_ids, created_at
+     FROM agent_outputs ${where}
+     ORDER BY created_at DESC LIMIT ?`
+  ).bind(...bindings).all();
 
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-    params.push(limit);
-
-    const rows = await env.DB.prepare(
-      `SELECT id, agent_id, type, summary, severity, details,
-              related_brand_ids, related_campaign_id, related_provider_ids, created_at
-       FROM agent_outputs ${where}
-       ORDER BY created_at DESC LIMIT ?`
-    ).bind(...params).all();
-
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success(rows.results, ctx.origin);
+});
 
 // ─── Agent outputs by name ───────────────────────────────────────
 export async function handleAgentOutputsByName(request: Request, env: Env, agentName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const url = new URL(request.url);
-    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "10", 10));
+    const { limit } = parsePagination(request, { limit: 10, maxLimit: 50 });
 
     const rows = await env.DB.prepare(
       `SELECT id, agent_id, type, summary, severity, details,
@@ -293,9 +252,9 @@ export async function handleAgentOutputsByName(request: Request, env: Env, agent
        ORDER BY created_at DESC LIMIT ?`
     ).bind(agentName, limit).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return success(rows.results, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
@@ -303,7 +262,6 @@ export async function handleAgentOutputsByName(request: Request, env: Env, agent
 export async function handleAgentHealth(request: Request, env: Env, agentName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Get runs for last 24 hours bucketed by hour
     const hoursBack = 24;
     const runs: number[] = new Array(hoursBack).fill(0);
     const errors: number[] = new Array(hoursBack).fill(0);
@@ -328,19 +286,17 @@ export async function handleAgentHealth(request: Request, env: Env, agentName: s
       outputs[idx] = (outputs[idx] ?? 0) + (row.outputs_generated || 0);
     }
 
-    return json({ success: true, data: { runs, errors, outputs } }, 200, origin);
+    return success({ runs, errors, outputs }, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ─── HITL Approval Queue (legacy compat) ────────────────────────
-export async function handleListApprovals(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const url = new URL(request.url);
-    const status = url.searchParams.get("status") ?? "pending";
+export const handleListApprovals = handler(async (request, env, ctx) => {
+  const status = new URL(request.url).searchParams.get("status") ?? "pending";
 
+  try {
     const rows = await env.DB.prepare(
       `SELECT id, run_id, agent_name, action_type, description, details, status,
               decided_by, decision_note, expires_at, decided_at, created_at
@@ -349,27 +305,27 @@ export async function handleListApprovals(request: Request, env: Env): Promise<R
        ORDER BY created_at DESC LIMIT 50`
     ).bind(status).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return success(rows.results, ctx.origin);
   } catch {
     // Table may not exist in v2
-    return json({ success: true, data: [] }, 200, origin);
+    return success([], ctx.origin);
   }
-}
+});
 
 export async function handleResolveApproval(
   request: Request, env: Env, approvalId: string, userId: string,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as { decision: "approved" | "rejected"; note?: string };
+    const body = await parseBody<{ decision: "approved" | "rejected"; note?: string }>(request);
     if (!body.decision || !["approved", "rejected"].includes(body.decision)) {
-      return json({ success: false, error: "Decision must be 'approved' or 'rejected'" }, 400, origin);
+      return error("Decision must be 'approved' or 'rejected'", 400, origin);
     }
 
     await resolveApproval(env, approvalId, body.decision, userId, body.note);
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
@@ -379,138 +335,109 @@ export async function handleTrustBotChat(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as { query: string };
-    if (!body.query?.trim()) {
-      return json({ success: false, error: "Query is required" }, 400, origin);
-    }
+    const body = await parseBody<{ query: string }>(request);
+    if (!body.query?.trim()) return error("Query is required", 400, origin);
 
     const result = await executeAgent(env, trustbotAgent, { query: body.query }, userId, "manual");
 
-    return json({
-      success: true,
-      data: {
-        response: (result.result?.output as { response?: string; context?: unknown })?.response ?? "No response generated.",
-        context: (result.result?.output as { response?: string; context?: unknown })?.context ?? {},
-        runId: result.runId,
-      },
-    }, 200, origin);
+    return success({
+      response: (result.result?.output as { response?: string; context?: unknown })?.response ?? "No response generated.",
+      context: (result.result?.output as { response?: string; context?: unknown })?.context ?? {},
+      runId: result.runId,
+    }, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return error(String(err), 500, origin);
   }
 }
 
 // ─── Haiku API usage (token tracking + cost estimation) ─────────
-export async function handleAgentApiUsage(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    // Haiku 4.5 pricing: $0.80/M input, $4/M output
-    const INPUT_COST = 0.80 / 1_000_000;
-    const OUTPUT_COST = 4.0 / 1_000_000;
+export const handleAgentApiUsage = handler(async (_request, env, ctx) => {
+  const INPUT_COST = 0.80 / 1_000_000;
+  const OUTPUT_COST = 4.0 / 1_000_000;
 
-    // Read KV-backed daily usage for each of the last 30 days
-    const today = new Date();
-    const dailyData = await Promise.all(
-      Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(today);
-        d.setUTCDate(d.getUTCDate() - i);
-        return getDailyUsage(env, d.toISOString().slice(0, 10));
-      })
-    );
+  const today = new Date();
+  const dailyData = await Promise.all(
+    Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(today);
+      d.setUTCDate(d.getUTCDate() - i);
+      return getDailyUsage(env, d.toISOString().slice(0, 10));
+    })
+  );
 
-    const sum = (days: number) => dailyData.slice(0, days).reduce((acc, d) => ({
-      calls: acc.calls + d.calls,
-      input_tokens: acc.input_tokens + d.input_tokens,
-      output_tokens: acc.output_tokens + d.output_tokens,
-      agent_calls: acc.agent_calls + d.agent_calls,
-      ondemand_calls: acc.ondemand_calls + d.ondemand_calls,
-    }), { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 });
+  const sum = (days: number) => dailyData.slice(0, days).reduce((acc, d) => ({
+    calls: acc.calls + d.calls,
+    input_tokens: acc.input_tokens + d.input_tokens,
+    output_tokens: acc.output_tokens + d.output_tokens,
+    agent_calls: acc.agent_calls + d.agent_calls,
+    ondemand_calls: acc.ondemand_calls + d.ondemand_calls,
+  }), { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 });
 
-    const d1 = sum(1);
-    const d7 = sum(7);
-    const d30 = sum(30);
+  const d1 = sum(1);
+  const d7 = sum(7);
+  const d30 = sum(30);
 
-    const cost = (s: typeof d1) => s.input_tokens * INPUT_COST + s.output_tokens * OUTPUT_COST;
+  const cost = (s: typeof d1) => s.input_tokens * INPUT_COST + s.output_tokens * OUTPUT_COST;
 
-    return json({
-      success: true,
-      data: {
-        tokens_24h: d1.input_tokens + d1.output_tokens,
-        tokens_7d: d7.input_tokens + d7.output_tokens,
-        tokens_30d: d30.input_tokens + d30.output_tokens,
-        input_tokens_24h: d1.input_tokens,
-        output_tokens_24h: d1.output_tokens,
-        input_tokens_7d: d7.input_tokens,
-        output_tokens_7d: d7.output_tokens,
-        input_tokens_30d: d30.input_tokens,
-        output_tokens_30d: d30.output_tokens,
-        estimated_cost_24h: `$${cost(d1).toFixed(2)}`,
-        estimated_cost_7d: `$${cost(d7).toFixed(2)}`,
-        estimated_cost_30d: `$${cost(d30).toFixed(2)}`,
-        agent_cost_30d: `$${(d30.agent_calls > 0 ? cost(d30) * d30.agent_calls / d30.calls : 0).toFixed(2)}`,
-        ondemand_cost_30d: `$${(d30.ondemand_calls > 0 ? cost(d30) * d30.ondemand_calls / d30.calls : 0).toFixed(2)}`,
-        calls_today: d1.calls,
-        daily_limit: 500,
-        agent_calls_30d: d30.agent_calls,
-        ondemand_calls_30d: d30.ondemand_calls,
-        api_key_configured: !!(env.ANTHROPIC_API_KEY || env.LRX_API_KEY),
-      },
-    }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success({
+    tokens_24h: d1.input_tokens + d1.output_tokens,
+    tokens_7d: d7.input_tokens + d7.output_tokens,
+    tokens_30d: d30.input_tokens + d30.output_tokens,
+    input_tokens_24h: d1.input_tokens,
+    output_tokens_24h: d1.output_tokens,
+    input_tokens_7d: d7.input_tokens,
+    output_tokens_7d: d7.output_tokens,
+    input_tokens_30d: d30.input_tokens,
+    output_tokens_30d: d30.output_tokens,
+    estimated_cost_24h: `$${cost(d1).toFixed(2)}`,
+    estimated_cost_7d: `$${cost(d7).toFixed(2)}`,
+    estimated_cost_30d: `$${cost(d30).toFixed(2)}`,
+    agent_cost_30d: `$${(d30.agent_calls > 0 ? cost(d30) * d30.agent_calls / d30.calls : 0).toFixed(2)}`,
+    ondemand_cost_30d: `$${(d30.ondemand_calls > 0 ? cost(d30) * d30.ondemand_calls / d30.calls : 0).toFixed(2)}`,
+    calls_today: d1.calls,
+    daily_limit: 500,
+    agent_calls_30d: d30.agent_calls,
+    ondemand_calls_30d: d30.ondemand_calls,
+    api_key_configured: !!(env.ANTHROPIC_API_KEY || env.LRX_API_KEY),
+  }, ctx.origin);
+});
 
 // ─── Agent config (schedule/settings per agent) ─────────────────
-export async function handleAgentConfig(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const configs: Record<string, { schedule_label: string; enabled: boolean }> = {};
-    for (const [name, schedule] of Object.entries(AGENT_SCHEDULES)) {
-      configs[name] = { schedule_label: schedule, enabled: true };
-    }
-    return json({ success: true, data: configs }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+export const handleAgentConfig = handler(async (_request, _env, ctx) => {
+  const configs: Record<string, { schedule_label: string; enabled: boolean }> = {};
+  for (const [name, schedule] of Object.entries(AGENT_SCHEDULES)) {
+    configs[name] = { schedule_label: schedule, enabled: true };
   }
-}
+  return success(configs, ctx.origin);
+});
 
 // ─── Agent overview stats ───────────────────────────────────────
-export async function handleAgentStats(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const summary = await env.DB.prepare(
-      `SELECT
-         COUNT(*) as total_runs,
-         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
-         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
-         SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
-         SUM(records_processed) as total_processed,
-         SUM(outputs_generated) as total_outputs,
-         AVG(duration_ms) as avg_duration_ms
-       FROM agent_runs`
-    ).first();
+export const handleAgentStats = handler(async (_request, env, ctx) => {
+  const summary = await env.DB.prepare(
+    `SELECT
+       COUNT(*) as total_runs,
+       SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes,
+       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failures,
+       SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
+       SUM(records_processed) as total_processed,
+       SUM(outputs_generated) as total_outputs,
+       AVG(duration_ms) as avg_duration_ms
+     FROM agent_runs`
+  ).first();
 
-    const todayRuns = await env.DB.prepare(
-      `SELECT agent_id, COUNT(*) as runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes
-       FROM agent_runs WHERE started_at >= datetime('now', 'start of day')
-       GROUP BY agent_id`
-    ).all();
+  const todayRuns = await env.DB.prepare(
+    `SELECT agent_id, COUNT(*) as runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successes
+     FROM agent_runs WHERE started_at >= datetime('now', 'start of day')
+     GROUP BY agent_id`
+  ).all();
 
-    // Latest outputs for insights panel
-    const latestOutputs = await env.DB.prepare(
-      `SELECT id, agent_id, type, summary, severity, created_at
-       FROM agent_outputs ORDER BY created_at DESC LIMIT 10`
-    ).all();
+  const latestOutputs = await env.DB.prepare(
+    `SELECT id, agent_id, type, summary, severity, created_at
+     FROM agent_outputs ORDER BY created_at DESC LIMIT 10`
+  ).all();
 
-    return json({
-      success: true,
-      data: {
-        summary,
-        todayByAgent: todayRuns.results,
-        latestOutputs: latestOutputs.results,
-      },
-    }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}
+  return success({
+    summary,
+    todayByAgent: todayRuns.results,
+    latestOutputs: latestOutputs.results,
+  }, ctx.origin);
+});

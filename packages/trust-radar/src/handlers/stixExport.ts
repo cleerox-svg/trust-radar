@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * STIX 2.1 threat-data export endpoints for SIEM integration.
  *

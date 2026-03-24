@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Authentication Handlers (Google OAuth + JWT refresh)
 
 import { json } from "../lib/cors";

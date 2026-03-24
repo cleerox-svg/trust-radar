@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Contact form submission handler.
  * POST /api/contact

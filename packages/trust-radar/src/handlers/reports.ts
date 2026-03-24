@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Brand Threat Report — Generates comprehensive report data for a brand.
  * GET /api/brands/:id/report?period=7d|30d|90d

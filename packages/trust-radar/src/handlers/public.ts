@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Averrow — Public API Endpoints (no auth required)
  * All endpoints rate-limited. No sensitive data exposed.

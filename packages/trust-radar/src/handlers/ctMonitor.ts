@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Certificate Transparency Monitor API Handlers — List, stats, update, and
  * trigger CT certificate scans for monitored brands.

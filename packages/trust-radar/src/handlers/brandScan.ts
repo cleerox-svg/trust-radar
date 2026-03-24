@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Brand Exposure Engine — Domain scan handlers.
  *

@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Observatory API Endpoints
 // Powers the deck.gl + MapLibre GL threat map visualization
 //

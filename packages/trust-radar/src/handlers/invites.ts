@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Invitation Handlers (hash-based tokens, email-bound)
 
 import { json } from "../lib/cors";

@@ -1,3 +1,4 @@
+// TODO: Refactor to use handler-utils (Phase 6 continuation)
 import { z } from "zod";
 import { json } from "../lib/cors";
 import type { Env, ScanResult, ScanFlag, ScanMetadata, RiskLevel } from "../types";
