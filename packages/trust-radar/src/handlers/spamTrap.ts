@@ -392,6 +392,57 @@ export async function handleSpamTrapCaptureDetail(request: Request, env: Env, id
 
 // ── POST /api/spam-trap/strategist/run ────────────────────────────
 
+export async function handleSpamTrapReparseAuth(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    // Get captures with missing auth data
+    const rows = await env.DB.prepare(
+      "SELECT id, raw_headers FROM spam_trap_captures WHERE (spf_result IS NULL OR spf_result = 'none') AND raw_headers IS NOT NULL"
+    ).all();
+
+    let updated = 0;
+
+    for (const row of rows.results) {
+      // Re-parse the raw headers using regex extraction
+      const headerText = row.raw_headers as string;
+
+      // Extract Authentication-Results or ARC-Authentication-Results
+      const authMatch = headerText.match(/(?:arc-)?authentication-results:\s*([^\n]+(?:\n\s+[^\n]+)*)/i);
+      if (!authMatch) continue;
+
+      const authHeader = (authMatch[1] ?? '').replace(/\n\s+/g, ' ');
+
+      const spfMatch = authHeader.match(/spf=(pass|fail|softfail|neutral|none|temperror|permerror)/i);
+      const spfDomainMatch = authHeader.match(/spf=\S+\s+[^;]*?(?:domain|sender|from)=([^\s;]+)/i);
+      const dkimMatch = authHeader.match(/dkim=(pass|fail|neutral|none|temperror|permerror)/i);
+      const dkimDomainMatch = authHeader.match(/dkim=\S+\s+[^;]*?(?:header\.d|d)=([^\s;]+)/i);
+      const dmarcMatch = authHeader.match(/dmarc=(pass|fail|none|bestguesspass)/i);
+      const dmarcDispMatch = authHeader.match(/dmarc=\S+\s+[^;]*?(?:action|disposition)=([^\s;]+)/i);
+
+      await env.DB.prepare(
+        "UPDATE spam_trap_captures SET spf_result=?, spf_domain=?, dkim_result=?, dkim_domain=?, dmarc_result=?, dmarc_disposition=? WHERE id=?"
+      ).bind(
+        spfMatch?.[1] || null,
+        spfDomainMatch?.[1] || null,
+        dkimMatch?.[1] || null,
+        dkimDomainMatch?.[1] || null,
+        dmarcMatch?.[1] || null,
+        dmarcDispMatch?.[1] || null,
+        row.id
+      ).run();
+
+      updated++;
+    }
+
+    return json({ success: true, updated }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ── POST /api/spam-trap/strategist/run ────────────────────────────
+
 export async function handleRunStrategist(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
