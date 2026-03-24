@@ -743,7 +743,14 @@ section {
 @media (max-width: 768px) {
   section { padding: 2rem 0; }
   .nav-links { display: none; }
-  .footer-grid { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr; text-align: center; }
+  .footer-brand-block { text-align: center; }
+  .footer-brand-block a { justify-content: center; }
+  .footer-brand-block p { text-align: center; }
+  .footer-orbital-mark { margin: 0 auto; }
+  .footer-col { text-align: center; }
+  .footer-col ul { align-items: center; }
+  .footer-bottom { text-align: center; justify-content: center; }
 }
 
 /* ── MOBILE MENU ── */
