@@ -386,7 +386,7 @@ async function toggleNotifDropdown(e) {
 async function _loadNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
-  list.innerHTML = '<div class="text-tertiary" style="text-align:center;padding:24px">Loading...</div>';
+  list.innerHTML = '<div class="text-tertiary text-center p-24">Loading...</div>';
   try {
     const res = await api('/notifications?limit=30');
     const items = res?.data || [];
@@ -411,7 +411,7 @@ async function _loadNotifications() {
       </div>`;
     }).join('');
   } catch (err) {
-    list.innerHTML = '<div class="text-negative" style="text-align:center;padding:24px">Failed to load</div>';
+    list.innerHTML = '<div class="text-negative text-center p-24">Failed to load</div>';
   }
 }
 
@@ -632,8 +632,8 @@ function renderTopbar() {
       ${isAdmin ? '<a href="/admin" class="admin-gear" onclick="event.preventDefault(); navigate(\'/admin\');" title="Admin Panel">\u2699</a>' : ''}
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
-        <div class="user-dropdown" style="right:0">
-          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+        <div class="user-dropdown right-0">
+          <div class="text-secondary mono-11" style="padding:8px 12px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -672,8 +672,8 @@ function renderAdminTopbar(activePath) {
       ${renderNotifBell()}
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
-        <div class="user-dropdown" style="right:0">
-          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+        <div class="user-dropdown right-0">
+          <div class="text-secondary mono-11" style="padding:8px 12px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill ${u?.role}">${u?.role || ''}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -708,8 +708,8 @@ function renderTenantTopbar(activePath) {
       ${renderNotifBell()}
       <div class="user-menu" id="user-menu">
         <div class="user-avatar">${initials}</div>
-        <div class="user-dropdown" style="right:0">
-          <div class="text-secondary" style="padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
+        <div class="user-dropdown right-0">
+          <div class="text-secondary mono-11" style="padding:8px 12px;border-bottom:1px solid var(--blue-border);pointer-events:none">${u?.email || ''}</div>
           <div style="padding:4px 12px 6px;pointer-events:none"><span class="role-pill client">${u?.organization?.role || 'member'}</span></div>
           <div class="dropdown-divider"></div>
           <div class="theme-toggle-row" id="theme-toggle-row"><span>Dark mode</span><div class="theme-toggle-switch"><div class="toggle-knob"></div></div></div>
@@ -844,7 +844,7 @@ async function viewRootRedirect(el) {
 function viewLogin(el) {
   el.innerHTML = `<div class="login-screen">
     <div class="login-logo"><svg width="280" height="80" viewBox="0 0 280 80"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(40,40)"><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#C83C3C" stroke-width="0.8" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#78A0C8" stroke-width="0.5" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="34" ry="12" stroke="#C83C3C" stroke-width="0.4" fill="none" opacity="0.15"><animateTransform attributeName="transform" type="rotate" from="120" to="480" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-22 L12,18 H-12 Z" fill="url(#lg)"/><path d="M-3.5,10 H3.5 L0,2 Z" fill="var(--bg-void)"/><circle cx="0" cy="-22" r="2.5" fill="#C83C3C" opacity="0.9"/></g><text x="90" y="38" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="28" letter-spacing="4" fill="var(--text-primary)">AVERROW</text><text x="90" y="56" font-family="'IBM Plex Mono',monospace" font-weight="400" font-size="10" letter-spacing="3" fill="var(--text-secondary)" opacity="0.7">THREAT INTERCEPTOR</text></svg></div>
-    <p class="text-secondary" style="font-size:13px">Threat Interceptor</p>
+    <p class="text-secondary text-13">Threat Interceptor</p>
     <a class="login-btn" href="/api/auth/login">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Sign in with Google
@@ -861,7 +861,7 @@ function viewAuthError(el) {
   const msg = new URLSearchParams(location.search).get('message') || 'Authentication failed';
   el.innerHTML = `<div class="login-screen">
     <div class="login-logo"><svg width="160" height="28" viewBox="0 0 160 28"><defs><linearGradient id="nav-lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C83C3C"/><stop offset="100%" stop-color="#78A0C8"/></linearGradient></defs><g transform="translate(14,14)"><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#C83C3C" stroke-width="0.6" fill="none" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="15s" repeatCount="indefinite"/></ellipse><ellipse cx="0" cy="0" rx="12" ry="4.5" stroke="#78A0C8" stroke-width="0.4" fill="none" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="15s" repeatCount="indefinite"/></ellipse><path d="M0,-10 L6,8 H-6 Z" fill="url(#nav-lg)"/><path d="M-1.5,5 H1.5 L0,1 Z" fill="var(--bg-void)"/><circle cx="0" cy="-10" r="1.2" fill="#C83C3C"/></g><text x="32" y="18" font-family="'IBM Plex Mono',monospace" font-weight="700" font-size="14" letter-spacing="2" fill="var(--text-primary)">AVERROW</text></svg></div>
-    <p class="text-negative" style="font-size:13px">${msg}</p>
+    <p class="text-negative text-13">${msg}</p>
     <a class="login-btn" href="/api/auth/login">Try Again</a>
   </div>`;
 }
@@ -926,7 +926,7 @@ async function viewPublicSite(el, params) {
   };
 
   el.innerHTML = `
-    ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" style="color:#C83C3C">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
+    ${isPreview && isAuth ? '<div class="pub-preview-banner" id="pub-preview-banner"><span>\u2190 <a href="/observatory" class="text-negative">Back to Observatory</a></span><span>You\'re viewing the public site</span><button onclick="document.getElementById(\'pub-preview-banner\').remove()" style="background:none;border:none;color:#7a8ba8;font-size:16px;cursor:pointer">\u2715</button></div>' : ''}
 
     <!-- NAV -->
     <nav class="pub-nav">
@@ -946,7 +946,7 @@ async function viewPublicSite(el, params) {
       </div>
       <div class="pub-mobile-menu" id="pub-mobile-menu" class="hidden">
         <a href="#detect">Detection</a><a href="#agents">Agents</a><a href="#feeds">Feeds</a><a href="#assessment">Assessment</a>
-        <a href="/login">Login</a><a href="#assessment" class="pub-btn pub-btn-primary" style="text-align:center">Sign Up</a>
+        <a href="/login">Login</a><a href="#assessment" class="pub-btn pub-btn-primary text-center">Sign Up</a>
       </div>
     </nav>
 
@@ -985,12 +985,12 @@ async function viewPublicSite(el, params) {
           <div class="pub-problem-src">Your customers are at risk before you even know</div>
         </div>
         <div class="pub-problem-card">
-          <div class="pub-problem-num" style="color:var(--threat-high)">83%</div>
+          <div class="pub-problem-num text-critical">83%</div>
           <div class="pub-problem-label">Of threat sites use legitimate hosting providers</div>
           <div class="pub-problem-src">Making takedowns harder than ever</div>
         </div>
       </div>
-      <p class="pub-problem-cta">Averrow changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong style="color:#C83C3C">every five minutes</strong>.</p>
+      <p class="pub-problem-cta">Averrow changes this. Our AI agents watch the internet\u2019s attack surface continuously \u2014 not weekly, not daily, but <strong class="text-negative">every five minutes</strong>.</p>
     </section>
 
     <!-- WHAT WE DETECT -->
@@ -1046,7 +1046,7 @@ async function viewPublicSite(el, params) {
         <div class="pub-step">
           <div class="pub-step-num">2</div>
           <h3>AI-Powered Analysis</h3>
-          <p>Five AI agents \u2014 <span style="color:#C83C3C">Sentinel</span>, <span style="color:#E8923C">ASTRA</span>, <span style="color:#5A80A8">Navigator</span>, <span style="color:#C83C3C">Strategist</span>, and <span style="color:#78A0C8">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
+          <p>Five AI agents \u2014 <span class="text-negative">Sentinel</span>, <span style="color:#E8923C">ASTRA</span>, <span style="color:#5A80A8">Navigator</span>, <span class="text-negative">Strategist</span>, and <span class="text-blue">Observer</span> \u2014 classify, correlate, and map every threat in real time.</p>
           <div class="pub-step-agents">
             <span class="pub-step-agent" style="--ac:#C83C3C">\u25C9</span>
             <span class="pub-step-agent" style="--ac:#28A050">\u25C8</span>
@@ -1084,7 +1084,7 @@ async function viewPublicSite(el, params) {
       <h2 class="pub-section-title">Powered by <span id="pub-feed-total">14</span> Threat Intelligence Feeds</h2>
       <p class="pub-section-sub">Real-time data from the world\u2019s leading threat intelligence sources. Every feed is monitored for health and freshness.</p>
       <div class="pub-feeds-grid" id="pub-feeds-grid">
-        <div class="text-tertiary" style="text-align:center;padding:32px">Loading feeds...</div>
+        <div class="text-tertiary text-center" style="padding:32px">Loading feeds...</div>
       </div>
     </section>
 
@@ -1389,9 +1389,9 @@ async function viewPublicSite(el, params) {
 
           const emailHtml = `
             <div class="pub-results-card mt-16">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="flex-between mb-16">
                 <div style="font-family:var(--font-display);font-size:15px;font-weight:700">\uD83D\uDCE7 Email Security Posture</div>
-                <div style="display:flex;align-items:center;gap:12px">
+                <div class="flex-center gap-12">
                   <span style="background:${esGradeColor};color:#000;padding:4px 12px;border-radius:4px;font-weight:700;font-size:18px;font-family:var(--font-mono)">${es.grade}</span>
                   <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${esGradeColor}">${esScore}<span class="text-tertiary text-12">/100</span></span>
                 </div>
@@ -1454,7 +1454,7 @@ async function viewPublicSite(el, params) {
             }).then(r => r.json());
 
             if (lRes?.success) {
-              leadForm.innerHTML = '<div class="pub-lead-card" style="text-align:center;padding:32px">' + heroLogo + '<h3 class="text-positive mt-16">\u2713 Report Requested</h3><p class="text-secondary">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
+              leadForm.innerHTML = '<div class="pub-lead-card text-center" style="padding:32px">' + heroLogo + '<h3 class="text-positive mt-16">\u2713 Report Requested</h3><p class="text-secondary">Check your inbox for the full threat assessment. A member of our team will follow up within 24 hours.</p></div>';
             } else {
               errEl.style.display = 'block'; errEl.textContent = lRes?.error || 'Failed to submit';
               btn.disabled = false; btn.textContent = 'Send My Report \u2192';
@@ -2598,8 +2598,8 @@ async function viewObservatory(el) {
         try { if (ins.related_brand_ids) { const ids = JSON.parse(ins.related_brand_ids); if (ids.length) linkBrand = ids[0]; } } catch {}
         const linkCampaign = ins.related_campaign_id || null;
         const href = linkBrand ? `/brands/${linkBrand}` : linkCampaign ? `/campaigns/${linkCampaign}` : null;
-        const clickAttr = href ? `onclick="navigate('${href}'); return false;" style="cursor:pointer"` : '';
-        const text = (ins.summary_text || '').replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary)">$1</strong>');
+        const clickAttr = href ? `onclick="navigate('${href}'); return false;" class="cursor-pointer"` : '';
+        const text = (ins.summary_text || '').replace(/\*\*(.+?)\*\*/g, '<strong class="text-primary">$1</strong>');
         return `<div class="sidebar-insight" ${clickAttr}>
           <div class="si-top"><span class="si-agent" style="color:${colors[ins.agent_name] || 'var(--text-secondary)'}">${ins.agent_name}</span><span class="sev ${ins.severity}">${ins.severity}</span></div>
           <div class="si-text">${text}</div>
@@ -2680,7 +2680,7 @@ function _brandLogoDomain(name) {
 function _brandLogoImg(name, size, initials) {
   const domain = _brandLogoDomain(name);
   const init = initials || _brandInitials(name);
-  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${init}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${init}">`;
+  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${init}" width="${size}" height="${size}" class="rounded-md" style="object-fit:contain;background:#0d1528;display:block" alt="${init}">`;
 }
 function _attachLogoFallbacks(container) {
   (container || document).querySelectorAll('.brand-logo-img').forEach(img => {
@@ -2747,7 +2747,7 @@ function _providerLogoDomain(name) {
 function _providerLogoImg(name, size) {
   const domain = _providerLogoDomain(name);
   const initials = (name || '??').substring(0, 2).toUpperCase();
-  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${initials}" width="${size}" height="${size}" style="border-radius:6px;object-fit:contain;background:#0d1528;display:block" alt="${initials}">`;
+  return `<img class="brand-logo-img" src="https://www.google.com/s2/favicons?domain=${domain}&sz=128" data-domain="${domain}" data-initials="${initials}" width="${size}" height="${size}" class="rounded-md" style="object-fit:contain;background:#0d1528;display:block" alt="${initials}">`;
 }
 
 function _tColor(t) { return t >= 200 ? 'var(--threat-critical)' : t >= 100 ? 'var(--threat-high)' : t >= 50 ? 'var(--threat-medium)' : 'var(--blue-primary)'; }
@@ -2763,10 +2763,10 @@ async function viewBrandsHub(el) {
       <button class="sub-tab" data-tab="all">All Brands<span class="tab-count" id="tc-all">--</span></button>
       <div class="sub-tab-actions">
         ${renderPeriodSelector(_brandsPeriod, 'brands-period')}
-        <button class="btn-monitor" id="brands-add-btn"><span style="font-size:14px">+</span> Monitor Brand</button>
+        <button class="btn-monitor" id="brands-add-btn"><span class="text-14">+</span> Monitor Brand</button>
       </div>
     </div>
-    <div style="padding:20px 24px" id="brands-content">Loading...</div>`;
+    <div class="padded" id="brands-content">Loading...</div>`;
 
   scrollActiveTabIntoView('#brands-tabs');
 
@@ -3097,7 +3097,7 @@ function renderEmailIntelCard(stats, sources, brandId) {
       <div class="panel mb-16">
         <div class="phead"><span>\uD83D\uDCCA Email Intelligence</span><span class="badge">No data</span></div>
         <div class="panel-body padded text-secondary text-12">
-          <div class="text-tertiary" style="margin-bottom:10px">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
+          <div class="text-tertiary mb-10">No DMARC aggregate reports received yet for <strong>${domain || 'this domain'}</strong>.</div>
           <div style="font-size:11px;padding:10px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border)">
             <strong>Activate DMARC reporting:</strong><br>
             Add <code>rua=mailto:dmarc_rua@averrow.com</code> to your DMARC DNS record.<br>
@@ -3147,21 +3147,21 @@ function renderEmailIntelCard(stats, sources, brandId) {
       </div>
       <div class="panel-body padded">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+          <div class="stat-box">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary)">${(totals.total_emails||0).toLocaleString()}</div>
-            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Emails analyzed</div>
+            <div class="text-tertiary text-9 mt-2">Emails analyzed</div>
           </div>
-          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+          <div class="stat-box">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:${passColor}">${passRate}%</div>
-            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Pass rate</div>
+            <div class="text-tertiary text-9 mt-2">Pass rate</div>
           </div>
-          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+          <div class="stat-box">
             <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--threat-high)">${(totals.total_fail||0).toLocaleString()}</div>
-            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Failed DMARC</div>
+            <div class="text-tertiary text-9 mt-2">Failed DMARC</div>
           </div>
-          <div style="text-align:center;padding:8px;background:var(--bg-elevated);border-radius:6px">
+          <div class="stat-box">
             <div class="text-blue" style="font-size:18px;font-weight:700;font-family:var(--font-mono)">${failRate}%</div>
-            <div class="text-tertiary" style="font-size:9px;margin-top:2px">Fail rate</div>
+            <div class="text-tertiary text-9 mt-2">Fail rate</div>
           </div>
         </div>
         ${barChart}
@@ -3213,7 +3213,7 @@ function renderEmailSecurityCard(es, brandId) {
     <div class="panel email-security-card mb-16">
       <div class="phead">
         <span>\uD83D\uDCE7 Email Security Posture</span>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div class="flex-center gap-8">
           <span class="email-grade" style="background:${gradeColor};color:#000;padding:3px 10px;border-radius:4px;font-weight:700;font-size:15px;font-family:var(--font-mono)">${grade}</span>
           <button class="filter-pill text-10" onclick="scanEmailSecurity('${brandId}')">Re-scan</button>
         </div>
@@ -3358,7 +3358,7 @@ async function viewBrandDetail(el, params) {
     const displayLabel = b.trust_score != null ? 'Trust' : b.exposure_score != null ? 'Exposure' : '';
     const ringColor = displayScore != null ? _scoreColor(displayScore) : 'var(--text-tertiary)';
     const trustRingHtml = displayScore != null
-      ? `<div class="ts-ring-wrap"><div style="width:72px;height:72px;position:relative">
+      ? `<div class="ts-ring-wrap"><div class="icon-ring-lg">
           <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${ringColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - displayScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
           <div class="ts-val-center">${displayScore}</div>
         </div><div class="ts-grade">${displayLabel}: ${displayGrade}</div></div>`
@@ -3388,12 +3388,12 @@ async function viewBrandDetail(el, params) {
       <div class="panel" id="brand-analysis-panel" class="mb-16">
         <div class="phead"><span>AI Threat Analysis</span><span class="badge" id="brand-analysis-badge">${analysisRes?.data ? (analysisRes.data.stale ? 'Stale' : 'Current') : 'Not generated'}</span></div>
         <div class="panel-body padded" id="brand-analysis-body">${analysisRes?.data ? `
-          <div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${analysisRes.data.analysis || ''}</div>
-          ${analysisRes.data.key_findings?.length ? `<div class="mb-12">${analysisRes.data.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+          <div class="text-13 text-primary mb-12" style="line-height:1.6">${analysisRes.data.analysis || ''}</div>
+          ${analysisRes.data.key_findings?.length ? `<div class="mb-12">${analysisRes.data.key_findings.map(f => `<div class="text-secondary flex gap-8 text-11"  style="padding:4px 0"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
           ${analysisRes.data.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:${analysisRes.data.risk_level === 'critical' ? 'rgba(255,59,92,.12)' : analysisRes.data.risk_level === 'high' ? 'rgba(255,107,53,.1)' : 'rgba(255,182,39,.1)'};color:${analysisRes.data.risk_level === 'critical' ? 'var(--negative)' : analysisRes.data.risk_level === 'high' ? 'var(--threat-high)' : 'var(--threat-medium)'}">${analysisRes.data.risk_level} risk</span>` : ''}
-          ${analysisRes.data.updated_at ? `<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
-          <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>
-        ` : `<div style="text-align:center;padding:12px"><div class="text-tertiary" style="font-size:12px;margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
+          ${analysisRes.data.updated_at ? `<span class="text-tertiary mono text-9 ml-8">Updated ${analysisRes.data.updated_at.slice(0, 16).replace('T', ' ')}</span>` : ''}
+          <button class="filter-pill" id="brand-refresh-analysis" class="ml-8 text-9">\u21bb Refresh</button>
+        ` : `<div class="text-center p-12"><div class="text-tertiary" style="font-size:12px;margin-bottom:8px">No AI analysis generated yet</div><button class="filter-pill" id="brand-gen-analysis">\u25c8 Generate Analysis</button></div>`}</div>
       </div>
       <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between">
         <div>
@@ -3404,7 +3404,7 @@ async function viewBrandDetail(el, params) {
       </div>
       <div class="panel" id="safe-domains-panel" class="mb-16">
         <div class="phead">
-          <span style="display:flex;align-items:center;gap:6px"><span class="text-positive">&#9432;</span> Safe Domains</span>
+          <span class="flex-center gap-6"><span class="text-positive">&#9432;</span> Safe Domains</span>
           <span class="badge" id="safe-domains-count">${safeDomains.length}</span>
         </div>
         <div class="panel-body padded" id="safe-domains-body"></div>
@@ -3490,8 +3490,8 @@ async function viewBrandDetail(el, params) {
       } else {
         html += '<div class="text-tertiary" style="font-size:11px;margin-bottom:12px">No safe domains configured. Add domains owned by this brand to prevent false positive alerts.</div>';
       }
-      html += `<div class="data-label" style="margin-bottom:8px">Use <code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px">*.brand.com</code> to mark all subdomains as safe</div>`;
-      html += `<div style="display:flex;gap:8px;align-items:center">
+      html += `<div class="data-label mb-8">Use <code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px">*.brand.com</code> to mark all subdomains as safe</div>`;
+      html += `<div class="flex-center gap-8">
         <div id="safe-add-form" style="display:flex;gap:6px;flex:1">
           <input type="text" id="safe-domain-input" placeholder="*.brand.com or subdomain.brand.com" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);font-family:var(--font-mono)">
           <button class="filter-pill" id="safe-add-btn" class="text-11">Add</button>
@@ -3684,7 +3684,7 @@ async function viewBrandDetail(el, params) {
         } catch { signals = []; }
 
         if (signals.length > 0) {
-          html += `<div style="margin-top:6px"><div class="text-tertiary" style="font-size:10px;font-weight:600;margin-bottom:3px">Signals:</div>
+          html += `<div class="mt-6"><div class="text-tertiary" style="font-size:10px;font-weight:600;margin-bottom:3px">Signals:</div>
             <ul class="text-secondary" style="margin:0;padding-left:16px;font-size:10px;line-height:1.6">${signals.slice(0, 8).map(s => `<li>${s}</li>`).join('')}</ul></div>`;
         }
 
@@ -3803,7 +3803,7 @@ async function viewBrandDetail(el, params) {
           `<div class="modal-sub">Add an official social media handle for this brand.</div>
            <div class="form-group"><label class="form-label">Platform</label><select class="form-select" id="social-modal-platform"><option value="twitter">Twitter / X</option><option value="linkedin">LinkedIn</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="github">GitHub</option><option value="youtube">YouTube</option></select></div>
            <div class="form-group"><label class="form-label">Handle</label><input class="form-input" placeholder="@acmecorp" id="social-modal-handle"></div>
-           <div class="form-group" style="display:flex;align-items:center;gap:8px">
+           <div class="form-group flex-center gap-8">
              <input type="checkbox" id="social-modal-official" checked style="accent-color:var(--blue-primary)">
              <label for="social-modal-official" class="text-secondary text-12">This is our official account</label>
            </div>`,
@@ -4167,7 +4167,7 @@ async function viewBrandDetail(el, params) {
           const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5, opacity: 0.6 }).addTo(_brandDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
-            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .bindPopup(`<div class="sans fw-600 text-accent text-12 mb-4">${loc.country || loc.country_code || ''}</div><div class="flex-between text-11"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
             .addTo(_brandDetailMap);
         });
         const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
@@ -4241,17 +4241,17 @@ async function viewBrandDetail(el, params) {
         const d = res?.data;
         if (d?.analysis) {
           if (badge) badge.textContent = 'Current';
-          body.innerHTML = `<div style="font-size:13px;line-height:1.6;color:var(--text-primary);margin-bottom:12px">${d.analysis}</div>
-            ${d.key_findings?.length ? `<div class="mb-12">${d.key_findings.map(f => `<div class="text-secondary" style="display:flex;gap:8px;padding:4px 0;font-size:11px"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
+          body.innerHTML = `<div class="text-13 text-primary mb-12" style="line-height:1.6">${d.analysis}</div>
+            ${d.key_findings?.length ? `<div class="mb-12">${d.key_findings.map(f => `<div class="text-secondary flex gap-8 text-11"  style="padding:4px 0"><span class="text-warning">\u25cf</span>${f}</div>`).join('')}</div>` : ''}
             ${d.risk_level ? `<span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,182,39,.1);color:var(--threat-medium)">${d.risk_level} risk</span>` : ''}
-            <span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:8px">Just now</span>
-            <button class="filter-pill" id="brand-refresh-analysis" style="margin-left:8px;font-size:9px">\u21bb Refresh</button>`;
+            <span class="text-tertiary mono text-9 ml-8">Just now</span>
+            <button class="filter-pill" id="brand-refresh-analysis" class="ml-8 text-9">\u21bb Refresh</button>`;
           body.querySelector('#brand-refresh-analysis')?.addEventListener('click', triggerBrandAnalysis);
         } else {
-          body.innerHTML = '<div class="text-tertiary" style="text-align:center;padding:12px">Analysis generation failed — check API key configuration</div>';
+          body.innerHTML = '<div class="text-tertiary text-center p-12">Analysis generation failed — check API key configuration</div>';
         }
       } catch (err) {
-        body.innerHTML = `<div class="text-negative" style="text-align:center;padding:12px">${err.message || 'Failed to generate analysis'}</div>`;
+        body.innerHTML = `<div class="text-negative text-center p-12">${err.message || 'Failed to generate analysis'}</div>`;
       }
     }
     document.getElementById('brand-gen-analysis')?.addEventListener('click', triggerBrandAnalysis);
@@ -4394,7 +4394,7 @@ async function viewSocialMonitor(el) {
       <button class="sub-tab" data-tab="alerts">Active Alerts<span class="tab-count" id="tc-social-alerts">--</span></button>
       <button class="sub-tab" data-tab="add">+ Add Brand</button>
     </div>
-    <div style="padding:20px 24px" id="social-content">Loading...</div>`;
+    <div class="padded" id="social-content">Loading...</div>`;
 
   scrollActiveTabIntoView('#social-tabs');
 
@@ -4415,7 +4415,7 @@ async function viewSocialMonitor(el) {
     if (aggEl) aggEl.innerHTML = `
       <div class="agg-card"><div class="agg-val text-blue">${brands.length}</div><div class="agg-lbl">Brands monitored</div><div class="agg-sub">Across 6 platforms</div></div>
       <div class="agg-card"><div class="agg-val text-negative">${critCount}</div><div class="agg-lbl">Critical alerts</div><div class="agg-sub">Require immediate action</div></div>
-      <div class="agg-card"><div class="agg-val" style="color:var(--threat-high)">${highCount}</div><div class="agg-lbl">High severity</div><div class="agg-sub">Likely impersonation</div></div>
+      <div class="agg-card"><div class="agg-val text-critical">${highCount}</div><div class="agg-lbl">High severity</div><div class="agg-sub">Likely impersonation</div></div>
       <div class="agg-card"><div class="agg-val text-warning">${atRisk}</div><div class="agg-lbl">Brands at risk</div><div class="agg-sub">Open findings</div></div>`;
   })();
 
@@ -4793,11 +4793,11 @@ async function viewProviderDetail(el, params) {
             <div class="header-stat"><div class="header-stat-val text-secondary">${respHrs != null ? respHrs + 'h' : 'N/A'}</div><div class="header-stat-label">Avg response</div></div>
           </div>
         </div>
-        <div class="rep-ring"><div style="width:72px;height:72px;position:relative"><svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${rc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - repScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg><div class="rep-ring-val" style="color:${rc}">${repScore}</div></div><div class="rep-ring-label" style="color:${rc}">${repLabel}</div></div>
+        <div class="rep-ring"><div class="icon-ring-lg"><svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${rc}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${188.5 * (1 - repScore / 100)}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg><div class="rep-ring-val" style="color:${rc}">${repScore}</div></div><div class="rep-ring-label" style="color:${rc}">${repLabel}</div></div>
       </div>
       <div class="detail-grid">
         <div class="panel" id="prov-threats-panel"></div>
-        <div class="detail-rcol" style="display:flex;flex-direction:column;gap:16px">
+        <div class="detail-rcol flex-col gap-16">
           <div class="panel"><div class="phead"><span>Target Locations</span><span class="badge" id="prov-loc-ct">${locationsRes?.totalCountries || locations.length} countries</span></div><div class="panel-body"><div id="prov-mini-map" class="mini-map"></div></div></div>
           <div class="panel"><div class="phead"><span>Brands Targeted</span></div><div class="panel-body padded" id="prov-brand-bars">${brands.length ?
             brands.map((b, i) => {
@@ -4914,7 +4914,7 @@ async function viewProviderDetail(el, params) {
           const col = int >= 0.7 ? '#C83C3C' : int >= 0.4 ? '#ff6b35' : int >= 0.2 ? '#E8923C' : '#78A0C8';
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(4, int * 16), fillColor: col, fillOpacity: 0.3, color: col, weight: 0.5 }).addTo(_provDetailMap);
           L.circleMarker([loc.lat, loc.lng], { radius: Math.max(2, int * 6), fillColor: col, fillOpacity: 0.9, color: col, weight: 0 })
-            .bindPopup(`<div style="font-family:var(--font-display);font-weight:600;color:var(--text-accent);font-size:12px;margin-bottom:4px">${loc.country || loc.country_code || ''}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
+            .bindPopup(`<div class="sans fw-600 text-accent text-12 mb-4">${loc.country || loc.country_code || ''}</div><div class="flex-between text-11"><span class="text-secondary">Threats</span><span style="font-family:var(--font-mono);color:${col}">${loc.count || 0}</span></div>`)
             .addTo(_provDetailMap);
         });
         _provDetailMap.fitBounds(L.latLngBounds(locations.map(l => [l.lat, l.lng])), { padding: [20, 20], maxZoom: 5 });
@@ -5339,13 +5339,13 @@ async function viewCampaignDetail(el, params) {
       </div>
 
       <div class="infra-panel">
-        <div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Map</span><span class="badge">${domainCount} domains \u2192 ${ipCount} IPs \u2192 ${provCount} providers</span></div>
+        <div class="phead"><span class="ptitle flex-center gap-8">Infrastructure Map</span><span class="badge">${domainCount} domains \u2192 ${ipCount} IPs \u2192 ${provCount} providers</span></div>
         <div class="infra-body" style="height:380px"><canvas id="camp-infra-canvas" class="infra-canvas"></canvas></div>
       </div>
 
       <div class="detail-grid">
         <div class="panel">
-          <div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Associated Threats</span><span class="badge">${c.threat_count || threats.length}</span></div>
+          <div class="phead"><span class="ptitle flex-center gap-8">Associated Threats</span><span class="badge">${c.threat_count || threats.length}</span></div>
           <table class="prov-threats-tbl"><thead><tr><th>URL</th><th>Type</th><th>Target</th><th>Provider</th><th>Status</th></tr></thead><tbody>
           ${threats.map(t => {
       const url = t.malicious_domain || t.url || '';
@@ -5360,11 +5360,11 @@ async function viewCampaignDetail(el, params) {
               <td class="text-tertiary text-11">${prov}</td>
               <td><span class="status-badge-sm ${status}">${status}</span></td>
             </tr>`;
-    }).join('') || '<tr><td colspan="5" class="text-tertiary" style="text-align:center;padding:24px">No threats</td></tr>'}
+    }).join('') || '<tr><td colspan="5" class="text-tertiary text-center p-24">No threats</td></tr>'}
           </tbody></table>
         </div>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Targeted Brands</span></div><div class="padded">${brands.length ?
+        <div class="flex-col gap-16">
+          <div class="panel"><div class="phead"><span class="ptitle flex-center gap-8">Targeted Brands</span></div><div class="padded">${brands.length ?
       brands.map((b, i) => {
         const cnt = b.count || b.threat_count || 0;
         const pct = maxBrand > 0 ? Math.round(cnt / maxBrand * 100) : 0;
@@ -5372,7 +5372,7 @@ async function viewCampaignDetail(el, params) {
       }).join('') :
       '<div class="empty-state"><div class="message">No brands linked yet<br><span class="data-label">Brands appear after threat-brand matching</span></div></div>'
     }</div></div>
-          <div class="panel"><div class="phead"><span class="ptitle" style="display:flex;align-items:center;gap:7px">Infrastructure Stats</span></div><div class="padded">
+          <div class="panel"><div class="phead"><span class="ptitle flex-center gap-8">Infrastructure Stats</span></div><div class="padded">
             <div class="infra-stat"><span class="infra-stat-label">TLD Distribution</span><span class="infra-stat-val">${Object.entries(tldDist).map(([t, v]) => `${t}: ${v}`).join(', ') || '\u2014'}</span></div>
             <div class="infra-stat"><span class="infra-stat-label">Providers</span><span class="infra-stat-val">${providerNames.join(', ') || '\u2014'}</span></div>
             <div class="infra-stat"><span class="infra-stat-label">Registrars</span><span class="infra-stat-val">${regCount} unique</span></div>
@@ -5858,7 +5858,7 @@ async function viewAgents(el) {
           <div class="dh-info">
             <div class="dh-name">${meta.label || agent?.display_name || agentId} <span class="status-label ${agent?.status || 'idle'}">${agent?.status || 'idle'}</span></div>
             <div class="dh-desc">${agent?.description || meta.role}</div>
-            ${latestSummary ? `<div class="data-label" style="margin-top:2px">Last: ${latestSummary}${latestOutput?.created_at ? ' · ' + timeAgo(latestOutput.created_at) : ''}</div>` : ''}
+            ${latestSummary ? `<div class="data-label mt-2">Last: ${latestSummary}${latestOutput?.created_at ? ' · ' + timeAgo(latestOutput.created_at) : ''}</div>` : ''}
             ${agentId === 'strategist' && correlations > 0 ? `<div style="font-size:10px;color:#F472B6;margin-top:2px">${correlations} correlation${correlations > 1 ? 's' : ''} detected</div>` : ''}
             ${agentId === 'observer' && weeklyIntel ? `<div style="font-size:10px;color:#FBBF24;margin-top:2px">Weekly intel report available</div>` : ''}
           </div>
@@ -5947,18 +5947,18 @@ async function viewAdmin(el) {
     <div class="page-title mb-16">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><line x1="18" y1="4" x2="18" y2="10"/><line x1="15" y1="7" x2="21" y2="7"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-feeds"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M4 12l8 8 8-8M12 4v16"/></svg></div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-agents"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><path d="M12 2L20 12L12 22L4 12Z"/><circle cx="12" cy="12" r="2" fill="#E8923C"/></svg></div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn border-left-info" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><line x1="18" y1="4" x2="18" y2="10"/><line x1="15" y1="7" x2="21" y2="7"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-critical" id="adm-dash-feeds"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M4 12l8 8 8-8M12 4v16"/></svg></div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-warning" id="adm-dash-agents"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><path d="M12 2L20 12L12 22L4 12Z"/><circle cx="12" cy="12" r="2" fill="#E8923C"/></svg></div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-backfill"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#28A050" stroke-width="1.5"><path d="M12 2L20 7V14C20 18 16 21 12 22C8 21 4 18 4 14V7L12 2Z"/><path d="M9 12l2 2 4-4"/></svg></div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-tranco"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 18h16"/></svg></div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-info" id="adm-dash-tranco"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 18h16"/></svg></div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
       <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #5A80A8" id="adm-dash-geo"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5A80A8" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-brand-match"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5"/></svg></div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-ai-attr"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg></div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-social"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M3 12C3 12 7 5 12 5s9 7 9 7-4 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-social-10x"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/></svg></div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-warning" id="adm-dash-brand-match"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5"/></svg></div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-critical" id="adm-dash-ai-attr"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg></div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-info" id="adm-dash-social"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M3 12C3 12 7 5 12 5s9 7 9 7-4 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
+      <div class="adm-action-btn adm-dash-trigger border-left-critical" id="adm-dash-social-10x"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/></svg></div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
       <div class="adm-action-btn" style="border-left:3px solid #8A8F9C" onclick="navigate('/admin/audit')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8A8F9C" stroke-width="1.5"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
+      <div class="adm-action-btn border-left-info" onclick="navigate('/public-preview')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel">
@@ -6024,7 +6024,7 @@ async function viewAdmin(el) {
       <div class="adm-metric"><div class="adm-metric-label">Users</div><div class="adm-metric-value text-blue">${userTotal}</div><div class="adm-metric-sub"><span class="text-positive">${activeSessions} active sessions</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${saCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--purple);width:${adminCount/Math.max(userTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${analystCount/Math.max(userTotal,1)*100}%"></div></div></div>
       <div class="adm-metric"><div class="adm-metric-label">Data Feeds</div><div class="adm-metric-value text-positive">${healthyFeeds}/${totalFeeds}</div><div class="adm-metric-sub"><span class="text-positive">${healthyFeeds} healthy</span>${degradedFeeds?`<span class="text-warning">${degradedFeeds} degraded</span>`:''}${downFeeds?`<span class="text-negative">${downFeeds} down</span>`:''}</div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${healthyFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${degradedFeeds/Math.max(totalFeeds,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${downFeeds/Math.max(totalFeeds,1)*100}%"></div></div></div>
       <div class="adm-metric"><div class="adm-metric-label">Leads in Pipeline</div><div class="adm-metric-value text-warning">${leadTotal}</div><div class="adm-metric-sub"><span class="text-negative">${leadNew} new</span><span class="text-positive">${leadConverted} converted</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--negative);width:${leadNew/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-high);width:${leadContacted/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--threat-medium);width:${leadQualified/Math.max(leadTotal,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--positive);width:${leadProposal/Math.max(leadTotal,1)*100}%"></div></div></div>
-      <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value" style="color:var(--text-primary)">${agentJobs}</div><div class="adm-metric-sub"><span class="text-positive">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
+      <div class="adm-metric"><div class="adm-metric-label">AI Analysis (24h)</div><div class="adm-metric-value text-primary">${agentJobs}</div><div class="adm-metric-sub"><span class="text-positive">${agentJobs} completed</span><span style="color:${agentErrors>0?'var(--negative)':'var(--positive)'}">${agentErrors} failed</span></div><div class="adm-metric-bar"><div class="adm-metric-bar-seg" style="background:var(--positive);width:${agentJobs/Math.max(agentJobs+agentErrors,1)*100}%"></div><div class="adm-metric-bar-seg" style="background:var(--negative);width:${agentErrors/Math.max(agentJobs+agentErrors,1)*100}%"></div></div></div>`;
 
     // Feed ingestion chart
     const feedBadgeEl = document.getElementById('adm-feed-badge');
@@ -6129,7 +6129,7 @@ async function viewAdmin(el) {
       const blText = bl ? (bl.val !== null ? `${bl.val} ${bl.label}` : bl.label) : '';
       const blColor = bl && bl.val !== null ? (bl.val > 100 ? 'var(--threat-medium)' : 'var(--positive)') : 'var(--text-tertiary)';
       return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,60,60,.04);flex-wrap:wrap"><div style="color:${meta.color};flex-shrink:0;width:18px;height:18px;display:flex;align-items:center">${agentIcon(aid, 18)}</div><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};${dotAnim};flex-shrink:0"></div><div style="flex:1;font-size:12px;font-weight:500;color:${meta.color};min-width:90px">${meta.label || a.display_name || a.name}</div><div class="text-secondary mono-10">${a.jobs_24h || 0} jobs</div><div style="font-family:var(--font-mono);font-size:10px;color:${meta.color}">${a.outputs_24h || 0} out</div><div style="font-family:var(--font-mono);font-size:10px;color:${(a.error_count_24h||0)>0?'var(--negative)':'var(--positive)'}">${a.error_count_24h || 0} err</div>${blText ? `<div style="width:100%;padding-left:17px;font-family:var(--font-mono);font-size:9px;color:${blColor};margin-top:-2px">\u2514 ${blText}</div>` : ''}</div>`;
-    }).join('') || '<div class="text-tertiary" style="padding:12px;text-align:center">No agents configured</div>';
+    }).join('') || '<div class="text-tertiary text-center p-12">No agents configured</div>';
 
     // Email Security stats
     const esData = emailStatsRes?.data;
@@ -6142,11 +6142,11 @@ async function viewAdmin(el) {
       if (gradesEl && esData.grade_distribution?.length) {
         const total = esData.grade_distribution.reduce((s, g) => s + g.count, 0) || 1;
         gradesEl.innerHTML = `
-          <div class="text-tertiary text-11 mb-8">Avg score: <span style="font-family:var(--font-mono);color:var(--text-primary)">${esData.average_score}/100</span></div>
+          <div class="text-tertiary text-11 mb-8">Avg score: <span class="mono text-primary">${esData.average_score}/100</span></div>
           <div style="display:flex;gap:6px;margin-bottom:10px">
             ${esData.grade_distribution.map(g => {
               const pct = Math.round(g.count / total * 100);
-              return `<div style="text-align:center;flex:1">
+              return `<div class="text-center flex-1">
                 <div style="font-family:var(--font-mono);font-weight:700;color:${gradeColors[g.grade]||'#666'};font-size:14px">${g.count}</div>
                 <div style="height:4px;background:${gradeColors[g.grade]||'#666'};border-radius:2px;margin:3px 0;opacity:.7"></div>
                 <div class="data-label">${g.grade}</div>
@@ -6196,7 +6196,7 @@ async function viewAdmin(el) {
               <span style="font-family:var(--font-mono);font-size:10px;color:${gc};flex-shrink:0">${b.email_security_score}</span>
               <button onclick="event.stopPropagation();scanBrand('${b.id}')" class="text-secondary" style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--blue-border);background:transparent;cursor:pointer;flex-shrink:0">Scan</button>
             </div>`;
-          }).join('') || '<div class="text-tertiary" style="padding:12px;font-size:11px">No brands for this grade</div>';
+          }).join('') || '<div class="text-tertiary text-11 p-12">No brands for this grade</div>';
         }
 
         // CSV export
@@ -6217,7 +6217,7 @@ async function viewAdmin(el) {
         renderWorstTabs();
         renderWorstList();
       } else if (worstEl) {
-        worstEl.innerHTML = '<div class="text-tertiary" style="padding:12px;font-size:11px">No scan data yet</div>';
+        worstEl.innerHTML = '<div class="text-tertiary text-11 p-12">No scan data yet</div>';
         if (tabsEl) tabsEl.style.display = 'none';
         if (footerEl) footerEl.style.display = 'none';
       }
@@ -6486,13 +6486,13 @@ async function viewAdminUsers(el) {
   const ini = n => n ? n.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">Users & Roles</div>
-      <button class="adm-btn adm-btn-primary" id="adm-invite-btn"><span style="font-size:14px">+</span> Invite User</button>
+      <button class="adm-btn adm-btn-primary" id="adm-invite-btn"><span class="text-14">+</span> Invite User</button>
     </div>
     <div class="adm-page-tabs">
-      <div class="adm-ptab active" data-tab="users">Active Users<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:6px" id="user-count">-</span></div>
-      <div class="adm-ptab" data-tab="invites">Pending Invitations<span class="text-tertiary" style="font-family:var(--font-mono);font-size:9px;margin-left:6px" id="inv-count">-</span></div>
+      <div class="adm-ptab active" data-tab="users">Active Users<span class="text-tertiary mono text-9 ml-6" id="user-count">-</span></div>
+      <div class="adm-ptab" data-tab="invites">Pending Invitations<span class="text-tertiary mono text-9 ml-6" id="inv-count">-</span></div>
     </div>
     <div class="adm-ptab-c visible" id="tab-users">
       <div class="adm-controls">
@@ -6591,7 +6591,7 @@ async function viewAdminUsers(el) {
         <div class="adm-inv-role"><span class="adm-role-pill ${inv.role || 'analyst'}">${inv.role || 'analyst'}</span></div>
         <div class="adm-inv-sent">Sent ${inv.created_at ? relativeTime(Math.round((Date.now() - new Date(inv.created_at).getTime()) / 60000)) : '-'}</div>
         <div class="adm-inv-status"><span class="adm-status-pill ${inv.status === 'pending' ? 'pending-inv' : 'expired'}">${inv.status || 'pending'}</span></div>
-        <div style="display:flex;gap:4px"><button class="adm-action-btn">Resend</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></div>
+        <div class="flex gap-4"><button class="adm-action-btn">Resend</button><button class="adm-action-btn text-negative border-accent">Revoke</button></div>
       </div>`).join('') : '<div class="empty">No pending invitations</div>';
   } catch (err) { showToast(err.message, 'error'); }
 
@@ -6671,8 +6671,8 @@ async function viewAdminFeeds(el) {
         </div></div>
       </div>
       <div class="adm-grid-2">
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">${pulls.length ? 'Last ' + pulls.length : 'No pulls'}</div></div><div style="max-height:300px;overflow-y:auto">${pulls.length ? pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count text-tertiary">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('') : '<div class="text-tertiary" style="text-align:center;padding:24px;font-size:12px">No pull history yet</div>'}</div></div>
-        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div class="text-positive" style="text-align:center;padding:24px;font-size:12px">No errors recorded</div>'}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Pull History</div><div class="adm-pbadge">${pulls.length ? 'Last ' + pulls.length : 'No pulls'}</div></div><div class="scroll-300">${pulls.length ? pulls.map(p => `<div class="adm-pull-row"><span class="adm-pull-time">${p.time}</span><span class="adm-pull-dur">${p.dur}</span><span class="adm-pull-count">${p.records} ingested</span><span class="adm-pull-count text-tertiary">${p.rejected} rejected</span><span class="adm-pull-status ${p.status}">${p.status}</span></div>`).join('') : '<div class="text-tertiary text-center text-12 p-24">No pull history yet</div>'}</div></div>
+        <div class="adm-panel"><div class="adm-phead"><div class="adm-ptitle">Recent Errors</div><div class="adm-pbadge">${f.error_count || 0}</div></div><div class="adm-padded">${f.recent_errors?.length ? f.recent_errors.map(e => `<div class="adm-error-row"><div class="adm-err-time">${e.time || ''}</div><div class="adm-err-msg">${e.message || e.msg || ''}</div></div>`).join('') : '<div class="text-positive text-center text-12 p-24">No errors recorded</div>'}</div></div>
       </div>`;
 
     // Detail chart — use real pull history data aggregated by day
@@ -6725,11 +6725,11 @@ async function viewAdminFeeds(el) {
       <div class="adm-ac"><div class="adm-ac-v text-positive">${healthyCount}/${allFeeds.length}</div><div class="adm-ac-l">Feeds healthy</div></div>
       <div class="adm-ac"><div class="adm-ac-v text-blue">${totalToday.toLocaleString()}</div><div class="adm-ac-l">Records today</div></div>
       <div class="adm-ac"><div class="adm-ac-v text-positive">0.2%</div><div class="adm-ac-l">Error rate (24h)</div></div>
-      <div class="adm-ac"><div class="adm-ac-v" style="color:var(--text-primary)">2.0s</div><div class="adm-ac-l">Avg pull latency</div></div>`;
+      <div class="adm-ac"><div class="adm-ac-v text-primary">2.0s</div><div class="adm-ac-l">Avg pull latency</div></div>`;
 
     document.getElementById('adm-feeds-table').innerHTML = allFeeds.length ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Feed</th><th>Status</th><th>Last Pull</th><th>Last Failure</th><th>Records Today</th><th>Avg Duration</th><th>Schedule</th><th>Actions</th></tr></thead><tbody>${allFeeds.map(f => {
       const st = f.health_status || 'healthy';
-      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td class="data-label">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td class="text-secondary mono-10">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
+      return `<tr data-fid="${f.feed_name || f.feed_id || f.id}"><td><div class="adm-feed-name-cell"><div class="adm-feed-dot ${st}"></div>${f.display_name || f.feed_name}</div></td><td><span style="font-family:var(--font-mono);font-size:10px;color:${st==='healthy'?'var(--positive)':st==='degraded'?'var(--threat-medium)':'var(--negative)'};text-transform:capitalize">${st}</span></td><td class="data-label">${f.last_successful_pull ? relativeTime(Math.round((Date.now() - new Date(f.last_successful_pull).getTime()) / 60000)) : '-'}</td><td style="font-family:var(--font-mono);font-size:10px;color:${f.last_failure ? 'var(--negative)' : 'var(--text-tertiary)'}">${f.last_failure ? relativeTime(Math.round((Date.now() - new Date(f.last_failure).getTime()) / 60000)) : '\u2014'}</td><td class="mono-12 fw-500">${(f.records_ingested_today || 0).toLocaleString()}${f.last_pull_count != null ? ` <span style="color:${f.last_pull_count > 0 ? '#78A0C8' : 'var(--text-tertiary)'};font-size:10px">(+${f.last_pull_count.toLocaleString()})</span>` : ''}</td><td class="text-secondary mono-10">${f.avg_duration_ms ? (f.avg_duration_ms >= 1000 ? (f.avg_duration_ms / 1000).toFixed(1) + 's' : Math.round(f.avg_duration_ms) + 'ms') : '-'}</td><td><span class="adm-schedule-pill">${f.schedule_cron || '-'}</span></td><td><button class="adm-action-btn adm-trigger-btn" data-feed="${f.feed_name || f.feed_id || f.id}" onclick="event.stopPropagation()">Trigger Now</button><button class="adm-action-btn" onclick="event.stopPropagation()">Configure</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="empty">No feeds configured</div>';
 
     // Row click to detail
@@ -6812,9 +6812,9 @@ function leadGradeColor(g) { return { A: 'var(--positive)', B: 'var(--blue-prima
 
 async function viewAdminLeads(el) {
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">Lead Management</div>
-      <div style="display:flex;align-items:center;gap:12px">
+      <div class="flex-center gap-12">
         <div class="adm-view-toggle" id="adm-lead-tabs">
           <button class="adm-vt-btn active" data-ltab="scan" style="background:#C83C3C;color:#fff;border:1px solid #C83C3C">Scan Leads</button>
           <button class="adm-vt-btn" data-ltab="pipeline" style="background:transparent;color:#C83C3C;border:1px solid #C83C3C">Sales Pipeline</button>
@@ -6868,7 +6868,7 @@ async function viewAdminLeads(el) {
     const risks = l.risk_indicators || [];
     const notes = l.notes || [];
     document.getElementById('adm-lead-so-content').innerHTML = `
-      <div style="text-align:center;margin-bottom:16px">
+      <div class="text-center mb-16">
         <div class="adm-so-score-ring"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="213.6" stroke-dashoffset="${213.6 * (1 - score / 100)}" stroke-linecap="round" transform="rotate(-90 40 40)"/></svg><div class="adm-so-score-val" style="color:${sc}">${score}</div></div>
         <div class="adm-so-grade" style="color:${gc}">Grade: ${grade}</div>
       </div>
@@ -6925,12 +6925,12 @@ async function viewAdminLeads(el) {
         ${stageData.map(s => `<div style="flex:1;min-width:90px;text-align:center;padding:14px 10px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border)"><div style="font-family:var(--font-mono);font-weight:800;font-size:28px;color:${s.color}">${s.count}</div><div class="text-tertiary" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">${s.label}</div></div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
-        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Response rate: <span class="text-blue" style="font-family:var(--font-mono);font-weight:600">${rr}%</span></div>
-        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Conversion rate: <span class="text-positive" style="font-family:var(--font-mono);font-weight:600">${cr}%</span></div>
+        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Response rate: <span class="text-blue mono fw-600">${rr}%</span></div>
+        <div class="text-secondary" style="flex:1;padding:8px 12px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--blue-border);font-size:11px">Conversion rate: <span class="text-positive mono fw-600">${cr}%</span></div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <select class="adm-sel" id="sp-status-filter" style="min-width:120px"><option value="">All Statuses</option>${SALES_STAGES.map(s => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
-        <select class="adm-sel" id="sp-pitch-filter" style="min-width:120px"><option value="">All Pitch Angles</option>${Object.entries(PITCH_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+        <select class="adm-sel" id="sp-status-filter" class="min-w-120"><option value="">All Statuses</option>${SALES_STAGES.map(s => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
+        <select class="adm-sel" id="sp-pitch-filter" class="min-w-120"><option value="">All Pitch Angles</option>${Object.entries(PITCH_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
         <input class="adm-search" placeholder="Search company..." id="sp-search" style="flex:1;min-width:150px">
       </div>
       <div class="adm-panel"><div class="adm-table-scroll"><table class="adm-table" id="sp-table"><thead><tr><th>Company</th><th>Domain</th><th>Score</th><th>Pitch Angle</th><th>Target</th><th>Email Grade</th><th>Threats</th><th>Status</th><th>Created</th></tr></thead><tbody id="sp-tbody"></tbody></table></div></div>`;
@@ -6959,8 +6959,8 @@ async function viewAdminLeads(el) {
       const stage = SALES_STAGES.find(s => s.key === l.status) || { label: l.status, color: 'var(--text-tertiary)' };
       const pc = PITCH_COLORS[l.pitch_angle] || 'var(--text-tertiary)';
       const pl = PITCH_LABELS[l.pitch_angle] || l.pitch_angle || '-';
-      return `<tr data-slid="${l.id}" style="cursor:pointer"><td class="fw-500">${l.company_name || '-'}</td><td class="data-label">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td class="text-11">${l.target_name ? `${l.target_name}<br><span class="text-tertiary text-9">${l.target_title || ''}</span>` : '<span class="text-tertiary">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td class="mono-11">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td class="data-label">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
-    }).join('') || '<tr><td colspan="9" class="text-tertiary" style="text-align:center;padding:24px">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
+      return `<tr data-slid="${l.id}" class="cursor-pointer"><td class="fw-500">${l.company_name || '-'}</td><td class="data-label">${l.company_domain || ''}</td><td><span style="font-family:var(--font-display);font-weight:700;color:${sc}">${l.prospect_score || 0}</span></td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${pc}18;color:${pc};border:1px solid ${pc}40">${pl}</span></td><td class="text-11">${l.target_name ? `${l.target_name}<br><span class="text-tertiary text-9">${l.target_title || ''}</span>` : '<span class="text-tertiary">-</span>'}</td><td><span style="font-family:var(--font-mono);font-weight:600;color:${leadGradeColor(l.email_security_grade || 'F')}">${l.email_security_grade || '-'}</span></td><td class="mono-11">${l.threat_count_30d ?? 0}</td><td><span style="font-size:10px;padding:2px 8px;border-radius:3px;background:${stage.color}18;color:${stage.color};border:1px solid ${stage.color}40">${stage.label}</span></td><td class="data-label">${l.created_at ? relativeTime(l.created_at) : '-'}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="text-tertiary text-center p-24">No sales leads yet. The Pathfinder agent runs weekly.</td></tr>';
     tbody.querySelectorAll('tr[data-slid]').forEach(r => r.addEventListener('click', () => openSalesLeadDetail(r.dataset.slid)));
   }
 
@@ -6981,7 +6981,7 @@ async function viewAdminLeads(el) {
       const v2 = (() => { try { return JSON.parse(l.outreach_variant_2 || '{}'); } catch { return {}; } })();
 
       document.getElementById('adm-lead-so-content').innerHTML = `
-        <div style="text-align:center;margin-bottom:16px">
+        <div class="text-center mb-16">
           <div class="adm-so-score-ring"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="40" cy="40" r="34" fill="none" stroke="${sc}" stroke-width="5" stroke-dasharray="213.6" stroke-dashoffset="${213.6 * (1 - (l.prospect_score || 0) / 170)}" stroke-linecap="round" transform="rotate(-90 40 40)"/></svg><div class="adm-so-score-val" style="color:${sc}">${l.prospect_score || 0}</div></div>
           <div style="font-size:11px;color:${stage.color};font-weight:600;margin-top:4px">${stage.label}</div>
         </div>
@@ -7109,9 +7109,9 @@ async function viewAdminLeads(el) {
 // ─── View: Admin API Keys (Step 18a) ────────────────────────
 async function viewAdminApiKeys(el) {
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">API Key Management</div>
-      <button class="adm-btn adm-btn-primary" id="adm-create-key-btn"><span style="font-size:14px">+</span> Create API Key</button>
+      <button class="adm-btn adm-btn-primary" id="adm-create-key-btn"><span class="text-14">+</span> Create API Key</button>
     </div>
     <div class="adm-panel" id="adm-keys-table"><div class="empty">Loading...</div></div>
     <div class="adm-modal-ov" id="adm-key-modal">
@@ -7130,7 +7130,7 @@ async function viewAdminApiKeys(el) {
   try {
     const res = await api('/admin/api-keys').catch(() => null);
     const keys = res?.data || [];
-    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td class="fw-500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td class="mono-10">${k.rate_limit || 60} req/min</td><td class="text-secondary text-11">${k.created_by || '-'}</td><td class="data-label">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td class="data-label">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn text-negative" style="border-color:rgba(255,59,92,.2)">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div class="text-tertiary" style="padding:40px;text-align:center"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div class="text-12">Create your first API key for external integrations</div></div>';
+    document.getElementById('adm-keys-table').innerHTML = keys.length ? `<table class="adm-table"><thead><tr><th>Name</th><th>Permissions</th><th>Rate Limit</th><th>Created By</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody>${keys.map(k => `<tr><td class="fw-500">${k.name || '-'}</td><td>${(k.permissions || []).map(p => `<span class="adm-role-pill analyst" style="margin-right:4px">${p}</span>`).join('') || '-'}</td><td class="mono-10">${k.rate_limit || 60} req/min</td><td class="text-secondary text-11">${k.created_by || '-'}</td><td class="data-label">${k.created_at ? k.created_at.slice(0, 10) : '-'}</td><td class="data-label">${k.last_used_at ? relativeTime(Math.round((Date.now() - new Date(k.last_used_at).getTime()) / 60000)) : 'Never'}</td><td><span class="adm-status-pill ${k.revoked ? 'suspended' : 'active'}">${k.revoked ? 'revoked' : 'active'}</span></td><td><button class="adm-action-btn">Edit</button><button class="adm-action-btn text-negative border-accent">Revoke</button></td></tr>`).join('')}</tbody></table>` : '<div class="text-tertiary text-center" style="padding:40px"><div style="font-size:24px;margin-bottom:8px">No API keys</div><div class="text-12">Create your first API key for external integrations</div></div>';
   } catch (err) { showToast(err.message, 'error'); }
 
   document.getElementById('adm-create-key-btn')?.addEventListener('click', () => {
@@ -7168,8 +7168,8 @@ async function viewAdminAgentConfig(el) {
   el.innerHTML = `
     <div class="page-title mb-16">Agent Configuration</div>
     <div class="adm-panel" id="adm-agent-config-table"><div class="empty">Loading...</div></div>
-    <div style="margin-top:20px" id="adm-agent-config-detail"></div>
-    <div class="adm-panel" style="margin-top:20px">
+    <div class="mt-20" id="adm-agent-config-detail"></div>
+    <div class="adm-panel mt-20">
       <div class="adm-phead"><div class="adm-ptitle">Haiku API Usage</div></div>
       <div class="adm-padded" id="adm-api-usage"><div class="text-tertiary">Loading usage data...</div></div>
     </div>`;
@@ -7190,7 +7190,7 @@ async function viewAdminAgentConfig(el) {
       const cfg = configs[aid] || {};
       const successRate = a.jobs_24h ? ((1 - (a.error_count_24h || 0) / a.jobs_24h) * 100).toFixed(1) : '100.0';
       const avgDur = a.avg_duration_ms ? (a.avg_duration_ms / 1000).toFixed(1) + 's' : '-';
-      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td class="data-label">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td class="text-secondary mono-10">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td style="font-family:var(--font-mono);font-size:12px;font-weight:500">${a.outputs_24h || 0}</td><td style="white-space:nowrap"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
+      return `<tr style="--agent-accent:${meta.color}" data-agent-color><td><div style="display:flex;align-items:center;gap:8px;border-left:3px solid ${meta.color};padding-left:10px"><div class="agent-icon ${meta.iconClass || ''}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:${meta.color};background:${meta.color}15">${agentIcon(aid, 20)}</div><span style="font-weight:500;color:${meta.color}">${meta.label || a.display_name || a.name}</span></div></td><td><span class="adm-status-pill ${a.status || 'idle'}">${a.status || 'idle'}</span></td><td><span class="adm-schedule-pill">${cfg.schedule_label || a.schedule || cfg.schedule || '-'}</span></td><td class="data-label">${a.last_run_at ? relativeTime(Math.round((Date.now() - new Date(a.last_run_at).getTime()) / 60000)) : '-'}</td><td class="text-secondary mono-10">${avgDur}</td><td style="font-family:var(--font-mono);font-size:10px;color:${parseFloat(successRate) >= 99 ? 'var(--positive)' : 'var(--threat-medium)'}">${successRate}%</td><td class="mono-12 fw-500">${a.outputs_24h || 0}</td><td class="truncate"><button class="adm-action-btn adm-trigger-btn" data-agent="${a.agent_id || a.name}">Trigger Now</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="empty">No agents configured</div>';
 
     // API usage section — KV-backed accurate per-day tracking
@@ -7201,18 +7201,18 @@ async function viewAdminAgentConfig(el) {
     const dailyLimit = usage.daily_limit || 500;
     const limitPct = Math.min(100, Math.round(callsToday / dailyLimit * 100));
     document.getElementById('adm-api-usage').innerHTML = `
-      <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div><div class="text-blue" style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens24h.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (24h)</div><div class="text-tertiary text-9">${usage.estimated_cost_24h || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens7d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (7d)</div><div class="text-tertiary text-9">${usage.estimated_cost_7d || '$0.00'}</div></div>
-        <div><div style="font-family:var(--font-display);font-weight:700;font-size:18px">${tokens30d.toLocaleString()}</div><div class="data-label" style="margin-top:2px">Tokens (30d)</div><div class="text-tertiary text-9">${usage.estimated_cost_30d || '$0.00'}</div></div>
+      <div class="flex gap-24 mb-16 flex-wrap">
+        <div><div class="text-blue sans fw-700 text-18">${tokens24h.toLocaleString()}</div><div class="data-label mt-2">Tokens (24h)</div><div class="text-tertiary text-9">${usage.estimated_cost_24h || '$0.00'}</div></div>
+        <div><div class="sans fw-700 text-18">${tokens7d.toLocaleString()}</div><div class="data-label mt-2">Tokens (7d)</div><div class="text-tertiary text-9">${usage.estimated_cost_7d || '$0.00'}</div></div>
+        <div><div class="sans fw-700 text-18">${tokens30d.toLocaleString()}</div><div class="data-label mt-2">Tokens (30d)</div><div class="text-tertiary text-9">${usage.estimated_cost_30d || '$0.00'}</div></div>
       </div>
       <div class="mb-16">
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span class="text-secondary">Today: ${callsToday} calls</span><span class="text-tertiary">limit: 300 soft / ${dailyLimit} hard</span></div>
         <div style="height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden"><div style="height:100%;width:${limitPct}%;background:${limitPct >= 100 ? 'var(--negative)' : limitPct >= 60 ? 'var(--threat-medium)' : 'var(--positive)'};border-radius:3px;transition:width .3s"></div></div>
       </div>
-      <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap">
-        <div class="text-11"><span class="text-secondary">Agent AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.agent_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.agent_calls_30d || 0} calls)</span></div>
-        <div class="text-11"><span class="text-secondary">On-demand AI</span> <span style="font-family:var(--font-mono);color:var(--text-primary)">${usage.ondemand_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
+      <div class="flex gap-24 mb-16 flex-wrap">
+        <div class="text-11"><span class="text-secondary">Agent AI</span> <span class="mono text-primary">${usage.agent_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.agent_calls_30d || 0} calls)</span></div>
+        <div class="text-11"><span class="text-secondary">On-demand AI</span> <span class="mono text-primary">${usage.ondemand_cost_30d || '$0.00'}</span><span class="text-tertiary text-9"> (${usage.ondemand_calls_30d || 0} calls)</span></div>
       </div>
       <div style="padding-top:12px;border-top:1px solid var(--blue-border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -7302,7 +7302,7 @@ async function viewAdminAudit(el) {
   }
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">Audit Log</div>
       <a href="/api/v1/admin/audit/export?since=${new Date(Date.now() - 30 * 86400000).toISOString()}" class="adm-btn adm-btn-primary" target="_blank">Export CSV</a>
     </div>
@@ -7429,7 +7429,7 @@ async function viewAdminAudit(el) {
 
 // ─── Brand Report View ──────────────────────────────────────
 async function viewBrandReport(el, params) {
-  el.innerHTML = '<div class="text-tertiary" style="padding:40px;text-align:center">Generating report...</div>';
+  el.innerHTML = '<div class="text-tertiary text-center" style="padding:40px">Generating report...</div>';
   try {
     const res = await api(`/brands/${params.id}/report`);
     const r = res?.data;
@@ -7443,8 +7443,8 @@ async function viewBrandReport(el, params) {
     el.innerHTML = `
       <div style="max-width:900px;margin:0 auto;padding:24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <img src="${r.brand?.logo_url || ''}" alt="" style="width:32px;height:32px;border-radius:6px" onerror="this.style.display='none'">
+          <div class="flex-center gap-12">
+            <img src="${r.brand?.logo_url || ''}" alt="" class="icon-32" onerror="this.style.display='none'">
             <div>
               <div style="font-size:20px;font-weight:700;font-family:var(--font-display)">${r.brand?.name || 'Brand Report'}</div>
               <div class="text-tertiary text-12">${r.period?.label || ''} &middot; ${r.reportId || ''}</div>
@@ -7458,23 +7458,23 @@ async function viewBrandReport(el, params) {
 
         <!-- Executive Summary -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Trust Score</div>
+          <div class="panel p-16 text-center">
+            <div class="text-tertiary text-11 uppercase ls-wide">Trust Score</div>
             <div style="font-size:32px;font-weight:800;color:${scoreColor}">${exec.trustScore ?? '-'}</div>
             <div style="font-size:11px;color:${scoreColor};font-weight:600">${exec.riskLevel || ''} Risk</div>
           </div>
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Total Threats</div>
-            <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.totalThreats ?? 0}</div>
+          <div class="panel p-16 text-center">
+            <div class="text-tertiary text-11 uppercase ls-wide">Total Threats</div>
+            <div class="text-primary fw-800" style="font-size:32px">${exec.totalThreats ?? 0}</div>
             <div class="text-negative text-11">${exec.activeThreats ?? 0} active</div>
           </div>
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Campaigns</div>
-            <div style="font-size:32px;font-weight:800;color:var(--text-primary)">${exec.campaignsIdentified ?? 0}</div>
+          <div class="panel p-16 text-center">
+            <div class="text-tertiary text-11 uppercase ls-wide">Campaigns</div>
+            <div class="text-primary fw-800" style="font-size:32px">${exec.campaignsIdentified ?? 0}</div>
             <div class="text-tertiary text-11">${exec.countriesInvolved ?? 0} countries</div>
           </div>
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px;text-align:center">
-            <div class="text-tertiary text-11 uppercase" style="letter-spacing:.5px">Remediated</div>
+          <div class="panel p-16 text-center">
+            <div class="text-tertiary text-11 uppercase ls-wide">Remediated</div>
             <div class="text-positive" style="font-size:32px;font-weight:800">${exec.remediatedThreats ?? 0}</div>
             <div class="text-tertiary text-11">${exec.hostingProviders ?? 0} providers</div>
           </div>
@@ -7486,24 +7486,24 @@ async function viewBrandReport(el, params) {
           <div class="text-secondary" style="font-size:13px;line-height:1.6">${exec.aiSummary || 'No summary available.'}</div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="grid-2 gap-16 mb-20">
           <!-- Threat Breakdown by Type -->
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+          <div class="panel p-16">
             <div class="sans text-13 fw-700 mb-12">Threats by Type</div>
             ${(r.threatBreakdown?.byType || []).map(t => `
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
+              <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize">${t.type}</span>
-                <span style="font-size:12px;font-weight:600">${t.count}</span>
+                <span class="text-12 fw-600">${t.count}</span>
               </div>`).join('') || '<div class="text-tertiary text-12">No threats detected</div>'}
           </div>
 
           <!-- Threat Breakdown by Severity -->
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+          <div class="panel p-16">
             <div class="sans text-13 fw-700 mb-12">Threats by Severity</div>
             ${(r.threatBreakdown?.bySeverity || []).map(s => `
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
+              <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border-subtle)">
                 <span style="font-size:12px;text-transform:capitalize;color:${severityColors[s.severity] || 'var(--text-primary)'}">${s.severity}</span>
-                <span style="font-size:12px;font-weight:600">${s.count}</span>
+                <span class="text-12 fw-600">${s.count}</span>
               </div>`).join('') || '<div class="text-tertiary text-12">No data</div>'}
           </div>
         </div>
@@ -7520,27 +7520,27 @@ async function viewBrandReport(el, params) {
                 <td style="color:${severityColors[t.severity] || 'var(--text-primary)'};text-transform:capitalize">${t.severity || '-'}</td>
                 <td>${t.status || '-'}</td>
                 <td>${t.first_seen ? new Date(t.first_seen).toLocaleDateString() : '-'}</td>
-              </tr>`).join('') || '<tr><td colspan="5" class="text-tertiary" style="text-align:center">No threats</td></tr>'}
+              </tr>`).join('') || '<tr><td colspan="5" class="text-tertiary text-center">No threats</td></tr>'}
             </tbody>
           </table>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="grid-2 gap-16 mb-20">
           <!-- Infrastructure: Top Providers -->
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+          <div class="panel p-16">
             <div class="sans text-13 fw-700 mb-12">Hosting Providers</div>
             ${(r.infrastructure?.providers || []).slice(0, 8).map(p => `
-              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+              <div class="flex-between" style="padding:5px 0;border-bottom:1px solid var(--border-subtle)">
                 <span class="text-12">${p.name}</span>
                 <span class="text-tertiary text-11">${p.threat_count} threats (${p.active_count} active)</span>
               </div>`).join('') || '<div class="text-tertiary text-12">No provider data</div>'}
           </div>
 
           <!-- Campaigns -->
-          <div style="background:var(--surface-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:16px">
+          <div class="panel p-16">
             <div class="sans text-13 fw-700 mb-12">Campaigns</div>
             ${(r.campaigns || []).slice(0, 8).map(c => `
-              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+              <div class="flex-between" style="padding:5px 0;border-bottom:1px solid var(--border-subtle)">
                 <span class="text-12">${c.name}</span>
                 <span class="text-tertiary text-11">${c.threat_count} threats &middot; ${c.status}</span>
               </div>`).join('') || '<div class="text-tertiary text-12">No campaigns</div>'}
@@ -7555,7 +7555,7 @@ async function viewBrandReport(el, params) {
           </ul>
         </div>
 
-        <div class="text-tertiary" style="text-align:center;font-size:11px;padding:16px 0">
+        <div class="text-tertiary text-center text-11" style="padding:16px 0">
           Generated ${r.generatedAt ? new Date(r.generatedAt).toLocaleString() : ''} &middot; ${r.reportId || ''}
         </div>
       </div>`;
@@ -7577,8 +7577,8 @@ async function loadSpamTrapIntel(brandId) {
         <div class="phead"><span>Spam Trap Intelligence</span><span class="badge" style="background:rgba(245,158,11,.15);color:#F59E0B">${d.total} caught</span></div>
         <div class="panel-body padded">
           <div style="display:flex;gap:24px;margin-bottom:12px">
-            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.total}</div><div class="data-label">Spoofed emails caught</div></div>
-            <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${d.unique_ips}</div><div class="data-label">Unique source IPs</div></div>
+            <div><div class="text-20 fw-700 text-primary">${d.total}</div><div class="data-label">Spoofed emails caught</div></div>
+            <div><div class="text-20 fw-700 text-primary">${d.unique_ips}</div><div class="data-label">Unique source IPs</div></div>
             <div><div style="font-size:20px;font-weight:700;color:${d.auth_fail_pct > 80 ? 'var(--negative)' : 'var(--text-primary)'}">${d.auth_fail_pct}%</div><div class="data-label">Auth failure rate</div></div>
           </div>
           ${(d.recent || []).map(c => `
@@ -7612,7 +7612,7 @@ async function viewAdminSpamTrap(el) {
       </div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Seed Campaigns</div></div>
-        <div id="st-campaigns" style="max-height:300px;overflow-y:auto">Loading...</div>
+        <div id="st-campaigns" class="scroll-300">Loading...</div>
         <div class="adm-padded mt-8">
           <button class="filter-pill" id="st-run-strategist" class="text-11">Run Strategist</button>
         </div>
@@ -7620,7 +7620,7 @@ async function viewAdminSpamTrap(el) {
     </div>
     <div class="adm-panel mt-16">
       <div class="adm-phead"><div class="adm-ptitle">Recent Captures</div><div class="adm-pbadge" id="st-total-badge">-</div></div>
-      <div id="st-captures" style="max-height:400px;overflow-y:auto">Loading...</div>
+      <div id="st-captures" class="scroll-400">Loading...</div>
     </div>
     <div class="adm-grid-2 mt-16">
       <div class="adm-panel">
@@ -7629,7 +7629,7 @@ async function viewAdminSpamTrap(el) {
       </div>
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">Top Spoofing Sources</div></div>
-        <div id="st-sources" style="max-height:300px;overflow-y:auto">Loading...</div>
+        <div id="st-sources" class="scroll-300">Loading...</div>
       </div>
     </div>
     </div>`;
@@ -7701,7 +7701,7 @@ async function viewAdminSpamTrap(el) {
     // Campaigns
     document.getElementById('st-campaigns').innerHTML = campaigns.length
       ? `<div class="adm-table-scroll"><table class="adm-table"><thead><tr><th>Name</th><th>Channel</th><th>Catches</th><th>Status</th></tr></thead><tbody>${campaigns.map(c => `<tr><td>${c.name}</td><td>${c.channel}</td><td>${c.total_catches}</td><td><span style="color:${c.status === 'active' ? 'var(--positive)' : 'var(--text-tertiary)'}">${c.status}</span></td></tr>`).join('')}</tbody></table></div>`
-      : '<div class="text-tertiary" style="padding:12px;text-align:center;font-size:12px">No campaigns yet</div>';
+      : '<div class="text-tertiary text-center text-12 p-12">No campaigns yet</div>';
 
     // Recent captures
     const _thStyle = `style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#C83C3C"`;
@@ -7713,7 +7713,7 @@ async function viewAdminSpamTrap(el) {
           <th ${_thStyle}>Category</th><th ${_thStyle}>Severity</th><th ${_thStyle}>Time</th>
         </tr></thead><tbody>${captures.map(c => {
           const authPill = r => r === 'fail' ? `<span class="auth-fail">${r}</span>` : r === 'pass' ? `<span class="auth-pass">${r}</span>` : `<span class="auth-neutral">${r || '-'}</span>`;
-          return `<tr onclick="showCaptureDetail('${c.id}')" style="cursor:pointer" onmouseover="this.style.background='#142236'" onmouseout="this.style.background=''">
+          return `<tr onclick="showCaptureDetail('${c.id}')" class="cursor-pointer" onmouseover="this.style.background='#142236'" onmouseout="this.style.background=''">
             <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;color:var(--text-primary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.from_address || ''}</td>
             <td style="${_tdBase};font-family:var(--font-display);font-size:12px;font-weight:500;color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.subject || ''}</td>
             <td style="${_tdBase};font-family:var(--font-mono);font-size:11px;font-weight:500">${c.spoofed_domain || '-'}</td>
@@ -7725,7 +7725,7 @@ async function viewAdminSpamTrap(el) {
             <td class="text-secondary" style="${_tdBase};font-family:var(--font-mono);font-size:11px">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</td>
           </tr>`;
         }).join('')}</tbody></table></div>`
-      : '<div class="text-tertiary" style="padding:24px;text-align:center;font-size:12px">No captures yet — deploy initial seeds to start catching emails</div>';
+      : '<div class="text-tertiary text-center text-12 p-24">No captures yet — deploy initial seeds to start catching emails</div>';
 
     // Top sources
     document.getElementById('st-sources').innerHTML = sources.length
@@ -7737,7 +7737,7 @@ async function viewAdminSpamTrap(el) {
           <td class="text-10">${s.asn || '-'}</td>
           <td class="data-label">${(s.last_seen || '').slice(0, 16).replace('T', ' ')}</td>
         </tr>`).join('')}</tbody></table></div>`
-      : '<div class="text-tertiary" style="padding:12px;text-align:center;font-size:12px">No source data yet</div>';
+      : '<div class="text-tertiary text-center text-12 p-12">No source data yet</div>';
 
     // Daily chart
     if (daily.length && typeof Chart !== 'undefined') {
@@ -7846,7 +7846,7 @@ async function showCaptureDetail(id) {
     const isPhishy = u => phishIndicators.some(p => u.toLowerCase().includes(p));
 
     // Section label helper
-    const sectionLabel = (text, badge) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    const sectionLabel = (text, badge) => `<div class="flex-center gap-8 mb-12">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">${text}</span>
       ${badge !== undefined ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;background:${badge > 0 ? 'rgba(200,60,60,0.15);color:#C83C3C' : 'rgba(120,160,200,0.12);color:#78A0C8'}">${badge}</span>` : ''}
     </div>`;
@@ -7885,20 +7885,20 @@ async function showCaptureDetail(id) {
     // ── AUTH RESULTS ──
     html += sectionLabel('Auth Results');
     html += `<div style="display:flex;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:120px">
+      <div class="flex-1 min-w-120">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">SPF</div>
         ${authPill(c.spf_result)}
-        ${c.spf_domain ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">${esc(c.spf_domain)}</div>` : ''}
+        ${c.spf_domain ? `<div class="data-label mt-4">${esc(c.spf_domain)}</div>` : ''}
       </div>
-      <div style="flex:1;min-width:120px">
+      <div class="flex-1 min-w-120">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">DKIM</div>
         ${authPill(c.dkim_result)}
-        ${c.dkim_domain ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">${esc(c.dkim_domain)}</div>` : ''}
+        ${c.dkim_domain ? `<div class="data-label mt-4">${esc(c.dkim_domain)}</div>` : ''}
       </div>
-      <div style="flex:1;min-width:120px">
+      <div class="flex-1 min-w-120">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:6px">DMARC</div>
         ${authPill(c.dmarc_result)}
-        ${c.dmarc_disposition && c.dmarc_disposition !== 'none' ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8F9C;margin-top:4px">disposition: ${esc(c.dmarc_disposition)}</div>` : ''}
+        ${c.dmarc_disposition && c.dmarc_disposition !== 'none' ? `<div class="data-label mt-4">disposition: ${esc(c.dmarc_disposition)}</div>` : ''}
       </div>
     </div>`;
 
@@ -7924,7 +7924,7 @@ async function showCaptureDetail(id) {
       html += `<div style="margin-top:14px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary,#78A0C8);margin-bottom:8px">Geo Enrichment</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px">
-          ${c.country_code ? `<div style="display:flex;align-items:center;gap:6px">
+          ${c.country_code ? `<div class="flex-center gap-6">
             <span style="display:inline-block;padding:2px 6px;border-radius:3px;background:rgba(120,160,200,0.1);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#78A0C8">${esc(c.country_code)}</span>
             ${c.city ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-primary,#F0EDE8)">${esc(c.city)}</span>` : ''}
           </div>` : ''}
@@ -7941,7 +7941,7 @@ async function showCaptureDetail(id) {
     // ── BRAND MATCH ──
     if (hasBrand) {
       html += sectionLabel('Brand Match');
-      html += `<div style="margin-bottom:8px">`;
+      html += `<div class="mb-8">`;
       if (brandName) html += `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text-primary,#F0EDE8);margin-bottom:4px">${esc(brandName)}</div>`;
       if (c.spoofed_domain) html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-secondary,#78A0C8);margin-bottom:6px">${esc(c.spoofed_domain)}</div>`;
       if (matchMethod) html += `<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;background:rgba(120,160,200,0.1);border:1px solid rgba(120,160,200,0.2);color:#78A0C8">${esc(matchMethod)}</span>`;
@@ -7960,14 +7960,14 @@ async function showCaptureDetail(id) {
     }
 
     // ── BODY PREVIEW ──
-    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    html += `<div class="flex-center gap-8 mb-12">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#C83C3C">Body Preview</span>
       <span style="display:inline-block;padding:1px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;background:rgba(120,160,200,0.12);color:#78A0C8">${bodyPreview.length} chars</span>
     </div>`;
     if (bodyPreview) {
       html += `<pre style="background:#0C1420;border:1px solid var(--border,rgba(120,160,200,0.08));border-radius:8px;padding:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;color:var(--text-primary,#F0EDE8);overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-word;margin:0">${esc(bodyPreview)}</pre>`;
     } else {
-      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">No body content captured</div>`;
+      html += `<div class="mono-label" style="font-style:italic">No body content captured</div>`;
     }
 
     html += divider;
@@ -7975,7 +7975,7 @@ async function showCaptureDetail(id) {
     // ── EXTRACTED URLs ──
     html += sectionLabel('Extracted URLs', urls.length);
     if (urls.length) {
-      html += `<div style="display:flex;flex-direction:column;gap:4px">${urls.map(u => {
+      html += `<div class="flex-col gap-4">${urls.map(u => {
         const rowBg = isPhishy(u) ? 'rgba(200,60,60,0.06)' : 'transparent';
         const rowBorder = isPhishy(u) ? '1px solid rgba(200,60,60,0.12)' : '1px solid rgba(120,160,200,0.06)';
         return `<div style="display:flex;align-items:center;gap:8px;background:${rowBg};border:${rowBorder};border-radius:6px;padding:8px 10px">
@@ -7984,7 +7984,7 @@ async function showCaptureDetail(id) {
         </div>`;
       }).join('')}</div>`;
     } else {
-      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">No URLs extracted</div>`;
+      html += `<div class="mono-label" style="font-style:italic">No URLs extracted</div>`;
     }
 
     html += divider;
@@ -7992,7 +7992,7 @@ async function showCaptureDetail(id) {
     // ── ATTACHMENTS ──
     html += sectionLabel('Attachments', attachments.length);
     if (attachments.length) {
-      html += `<div style="display:flex;flex-direction:column;gap:4px">${attachments.map(a => {
+      html += `<div class="flex-col gap-4">${attachments.map(a => {
         const att = typeof a === 'object' ? a : { filename: a, sha256: '', contentType: '' };
         return `<div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(120,160,200,0.06);border-radius:6px;padding:8px 10px">
           <div class="flex-1">
@@ -8003,7 +8003,7 @@ async function showCaptureDetail(id) {
         </div>`;
       }).join('')}</div>`;
     } else {
-      html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8F9C;font-style:italic">None</div>`;
+      html += `<div class="mono-label" style="font-style:italic">None</div>`;
     }
 
     // ── RAW HEADERS ──
@@ -8034,7 +8034,7 @@ async function viewTenantDashboard(el) {
   if (!org) { navigate('/observatory', true); return; }
 
   el.innerHTML = `
-    <div class="page-title" style="margin-bottom:4px">${org.name}</div>
+    <div class="page-title mb-4">${org.name}</div>
     <div class="text-tertiary" style="font-size:12px;margin-bottom:24px">Plan: <span class="text-blue">${org.plan}</span> &middot; Role: <span class="text-positive">${org.role}</span></div>
     <div class="agg-stats" id="td-stats">
       ${renderStatCard('&#9733;', 'brands', '-', 'Brands')}
@@ -8045,9 +8045,9 @@ async function viewTenantDashboard(el) {
     </div>
     <div style="margin-top:20px;font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:12px">Brand Health</div>
     <div id="td-brand-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
-      <div class="text-tertiary" style="font-size:12px;padding:20px">Loading...</div>
+      <div class="text-tertiary text-12 p-20">Loading...</div>
     </div>
-    <div class="adm-grid-2" style="margin-top:20px">
+    <div class="adm-grid-2 mt-20">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">7-Day Threat Trend</div></div>
         <div class="adm-padded"><div class="adm-chart-wrap"><canvas id="td-trend-chart"></canvas></div></div>
@@ -8082,16 +8082,16 @@ async function viewTenantDashboard(el) {
         const scoreColor = score == null ? '#4a5a73' : score >= 70 ? 'var(--threat-critical)' : score >= 40 ? 'var(--threat-medium)' : 'var(--positive)';
         const ringOffset = score != null ? 188.5 * (1 - score / 100) : 188.5;
         const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[b.email_security_grade] || 'var(--text-tertiary)';
-        return `<div class="adm-panel" style="cursor:pointer;transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
+        return `<div class="adm-panel cursor-pointer" style="transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
           <div class="adm-padded" style="display:flex;gap:14px;align-items:center">
             <div style="flex-shrink:0;position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center">
               <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${ringOffset}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
               <div style="position:absolute;font-size:16px;font-weight:700;color:${scoreColor}">${score != null ? score : '?'}</div>
             </div>
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="flex-1" style="min-width:0">
+              <div class="flex-center gap-8 mb-6">
                 <span style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</span>
-                ${b.is_primary ? '<span class="text-blue" style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
+                ${b.is_primary ? '<span class="text-blue text-9" style="padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
               </div>
               <div class="text-tertiary" style="font-size:11px;font-family:var(--font-mono);margin-bottom:8px">${b.canonical_domain || ''}</div>
               <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
@@ -8103,7 +8103,7 @@ async function viewTenantDashboard(el) {
             </div>
           </div>
         </div>`;
-      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:20px">No brands assigned yet</div>';
+      }).join('') : '<div class="text-tertiary text-12 p-20">No brands assigned yet</div>';
     }
 
     // Threat trend chart
@@ -8164,7 +8164,7 @@ async function viewTenantDashboard(el) {
             <span>${timeAgo(a.created_at)}</span>
           </div>
         </div>`;
-      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:20px;text-align:center">No open alerts</div>';
+      }).join('') : '<div class="text-tertiary text-center text-12 p-20">No open alerts</div>';
     }
   } catch (err) {
     console.error('Tenant dashboard load error:', err);
@@ -8189,16 +8189,16 @@ async function viewTenantBrands(el) {
       const scoreColor = score == null ? '#4a5a73' : score >= 70 ? 'var(--threat-critical)' : score >= 40 ? 'var(--threat-medium)' : 'var(--positive)';
       const ringOffset = score != null ? 188.5 * (1 - score / 100) : 188.5;
       const gradeColor = { A: 'var(--positive)', B: 'var(--threat-medium)', C: 'var(--threat-high)', D: 'var(--threat-high)', F: 'var(--threat-critical)' }[b.email_security_grade] || 'var(--text-tertiary)';
-      return `<div class="adm-panel" style="cursor:pointer;transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
+      return `<div class="adm-panel cursor-pointer" style="transition:border-color 0.2s" onclick="navigate('/tenant/brands/${b.id}')" onmouseenter="this.style.borderColor='var(--blue-primary)'" onmouseleave="this.style.borderColor=''">
         <div class="adm-padded" style="display:flex;gap:14px;align-items:flex-start">
           <div style="flex-shrink:0;position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center">
             <svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-elevated)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${scoreColor}" stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="${ringOffset}" stroke-linecap="round" transform="rotate(-90 36 36)"/></svg>
             <div style="position:absolute;font-size:16px;font-weight:700;color:${scoreColor}">${score != null ? score : '?'}</div>
           </div>
-          <div style="flex:1;min-width:0">
+          <div class="flex-1" style="min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
               <span style="font-weight:700;font-size:14px;color:var(--text-primary)">${b.name}</span>
-              ${b.is_primary ? '<span class="text-blue" style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
+              ${b.is_primary ? '<span class="text-blue text-9" style="padding:2px 6px;border-radius:3px;background:rgba(200,60,60,0.15)">PRIMARY</span>' : ''}
             </div>
             <div class="text-tertiary" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px">${b.canonical_domain || ''} ${b.sector ? '&middot; ' + b.sector : ''}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
@@ -8207,7 +8207,7 @@ async function viewTenantBrands(el) {
               <span class="text-secondary">Social: <span class="fw-600">${b.social_profiles_count}</span> profiles</span>
               <span class="text-secondary">Impersonation: <span style="font-weight:600;color:${Number(b.impersonation_count) > 0 ? 'var(--threat-critical)' : 'var(--positive)'}">${b.impersonation_count}</span></span>
             </div>
-            <div class="data-label" style="margin-top:6px">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
+            <div class="data-label mt-6">Last scan: ${b.last_social_scan ? timeAgo(b.last_social_scan) : 'never'}</div>
           </div>
         </div>
       </div>`;
@@ -8224,7 +8224,7 @@ async function viewTenantBrandDetail(el) {
   if (!brandId) { navigate('/tenant/brands', true); return; }
   const canHITL = ['analyst', 'admin', 'owner'].includes(org.role) || currentUser?.role === 'super_admin';
 
-  el.innerHTML = '<div class="text-tertiary" style="font-size:12px;padding:20px">Loading brand details...</div>';
+  el.innerHTML = '<div class="text-tertiary text-12 p-20">Loading brand details...</div>';
 
   try {
     const res = await api('/orgs/' + org.id + '/brands/' + brandId + '/detail');
@@ -8248,8 +8248,8 @@ async function viewTenantBrandDetail(el) {
           <div class="text-tertiary" style="font-size:12px;font-family:var(--font-mono);margin-bottom:8px">${brand.canonical_domain || ''} ${brand.sector ? '&middot; ' + brand.sector : ''}</div>
           <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap">
             <span style="padding:4px 10px;border-radius:4px;background:${gradeColor}22;color:${gradeColor};border:1px solid ${gradeColor}44;font-weight:600">Email: ${brand.email_security_grade || 'N/A'}</span>
-            <span class="text-secondary" style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border)">Threats: ${active_threats_count}</span>
-            <span class="text-secondary" style="padding:4px 10px;border-radius:4px;background:var(--bg-elevated);border:1px solid var(--blue-border)">Social Risk: ${brand.social_risk_score ?? 'N/A'}</span>
+            <span class="text-secondary chip">Threats: ${active_threats_count}</span>
+            <span class="text-secondary chip">Social Risk: ${brand.social_risk_score ?? 'N/A'}</span>
           </div>
         </div>
       </div>
@@ -8257,17 +8257,17 @@ async function viewTenantBrandDetail(el) {
       <div class="adm-grid-2">
         <div class="adm-panel">
           <div class="adm-phead"><div class="adm-ptitle">Active Threats</div><div class="adm-pbadge">${active_threats_count}</div></div>
-          <div class="adm-padded" id="tbd-threats" style="max-height:320px;overflow-y:auto"></div>
+          <div class="adm-padded" id="tbd-threats" class="scroll-320"></div>
         </div>
         <div class="adm-panel">
           <div class="adm-phead"><div class="adm-ptitle">Social Profiles</div><div class="adm-pbadge">${social_profiles.length}</div></div>
-          <div class="adm-padded" id="tbd-social" style="max-height:320px;overflow-y:auto"></div>
+          <div class="adm-padded" id="tbd-social" class="scroll-320"></div>
         </div>
       </div>
 
       <div class="adm-panel mt-16">
         <div class="adm-phead"><div class="adm-ptitle">Recent Alerts</div><div class="adm-pbadge">${recent_alerts.length}</div></div>
-        <div class="adm-padded" id="tbd-alerts" style="max-height:400px;overflow-y:auto"></div>
+        <div class="adm-padded" id="tbd-alerts" class="scroll-400"></div>
       </div>
 
       <div class="adm-panel mt-16">
@@ -8280,17 +8280,17 @@ async function viewTenantBrandDetail(el) {
     if (threatsEl) {
       threatsEl.innerHTML = top_threats.length ? top_threats.map(t => {
         const sColor = { critical: 'var(--threat-critical)', high: 'var(--threat-high)', medium: 'var(--threat-medium)', low: '#4a5a73' }[t.severity] || 'var(--text-tertiary)';
-        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border)">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        return `<div class="border-b" style="padding:8px 0">
+          <div class="flex-center gap-6 mb-4">
             <span style="width:8px;height:8px;border-radius:50%;background:${sColor}"></span>
             <span style="font-size:11px;font-weight:600;color:${sColor};text-transform:uppercase">${t.severity || 'unknown'}</span>
             <span class="text-secondary text-11">${(t.threat_type || '').replace(/_/g, ' ')}</span>
           </div>
           <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-primary);word-break:break-all">${t.malicious_domain || t.malicious_url || 'N/A'}</div>
-          <div class="data-label" style="margin-top:2px">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
+          <div class="data-label mt-2">Confidence: ${t.confidence_score ?? 'N/A'} &middot; Last seen: ${timeAgo(t.last_seen)}</div>
         </div>`;
-      }).join('') + (active_threats_count > 5 ? `<div style="text-align:center;padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" class="text-blue text-11">View all threats</a></div>` : '')
-      : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No active threats</div>';
+      }).join('') + (active_threats_count > 5 ? `<div class="text-center" style="padding:8px"><a href="/tenant/brands" onclick="event.preventDefault();navigate('/tenant/alerts?brand_id=${brandId}')" class="text-blue text-11">View all threats</a></div>` : '')
+      : '<div class="text-tertiary text-center text-12 p-12">No active threats</div>';
     }
 
     // Social profiles
@@ -8301,7 +8301,7 @@ async function viewTenantBrandDetail(el) {
         const takedownBtn = canHITL && p.classification === 'impersonation' ? `<button class="tbd-social-takedown" data-profile-id="${p.id}" data-platform="${p.platform || ''}" data-handle="${(p.handle || '').replace(/"/g, '&quot;')}" data-url="${(p.url || '').replace(/"/g, '&quot;')}" style="padding:2px 6px;font-size:9px;border:1px solid var(--threat-critical)44;border-radius:3px;background:rgba(255,59,92,0.08);color:var(--threat-critical);cursor:pointer;margin-left:6px">Takedown</button>` : '';
         return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${p.handle || p.display_name || 'Unknown'}</div>
+            <div class="text-12 fw-600 text-primary">${p.handle || p.display_name || 'Unknown'}</div>
             <div class="data-label">${p.platform || ''} &middot; ${timeAgo(p.last_scanned)}</div>
           </div>
           <div style="display:flex;align-items:center">
@@ -8309,7 +8309,7 @@ async function viewTenantBrandDetail(el) {
             ${takedownBtn}
           </div>
         </div>`;
-      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No social profiles tracked</div>';
+      }).join('') : '<div class="text-tertiary text-center text-12 p-12">No social profiles tracked</div>';
 
       // Social profile takedown buttons
       socialEl.querySelectorAll('.tbd-social-takedown').forEach(btn => {
@@ -8357,10 +8357,10 @@ async function viewTenantBrandDetail(el) {
           <div style="display:flex;gap:4px;margin-top:6px">
             <button class="tbd-alert-btn text-blue" data-alert="${a.id}" data-status="acknowledged" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-border);border-radius:3px;background:var(--bg-elevated);cursor:pointer">Ack</button>
             <button class="tbd-alert-btn text-positive" data-alert="${a.id}" data-status="resolved" style="padding:3px 8px;font-size:9px;border:1px solid var(--positive)44;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Resolve</button>
-            <button class="tbd-alert-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">FP</button>
+            <button class="tbd-alert-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" class="btn-mini">FP</button>
           </div>` : '';
-        return `<div style="padding:8px 0;border-bottom:1px solid var(--blue-border)">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        return `<div class="border-b" style="padding:8px 0">
+          <div class="flex-center gap-6 mb-4">
             <span style="width:8px;height:8px;border-radius:50%;background:${sevColor}"></span>
             <span style="font-size:10px;font-weight:600;color:${sevColor}">${a.severity}</span>
             <span style="font-size:11px;color:var(--text-primary);flex:1">${a.title}</span>
@@ -8370,7 +8370,7 @@ async function viewTenantBrandDetail(el) {
           ${a.summary ? '<div class="text-secondary" style="font-size:11px;padding-left:14px">' + a.summary + '</div>' : ''}
           ${hitlBtns}
         </div>`;
-      }).join('') : '<div class="text-tertiary" style="font-size:12px;padding:12px;text-align:center">No alerts for this brand</div>';
+      }).join('') : '<div class="text-tertiary text-center text-12 p-12">No alerts for this brand</div>';
 
       // HITL buttons
       alertsEl.querySelectorAll('.tbd-alert-btn').forEach(btn => {
@@ -8413,7 +8413,7 @@ async function viewTenantBrandDetail(el) {
               <div class="flex flex-wrap gap-6" id="mc-severities">
                 ${allSeverities.map(s => {
                   const checked = (mc.alert_severity_filter || []).includes(s);
-                  return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
+                  return `<label class="text-secondary flex-center gap-4 text-11 cursor-pointer"><input type="checkbox" class="mc-sev" value="${s}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${s}</label>`;
                 }).join('')}
               </div>
             </div>
@@ -8422,7 +8422,7 @@ async function viewTenantBrandDetail(el) {
               <div class="flex flex-wrap gap-6" id="mc-platforms">
                 ${allPlatforms.map(p => {
                   const checked = (mc.social_platforms_monitored || []).includes(p);
-                  return `<label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
+                  return `<label class="text-secondary flex-center gap-4 text-11 cursor-pointer"><input type="checkbox" class="mc-plat" value="${p}" ${checked ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>${platformLabels[p]}</label>`;
                 }).join('')}
               </div>
             </div>
@@ -8435,15 +8435,15 @@ async function viewTenantBrandDetail(el) {
             </div>
             <div>
               <div class="text-tertiary text-11 mb-6">Weekly Digest</div>
-              <label class="text-secondary" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
+              <label class="text-secondary flex-center gap-4 text-11 cursor-pointer"><input type="checkbox" id="mc-digest" ${mc.weekly_digest ? 'checked' : ''} ${!isOrgAdmin ? 'disabled' : ''}>Send weekly summary</label>
             </div>
             <div>
               <div class="text-tertiary text-11 mb-6">Custom Keywords</div>
-              <input type="text" id="mc-keywords" value="${(mc.custom_keywords || []).join(', ')}" placeholder="keyword1, keyword2" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
+              <input type="text" id="mc-keywords" value="${(mc.custom_keywords || []).join(', ')}" placeholder="keyword1, keyword2" class="form-control-sm" style="width:100%" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
             <div>
               <div class="text-tertiary text-11 mb-6">Excluded Domains</div>
-              <input type="text" id="mc-excluded" value="${(mc.excluded_domains || []).join(', ')}" placeholder="safe-domain.com, internal.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px" ${!isOrgAdmin ? 'disabled' : ''}>
+              <input type="text" id="mc-excluded" value="${(mc.excluded_domains || []).join(', ')}" placeholder="safe-domain.com, internal.com" class="form-control-sm" style="width:100%" ${!isOrgAdmin ? 'disabled' : ''}>
             </div>
           </div>
           ${isOrgAdmin ? '<div style="margin-top:12px;text-align:right"><span id="mc-save-status" class="data-label" style="margin-right:8px"></span></div>' : '<div class="data-label mt-8">Read-only (requires analyst+ role to modify)</div>'}`;
@@ -8500,20 +8500,20 @@ async function viewTenantAlerts(el) {
   el.innerHTML = `
     <div class="page-title mb-16">Alerts</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="ta-filters">
-      <select id="ta-status" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+      <select id="ta-status" class="form-control-sm">
         <option value="">All Statuses</option><option value="new">New</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option><option value="false_positive">False Positive</option>
       </select>
-      <select id="ta-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+      <select id="ta-severity" class="form-control-sm">
         <option value="">All Severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option>
       </select>
-      <select id="ta-brand" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+      <select id="ta-brand" class="form-control-sm">
         <option value="">All Brands</option>
       </select>
-      <select id="ta-type" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+      <select id="ta-type" class="form-control-sm">
         <option value="">All Types</option><option value="social_impersonation">Social Impersonation</option><option value="phishing_detected">Phishing Detected</option><option value="email_grade_change">Email Grade Change</option><option value="lookalike_domain_active">Lookalike Domain</option><option value="ct_certificate_issued">CT Certificate</option><option value="threat_feed_match">Threat Feed Match</option>
       </select>
     </div>
-    <div id="ta-severity-badges" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+    <div id="ta-severity-badges" class="flex gap-8 mb-14 flex-wrap"></div>
     <div id="ta-alerts-list">Loading...</div>
     <div id="ta-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:16px"></div>`;
 
@@ -8573,13 +8573,13 @@ async function viewTenantAlerts(el) {
               ${a.status !== 'acknowledged' ? '<button class="ta-action-btn text-blue" data-alert="' + a.id + '" data-status="acknowledged" style="padding:4px 10px;font-size:10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-elevated);cursor:pointer">Acknowledge</button>' : ''}
               ${a.status !== 'investigating' ? '<button class="ta-action-btn" data-alert="' + a.id + '" data-status="investigating" style="padding:4px 10px;font-size:10px;border:1px solid var(--threat-medium)44;border-radius:4px;background:var(--bg-elevated);color:var(--threat-medium);cursor:pointer">Investigate</button>' : ''}
               <button class="ta-action-btn text-positive" data-alert="${a.id}" data-status="resolved" style="padding:4px 10px;font-size:10px;border:1px solid var(--positive)44;border-radius:4px;background:var(--bg-elevated);cursor:pointer">Resolve</button>
-              <button class="ta-action-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" style="padding:4px 10px;font-size:10px;border:1px solid #4a5a73;border-radius:4px;background:var(--bg-elevated);cursor:pointer">False Positive</button>
+              <button class="ta-action-btn text-tertiary" data-alert="${a.id}" data-status="false_positive" class="btn-mini-md">False Positive</button>
               ${takedownBtn}
             </div>` : '';
           const aiSection = a.ai_assessment ? `<div class="text-secondary" style="margin-top:8px;padding:8px;border-radius:4px;background:var(--bg-surface);font-size:11px;display:none" id="ta-ai-${a.id}"><strong class="text-blue">AI Assessment:</strong> ${a.ai_assessment}</div><button onclick="document.getElementById('ta-ai-${a.id}').style.display=document.getElementById('ta-ai-${a.id}').style.display==='none'?'block':'none'" class="text-blue" style="margin-top:4px;font-size:10px;background:none;border:none;cursor:pointer;padding:0">Toggle AI Assessment</button>` : '';
-          return `<div class="adm-panel" style="margin-bottom:10px">
+          return `<div class="adm-panel mb-10">
             <div class="adm-padded">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div class="flex-center gap-8 mb-6">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${a.severity}</span>
                 <span class="text-secondary text-12">${typeLabel}</span>
@@ -8710,14 +8710,14 @@ async function viewTenantTeam(el) {
     <div id="tt-member-count" class="text-tertiary" style="font-size:12px;margin-bottom:16px"></div>
     <div id="tt-invite-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end">
-        <div class="flex-1"><label class="data-sublabel">Email</label><input type="email" id="tt-invite-email" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="user@example.com"></div>
+        <div class="flex-1"><label class="data-sublabel">Email</label><input type="email" id="tt-invite-email" class="form-control" placeholder="user@example.com"></div>
         <div><label class="data-sublabel">Role</label><select id="tt-invite-role" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select></div>
         <button class="btn btn-primary" id="tt-send-invite" class="pill-btn">Send Invite</button>
       </div>
       <div id="tt-invite-result" class="text-11 mt-8"></div>
     </div>
     <div id="tt-members">Loading...</div>
-    <div id="tt-pending" style="margin-top:20px"></div>`;
+    <div id="tt-pending" class="mt-20"></div>`;
 
   // Toggle invite form
   document.getElementById('tt-invite-btn')?.addEventListener('click', () => {
@@ -8902,7 +8902,7 @@ async function viewTenantSettings(el) {
     <div class="mt-16">
       <div class="adm-panel">
         <div class="adm-phead"><div class="adm-ptitle">SSO / SAML</div></div>
-        <div class="adm-padded text-tertiary" style="font-size:12px;padding:20px;text-align:center">
+        <div class="adm-padded text-tertiary text-center text-12 p-20">
           <div class="text-secondary" style="font-size:13px;margin-bottom:4px">Not configured</div>
           <div>SSO setup available in Phase E.</div>
         </div>
@@ -8929,20 +8929,20 @@ async function viewTenantSettings(el) {
 
       usageEl.innerHTML = `
         <div class="mb-16">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <div class="flex-between text-12 mb-6">
             <span class="text-secondary">Brands</span>
-            <span style="color:var(--text-primary);font-weight:600">${brandCount} / ${maxBrands}</span>
+            <span class="text-primary fw-600">${brandCount} / ${maxBrands}</span>
           </div>
-          <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
+          <div class="pbar-trk">
             <div style="height:100%;width:${brandPct}%;background:${brandColor};border-radius:3px;transition:width 0.3s"></div>
           </div>
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <div class="flex-between text-12 mb-6">
             <span class="text-secondary">Members</span>
-            <span style="color:var(--text-primary);font-weight:600">${memberCount} / ${maxMembers}</span>
+            <span class="text-primary fw-600">${memberCount} / ${maxMembers}</span>
           </div>
-          <div style="height:6px;background:var(--bg-surface);border-radius:3px;overflow:hidden">
+          <div class="pbar-trk">
             <div style="height:100%;width:${memberPct}%;background:${memberColor};border-radius:3px;transition:width 0.3s"></div>
           </div>
         </div>`;
@@ -8958,7 +8958,7 @@ async function viewTenantSettings(el) {
     if (!webhookEl) return;
 
     if (!isOrgAdmin) {
-      webhookEl.innerHTML = '<div class="text-tertiary" style="font-size:12px;text-align:center;padding:20px">Webhook configuration requires admin access.</div>';
+      webhookEl.innerHTML = '<div class="text-tertiary text-center text-12 p-20">Webhook configuration requires admin access.</div>';
       return;
     }
 
@@ -8978,18 +8978,18 @@ async function viewTenantSettings(el) {
       }
 
       webhookEl.innerHTML = `
-        <div style="margin-bottom:14px">
+        <div class="mb-14">
           <label class="data-sublabel">Webhook URL</label>
           <input type="url" id="wh-url" value="${config.webhook_url || ''}" placeholder="https://your-siem.example.com/api/webhook" style="${inputStyle}">
         </div>
-        <div style="margin-bottom:14px">
+        <div class="mb-14">
           <label class="data-sublabel">Secret (HMAC-SHA256 signing)</label>
-          <div style="display:flex;gap:8px;align-items:center">
+          <div class="flex-center gap-8">
             <input type="password" id="wh-secret-display" value="${config.has_secret ? '••••••••••••••••' : ''}" readonly style="${inputStyle};flex:1;background:var(--bg-surface)">
             ${isOrgOwner ? '<button id="wh-regen-btn" class="text-secondary" style="padding:6px 12px;font-size:11px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);cursor:pointer;white-space:nowrap">Regenerate</button>' : ''}
           </div>
         </div>
-        <div style="margin-bottom:14px">
+        <div class="mb-14">
           <label class="text-tertiary" style="font-size:11px;display:block;margin-bottom:8px">Event Types</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
             ${allEventTypes.map(evt => `<label class="text-secondary" style="font-size:12px;cursor:pointer;display:flex;align-items:center"><input type="checkbox" class="wh-event-cb" value="${evt.key}" ${subscribedEvents.includes(evt.key) ? 'checked' : ''} style="${checkStyle}">${evt.label}</label>`).join('')}
@@ -9067,7 +9067,7 @@ async function viewTenantSettings(el) {
         }
       });
     } catch (err) {
-      webhookEl.innerHTML = '<div class="text-tertiary" style="font-size:12px;text-align:center;padding:20px">Failed to load webhook configuration</div>';
+      webhookEl.innerHTML = '<div class="text-tertiary text-center text-12 p-20">Failed to load webhook configuration</div>';
     }
   }
 
@@ -9084,17 +9084,17 @@ async function viewTenantTakedowns(el) {
   let currentFilter = '';
 
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">Takedown Requests</div>
       ${canHITL ? '<button class="btn btn-primary" id="tt-new-btn" class="pill-btn">+ New Request</button>' : ''}
     </div>
     <div id="tt-new-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px">New Takedown Request</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label class="data-sublabel">Brand</label><select id="tt-brand" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></select></div>
-        <div><label class="data-sublabel">Target Type</label><select id="tt-target-type" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="social_profile">Social Profile</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option></select></div>
-        <div><label class="data-sublabel">Target Value</label><input type="text" id="tt-target-value" placeholder="@handle or domain.com" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
-        <div><label class="data-sublabel">Platform</label><input type="text" id="tt-platform" placeholder="twitter, linkedin, etc." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
+        <div><label class="data-sublabel">Brand</label><select id="tt-brand" class="form-control"></select></div>
+        <div><label class="data-sublabel">Target Type</label><select id="tt-target-type" class="form-control"><option value="social_profile">Social Profile</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option></select></div>
+        <div><label class="data-sublabel">Target Value</label><input type="text" id="tt-target-value" placeholder="@handle or domain.com" class="form-control"></div>
+        <div><label class="data-sublabel">Platform</label><input type="text" id="tt-platform" placeholder="twitter, linkedin, etc." class="form-control"></div>
         <div style="grid-column:1/-1"><label class="data-sublabel">Evidence Summary</label><textarea id="tt-evidence" rows="3" placeholder="Brief description of the violation..." style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px;resize:vertical"></textarea></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
@@ -9102,7 +9102,7 @@ async function viewTenantTakedowns(el) {
         <button class="btn btn-primary" id="tt-submit" class="pill-btn">Create Draft</button>
       </div>
     </div>
-    <div id="tt-status-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
+    <div id="tt-status-tabs" class="flex gap-8 mb-14 flex-wrap"></div>
     <div id="tt-list">Loading...</div>`;
 
   // Populate brands
@@ -9194,28 +9194,28 @@ async function viewTenantTakedowns(el) {
           const actionBtns = canHITL ? (() => {
             if (t.status === 'draft') return `
               <button class="tt-action text-blue" data-id="${t.id}" data-action="requested" style="padding:3px 8px;font-size:9px;border:1px solid var(--blue-primary)44;border-radius:3px;background:rgba(200,60,60,0.08);cursor:pointer">Submit Request</button>
-              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Withdraw</button>`;
+              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" class="btn-mini">Withdraw</button>`;
             if (t.status === 'requested') return `
-              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" style="padding:3px 8px;font-size:9px;border:1px solid #4a5a73;border-radius:3px;background:var(--bg-elevated);cursor:pointer">Withdraw</button>`;
+              <button class="tt-action text-tertiary" data-id="${t.id}" data-action="withdrawn" class="btn-mini">Withdraw</button>`;
             return '';
           })() : '';
 
-          return `<div class="adm-panel" style="margin-bottom:10px">
+          return `<div class="adm-panel mb-10">
             <div class="adm-padded">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div class="flex-center gap-8 mb-6">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor};text-transform:uppercase">${t.severity}</span>
-                <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
+                <span class="text-12 fw-600 text-primary">${t.target_value}</span>
                 <span class="data-label">&mdash; ${(t.target_type || '').replace(/_/g, ' ')}</span>
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;margin-left:auto;font-weight:600">${statusLabel}</span>
               </div>
               <div class="text-secondary" style="font-size:12px;margin-bottom:4px">Brand: ${t.brand_name || 'Unknown'}</div>
               <div class="text-secondary text-11 mb-4">${t.evidence_summary || ''}</div>
-              ${t.provider_name ? '<div class="data-label" style="margin-bottom:4px">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
+              ${t.provider_name ? '<div class="data-label mb-4">Provider: ' + t.provider_name + (t.provider_abuse_contact ? ' (' + t.provider_abuse_contact + ')' : '') + '</div>' : ''}
               ${t.response_notes ? '<div class="data-label" style="margin-bottom:4px;padding:6px;background:var(--bg-surface);border-radius:4px">Response: ' + t.response_notes + '</div>' : ''}
               <div class="data-label" style="display:flex;justify-content:space-between;align-items:center">
                 <span>${timeAgo(t.created_at)}</span>
-                <div style="display:flex;gap:4px">${actionBtns}</div>
+                <div class="flex gap-4">${actionBtns}</div>
               </div>
             </div>
           </div>`;
@@ -9253,9 +9253,9 @@ async function viewAdminTakedowns(el) {
 
   el.innerHTML = `
     <div class="page-title mb-16">SOC Takedown Queue</div>
-    <div id="at-tabs" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <select id="at-severity" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px">
+    <div id="at-tabs" class="flex gap-8 mb-14 flex-wrap"></div>
+    <div class="flex gap-8 mb-14 flex-wrap">
+      <select id="at-severity" class="form-control-sm">
         <option value="">All Severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option>
       </select>
     </div>
@@ -9338,7 +9338,7 @@ async function viewAdminTakedowns(el) {
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor}">${t.severity}</span>
-                <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${t.target_value}</span>
+                <span class="text-12 fw-600 text-primary">${t.target_value}</span>
                 <span class="data-label">${(t.target_type || '').replace(/_/g, ' ')}</span>
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
                 <span class="data-label" style="margin-left:4px">${timeAgo(t.created_at)}</span>
@@ -9351,8 +9351,8 @@ async function viewAdminTakedowns(el) {
             <div class="at-detail" id="at-detail-${t.id}" style="display:none;padding:14px 16px;background:#0E1A2B;border-top:1px solid rgba(26,46,72,0.6)">
               ${t.evidence_summary ? `<div class="text-secondary text-11 mb-8">${t.evidence_summary}</div>` : ''}
               ${t.evidence_detail ? `<div class="data-label" style="margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
-              ${t.provider_name ? `<div class="data-label" style="margin-bottom:8px">Provider: <span class="text-secondary fw-600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" style="color:#78A0C8">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
-              <div style="margin-bottom:10px">
+              ${t.provider_name ? `<div class="data-label mb-8">Provider: <span class="text-secondary fw-600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" class="text-blue">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
+              <div class="mb-10">
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${t.severity}</span>
               </div>
               <textarea class="at-notes-input" data-id="${t.id}" placeholder="Add notes before submitting..." style="width:100%;padding:8px;font-size:11px;border:1px solid rgba(26,46,72,0.8);border-radius:4px;background:rgba(4,8,16,0.4);color:var(--text-primary);resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit">${t.response_notes || ''}</textarea>
@@ -9406,13 +9406,13 @@ async function viewAdminTakedowns(el) {
 
 async function viewAdminOrgs(el) {
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="flex-between mb-16">
       <div class="page-title">Organizations</div>
       <button class="btn btn-primary" id="ao-create-btn" class="pill-btn">Create Organization</button>
     </div>
     <div id="ao-create-form" style="display:none;margin-bottom:16px;padding:16px;border:1px solid var(--blue-border);border-radius:8px;background:var(--bg-elevated)">
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px"><label class="data-sublabel">Name</label><input type="text" id="ao-name" style="width:100%;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px" placeholder="Acme Corp"></div>
+        <div style="flex:1;min-width:200px"><label class="data-sublabel">Name</label><input type="text" id="ao-name" class="form-control" placeholder="Acme Corp"></div>
         <div><label class="data-sublabel">Plan</label><select id="ao-plan" style="padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></div>
         <div><label class="data-sublabel">Max Brands</label><input type="number" id="ao-max-brands" value="5" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
         <div><label class="data-sublabel">Max Members</label><input type="number" id="ao-max-members" value="10" style="width:60px;padding:6px 10px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:12px"></div>
@@ -9452,7 +9452,7 @@ async function viewAdminOrgs(el) {
       const res = await api('/admin/organizations');
       const orgs = res?.data || [];
       document.getElementById('ao-list').innerHTML = orgs.length
-        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr style="cursor:pointer" onclick="navigate('/admin/organizations/${o.id}')"><td class="text-blue fw-600">${o.name}</td><td class="mono-11">${o.slug}</td><td><span class="role-pill admin text-10">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td class="mono-10">${o.invite_code || '-'}</td><td class="text-tertiary text-11">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="data-table"><table><thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Status</th><th>Members</th><th>Brands</th><th>Invite Code</th><th>Created</th></tr></thead><tbody>${orgs.map(o => `<tr class="cursor-pointer" onclick="navigate('/admin/organizations/${o.id}')"><td class="text-blue fw-600">${o.name}</td><td class="mono-11">${o.slug}</td><td><span class="role-pill admin text-10">${o.plan}</span></td><td><span style="color:${o.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${o.status}</span></td><td>${o.member_count || 0}</td><td>${o.brand_count || 0}</td><td class="mono-10">${o.invite_code || '-'}</td><td class="text-tertiary text-11">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty-state"><div class="message">No organizations yet. Create one above.</div></div>';
     } catch (err) {
       document.getElementById('ao-list').innerHTML = '<div class="empty-state"><div class="message">Failed to load organizations</div></div>';
@@ -9477,7 +9477,7 @@ async function viewAdminOrgDetail(el, params) {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <a href="/admin/organizations" class="text-tertiary text-12">&larr; All Organizations</a>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="flex-between mb-16">
         <div>
           <div class="page-title">${org.name}</div>
           <div class="text-tertiary text-12">Slug: ${org.slug} &middot; Plan: <span class="text-blue">${org.plan}</span> &middot; Status: <span style="color:${org.status === 'active' ? 'var(--positive)' : 'var(--negative)'}">${org.status}</span> &middot; Invite Code: <code class="text-11">${org.invite_code || '-'}</code></div>
@@ -9486,30 +9486,30 @@ async function viewAdminOrgDetail(el, params) {
       <div class="adm-grid-2">
         <div class="adm-panel">
           <div class="adm-phead"><div class="adm-ptitle">Members (${members.length}/${org.max_members})</div></div>
-          <div class="adm-padded" id="aod-invite-form" style="border-bottom:1px solid var(--blue-border)">
-            <div style="display:flex;gap:6px;align-items:flex-end">
-              <div class="flex-1"><input type="email" id="aod-invite-email" placeholder="email@example.com" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+          <div class="adm-padded" id="aod-invite-form" class="border-b">
+            <div class="flex gap-6 align-end">
+              <div class="flex-1"><input type="email" id="aod-invite-email" placeholder="email@example.com" class="form-control-sm" style="width:100%"></div>
               <select id="aod-invite-role" style="padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option><option value="owner">Owner</option></select>
-              <button class="btn btn-primary" id="aod-invite-submit" style="font-size:11px;padding:4px 10px">Invite</button>
+              <button class="btn btn-primary" id="aod-invite-submit" class="text-11" style="padding:4px 10px">Invite</button>
             </div>
             <div id="aod-invite-result" class="text-10 mt-4"></div>
           </div>
-          <div id="aod-members" style="max-height:300px;overflow-y:auto">
-            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span class="data-label" style="margin-left:6px">${m.email}</span></div><div><span class="role-pill ${m.role} text-10">${m.role}</span><span class="data-label" style="margin-left:6px">${m.platform_role}</span></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No members</div>'}
+          <div id="aod-members" class="scroll-300">
+            ${members.length ? members.map(m => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:600;color:var(--text-primary);font-size:12px">${m.user_name || m.email}</span><span class="data-label ml-6">${m.email}</span></div><div><span class="role-pill ${m.role} text-10">${m.role}</span><span class="data-label ml-6">${m.platform_role}</span></div></div>`).join('') : '<div class="text-tertiary text-12 p-12">No members</div>'}
           </div>
         </div>
         <div class="adm-panel">
           <div class="adm-phead"><div class="adm-ptitle">Brands (${brands.length}/${org.max_brands})</div></div>
-          <div class="adm-padded" id="aod-brand-form" style="border-bottom:1px solid var(--blue-border)">
-            <div style="display:flex;gap:6px;align-items:flex-end">
-              <div class="flex-1"><input type="text" id="aod-brand-id" placeholder="Brand ID" style="width:100%;padding:4px 8px;border:1px solid var(--blue-border);border-radius:4px;background:var(--bg-card);color:var(--text-primary);font-size:11px"></div>
+          <div class="adm-padded" id="aod-brand-form" class="border-b">
+            <div class="flex gap-6 align-end">
+              <div class="flex-1"><input type="text" id="aod-brand-id" placeholder="Brand ID" class="form-control-sm" style="width:100%"></div>
               <label class="data-label" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="aod-brand-primary"> Primary</label>
-              <button class="btn btn-primary" id="aod-brand-submit" style="font-size:11px;padding:4px 10px">Assign</button>
+              <button class="btn btn-primary" id="aod-brand-submit" class="text-11" style="padding:4px 10px">Assign</button>
             </div>
             <div id="aod-brand-result" class="text-10 mt-4"></div>
           </div>
-          <div id="aod-brands" style="max-height:300px;overflow-y:auto">
-            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" class="text-blue" style="font-weight:600;font-size:12px">${b.brand_name}</a><span class="data-label" style="margin-left:6px">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span class="text-positive text-10">Primary</span>' : ''}<button class="btn text-negative" style="font-size:10px;padding:2px 6px;margin-left:6px" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div class="text-tertiary" style="padding:12px;font-size:12px">No brands assigned</div>'}
+          <div id="aod-brands" class="scroll-300">
+            ${brands.length ? brands.map(b => `<div style="padding:6px 12px;border-bottom:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center"><div><a href="/brands/${b.brand_id}" class="text-blue" style="font-weight:600;font-size:12px">${b.brand_name}</a><span class="data-label ml-6">${b.canonical_domain || ''}</span></div><div>${b.is_primary ? '<span class="text-positive text-10">Primary</span>' : ''}<button class="btn text-negative" style="font-size:10px;padding:2px 6px;margin-left:6px" onclick="removeOrgBrand('${orgId}','${b.brand_id}')">Remove</button></div></div>`).join('') : '<div class="text-tertiary text-12 p-12">No brands assigned</div>'}
           </div>
         </div>
       </div>`;
