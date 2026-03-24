@@ -9538,7 +9538,7 @@ if(navigator.platform.indexOf('Win')>-1||navigator.userAgent.indexOf('Windows')>
   function replaceFlags(){
     document.querySelectorAll('.ca-flag').forEach(function(el){
       if(!el.querySelector('strong')){
-        el.innerHTML='<strong style="font-size:12px;letter-spacing:1px;color:var(--accent)">CA</strong>';
+        el.innerHTML='<strong style="font-size:11px;letter-spacing:1px;color:#C83C3C;font-family:IBM Plex Mono,monospace">CA</strong>';
       }
     });
   }
