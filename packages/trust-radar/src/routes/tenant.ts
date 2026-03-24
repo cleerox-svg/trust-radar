@@ -1,0 +1,163 @@
+import { Router } from "itty-router";
+import type { RouterType, IRequest } from "itty-router";
+import type { Env } from "../types";
+import { requireAuth, isAuthContext } from "../middleware/auth";
+import {
+  handleGetOwnOrg, handleListOrgMembers, handleOrgInvite,
+  handleRemoveOrgMember, handleUpdateOrgMember,
+  handleAssignOrgBrand, handleRemoveOrgBrand, handleListOrgBrands,
+  handleListOrgInvites, handleRevokeOrgInvite,
+  handleUpdateWebhook, handleRegenerateSecret, handleTestWebhook, handleGetWebhookConfig,
+} from "../handlers/organizations";
+import {
+  handleTenantDashboard, handleTenantAlerts, handleTenantUpdateAlert,
+  handleTenantBrandDetail, handleTenantBrandThreats, handleTenantBrandSocialProfiles,
+  handleGetMonitoringConfig, handleUpdateMonitoringConfig,
+} from "../handlers/tenantData";
+import {
+  handleCreateTakedown, handleListTakedowns, handleGetTakedown, handleUpdateTakedown,
+} from "../handlers/takedowns";
+
+export function registerTenantRoutes(router: RouterType<IRequest>): void {
+  // ─── Organizations (org-scoped) ───────────────────────────────────
+  router.get("/api/orgs/:orgId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetOwnOrg(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/members", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListOrgMembers(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/invite", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleOrgInvite(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.delete("/api/orgs/:orgId/members/:userId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRemoveOrgMember(request, env, request.params["orgId"] ?? "", request.params["userId"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/members/:userId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateOrgMember(request, env, request.params["orgId"] ?? "", request.params["userId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAssignOrgBrand(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.delete("/api/orgs/:orgId/brands/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRemoveOrgBrand(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListOrgBrands(request, env, request.params["orgId"] ?? "", ctx);
+  });
+
+  // ─── Team Management: Invites ─────────────────────────────────────
+  router.get("/api/orgs/:orgId/invites", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListOrgInvites(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.delete("/api/orgs/:orgId/invites/:inviteId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRevokeOrgInvite(request, env, request.params["orgId"] ?? "", request.params["inviteId"] ?? "", ctx);
+  });
+
+  // ─── Webhook Management ───────────────────────────────────────────
+  router.get("/api/orgs/:orgId/webhook", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetWebhookConfig(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/webhook", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateWebhook(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/webhook/regenerate-secret", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRegenerateSecret(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/webhook/test", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTestWebhook(request, env, request.params["orgId"] ?? "", ctx);
+  });
+
+  // ─── Tenant Data ──────────────────────────────────────────────────
+  router.get("/api/orgs/:orgId/dashboard", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantDashboard(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/alerts", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantAlerts(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/alerts/:alertId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantUpdateAlert(request, env, request.params["orgId"] ?? "", request.params["alertId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/brands/:brandId/detail", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantBrandDetail(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/brands/:brandId/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantBrandThreats(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/brands/:brandId/social-profiles", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTenantBrandSocialProfiles(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+
+  // ─── Takedown Requests (org-scoped) ──────────────────────────────
+  router.post("/api/orgs/:orgId/takedowns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleCreateTakedown(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/takedowns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListTakedowns(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetTakedown(request, env, request.params["orgId"] ?? "", request.params["id"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateTakedown(request, env, request.params["orgId"] ?? "", request.params["id"] ?? "", ctx);
+  });
+
+  // ─── Monitoring Config (org-brand scoped) ────────────────────────
+  router.get("/api/orgs/:orgId/brands/:brandId/monitoring-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetMonitoringConfig(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/brands/:brandId/monitoring-config", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateMonitoringConfig(request, env, request.params["orgId"] ?? "", request.params["brandId"] ?? "", ctx);
+  });
+}
