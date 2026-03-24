@@ -112,7 +112,7 @@ export function renderFooter(): string {
             <span class="nav-brand-text" style="font-size:1rem">AVERROW</span>
           </div>
         </a>
-        <p>AI-powered brand threat interceptor by LRX Enterprises Inc. <svg width="20" height="15" viewBox="0 0 36 36" style="vertical-align:-3px;margin:0 3px"><rect width="36" height="36" rx="4" fill="#C83C3C"/><rect x="9" width="18" height="36" fill="#fff"/><path d="M18 6.6l-1.1 3.4-3.5-.2 2 2.6-1.6 1 2.3 1.2-.5 3.4L18 16.4l2.4 1.6-.5-3.4 2.3-1.2-1.6-1 2-2.6-3.5.2L18 6.6z" fill="#C83C3C"/><path d="M14.5 21h7v3h-7z" fill="#C83C3C"/></svg> Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered brand threat interceptor by LRX Enterprises Inc. <span class="ca-flag">🇨🇦</span> Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
@@ -890,6 +890,15 @@ function toggleMobileMenu() {
   const menu = document.getElementById('mobileMenu');
   if (menu) menu.classList.toggle('open');
 }
+</script>
+<script>
+(function(){
+  if(navigator.platform.indexOf('Win')>-1||navigator.userAgent.indexOf('Windows')>-1){
+    document.querySelectorAll('.ca-flag').forEach(function(el){
+      el.innerHTML='<img src="https://flagcdn.com/20x15/ca.png" srcset="https://flagcdn.com/40x30/ca.png 2x" width="20" height="15" alt="Canada" style="vertical-align:-3px;margin:0 2px">';
+    });
+  }
+})();
 </script>
 
 </body>
