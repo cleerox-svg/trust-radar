@@ -411,7 +411,7 @@ export async function handleSpamTrapReparseAuth(request: Request, env: Env): Pro
       const authMatch = headerText.match(/(?:arc-)?authentication-results:\s*([^\n]+(?:\n\s+[^\n]+)*)/i);
       if (!authMatch) continue;
 
-      const authHeader = authMatch[1].replace(/\n\s+/g, ' ');
+      const authHeader = (authMatch[1] ?? '').replace(/\n\s+/g, ' ');
 
       const spfMatch = authHeader.match(/spf=(pass|fail|softfail|neutral|none|temperror|permerror)/i);
       const spfDomainMatch = authHeader.match(/spf=\S+\s+[^;]*?(?:domain|sender|from)=([^\s;]+)/i);
