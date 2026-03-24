@@ -36,7 +36,7 @@ export function renderHomepage(): string {
 
 .hero-tag {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3em;
   color: var(--accent);
@@ -46,7 +46,7 @@ export function renderHomepage(): string {
 
 .hero-h1 {
   font-family: var(--font-display);
-  font-size: clamp(32px, 4vw, 56px);
+  font-size: clamp(36px, 5vw, 64px);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.03em;
@@ -55,7 +55,7 @@ export function renderHomepage(): string {
 }
 
 .hero-p {
-  font-size: 18px;
+  font-size: 20px;
   color: var(--text-secondary);
   line-height: 1.65;
   max-width: 580px;
@@ -83,7 +83,7 @@ export function renderHomepage(): string {
 .scan-input {
   flex: 1;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   padding: 14px 18px;
   border: none;
   background: transparent;
@@ -101,7 +101,7 @@ export function renderHomepage(): string {
 
 .scan-btn {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.08em;
   padding: 14px 28px;
@@ -370,7 +370,7 @@ export function renderHomepage(): string {
 
 .section-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.2em;
   color: var(--accent);
@@ -380,17 +380,17 @@ export function renderHomepage(): string {
 
 .squadron-title {
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.5vw, 32px);
+  font-size: clamp(24px, 3vw, 36px);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .squadron-subtitle {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text-secondary);
   margin-bottom: 20px;
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 .agent-grid {
@@ -422,7 +422,7 @@ export function renderHomepage(): string {
 
 .agent-name {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 2px;
@@ -430,7 +430,7 @@ export function renderHomepage(): string {
 
 .agent-role {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -439,7 +439,7 @@ export function renderHomepage(): string {
 }
 
 .agent-desc {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
@@ -475,7 +475,7 @@ export function renderHomepage(): string {
 
 .step-num {
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--accent);
   line-height: 1;
@@ -486,12 +486,13 @@ export function renderHomepage(): string {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
+
   color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .step-desc {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.5;
   max-width: 220px;
@@ -518,7 +519,7 @@ export function renderHomepage(): string {
 
 .capabilities-title {
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.5vw, 32px);
+  font-size: clamp(24px, 3vw, 36px);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
@@ -567,14 +568,14 @@ export function renderHomepage(): string {
 
 .cap-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .cap-desc {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
@@ -614,7 +615,7 @@ export function renderHomepage(): string {
 
 .cta-headline {
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: clamp(28px, 3vw, 36px);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 32px;
@@ -633,7 +634,7 @@ export function renderHomepage(): string {
 
 .cta-btn-primary {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -655,7 +656,7 @@ export function renderHomepage(): string {
 
 .cta-btn-secondary {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -762,7 +763,7 @@ html { scroll-behavior: smooth; }
 
 .stat-value {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: clamp(32px, 4vw, 48px);
   font-weight: 800;
   color: var(--accent);
   line-height: 1;
@@ -772,7 +773,7 @@ html { scroll-behavior: smooth; }
 
 .stat-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   letter-spacing: 0.12em;

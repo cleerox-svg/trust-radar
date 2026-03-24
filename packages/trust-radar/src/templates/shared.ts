@@ -11,7 +11,7 @@ export function renderNav(): string {
 <nav class="nav">
   <div class="nav-inner">
     <a href="/" class="nav-brand">
-      <svg width="28" height="28" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" class="averrow-mark">
         <defs>
           <linearGradient id="deltaGrad" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#C83C3C"/>
@@ -98,7 +98,7 @@ export function renderFooter(): string {
     <div class="footer-grid">
       <div class="footer-brand-block">
         <a href="/" class="nav-brand" style="margin-bottom:0.5rem">
-          <svg width="24" height="24" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+          <svg width="32" height="32" viewBox="0 0 100 100" fill="none" class="averrow-mark">
             <defs>
               <linearGradient id="deltaGradFoot" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stop-color="#C83C3C"/>
@@ -109,7 +109,7 @@ export function renderFooter(): string {
             <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
           </svg>
           <div>
-            <span class="nav-brand-text" style="font-size:1rem">AVERROW</span>
+            <span class="nav-brand-text" style="font-size:18px">AVERROW</span>
           </div>
         </a>
         <p>AI-powered brand threat interceptor by LRX Enterprises Inc. <span class="ca-flag">🇨🇦</span> Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
@@ -327,14 +327,14 @@ img { max-width: 100%; }
 .nav-brand-text {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 18px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .nav-brand-sub {
   font-family: var(--font-mono);
-  font-size: 0.45rem;
+  font-size: 9px;
   color: var(--text-tertiary);
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -353,7 +353,7 @@ img { max-width: 100%; }
 .nav-links a {
   padding: 0.5rem 0.85rem;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
@@ -459,7 +459,7 @@ img { max-width: 100%; }
 
 .btn-lg {
   padding: 0.85rem 2rem;
-  font-size: 0.95rem;
+  font-size: 14px;
 }
 
 /* ── SECTIONS ── */
@@ -469,7 +469,7 @@ section {
 
 .section-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--accent);
   letter-spacing: 0.2em;
@@ -479,7 +479,7 @@ section {
 
 .section-title {
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.5vw, 32px);
+  font-size: clamp(24px, 3vw, 36px);
   font-weight: 700;
   line-height: 1.12;
   letter-spacing: -0.03em;
@@ -488,9 +488,9 @@ section {
 }
 
 .section-desc {
-  font-size: 1.05rem;
+  font-size: 16px;
   color: var(--text-secondary);
-  line-height: 1.75;
+  line-height: 1.7;
   max-width: 560px;
   margin-bottom: 1.25rem;
 }
@@ -626,7 +626,7 @@ section {
 }
 
 .footer-brand-block p {
-  font-size: 0.88rem;
+  font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.7;
   margin-top: 1rem;
@@ -635,7 +635,7 @@ section {
 
 .footer-col-title {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 14px;
   font-weight: 700;
   margin-bottom: 1rem;
 }
@@ -648,7 +648,7 @@ section {
 }
 
 .footer-col a {
-  font-size: 0.85rem;
+  font-size: 14px;
   color: var(--text-secondary);
   transition: color 0.2s;
 }

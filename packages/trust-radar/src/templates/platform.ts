@@ -27,13 +27,13 @@ export function renderPlatformPage(): string {
 
 /* === HERO === */
 .plat-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); position: relative; }
-.plat-hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem,4vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
-.plat-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto 2rem; line-height: 1.7; }
+.plat-hero h1 { font-family: var(--font-display); font-size: clamp(36px, 5vw, 64px); font-weight: 800; margin-bottom: 1rem; }
+.plat-hero p { font-size: 20px; color: var(--text-secondary); max-width: 560px; margin: 0 auto 2rem; line-height: 1.7; }
 
 /* === CAP NAV === */
 .cap-nav { position: sticky; top: 64px; z-index: 50; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0.6rem 0; backdrop-filter: blur(12px); }
 .cap-nav-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
-.cap-tab { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; padding: 0.5rem 1.25rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: all 0.2s; }
+.cap-tab { font-family: var(--font-mono); font-size: 13px; font-weight: 500; padding: 0.5rem 1.25rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: all 0.2s; }
 .cap-tab:hover, .cap-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
 /* === CAPABILITY SECTIONS — alternating gradient backgrounds === */
@@ -43,11 +43,11 @@ export function renderPlatformPage(): string {
 .cap-row { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
 .cap-row.reversed { direction: rtl; }
 .cap-row.reversed > * { direction: ltr; }
-.cap-text .section-label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.75rem; }
-.cap-text h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
-.cap-text p { color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
+.cap-text .section-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.75rem; }
+.cap-text h2 { font-family: var(--font-display); font-size: clamp(24px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
+.cap-text p { font-size: 16px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
 .cap-features { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-.cap-features li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+.cap-features li { display: flex; align-items: center; gap: 0.5rem; font-size: 15px; color: var(--text-secondary); }
 .cap-features li::before { content: '✓'; color: #28A050; font-weight: 700; }
 .cap-features li.alert::before { color: #C83C3C; }
 .callout { background: var(--accent-bg); border: 1px solid rgba(200,60,60,0.15); border-radius: var(--radius-md); padding: 1rem 1.25rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; margin-top: 1rem; }
@@ -106,7 +106,7 @@ export function renderPlatformPage(): string {
 .agent-icon-wrap { flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: rgba(255,255,255,0.04); margin-top: 1px; }
 .agent-icon-wrap svg { width: 19px; height: 19px; }
 .agent-content { flex: 1; min-width: 0; }
-.agent-name { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; margin-bottom: 0.15rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.agent-name { font-family: var(--font-mono); font-size: 16px; font-weight: 700; margin-bottom: 0.15rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .agent-role { font-family: var(--font-mono); font-size: 0.65rem; font-weight: 500; margin-bottom: 0.3rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.08em; }
 .agent-desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; }
 .narrative-block { border-left: 3px solid #C83C3C; padding: 1rem 1.25rem; background: rgba(200,60,60,0.05); border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; margin-top: 0.5rem; border-top: 1px solid rgba(200,60,60,0.08); border-right: 1px solid rgba(200,60,60,0.08); border-bottom: 1px solid rgba(200,60,60,0.08); }
@@ -119,7 +119,7 @@ export function renderPlatformPage(): string {
 .arch-svg-wrap svg { min-width: 580px; width: 100%; }
 .arch-box { fill: var(--bg-secondary); stroke: var(--border); stroke-width: 1; }
 .arch-box-final { fill: var(--accent-bg); stroke: rgba(200,60,60,0.3); stroke-width: 1.5; }
-.arch-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; fill: var(--text-primary, #F0EDE8); text-anchor: middle; }
+.arch-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; fill: var(--text-primary, #F0EDE8); text-anchor: middle; }
 .arch-sub { font-family: 'IBM Plex Mono', monospace; font-size: 9px; fill: var(--text-secondary, #78A0C8); text-anchor: middle; }
 .arch-flow-line { stroke: rgba(200,60,60,0.6); stroke-width: 1.5; stroke-dasharray: 8 4; animation: flowDash 1.2s linear infinite; }
 .arch-arrow { fill: rgba(200,60,60,0.6); }
@@ -136,7 +136,7 @@ export function renderPlatformPage(): string {
 .int-card-icon svg { width: 28px; height: 28px; }
 .int-card-icon.live { background: var(--green-bg); color: var(--green); }
 .int-card-icon.planned { background: var(--accent-bg); color: var(--accent); }
-.int-card-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.35rem; }
+.int-card-name { font-size: 15px; font-weight: 700; margin-bottom: 0.35rem; }
 .int-card-desc { font-size: 0.72rem; color: var(--text-tertiary); line-height: 1.4; margin-bottom: 0.5rem; }
 .int-card-status { font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 100px; display: inline-block; }
 .int-card-status.live { background: var(--green-bg); color: var(--green); }
@@ -144,7 +144,7 @@ export function renderPlatformPage(): string {
 
 /* === CTA === */
 .cta-block { padding: 3rem 0; text-align: center; }
-.cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
+.cta-block h2 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
