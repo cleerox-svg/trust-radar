@@ -168,7 +168,7 @@ import {
   handleSpamTrapCaptureDetail, handleSpamTrapSources, handleSpamTrapCampaigns,
   handleCreateSpamTrapCampaign, handleExecuteSpamTrapCampaign,
   handleUpdateSpamTrapCampaign, handleSpamTrapAddresses, handleInitialSeed,
-  handleRunStrategist,
+  handleRunStrategist, handleSpamTrapReparseAuth,
 } from "./handlers/spamTrap";
 import {
   handleListSalesLeads, handleGetSalesLead, handleUpdateSalesLead,
@@ -1598,6 +1598,11 @@ router.post("/api/spam-trap/strategist/run", async (request: Request, env: Env) 
   const ctx = await requireAdmin(request, env);
   if (!isAuthContext(ctx)) return ctx;
   return handleRunStrategist(request, env);
+});
+router.post("/api/spam-trap/reparse-auth", async (request: Request, env: Env) => {
+  const ctx = await requireAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  return handleSpamTrapReparseAuth(request, env);
 });
 
 // ─── Honeypot Site Generator ─────────────────────────────────
