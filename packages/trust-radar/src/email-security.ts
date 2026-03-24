@@ -311,6 +311,8 @@ export interface EmailSecurityResult {
     exists: boolean;
     policy: string | null;
     pct: number | null;
+    rua: string | null;
+    ruf: string | null;
     reporting_enabled: boolean;
     record: string | null;
   };
@@ -353,6 +355,8 @@ export async function runEmailSecurityScan(domain: string): Promise<EmailSecurit
       exists: dmarc.exists,
       policy: dmarc.policy,
       pct: dmarc.pct,
+      rua: dmarc.rua,
+      ruf: dmarc.ruf,
       reporting_enabled: !!dmarc.rua,
       record: dmarc.raw,
     },
@@ -404,8 +408,8 @@ export async function saveEmailSecurityScan(
   `).bind(
     brandId, result.domain,
     result.dmarc.exists ? 1 : 0, result.dmarc.policy, result.dmarc.pct,
-    result.dmarc.exists ? (result.dmarc as any).rua ?? null : null,
-    result.dmarc.exists ? (result.dmarc as any).ruf ?? null : null,
+    result.dmarc.exists ? result.dmarc.rua ?? null : null,
+    result.dmarc.exists ? result.dmarc.ruf ?? null : null,
     result.dmarc.record,
     result.spf.exists ? 1 : 0, result.spf.policy, 0, result.spf.too_many_lookups ? 1 : 0, result.spf.record,
     result.dkim.exists ? 1 : 0,

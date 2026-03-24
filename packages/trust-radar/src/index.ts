@@ -2,6 +2,7 @@ import { Router } from "itty-router";
 import { handleOptions } from "./lib/cors";
 import { applySecurityHeaders } from "./middleware/security";
 import { handleDmarcEmail } from "./dmarc-receiver";
+import type { EmailMessage } from "./dmarc-receiver";
 import { handleSpamTrapEmail } from "./spam-trap";
 import { serveHoneypotPage } from "./honeypot";
 import { serveLrxRadarPage } from "./templates/honeypot-lrx";
@@ -92,7 +93,7 @@ export default {
       return;
     }
 
-    ctx.waitUntil(handleSpamTrapEmail(message as any, env));
+    ctx.waitUntil(handleSpamTrapEmail(message as unknown as EmailMessage, env));
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

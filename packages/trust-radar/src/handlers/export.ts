@@ -40,7 +40,7 @@ export async function handleExportScans(request: Request, env: Env, userId: stri
 
     const csv = toCSV(
       ["id", "url", "domain", "trust_score", "risk_level", "source", "created_at"],
-      rows.results as Record<string, unknown>[],
+      rows.results,
     );
     return csvResponse(csv, `scans-export-${Date.now()}.csv`, origin);
   } catch {
@@ -62,7 +62,7 @@ export async function handleExportSignals(request: Request, env: Env): Promise<R
 
     const csv = toCSV(
       ["id", "url", "domain", "trust_score", "risk_level", "source", "created_at"],
-      rows.results as Record<string, unknown>[],
+      rows.results,
     );
     return csvResponse(csv, `signals-export-${Date.now()}.csv`, origin);
   } catch {
@@ -78,7 +78,7 @@ export async function handleExportAlerts(request: Request, env: Env): Promise<Re
     const rows = await env.DB.prepare(
       `SELECT id, source, scan_ref, quality, status, created_at
        FROM signal_alerts ORDER BY created_at DESC LIMIT 500`
-    ).all().catch(() => ({ results: [] as Record<string, unknown>[] }));
+    ).all().catch(() => ({ results: [] as Record<string, unknown>[], success: true as const, meta: {} as D1Meta }));
 
     // Fallback: export high-risk scans as alerts
     if (rows.results.length === 0) {
@@ -89,14 +89,14 @@ export async function handleExportAlerts(request: Request, env: Env): Promise<Re
       ).all();
       const csv = toCSV(
         ["id", "domain", "quality", "source", "status", "created_at"],
-        scanRows.results as Record<string, unknown>[],
+        scanRows.results,
       );
       return csvResponse(csv, `alerts-export-${Date.now()}.csv`, origin);
     }
 
     const csv = toCSV(
       ["id", "source", "scan_ref", "quality", "status", "created_at"],
-      rows.results as Record<string, unknown>[],
+      rows.results,
     );
     return csvResponse(csv, `alerts-export-${Date.now()}.csv`, origin);
   } catch {

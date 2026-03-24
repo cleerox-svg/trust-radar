@@ -6,44 +6,10 @@
  * Use these functions instead of writing raw SQL in handlers/agents.
  */
 
-import type { Env } from "../types";
+import type { Brand, BrandListOptions, Env } from "../types";
 
-// ─── Types ───────────────────────────────────────────────────────
-
-export interface Brand {
-  id: string;
-  name: string;
-  canonical_domain: string;
-  sector: string | null;
-  threat_count: number;
-  last_threat_seen: string | null;
-  email_security_grade: string | null;
-  email_security_score: number | null;
-  email_security_scanned_at: string | null;
-  exposure_score: number | null;
-  social_risk_score: number | null;
-  domain_risk_score: number | null;
-  monitoring_status: string;
-  monitoring_tier: string | null;
-  tranco_rank: number | null;
-  official_handles: string | null;    // JSON
-  aliases: string | null;             // JSON array
-  brand_keywords: string | null;      // JSON array
-  logo_url: string | null;
-  website_url: string | null;
-  threat_analysis: string | null;
-  analysis_updated_at: string | null;
-  first_seen: string;
-}
-
-export interface BrandListOptions {
-  limit?: number;
-  offset?: number;
-  orderBy?: string;
-  direction?: 'ASC' | 'DESC';
-  sector?: string;
-  monitoringStatus?: string;
-}
+// Re-export for consumers that import from db/brands
+export type { Brand, BrandListOptions };
 
 // ─── Single-row lookups ───────────────────────────────────────────
 

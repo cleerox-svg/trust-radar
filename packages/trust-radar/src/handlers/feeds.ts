@@ -2,7 +2,7 @@ import { json } from "../lib/cors";
 import { runAllFeeds, runFeed } from "../lib/feedRunner";
 import type { FeedConfigRow } from "../lib/feedRunner";
 import { feedModules } from "../feeds";
-import type { Env } from "../types";
+import type { Env, UpdateFeedBody } from "../types";
 
 /** Mask a credential for safe display: show last 4 chars only */
 function maskSecret(val: string | null): string | null {
@@ -39,7 +39,7 @@ export async function handleListFeeds(request: Request, env: Env): Promise<Respo
     const lastPullMap = new Map(lastPulls.results.map(r => [r.feed_name, r]));
     const avgDurMap = new Map(avgDurations.results.map(r => [r.feed_name, r.avg_duration_ms]));
 
-    const masked = (configs.results as Record<string, unknown>[]).map((r) => ({
+    const masked = configs.results.map((r: Record<string, unknown>) => ({
       ...r,
       api_key_encrypted: maskSecret(r.api_key_encrypted as string | null),
       last_pull_count: lastPullMap.get(r.feed_name as string)?.last_pull_count ?? null,
@@ -70,7 +70,7 @@ export async function handleGetFeed(request: Request, env: Env, feedName: string
        FROM feed_pull_history WHERE feed_name = ? ORDER BY started_at DESC LIMIT 20`
     ).bind(feedName).all();
 
-    const result = feed as Record<string, unknown>;
+    const result: Record<string, unknown> = { ...feed as Record<string, unknown> };
     result.api_key_encrypted = maskSecret(result.api_key_encrypted as string | null);
 
     return json({ success: true, data: { feed: result, pulls: pulls.results } }, 200, origin);
@@ -83,35 +83,35 @@ export async function handleGetFeed(request: Request, env: Env, feedName: string
 export async function handleUpdateFeed(request: Request, env: Env, feedName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateFeedBody;
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (typeof body.enabled === "boolean" || typeof body.enabled === "number") {
+    if (body.enabled != null) {
       updates.push("enabled = ?");
       values.push(body.enabled ? 1 : 0);
     }
-    if (typeof body.display_name === "string" && body.display_name) {
+    if (body.display_name) {
       updates.push("display_name = ?");
       values.push(body.display_name);
     }
-    if (typeof body.description === "string") {
+    if (body.description != null) {
       updates.push("description = ?");
       values.push(body.description);
     }
-    if (typeof body.source_url === "string" && body.source_url) {
+    if (body.source_url) {
       updates.push("source_url = ?");
       values.push(body.source_url);
     }
-    if (typeof body.schedule_cron === "string" && body.schedule_cron) {
+    if (body.schedule_cron) {
       updates.push("schedule_cron = ?");
       values.push(body.schedule_cron);
     }
-    if (typeof body.rate_limit === "number") {
+    if (body.rate_limit != null) {
       updates.push("rate_limit = ?");
       values.push(body.rate_limit);
     }
-    if (typeof body.batch_size === "number") {
+    if (body.batch_size != null) {
       updates.push("batch_size = ?");
       values.push(body.batch_size);
     }

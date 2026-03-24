@@ -3,7 +3,7 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { deliverWebhook } from "../lib/webhooks";
-import type { Env } from "../types";
+import type { Env, MonitoringConfigBody } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export async function handleTenantDashboard(
     let exposureSum = 0;
     let exposureCount = 0;
 
-    for (const b of brands as any[]) {
+    for (const b of brands as Array<Record<string, unknown>>) {
       totalActiveThreats += Number(b.active_threats) || 0;
       totalSocialProfiles += Number(b.social_profiles_count) || 0;
       totalImpersonation += Number(b.impersonation_count) || 0;
@@ -148,7 +148,7 @@ export async function handleTenantAlerts(
 
     // Build dynamic WHERE clause
     const conditions: string[] = ["1=1"];
-    const bindings: any[] = [orgId];
+    const bindings: unknown[] = [orgId];
 
     if (status) { conditions.push("a.status = ?"); bindings.push(status); }
     if (severity) { conditions.push("a.severity = ?"); bindings.push(severity); }
@@ -243,7 +243,7 @@ export async function handleTenantUpdateAlert(
     // Update alert
     const now = new Date().toISOString();
     const updates: string[] = ["status = ?", "updated_at = ?"];
-    const updateBindings: any[] = [body.status, now];
+    const updateBindings: unknown[] = [body.status, now];
 
     if (body.status === "acknowledged") {
       updates.push("acknowledged_at = ?");
@@ -395,7 +395,7 @@ export async function handleTenantBrandThreats(
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
     let statusFilter = "";
-    const bindings: any[] = [brandId];
+    const bindings: unknown[] = [brandId];
     if (status) {
       statusFilter = " AND status = ?";
       bindings.push(status);
@@ -531,7 +531,7 @@ export async function handleUpdateMonitoringConfig(
   }
 
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as MonitoringConfigBody;
 
     // Verify brand belongs to org
     const row = await env.DB.prepare(
@@ -551,14 +551,14 @@ export async function handleUpdateMonitoringConfig(
     }
 
     const updated = { ...existing };
-    if (Array.isArray(body.alert_severity_filter)) updated.alert_severity_filter = body.alert_severity_filter as string[];
-    if (typeof body.auto_acknowledge_low_days === "number") updated.auto_acknowledge_low_days = body.auto_acknowledge_low_days;
-    if (Array.isArray(body.social_platforms_monitored)) updated.social_platforms_monitored = body.social_platforms_monitored as string[];
-    if (typeof body.email_notifications === "boolean") updated.email_notifications = body.email_notifications;
-    if (typeof body.email_notification_threshold === "string") updated.email_notification_threshold = body.email_notification_threshold;
-    if (typeof body.weekly_digest === "boolean") updated.weekly_digest = body.weekly_digest;
-    if (Array.isArray(body.custom_keywords)) updated.custom_keywords = body.custom_keywords as string[];
-    if (Array.isArray(body.excluded_domains)) updated.excluded_domains = body.excluded_domains as string[];
+    if (body.alert_severity_filter) updated.alert_severity_filter = body.alert_severity_filter;
+    if (body.auto_acknowledge_low_days != null) updated.auto_acknowledge_low_days = body.auto_acknowledge_low_days;
+    if (body.social_platforms_monitored) updated.social_platforms_monitored = body.social_platforms_monitored;
+    if (body.email_notifications != null) updated.email_notifications = body.email_notifications;
+    if (body.email_notification_threshold) updated.email_notification_threshold = body.email_notification_threshold;
+    if (body.weekly_digest != null) updated.weekly_digest = body.weekly_digest;
+    if (body.custom_keywords) updated.custom_keywords = body.custom_keywords;
+    if (body.excluded_domains) updated.excluded_domains = body.excluded_domains;
 
     await env.DB.prepare(
       "UPDATE org_brands SET monitoring_config_json = ? WHERE org_id = ? AND brand_id = ?"

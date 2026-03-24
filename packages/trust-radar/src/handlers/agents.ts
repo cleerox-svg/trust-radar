@@ -193,8 +193,8 @@ export async function handleTriggerAgent(
       return json({ success: false, error: "Agent not found" }, 404, origin);
     }
 
-    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-    const result = await executeAgent(env, mod, body.input as Record<string, unknown> ?? {}, userId, "manual");
+    const body = await request.json().catch(() => ({})) as { input?: Record<string, unknown> };
+    const result = await executeAgent(env, mod, body.input ?? {}, userId, "manual");
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
@@ -389,8 +389,8 @@ export async function handleTrustBotChat(
     return json({
       success: true,
       data: {
-        response: (result.result?.output as Record<string, unknown>)?.response ?? "No response generated.",
-        context: (result.result?.output as Record<string, unknown>)?.context ?? {},
+        response: (result.result?.output as { response?: string; context?: unknown })?.response ?? "No response generated.",
+        context: (result.result?.output as { response?: string; context?: unknown })?.context ?? {},
         runId: result.runId,
       },
     }, 200, origin);

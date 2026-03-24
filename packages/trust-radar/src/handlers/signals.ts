@@ -1,6 +1,6 @@
 import { json } from "../lib/cors";
 import { sanitize, sanitizeTags, sanitizeDomain } from "../lib/sanitize";
-import type { Env } from "../types";
+import type { Env, IngestSignalBody } from "../types";
 
 const SOURCE_MAP: Record<string, string> = {
   web: "station-alpha",
@@ -70,13 +70,13 @@ export async function handleSignals(request: Request, env: Env): Promise<Respons
 export async function handleIngestSignal(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
-    const source = sanitize(typeof body.source === "string" ? body.source : "manual", 50);
-    const domain = typeof body.domain === "string" ? sanitizeDomain(body.domain) : null;
-    const range_m = typeof body.range_m === "number" ? body.range_m : 5000;
-    const intensity_dbz = typeof body.intensity_dbz === "number" ? body.intensity_dbz : 0;
-    const quality = typeof body.quality === "number" ? Math.max(0, Math.min(100, body.quality)) : 50;
-    const rawTags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : [];
+    const body = await request.json() as IngestSignalBody;
+    const source = sanitize(body.source ?? "manual", 50);
+    const domain = body.domain ? sanitizeDomain(body.domain) : null;
+    const range_m = body.range_m ?? 5000;
+    const intensity_dbz = body.intensity_dbz ?? 0;
+    const quality = Math.max(0, Math.min(100, body.quality ?? 50));
+    const rawTags = body.tags?.filter((t): t is string => typeof t === "string") ?? [];
     const tags = sanitizeTags(rawTags).join(",");
     const risk_level = quality >= 80 ? "safe" : quality >= 60 ? "low" : quality >= 40 ? "medium" : quality >= 20 ? "high" : "critical";
 

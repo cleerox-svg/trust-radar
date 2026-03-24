@@ -1,5 +1,5 @@
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import type { Env, UpdateATOEventBody } from "../types";
 
 // ─── Breach Checks ──────────────────────────────────────────────
 
@@ -73,8 +73,8 @@ export async function handleListATOEvents(request: Request, env: Env): Promise<R
 export async function handleUpdateATOEvent(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
-    if (typeof body.status !== "string") return json({ success: false, error: "Status required" }, 400, origin);
+    const body = await request.json() as UpdateATOEventBody;
+    if (!body.status) return json({ success: false, error: "Status required" }, 400, origin);
 
     const updates = ["status = ?"];
     const values: unknown[] = [body.status];

@@ -3,7 +3,7 @@
  */
 
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import type { Env, UpdateSalesLeadBody } from "../types";
 
 // ─── List all sales leads (paginated, filterable) ────────────────
 
@@ -78,8 +78,8 @@ export async function handleGetSalesLead(request: Request, env: Env, id: string)
 export async function handleUpdateSalesLead(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
-    const allowed = [
+    const body = await request.json() as UpdateSalesLeadBody;
+    const allowed: (keyof UpdateSalesLeadBody)[] = [
       "status", "notes", "outreach_variant_1", "outreach_variant_2",
       "outreach_selected", "outreach_channel", "target_name", "target_title",
       "target_email", "target_linkedin",
@@ -88,7 +88,7 @@ export async function handleUpdateSalesLead(request: Request, env: Env, id: stri
     const values: unknown[] = [];
 
     for (const key of allowed) {
-      if (key in body) {
+      if (body[key] !== undefined) {
         updates.push(`${key} = ?`);
         values.push(body[key]);
       }
@@ -218,9 +218,10 @@ export async function handleSalesLeadStats(request: Request, env: Env): Promise<
       FROM sales_leads
     `).first();
 
-    const sentTotal = (pipeline as Record<string, number>)?.sent_count ?? 0;
-    const respondedTotal = (pipeline as Record<string, number>)?.responded_count ?? 0;
-    const convertedTotal = (pipeline as Record<string, number>)?.converted_count ?? 0;
+    const stats = pipeline as { sent_count?: number; responded_count?: number; converted_count?: number } | null;
+    const sentTotal = stats?.sent_count ?? 0;
+    const respondedTotal = stats?.responded_count ?? 0;
+    const convertedTotal = stats?.converted_count ?? 0;
 
     return json({
       success: true,
