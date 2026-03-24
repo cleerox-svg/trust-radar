@@ -28,8 +28,6 @@ export const cloudflare_email: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const token = ctx.env.CF_API_TOKEN;
 
-    console.log(`[cf_email] starting, token=${token ? 'set' : 'MISSING'}`);
-
     if (!token) {
       console.warn("[cf_email] CF_API_TOKEN not configured — skipping");
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
@@ -57,7 +55,6 @@ export const cloudflare_email: FeedModule = {
         const data = await res.json() as RadarSummaryResponse;
         if (data.success && data.result?.summary_0) {
           summaries[ep.key] = data.result.summary_0;
-          console.log(`[cf_email] ${ep.key}: ${JSON.stringify(data.result.summary_0)}`);
         } else {
           console.warn(`[cf_email] ${ep.key}: no summary_0 in response`);
           errors++;
@@ -122,12 +119,9 @@ export const cloudflare_email: FeedModule = {
       await ctx.env.CACHE.put(`cf_email_${today}`, JSON.stringify(summaries), {
         expirationTtl: 90 * 86400, // 90 days
       });
-      console.log(`[cf_email] stored KV: cf_email_${today}`);
     } catch (err) {
       console.error(`[cf_email] KV put failed:`, err);
     }
-
-    console.log(`[cf_email] done: ${summary}`);
 
     return {
       itemsFetched: fetched,

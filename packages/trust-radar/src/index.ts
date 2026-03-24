@@ -9,7 +9,6 @@ import {
 } from "./handlers/observatory";
 import { renderHomepage, renderAssessResults } from "./templates/homepage";
 import { renderScanPage } from "./templates/scan";
-import { renderSocialDashboard } from "./templates/social-dashboard";
 import { renderPlatformPage } from "./templates/platform";
 import { renderAboutPage } from "./templates/about";
 import { renderPricingPage } from "./templates/pricing";
@@ -53,7 +52,7 @@ import { handleGenerateBriefing, handleListBriefingHistory } from "./handlers/br
 import {
   handleListTickets, handleGetTicket, handleCreateTicket, handleUpdateTicket,
   handleAddEvidence,
-  handleListErasures, handleCreateErasure, handleUpdateErasure, handleListCampaigns,
+  handleListErasures, handleCreateErasure, handleUpdateErasure,
 } from "./handlers/investigations";
 import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,

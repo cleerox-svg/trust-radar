@@ -41,7 +41,6 @@ export async function rdapLookup(domain: string, isFirst = false): Promise<RDAPR
 
     if (isFirst) {
       const bodyText = await res.text();
-      console.log(`[whois] DIAGNOSTIC first lookup: domain=${domain} HTTP ${res.status} body=${bodyText.slice(0, 500)}`);
       if (!res.ok) return null;
       const data = JSON.parse(bodyText) as RDAPResponse;
       return parseRDAPResponse(data);
@@ -95,8 +94,6 @@ export async function batchRDAPLookup(
   const unique = [...new Set(domains)];
   let consecutiveFailures = 0;
 
-  console.log(`[whois] batchRDAPLookup: ${unique.length} domains to look up`);
-
   for (let i = 0; i < unique.length; i++) {
     const domain = unique[i]!;
     const result = await rdapLookup(domain, i === 0);
@@ -116,6 +113,5 @@ export async function batchRDAPLookup(
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  console.log(`[whois] batchRDAPLookup: resolved ${results.size}/${unique.length} domains`);
   return results;
 }

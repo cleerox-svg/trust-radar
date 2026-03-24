@@ -52,8 +52,6 @@ interface DmarcReport {
 // ─── Main entry point ─────────────────────────────────────────────
 
 export async function handleDmarcEmail(message: EmailMessage, env: Env): Promise<void> {
-  console.log(`[dmarc] Received from=${message.from} to=${message.to} size=${message.rawSize}`);
-
   try {
     const rawBytes = await readStream(message.raw);
     const xmlData = await extractXmlFromEmail(rawBytes);
@@ -70,7 +68,6 @@ export async function handleDmarcEmail(message: EmailMessage, env: Env): Promise
     }
 
     await saveDmarcReport(env.DB, report, message.from, xmlData);
-    console.log(`[dmarc] Saved: domain=${report.domain} org=${report.reporter_org} records=${report.records.length}`);
   } catch (err) {
     // Never reject/bounce — always accept silently
     console.error("[dmarc] Processing error:", err);

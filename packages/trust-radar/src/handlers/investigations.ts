@@ -232,17 +232,3 @@ export async function handleUpdateErasure(request: Request, env: Env, id: string
   }
 }
 
-// ─── Campaign Clusters ──────────────────────────────────────────
-
-export async function handleListCampaigns(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-  try {
-    const rows = await env.DB.prepare(
-      `SELECT id, name, description, status, threat_count, confidence, first_seen, last_seen, created_at
-       FROM campaigns ORDER BY created_at DESC LIMIT 50`
-    ).all();
-    return json({ success: true, data: rows.results }, 200, origin);
-  } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
-  }
-}

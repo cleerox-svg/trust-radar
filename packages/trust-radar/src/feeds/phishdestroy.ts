@@ -10,15 +10,11 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
  */
 export const phishdestroy: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    console.log(`[phishdestroy] fetching: ${ctx.feedUrl}`);
     const res = await fetch(ctx.feedUrl);
-    console.log(`[phishdestroy] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`PhishDestroy HTTP ${res.status}`);
 
     const domains = (await res.json()) as string[];
     if (!Array.isArray(domains)) throw new Error("PhishDestroy: expected JSON array");
-
-    console.log(`[phishdestroy] parsed ${domains.length} domains`);
 
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
 
@@ -46,7 +42,6 @@ export const phishdestroy: FeedModule = {
       } catch { itemsError++; }
     }
 
-    console.log(`[phishdestroy] done: fetched=${batch.length}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: batch.length, itemsNew, itemsDuplicate, itemsError };
   },
 };

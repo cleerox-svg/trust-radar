@@ -26,28 +26,19 @@ export async function runEnrichmentChain(db: D1Database, env: Env): Promise<void
   ]);
 
   if (shodanResult.status === "fulfilled") {
-    const r = shodanResult.value;
-    if (r.enriched > 0 || r.errors > 0) {
-      console.log(`[shodan] enriched=${r.enriched} skipped=${r.skipped} errors=${r.errors}`);
-    }
+    // result available but no logging needed
   } else {
     console.error("[shodan] enrichment chain error:", shodanResult.reason);
   }
 
   if (rdapResult.status === "fulfilled") {
-    const r = rdapResult.value;
-    if (r.enriched > 0 || r.errors > 0) {
-      console.log(`[rdap] enriched=${r.enriched} skipped=${r.skipped} errors=${r.errors}`);
-    }
+    // result available but no logging needed
   } else {
     console.error("[rdap] enrichment chain error:", rdapResult.reason);
   }
 
   if (dnsResult.status === "fulfilled") {
-    const r = dnsResult.value;
-    if (r.enriched > 0 || r.errors > 0) {
-      console.log(`[dns] enriched=${r.enriched} skipped=0 errors=${r.errors}`);
-    }
+    // result available but no logging needed
   } else {
     console.error("[dns] enrichment chain error:", dnsResult.reason);
   }

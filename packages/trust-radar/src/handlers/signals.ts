@@ -65,43 +65,6 @@ export async function handleSignals(request: Request, env: Env): Promise<Respons
   }
 }
 
-export async function handleAlerts(request: Request, env: Env): Promise<Response> {
-  const origin = request.headers.get("Origin");
-
-  try {
-    // First try the signal_alerts table
-    const alertRows = await env.DB.prepare(
-      "SELECT * FROM signal_alerts WHERE status = 'open' ORDER BY created_at DESC LIMIT 10"
-    ).all<{ id: string; source: string; scan_ref: string; quality: number; status: string; created_at: string }>()
-      .catch(() => ({ results: [] as Array<{ id: string; source: string; scan_ref: string; quality: number; status: string; created_at: string }> }));
-
-    if (alertRows.results.length > 0) {
-      return json({ success: true, data: alertRows.results }, 200, origin);
-    }
-
-    // Fall back to high/critical scans
-    const rows = await env.DB.prepare(
-      `SELECT id, domain, trust_score, source, cached, created_at FROM scans
-       WHERE risk_level IN ('critical', 'high')
-       ORDER BY created_at DESC LIMIT 10`
-    ).all<{ id: string; domain: string; trust_score: number; source: string; cached: number; created_at: string }>();
-
-    const alerts = rows.results.map((r, i) => ({
-      id: `scan-${Math.floor(Math.random() * 9000) + 1000}`,
-      source: r.cached ? "node-001" : (SOURCE_MAP[r.source] ?? "station-alpha"),
-      scan_ref: r.id,
-      domain: r.domain,
-      quality: r.trust_score,
-      status: i === 0 ? "open" : "open",
-      created_at: r.created_at,
-    }));
-
-    return json({ success: true, data: alerts }, 200, origin);
-  } catch {
-    return json({ success: true, data: [] }, 200, origin);
-  }
-}
-
 // ─── Manual Signal Ingestion ──────────────────────────────────
 
 export async function handleIngestSignal(request: Request, env: Env, userId: string): Promise<Response> {
@@ -134,15 +97,3 @@ export async function handleIngestSignal(request: Request, env: Env, userId: str
   }
 }
 
-export async function handleAckAlert(request: Request, env: Env, alertId: string): Promise<Response> {
-  const origin = request.headers.get("Origin");
-
-  try {
-    await env.DB.prepare(
-      "UPDATE signal_alerts SET status = 'acked' WHERE id = ?"
-    ).bind(alertId).run().catch(() => {});
-    return json({ success: true }, 200, origin);
-  } catch {
-    return json({ success: true }, 200, origin);
-  }
-}

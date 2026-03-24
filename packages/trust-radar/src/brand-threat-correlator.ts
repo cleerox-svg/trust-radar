@@ -371,14 +371,12 @@ export async function runDailyAssessments(env: Env): Promise<AssessmentCronResul
 
       if (prev && assessment.composite_risk_score - prev.composite_risk_score >= 20) {
         scoreSpikes++;
-        console.log(`[correlator] Risk spike: ${assessment.brand_name} ${prev.composite_risk_score} → ${assessment.composite_risk_score}`);
       }
     } catch (err) {
       console.error(`[correlator] assessment failed for brand ${id}:`, err);
     }
   }
 
-  console.log(`[correlator] daily assessments: assessed=${brandsAssessed}, high_risk=${highRiskBrands}, spikes=${scoreSpikes}`);
   return { brandsAssessed, highRiskBrands, scoreSpikes };
 }
 

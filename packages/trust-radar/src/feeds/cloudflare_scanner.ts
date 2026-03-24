@@ -88,8 +88,6 @@ export const cloudflare_scanner: FeedModule = {
     const accountId = ctx.env.CF_ACCOUNT_ID;
     const token = ctx.env.CF_API_TOKEN;
 
-    console.log(`[cf_scanner] starting, account_id=${accountId ? 'set' : 'MISSING'}, token=${token ? 'set' : 'MISSING'}`);
-
     // Write credential diagnostic
     try {
       await ctx.env.DB.prepare(
@@ -141,7 +139,6 @@ export const cloudflare_scanner: FeedModule = {
       try {
         const domain = new URL(row.malicious_url).hostname;
         if (isSafeDomain(domain, safeSet)) {
-          console.log(`[cf_scanner] skipping safe domain: ${domain} (threat ${row.id})`);
           return false;
         }
       } catch (e) {
@@ -150,16 +147,12 @@ export const cloudflare_scanner: FeedModule = {
       return true;
     });
 
-    console.log(`[cf_scanner] Phase 1: ${filteredToScan.length} URLs to submit (${toScan.results.length - filteredToScan.length} safe-domain URLs skipped)`);
-
     let firstSubmitLogged = false;
     for (const row of filteredToScan) {
       const { parsed: resp, raw, status } = await cfFetch<CfScanSubmitResponse>(accountId, token, "/v2/scan", {
         method: "POST",
         body: JSON.stringify({ url: row.malicious_url, visibility: "Unlisted" }),
       });
-
-      console.log(`[cf_scanner] submit response for ${row.malicious_url}: status=${status}, success=${resp?.success}, uuid=${resp?.result?.uuid ?? 'NONE'}, raw=${raw.slice(0, 200)}`);
 
       // Log first submit response to DB no matter what — success or failure
       if (!firstSubmitLogged) {
@@ -190,7 +183,6 @@ export const cloudflare_scanner: FeedModule = {
         const updateResult = await ctx.env.DB.prepare(
           "UPDATE threats SET cf_scan_id = ? WHERE id = ?",
         ).bind(resp.result.uuid, row.id).run();
-        console.log(`[cf_scanner] UPDATE cf_scan_id for ${row.id}: changes=${updateResult.meta.changes}, uuid=${resp.result.uuid}`);
 
         if (updateResult.meta.changes === 0) {
           console.error(`[cf_scanner] UPDATE cf_scan_id FAILED — 0 rows changed for id=${row.id}`);
@@ -214,15 +206,12 @@ export const cloudflare_scanner: FeedModule = {
        LIMIT 100`,
     ).all<{ id: string; cf_scan_id: string }>();
 
-    console.log(`[cf_scanner] Phase 2: ${pending.results.length} scans to poll`);
-
     for (const row of pending.results) {
       const { parsed: resp, status } = await cfFetch<CfScanResultResponse>(accountId, token, `/v2/result/${row.cf_scan_id}`);
 
       if (!resp) {
         // 404 = still in progress, skip
-        if (status === 404) console.log(`[cf_scanner] ${row.cf_scan_id}: still in progress (404)`);
-        else console.error(`[cf_scanner] ${row.cf_scan_id}: poll failed status=${status}`);
+        if (status !== 404) console.error(`[cf_scanner] ${row.cf_scan_id}: poll failed status=${status}`);
         continue;
       }
 
@@ -262,7 +251,6 @@ export const cloudflare_scanner: FeedModule = {
       ).run();
 
       collected++;
-      console.log(`[cf_scanner] ${row.cf_scan_id}: verdict=${verdict} categories=${categories.join(",") || "none"}`);
 
       // If CF provides hosting IP/country, update if missing
       if (scan.page?.ip || scan.page?.country) {
@@ -281,7 +269,6 @@ export const cloudflare_scanner: FeedModule = {
 
     // Summary diagnostic
     const summary = `CF Scanner done: submitted=${submitted}, collected=${collected}, malicious=${maliciousCount}, errors=${errors}`;
-    console.log(`[cf_scanner] ${summary}`);
     try {
       await ctx.env.DB.prepare(
         "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"

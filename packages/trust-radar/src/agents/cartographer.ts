@@ -61,8 +61,6 @@ export const cartographerAgent: AgentModule = {
     const threatsWithoutProvider = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE hosting_provider_id IS NULL AND ip_address IS NOT NULL").first<{ n: number }>();
     const threatsTotal = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE status = 'active'").first<{ n: number }>();
 
-    console.log(`[cartographer] Phase 2: ${providers.results.length} providers with threats (total providers=${totalProviders?.n ?? 0}, threats with provider=${threatsWithProvider?.n ?? 0}, threats without provider but with IP=${threatsWithoutProvider?.n ?? 0}, total active threats=${threatsTotal?.n ?? 0})`);
-
     let haikuSuccessCount = 0;
     let haikuFailCount = 0;
 
@@ -126,7 +124,6 @@ export const cartographerAgent: AgentModule = {
         });
       } else {
         haikuFailCount++;
-        console.log(`[cartographer] Haiku scoring failed for "${provider.name}": ${result.error ?? 'no data returned'}`);
         // Fallback: simple heuristic scoring
         reputationScore = computeHeuristicScore(
           provider.active_threat_count,
@@ -164,8 +161,6 @@ export const cartographerAgent: AgentModule = {
           SUM(CASE WHEN email_security_scanned_at IS NOT NULL THEN 1 ELSE 0 END) as scanned
         FROM brands WHERE monitoring_status = 'active'
       `).first<{ total: number; has_domain: number; scanned: number }>();
-      console.log('[Cartographer] Email security brand stats:', JSON.stringify(brandStats));
-
       // Include brands without canonical_domain by falling back to name
       const brandsToScan = await env.DB.prepare(`
         SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain, b.email_security_grade AS existing_grade

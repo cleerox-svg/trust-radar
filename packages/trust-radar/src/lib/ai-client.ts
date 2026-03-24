@@ -87,8 +87,6 @@ export class TrustRadarAI {
 
     const startTime = Date.now();
 
-    console.log(`[ai-client] agent=${agent} task="${task}" model=${this.model} maxTokens=${maxTokens} format=${responseFormat}`);
-
     const body = {
       model: this.model,
       max_tokens: maxTokens,
@@ -99,9 +97,6 @@ export class TrustRadarAI {
     let lastError: AIClientError | undefined;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        console.log(`[ai-client] Retrying (attempt ${attempt + 1}) agent=${agent} task="${task}"`);
-      }
 
       try {
         const res = await fetch(ANTHROPIC_API_URL, {
@@ -154,12 +149,6 @@ export class TrustRadarAI {
           inputTokens: apiResponse.usage.input_tokens,
           outputTokens: apiResponse.usage.output_tokens,
         };
-
-        console.log(
-          `[ai-client] Success agent=${agent} model=${apiResponse.model} ` +
-          `tokens=${usage.inputTokens}+${usage.outputTokens} ` +
-          `duration=${durationMs}ms`,
-        );
 
         const response: AgentResponse = {
           content: textBlock.text,

@@ -126,8 +126,6 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON):
 // ─── Brand-level narrative orchestrator ───────────────────────────
 
 export async function generateNarrativesForBrand(env: Env, brandId: string): Promise<void> {
-  console.log(`[narrator] Generating narratives for brand ${brandId}`);
-
   // Cost guard: narrator is non-critical
   const blocked = await checkCostGuard(env, false);
   if (blocked) {
@@ -183,11 +181,8 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
 
   // Only generate if there are at least 2 different signal types
   if (signalTypes.length < 2) {
-    console.log(`[narrator] Skipping brand ${brandId}: only ${signalTypes.length} signal type(s) (${signalTypes.join(", ")})`);
     return;
   }
-
-  console.log(`[narrator] Brand ${brandId} has ${signalTypes.length} signal types: ${signalTypes.join(", ")}`);
 
   // 3. Generate the narrative
   const context: NarrativeContext = {
@@ -228,7 +223,6 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
       JSON.stringify(result.recommendations),
     ).run();
 
-    console.log(`[narrator] Stored narrative ${narrativeId} for brand ${brandId}: "${result.title}" (${result.severity})`);
   } catch (err) {
     console.error(`[narrator] Failed to store narrative for brand ${brandId}:`, err);
     return;
@@ -262,7 +256,6 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
         aiRecommendations: result.recommendations,
       });
 
-      console.log(`[narrator] Created alert for brand ${brandId}: ${result.severity} — ${result.title}`);
     } catch (err) {
       console.error(`[narrator] Failed to create alert for brand ${brandId}:`, err);
     }

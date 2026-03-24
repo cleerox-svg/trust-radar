@@ -67,10 +67,6 @@ export const sentinelAgent: AgentModule = {
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
 
-    // ─── Diagnostic logging ───────────────────────────────────
-    console.log("[sentinel] === STARTING ===");
-    console.log("[sentinel] ANTHROPIC_API_KEY configured:", !!env.ANTHROPIC_API_KEY, env.ANTHROPIC_API_KEY ? "present (length=" + env.ANTHROPIC_API_KEY.length + ")" : "MISSING");
-
     // Load monitored brand keywords from DB, fall back to hardcoded list
     const monitoredBrands = await env.DB.prepare(
       `SELECT b.name FROM brands b
@@ -81,7 +77,6 @@ export const sentinelAgent: AgentModule = {
     const brandKeywords = monitoredBrands.results.length > 0
       ? monitoredBrands.results.map((b) => b.name.toLowerCase().replace(/[^a-z0-9]/g, "")).filter((k) => k.length >= 3)
       : FALLBACK_BRAND_KEYWORDS;
-    console.log(`[sentinel] brand keywords for squatting detection: ${brandKeywords.length} (source: ${monitoredBrands.results.length > 0 ? "DB" : "fallback"})`);
 
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
@@ -95,12 +90,9 @@ export const sentinelAgent: AgentModule = {
       threat_type: string;
     }>();
 
-    console.log("[sentinel] Threats with confidence_score IS NULL:", threats.results.length);
-
     // Also check total threat count for context
     const totalCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>();
     const nullCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE confidence_score IS NULL").first<{ n: number }>();
-    console.log("[sentinel] Total threats in DB:", totalCount?.n ?? 0, "| With NULL confidence:", nullCount?.n ?? 0);
 
     let itemsProcessed = 0;
     let itemsUpdated = 0;
@@ -132,14 +124,8 @@ export const sentinelAgent: AgentModule = {
         severity = result.data.severity;
         if (result.tokens_used) totalTokens += result.tokens_used;
         if (result.model) model = result.model;
-        if (itemsProcessed <= 3) {
-          console.log(`[sentinel] Haiku SUCCESS for ${threat.id}: confidence=${confidence}, severity=${severity}`);
-        }
       } else {
         haikuFailures++;
-        if (haikuFailures <= 3) {
-          console.log(`[sentinel] Haiku FAILED for ${threat.id}: ${result.error ?? "no data"}`);
-        }
         // Fallback: rule-based scoring with source-quality boosting
         const fb = ruleBasedClassify(threat.source_feed, threat.threat_type);
         confidence = fb.confidence;
@@ -182,12 +168,6 @@ export const sentinelAgent: AgentModule = {
           }>();
 
           if (socialMatch.results.length > 0) {
-            console.log("[sentinel] Social correlation found", {
-              threat_id: threat.id,
-              social_matches: socialMatch.results.length,
-              brands: socialMatch.results.map(s => s.brand_name),
-            });
-
             const correlationNote = socialMatch.results.map(s =>
               `Correlated with ${s.classification} ${s.platform} profile @${s.handle} (${s.brand_name})`
             ).join('; ');
@@ -223,8 +203,6 @@ export const sentinelAgent: AgentModule = {
         console.error(`[sentinel] update failed for ${threat.id}:`, err);
       }
     }
-
-    console.log(`[sentinel] Processing complete: processed=${itemsProcessed}, updated=${itemsUpdated}, haiku_ok=${haikuSuccesses}, haiku_fail=${haikuFailures}, impersonations=${impersonationsFound}`);
 
     // Always generate a summary output so agent_outputs gets populated
     outputs.push({
@@ -291,9 +269,6 @@ export const sentinelAgent: AgentModule = {
       }
     }
 
-    console.log(`[sentinel] agentOutputs to persist: ${outputs.length} entries, apt_hits=${aptHits}`);
-    console.log("[sentinel] === DONE ===");
-
     return {
       itemsProcessed,
       itemsCreated: 0,
@@ -337,8 +312,6 @@ interface SocialAssessmentAI {
  * Uses the same callAnthropic pattern as the main sentinel classification loop.
  */
 export async function runSentinelSocialAssessment(env: Env): Promise<void> {
-  console.log("[sentinel-social] === STARTING ===");
-
   // Fetch unassessed HIGH/CRITICAL results
   const rows = await env.DB.prepare(`
     SELECT smr.*, bp.brand_name, bp.domain, bp.official_handles
@@ -351,9 +324,7 @@ export async function runSentinelSocialAssessment(env: Env): Promise<void> {
     LIMIT 20
   `).all<SocialAssessmentRow>();
 
-  console.log(`[sentinel-social] Found ${rows.results.length} unassessed HIGH/CRITICAL results`);
   if (rows.results.length === 0) {
-    console.log("[sentinel-social] === DONE (nothing to assess) ===");
     return;
   }
 
@@ -467,9 +438,6 @@ export async function runSentinelSocialAssessment(env: Env): Promise<void> {
 
       assessed++;
 
-      if (assessed <= 3) {
-        console.log(`[sentinel-social] Assessed ${row.id}: confidence=${parsed.confidence}, action=${parsed.recommended_action}, impersonation=${parsed.confirmed_impersonation}`);
-      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[sentinel-social] Error assessing ${row.id}: ${errMsg}`);
@@ -477,8 +445,6 @@ export async function runSentinelSocialAssessment(env: Env): Promise<void> {
     }
   }
 
-  console.log(`[sentinel-social] Processing complete: total=${rows.results.length}, assessed=${assessed}, failed=${failed}`);
-  console.log("[sentinel-social] === DONE ===");
 }
 
 function ruleBasedClassify(

@@ -79,7 +79,6 @@ export const cins_army: FeedModule = {
     // Summary diagnostic to DB
     const summary = `CINS Army done: total_parsed=${allIps.length}, sampled=${ips.length}, inserted=${itemsNew}, ignored=${ips.length - itemsNew}` +
       (firstError ? `, first_error=${firstError.slice(0, 200)}` : '');
-    console.log(`[cins_army] ${summary}`);
     try {
       await db.prepare(
         "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"

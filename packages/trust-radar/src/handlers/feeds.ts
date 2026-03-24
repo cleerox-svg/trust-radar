@@ -140,7 +140,6 @@ export async function handleTriggerFeed(request: Request, env: Env, feedName: st
   try {
     const mod = feedModules[feedName];
     if (!mod) {
-      console.log(`[triggerFeed] Feed "${feedName}" not found — available: ${Object.keys(feedModules).join(", ")}`);
       return json({ success: false, error: "Feed module not implemented" }, 501, origin);
     }
 
@@ -148,9 +147,7 @@ export async function handleTriggerFeed(request: Request, env: Env, feedName: st
     if (!config) return json({ success: false, error: "Feed not found" }, 404, origin);
 
     // Use runFeed() so feed_status and feed_pull_history are properly updated
-    console.log(`[triggerFeed] Executing "${feedName}" (manual trigger)`);
     const result = await runFeed(env, config, mod);
-    console.log(`[triggerFeed] "${feedName}" completed: fetched=${result.itemsFetched}, new=${result.itemsNew}`);
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {

@@ -18,11 +18,9 @@ export const phishstats: FeedModule = {
 
     try {
       entries = await fetchCsv(ctx.env.DB, csvUrl);
-      console.log(`[phishstats] CSV returned ${entries.length} entries (score>=5)`);
     } catch (csvErr) {
       console.warn(`[phishstats] CSV failed (${csvErr}), trying JSON API fallback`);
       entries = await fetchApi(ctx.env.DB, apiUrl);
-      console.log(`[phishstats] API returned ${entries.length} entries`);
     }
 
     if (entries.length === 0) {
@@ -60,15 +58,12 @@ export const phishstats: FeedModule = {
       } catch { itemsError++; }
     }
 
-    console.log(`[phishstats] done: fetched=${items.length}, new=${itemsNew}, dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: items.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
 
 async function fetchCsv(db: D1Database, url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
-  console.log(`[phishstats] fetching CSV: ${url}`);
   const res = await diagnosticFetch(db, "phishstats", url);
-  console.log(`[phishstats] CSV response: HTTP ${res.status}`);
   if (!res.ok) throw new Error(`PhishStats CSV HTTP ${res.status}`);
 
   const text = await res.text();
@@ -88,9 +83,7 @@ async function fetchCsv(db: D1Database, url: string): Promise<Array<{ url: strin
 }
 
 async function fetchApi(db: D1Database, url: string): Promise<Array<{ url: string; score: number; ip: string }>> {
-  console.log(`[phishstats] fetching API: ${url}`);
   const res = await diagnosticFetch(db, "phishstats", url);
-  console.log(`[phishstats] API response: HTTP ${res.status}`);
   if (!res.ok) throw new Error(`PhishStats API HTTP ${res.status}`);
 
   const data = await res.json() as Array<{

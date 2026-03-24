@@ -130,8 +130,6 @@ async function callAnthropic<T>(
     messages: [{ role: "user", content: userMessage }],
   };
 
-  console.log(`[haiku] POST ${ANTHROPIC_API_URL} model=${MODEL} key_source=${keySource} key_prefix=${apiKey.slice(0, 8)}...`);
-
   try {
     const res = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
@@ -145,7 +143,6 @@ async function callAnthropic<T>(
     });
 
     const responseText = await res.text();
-    console.log(`[haiku] Response: HTTP ${res.status} (${responseText.length} bytes)`);
 
     if (!res.ok) {
       console.error(`[haiku] API error: HTTP ${res.status}: ${responseText.slice(0, 500)}`);

@@ -42,8 +42,6 @@ export async function executePasteSeeding(env: Env, campaign: { id: number; conf
 
       if (resp.ok) {
         const result = await resp.json() as Record<string, string>;
-        console.log(`[PasteSeeder] Posted to ${site.name}: ${result[site.responseIdField] || "success"}`);
-
         await env.DB.prepare(
           "UPDATE seed_campaigns SET config = json_set(config, '$.paste_url', ?), addresses_seeded = addresses_seeded + ? WHERE id = ?"
         ).bind(result[site.responseIdField] || "", addresses.length, campaign.id).run();

@@ -12,16 +12,12 @@ const DSHIELD_URL = "https://isc.sans.edu/api/topips/records/100?json";
 export const dshield: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || DSHIELD_URL;
-    console.log(`[dshield] fetching: ${url}`);
     const res = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": "TrustRadar/1.0" },
     });
-    console.log(`[dshield] response: HTTP ${res.status}`);
     if (!res.ok) throw new Error(`DShield HTTP ${res.status}`);
 
     const data = await res.json() as Array<Record<string, unknown>>;
-    console.log(`[dshield] parsed ${data.length} entries`);
-
     let itemsNew = 0, itemsDuplicate = 0, itemsError = 0;
 
     for (const entry of data) {
@@ -62,7 +58,6 @@ export const dshield: FeedModule = {
       } catch { itemsError++; }
     }
 
-    console.log(`[dshield] done: fetched=${data.length}, new=${itemsNew}, enriched/dup=${itemsDuplicate}, err=${itemsError}`);
     return { itemsFetched: data.length, itemsNew, itemsDuplicate, itemsError };
   },
 };
