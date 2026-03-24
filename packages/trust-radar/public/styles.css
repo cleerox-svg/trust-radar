@@ -21,6 +21,7 @@
   --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+  --border: rgba(120, 160, 200, 0.08);
   --radius: 6px;
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
@@ -363,6 +364,7 @@ input, select, textarea { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   min-height: 100vh; gap: 24px;
   background: var(--bg-void);
+  color: var(--text-primary);
 }
 .login-logo {
   font-family: var(--font-display); font-size: 28px; font-weight: 700;
@@ -371,7 +373,7 @@ input, select, textarea { font-family: inherit; }
 .login-btn {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 24px; border-radius: var(--radius);
-  background: var(--bg-surface); border: 1px solid var(--border, var(--blue-border-bright));
+  background: var(--bg-surface); border: 1px solid var(--border);
   color: var(--text-primary); font-size: 14px; font-weight: 500;
   transition: all var(--transition-fast);
   text-decoration: none;
