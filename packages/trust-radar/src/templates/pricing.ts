@@ -19,7 +19,7 @@ export function renderPricingPage(): string {
 .pricing-grid { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
 .price-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; display: flex; flex-direction: column; position: relative; transition: all 0.3s; }
 .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
-.price-card.popular { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+.price-card.popular { border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow-glow); }
 .price-card.popular::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 100px; letter-spacing: 0.05em; }
 .price-tier { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
