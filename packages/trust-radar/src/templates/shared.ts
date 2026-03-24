@@ -902,7 +902,7 @@ function toggleMobileMenu() {
 (function(){
   if(navigator.platform.indexOf('Win')>-1||navigator.userAgent.indexOf('Windows')>-1){
     document.querySelectorAll('.ca-flag').forEach(function(el){
-      el.innerHTML='<img src="https://flagcdn.com/20x15/ca.png" srcset="https://flagcdn.com/40x30/ca.png 2x" width="20" height="15" alt="Canada" style="vertical-align:-3px;margin:0 2px">';
+      el.innerHTML='<strong style="font-size:12px;letter-spacing:1px;color:var(--accent)">CA</strong>';
     });
   }
 })();
