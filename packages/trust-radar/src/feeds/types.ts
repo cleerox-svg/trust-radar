@@ -53,11 +53,4 @@ export function threatId(source: string, iocType: string, iocValue: string): str
   return `thr-${source}-${Math.abs(hash).toString(36)}`;
 }
 
-/** Extract domain from a URL string */
-export function extractDomain(url: string): string | null {
-  try {
-    return new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
-  } catch {
-    return null;
-  }
-}
+export { extractDomain } from "../lib/domain-utils";

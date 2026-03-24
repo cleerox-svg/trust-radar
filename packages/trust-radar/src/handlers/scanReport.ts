@@ -21,6 +21,7 @@ import type { LookalikeCheckResult } from '../lib/dnstwist';
 import { checkSocialHandles } from '../lib/social-check';
 import type { SocialCheckResult } from '../lib/social-check';
 import { callHaikuRaw } from '../lib/haiku';
+import { computeExposureScore } from '../lib/scoring-utils';
 import type { Env } from '../types';
 
 // ─── Report Types ───────────────────────────────────────────────
@@ -81,37 +82,6 @@ function emailGradeToStatus(exists: boolean, detail?: string | null): string {
   return 'present';
 }
 
-function computeExposureScore(params: {
-  emailScore: number;
-  registeredLookalikes: number;
-  threatHits: number;
-  socialIssues: number;
-}): number {
-  // Exposure = inverse of protection. 0 = well-protected, 100 = heavily exposed.
-  let score = 0;
-
-  // Email security (0-35 points of exposure)
-  // emailScore is 0-100 where 100 = best, so invert it
-  score += Math.round((100 - params.emailScore) * 0.35);
-
-  // Registered lookalike domains (0-30 points)
-  if (params.registeredLookalikes > 10) score += 30;
-  else if (params.registeredLookalikes > 5) score += 22;
-  else if (params.registeredLookalikes > 2) score += 15;
-  else if (params.registeredLookalikes > 0) score += 8;
-
-  // Threat feed hits (0-25 points)
-  if (params.threatHits > 10) score += 25;
-  else if (params.threatHits > 5) score += 18;
-  else if (params.threatHits > 2) score += 12;
-  else if (params.threatHits > 0) score += 6;
-
-  // Social handle issues (0-10 points)
-  // "available" handles = potential impersonation risk
-  score += Math.min(10, params.socialIssues * 2);
-
-  return Math.max(0, Math.min(100, score));
-}
 
 function riskLevel(score: number): 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW' {
   if (score >= 75) return 'CRITICAL';
@@ -265,10 +235,10 @@ export async function handleScanReport(
 
     // ── Compute exposure score ───────────────────────────────────
     const exposureScore = computeExposureScore({
-      emailScore: emailResult.score,
-      registeredLookalikes: registeredLookalikes.length,
-      threatHits: threatFeeds.total_hits,
-      socialIssues,
+      emailGrade: emailResult.grade,
+      domainRisk: registeredLookalikes.length,
+      threatCount: threatFeeds.total_hits,
+      socialRisk: socialIssues,
     });
 
     // ── Assemble partial report (before AI) ─────────────────────

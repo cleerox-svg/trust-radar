@@ -18,6 +18,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
 import { getBrandSocialIntel } from "../lib/social-intel";
+import { createLead, getUnenrichedLead, enrichLead } from "../db/sales-leads";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -36,20 +37,6 @@ interface ProspectCandidate {
   findings_summary: string;
 }
 
-interface UnenrichedLead {
-  id: number;
-  brand_id: string;
-  company_name: string | null;
-  company_domain: string | null;
-  email_security_grade: string | null;
-  threat_count_30d: number | null;
-  phishing_urls_active: number | null;
-  trap_catches_30d: number | null;
-  composite_risk_score: number | null;
-  pitch_angle: string | null;
-  findings_summary: string | null;
-  prospect_score: number | null;
-}
 
 // ─── Scoring weights ────────────────────────────────────────────
 
@@ -397,30 +384,21 @@ export async function identifyAndCreate(env: Env): Promise<{
 
   for (const candidate of topCandidates) {
     try {
-      await env.DB.prepare(`
-        INSERT INTO sales_leads (
-          brand_id, prospect_score, score_breakdown_json, status,
-          company_name, company_domain,
-          email_security_grade, threat_count_30d, phishing_urls_active,
-          trap_catches_30d, composite_risk_score, pitch_angle, findings_summary,
-          identified_by, ai_enriched,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'prospector_agent', 0, datetime('now'), datetime('now'))
-      `).bind(
-        candidate.brand_id,
-        candidate.prospect_score,
-        JSON.stringify(candidate.score_breakdown),
-        candidate.brand_name,
-        candidate.brand_domain,
-        candidate.email_security_grade,
-        candidate.threat_count_30d,
-        candidate.phishing_urls_active,
-        candidate.trap_catches_30d,
-        candidate.composite_risk_score,
-        candidate.pitch_angle,
-        candidate.findings_summary,
-      ).run();
-
+      await createLead(env, {
+        brand_id: candidate.brand_id,
+        prospect_score: candidate.prospect_score,
+        score_breakdown_json: JSON.stringify(candidate.score_breakdown),
+        company_name: candidate.brand_name,
+        company_domain: candidate.brand_domain,
+        email_security_grade: candidate.email_security_grade,
+        threat_count_30d: candidate.threat_count_30d,
+        phishing_urls_active: candidate.phishing_urls_active,
+        trap_catches_30d: candidate.trap_catches_30d,
+        composite_risk_score: candidate.composite_risk_score,
+        pitch_angle: candidate.pitch_angle,
+        findings_summary: candidate.findings_summary,
+        identified_by: 'prospector_agent',
+      });
       leadsCreated++;
     } catch (err) {
       errors++;
@@ -439,12 +417,7 @@ export async function enrichLeadWithAI(env: Env): Promise<{
   error?: string;
 }> {
   // Pick the highest-scored unenriched lead
-  const lead = await env.DB.prepare(`
-    SELECT * FROM sales_leads
-    WHERE ai_enriched = 0
-    ORDER BY prospect_score DESC
-    LIMIT 1
-  `).first<UnenrichedLead>();
+  const lead = await getUnenrichedLead(env);
 
   if (!lead) {
     return { enriched: false };
@@ -515,27 +488,16 @@ RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off a
     const research = researchResult.data ?? {};
 
     // ── Update the lead ─────────────────────────────────────────
-    await env.DB.prepare(`
-      UPDATE sales_leads SET
-        findings_summary = ?,
-        outreach_variant_1 = ?,
-        outreach_variant_2 = ?,
-        research_json = ?,
-        ai_enriched = 1,
-        ai_enriched_at = datetime('now'),
-        updated_at = datetime('now')
-      WHERE id = ?
-    `).bind(
-      findingsSummary,
-      outreachResult.data
+    await enrichLead(env, lead.id, {
+      findings_summary: findingsSummary ?? '',
+      outreach_variant_1: outreachResult.data
         ? JSON.stringify({ subject: outreachResult.data.variant_1_subject, body: outreachResult.data.variant_1_body })
         : null,
-      outreachResult.data
+      outreach_variant_2: outreachResult.data
         ? JSON.stringify({ subject: outreachResult.data.variant_2_subject, body: outreachResult.data.variant_2_body })
         : null,
-      JSON.stringify(research),
-      lead.id,
-    ).run();
+      research_json: JSON.stringify(research),
+    });
 
     return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined };
 

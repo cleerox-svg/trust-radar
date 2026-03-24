@@ -1,18 +1,11 @@
 import { z } from "zod";
 import { json } from "../lib/cors";
 import type { Env, ScanResult, ScanFlag, ScanMetadata, RiskLevel } from "../types";
+import { extractDomain } from "../lib/domain-utils";
 
 const ScanSchema = z.object({
   url: z.string().url().max(2048),
 });
-
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 function scoreToRisk(score: number): RiskLevel {
   if (score >= 80) return "safe";
@@ -127,7 +120,7 @@ async function resolveGeo(ip: string, env: Env): Promise<GeoResult | null> {
 }
 
 async function runScan(url: string, env: Env): Promise<Omit<ScanResult, "id" | "created_at">> {
-  const domain = extractDomain(url);
+  const domain = extractDomain(url) ?? url;
   const flags: ScanFlag[] = [];
   const metadata: ScanMetadata = {};
   let score = 100;
@@ -233,7 +226,7 @@ export async function handleScan(
   }
 
   const { url } = parsed.data;
-  const domain = extractDomain(url);
+  const domain = extractDomain(url) ?? url;
 
   // Check cache
   const cached = await env.DB.prepare(
