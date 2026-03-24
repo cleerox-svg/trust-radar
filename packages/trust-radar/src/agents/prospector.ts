@@ -98,7 +98,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_PROSPECTS_PER_RUN = 5;
 const MAX_IDENTIFIED = 20;
-const MIN_SCORE = 50;
+const MIN_SCORE = 20;
 
 // ─── Haiku API helpers ──────────────────────────────────────────
 
