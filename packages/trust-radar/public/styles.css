@@ -3881,6 +3881,49 @@ a.campaign-card:hover { text-decoration: none; }
 .btn-action-success { background: #28A050; color: #fff; }
 .btn-action-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
 
+/* ─── Additional component classes (Phase 5B) ─── */
+
+/* Page title with margin */
+.page-title-mb { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+
+/* Mono text sizes */
+.mono-10 { font-family: var(--font-mono); font-size: 10px; }
+.mono-11 { font-family: var(--font-mono); font-size: 11px; }
+.mono-12 { font-family: var(--font-mono); font-size: 12px; }
+.mono-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.mono-label-mb { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; }
+.mono-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+.mono-data { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); }
+
+/* Common spacings */
+.mb-6 { margin-bottom: 6px; }
+.mt-4 { margin-top: 4px; }
+.mt-24 { margin-top: 24px; }
+
+/* Hidden */
+.hidden { display: none; }
+
+/* Pill button (small action) */
+.pill-btn { font-size: 12px; padding: 6px 14px; }
+
+/* Inline flex with gap */
+.inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Grid layouts */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* Panel padding */
+.panel-body { padding: 16px; }
+.panel-body-sm { padding: 12px; }
+
+/* Truncate text */
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Section divider */
+.divider { border-bottom: 1px solid var(--border); margin: 12px 0; }
+
 /* ─── Global inline-style overrides (1050 inline styles in app.js) ─── */
 
 /* Universal font smoothing */
