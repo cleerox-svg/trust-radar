@@ -1701,15 +1701,15 @@ async function viewObservatory(el) {
             arc.sourcePosition[0], arc.sourcePosition[1],
             arc.targetPosition[0], arc.targetPosition[1], tc
           );
-          // Outer glow: 3px subtle tint at low opacity — clinical, not bright
-          glowData.push({ pos: [lon, lat], col: [120, 160, 200, 20] });
-          // Core dot: 2px crisp white
-          coreData.push({ pos: [lon, lat], col: [255, 255, 255, 200] });
+          // Outer glow: 2px subtle tint at low opacity — clinical, not bright
+          glowData.push({ pos: [lon, lat], col: [120, 160, 200, 14] });
+          // Core dot: 1.2px crisp white
+          coreData.push({ pos: [lon, lat], col: [255, 255, 255, 160] });
         });
 
         _curParticleLayers = [
-          new deck.ScatterplotLayer({ id: 'particle-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 3, getFillColor: d => d.col }),
-          new deck.ScatterplotLayer({ id: 'particle-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 2, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-glow', data: glowData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 2, getFillColor: d => d.col }),
+          new deck.ScatterplotLayer({ id: 'particle-core', data: coreData, getPosition: d => d.pos, radiusUnits: 'pixels', getRadius: 1.2, getFillColor: d => d.col }),
         ];
         deckgl.setProps({ layers: [...base, ..._curParticleLayers] });
       }
@@ -1722,28 +1722,28 @@ async function viewObservatory(el) {
   function _typeColor(type, alpha) {
     const a = alpha !== undefined ? alpha : 200;
     const map = {
-      phishing:             [255, 45,  85,  a],
-      malware_distribution: [255, 107, 53,  a],
-      c2:                   [179, 136, 255, a],
-      typosquatting:        [255, 182, 39,  a],
-      scanning:             [0,   212, 255, a],
-      credential_harvesting:[255, 45,  85,  a],
-      impersonation:        [255, 107, 53,  a],
+      phishing:             [200,  60,  60, a],   // #C83C3C — Signal Red
+      malware_distribution: [232, 146,  60, a],   // #E8923C — Amber
+      c2:                   [120, 160, 200, a],   // #78A0C8 — Contrail Blue
+      typosquatting:        [220, 170,  50, a],   // #DCAA32 — Medium gold
+      scanning:             [120, 160, 200, a],   // #78A0C8 — Contrail Blue
+      credential_harvesting:[200,  60,  60, a],   // #C83C3C — Signal Red
+      impersonation:        [232, 146,  60, a],   // #E8923C — Amber
     };
-    return map[type] || [0, 212, 255, a];
+    return map[type] || [120, 160, 200, a];
   }
   function _typeColorHex(type) {
     const map = {
-      phishing: '#ff2d55', malware_distribution: '#ff6b35',
-      c2: '#78A0C8', typosquatting: '#E8923C',
-      scanning: '#78A0C8', credential_harvesting: '#ff2d55',
-      impersonation: '#ff6b35',
+      phishing: '#C83C3C', malware_distribution: '#E8923C',
+      c2: '#78A0C8', typosquatting: '#DCAA32',
+      scanning: '#78A0C8', credential_harvesting: '#C83C3C',
+      impersonation: '#E8923C',
     };
     return map[type] || '#78A0C8';
   }
   function _sevColor(sev, alpha) {
-    // Per-severity default alpha: critical 0.7, high 0.6, medium 0.5, low 0.4
-    const defaultAlpha = sev === 'critical' ? 178 : sev === 'high' ? 153 : sev === 'medium' ? 128 : 102;
+    // Per-severity default alpha: critical 0.7, high 0.6, medium 0.5, low 0.35
+    const defaultAlpha = sev === 'critical' ? 178 : sev === 'high' ? 153 : sev === 'medium' ? 128 : 89;
     const a = alpha !== undefined ? alpha : defaultAlpha;
     if (sev === 'critical') return [200,  60,  60, a];   // #C83C3C — Signal Red
     if (sev === 'high')     return [232, 146,  60, a];   // #E8923C — Amber
@@ -1882,51 +1882,51 @@ async function viewObservatory(el) {
         id: 'nodes-bloom',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 9000,
-        getFillColor: d => _sevColor(d.top_severity, 8),
-        radiusMinPixels: 5, radiusMaxPixels: 40,
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 5400,
+        getFillColor: d => _sevColor(d.top_severity, 6),
+        radiusMinPixels: 3, radiusMaxPixels: 24,
       }),
       // Node mid glow (minimal — keeps form without dominating)
       new deck.ScatterplotLayer({
         id: 'nodes-glow',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 4800,
-        getFillColor: d => _sevColor(d.top_severity, 18),
-        radiusMinPixels: 3, radiusMaxPixels: 22,
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 2900,
+        getFillColor: d => _sevColor(d.top_severity, 12),
+        radiusMinPixels: 2, radiusMaxPixels: 14,
       }),
       // Source nodes (solid core — per-severity opacity)
       new deck.ScatterplotLayer({
         id: 'nodes',
         data: nodeData,
         getPosition: d => [d.lng, d.lat],
-        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 2400,
+        getRadius: d => Math.sqrt(Math.max(1, d.threat_count)) * 1440,
         getFillColor: d => _sevColor(d.top_severity),
         getLineColor: d => _sevColor(d.top_severity, 200),
         lineWidthMinPixels: 1, stroked: true, filled: true,
-        radiusMinPixels: 2, radiusMaxPixels: 14,
+        radiusMinPixels: 1.5, radiusMaxPixels: 9,
         pickable: true,
         transitions: { getFillColor: 300, getRadius: 300 },
       }),
-      // Bezier paths — glow pass (~4% opacity, zoom-scaled width)
+      // Bezier paths — glow pass (subtle, thin)
       new deck.PathLayer({
         id: 'beam-glow-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 10),
-        getWidth: d => _beamWidth(d.volume, 6),
+        getColor: d => _typeColor(d.threat_type, 51),
+        getWidth: d => _beamWidth(d.volume, 3),
         widthUnits: 'pixels',
-        widthMinPixels: 1, widthMaxPixels: 4,
+        widthMinPixels: 1, widthMaxPixels: 2,
       }),
-      // Bezier paths — core pass (~14% opacity, zoom-scaled width)
+      // Bezier paths — core pass (precise, 1px)
       new deck.PathLayer({
         id: 'beam-core-multistream',
         data: arcData,
         getPath: d => d.bezierPath,
-        getColor: d => _typeColor(d.threat_type, 35),
-        getWidth: d => _beamWidth(d.volume, 2),
+        getColor: d => _typeColor(d.threat_type, 76),
+        getWidth: d => _beamWidth(d.volume, 1),
         widthUnits: 'pixels',
-        widthMinPixels: 1, widthMaxPixels: 2,
+        widthMinPixels: 1, widthMaxPixels: 1,
         pickable: true,
       }),
       // Target nodes (pulsing destination rings)
@@ -1934,19 +1934,19 @@ async function viewObservatory(el) {
         id: 'targets-ring',
         data: targetNodes,
         getPosition: d => d.targetPosition,
-        getRadius: 20000,
-        getFillColor: [255, 255, 255, 8],
-        getLineColor: [255, 255, 255, 60],
+        getRadius: 12000,
+        getFillColor: [255, 255, 255, 6],
+        getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1, stroked: true,
-        radiusMinPixels: 4, radiusMaxPixels: 22,
+        radiusMinPixels: 3, radiusMaxPixels: 14,
       }),
       new deck.ScatterplotLayer({
         id: 'targets',
         data: targetNodes,
         getPosition: d => d.targetPosition,
-        getRadius: 6000,
-        getFillColor: [255, 255, 255, 60],
-        radiusMinPixels: 2, radiusMaxPixels: 8,
+        getRadius: 3600,
+        getFillColor: [255, 255, 255, 45],
+        radiusMinPixels: 1.5, radiusMaxPixels: 5,
       }),
     ]);
     _initParticles(arcData);
@@ -5947,18 +5947,18 @@ async function viewAdmin(el) {
     <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:16px">System Overview</div>
     <div class="adm-metrics" id="adm-metrics"></div>
     <div class="adm-actions">
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="11" cy="10" r="4" stroke="#78A0C8" stroke-width="1.5"/><path d="M4 23c0-3.866 3.134-7 7-7h1" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><line x1="20" y1="16" x2="20" y2="24" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="20" x2="24" y2="20" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-feeds"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 0 1 14.5-4.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round"/><path d="M22 14a8 8 0 0 1-14.5 4.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round"/><polyline points="19,6 21.5,9.5 17.5,9.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9,22 6.5,18.5 10.5,18.5" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-agents"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><polygon points="14,5 21,14 14,23 7,14" stroke="#E8923C" stroke-width="1.5" stroke-linejoin="round"/><line x1="14" y1="2" x2="14" y2="26" stroke="#E8923C" stroke-width="1" opacity="0.45"/><line x1="2" y1="14" x2="26" y2="14" stroke="#E8923C" stroke-width="1" opacity="0.45"/><circle cx="14" cy="14" r="2" fill="#E8923C"/></svg></div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-backfill"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4L6 7.5v6.5c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7.5L14 4z" stroke="#28A050" stroke-width="1.5" stroke-linejoin="round"/><polyline points="10,14 13,17 19,11" stroke="#28A050" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-tranco"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><line x1="14" y1="5" x2="14" y2="19" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><polyline points="9,14 14,19 19,14" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="23" x2="22" y2="23" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #5A80A8" id="adm-dash-geo"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="12" cy="12" r="7" stroke="#5A80A8" stroke-width="1.5"/><ellipse cx="12" cy="12" rx="3" ry="7" stroke="#5A80A8" stroke-width="1"/><line x1="5" y1="12" x2="19" y2="12" stroke="#5A80A8" stroke-width="1"/><path d="M22.5 20.5a2.5 2.5 0 1 0-5 0c0 2.2 2.5 5 2.5 5s2.5-2.8 2.5-5z" stroke="#5A80A8" stroke-width="1.5"/><circle cx="20" cy="20.5" r="1" fill="#5A80A8"/></svg></div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-brand-match"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M12 16.5a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L13 8.43" stroke="#E8923C" stroke-width="1.5" stroke-linecap="round"/><path d="M16 11.5a5 5 0 0 0-7.07 0L6.1 14.33a5 5 0 0 0 7.07 7.07L15 19.57" stroke="#E8923C" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-ai-attr"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="8" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="20" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="14" cy="19" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><circle cx="14" cy="9" r="2.5" stroke="#C83C3C" stroke-width="1.5"/><line x1="10.5" y1="9" x2="11.5" y2="9" stroke="#C83C3C" stroke-width="1"/><line x1="16.5" y1="9" x2="17.5" y2="9" stroke="#C83C3C" stroke-width="1"/><line x1="8" y1="11.5" x2="13" y2="16.5" stroke="#C83C3C" stroke-width="1"/><line x1="20" y1="11.5" x2="15" y2="16.5" stroke="#C83C3C" stroke-width="1"/><line x1="14" y1="11.5" x2="14" y2="16.5" stroke="#C83C3C" stroke-width="1"/></svg></div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-social"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="12" rx="8" ry="5" stroke="#78A0C8" stroke-width="1.5"/><circle cx="14" cy="12" r="2" fill="#78A0C8"/><circle cx="8" cy="22" r="2" stroke="#78A0C8" stroke-width="1.5"/><circle cx="20" cy="22" r="2" stroke="#78A0C8" stroke-width="1.5"/><line x1="9" y1="20.5" x2="12" y2="17.5" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/><line x1="19" y1="20.5" x2="16" y2="17.5" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="22" x2="18" y2="22" stroke="#78A0C8" stroke-width="1" stroke-linecap="round"/></svg></div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
-      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-social-10x"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><polyline points="17,4 10,15 15.5,15 11,24" stroke="#C83C3C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #8A8F9C" onclick="navigate('/admin/audit')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M18 4H9a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 9 20h5" stroke="#8A8F9C" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="8" x2="16" y2="8" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="11.5" x2="16" y2="11.5" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="15" x2="13" y2="15" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round"/><circle cx="20.5" cy="21.5" r="4.5" stroke="#8A8F9C" stroke-width="1.5"/><polyline points="20.5,19 20.5,21.5 22.5,21.5" stroke="#8A8F9C" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
-      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M13 8H8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/><polyline points="17,5 23,5 23,11" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="23" y1="5" x2="14" y2="14" stroke="#78A0C8" stroke-width="1.5" stroke-linecap="round"/></svg></div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/admin/users')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><line x1="18" y1="4" x2="18" y2="10"/><line x1="15" y1="7" x2="21" y2="7"/></svg></div><div class="adm-action-label">Invite User</div><div class="adm-action-desc">Send invitation email</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-feeds"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M4 12l8 8 8-8M12 4v16"/></svg></div><div class="adm-action-label">Force Feed Pull</div><div class="adm-action-desc">Trigger all feeds now</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-agents"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><path d="M12 2L20 12L12 22L4 12Z"/><circle cx="12" cy="12" r="2" fill="#E8923C"/></svg></div><div class="adm-action-label">Run AI Analysis</div><div class="adm-action-desc">Trigger all agents</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #28A050" id="adm-dash-backfill"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#28A050" stroke-width="1.5"><path d="M12 2L20 7V14C20 18 16 21 12 22C8 21 4 18 4 14V7L12 2Z"/><path d="M9 12l2 2 4-4"/></svg></div><div class="adm-action-label">Backfill Safe Domains</div><div class="adm-action-desc">Add safe domains for all brands</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-tranco"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 18h16"/></svg></div><div class="adm-action-label">Import Top Brands</div><div class="adm-action-desc">Import top 10K from Tranco</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #5A80A8" id="adm-dash-geo"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5A80A8" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></div><div class="adm-action-label">Backfill Geo</div><div class="adm-action-desc">Enrich IPs per click</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #E8923C" id="adm-dash-brand-match"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8923C" stroke-width="1.5"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5"/></svg></div><div class="adm-action-label">Match Brands</div><div class="adm-action-desc">Match up to 5,000 unlinked threats</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-ai-attr"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg></div><div class="adm-action-label">AI Attribution</div><div class="adm-action-desc">Haiku-powered brand attribution</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #78A0C8" id="adm-dash-social"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M3 12C3 12 7 5 12 5s9 7 9 7-4 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="adm-action-label">Discover Social Profiles (50 brands)</div><div class="adm-action-desc">Find social media profiles</div></div>
+      <div class="adm-action-btn adm-dash-trigger" style="border-left:3px solid #C83C3C" id="adm-dash-social-10x"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C83C3C" stroke-width="1.5"><path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/></svg></div><div class="adm-action-label">Run 10x</div><div class="adm-action-desc">10 batches with 15s delays</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #8A8F9C" onclick="navigate('/admin/audit')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8A8F9C" stroke-width="1.5"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></div><div class="adm-action-label">View Audit Log</div><div class="adm-action-desc">Recent system events</div></div>
+      <div class="adm-action-btn" style="border-left:3px solid #78A0C8" onclick="navigate('/public-preview')"><div class="adm-action-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78A0C8" stroke-width="1.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></div><div class="adm-action-label">View Public Site</div><div class="adm-action-desc">Preview marketing page</div></div>
     </div>
     <div class="adm-grid-2">
       <div class="adm-panel">
