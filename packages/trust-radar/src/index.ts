@@ -1290,6 +1290,13 @@ router.get("/api/admin/sales-leads/:id/activity", async (request: Request & { pa
   if (!isAuthContext(ctx)) return ctx;
   return handleLeadActivity(request, env, request.params["id"] ?? "");
 });
+router.post("/api/admin/pathfinder-enrich", async (request: Request, env: Env) => {
+  const ctx = await requireSuperAdmin(request, env);
+  if (!isAuthContext(ctx)) return ctx;
+  const { enrichLeadWithAI } = await import("./agents/prospector");
+  const result = await enrichLeadWithAI(env);
+  return json({ success: true, data: result });
+});
 
 // ─── Agents ────────────────────────────────────────────────
 router.get("/api/agents", async (request: Request, env: Env) => {
