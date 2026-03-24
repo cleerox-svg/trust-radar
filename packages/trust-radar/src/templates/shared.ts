@@ -743,14 +743,14 @@ section {
 @media (max-width: 768px) {
   section { padding: 2rem 0; }
   .nav-links { display: none; }
-  .footer-grid { grid-template-columns: 1fr; text-align: center; }
-  .footer-brand-block { text-align: center; }
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 1.5rem; text-align: center; }
+  .footer-brand-block { grid-column: 1 / -1; text-align: center; margin-bottom: 1rem; }
   .footer-brand-block a { justify-content: center; }
-  .footer-brand-block p { text-align: center; }
-  .footer-orbital-mark { margin: 0 auto; }
+  .footer-brand-block p { text-align: center; max-width: 100%; }
+  .footer-orbital-mark { margin: 0.5rem auto 0; }
   .footer-col { text-align: center; }
   .footer-col ul { align-items: center; }
-  .footer-bottom { text-align: center; justify-content: center; }
+  .footer-bottom { text-align: center; justify-content: center; padding-top: 1.5rem; gap: 0.5rem; }
 }
 
 /* ── MOBILE MENU ── */
