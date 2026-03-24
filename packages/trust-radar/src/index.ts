@@ -1335,30 +1335,33 @@ router.get("/api/admin/pathfinder-debug", async (request: Request, env: Env) => 
           "SELECT COUNT(*) as c FROM threats WHERE target_brand_id = ? AND created_at > datetime('now', '-30 days')"
         ).bind(brand.id).first();
 
-        if ((threats?.c || 0) >= 10) {
+        const threatCount = (threats?.c as number) || 0;
+        if (threatCount >= 10) {
           score += 25;
-          factors.push(`active_threats_${threats.c}:+25`);
-        } else if ((threats?.c || 0) >= 3) {
+          factors.push(`active_threats_${threatCount}:+25`);
+        } else if (threatCount >= 3) {
           score += 15;
-          factors.push(`active_threats_${threats.c}:+15`);
+          factors.push(`active_threats_${threatCount}:+15`);
         }
         // Phishing URLs
         const phishing = await env.DB.prepare(
           "SELECT COUNT(*) as c FROM threat_signals WHERE brand_match_id = ? AND signal_type = 'phishing_url'"
         ).bind(brand.id).first();
 
-        if ((phishing?.c || 0) > 0) {
+        const phishingCount = (phishing?.c as number) || 0;
+        if (phishingCount > 0) {
           score += 20;
-          factors.push(`phishing_urls_${phishing.c}:+20`);
+          factors.push(`phishing_urls_${phishingCount}:+20`);
         }
         // Spam trap catches
         const traps = await env.DB.prepare(
           "SELECT COUNT(*) as c FROM spam_trap_captures WHERE spoofed_brand_id = ? AND captured_at > datetime('now', '-30 days')"
         ).bind(brand.id).first();
 
-        if ((traps?.c || 0) > 0) {
+        const trapCount = (traps?.c as number) || 0;
+        if (trapCount > 0) {
           score += 30;
-          factors.push(`trap_catches_${traps.c}:+30`);
+          factors.push(`trap_catches_${trapCount}:+30`);
         }
         scored.push({
           name: brand.name,
