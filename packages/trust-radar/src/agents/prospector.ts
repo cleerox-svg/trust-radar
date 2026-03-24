@@ -154,8 +154,6 @@ export async function identifyAndCreate(env: Env): Promise<{
   leads_created: number;
   errors: number;
 }> {
-  console.log("[Pathfinder] Phase 1: identifyAndCreate starting");
-
   // Get brands with their latest email security grade, excluding already-monitored
   // orgs and leads created in the last 90 days
   let emailGrades: { results: Array<{
@@ -175,15 +173,13 @@ export async function identifyAndCreate(env: Env): Promise<{
         AND b.id NOT IN (
           SELECT brand_id FROM sales_leads
           WHERE status IN ('sent', 'responded', 'meeting_booked', 'converted', 'declined')
-             OR created_at > datetime('now', '-90 days')
+             OR created_at > datetime('now', '-30 days')
         )
     `).all<{
       brand_id: string; brand_name: string; brand_domain: string;
       tranco_rank: number | null; email_security_grade: string | null; dmarc_policy: string | null;
     }>();
-    console.log("[Pathfinder] Brand query returned", emailGrades?.results?.length ?? 0, "candidates");
   } catch (err) {
-    console.error("[Pathfinder] Brand query FAILED:", String(err));
     throw err;
   }
 
@@ -391,8 +387,6 @@ export async function identifyAndCreate(env: Env): Promise<{
     });
   }
 
-  console.log("[Pathfinder] Qualified brands above MIN_SCORE:", candidates.length);
-
   // Sort by score descending, take top MAX_IDENTIFIED
   candidates.sort((a, b) => b.prospect_score - a.prospect_score);
   const topCandidates = candidates.slice(0, MAX_IDENTIFIED);
@@ -429,12 +423,10 @@ export async function identifyAndCreate(env: Env): Promise<{
 
       leadsCreated++;
     } catch (err) {
-      console.error(`[Pathfinder] Failed to insert lead for ${candidate.brand_name}:`, String(err));
       errors++;
     }
   }
 
-  console.log(`[Pathfinder] Phase 1 complete: candidates=${topCandidates.length}, created=${leadsCreated}, errors=${errors}`);
   return { candidates_found: topCandidates.length, leads_created: leadsCreated, errors };
 }
 
@@ -446,8 +438,6 @@ export async function enrichLeadWithAI(env: Env): Promise<{
   company_name?: string;
   error?: string;
 }> {
-  console.log("[Pathfinder] Phase 2: enrichLeadWithAI starting");
-
   // Pick the highest-scored unenriched lead
   const lead = await env.DB.prepare(`
     SELECT * FROM sales_leads
@@ -457,11 +447,8 @@ export async function enrichLeadWithAI(env: Env): Promise<{
   `).first<UnenrichedLead>();
 
   if (!lead) {
-    console.log("[Pathfinder] No unenriched leads found — skipping");
     return { enriched: false };
   }
-
-  console.log(`[Pathfinder] Enriching lead ${lead.id} (${lead.company_name ?? 'unknown'})`);
 
   try {
     // ── (a) Detailed findings summary ──────────────────────────
@@ -550,12 +537,10 @@ RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off a
       lead.id,
     ).run();
 
-    console.log(`[Pathfinder] Phase 2 complete: enriched lead ${lead.id} (${lead.company_name})`);
     return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined };
 
   } catch (err) {
     // Do NOT mark as enriched — it will be retried next run
-    console.error(`[Pathfinder] AI enrichment failed for lead ${lead.id}:`, String(err));
     return { enriched: false, lead_id: lead.id, error: String(err) };
   }
 }
@@ -566,8 +551,6 @@ async function run(env: Env): Promise<{
   phase1: { candidates_found: number; leads_created: number; errors: number };
   phase2: { enriched: boolean; lead_id?: number; company_name?: string; error?: string };
 }> {
-  console.log("[Pathfinder] run() starting — Phase 1 then Phase 2");
-
   // Phase 1: always run — identify and create new leads (no AI)
   const phase1 = await identifyAndCreate(env);
 
@@ -598,7 +581,7 @@ export const prospectorAgent: AgentModule = {
     let phase1 = { candidates_found: 0, leads_created: 0, errors: 0 };
 
     if (throttled) {
-      console.log("[Pathfinder] Phase 1 throttled — last run was", new Date(parseInt(lastRun!)).toISOString());
+      // Phase 1 throttled — skip lead creation this tick
     } else {
       phase1 = await identifyAndCreate(env);
       await env.CACHE.put("prospector:last_run", Date.now().toString());
