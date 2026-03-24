@@ -12,14 +12,14 @@ export function renderAboutPage(): string {
     `
 <style>
 .about-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
-.about-hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem,4vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
-.about-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
+.about-hero h1 { font-family: var(--font-display); font-size: clamp(36px, 5vw, 64px); font-weight: 800; margin-bottom: 1rem; }
+.about-hero p { font-size: 20px; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
 
 .about-section { padding: 3rem 0; }
 .about-section:nth-child(even) { background: var(--bg-tertiary); }
 .about-content { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
-.about-content h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
-.about-content p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem; font-size: 1rem; }
+.about-content h2 { font-family: var(--font-display); font-size: clamp(24px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
+.about-content p { color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; font-size: 16px; }
 
 .our-story-container {
   border-left: 3px solid var(--accent);
@@ -55,7 +55,7 @@ export function renderAboutPage(): string {
 .tech-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 
 .cta-block { padding: 3rem 0; text-align: center; }
-.cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
+.cta-block h2 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
@@ -89,7 +89,7 @@ export function renderAboutPage(): string {
 <section class="about-section" style="text-align:center;">
   <div class="container">
     <div class="section-label" style="text-align:center;">Our Approach</div>
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;margin-bottom:1.25rem;">Three Principles</h2>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;margin-bottom:1.25rem;">Three Principles</h2>
   </div>
   <div class="principles-grid">
     <div class="principle-card">
@@ -113,7 +113,7 @@ export function renderAboutPage(): string {
 <!-- Company Facts -->
 <section class="about-section" style="text-align:center;">
   <div class="container">
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;margin-bottom:0.5rem;">Company Facts</h2>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;margin-bottom:0.5rem;">Company Facts</h2>
   </div>
   <div class="facts-grid">
     <div class="fact-card"><div class="fact-value"><span class="ca-flag">🇨🇦</span> LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
@@ -128,7 +128,7 @@ export function renderAboutPage(): string {
 <!-- Technology -->
 <section class="about-section" style="text-align:center;">
   <div class="container">
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;margin-bottom:0.5rem;">Technology</h2>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;margin-bottom:0.5rem;">Technology</h2>
     <p style="color:var(--text-secondary);margin-bottom:1rem;">Every choice optimized for performance, reliability, and cost.</p>
   </div>
   <div class="tech-grid">

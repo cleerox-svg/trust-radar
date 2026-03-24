@@ -12,8 +12,8 @@ export function renderPricingPage(): string {
     `
 <style>
 .pricing-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
-.pricing-hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem,4vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
-.pricing-hero p { font-size: 1.1rem; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
+.pricing-hero h1 { font-family: var(--font-display); font-size: clamp(36px, 5vw, 64px); font-weight: 800; margin-bottom: 1rem; }
+.pricing-hero p { font-size: 18px; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
 
 .pricing-section { padding: 3rem 0; }
 .pricing-grid { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
@@ -22,14 +22,14 @@ export function renderPricingPage(): string {
 .price-card.popular { border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow-glow); }
 .price-card.popular::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 100px; letter-spacing: 0.05em; }
-.price-tier { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
-.price-desc { font-size: 0.82rem; color: var(--text-tertiary); margin-bottom: 1.25rem; }
-.price-amount { font-family: var(--font-display); font-size: 2.5rem; font-weight: 800; margin-bottom: 0.25rem; }
+.price-tier { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin-bottom: 0.25rem; }
+.price-desc { font-size: 15px; color: var(--text-tertiary); margin-bottom: 1.25rem; }
+.price-amount { font-family: var(--font-display); font-size: 48px; font-weight: 800; margin-bottom: 0.25rem; }
 .price-amount span { font-size: 1rem; font-weight: 400; color: var(--text-tertiary); }
 .price-billing { font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 1.5rem; }
 .price-divider { height: 1px; background: var(--border); margin-bottom: 1.5rem; }
 .price-features { list-style: none; padding: 0; flex: 1; display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 2rem; }
-.price-features li { font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 0.5rem; }
+.price-features li { font-size: 15px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 0.5rem; }
 .price-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
 .price-cta { margin-top: auto; }
 
@@ -38,14 +38,14 @@ export function renderPricingPage(): string {
 .compare-table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
 .compare-table th { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); text-align: left; padding: 1rem; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); }
 .compare-table th.highlight { color: var(--accent); }
-.compare-table td { font-size: 0.85rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.compare-table td { font-size: 14px; padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
 .compare-table tr:last-child td { border-bottom: none; }
 .compare-table td:first-child { font-weight: 600; color: var(--text-primary); }
 
 .faq-section { padding: 3rem 0; }
 .faq-list { max-width: 720px; margin: 2rem auto 0; padding: 0 2rem; }
 .faq-item { border-bottom: 1px solid var(--border); }
-.faq-q { font-family: var(--font-body); font-size: 0.95rem; font-weight: 600; padding: 1.25rem 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: none; border: none; width: 100%; text-align: left; color: var(--text-primary); }
+.faq-q { font-family: var(--font-body); font-size: 17px; font-weight: 600; padding: 1.25rem 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: none; border: none; width: 100%; text-align: left; color: var(--text-primary); }
 .faq-q:hover { color: var(--accent); }
 .faq-arrow { font-size: 0.85rem; color: var(--text-tertiary); transition: transform 0.2s; }
 .faq-a { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; padding: 0 0 1.25rem; display: none; }
@@ -53,7 +53,7 @@ export function renderPricingPage(): string {
 .faq-item.open .faq-arrow { transform: rotate(180deg); }
 
 .cta-block { padding: 3rem 0; text-align: center; background: var(--bg-tertiary); }
-.cta-block h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
+.cta-block h2 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
@@ -156,7 +156,7 @@ export function renderPricingPage(): string {
 <section class="compare-section">
   <div class="container" style="text-align:center;">
     <div class="section-label" style="text-align:center;">Comparison</div>
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;">Designed for AI-Powered Threats</h2>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;">Designed for AI-Powered Threats</h2>
   </div>
   <div class="compare-table-wrap">
     <table class="compare-table">
@@ -183,7 +183,7 @@ export function renderPricingPage(): string {
 <!-- FAQ -->
 <section class="faq-section">
   <div class="container" style="text-align:center;">
-    <h2 style="font-family:var(--font-display);font-size:1.75rem;font-weight:700;">Frequently Asked Questions</h2>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;">Frequently Asked Questions</h2>
   </div>
   <div class="faq-list">
     <div class="faq-item">
