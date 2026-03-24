@@ -9533,12 +9533,12 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.user-menu.open').forEach(m => m.classList.remove('open'));
 });
 
-// ─── Platform-aware Canadian flag: image fallback on Windows ─
+// ─── Platform-aware Canadian flag: text fallback on Windows ─
 if(navigator.platform.indexOf('Win')>-1||navigator.userAgent.indexOf('Windows')>-1){
   function replaceFlags(){
     document.querySelectorAll('.ca-flag').forEach(function(el){
-      if(!el.querySelector('img')){
-        el.innerHTML='<img src="https://flagcdn.com/20x15/ca.png" srcset="https://flagcdn.com/40x30/ca.png 2x" width="20" height="15" alt="\ud83c\udde8\ud83c\udde6" style="vertical-align:-3px;margin:0 2px" onerror="this.outerHTML=\'\ud83c\udde8\ud83c\udde6\'">';
+      if(!el.querySelector('strong')){
+        el.innerHTML='<strong style="font-size:12px;letter-spacing:1px;color:var(--accent)">CA</strong>';
       }
     });
   }
