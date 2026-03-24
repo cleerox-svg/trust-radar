@@ -6,7 +6,7 @@
  *   2. Research company & security leadership via Haiku + web search
  *   3. Generate personalized outreach drafts
  *
- * Runs weekly. Processes max 5 prospects per run.
+ * Runs weekly. Processes max 3 leads per run to prevent Worker timeout.
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -96,7 +96,7 @@ const SCORING = {
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_PROSPECTS_PER_RUN = 5;
+const MAX_LEADS_PER_RUN = 3;
 const MAX_IDENTIFIED = 20;
 const MIN_SCORE = 20;
 
@@ -716,7 +716,7 @@ export async function runProspectorPipeline(env: Env): Promise<{
 
   const toProcess = candidates
     .filter(c => !existingSet.has(c.brand_id))
-    .slice(0, MAX_PROSPECTS_PER_RUN);
+    .slice(0, MAX_LEADS_PER_RUN);
 
   console.log(`[prospector] Processing ${toProcess.length} new prospects`);
 
@@ -753,8 +753,9 @@ export async function runProspectorPipeline(env: Env): Promise<{
         await updateLeadStatus(env.DB, leadId, "researched");
       }
     } catch (err) {
-      console.error(`[prospector] Error processing ${candidate.brand_name}:`, err);
+      console.error(`[Pathfinder] Failed to process ${candidate.brand_name}: ${err}`);
       errors++;
+      continue;
     }
   }
 
