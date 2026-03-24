@@ -1291,6 +1291,37 @@ router.get("/api/admin/sales-leads/:id/activity", async (request: Request & { pa
   return handleLeadActivity(request, env, request.params["id"] ?? "");
 });
 
+// ─── Pathfinder Debug (TEMPORARY) ──────────────────────────
+router.get("/api/admin/pathfinder-debug", async (request: Request, env: Env) => {
+  try {
+    // Run the same brand query as prospector.ts identifyProspects()
+    const brands = await env.DB.prepare(`
+      SELECT b.id, b.name, b.canonical_domain, b.threat_count,
+        b.email_security_grade, b.tranco_rank,
+        (SELECT COUNT(*) FROM threats WHERE target_brand_id = b.id AND created_at > datetime('now', '-30 days')) as recent_threats,
+        (SELECT COUNT(*) FROM spam_trap_captures WHERE spoofed_brand_id = b.id AND captured_at > datetime('now', '-30 days')) as trap_catches
+      FROM brands b
+      WHERE b.id NOT IN (SELECT brand_id FROM org_brands)
+      AND b.id NOT IN (SELECT brand_id FROM sales_leads WHERE created_at > datetime('now', '-30 days'))
+      ORDER BY b.threat_count DESC
+      LIMIT 20
+    `).all();
+    const leads = await env.DB.prepare("SELECT COUNT(*) as c FROM sales_leads").first();
+    const orgBrands = await env.DB.prepare("SELECT COUNT(*) as c FROM org_brands").first();
+    const totalBrands = await env.DB.prepare("SELECT COUNT(*) as c FROM brands").first();
+    return new Response(JSON.stringify({
+      total_brands: totalBrands?.c,
+      brands_in_orgs: orgBrands?.c,
+      existing_leads: leads?.c,
+      candidates_found: brands.results?.length,
+      top_candidates: brands.results?.slice(0, 10),
+      min_score: 20,
+    }, null, 2), { headers: { "Content-Type": "application/json" } });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+  }
+});
+
 // ─── Agents ────────────────────────────────────────────────
 router.get("/api/agents", async (request: Request, env: Env) => {
   const ctx = await requireAuth(request, env);
