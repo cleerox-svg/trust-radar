@@ -5,42 +5,10 @@
  * All threat queries go through these typed functions.
  */
 
-import type { Env } from "../types";
+import type { Threat, ThreatQueryOptions, Env } from "../types";
 
-// ─── Types ───────────────────────────────────────────────────────
-
-export interface Threat {
-  id: string;
-  source_feed: string;
-  threat_type: string;
-  malicious_url: string | null;
-  malicious_domain: string | null;
-  target_brand_id: string | null;
-  hosting_provider_id: string | null;
-  ip_address: string | null;
-  asn: string | null;
-  country_code: string | null;
-  lat: number | null;
-  lng: number | null;
-  registrar: string | null;
-  first_seen: string;
-  last_seen: string;
-  status: string;
-  confidence_score: number | null;
-  campaign_id: string | null;
-  ioc_value: string | null;
-  severity: string | null;
-  created_at: string;
-}
-
-export interface ThreatQueryOptions {
-  limit?: number;
-  offset?: number;
-  status?: string;
-  type?: string;
-  days?: number;
-  severity?: string;
-}
+// Re-export for consumers that import from db/threats
+export type { Threat, ThreatQueryOptions };
 
 // ─── Brand-scoped queries ─────────────────────────────────────────
 

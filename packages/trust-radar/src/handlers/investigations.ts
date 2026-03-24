@@ -1,5 +1,5 @@
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import type { Env, CreateTicketBody, UpdateTicketBody, AddEvidenceBody, CreateErasureBody, UpdateErasureBody } from "../types";
 
 // ─── Investigation Tickets ──────────────────────────────────────
 
@@ -65,7 +65,7 @@ export async function handleGetTicket(request: Request, env: Env, id: string): P
 export async function handleCreateTicket(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as CreateTicketBody;
     const id = crypto.randomUUID();
 
     // Generate sequential ticket ID
@@ -93,16 +93,16 @@ export async function handleCreateTicket(request: Request, env: Env, userId: str
 export async function handleUpdateTicket(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateTicketBody;
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (typeof body.status === "string") { updates.push("status = ?"); values.push(body.status); }
-    if (typeof body.severity === "string") { updates.push("severity = ?"); values.push(body.severity); }
-    if (typeof body.priority === "string") { updates.push("priority = ?"); values.push(body.priority); }
-    if (typeof body.assignee_id === "string") { updates.push("assignee_id = ?"); values.push(body.assignee_id); }
-    if (typeof body.notes === "string") { updates.push("notes = ?"); values.push(body.notes); }
-    if (typeof body.resolution === "string") { updates.push("resolution = ?"); values.push(body.resolution); }
+    if (body.status) { updates.push("status = ?"); values.push(body.status); }
+    if (body.severity) { updates.push("severity = ?"); values.push(body.severity); }
+    if (body.priority) { updates.push("priority = ?"); values.push(body.priority); }
+    if (body.assignee_id) { updates.push("assignee_id = ?"); values.push(body.assignee_id); }
+    if (body.notes) { updates.push("notes = ?"); values.push(body.notes); }
+    if (body.resolution) { updates.push("resolution = ?"); values.push(body.resolution); }
 
     if (updates.length === 0) return json({ success: false, error: "No valid fields" }, 400, origin);
 
@@ -126,7 +126,7 @@ export async function handleAddEvidence(request: Request, env: Env, ticketId: st
     const ticket = await env.DB.prepare("SELECT id FROM investigation_tickets WHERE id = ?").bind(ticketId).first();
     if (!ticket) return json({ success: false, error: "Ticket not found" }, 404, origin);
 
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as AddEvidenceBody;
     const id = crypto.randomUUID();
 
     await env.DB.prepare(
@@ -188,7 +188,7 @@ export async function handleListErasures(request: Request, env: Env): Promise<Re
 export async function handleCreateErasure(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as CreateErasureBody;
     const id = crypto.randomUUID();
 
     await env.DB.prepare(
@@ -209,17 +209,17 @@ export async function handleCreateErasure(request: Request, env: Env, userId: st
 export async function handleUpdateErasure(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateErasureBody;
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (typeof body.status === "string") {
+    if (body.status) {
       updates.push("status = ?"); values.push(body.status);
       if (body.status === "submitted") updates.push("submitted_at = datetime('now')");
       if (body.status === "acknowledged") updates.push("acknowledged_at = datetime('now')");
       if (body.status === "resolved") updates.push("resolved_at = datetime('now')");
     }
-    if (typeof body.response === "string") { updates.push("response = ?"); values.push(body.response); }
+    if (body.response) { updates.push("response = ?"); values.push(body.response); }
 
     if (updates.length === 0) return json({ success: false, error: "No valid fields" }, 400, origin);
     updates.push("updated_at = datetime('now')");

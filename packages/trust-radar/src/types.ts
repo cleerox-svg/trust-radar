@@ -61,12 +61,29 @@ export interface Brand {
   first_seen: string;
   threat_count: number;
   last_threat_seen: string | null;
+  email_security_grade: string | null;
+  email_security_score: number | null;
+  email_security_scanned_at: string | null;
+  exposure_score: number | null;
+  social_risk_score: number | null;
+  domain_risk_score: number | null;
+  monitoring_status: string;
+  monitoring_tier: string | null;
+  tranco_rank: number | null;
+  official_handles: string | null;
+  aliases: string | null;
+  brand_keywords: string | null;
+  logo_url: string | null;
+  website_url: string | null;
+  threat_analysis: string | null;
+  analysis_updated_at: string | null;
+  last_social_scan: string | null;
 }
 
 export interface Threat {
   id: string;
   source_feed: string;
-  threat_type: ThreatType;
+  threat_type: string;
   malicious_url: string | null;
   malicious_domain: string | null;
   target_brand_id: string | null;
@@ -79,11 +96,11 @@ export interface Threat {
   registrar: string | null;
   first_seen: string;
   last_seen: string;
-  status: ThreatStatus;
+  status: string;
   confidence_score: number | null;
   campaign_id: string | null;
   ioc_value: string | null;
-  severity: Severity | null;
+  severity: string | null;
   created_at: string;
 }
 
@@ -148,6 +165,398 @@ export interface JWTPayload {
   plan?: UserPlan;    // v1 compat — remove when v1 auth handlers are replaced
   iat: number;
   exp: number;
+}
+
+// ─── Email Security ─────────────────────────────────────────────
+export interface EmailSecurityScan {
+  id: number;
+  brand_id: string;
+  domain: string;
+  dmarc_exists: number;
+  dmarc_policy: string | null;
+  dmarc_pct: number | null;
+  dmarc_rua: string | null;
+  dmarc_ruf: string | null;
+  dmarc_raw: string | null;
+  spf_exists: number;
+  spf_policy: string | null;
+  spf_includes: number;
+  spf_too_many_lookups: number;
+  spf_raw: string | null;
+  dkim_exists: number;
+  dkim_selectors_found: string | null;
+  dkim_raw: string | null;
+  mx_exists: number;
+  mx_providers: string | null;
+  email_security_score: number;
+  email_security_grade: string | null;
+  scanned_at: string;
+  scan_duration_ms: number | null;
+}
+
+// ─── Organizations ──────────────────────────────────────────────
+export interface Organization {
+  id: number;
+  name: string;
+  slug: string;
+  plan: string;
+  created_at: string;
+}
+
+export interface OrgBrand {
+  id: number;
+  org_id: number;
+  brand_id: string;
+  is_primary: number;
+  monitoring_config_json: string | null;
+  created_at: string;
+}
+
+export interface OrgMember {
+  id: number;
+  org_id: number;
+  user_id: string;
+  role: string;
+  created_at: string;
+}
+
+// ─── Takedowns ──────────────────────────────────────────────────
+export type TakedownStatus = 'draft' | 'requested' | 'submitted' | 'pending_response' | 'taken_down' | 'failed' | 'expired' | 'withdrawn';
+export type TakedownTargetType = 'domain' | 'social_profile' | 'url' | 'email';
+
+export interface TakedownRequest {
+  id: string;
+  org_id: number;
+  brand_id: string;
+  target_type: TakedownTargetType;
+  target_value: string;
+  target_platform: string | null;
+  target_url: string | null;
+  source_type: string | null;
+  source_id: string | null;
+  evidence_summary: string;
+  evidence_detail: string | null;
+  evidence_urls: string | null;
+  provider_name: string | null;
+  provider_abuse_contact: string | null;
+  provider_method: string;
+  status: TakedownStatus;
+  severity: string;
+  priority_score: number;
+  notes: string | null;
+  requested_by: string | null;
+  requested_at: string | null;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  response_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Sales Leads ────────────────────────────────────────────────
+export interface SalesLead {
+  id: number;
+  brand_id: string;
+  prospect_score: number;
+  score_breakdown_json: string | null;
+  status: string;
+  company_name: string | null;
+  company_domain: string | null;
+  company_industry: string | null;
+  company_size: string | null;
+  company_revenue_range: string | null;
+  company_hq: string | null;
+  research_json: string | null;
+  researched_at: string | null;
+  target_name: string | null;
+  target_title: string | null;
+  target_linkedin: string | null;
+  target_email: string | null;
+  email_security_grade: string | null;
+  threat_count_30d: number | null;
+  phishing_urls_active: number | null;
+  trap_catches_30d: number | null;
+  composite_risk_score: number | null;
+  pitch_angle: string | null;
+  findings_summary: string | null;
+  outreach_variant_1: string | null;
+  outreach_variant_2: string | null;
+  outreach_selected: string | null;
+  outreach_sent_at: string | null;
+  outreach_channel: string | null;
+  identified_by: string | null;
+  ai_enriched: number;
+  ai_enriched_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLeadInput {
+  brand_id: string;
+  prospect_score: number;
+  score_breakdown_json?: string | null;
+  company_name?: string | null;
+  company_domain?: string | null;
+  email_security_grade?: string | null;
+  threat_count_30d?: number | null;
+  phishing_urls_active?: number | null;
+  trap_catches_30d?: number | null;
+  composite_risk_score?: number | null;
+  pitch_angle?: string | null;
+  findings_summary?: string | null;
+  identified_by?: string;
+}
+
+export interface EnrichLeadInput {
+  findings_summary: string;
+  outreach_variant_1: string | null;
+  outreach_variant_2: string | null;
+  research_json: string;
+}
+
+// ─── Spam Trap ──────────────────────────────────────────────────
+export interface SpamTrapCapture {
+  id: number;
+  trap_address: string;
+  trap_domain: string;
+  trap_channel: string | null;
+  from_address: string | null;
+  from_domain: string | null;
+  subject: string | null;
+  spf_result: string | null;
+  dkim_result: string | null;
+  dmarc_result: string | null;
+  dmarc_disposition: string | null;
+  sending_ip: string | null;
+  spoofed_brand_id: string | null;
+  spoofed_domain: string | null;
+  category: string;
+  severity: string;
+  url_count: number;
+  attachment_count: number;
+  raw_headers: string | null;
+  body_preview: string | null;
+  captured_at: string;
+}
+
+// ─── Agent Runs ─────────────────────────────────────────────────
+export interface AgentRun {
+  id: string;
+  agent_id: string;
+  status: string;
+  error_message: string | null;
+  records_processed: number;
+  outputs_generated: number;
+  tokens_used: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  started_at: string;
+  completed_at: string | null;
+  duration_ms: number | null;
+}
+
+export interface CompleteRunStats {
+  records_processed: number;
+  outputs_generated: number;
+  status?: string;
+  error_message?: string | null;
+  tokens_used?: number | null;
+}
+
+// ─── Agent Output ───────────────────────────────────────────────
+export interface AgentOutput {
+  id: string;
+  agent_id: string;
+  run_id: string;
+  output_type: string;
+  content_json: string;
+  brand_id: string | null;
+  threat_id: string | null;
+  campaign_id: string | null;
+  created_at: string;
+}
+
+// ─── DMARC ──────────────────────────────────────────────────────
+export interface DmarcReport {
+  id: number;
+  brand_id: string | null;
+  domain: string;
+  reporter_org: string | null;
+  reporter_email: string | null;
+  report_id: string | null;
+  date_begin: string | null;
+  date_end: string | null;
+  total_records: number;
+  total_messages: number;
+  total_pass: number;
+  total_fail: number;
+  policy_published: string | null;
+  raw_xml: string | null;
+  received_at: string;
+  processed: number;
+}
+
+// ─── Notifications ──────────────────────────────────────────────
+export interface Notification {
+  id: number;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  read: number;
+  created_at: string;
+}
+
+// ─── Query Options ──────────────────────────────────────────────
+export interface BrandListOptions {
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  direction?: 'ASC' | 'DESC';
+  sector?: string;
+  monitoringStatus?: string;
+}
+
+export interface ThreatQueryOptions {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  type?: string;
+  days?: number;
+  severity?: string;
+}
+
+// ─── API Request Bodies ─────────────────────────────────────────
+export interface CreateTakedownBody {
+  brand_id: string;
+  target_type: string;
+  target_value: string;
+  evidence_summary: string;
+  evidence_detail?: string;
+  target_platform?: string;
+  target_url?: string;
+  source_type?: string;
+  source_id?: string;
+  evidence_urls?: string;
+  notes?: string;
+}
+
+export interface UpdateTakedownBody {
+  status?: string;
+  notes?: string;
+  evidence_summary?: string;
+  evidence_detail?: string;
+  severity?: string;
+  response_notes?: string;
+}
+
+export interface UpdateThreatBody {
+  status?: string;
+  severity?: string;
+  confidence_score?: number;
+}
+
+export interface UpdateSalesLeadBody {
+  status?: string;
+  notes?: string;
+  outreach_variant_1?: string;
+  outreach_variant_2?: string;
+  outreach_selected?: string;
+  outreach_channel?: string;
+  target_name?: string;
+  target_title?: string;
+  target_email?: string;
+  target_linkedin?: string;
+}
+
+export interface IngestSignalBody {
+  source?: string;
+  domain?: string;
+  range_m?: number;
+  intensity_dbz?: number;
+  quality?: number;
+  tags?: string[];
+}
+
+export interface CreateTicketBody {
+  title?: string;
+  description?: string;
+  severity?: string;
+  priority?: string;
+  category?: string;
+  tags?: string[];
+}
+
+export interface UpdateTicketBody {
+  status?: string;
+  severity?: string;
+  priority?: string;
+  assignee_id?: string;
+  notes?: string;
+  resolution?: string;
+}
+
+export interface AddEvidenceBody {
+  capture_type?: string;
+  target_url?: string;
+  content_hash?: string;
+  storage_path?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateErasureBody {
+  ticket_id?: string;
+  target_type?: string;
+  target_value?: string;
+  provider?: string;
+  provider_email?: string;
+  method?: string;
+  abuse_notice?: string;
+}
+
+export interface UpdateErasureBody {
+  status?: string;
+  response?: string;
+}
+
+export interface UpdateFeedBody {
+  enabled?: boolean | number;
+  display_name?: string;
+  description?: string;
+  source_url?: string;
+  schedule_cron?: string;
+  rate_limit?: number;
+  batch_size?: number;
+}
+
+export interface MonitoringConfigBody {
+  alert_severity_filter?: string[];
+  auto_acknowledge_low_days?: number;
+  social_platforms_monitored?: string[];
+  email_notifications?: boolean;
+  email_notification_threshold?: string;
+  weekly_digest?: boolean;
+  custom_keywords?: string[];
+  excluded_domains?: string[];
+}
+
+export interface UpdateATOEventBody {
+  status: string;
+}
+
+export interface PaginationParams {
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  total: number;
 }
 
 // ─── API Response ───────────────────────────────────────────────

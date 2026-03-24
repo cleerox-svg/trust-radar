@@ -10,7 +10,7 @@
 
 import { json } from '../lib/cors';
 import { runEmailSecurityScan, saveEmailSecurityScan } from '../email-security';
-import type { Env } from '../types';
+import type { EmailSecurityScan, Env } from '../types';
 
 // ─── GET /api/email-security/:brandId ─────────────────────────────────────
 
@@ -26,7 +26,7 @@ export async function handleGetEmailSecurity(
       WHERE brand_id = ?
       ORDER BY scanned_at DESC
       LIMIT 1
-    `).bind(brandId).first<Record<string, unknown>>();
+    `).bind(brandId).first<EmailSecurityScan>();
 
     if (!row) {
       return json({ success: true, data: null }, 200, origin);
@@ -36,8 +36,8 @@ export async function handleGetEmailSecurity(
       success: true,
       data: {
         ...row,
-        dkim_selectors_found: safeJson(row.dkim_selectors_found as string, []),
-        mx_providers: safeJson(row.mx_providers as string, []),
+        dkim_selectors_found: safeJson(row.dkim_selectors_found, []),
+        mx_providers: safeJson(row.mx_providers, []),
       },
     }, 200, origin);
   } catch (err) {
@@ -156,7 +156,7 @@ export async function handlePublicEmailSecurity(
   try {
     // Check KV cache first (1 hour TTL)
     const cacheKey = `email-sec:${domain}`;
-    const cached = await env.CACHE.get(cacheKey, 'json') as Record<string, unknown> | null;
+    const cached = await env.CACHE.get(cacheKey, 'json') as unknown;
     if (cached) {
       return json({ success: true, data: cached, cached: true }, 200, origin);
     }

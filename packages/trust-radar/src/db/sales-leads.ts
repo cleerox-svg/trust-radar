@@ -5,74 +5,10 @@
  * Replaces inline INSERT/UPDATE/SELECT in agents/prospector.ts.
  */
 
-import type { Env } from "../types";
+import type { SalesLead, CreateLeadInput, EnrichLeadInput, Env } from "../types";
 
-// ─── Types ───────────────────────────────────────────────────────
-
-export interface SalesLead {
-  id: number;
-  brand_id: string;
-  prospect_score: number;
-  score_breakdown_json: string | null;
-  status: string;
-  // Company research
-  company_name: string | null;
-  company_domain: string | null;
-  company_industry: string | null;
-  company_size: string | null;
-  company_revenue_range: string | null;
-  company_hq: string | null;
-  research_json: string | null;
-  researched_at: string | null;
-  // Security leader target
-  target_name: string | null;
-  target_title: string | null;
-  target_linkedin: string | null;
-  target_email: string | null;
-  // Platform findings snapshot
-  email_security_grade: string | null;
-  threat_count_30d: number | null;
-  phishing_urls_active: number | null;
-  trap_catches_30d: number | null;
-  composite_risk_score: number | null;
-  pitch_angle: string | null;
-  findings_summary: string | null;
-  // Outreach
-  outreach_variant_1: string | null;
-  outreach_variant_2: string | null;
-  outreach_selected: string | null;
-  outreach_sent_at: string | null;
-  outreach_channel: string | null;
-  // Meta
-  identified_by: string | null;
-  ai_enriched: number;
-  ai_enriched_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateLeadInput {
-  brand_id: string;
-  prospect_score: number;
-  score_breakdown_json?: string | null;
-  company_name?: string | null;
-  company_domain?: string | null;
-  email_security_grade?: string | null;
-  threat_count_30d?: number | null;
-  phishing_urls_active?: number | null;
-  trap_catches_30d?: number | null;
-  composite_risk_score?: number | null;
-  pitch_angle?: string | null;
-  findings_summary?: string | null;
-  identified_by?: string;
-}
-
-export interface EnrichLeadInput {
-  findings_summary: string;
-  outreach_variant_1: string | null;
-  outreach_variant_2: string | null;
-  research_json: string;
-}
+// Re-export for consumers that import from db/sales-leads
+export type { SalesLead, CreateLeadInput, EnrichLeadInput };
 
 // ─── Queries ──────────────────────────────────────────────────────
 

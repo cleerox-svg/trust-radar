@@ -1,6 +1,6 @@
 import { json } from "../lib/cors";
 import { enrichThreatsGeo } from "../lib/geoip";
-import type { Env } from "../types";
+import type { Env, UpdateThreatBody } from "../types";
 
 // ─── List threats with filtering ────────────────────────────────
 export async function handleListThreats(request: Request, env: Env): Promise<Response> {
@@ -185,13 +185,13 @@ export async function handleGetThreat(request: Request, env: Env, id: string): P
 export async function handleUpdateThreat(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateThreatBody;
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    if (typeof body.status === "string") { updates.push("status = ?"); values.push(body.status); }
-    if (typeof body.severity === "string") { updates.push("severity = ?"); values.push(body.severity); }
-    if (typeof body.confidence_score === "number") { updates.push("confidence_score = ?"); values.push(body.confidence_score); }
+    if (body.status) { updates.push("status = ?"); values.push(body.status); }
+    if (body.severity) { updates.push("severity = ?"); values.push(body.severity); }
+    if (body.confidence_score != null) { updates.push("confidence_score = ?"); values.push(body.confidence_score); }
 
     if (updates.length === 0) return json({ success: false, error: "No valid fields" }, 400, origin);
 

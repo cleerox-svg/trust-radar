@@ -472,7 +472,8 @@ export async function handlePublicBrandScanResult(request: Request, env: Env, sc
       return json({ success: false, error: "Assessment not found" }, 404, origin);
     }
 
-    const score = (row as Record<string, unknown>).trust_score as number;
+    const typedRow = row as { trust_score: number };
+    const score = typedRow.trust_score;
     const riskLevel = score >= 80 ? "low" : score >= 60 ? "medium" : score >= 40 ? "high" : "critical";
 
     return json({

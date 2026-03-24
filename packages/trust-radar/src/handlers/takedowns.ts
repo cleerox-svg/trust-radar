@@ -4,7 +4,7 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { deliverWebhook } from "../lib/webhooks";
 import { computePriorityScore } from "../lib/scoring-utils";
-import type { Env } from "../types";
+import type { Env, CreateTakedownBody, UpdateTakedownBody } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
 // ─── Platform Abuse Contacts ─────────────────────────────────
@@ -65,12 +65,12 @@ export async function handleCreateTakedown(
   }
 
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as CreateTakedownBody;
 
-    const brandId = body.brand_id as string;
-    const targetType = body.target_type as string;
-    const targetValue = body.target_value as string;
-    const evidenceSummary = body.evidence_summary as string;
+    const brandId = body.brand_id;
+    const targetType = body.target_type;
+    const targetValue = body.target_value;
+    const evidenceSummary = body.evidence_summary;
 
     if (!brandId || !targetType || !targetValue || !evidenceSummary) {
       return json({ success: false, error: "Missing required fields: brand_id, target_type, target_value, evidence_summary" }, 400, origin);
@@ -90,7 +90,7 @@ export async function handleCreateTakedown(
     }
 
     // Auto-fill evidence from source
-    let evidenceDetail = (body.evidence_detail as string) || null;
+    let evidenceDetail = body.evidence_detail || null;
     let severity = "MEDIUM";
 
     if (body.source_type === "social_profile" && body.source_id) {
@@ -117,7 +117,7 @@ export async function handleCreateTakedown(
     let providerName: string | null = null;
     let providerAbuseContact: string | null = null;
     let providerMethod = "email";
-    const targetPlatform = (body.target_platform as string) || null;
+    const targetPlatform = body.target_platform || null;
 
     if (targetType === "social_profile" && targetPlatform) {
       const platformKey = targetPlatform.toLowerCase().replace(/[^a-z]/g, "");
@@ -150,11 +150,11 @@ export async function handleCreateTakedown(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)
     `).bind(
       id, orgId, brandId, targetType, targetValue, targetPlatform,
-      (body.target_url as string) || null,
-      (body.source_type as string) || null, (body.source_id as string) || null,
-      evidenceSummary, evidenceDetail, (body.evidence_urls as string) || null,
+      body.target_url || null,
+      body.source_type || null, body.source_id || null,
+      evidenceSummary, evidenceDetail, body.evidence_urls || null,
       providerName, providerAbuseContact, providerMethod,
-      severity, priorityScore, (body.notes as string) || null, ctx.userId,
+      severity, priorityScore, body.notes || null, ctx.userId,
     ).run();
 
     await audit(env, {
@@ -296,7 +296,7 @@ export async function handleUpdateTakedown(
   }
 
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateTakedownBody;
 
     // Verify takedown belongs to org brands
     const takedown = await env.DB.prepare(`
@@ -466,7 +466,7 @@ export async function handleAdminUpdateTakedown(
   const origin = request.headers.get("Origin");
 
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await request.json() as UpdateTakedownBody;
 
     const takedown = await env.DB.prepare(
       "SELECT id, status FROM takedown_requests WHERE id = ?"
@@ -528,7 +528,7 @@ export async function handleAdminUpdateTakedown(
       updates.push("severity = ?");
       values.push(body.severity);
       updates.push("priority_score = ?");
-      values.push(computePriorityScore(body.severity as string));
+      values.push(computePriorityScore(body.severity));
     }
 
     if (updates.length === 0) {

@@ -1,7 +1,7 @@
 // Averrow — Campaign API Endpoints
 
 import { json } from "../lib/cors";
-import type { Env } from "../types";
+import type { Campaign, Env } from "../types";
 
 // GET /api/campaigns (with status filter)
 export async function handleListCampaignsV2(request: Request, env: Env): Promise<Response> {
@@ -61,7 +61,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
   try {
     const campaign = await env.DB.prepare(
       "SELECT * FROM campaigns WHERE id = ?",
-    ).bind(campaignId).first();
+    ).bind(campaignId).first<Campaign>();
 
     if (!campaign) return json({ success: false, error: "Campaign not found" }, 404, origin);
 
@@ -95,9 +95,9 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
       success: true,
       data: {
         ...campaign,
-        threat_count: liveStats?.threat_count ?? (campaign as Record<string, unknown>).threat_count ?? 0,
-        brand_count: liveStats?.brand_count ?? (campaign as Record<string, unknown>).brand_count ?? 0,
-        provider_count: liveStats?.provider_count ?? (campaign as Record<string, unknown>).provider_count ?? 0,
+        threat_count: liveStats?.threat_count ?? campaign.threat_count ?? 0,
+        brand_count: liveStats?.brand_count ?? campaign.brand_count ?? 0,
+        provider_count: liveStats?.provider_count ?? campaign.provider_count ?? 0,
         domain_count: liveStats?.domain_count ?? 0,
         ip_count: liveStats?.ip_count ?? 0,
         brand_breakdown: brandBreakdown.results,

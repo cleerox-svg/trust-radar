@@ -5,30 +5,10 @@
  * All agent lifecycle management goes through these typed functions.
  */
 
-import type { Env } from "../types";
+import type { AgentRun, CompleteRunStats, Env } from "../types";
 
-// ─── Types ───────────────────────────────────────────────────────
-
-export interface AgentRun {
-  id: string;
-  agent_id: string;
-  status: string;
-  error_message: string | null;
-  records_processed: number;
-  outputs_generated: number;
-  tokens_used: number | null;
-  started_at: string;
-  completed_at: string | null;
-  duration_ms: number | null;
-}
-
-export interface CompleteRunStats {
-  records_processed: number;
-  outputs_generated: number;
-  status?: string;
-  error_message?: string | null;
-  tokens_used?: number | null;
-}
+// Re-export for consumers that import from db/agent-runs
+export type { AgentRun, CompleteRunStats };
 
 // ─── Lifecycle ────────────────────────────────────────────────────
 
