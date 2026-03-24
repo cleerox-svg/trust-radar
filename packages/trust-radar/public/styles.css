@@ -1796,12 +1796,12 @@ a.campaign-card:hover { text-decoration: none; }
   color: var(--text-secondary); cursor: pointer; transition: all 0.15s; margin-right: 4px;
 }
 .adm-action-btn.adm-action-btn:hover { border-color: var(--blue-border-bright); color: var(--text-primary); }
-.adm-trigger-btn { border-color: rgba(255,182,39,.2) !important; color: var(--threat-medium) !important; transition: all 0.4s ease !important; position: relative; overflow: hidden; }
-.adm-trigger-btn.trigger-pending { border-color: rgba(255,182,39,.5) !important; background: rgba(255,182,39,.12) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn { border-color: rgba(255,182,39,.2); color: var(--threat-medium); transition: all 0.4s ease; position: relative; overflow: hidden; }
+.adm-trigger-btn.trigger-pending { border-color: rgba(255,182,39,.5); background: rgba(255,182,39,.12); color: transparent; pointer-events: none; }
 .adm-trigger-btn.trigger-pending::after { content: ''; position: absolute; inset: 0; margin: auto; width: 12px; height: 12px; border: 2px solid rgba(255,182,39,.3); border-top-color: var(--threat-medium); border-radius: 50%; animation: trigger-spin 0.6s linear infinite; }
-.adm-trigger-btn.trigger-ok { border-color: rgba(40,160,80,.5) !important; background: rgba(40,160,80,.15) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn.trigger-ok { border-color: rgba(40,160,80,.5); background: rgba(40,160,80,.15); color: transparent; pointer-events: none; }
 .adm-trigger-btn.trigger-ok::after { content: '\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--positive); font-size: 12px; font-weight: 700; }
-.adm-trigger-btn.trigger-fail { border-color: rgba(200,60,60,.5) !important; background: rgba(200,60,60,.15) !important; color: transparent !important; pointer-events: none; }
+.adm-trigger-btn.trigger-fail { border-color: rgba(200,60,60,.5); background: rgba(200,60,60,.15); color: transparent; pointer-events: none; }
 .adm-trigger-btn.trigger-fail::after { content: '\2717'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--negative); font-size: 12px; font-weight: 700; }
 @keyframes trigger-spin { to { transform: rotate(360deg); } }
 .adm-btn {
@@ -2094,10 +2094,10 @@ a.campaign-card:hover { text-decoration: none; }
 /* ─── Dashboard trigger button states ──────────────────────── */
 .adm-dash-trigger { cursor: pointer; transition: all 0.3s ease; position: relative; }
 .adm-dash-trigger.dash-pending { opacity: 0.7; pointer-events: none; }
-.adm-dash-trigger.dash-ok { border-color: rgba(40,160,80,.3) !important; background: rgba(40,160,80,.08) !important; }
-.adm-dash-trigger.dash-ok .adm-action-icon { color: var(--positive) !important; }
-.adm-dash-trigger.dash-fail { border-color: rgba(200,60,60,.3) !important; background: rgba(200,60,60,.08) !important; }
-.adm-dash-trigger.dash-fail .adm-action-icon { color: var(--negative) !important; }
+.adm-dash-trigger.dash-ok { border-color: rgba(40,160,80,.3); background: rgba(40,160,80,.08); }
+.adm-dash-trigger.dash-ok .adm-action-icon { color: var(--positive); }
+.adm-dash-trigger.dash-fail { border-color: rgba(200,60,60,.3); background: rgba(200,60,60,.08); }
+.adm-dash-trigger.dash-fail .adm-action-icon { color: var(--negative); }
 .dash-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,182,39,.3); border-top-color: var(--threat-medium); border-radius: 50%; animation: trigger-spin 0.6s linear infinite; vertical-align: middle; }
 
 /* ─── Responsive: Tablet (≤768px) ────────────────────────────── */
@@ -2138,7 +2138,7 @@ a.campaign-card:hover { text-decoration: none; }
   /* Source filter — hide text labels, show dots only */
   .obs-src-text { display: none; }
   .obs-src-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-  .obs-source-filter { bottom: 50px !important; left: 6px !important; }
+  .obs-source-filter { bottom: 50px; left: 6px; }
   .obs-sidebar {
     display: block; width: 100%; height: auto; max-height: none;
     border-left: none; border-top: 1px solid var(--blue-border);
@@ -2184,7 +2184,7 @@ a.campaign-card:hover { text-decoration: none; }
   .adm-grid-2 { grid-template-columns: 1fr; }
   .adm-kanban { flex-wrap: wrap; }
   .adm-kanban-col { flex: 1 1 100%; }
-  .adm-slideout { width: 100% !important; position: fixed !important; inset: 0 !important; z-index: 200; top: 0 !important; border-left: none !important; border-radius: 0 !important; }
+  .adm-slideout { width: 100%; position: fixed; inset: 0; z-index: 200; top: 0; border-left: none; border-radius: 0; }
 
   /* G) ADMIN — table horizontal scroll */
   .adm-table-scroll { margin: 0 -1px; }
@@ -2263,7 +2263,7 @@ a.campaign-card:hover { text-decoration: none; }
   .adm-actions { grid-template-columns: 1fr 1fr; }
   .adm-metrics { grid-template-columns: 1fr 1fr; }
   .adm-kanban { display: none; } /* hide kanban on tiny screens */
-  .adm-slideout { border-radius: 0 !important; }
+  .adm-slideout { border-radius: 0; }
   .admin-nav-pills .admin-np { font-size: 9px; padding: 4px 8px; }
   .admin-back-link { font-size: 12px; }
   .admin-back-link span.back-text { display: none; }
@@ -3340,7 +3340,7 @@ a.campaign-card:hover { text-decoration: none; }
   .obs-mode-selector { right: 4px; }
 
   /* Modals full-width */
-  .modal { width: calc(100vw - 16px) !important; max-width: none; }
+  .modal { width: calc(100vw - 16px); max-width: none; }
 
   /* Agent grid */
   .agent-grid { grid-template-columns: 1fr; gap: 8px; }
@@ -3352,7 +3352,7 @@ a.campaign-card:hover { text-decoration: none; }
 /* ─── Phone Portrait Additions (≤479px) ───────────────────── */
 @media (max-width: 479px) {
   /* Modal sizing */
-  .modal { width: calc(100vw - 24px) !important; max-width: none; }
+  .modal { width: calc(100vw - 24px); max-width: none; }
 
   /* Notification dropdown full width */
   .notif-dropdown { width: calc(100vw - 24px); right: -8px; max-width: none; }
@@ -3384,7 +3384,7 @@ a.campaign-card:hover { text-decoration: none; }
   .auto-pill { min-width: 100%; }
 
   /* Admin lead slideout full screen */
-  .adm-lead-slideout { width: 100% !important; }
+  .adm-lead-slideout { width: 100%; }
 }
 
 /* ─── Tablet Portrait (768-1023px) ────────────────────────── */
@@ -3924,7 +3924,82 @@ a.campaign-card:hover { text-decoration: none; }
 /* Section divider */
 .divider { border-bottom: 1px solid var(--border); margin: 12px 0; }
 
-/* ─── Global inline-style overrides (1050 inline styles in app.js) ─── */
+/* ─── Phase 5C: Additional utility classes ─── */
+
+/* Extra spacing */
+.mt-2 { margin-top: 2px; }
+.mt-6 { margin-top: 6px; }
+.mt-20 { margin-top: 20px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-14 { margin-bottom: 14px; }
+.mb-20 { margin-bottom: 20px; }
+.ml-6 { margin-left: 6px; }
+.ml-8 { margin-left: 8px; }
+.p-24 { padding: 24px; }
+.gap-24 { gap: 24px; }
+
+/* Extra text size */
+.text-18 { font-size: 18px; }
+
+/* Positioning */
+.right-0 { right: 0; }
+.align-end { align-items: flex-end; }
+.min-w-120 { min-width: 120px; }
+
+/* Scroll containers */
+.scroll-300 { max-height: 300px; overflow-y: auto; }
+.scroll-320 { max-height: 320px; overflow-y: auto; }
+.scroll-400 { max-height: 400px; overflow-y: auto; }
+
+/* Stat box (centered with bg) */
+.stat-box { text-align: center; padding: 8px; background: var(--bg-elevated); border-radius: 6px; }
+
+/* Section heading */
+.section-heading { font-family: var(--font-display); font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+
+/* Color: critical/threat-high */
+.text-critical { color: var(--threat-high); }
+
+/* Form controls (inline-style replacements) */
+.form-control {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--blue-border);
+  border-radius: 4px; background: var(--bg-card); color: var(--text-primary); font-size: 12px;
+}
+.form-control-sm {
+  padding: 6px 10px; border: 1px solid var(--blue-border);
+  border-radius: 4px; background: var(--bg-card); color: var(--text-primary); font-size: 11px;
+}
+
+/* Mini buttons */
+.btn-mini {
+  padding: 3px 8px; font-size: 9px; border: 1px solid #4a5a73;
+  border-radius: 3px; background: var(--bg-elevated); cursor: pointer;
+}
+.btn-mini-md {
+  padding: 4px 10px; font-size: 10px; border: 1px solid #4a5a73;
+  border-radius: 4px; background: var(--bg-elevated); cursor: pointer;
+}
+
+/* Chip (small pill with border) */
+.chip {
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg-elevated); border: 1px solid var(--blue-border);
+}
+
+/* Border accents */
+.border-left-info { border-left: 3px solid #78A0C8; }
+.border-left-critical { border-left: 3px solid #C83C3C; }
+.border-left-warning { border-left: 3px solid #E8923C; }
+.border-b { border-bottom: 1px solid var(--blue-border); }
+
+/* Icon sizing */
+.icon-ring-lg { width: 72px; height: 72px; position: relative; }
+.icon-32 { width: 32px; height: 32px; border-radius: 6px; }
+
+/* Padding shorthand */
+.padded { padding: 20px 24px; }
+
+/* ─── Global inline-style overrides ─── */
 
 /* Universal font smoothing */
 * {
@@ -3956,6 +4031,4 @@ table tr:hover td {
   background: rgba(20, 34, 54, 0.5) !important;
 }
 
-/* Force inline status spans to readable spec */
-[style*="color:var(--positive)"], [style*="color: var(--positive)"] { color: #28A050 !important; }
-[style*="color:var(--negative)"], [style*="color: var(--negative)"] { color: #C83C3C !important; }
+/* Inline color overrides removed — styles replaced with .text-positive / .text-negative classes */
