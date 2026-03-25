@@ -287,11 +287,13 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     logger.error('threat_feed_scan_sync_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
-  // AI Agents — sentinel (event-triggered on new data)
+  // ─── AI Agents ─────────────────────────────────────────────────
+  const { agentModules: allAgents } = await import('../agents/index');
+  const { executeAgent } = await import('../lib/agentRunner');
+
+  // Sentinel: event-triggered on new data
   if (feedResult.totalNew > 0) {
     try {
-      const { agentModules: allAgents } = await import('../agents/index');
-      const { executeAgent } = await import('../lib/agentRunner');
       const mod = allAgents["sentinel"];
       if (mod) {
         await executeAgent(env, mod, { newItems: feedResult.totalNew }, "cron", "event");
@@ -304,8 +306,6 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   // Analyst agent — runs every 15 minutes (checked within 30-min window)
   if (minute % 15 < 5) {
     try {
-      const { agentModules: allAgents } = await import('../agents/index');
-      const { executeAgent } = await import('../lib/agentRunner');
       const mod = allAgents["analyst"];
       if (mod) {
         await executeAgent(env, mod, {}, "cron", "scheduled");
@@ -315,27 +315,33 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   }
 
-  // Strategist + Cartographer — every 6 hours (0, 6, 12, 18)
-  if (hour % 6 === 0 && minute < 5) {
+  // Strategist — every 6 hours, minute 5-10 (staggered)
+  if (hour % 6 === 0 && minute >= 5 && minute < 10) {
     try {
-      const { agentModules: allAgents } = await import('../agents/index');
-      const { executeAgent } = await import('../lib/agentRunner');
-      for (const name of ["strategist", "cartographer"] as const) {
-        const mod = allAgents[name];
-        if (mod) {
-          await executeAgent(env, mod, {}, "cron", "scheduled");
-        }
+      const mod = allAgents["strategist"];
+      if (mod) {
+        await executeAgent(env, mod, {}, "cron", "scheduled");
       }
     } catch (err) {
-      logger.error('threat_feed_scan_strategist_cartographer_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_strategist_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Cartographer — every 6 hours, minute 10-15 (staggered)
+  if (hour % 6 === 0 && minute >= 10 && minute < 15) {
+    try {
+      const mod = allAgents["cartographer"];
+      if (mod) {
+        await executeAgent(env, mod, {}, "cron", "scheduled");
+      }
+    } catch (err) {
+      logger.error('threat_feed_scan_cartographer_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
   // Observer + daily assessments — daily at midnight UTC
   if (hour === 0 && minute < 5) {
     try {
-      const { agentModules: allAgents } = await import('../agents/index');
-      const { executeAgent } = await import('../lib/agentRunner');
       const mod = allAgents["observer"];
       if (mod) {
         await executeAgent(env, mod, {}, "cron", "scheduled");
@@ -360,8 +366,6 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   // Prospector agent — daily at 03:00 UTC (KV throttle ensures once per 7 days)
   if (hour === 3 && minute < 5) {
     try {
-      const { agentModules: allAgents } = await import('../agents/index');
-      const { executeAgent } = await import('../lib/agentRunner');
       const prospectorMod = allAgents["prospector"];
       if (prospectorMod) {
         await executeAgent(env, prospectorMod, {}, "cron", "scheduled");

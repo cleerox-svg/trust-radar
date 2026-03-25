@@ -64,28 +64,41 @@ export const cartographerAgent: AgentModule = {
     let haikuSuccessCount = 0;
     let haikuFailCount = 0;
 
+    // Batch: threat type breakdowns for all providers
+    const providerIds = providers.results.map(p => p.id);
+    const allTypeBreakdowns = providerIds.length > 0 ? await env.DB.prepare(`
+      SELECT hosting_provider_id, threat_type, COUNT(*) as count
+      FROM threats
+      WHERE hosting_provider_id IN (${providerIds.map(() => '?').join(',')})
+      GROUP BY hosting_provider_id, threat_type
+    `).bind(...providerIds).all<{ hosting_provider_id: string; threat_type: string; count: number }>() : { results: [] };
+
+    const breakdownsByProvider = new Map<string, Record<string, number>>();
+    for (const row of allTypeBreakdowns.results) {
+      const existing = breakdownsByProvider.get(row.hosting_provider_id) ?? {};
+      existing[row.threat_type] = row.count;
+      breakdownsByProvider.set(row.hosting_provider_id, existing);
+    }
+
+    // Batch: campaign counts for all providers
+    const allCampaignStats = providerIds.length > 0 ? await env.DB.prepare(`
+      SELECT hosting_provider_id, COUNT(DISTINCT campaign_id) as campaign_count
+      FROM threats
+      WHERE hosting_provider_id IN (${providerIds.map(() => '?').join(',')})
+        AND campaign_id IS NOT NULL
+      GROUP BY hosting_provider_id
+    `).bind(...providerIds).all<{ hosting_provider_id: string; campaign_count: number }>() : { results: [] };
+
+    const campaignCountByProvider = new Map<string, number>();
+    for (const row of allCampaignStats.results) {
+      campaignCountByProvider.set(row.hosting_provider_id, row.campaign_count);
+    }
+
     for (const provider of providers.results) {
       itemsProcessed++;
 
-      // Get threat type breakdown for this provider
-      const typeBreakdown = await env.DB.prepare(
-        `SELECT threat_type, COUNT(*) as count
-         FROM threats WHERE hosting_provider_id = ?
-         GROUP BY threat_type`
-      ).bind(provider.id).all<{ threat_type: string; count: number }>();
-
-      const threatTypes: Record<string, number> = {};
-      for (const row of typeBreakdown.results) {
-        threatTypes[row.threat_type] = row.count;
-      }
-
-      // Cross-reference campaigns for repeat offender detection
-      const campaignStats = await env.DB.prepare(
-        `SELECT COUNT(DISTINCT t.campaign_id) as campaign_count
-         FROM threats t
-         WHERE t.hosting_provider_id = ? AND t.campaign_id IS NOT NULL`
-      ).bind(provider.id).first<{ campaign_count: number }>();
-      const campaignCount = campaignStats?.campaign_count ?? 0;
+      const threatTypes = breakdownsByProvider.get(provider.id) ?? {};
+      const campaignCount = campaignCountByProvider.get(provider.id) ?? 0;
       const repeatOffender = campaignCount >= 3;
 
       // Try Haiku scoring
@@ -242,8 +255,7 @@ export const cartographerAgent: AgentModule = {
 
         // Mark private/bogon IPs so they exit the queue
         for (const { source_ip } of unenrichedIps.results) {
-          const { isPrivateIP: priv } = await import("../lib/geoip");
-          if (priv(source_ip)) {
+          if (isPrivateIP(source_ip)) {
             await env.DB.prepare(
               `UPDATE dmarc_report_records SET country_code = 'PRIV' WHERE source_ip = ? AND country_code IS NULL`
             ).bind(source_ip).run();
@@ -337,6 +349,15 @@ async function aggregateProviderStats(env: { DB: D1Database }): Promise<number> 
     { key: "all", where: "1=1", priorWhere: null as string | null },
   ];
 
+  // Pre-load provider names to avoid N+1 in the stats loop
+  const providerNameRows = await db.prepare(
+    "SELECT id, name FROM hosting_providers"
+  ).all<{ id: string; name: string }>();
+  const providerNameMap = new Map<string, string>();
+  for (const r of providerNameRows.results) {
+    providerNameMap.set(r.id, r.name);
+  }
+
   for (const period of periods) {
     const providerRows = await db.prepare(`
       SELECT
@@ -389,10 +410,7 @@ async function aggregateProviderStats(env: { DB: D1Database }): Promise<number> 
       const countryCodes = (row.countries || "").split(",").filter(Boolean);
       const topCountries = countryCodes.slice(0, 5).map(c => ({ country_code: c, count: 1 }));
 
-      // Resolve provider name from hosting_providers table
-      const hp = await db.prepare("SELECT name FROM hosting_providers WHERE id = ?")
-        .bind(row.hosting_provider_id).first<{ name: string }>();
-      const providerName = hp?.name ?? row.hosting_provider_id;
+      const providerName = providerNameMap.get(row.hosting_provider_id) ?? row.hosting_provider_id;
 
       const id = crypto.randomUUID();
       try {
