@@ -145,6 +145,7 @@ export const handleSpamTrapCampaigns = handler(async (_request, env, ctx) => {
       created_at, updated_at
     FROM seed_campaigns
     ORDER BY created_at DESC
+    LIMIT 200
   `).all();
 
   return success(rows.results, ctx.origin);
@@ -235,6 +236,7 @@ export const handleSpamTrapAddresses = handler(async (_request, env, ctx) => {
       seeded_at, seeded_location, total_catches, last_catch_at, status
     FROM seed_addresses
     ORDER BY total_catches DESC
+    LIMIT 500
   `).all();
 
   return success(rows.results, ctx.origin);

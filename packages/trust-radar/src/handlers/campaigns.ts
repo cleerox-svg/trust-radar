@@ -72,6 +72,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
         FROM threats t LEFT JOIN brands b ON b.id = t.target_brand_id
         WHERE t.campaign_id = ? AND t.target_brand_id IS NOT NULL
         GROUP BY target_brand_id ORDER BY count DESC
+        LIMIT 100
       `).bind(campaignId).all(),
       env.DB.prepare(`
         SELECT t.hosting_provider_id AS provider_id,
@@ -81,6 +82,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
         LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
         WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL
         GROUP BY t.hosting_provider_id ORDER BY count DESC
+        LIMIT 100
       `).bind(campaignId).all(),
       env.DB.prepare(`
         SELECT COUNT(*) AS threat_count,
@@ -178,6 +180,7 @@ export async function handleCampaignBrands(request: Request, env: Env, campaignI
       FROM threats t JOIN brands b ON b.id = t.target_brand_id
       WHERE t.campaign_id = ?
       GROUP BY b.id ORDER BY threat_count DESC
+      LIMIT 100
     `).bind(campaignId).all();
 
     return json({ success: true, data: rows.results }, 200, origin);

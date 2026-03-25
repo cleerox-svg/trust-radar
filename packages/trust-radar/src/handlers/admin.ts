@@ -88,6 +88,11 @@ const UpdateUserSchema = z.object({
 export async function handleAdminStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
+  // KV cache: dashboard stats are expensive (10 COUNT queries) but tolerate 5 min staleness
+  const cacheKey = "dashboard_stats";
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
   const [users, threats, sessions, sentinelBacklog, analystBacklog, cartoBacklog, strategistBacklog, observerLastRun, aiAttrPending, trancoCount] = await Promise.all([
     env.DB.prepare(
       `SELECT COUNT(*) AS total,
@@ -130,7 +135,7 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
     ).first<{ n: number }>().catch(() => null),
   ]);
 
-  return json({
+  const data = {
     success: true,
     data: {
       users: {
@@ -153,7 +158,10 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
       ai_attribution_pending: aiAttrPending?.n ?? 0,
       tranco_brand_count: trancoCount?.n ?? 0,
     },
-  }, 200, origin);
+  };
+
+  await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+  return json(data, 200, origin);
 }
 
 export async function handleAdminListUsers(request: Request, env: Env): Promise<Response> {
