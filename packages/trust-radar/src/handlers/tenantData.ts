@@ -57,6 +57,7 @@ export async function handleTenantDashboard(
       LEFT JOIN (SELECT brand_id, COUNT(*) AS cnt FROM social_profiles WHERE classification = 'impersonation' AND status = 'active' GROUP BY brand_id) sp_imp ON sp_imp.brand_id = b.id
       WHERE ob.org_id = ?
       ORDER BY b.threat_count DESC
+      LIMIT 200
     `).bind(orgId).all();
 
     const brands = brandsResult.results || [];

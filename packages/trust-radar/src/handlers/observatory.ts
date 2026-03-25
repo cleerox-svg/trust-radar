@@ -285,9 +285,15 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
-  const sf = buildSourceFilter(url.searchParams.get("source_feed"));
+  const sourceFeed = url.searchParams.get("source_feed");
+  const sf = buildSourceFilter(sourceFeed);
 
   try {
+    // KV cache: observatory stats only change when feeds run — cache for 2 minutes
+    const cacheKey = `observatory_stats:${period}:${sourceFeed ?? "all"}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const [threats, countries, campaigns, brands] = await Promise.all([
       env.DB.prepare(
         `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
@@ -303,7 +309,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
       ).first<{ n: number }>(),
     ]);
 
-    return json({
+    const data = {
       success: true,
       data: {
         threats_mapped: threats?.n ?? 0,
@@ -312,7 +318,10 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
         brands_monitored: brands?.n ?? 0,
         period,
       },
-    }, 200, origin);
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    return json(data, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

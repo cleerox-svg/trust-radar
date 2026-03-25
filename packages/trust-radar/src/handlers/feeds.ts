@@ -20,7 +20,8 @@ export async function handleListFeeds(request: Request, env: Env): Promise<Respo
       `SELECT c.*, s.last_successful_pull, s.last_failure, s.records_ingested_today, s.health_status
        FROM feed_configs c
        LEFT JOIN feed_status s ON c.feed_name = s.feed_name
-       ORDER BY c.feed_name ASC`
+       ORDER BY c.feed_name ASC
+       LIMIT 100`
     ).all();
 
     // Enrich with last pull count and avg duration from feed_pull_history
@@ -178,6 +179,11 @@ export async function handleTriggerTier(request: Request, env: Env, _tier: strin
 export async function handleFeedStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // KV cache: feed stats rarely change — cache for 5 minutes
+    const cacheKey = "feed_configs_status";
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const totals = await env.DB.prepare(`
       SELECT
         COUNT(*) as total_feeds,
@@ -195,14 +201,17 @@ export async function handleFeedStats(request: Request, env: Env): Promise<Respo
       FROM feed_pull_history ORDER BY started_at DESC LIMIT 50
     `).all();
 
-    return json({
+    const data = {
       success: true,
       data: {
         summary: totals,
         statusBreakdown: statusSummary.results,
         recentPulls: recentPulls.results,
       },
-    }, 200, origin);
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return json(data, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
