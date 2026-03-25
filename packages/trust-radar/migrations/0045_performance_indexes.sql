@@ -14,8 +14,8 @@ CREATE INDEX IF NOT EXISTS idx_stc_captured_category ON spam_trap_captures(captu
 -- Email security scans by domain + time (used by grade change detection)
 CREATE INDEX IF NOT EXISTS idx_ess_domain_scanned ON email_security_scans(domain, scanned_at DESC);
 
--- Social profiles needing scan (used by cron social monitor)
-CREATE INDEX IF NOT EXISTS idx_social_profiles_next_scan ON social_profiles(next_scan_at) WHERE status = 'active';
+-- Brand monitor schedule by next check time (used by cron social monitor)
+CREATE INDEX IF NOT EXISTS idx_brand_monitor_schedule_next_check ON brand_monitor_schedule(monitor_type, next_check) WHERE enabled = 1;
 
 -- Sales leads unenriched (used by Pathfinder Phase 2)
 CREATE INDEX IF NOT EXISTS idx_sales_leads_unenriched ON sales_leads(ai_enriched, prospect_score DESC) WHERE ai_enriched = 0;
