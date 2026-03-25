@@ -8,7 +8,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 export function renderPlatformPage(): string {
   return wrapPage(
     "Platform — Averrow",
-    "AI-powered brand threat intelligence. Six agents defending your digital airspace. Radar sweep, email security posture, social airspace monitoring, and the full Agent Squadron.",
+    "AI-powered brand protection. Six agents defending your brand across every attack surface. Radar sweep, email security posture, social airspace monitoring, and the full Agent Squadron.",
     `
 <style>
 /* === FADE-IN === */
@@ -160,7 +160,7 @@ export function renderPlatformPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">The Platform</div>
     <h1>The Averrow Platform</h1>
-    <p>AI-powered brand threat intelligence. Six agents defending your digital airspace.</p>
+    <p>AI-powered brand protection. Six agents defending your brand across every attack surface.</p>
   </div>
 </section>
 
@@ -178,8 +178,8 @@ export function renderPlatformPage(): string {
   <div class="cap-row">
     <div class="cap-text fade-in-up">
       <div class="section-label">Capability 01</div>
-      <h2>Radar Sweep — Continuous Threat Detection</h2>
-      <p>Averrow continuously monitors threat intelligence feeds for brand mentions across phishing databases, malware URL feeds, and domain intelligence sources. Sentinel, our first-line detection agent, never stops scanning.</p>
+      <h2>Radar Sweep — Continuous Brand Monitoring</h2>
+      <p>Continuous monitoring across phishing databases, malware feeds, and domain intelligence — scanning for anyone targeting your brand. Sentinel, our first-line detection agent, never stops scanning.</p>
       <ul class="cap-features">
         <li>Continuous scanning across all radar feeds</li>
         <li>Parallel feed processing for speed</li>
@@ -248,7 +248,7 @@ export function renderPlatformPage(): string {
     <div class="cap-text fade-in-up">
       <div class="section-label">Capability 02</div>
       <h2>Email Security Posture Engine</h2>
-      <p>Most brand protection platforms completely ignore email security. Averrow goes beyond detection — we analyze your SPF, DKIM, DMARC, and MX configuration to identify the gaps attackers exploit to spoof your domain.</p>
+      <p>Most companies don't know their email can be spoofed. We scan your SPF, DKIM, DMARC, and MX configuration to find the gaps attackers exploit.</p>
       <ul class="cap-features">
         <li>SPF record validation</li>
         <li>DKIM multi-selector verification (12+ enterprise selectors)</li>
@@ -286,7 +286,7 @@ export function renderPlatformPage(): string {
     <div class="cap-text fade-in-up">
       <div class="section-label">Capability 03</div>
       <h2>Social Airspace Monitoring</h2>
-      <p>Monitor six social platforms for brand impersonation, handle squatting, and unauthorized brand usage. Observer's AI-powered profile assessment identifies the most dangerous impersonation attempts with confidence scoring.</p>
+      <p>Brand impersonation on social media is exploding. Averrow monitors six platforms for fake accounts, handle squatting, and unauthorized brand usage. Observer's AI-powered profile assessment identifies the most dangerous impersonation attempts with confidence scoring.</p>
       <ul class="cap-features">
         <li>AI-powered profile assessment (confidence scoring)</li>
         <li>Auto-discovery of brand accounts from company websites</li>
@@ -365,7 +365,7 @@ export function renderPlatformPage(): string {
     <div class="cap-text fade-in-up">
       <div class="section-label">Capability 04</div>
       <h2>Agent Squadron</h2>
-      <p>Averrow's six AI agents don't just detect threats — they reason about them. The squadron correlates signals across email, domains, social platforms, and radar feeds to produce intercept reports and a composite Brand Exposure Score.</p>
+      <p>Six AI agents don't just detect threats — they reason about them. Cross-referencing signals across email, domains, social platforms, and radar feeds to produce actionable intelligence and a composite Brand Exposure Score.</p>
       <ul class="cap-features">
         <li>Cross-system signal fusion (email + social + threats + domains)</li>
         <li>Social intelligence correlation in risk scoring</li>

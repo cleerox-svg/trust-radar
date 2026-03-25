@@ -584,7 +584,7 @@ export function renderSecurityPage(): string {
 
   return wrapPage(
     'Security & Trust — Averrow',
-    'Learn how Averrow protects your data with encryption, access controls, audit logging, and edge-native infrastructure.',
+    'Learn how our brand protection platform safeguards your data with encryption, access controls, audit logging, and edge-native infrastructure.',
     content + generateSpiderTraps("averrow.com", "security")
   );
 }

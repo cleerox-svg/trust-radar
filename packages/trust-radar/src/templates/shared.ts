@@ -112,7 +112,7 @@ export function renderFooter(): string {
             <span class="nav-brand-text" style="font-size:18px">AVERROW</span>
           </div>
         </a>
-        <p>AI-powered brand threat interceptor by LRX Enterprises Inc. <span class="ca-flag">🇨🇦</span> Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
+        <p>AI-powered brand protection by LRX Enterprises Inc. <span class="ca-flag">🇨🇦</span> Continuous airspace defense against impersonation, phishing, and social media abuse.</p>
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>

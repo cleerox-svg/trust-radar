@@ -8,7 +8,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 export function renderPricingPage(): string {
   return wrapPage(
     "Pricing — Averrow",
-    "Simple, transparent pricing. AI-powered brand protection designed for AI-powered threats. From $799/mo. Free scan available.",
+    "Simple, transparent pricing. Enterprise-grade brand protection at a fraction of the cost. From $799/mo. Free scan available.",
     `
 <style>
 .pricing-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
@@ -65,7 +65,7 @@ export function renderPricingPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">Pricing</div>
     <h1>Simple, transparent pricing.</h1>
-    <p>Designed for AI-powered threats. Enterprise-grade airspace defense at a fraction of incumbent costs. Start free, scale when you're ready.</p>
+    <p>Enterprise-grade brand protection at a fraction of the cost. No six-figure contracts. No dedicated analysts required.</p>
   </div>
 </section>
 
@@ -74,7 +74,7 @@ export function renderPricingPage(): string {
     <!-- Free -->
     <div class="price-card">
       <div class="price-tier">Free</div>
-      <div class="price-desc">Brand Exposure Report</div>
+      <div class="price-desc">See how exposed your brand is</div>
       <div class="price-amount">$0</div>
       <div class="price-billing">One-time scan</div>
       <div class="price-divider"></div>
@@ -93,7 +93,7 @@ export function renderPricingPage(): string {
     <div class="price-card popular">
       <span class="popular-badge">POPULAR</span>
       <div class="price-tier">Professional</div>
-      <div class="price-desc">For growing companies</div>
+      <div class="price-desc">Continuous brand protection for growing companies</div>
       <div class="price-amount">$799<span>/mo</span></div>
       <div class="price-billing">Billed monthly or annually</div>
       <div class="price-divider"></div>
@@ -114,7 +114,7 @@ export function renderPricingPage(): string {
     <!-- Business -->
     <div class="price-card">
       <div class="price-tier">Business</div>
-      <div class="price-desc">For security teams &amp; MSSPs</div>
+      <div class="price-desc">Full-spectrum brand defense for security-conscious organizations</div>
       <div class="price-amount">$1,999<span>/mo</span></div>
       <div class="price-billing">Billed monthly or annually</div>
       <div class="price-divider"></div>
@@ -134,7 +134,7 @@ export function renderPricingPage(): string {
     <!-- Enterprise -->
     <div class="price-card">
       <div class="price-tier">Enterprise</div>
-      <div class="price-desc">Custom deployment</div>
+      <div class="price-desc">Custom brand protection for complex environments</div>
       <div class="price-amount" style="font-size:1.8rem;">Starting $4,999</div>
       <div class="price-billing">/mo — custom scope</div>
       <div class="price-divider"></div>
