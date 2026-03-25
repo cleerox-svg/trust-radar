@@ -899,8 +899,8 @@ ${pageStyles}
 
   <div class="hero-content">
     <div class="hero-tag">Threat Interceptor</div>
-    <h1 class="hero-h1">Canada's most advanced interceptor.<br>Designed for AI&#8209;powered threats.</h1>
-    <p class="hero-p">Averrow defends your digital airspace — detecting phishing kits, lookalike domains, and brand impersonation before they reach their target.</p>
+    <h1 class="hero-h1">Your brand is under attack<br>right now.</h1>
+    <p class="hero-p">Averrow detects impersonation, phishing, and brand abuse across domains, email, and social media — before it reaches your customers.</p>
     <form class="scan-box" id="scanForm" action="/assess" method="POST">
       <input class="scan-input" id="domainInput" name="domain" placeholder="Enter any domain" autocomplete="off">
       <button class="scan-btn" type="submit" id="scanBtn">Launch Sortie</button>
@@ -927,7 +927,7 @@ ${pageStyles}
   </div>
   <div class="stat-item">
     <div class="stat-value">45+</div>
-    <div class="stat-label">Threat intelligence feeds</div>
+    <div class="stat-label">Brand protection feeds</div>
   </div>
 </div>
 
@@ -935,7 +935,7 @@ ${pageStyles}
 <section class="squadron fade-in-section">
   <div class="section-label">Agent Squadron</div>
   <h2 class="squadron-title">Six AI agents. One mission.</h2>
-  <p class="squadron-subtitle">Continuous autonomous defense across every threat vector — scanning, classifying, and intercepting around the clock.</p>
+  <p class="squadron-subtitle">Six AI agents working together to detect, classify, and neutralize threats to your brand — from phishing domains to social media impersonation.</p>
   <div class="agent-grid">
 
     <!-- Sentinel — Signal Red — radar sweep -->
@@ -1032,20 +1032,26 @@ ${pageStyles}
   <div class="steps-row">
     <div class="step">
       <div class="step-num">01</div>
-      <div class="step-title">Enter a domain</div>
-      <div class="step-desc">Launch a sortie against any domain — no signup required.</div>
+      <div class="step-title">Connect your brand</div>
+      <div class="step-desc">Enter any domain — no signup required. We start scanning immediately.</div>
     </div>
     <div class="step-arrow">&#x2192;</div>
     <div class="step">
       <div class="step-num">02</div>
-      <div class="step-title">Agents deploy</div>
-      <div class="step-desc">Six AI agents scan threat feeds, CT logs, DMARC records, and newly registered domains.</div>
+      <div class="step-title">We scan everything</div>
+      <div class="step-desc">Six AI agents sweep threat feeds, email authentication, domains, and social platforms.</div>
     </div>
     <div class="step-arrow">&#x2192;</div>
     <div class="step">
       <div class="step-num">03</div>
-      <div class="step-title">Threats intercepted</div>
-      <div class="step-desc">Contacts classified, graded by severity, and queued for takedown.</div>
+      <div class="step-title">AI agents investigate</div>
+      <div class="step-desc">Cross-referencing signals to produce actionable intelligence and severity scoring.</div>
+    </div>
+    <div class="step-arrow">&#x2192;</div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-title">Threats neutralized</div>
+      <div class="step-desc">You get actionable intelligence with takedown evidence and remediation steps.</div>
     </div>
   </div>
 </section>
@@ -1057,7 +1063,7 @@ ${pageStyles}
 
 <section class="capabilities fade-in-section">
   <div class="section-label">Capabilities</div>
-  <h2 class="capabilities-title">Full-spectrum airspace defense</h2>
+  <h2 class="capabilities-title">Full-spectrum brand protection</h2>
   <div class="capabilities-grid">
 
     <div class="cap-card">
@@ -1070,7 +1076,7 @@ ${pageStyles}
         <circle cx="22" cy="9" r="1.5" fill="currentColor" opacity="0.7"/>
       </svg>
       <div class="cap-title">Threat Feed Intelligence</div>
-      <div class="cap-desc">Continuous ingestion from phishing databases, malware feeds, and newly registered domains</div>
+      <div class="cap-desc">Stop brand abuse before customers are deceived — continuous scanning across phishing databases, malware feeds, and newly registered domains</div>
     </div>
 
     <div class="cap-card">
@@ -1081,7 +1087,7 @@ ${pageStyles}
         <path d="M24 21 L26 23 L24 25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <div class="cap-title">Email Security Posture</div>
-      <div class="cap-desc">SPF, DKIM, DMARC analysis and grading for every monitored brand</div>
+      <div class="cap-desc">Prevent email spoofing before attackers impersonate your brand — SPF, DKIM, DMARC analysis and grading</div>
     </div>
 
     <div class="cap-card">
@@ -1095,7 +1101,7 @@ ${pageStyles}
         <circle cx="25" cy="20" r="1" fill="currentColor" opacity="0.6"/>
       </svg>
       <div class="cap-title">Social Airspace Monitoring</div>
-      <div class="cap-desc">Impersonation detection, handle squatting, takedown evidence across platforms</div>
+      <div class="cap-desc">Stop impersonation before customers are deceived — fake accounts, handle squatting, and unauthorized brand usage across six platforms</div>
     </div>
 
     <div class="cap-card">
@@ -1130,7 +1136,7 @@ ${pageStyles}
         <circle cx="26" cy="8" r="2.5" fill="currentColor" opacity="0.9"/>
       </svg>
       <div class="cap-title">AI Threat Narratives</div>
-      <div class="cap-desc">Blackbox agent generates human-readable threat timelines and kill chain analysis</div>
+      <div class="cap-desc">Understand exactly what happened and why it matters — human-readable threat timelines and remediation steps</div>
     </div>
 
   </div>
@@ -1150,7 +1156,7 @@ ${pageStyles}
         <path d="M55 125 L145 125 L135 108 L65 108 Z" fill="#080E18"/>
       </svg>
     </div>
-    <h2 class="cta-headline">Defend your airspace</h2>
+    <h2 class="cta-headline">Ready to protect your brand?</h2>
     <div class="cta-buttons">
       <a href="/scan" class="cta-btn-primary">Launch Free Scan</a>
       <a href="/pricing" class="cta-btn-secondary">View Pricing</a>
@@ -1343,8 +1349,8 @@ document.getElementById('domainInput').addEventListener('keydown', function(e) {
 ${spiderTraps}`;
 
   return wrapPage(
-    "Averrow — AI-Powered Brand Threat Interceptor",
-    "Averrow defends your digital airspace. Detect phishing, lookalike domains, and brand impersonation before they reach their target. Free domain scan — no signup required.",
+    "Averrow — AI-Powered Brand Protection",
+    "Averrow — AI-powered brand protection. Detect impersonation, phishing, domain abuse, and social media threats before they reach your customers. Free domain scan — no signup required.",
     content
   );
 }

@@ -9,7 +9,7 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 export function renderContactPage(): string {
   return wrapPage(
     "Contact Us — Averrow",
-    "Get in touch with the Averrow team. Reach out for product demos, enterprise pricing, security reports, or general inquiries.",
+    "Get in touch with the Averrow team. Reach out for brand protection demos, enterprise pricing, security reports, or general inquiries.",
     `
 <style>
 .contact-hero { padding: 5rem 0 2.5rem; text-align: center; }
@@ -80,7 +80,7 @@ export function renderContactPage(): string {
   <div class="container">
     <div class="section-label">Contact Us</div>
     <h1 class="section-title">Get in Touch</h1>
-    <p class="section-desc">Have questions about Averrow? We'd love to hear from you. Fill out the form below and our team will get back to you shortly.</p>
+    <p class="section-desc">Have questions about brand protection with Averrow? We'd love to hear from you. Fill out the form below and our team will get back to you shortly.</p>
   </div>
 </section>
 
