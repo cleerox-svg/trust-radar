@@ -259,34 +259,77 @@ export const strategistAgent: AgentModule = {
        LIMIT 5`
     ).all<{ id: string; name: string; attack_pattern: string | null }>();
 
+    // Pre-fetch context for all technical campaigns to avoid N+1
+    const techCampIds = technicalCampaigns.results.map(c => c.id);
+    const techCampDomainsMap = new Map<string, string[]>();
+    const techCampBrandsMap = new Map<string, string[]>();
+    const techCampProvidersMap = new Map<string, string[]>();
+    const techCampTypesMap = new Map<string, string[]>();
+    const techCampCountMap = new Map<string, number>();
+
+    if (techCampIds.length > 0) {
+      const placeholders = techCampIds.map(() => '?').join(',');
+
+      const [domainsRes, brandsRes, providersRes, typesRes, countsRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT campaign_id, malicious_domain FROM threats WHERE campaign_id IN (${placeholders}) AND malicious_domain IS NOT NULL GROUP BY campaign_id, malicious_domain`
+        ).bind(...techCampIds).all<{ campaign_id: string; malicious_domain: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.campaign_id, b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.campaign_id IN (${placeholders})`
+        ).bind(...techCampIds).all<{ campaign_id: string; name: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.campaign_id, COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.campaign_id IN (${placeholders}) AND t.hosting_provider_id IS NOT NULL`
+        ).bind(...techCampIds).all<{ campaign_id: string; name: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT campaign_id, threat_type FROM threats WHERE campaign_id IN (${placeholders}) AND threat_type IS NOT NULL`
+        ).bind(...techCampIds).all<{ campaign_id: string; threat_type: string }>(),
+        env.DB.prepare(
+          `SELECT campaign_id, COUNT(*) as n FROM threats WHERE campaign_id IN (${placeholders}) GROUP BY campaign_id`
+        ).bind(...techCampIds).all<{ campaign_id: string; n: number }>(),
+      ]);
+
+      for (const row of domainsRes.results) {
+        const arr = techCampDomainsMap.get(row.campaign_id) ?? [];
+        arr.push(row.malicious_domain);
+        techCampDomainsMap.set(row.campaign_id, arr);
+      }
+      for (const row of brandsRes.results) {
+        const arr = techCampBrandsMap.get(row.campaign_id) ?? [];
+        arr.push(row.name);
+        techCampBrandsMap.set(row.campaign_id, arr);
+      }
+      for (const row of providersRes.results) {
+        const arr = techCampProvidersMap.get(row.campaign_id) ?? [];
+        arr.push(row.name);
+        techCampProvidersMap.set(row.campaign_id, arr);
+      }
+      for (const row of typesRes.results) {
+        const arr = techCampTypesMap.get(row.campaign_id) ?? [];
+        arr.push(row.threat_type);
+        techCampTypesMap.set(row.campaign_id, arr);
+      }
+      for (const row of countsRes.results) {
+        techCampCountMap.set(row.campaign_id, row.n);
+      }
+    }
+
     let renameSuccessCount = 0;
     let renameFailCount = 0;
     let firstRenameResult: { campaign: string; success: boolean; newName?: string; error?: string } | null = null;
 
     for (const camp of technicalCampaigns.results) {
-      // Fetch context from linked threats
-      const campDomains = await env.DB.prepare(
-        `SELECT DISTINCT malicious_domain FROM threats WHERE campaign_id = ? AND malicious_domain IS NOT NULL LIMIT 10`
-      ).bind(camp.id).all<{ malicious_domain: string }>();
-      const campBrands = await env.DB.prepare(
-        `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.campaign_id = ? LIMIT 5`
-      ).bind(camp.id).all<{ name: string }>();
-      const campProviders = await env.DB.prepare(
-        `SELECT DISTINCT COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.campaign_id = ? AND t.hosting_provider_id IS NOT NULL LIMIT 3`
-      ).bind(camp.id).all<{ name: string }>();
-      const campTypes = await env.DB.prepare(
-        `SELECT DISTINCT threat_type FROM threats WHERE campaign_id = ? AND threat_type IS NOT NULL LIMIT 5`
-      ).bind(camp.id).all<{ threat_type: string }>();
-      const campCount = await env.DB.prepare(
-        `SELECT COUNT(*) as n FROM threats WHERE campaign_id = ?`
-      ).bind(camp.id).first<{ n: number }>();
+      const campDomains = (techCampDomainsMap.get(camp.id) ?? []).slice(0, 10);
+      const campBrands = (techCampBrandsMap.get(camp.id) ?? []).slice(0, 5);
+      const campProviders = (techCampProvidersMap.get(camp.id) ?? []).slice(0, 3);
+      const campTypes = (techCampTypesMap.get(camp.id) ?? []).slice(0, 5);
+      const campCount = techCampCountMap.get(camp.id) ?? 0;
 
       const nameResult = await generateCampaignName(env, {
-        domains: campDomains.results.map(d => d.malicious_domain),
-        target_brands: campBrands.results.map(b => b.name),
-        threat_types: campTypes.results.map(t => t.threat_type),
-        providers: campProviders.results.map(p => p.name),
-        threat_count: campCount?.n ?? 0,
+        domains: campDomains,
+        target_brands: campBrands,
+        threat_types: campTypes,
+        providers: campProviders,
+        threat_count: campCount,
       });
 
       if (!firstRenameResult) {

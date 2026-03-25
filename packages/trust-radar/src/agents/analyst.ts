@@ -12,6 +12,7 @@ import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
 import { correlateBrandThreats } from "../brand-threat-correlator";
 import { getBrandSocialIntel } from "../lib/social-intel";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
+import { getBrandById, incrementBrandThreatCount } from "../db/brands";
 
 export const analystAgent: AgentModule = {
   name: "analyst",
@@ -168,9 +169,7 @@ export const analystAgent: AgentModule = {
         await env.DB.prepare(
           "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL"
         ).bind(brandId.id, threat.id).run();
-        await env.DB.prepare(
-          "UPDATE brands SET threat_count = threat_count + 1, last_threat_seen = datetime('now') WHERE id = ?"
-        ).bind(brandId.id).run();
+        await incrementBrandThreatCount(env, brandId.id);
         itemsUpdated++;
 
         // Factor email security into risk: escalate phishing to CRITICAL when brand has weak email security
@@ -206,12 +205,18 @@ export const analystAgent: AgentModule = {
 
     // ─── Phase 3: Brand threat correlation escalation ──────────
     // After processing threats, run correlation for brands with new matches
+    // Batch: get brand IDs for all processed threats in one query
     const matchedBrandIds = new Set<string>();
-    for (const threat of threats.results) {
-      const brandRow = await env.DB.prepare(
-        "SELECT target_brand_id FROM threats WHERE id = ?"
-      ).bind(threat.id).first<{ target_brand_id: string | null }>();
-      if (brandRow?.target_brand_id) matchedBrandIds.add(brandRow.target_brand_id);
+    if (threats.results.length > 0) {
+      const threatIds = threats.results.map(t => t.id);
+      const brandRows = await env.DB.prepare(
+        `SELECT DISTINCT target_brand_id FROM threats
+         WHERE id IN (${threatIds.map(() => '?').join(',')})
+           AND target_brand_id IS NOT NULL`
+      ).bind(...threatIds).all<{ target_brand_id: string }>();
+      for (const row of brandRows.results) {
+        matchedBrandIds.add(row.target_brand_id);
+      }
     }
 
     for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
