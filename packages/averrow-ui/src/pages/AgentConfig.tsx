@@ -4,15 +4,18 @@ import type { Agent } from '@/hooks/useAgents';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableLoader } from '@/components/ui/PageLoader';
 import { Badge } from '@/components/ui/Badge';
 import { AgentIcon } from '@/components/brand/AgentIcon';
+import { useToast } from '@/components/ui/Toast';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
 
 type TriggerState = 'idle' | 'loading' | 'success' | 'error';
 
-function TriggerButton({ agentId }: { agentId: string }) {
+function TriggerButton({ agentId, agentName }: { agentId: string; agentName: string }) {
   const { mutateAsync } = useTriggerAgent();
+  const { showToast } = useToast();
   const [state, setState] = useState<TriggerState>('idle');
 
   const resetTimer = useCallback(() => {
@@ -31,8 +34,10 @@ function TriggerButton({ agentId }: { agentId: string }) {
     try {
       await mutateAsync(agentId);
       setState('success');
+      showToast(`${agentName} triggered successfully`, 'success');
     } catch {
       setState('error');
+      showToast(`Failed to trigger ${agentName}`, 'error');
     }
   };
 
@@ -105,7 +110,7 @@ function AgentRow({ agent }: { agent: Agent }) {
       <td className="py-3 px-4 font-mono text-[11px] text-contrail/60">{successRate}%</td>
       <td className="py-3 px-4 font-mono text-[11px] text-parchment">{agent.outputs_24h}</td>
       <td className="py-3 px-4">
-        <TriggerButton agentId={agent.name} />
+        <TriggerButton agentId={agent.name} agentName={agent.display_name} />
       </td>
     </tr>
   );
@@ -131,7 +136,7 @@ function ApiUsagePanel() {
     <div className="bg-instrument border border-white/[0.06] rounded-xl p-5">
       <SectionLabel className="mb-4">Haiku API Usage</SectionLabel>
 
-      <div className="grid grid-cols-3 gap-6 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-5">
         <div>
           <div className="font-display text-lg font-bold text-parchment">{usage.tokens_24h.toLocaleString()}</div>
           <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 24h</div>
@@ -172,6 +177,8 @@ function ApiUsagePanel() {
 export function AgentConfig() {
   const { data: agents, isLoading } = useAgents();
   useAgentConfig(); // Preload config data
+
+  if (isLoading) return <TableLoader rows={6} />;
 
   return (
     <div className="animate-fade-in space-y-8">

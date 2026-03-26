@@ -4,6 +4,7 @@ import { useThreatTrends, useThreatBreakdown, useCountryBreakdown, useFeedBreakd
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { PageLoader } from '@/components/ui/PageLoader';
 
 const PERIODS = ['7d', '30d', '90d', '1y'] as const;
 
@@ -46,6 +47,8 @@ function BreakdownBar({ label, count, total, color }: { label: string; count: nu
 export function Trends() {
   const [period, setPeriod] = useState<string>('30d');
   const { data: trends, isLoading: trendsLoading } = useThreatTrends({ period });
+
+  if (trendsLoading) return <PageLoader />;
   const { data: breakdown } = useThreatBreakdown({ period });
   const { data: countries } = useCountryBreakdown({ period });
   const { data: feeds } = useFeedBreakdown({ period });

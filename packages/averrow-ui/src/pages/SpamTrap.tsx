@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Table, Th, Td } from '@/components/ui/Table';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { PageLoader } from '@/components/ui/PageLoader';
 import { relativeTime } from '@/lib/time';
 
 function authVariant(result: string | null): 'success' | 'critical' | 'default' {
@@ -48,7 +49,7 @@ function CaptureDetail({ captureId }: { captureId: number }) {
 
   return (
     <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-3">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div>
           <span className="font-mono text-[10px] text-contrail/40 uppercase">SPF</span>
           <div className="text-sm text-parchment">{String(detail.spf_result ?? 'none')}</div>
@@ -127,11 +128,13 @@ export function SpamTrap() {
 
   const captures = capturesRes?.data || [];
 
+  if (isLoading) return <PageLoader />;
+
   return (
     <div className="animate-fade-in space-y-6">
       <h1 className="font-display text-xl font-bold text-parchment">Spam Trap Command Center</h1>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Captured" value={stats?.total_captures ?? '—'} sublabel={stats ? `+${stats.captures_24h} last 24h` : undefined} />
         <StatCard label="Brands Spoofed" value={stats?.brands_spoofed ?? '—'} />
         <StatCard label="Unique IPs" value={stats?.unique_ips ?? '—'} />

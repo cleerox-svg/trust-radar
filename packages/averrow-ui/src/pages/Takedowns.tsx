@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { TableLoader } from '@/components/ui/PageLoader';
+import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 
 const STATUS_ORDER = ['all', 'requested', 'submitted', 'pending_response', 'draft', 'taken_down', 'failed'] as const;
@@ -96,6 +98,7 @@ export function Takedowns() {
     severity: severityFilter || undefined,
   });
   const updateTakedown = useUpdateTakedown();
+  const { showToast } = useToast();
 
   const takedowns = res?.data || [];
 
@@ -111,8 +114,13 @@ export function Takedowns() {
   }));
 
   const handleUpdate = (id: string, status: string) => {
-    updateTakedown.mutate({ id, status });
+    updateTakedown.mutate({ id, status }, {
+      onSuccess: () => showToast('Takedown status updated', 'success'),
+      onError: () => showToast('Failed to update takedown', 'error'),
+    });
   };
+
+  if (isLoading) return <TableLoader rows={6} />;
 
   return (
     <div className="animate-fade-in space-y-6">
