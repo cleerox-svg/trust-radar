@@ -1,0 +1,13 @@
+import { Card, CardHeader } from '@/components/ui/Card';
+
+export function Brands() {
+  return (
+    <div className="animate-fade-in">
+      <h1 className="font-display text-xl font-bold text-parchment mb-6">Brands</h1>
+      <Card>
+        <CardHeader>Brand Monitor</CardHeader>
+        <p className="text-sm text-contrail/60">Brands view — migrating from legacy SPA</p>
+      </Card>
+    </div>
+  );
+}
