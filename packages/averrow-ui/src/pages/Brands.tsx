@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CardGridLoader } from '@/components/ui/PageLoader';
 
 const TIME_RANGES = ['7d', '30d', '90d', '1y'] as const;
 
@@ -30,6 +31,8 @@ export function Brands() {
   const [timeRange, setTimeRange] = useState<string>('7d');
   const { data: statsData } = useBrandStats();
   const { data: brandsRes, isLoading } = useBrands({ view, timeRange });
+
+  if (isLoading) return <CardGridLoader count={12} />;
 
   const brands = brandsRes?.data || [];
   const total = brandsRes?.total || brands.length;

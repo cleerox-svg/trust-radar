@@ -10,6 +10,8 @@ import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Table, Th, Td } from '@/components/ui/Table';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { TableLoader } from '@/components/ui/PageLoader';
+import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 
 const KANBAN_COLUMNS = ['new', 'contacted', 'qualified', 'proposal_sent', 'converted', 'closed_lost'] as const;
@@ -84,7 +86,7 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
     <div className="space-y-6">
       {stats && (
         <>
-          <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {PIPELINE_STATUSES.map(s => (
               <div key={s} className="bg-instrument border border-white/[0.06] rounded-lg p-3 text-center">
                 <div className="font-display text-lg font-bold text-parchment">{stats[s as keyof typeof stats] ?? 0}</div>
@@ -93,7 +95,7 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-contrail/50">Response Rate</span>
@@ -220,8 +222,11 @@ export function Leads() {
   const { data: leadsRes, isLoading } = useLeads();
   const { data: stats } = useLeadStats();
   const enrichLead = useEnrichLead();
+  const { showToast } = useToast();
 
   const leads = leadsRes?.data || [];
+
+  if (isLoading) return <TableLoader rows={8} />;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -245,7 +250,10 @@ export function Leads() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => enrichLead.mutate()}
+            onClick={() => enrichLead.mutate(undefined, {
+              onSuccess: () => showToast('Lead enrichment started', 'success'),
+              onError: () => showToast('Failed to enrich lead', 'error'),
+            })}
             disabled={enrichLead.isPending}
           >
             {enrichLead.isPending ? 'Enriching...' : 'Enrich Leads'}

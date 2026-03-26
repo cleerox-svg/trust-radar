@@ -5,6 +5,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { CardGridLoader } from '@/components/ui/PageLoader';
 import { Badge } from '@/components/ui/Badge';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
@@ -94,17 +95,19 @@ export function Agents() {
   const totalOutputs = agents?.reduce((sum, a) => sum + a.outputs_24h, 0) || 0;
   const totalErrors = agents?.reduce((sum, a) => sum + a.error_count_24h, 0) || 0;
 
+  if (isLoading) return <CardGridLoader count={6} />;
+
   return (
     <div className="animate-fade-in space-y-8">
       <h1 className="font-display text-xl font-bold text-parchment">AI Agent Operations</h1>
 
       {/* Stats Row */}
       {isLoading ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Agents Operational" value={`${operational}/${total}`} accentColor="#28A050" />
           <StatCard label="Outputs 24h" value={totalOutputs} />
           <StatCard label="Total Agents" value={total} />

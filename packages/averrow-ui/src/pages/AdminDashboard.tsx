@@ -4,6 +4,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageLoader } from '@/components/ui/PageLoader';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
 import { relativeTime } from '@/lib/time';
@@ -83,6 +84,8 @@ export function AdminDashboard() {
   const pathfinder = agents?.find((a) => a.name === 'prospector');
   const coreAgents = agents?.filter((a) => a.name !== 'prospector') || [];
 
+  if (statsLoading && agentsLoading) return <PageLoader />;
+
   return (
     <div className="animate-fade-in space-y-8">
       <h1 className="font-display text-xl font-bold text-parchment">Admin Dashboard</h1>
@@ -91,11 +94,11 @@ export function AdminDashboard() {
       <div>
         <SectionLabel className="mb-3">System Overview</SectionLabel>
         {statsLoading ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
         ) : stats ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="Total Brands" value={stats.total_brands} sublabel={`${stats.monitored_brands} monitored`} />
             <StatCard label="Active Threats" value={stats.active_threats} accentColor="#C83C3C" sublabel={`${stats.total_threats} total`} />
             <StatCard
@@ -115,7 +118,7 @@ export function AdminDashboard() {
       <div>
         <SectionLabel className="mb-3">Agent Health</SectionLabel>
         {agentsLoading ? (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
           </div>
         ) : coreAgents.length > 0 ? (

@@ -8,6 +8,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Tabs } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { PageLoader } from '@/components/ui/PageLoader';
 import { relativeTime } from '@/lib/time';
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -56,17 +57,7 @@ export function BrandDetail() {
     { id: 'safe', label: 'Safe' },
   ];
 
-  if (isLoading) {
-    return (
-      <div className="animate-fade-in space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <PageLoader />;
 
   if (!brand) {
     return (

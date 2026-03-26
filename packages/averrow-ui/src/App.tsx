@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Shell } from '@/components/layout/Shell';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Login } from '@/pages/Login';
 import { Observatory } from '@/pages/Observatory';
 import { Brands } from '@/pages/Brands';
@@ -43,20 +44,20 @@ export default function App() {
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="/observatory" replace />} />
-        <Route path="observatory" element={<Observatory />} />
-        <Route path="brands" element={<Brands />} />
-        <Route path="brands/:brandId" element={<BrandDetail />} />
-        <Route path="providers" element={<Providers />} />
-        <Route path="providers/:providerId" element={<ProviderDetail />} />
-        <Route path="campaigns" element={<Campaigns />} />
-        <Route path="campaigns/:campaignId" element={<CampaignDetail />} />
-        <Route path="trends" element={<Trends />} />
-        <Route path="agents" element={<Agents />} />
-        <Route path="admin" element={<AdminDashboard />} />
-        <Route path="admin/agent-config" element={<AgentConfig />} />
-        <Route path="admin/takedowns" element={<Takedowns />} />
-        <Route path="admin/spam-trap" element={<SpamTrap />} />
-        <Route path="admin/leads" element={<Leads />} />
+        <Route path="observatory" element={<ErrorBoundary><Observatory /></ErrorBoundary>} />
+        <Route path="brands" element={<ErrorBoundary><Brands /></ErrorBoundary>} />
+        <Route path="brands/:brandId" element={<ErrorBoundary><BrandDetail /></ErrorBoundary>} />
+        <Route path="providers" element={<ErrorBoundary><Providers /></ErrorBoundary>} />
+        <Route path="providers/:providerId" element={<ErrorBoundary><ProviderDetail /></ErrorBoundary>} />
+        <Route path="campaigns" element={<ErrorBoundary><Campaigns /></ErrorBoundary>} />
+        <Route path="campaigns/:campaignId" element={<ErrorBoundary><CampaignDetail /></ErrorBoundary>} />
+        <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
+        <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
+        <Route path="admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+        <Route path="admin/agent-config" element={<ErrorBoundary><AgentConfig /></ErrorBoundary>} />
+        <Route path="admin/takedowns" element={<ErrorBoundary><Takedowns /></ErrorBoundary>} />
+        <Route path="admin/spam-trap" element={<ErrorBoundary><SpamTrap /></ErrorBoundary>} />
+        <Route path="admin/leads" element={<ErrorBoundary><Leads /></ErrorBoundary>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

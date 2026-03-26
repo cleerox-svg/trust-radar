@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CardGridLoader } from '@/components/ui/PageLoader';
 
 function statusVariant(status: string): 'critical' | 'info' | 'success' | 'default' {
   if (status === 'active') return 'critical';
@@ -34,6 +35,8 @@ export function Campaigns() {
   const { data: statsData } = useCampaignStats() as { data: Record<string, number> | null };
   const { data: campaignsRes, isLoading } = useCampaigns({ status });
 
+  if (isLoading) return <CardGridLoader count={9} />;
+
   const campaigns = campaignsRes?.data || [];
   const total = campaignsRes?.total || campaigns.length;
 
@@ -47,7 +50,7 @@ export function Campaigns() {
     <div className="animate-fade-in space-y-6">
       <h1 className="font-display text-xl font-bold text-parchment">Campaign Intelligence</h1>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Active Campaigns" value={statsData?.active ?? '—'} />
         <StatCard label="Dormant" value={statsData?.dormant ?? '—'} />
         <StatCard label="Disrupted" value={statsData?.disrupted ?? '—'} />
