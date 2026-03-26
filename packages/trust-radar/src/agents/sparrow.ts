@@ -218,7 +218,7 @@ async function createTakedownsFromMaliciousUrls(env: Env): Promise<number> {
         source_type, source_id, evidence_summary, evidence_detail,
         provider_name, provider_abuse_contact, provider_method,
         status, severity, priority_score, requested_by, created_at, updated_at
-      ) VALUES (?, NULL, ?, 'url', ?, ?, 'url_scan', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, 'sparrow_agent', datetime('now'), datetime('now'))
+      ) VALUES (?, NULL, ?, 'url', ?, ?, 'url_scan', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, null, datetime('now'), datetime('now'))
     `).bind(
       takedownId,
       result.brand_id as string | null,
@@ -305,7 +305,7 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
         source_type, source_id, evidence_summary, evidence_detail,
         provider_name, provider_abuse_contact, provider_method,
         status, severity, priority_score, requested_by, created_at, updated_at
-      ) VALUES (?, NULL, ?, 'social_profile', ?, ?, ?, 'social_profile', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, 'sparrow_agent', datetime('now'), datetime('now'))
+      ) VALUES (?, NULL, ?, 'social_profile', ?, ?, ?, 'social_profile', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, null, datetime('now'), datetime('now'))
     `).bind(
       takedownId,
       profile.brand_id as string,
