@@ -18,10 +18,9 @@ import { Button } from '@/components/ui/Button';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Tabs } from '@/components/ui/Tabs';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { ExposureGauge } from '@/components/brand/ExposureGauge';
-import { SecurityShield } from '@/components/brand/SecurityShield';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
+import { StatCard } from '@/components/brands/StatCard';
 import { relativeTime } from '@/lib/time';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -107,6 +106,324 @@ function TimelineTooltip({ active, payload, label }: any) {
         </div>
       ))}
     </div>
+  );
+}
+
+// ── Severity helpers ─────────────────────────────────────────────────
+const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const;
+
+const SEVERITY_TW: Record<string, { dot: string; text: string; textMuted: string }> = {
+  critical: { dot: 'bg-severity-critical', text: 'text-severity-critical', textMuted: 'text-severity-critical/60' },
+  high:     { dot: 'bg-severity-high',     text: 'text-severity-high',     textMuted: 'text-severity-high/60' },
+  medium:   { dot: 'bg-severity-medium',   text: 'text-severity-medium',   textMuted: 'text-severity-medium/60' },
+  low:      { dot: 'bg-severity-low',      text: 'text-severity-low',      textMuted: 'text-severity-low/60' },
+  info:     { dot: 'bg-severity-low',      text: 'text-severity-low',      textMuted: 'text-severity-low/60' },
+};
+
+const THREAT_TYPE_COLORS: Record<string, { bar: string; text: string }> = {
+  malware_distribution: { bar: 'bg-severity-high',     text: 'text-severity-high' },
+  phishing:             { bar: 'bg-severity-low',      text: 'text-severity-low' },
+  c2:                   { bar: 'bg-severity-critical',  text: 'text-severity-critical' },
+  credential_harvesting:{ bar: 'bg-[#E87040]',         text: 'text-[#E87040]' },
+  typosquatting:        { bar: 'bg-[#fbbf24]',         text: 'text-[#fbbf24]' },
+  impersonation:        { bar: 'bg-severity-high',     text: 'text-severity-high' },
+};
+
+function getExposureTier(score: number) {
+  if (score >= 80) return { color: 'text-severity-clear', stroke: '#28A050', label: 'LOW' };
+  if (score >= 60) return { color: 'text-severity-high', stroke: '#E8923C', label: 'MEDIUM' };
+  if (score >= 40) return { color: 'text-[#E87040]', stroke: '#E87040', label: 'HIGH' };
+  return { color: 'text-severity-critical', stroke: '#C83C3C', label: 'CRITICAL' };
+}
+
+// ── Card 1: Exposure Index ──────────────────────────────────────────
+function ExposureIndexCard({ score, threats }: { score: number | null; threats: any[] }) {
+  const s = score ?? 0;
+  const tier = getExposureTier(s);
+  const circumference = 2 * Math.PI * 23;
+  const offset = circumference * (1 - s / 100);
+
+  // Aggregate top 3 threat types
+  const typeCounts: Record<string, number> = {};
+  threats.forEach(t => {
+    const type = t.threat_type || 'unknown';
+    typeCounts[type] = (typeCounts[type] || 0) + 1;
+  });
+  const topTypes = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  const maxCount = topTypes.length > 0 ? topTypes[0][1] : 1;
+
+  return (
+    <StatCard
+      title="Exposure Index"
+      metricLabel={tier.label}
+      metric={
+        <div className="relative w-[52px] h-[52px]">
+          <svg width="52" height="52" viewBox="0 0 52 52">
+            <circle cx="26" cy="26" r="23" fill="none" stroke="#1e3048" strokeWidth="5" />
+            <circle
+              cx="26" cy="26" r="23" fill="none"
+              stroke={tier.stroke} strokeWidth="5" strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              transform="rotate(-90 26 26)"
+              className="transition-all duration-700"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={`font-mono text-[13px] font-bold text-parchment`}>
+              {score ?? '\u2014'}
+            </span>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-2">
+        {topTypes.length === 0 && (
+          <div className="font-mono text-[10px] text-contrail/30">No threats detected</div>
+        )}
+        {topTypes.map(([type, count]) => {
+          const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-severity-low', text: 'text-severity-low' };
+          const pct = Math.round((count / maxCount) * 100);
+          return (
+            <div key={type} className="space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-contrail/50 truncate">
+                  {type.replace(/_/g, ' ')}
+                </span>
+                <span className={`font-mono text-[10px] font-semibold ${tc.text}`}>
+                  {count}
+                </span>
+              </div>
+              <div className="w-full h-[2px] rounded-full bg-white/[0.04]">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${tc.bar}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </StatCard>
+  );
+}
+
+// ── Card 2: Active Threats ──────────────────────────────────────────
+function ActiveThreatsCard({ threats }: { threats: any[] }) {
+  const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+  threats.forEach(t => {
+    const sev = t.severity || 'low';
+    if (sev in counts) counts[sev]++;
+    else counts.low++;
+  });
+
+  const total = threats.length;
+  const highestActive = SEVERITY_ORDER.find(s => counts[s] > 0) || 'low';
+  const totalColor = SEVERITY_TW[highestActive]?.text || 'text-severity-low';
+
+  return (
+    <StatCard
+      title="Active Threats"
+      metricLabel="TOTAL"
+      metric={
+        <span className={`font-display text-[32px] font-extrabold leading-none ${totalColor}`}>
+          {total}
+        </span>
+      }
+    >
+      <div className="space-y-1.5">
+        {(['critical', 'high', 'medium', 'low'] as const).map(sev => {
+          const tw = SEVERITY_TW[sev];
+          const c = counts[sev];
+          return (
+            <div key={sev} className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tw.dot}`} />
+              <span className="font-mono text-[10px] text-contrail/50 flex-1 capitalize">{sev}</span>
+              <span className={`font-mono text-[10px] font-semibold ${c > 0 ? tw.text : 'text-white/[0.15]'}`}>
+                {c}
+              </span>
+            </div>
+          );
+        })}
+        <div className="border-t border-contrail/[0.08] pt-1.5 mt-1">
+          <span className="font-mono text-[9px] text-contrail/30">7-day window</span>
+        </div>
+      </div>
+    </StatCard>
+  );
+}
+
+// ── Card 3: Email Posture ───────────────────────────────────────────
+const EMAIL_PROTOCOLS = ['SPF', 'DKIM', 'DMARC', 'MX'] as const;
+
+function getEmailStatus(protocol: string, emailSec: any) {
+  if (!emailSec) return { status: 'MISSING', hint: '' };
+  const key = protocol.toLowerCase();
+  const result = emailSec[`${key}_result`] || emailSec[key] || null;
+  const record = emailSec[`${key}_record`] || emailSec[`${key}_value`] || '';
+
+  if (protocol === 'MX') {
+    const mx = emailSec.mx_records || emailSec.mx || null;
+    if (mx && (Array.isArray(mx) ? mx.length > 0 : true)) {
+      return { status: 'FOUND', hint: typeof mx === 'string' ? mx.split(' ')[0] : Array.isArray(mx) ? mx[0]?.exchange || mx[0] : '' };
+    }
+    return { status: 'MISSING', hint: 'risk' };
+  }
+
+  if (!result || result === 'none' || result === 'missing') {
+    return { status: protocol === 'DMARC' ? 'NONE' : 'MISSING', hint: protocol === 'DMARC' ? 'p=none' : '' };
+  }
+  if (result === 'pass' || result === 'found') {
+    let hint = '';
+    if (protocol === 'SPF' && record) {
+      const match = String(record).match(/[~+-]all/);
+      hint = match ? match[0] : '';
+    }
+    if (protocol === 'DMARC' && record) {
+      const match = String(record).match(/p=\w+/);
+      hint = match ? match[0] : '';
+    }
+    if (protocol === 'DKIM') hint = 'valid';
+    return { status: 'PASS', hint };
+  }
+  if (result === 'partial' || result === 'soft') {
+    return { status: 'PARTIAL', hint: record ? String(record).slice(0, 12) : '' };
+  }
+  return { status: 'FAIL', hint: '' };
+}
+
+const EMAIL_STATUS_CLASSES: Record<string, string> = {
+  PASS:    'bg-severity-clear/10 text-severity-clear border-severity-clear/30',
+  FOUND:   'bg-severity-clear/10 text-severity-clear border-severity-clear/30',
+  FAIL:    'bg-severity-critical/10 text-severity-critical border-severity-critical/30',
+  MISSING: 'bg-severity-critical/10 text-severity-critical border-severity-critical/30',
+  PARTIAL: 'bg-severity-high/10 text-severity-high border-severity-high/30',
+  NONE:    'bg-severity-high/10 text-severity-high border-severity-high/30',
+};
+
+function getGradeColor(grade: string | null) {
+  if (!grade) return 'text-contrail/40';
+  const g = grade.toUpperCase();
+  if (g === 'A+' || g === 'A') return 'text-severity-clear';
+  if (g.startsWith('B')) return 'text-contrail';
+  if (g.startsWith('C')) return 'text-severity-high';
+  return 'text-severity-critical';
+}
+
+function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | null }) {
+  return (
+    <StatCard
+      title="Email Posture"
+      metricLabel="GRADE"
+      metric={
+        <span className={`font-display text-[32px] font-extrabold leading-none ${getGradeColor(grade)}`}>
+          {grade || '\u2014'}
+        </span>
+      }
+    >
+      <div className="space-y-1">
+        {EMAIL_PROTOCOLS.map(proto => {
+          const { status, hint } = getEmailStatus(proto, emailSec);
+          const cls = EMAIL_STATUS_CLASSES[status] || EMAIL_STATUS_CLASSES.MISSING;
+          return (
+            <div key={proto} className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-contrail w-10 flex-shrink-0">{proto}</span>
+              <span className={`font-mono text-[9px] font-semibold uppercase px-1.5 py-px rounded border leading-tight ${cls}`}>
+                {status}
+              </span>
+              {hint && (
+                <span className="font-mono text-[9px] text-contrail/30 truncate">{hint}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </StatCard>
+  );
+}
+
+// ── Card 4: Social Risk ─────────────────────────────────────────────
+function SocialRiskCard({
+  socialProfiles,
+  lastScan,
+  onScan,
+  onDiscover,
+  scanPending,
+  discoverPending,
+}: {
+  socialProfiles: any[];
+  lastScan: string | null;
+  onScan: () => void;
+  onDiscover: () => void;
+  scanPending: boolean;
+  discoverPending: boolean;
+}) {
+  const impersonation = socialProfiles.filter((p: any) => p.classification === 'impersonation').length;
+  const suspicious = socialProfiles.filter((p: any) => p.classification === 'suspicious').length;
+  const official = socialProfiles.filter((p: any) => p.classification === 'official' || p.classification === 'safe').length;
+  const total = socialProfiles.length;
+
+  const totalColor = impersonation > 0
+    ? 'text-severity-critical'
+    : suspicious > 0
+      ? 'text-severity-high'
+      : total > 0
+        ? 'text-severity-clear'
+        : 'text-contrail/40';
+
+  const scanDaysAgo = lastScan
+    ? Math.max(0, Math.round((Date.now() - new Date(lastScan).getTime()) / 86400000))
+    : null;
+
+  return (
+    <StatCard
+      title="Social Risk"
+      metricLabel="PROFILES"
+      metric={
+        <span className={`font-display text-[32px] font-extrabold leading-none ${totalColor}`}>
+          {total}
+        </span>
+      }
+    >
+      <div className="space-y-1.5">
+        {([
+          { label: 'Impersonation', count: impersonation, dot: 'bg-severity-critical', text: 'text-severity-critical' },
+          { label: 'Suspicious', count: suspicious, dot: 'bg-severity-high', text: 'text-severity-high' },
+          { label: 'Official', count: official, dot: 'bg-severity-clear', text: 'text-severity-clear' },
+        ] as const).map(row => (
+          <div key={row.label} className="flex items-center gap-2">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${row.dot}`} />
+            <span className="font-mono text-[10px] text-contrail/50 flex-1">{row.label}</span>
+            <span className={`font-mono text-[10px] font-semibold ${row.count > 0 ? row.text : 'text-white/[0.15]'}`}>
+              {row.count}
+            </span>
+          </div>
+        ))}
+        <div className="border-t border-contrail/[0.08] pt-1.5 mt-1 space-y-1">
+          <span className="font-mono text-[9px] text-contrail/30 block">
+            {total} profiles tracked{scanDaysAgo !== null ? ` \u00b7 scanned ${scanDaysAgo}d ago` : ''}
+          </span>
+          <div className="flex gap-3">
+            <button
+              onClick={onScan}
+              disabled={scanPending}
+              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+            >
+              {scanPending ? 'SCANNING...' : 'SCAN'}
+            </button>
+            <button
+              onClick={onDiscover}
+              disabled={discoverPending}
+              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+            >
+              {discoverPending ? 'DISCOVERING...' : 'DISCOVER NEW'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </StatCard>
   );
 }
 
@@ -212,9 +529,6 @@ export function BrandDetail() {
     );
   }
 
-  const socialRiskColor = (brand.social_risk_score ?? 0) >= 70 ? '#C83C3C'
-    : (brand.social_risk_score ?? 0) >= 40 ? '#E8923C' : '#28A050';
-
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="animate-fade-in space-y-6">
@@ -249,89 +563,27 @@ export function BrandDetail() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-           ROW 1 — Hero Metrics: Exposure Gauge | Active Threats | Email Shield | Social Risk
+           ROW 1 — Unified Stat Cards
            ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Exposure Gauge */}
-        <Card hover={false} className="flex flex-col items-center justify-center py-6">
-          <SectionLabel className="mb-4">Exposure Index</SectionLabel>
-          <ExposureGauge score={brand.exposure_score} size={140} />
-        </Card>
+        {/* ── Card 1: Exposure Index ── */}
+        <ExposureIndexCard score={brand.exposure_score} threats={threats} />
 
-        {/* Active Contacts Summary */}
-        <Card hover={false} className="flex flex-col justify-between py-6">
-          <SectionLabel className="mb-3">Active Contacts</SectionLabel>
-          <div className="flex items-end gap-3">
-            <span className="font-display text-5xl font-extrabold text-accent leading-none">{threats.length}</span>
-            <span className="font-mono text-[10px] text-contrail/40 uppercase mb-1.5">in airspace</span>
-          </div>
-          <div className="mt-4 flex gap-2 flex-wrap">
-            {Object.entries(
-              threats.reduce((acc: Record<string, number>, t: any) => {
-                acc[t.severity || 'info'] = (acc[t.severity || 'info'] || 0) + 1;
-                return acc;
-              }, {})
-            ).sort((a, b) => {
-              const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-              return (order[a[0]] ?? 5) - (order[b[0]] ?? 5);
-            }).map(([sev, count]) => (
-              <Badge key={sev} variant={RISK_BADGE_VARIANT[sev] ?? 'default'}>
-                {count} {sev}
-              </Badge>
-            ))}
-          </div>
-        </Card>
+        {/* ── Card 2: Active Threats ── */}
+        <ActiveThreatsCard threats={threats} />
 
-        {/* Email Security Shield */}
-        <Card hover={false} className="flex flex-col items-center justify-center py-6">
-          <SectionLabel className="mb-3">Email Posture</SectionLabel>
-          <SecurityShield
-            spf={emailSec?.spf_result || emailSec?.spf || null}
-            dkim={emailSec?.dkim_result || emailSec?.dkim || null}
-            dmarc={emailSec?.dmarc_result || emailSec?.dmarc || null}
-            grade={brand.email_security_grade}
-          />
-        </Card>
+        {/* ── Card 3: Email Posture ── */}
+        <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} />
 
-        {/* Social Risk */}
-        <Card hover={false} className="flex flex-col justify-between py-6">
-          <SectionLabel className="mb-3">Social Risk</SectionLabel>
-          <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16">
-              <svg width="64" height="64" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
-                <circle cx="32" cy="32" r="28" fill="none"
-                  stroke={socialRiskColor} strokeWidth="6" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 28}
-                  strokeDashoffset={2 * Math.PI * 28 * (1 - (brand.social_risk_score ?? 0) / 100)}
-                  transform="rotate(-90 32 32)"
-                  className="transition-all duration-700" />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-display text-lg font-extrabold" style={{ color: socialRiskColor }}>
-                  {brand.social_risk_score ?? '\u2014'}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="font-mono text-[10px] text-contrail/50">{socialProfiles.length} profiles tracked</div>
-              <div className="font-mono text-[10px] text-contrail/50">{suspiciousCount} suspicious</div>
-              {brand.last_social_scan && (
-                <div className="font-mono text-[10px] text-contrail/30">Scanned {relativeTime(brand.last_social_scan)}</div>
-              )}
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => scanProfiles.mutate(id)}
-              disabled={scanProfiles.isPending}>
-              {scanProfiles.isPending ? 'SCANNING...' : 'SCAN'}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => discoverProfiles.mutate(id)}
-              disabled={discoverProfiles.isPending}>
-              DISCOVER
-            </Button>
-          </div>
-        </Card>
+        {/* ── Card 4: Social Risk ── */}
+        <SocialRiskCard
+          socialProfiles={socialProfiles}
+          lastScan={brand.last_social_scan}
+          onScan={() => scanProfiles.mutate(id)}
+          onDiscover={() => discoverProfiles.mutate(id)}
+          scanPending={scanProfiles.isPending}
+          discoverPending={discoverProfiles.isPending}
+        />
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
