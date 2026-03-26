@@ -25,3 +25,9 @@
   ::-webkit-scrollbar-thumb { background: #1A2E48; border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: #243A54; }
 }
+
+@layer utilities {
+  .page-enter {
+    animation: fadeIn 0.2s ease, slideUp 0.2s ease;
+  }
+}

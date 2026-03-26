@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs } from '@/hooks/useObservatory';
 import { ThreatMap } from '@/components/observatory/ThreatMap';
+import { useBrands } from '@/hooks/useBrands';
+import { useProviders } from '@/hooks/useProviders';
+import { useAgents } from '@/hooks/useAgents';
+import { Badge } from '@/components/ui/Badge';
+import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
 
 const PERIODS = [
@@ -22,6 +27,7 @@ export function Observatory() {
   const [showArcs, setShowArcs] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
+  const [showPanel, setShowPanel] = useState(true);
 
   const { data: threats = [] } = useObservatoryThreats({ period, source });
   const { data: stats } = useObservatoryStats({ period, source });
@@ -190,6 +196,43 @@ export function Observatory() {
           </div>
         </div>
       </div>
+
+      {/* Right sidebar panel */}
+      {showPanel && (
+        <div className="absolute top-0 right-0 bottom-0 w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+          {/* Top Targeted Brands */}
+          <div className="p-4 border-b border-white/5">
+            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+              Top Targeted Brands
+            </div>
+            <TopBrandsList period={period} />
+          </div>
+
+          {/* Hosting Providers */}
+          <div className="p-4 border-b border-white/5">
+            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+              Hosting Providers
+            </div>
+            <TopProvidersList period={period} />
+          </div>
+
+          {/* Agent Intelligence */}
+          <div className="p-4">
+            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+              Agent Intelligence
+            </div>
+            <AgentIntelFeed />
+          </div>
+        </div>
+      )}
+      {/* Panel toggle button */}
+      <button
+        onClick={() => setShowPanel(!showPanel)}
+        className="absolute top-1/2 z-20 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
+        style={showPanel ? { right: '320px' } : { right: 0 }}
+      >
+        {showPanel ? '\u203A' : '\u2039'}
+      </button>
     </div>
   );
 }
@@ -199,6 +242,83 @@ function LegendItem({ color, label }: { color: string; label: string }) {
     <div className="flex items-center gap-2">
       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
       <span className="font-mono text-[10px] text-contrail/60">{label}</span>
+    </div>
+  );
+}
+
+function TopBrandsList({ period }: { period: string }) {
+  const { data } = useBrands({ view: 'top', limit: 10, timeRange: period });
+  const brands = data?.data || [];
+
+  return (
+    <div className="space-y-2">
+      {brands.map((brand, i) => (
+        <div key={brand.id} className="flex items-center gap-3 py-1">
+          <span className="font-mono text-[10px] text-contrail/30 w-4">{i + 1}</span>
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=16`}
+            alt=""
+            className="w-4 h-4"
+          />
+          <span className="text-xs text-parchment/80 flex-1 truncate">{brand.name}</span>
+          <span className="font-mono text-xs font-bold text-accent">{brand.threat_count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TopProvidersList({ period }: { period: string }) {
+  const { data } = useProviders({ view: 'worst', limit: 5, timeRange: period });
+  const providers = data?.data || [];
+
+  return (
+    <div className="space-y-2">
+      {providers.map(provider => (
+        <div key={provider.id} className="py-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-parchment/80 truncate">{provider.name}</span>
+            <span className="font-mono text-xs font-bold text-accent">{provider.active_threat_count}</span>
+          </div>
+          <div className="font-mono text-[9px] text-contrail/30">{provider.asn}</div>
+          {provider.trend_7d !== 0 && (
+            <span className={cn(
+              'font-mono text-[9px]',
+              provider.trend_7d > 0 ? 'text-accent' : 'text-positive'
+            )}>
+              {provider.trend_7d > 0 ? '+' : ''}{provider.trend_7d.toFixed(1)}%
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AgentIntelFeed() {
+  const { data: agents } = useAgents();
+  const recentOutputs = (agents || [])
+    .filter(a => a.last_output_at)
+    .sort((a, b) => new Date(b.last_output_at!).getTime() - new Date(a.last_output_at!).getTime())
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-3">
+      {recentOutputs.map(agent => (
+        <div key={agent.agent_id} className="text-xs">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-mono font-bold uppercase" style={{ color: agent.color }}>
+              {agent.display_name}
+            </span>
+            <Badge variant={agent.status === 'active' ? 'success' : 'default'}>
+              {agent.last_run_status || 'idle'}
+            </Badge>
+          </div>
+          <div className="text-contrail/50">
+            {agent.outputs_24h} outputs &middot; {relativeTime(agent.last_output_at)}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
