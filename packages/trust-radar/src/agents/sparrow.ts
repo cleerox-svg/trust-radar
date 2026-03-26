@@ -185,7 +185,7 @@ async function createTakedownsFromMaliciousUrls(env: Env): Promise<number> {
   const unlinkedMalicious = await env.DB.prepare(`
     SELECT usr.*, b.name as brand_name, b.canonical_domain as brand_domain
     FROM url_scan_results usr
-    LEFT JOIN brands b ON b.id = usr.brand_id
+    JOIN brands b ON b.id = usr.brand_id
     WHERE usr.is_malicious = 1
       AND usr.takedown_id IS NULL
       AND usr.confidence_score >= 0.6
