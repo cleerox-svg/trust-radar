@@ -44,10 +44,10 @@ export function Observatory() {
           <>
             <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
               <div className="font-display text-2xl font-extrabold text-parchment">
-                {stats.active_threats?.toLocaleString()}
+                {stats.threats_mapped?.toLocaleString()}
               </div>
               <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">
-                Active Threats
+                Threats Mapped
               </div>
             </div>
             <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
@@ -56,15 +56,15 @@ export function Observatory() {
             </div>
             <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
               <div className="font-display text-2xl font-extrabold text-contrail">
-                {stats.brands_affected}
+                {stats.brands_monitored}
               </div>
               <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">
-                Brands Affected
+                Brands Monitored
               </div>
             </div>
             <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
-              <div className="font-display text-2xl font-extrabold text-warning">{stats.threats_24h}</div>
-              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">Last 24H</div>
+              <div className="font-display text-2xl font-extrabold text-warning">{stats.active_campaigns}</div>
+              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">Active Campaigns</div>
             </div>
           </>
         )}

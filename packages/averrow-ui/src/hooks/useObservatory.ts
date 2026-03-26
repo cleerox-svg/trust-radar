@@ -1,39 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-interface ThreatPoint {
-  id: string;
+export interface ThreatPoint {
   lat: number;
   lng: number;
-  threat_type: string;
-  severity: string;
-  target_brand_id: string | null;
-  brand_name: string | null;
-  malicious_domain: string | null;
-  hosting_provider: string | null;
+  threat_count: number;
+  top_severity: string | null;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
   country_code: string | null;
-  source_feed: string;
-  created_at: string;
+  top_threat_type: string | null;
 }
 
-interface ObservatoryStats {
-  total_threats: number;
-  active_threats: number;
+export interface ObservatoryStats {
+  threats_mapped: number;
   countries: number;
-  brands_affected: number;
-  providers: number;
-  threats_24h: number;
+  active_campaigns: number;
+  brands_monitored: number;
+  period: string;
 }
 
-interface ArcData {
-  source_lat: number;
-  source_lng: number;
-  target_lat: number;
-  target_lng: number;
+export interface ArcData {
+  sourcePosition: [number, number];
+  targetPosition: [number, number];
   threat_type: string;
   severity: string;
+  source_region: string;
+  target_brand: string;
   brand_name: string | null;
-  count: number;
+  volume: number;
 }
 
 interface CountryCluster {
@@ -51,7 +48,7 @@ export function useObservatoryThreats(options?: { period?: string; source?: stri
   return useQuery({
     queryKey: ['observatory-threats', period, source, limit],
     queryFn: async () => {
-      const params = new URLSearchParams({ period, source, limit: String(limit) });
+      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source, limit: String(limit) });
       const res = await api.get<ThreatPoint[]>(`/api/observatory/nodes?${params}`);
       return res.data || [];
     },
@@ -65,9 +62,11 @@ export function useObservatoryStats(options?: { period?: string; source?: string
   return useQuery({
     queryKey: ['observatory-stats', period, source],
     queryFn: async () => {
-      const params = new URLSearchParams({ period, source });
-      const res = await api.get<ObservatoryStats>(`/api/observatory/stats?${params}`);
-      return res.data || null;
+      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source });
+      const res = await api.get<any>(`/api/observatory/stats?${params}`);
+      // Handle double-wrapped response
+      const data = res.data?.data || res.data || res;
+      return data as ObservatoryStats;
     },
     refetchInterval: 120_000,
   });
@@ -79,7 +78,7 @@ export function useObservatoryArcs(options?: { period?: string; source?: string 
   return useQuery({
     queryKey: ['observatory-arcs', period, source],
     queryFn: async () => {
-      const params = new URLSearchParams({ period, source });
+      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source });
       const res = await api.get<ArcData[]>(`/api/observatory/arcs?${params}`);
       return res.data || [];
     },
