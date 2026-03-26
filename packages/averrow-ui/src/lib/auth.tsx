@@ -25,13 +25,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
-    // Check URL for OAuth callback tokens
-    const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
+    // Check URL for OAuth callback tokens (hash fragment from server redirect)
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hashParams.get('token');
+    const refreshToken = hashParams.get('refresh_token');
 
-    if (accessToken && refreshToken) {
-      api.setTokens(accessToken, refreshToken);
+    // Also check query params for backwards compatibility
+    const queryParams = new URLSearchParams(window.location.search);
+    const accessTokenQuery = queryParams.get('access_token');
+    const refreshTokenQuery = queryParams.get('refresh_token');
+
+    if (accessToken) {
+      api.setTokens(accessToken, refreshToken ?? '');
+      const returnTo = hashParams.get('return_to');
+      if (returnTo && returnTo.startsWith('/v2')) {
+        window.history.replaceState({}, '', returnTo);
+      } else {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } else if (accessTokenQuery && refreshTokenQuery) {
+      api.setTokens(accessTokenQuery, refreshTokenQuery);
       window.history.replaceState({}, '', window.location.pathname);
     }
 
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuth]);
 
   const login = () => {
-    window.location.href = '/api/auth/login?redirect=/v2';
+    window.location.href = '/api/auth/login?return_to=/v2/observatory';
   };
 
   const logout = () => {
