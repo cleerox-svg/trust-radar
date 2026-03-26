@@ -11,6 +11,9 @@ declare module '@deck.gl/layers' {
   export class ArcLayer {
     constructor(props: any);
   }
+  export class PathLayer {
+    constructor(props: any);
+  }
 }
 
 declare module '@deck.gl/core' {
