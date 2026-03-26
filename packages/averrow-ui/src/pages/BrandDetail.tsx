@@ -43,6 +43,44 @@ function classificationVariant(c: string): 'critical' | 'success' | 'high' | 'de
   return 'default';
 }
 
+// ── ASTRA Analysis Parser ─────────────────────────────────────────────
+interface AstraAnalysis {
+  summary: string | null;
+  riskLevel: 'critical' | 'high' | 'medium' | 'low' | null;
+  keyFindings: string[];
+  attackTypes: string[];
+  recommendation: string | null;
+}
+
+function parseAstraAnalysis(raw: string | object | null | undefined): AstraAnalysis | null {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return {
+      summary: parsed.analysis ?? null,
+      riskLevel: parsed.risk_level ?? null,
+      keyFindings: parsed.key_findings ?? [],
+      attackTypes: parsed.attack_types ?? [],
+      recommendation: parsed.recommendation ?? null,
+    };
+  } catch {
+    return {
+      summary: typeof raw === 'string' ? raw : null,
+      riskLevel: null,
+      keyFindings: [],
+      attackTypes: [],
+      recommendation: null,
+    };
+  }
+}
+
+const RISK_BADGE_VARIANT: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+  critical: 'critical',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+};
+
 // ── Timeline Tooltip ───────────────────────────────────────────────────
 function TimelineTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -206,12 +244,12 @@ export function BrandDetail() {
           <ExposureGauge score={brand.exposure_score} size={140} />
         </Card>
 
-        {/* Active Threats Summary */}
+        {/* Active Contacts Summary */}
         <Card hover={false} className="flex flex-col justify-between py-6">
           <SectionLabel className="mb-3">Active Contacts</SectionLabel>
           <div className="flex items-end gap-3">
             <span className="font-display text-5xl font-extrabold text-accent leading-none">{threats.length}</span>
-            <span className="font-mono text-[10px] text-contrail/40 uppercase mb-1.5">threats detected</span>
+            <span className="font-mono text-[10px] text-contrail/40 uppercase mb-1.5">in airspace</span>
           </div>
           <div className="mt-4 flex gap-2 flex-wrap">
             {Object.entries(
@@ -223,10 +261,9 @@ export function BrandDetail() {
               const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
               return (order[a[0]] ?? 5) - (order[b[0]] ?? 5);
             }).map(([sev, count]) => (
-              <span key={sev} className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_COLORS[sev] || '#5A80A8' }} />
-                <span style={{ color: SEVERITY_COLORS[sev] || '#5A80A8' }}>{count} {sev}</span>
-              </span>
+              <Badge key={sev} variant={RISK_BADGE_VARIANT[sev] ?? 'default'}>
+                {count} {sev}
+              </Badge>
             ))}
           </div>
         </Card>
@@ -292,37 +329,99 @@ export function BrandDetail() {
           <SectionLabel>Threat Breakdown</SectionLabel>
           <ThreatSummaryCards threats={threats} />
 
-          {/* AI Threat Analysis */}
-          {(brand.threat_analysis || analysis) && (
-            <Card hover={false} className="border-l-[3px] border-accent">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <SectionLabel>ASTRA Analysis</SectionLabel>
-                  <Badge variant="critical">CURRENT</Badge>
-                </div>
-                <p className="text-sm text-parchment/80 whitespace-pre-line leading-relaxed">
-                  {analysis?.summary || brand.threat_analysis}
-                </p>
-                {(brand.analysis_updated_at || analysis?.updated_at) && (
-                  <div className="font-mono text-xs text-contrail/40">
-                    Updated {relativeTime(brand.analysis_updated_at || analysis?.updated_at)}
+          {/* AI Threat Analysis — Executive Briefing */}
+          {(brand.threat_analysis || analysis) && (() => {
+            const astra = parseAstraAnalysis(analysis?.summary || analysis || brand.threat_analysis);
+            if (!astra) return null;
+            const riskVariant = astra.riskLevel ? RISK_BADGE_VARIANT[astra.riskLevel] ?? 'default' : 'default';
+            return (
+              <Card hover={false} className="border-l-[3px] border-accent">
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <SectionLabel>ASTRA Analysis</SectionLabel>
+                      {astra.riskLevel && (
+                        <Badge variant={riskVariant}>{astra.riskLevel} risk</Badge>
+                      )}
+                    </div>
+                    <Badge variant="critical">CURRENT</Badge>
                   </div>
-                )}
-                <div className="flex gap-2 pt-1">
-                  <Button variant="primary" size="sm"
-                    onClick={() => triggerAnalysis.mutate(id)}
-                    disabled={triggerAnalysis.isPending}>
-                    {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
-                  </Button>
-                  <Button variant="ghost" size="sm"
-                    onClick={() => cleanFP.mutate(id)}
-                    disabled={cleanFP.isPending}>
-                    CLEAN FALSE POSITIVES
-                  </Button>
+
+                  {/* Summary */}
+                  {astra.summary && (
+                    <p className="text-sm text-parchment/80 leading-relaxed">
+                      {astra.summary}
+                    </p>
+                  )}
+
+                  {/* Key Findings */}
+                  {astra.keyFindings.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest">
+                        Key Findings
+                      </h4>
+                      <ul className="space-y-1.5">
+                        {astra.keyFindings.map((finding, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-parchment/70">
+                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                            {finding}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Attack Types */}
+                  {astra.attackTypes.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest">
+                        Attack Vectors
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {astra.attackTypes.map((type, i) => (
+                          <Badge key={i} variant="info">{type}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommendation */}
+                  {astra.recommendation && (
+                    <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
+                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest mb-1.5">
+                        Recommendation
+                      </h4>
+                      <p className="text-sm text-parchment/70 leading-relaxed">
+                        {astra.recommendation}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Timestamp */}
+                  {(brand.analysis_updated_at || analysis?.updated_at) && (
+                    <div className="font-mono text-xs text-contrail/40">
+                      Updated {relativeTime(brand.analysis_updated_at || analysis?.updated_at)}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button variant="primary" size="sm"
+                      onClick={() => triggerAnalysis.mutate(id)}
+                      disabled={triggerAnalysis.isPending}>
+                      {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                      onClick={() => cleanFP.mutate(id)}
+                      disabled={cleanFP.isPending}>
+                      CLEAN FALSE POSITIVES
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          )}
+              </Card>
+            );
+          })()}
 
           {/* No analysis fallback — trigger button */}
           {!brand.threat_analysis && !analysis && (
