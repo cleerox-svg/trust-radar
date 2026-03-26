@@ -4,6 +4,7 @@ import { Shell } from '@/components/layout/Shell';
 import { Login } from '@/pages/Login';
 import { Observatory } from '@/pages/Observatory';
 import { Brands } from '@/pages/Brands';
+import { BrandDetail } from '@/pages/BrandDetail';
 import { Agents } from '@/pages/Agents';
 import { AgentConfig } from '@/pages/AgentConfig';
 import { Takedowns } from '@/pages/Takedowns';
@@ -39,6 +40,7 @@ export default function App() {
         <Route index element={<Navigate to="/observatory" replace />} />
         <Route path="observatory" element={<Observatory />} />
         <Route path="brands" element={<Brands />} />
+        <Route path="brands/:brandId" element={<BrandDetail />} />
         <Route path="agents" element={<Agents />} />
         <Route path="admin" element={<AdminDashboard />} />
         <Route path="admin/agent-config" element={<AgentConfig />} />
