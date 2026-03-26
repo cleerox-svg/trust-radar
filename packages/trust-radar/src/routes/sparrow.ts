@@ -5,6 +5,7 @@ import {
   handleScanCapture, handleScanBatch, handleScanResults,
   handleMaliciousResults, handleProviders,
   handleAssembleEvidence, handleGetEvidence,
+  handleResolveProvider, handleGenerateDraft,
 } from "../handlers/sparrow";
 
 export function registerSparrowRoutes(router: RouterType<IRequest>): void {
@@ -48,5 +49,17 @@ export function registerSparrowRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGetEvidence(request.params["takedownId"] ?? "")(request, env);
+  });
+
+  router.get("/api/admin/sparrow/resolve-provider/:domain", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleResolveProvider(request.params["domain"] ?? "")(request, env);
+  });
+
+  router.post("/api/admin/sparrow/generate-draft/:takedownId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGenerateDraft(request.params["takedownId"] ?? "")(request, env);
   });
 }

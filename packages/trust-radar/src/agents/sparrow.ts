@@ -89,10 +89,82 @@ export const sparrowAgent: AgentModule = {
       });
     }
 
+    // ── Phase E: Resolve providers and generate submission drafts ───
+    let providersResolved = 0;
+    const noProviderTakedowns = await env.DB.prepare(`
+      SELECT tr.*, b.name as brand_name
+      FROM takedown_requests tr
+      LEFT JOIN brands b ON b.id = tr.brand_id
+      WHERE tr.status = 'draft'
+        AND (tr.provider_name IS NULL OR tr.provider_abuse_contact IS NULL)
+        AND tr.target_type IN ('domain', 'url')
+      ORDER BY tr.priority_score DESC
+      LIMIT 5
+    `).all();
+
+    for (const td of noProviderTakedowns.results || []) {
+      try {
+        const { resolveProvider, generateSubmissionDraft } = await import("../lib/provider-resolver");
+        const providerInfo = await resolveProvider(env, td.target_value as string);
+
+        const updates: string[] = [];
+        const values: unknown[] = [];
+
+        if (providerInfo.hosting_provider && !td.provider_name) {
+          updates.push("provider_name = ?");
+          values.push(providerInfo.hosting_provider);
+        }
+        if (providerInfo.abuse_contact?.abuse_email || providerInfo.abuse_contact?.abuse_url) {
+          updates.push("provider_abuse_contact = ?");
+          values.push(providerInfo.abuse_contact.abuse_email || providerInfo.abuse_contact.abuse_url);
+        }
+        if (providerInfo.abuse_contact?.abuse_api_type) {
+          updates.push("provider_method = ?");
+          values.push(providerInfo.abuse_contact.abuse_api_type);
+        }
+
+        // Generate submission draft
+        const draft = generateSubmissionDraft(
+          { ...(td as Record<string, unknown>), brand_name: td.brand_name as string } as {
+            target_type: string;
+            target_value: string;
+            target_url?: string | null;
+            evidence_summary: string;
+            evidence_detail?: string | null;
+            brand_name?: string;
+          },
+          providerInfo.abuse_contact,
+          providerInfo,
+        );
+        updates.push("evidence_detail = COALESCE(evidence_detail, '') || ?");
+        values.push("\n\n--- SUBMISSION DRAFT ---\n" + draft);
+
+        if (updates.length > 0) {
+          updates.push("updated_at = datetime('now')");
+          values.push(td.id);
+          await env.DB.prepare(
+            `UPDATE takedown_requests SET ${updates.join(", ")} WHERE id = ?`
+          ).bind(...values).run();
+          providersResolved++;
+        }
+      } catch (err) {
+        console.error(`[Sparrow] Provider resolution failed for ${td.id}: ${err}`);
+      }
+    }
+
+    if (providersResolved > 0) {
+      outputs.push({
+        type: "diagnostic",
+        summary: `Resolved providers and generated submission drafts for ${providersResolved} takedown(s)`,
+        severity: "info",
+        details: { providers_resolved: providersResolved },
+      });
+    }
+
     return {
       itemsProcessed,
       itemsCreated,
-      itemsUpdated: 0,
+      itemsUpdated: providersResolved,
       output: {
         captures_scanned: scanResults.captures_processed,
         urls_scanned: scanResults.urls_scanned,
@@ -100,6 +172,7 @@ export const sparrowAgent: AgentModule = {
         url_takedowns: urlTakedowns,
         social_takedowns: socialTakedowns,
         evidence_assembled: evidenceAssembled,
+        providers_resolved: providersResolved,
       },
       agentOutputs: outputs,
     };
