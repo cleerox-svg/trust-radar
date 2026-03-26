@@ -24,12 +24,7 @@ function checkAuthCallback() {
     const token = params.get('token');
     if (token) {
       setAccessToken(token);
-      const returnTo = params.get('return_to');
-      if (returnTo && returnTo.startsWith('/v2')) {
-        window.location.href = returnTo;
-      } else {
-        navigate('/observatory');
-      }
+      navigate('/observatory');
       return true;
     }
   }

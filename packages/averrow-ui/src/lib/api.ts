@@ -15,14 +15,28 @@ class ApiClient {
   setTokens(access: string, refresh: string) {
     this.token = access;
     this.refreshToken = refresh;
+    try {
+      localStorage.setItem('averrow_token', access);
+      localStorage.setItem('averrow_refresh', refresh);
+    } catch {}
   }
 
   clearTokens() {
     this.token = null;
     this.refreshToken = null;
+    try {
+      localStorage.removeItem('averrow_token');
+      localStorage.removeItem('averrow_refresh');
+    } catch {}
   }
 
   getToken() {
+    if (!this.token) {
+      try {
+        this.token = localStorage.getItem('averrow_token');
+        this.refreshToken = localStorage.getItem('averrow_refresh');
+      } catch {}
+    }
     return this.token;
   }
 

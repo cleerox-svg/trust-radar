@@ -423,7 +423,16 @@ async function issueSession(
 
   // Redirect to frontend with access token as hash fragment (never hits server)
   const returnTo = returnToPath || '/observatory';
-  const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}&return_to=${encodeURIComponent(returnTo)}`;
+
+  // If returning to React app, redirect directly there with token in hash — bypass old SPA
+  if (returnTo.startsWith('/v2')) {
+    const redirectUrl = `${siteOrigin}${returnTo}#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
+    const response = new Response(null, { status: 302, headers: { Location: redirectUrl } });
+    return setRefreshCookie(response, refreshToken, request);
+  }
+
+  // Otherwise use old SPA callback flow
+  const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
   const response = new Response(null, {
     status: 302,
     headers: { Location: redirectUrl },
