@@ -16,9 +16,9 @@ import { getBrandById, incrementBrandThreatCount } from "../db/brands";
 
 export const analystAgent: AgentModule = {
   name: "analyst",
-  displayName: "Analyst",
+  displayName: "ASTRA",
   description: "Threat classification & brand matching via Haiku",
-  color: "#818CF8",
+  color: "#E8923C",
   trigger: "scheduled",
   requiresApproval: false,
 

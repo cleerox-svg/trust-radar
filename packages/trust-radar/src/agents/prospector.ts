@@ -526,9 +526,9 @@ async function run(env: Env): Promise<{
 
 export const prospectorAgent: AgentModule = {
   name: "prospector",
-  displayName: "Prospector",
+  displayName: "Pathfinder",
   description: "Sales intelligence & lead generation",
-  color: "#F59E0B",
+  color: "#28A050",
   trigger: "scheduled",
   requiresApproval: false,
 

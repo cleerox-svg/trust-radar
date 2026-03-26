@@ -14,7 +14,7 @@ export const strategistAgent: AgentModule = {
   name: "strategist",
   displayName: "Strategist",
   description: "Campaign correlation & clustering intelligence",
-  color: "#F472B6",
+  color: "#8A8F9C",
   trigger: "scheduled",
   requiresApproval: false,
 

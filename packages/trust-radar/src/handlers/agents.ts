@@ -1,9 +1,29 @@
 import { json } from "../lib/cors";
-import { executeAgent, resolveApproval, AGENT_DEFINITIONS } from "../lib/agentRunner";
+import { executeAgent, resolveApproval } from "../lib/agentRunner";
+import type { AgentName, TriggerType } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
 import { getDailyUsage } from "../lib/haiku";
 import { handler, parsePagination, parseFilters, buildWhereClause, success, error, parseBody } from "../lib/handler-utils";
 import type { Env } from "../types";
+
+// ─── Derive agent definitions from modules ──────────────────────
+function getAgentDefinitions(): Array<{
+  name: AgentName;
+  displayName: string;
+  description: string;
+  color: string;
+  trigger: TriggerType;
+  requiresApproval: boolean;
+}> {
+  return Object.values(agentModules).map(mod => ({
+    name: mod.name,
+    displayName: mod.displayName,
+    description: mod.description,
+    color: mod.color,
+    trigger: mod.trigger,
+    requiresApproval: mod.requiresApproval ?? false,
+  }));
+}
 
 // ─── Schedule labels for each agent ─────────────────────────────
 const AGENT_SCHEDULES: Record<string, string> = {
@@ -96,7 +116,7 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     return ageMs < twoHours ? "active" : "idle";
   }
 
-  const agents = AGENT_DEFINITIONS.map((def) => {
+  const agents = getAgentDefinitions().map((def) => {
     const stats = statsMap.get(def.name);
     const latestRun = latestRunMap.get(def.name);
     return {
@@ -129,7 +149,7 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
 export async function handleGetAgent(request: Request, env: Env, agentName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const def = AGENT_DEFINITIONS.find((d) => d.name === agentName);
+    const def = getAgentDefinitions().find((d) => d.name === agentName);
     if (!def) return error("Agent not found", 404, origin);
 
     const [runs, outputs, stats] = await Promise.all([

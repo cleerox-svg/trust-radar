@@ -15,7 +15,7 @@ export const observerAgent: AgentModule = {
   name: "observer",
   displayName: "Observer",
   description: "Trend analysis & daily intelligence synthesis",
-  color: "#FBBF24",
+  color: "#78A0C8",
   trigger: "scheduled",
   requiresApproval: false,
 
