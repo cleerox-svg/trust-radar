@@ -277,7 +277,7 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
         SELECT source_id FROM takedown_requests
         WHERE source_type = 'social_profile' AND source_id IS NOT NULL
       )
-    ORDER BY sp.confidence_score DESC
+    ORDER BY sp.impersonation_score DESC
     LIMIT 10
   `).all();
 
@@ -286,7 +286,7 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
   for (const profile of impersonations.results) {
     const platform = ((profile.platform as string) || "").toLowerCase();
     const handle = profile.handle as string;
-    const confidenceScore = (profile.confidence_score as number) || 0;
+    const confidenceScore = (profile.impersonation_score as number) || 0;
     const brandName = profile.brand_name as string;
 
     // Look up platform abuse contact
@@ -311,7 +311,7 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
       profile.brand_id as string,
       `@${handle}`,
       platform,
-      (profile.url as string) || null,
+      (profile.profile_url as string) || null,
       String(profile.id),
       `Impersonation account @${handle} on ${platform} targeting ${brandName}. Confidence: ${Math.round(confidenceScore * 100)}%.`,
       evidenceText,
@@ -333,7 +333,7 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
       JSON.stringify({
         platform,
         handle,
-        url: profile.url,
+        url: profile.profile_url,
         confidence_score: confidenceScore,
         classification: profile.classification,
         brand_name: brandName,
