@@ -8,12 +8,21 @@ import { generateSpiderTraps } from "../seeders/spider-injector";
 export function renderPricingPage(): string {
   return wrapPage(
     "Pricing — Averrow",
-    "Simple, transparent pricing. Enterprise-grade brand protection at a fraction of the cost. From $799/mo. Free scan available.",
+    "One platform. One price. Complete coverage. AI-powered brand protection from $1,199/mo. Free scan available.",
     `
 <style>
 .pricing-hero { padding: 5rem 0 2.5rem; text-align: center; background: var(--gradient-hero); }
 .pricing-hero h1 { font-family: var(--font-display); font-size: clamp(36px, 5vw, 64px); font-weight: 800; margin-bottom: 1rem; }
-.pricing-hero p { font-size: 18px; color: var(--text-secondary); max-width: 560px; margin: 0 auto; line-height: 1.7; }
+.pricing-hero p { font-size: 18px; color: var(--text-secondary); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+
+.value-prop { padding: 3rem 0 1rem; }
+.value-prop-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+.value-prop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 2rem; }
+.value-prop-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; transition: all 0.3s; }
+.value-prop-item:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+.value-prop-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+.value-prop-title { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.value-prop-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
 
 .pricing-section { padding: 3rem 0; }
 .pricing-grid { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
@@ -22,12 +31,10 @@ export function renderPricingPage(): string {
 .price-card.popular { border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow-glow); }
 .price-card.popular::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 
-.pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; }
-.pricing-toggle input[type="radio"] { display: none; }
-.toggle-pill { display: flex; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 100px; overflow: hidden; }
-.toggle-pill label { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; padding: 0.5rem 1.25rem; cursor: pointer; color: var(--text-tertiary); transition: all 0.2s; user-select: none; }
-.toggle-pill label.active { background: var(--accent); color: white; border-radius: 100px; }
-.save-badge { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; background: var(--green); color: white; padding: 0.2rem 0.6rem; border-radius: 100px; letter-spacing: 0.03em; }
+.pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 2.5rem; }
+.pricing-toggle-btn { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.5rem 1.25rem; border-radius: 100px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-tertiary); cursor: pointer; transition: all 0.2s; }
+.pricing-toggle-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
 .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 100px; letter-spacing: 0.05em; }
 .price-tier { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin-bottom: 0.25rem; }
 .price-desc { font-size: 15px; color: var(--text-tertiary); margin-bottom: 1.25rem; }
@@ -39,6 +46,10 @@ export function renderPricingPage(): string {
 .price-features li { font-size: 15px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 0.5rem; }
 .price-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
 .price-cta { margin-top: auto; }
+
+.price-monthly, .price-annual { }
+.price-annual { display: none; }
+.price-annual .price-annual-note { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.25rem; }
 
 .compare-section { padding: 3rem 0; background: var(--bg-tertiary); }
 .compare-table-wrap { max-width: 1400px; margin: 2rem auto 0; padding: 0 2rem; overflow-x: auto; }
@@ -64,41 +75,76 @@ export function renderPricingPage(): string {
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
-@media (max-width: 1024px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) { .pricing-grid { grid-template-columns: 1fr; max-width: 420px; } }
+@media (max-width: 1024px) { .pricing-grid, .value-prop-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .pricing-grid { grid-template-columns: 1fr; max-width: 420px; } .value-prop-grid { grid-template-columns: 1fr; } }
 </style>
 
 <section class="pricing-hero">
   <div class="container">
     <div class="section-label" style="text-align:center;">Pricing</div>
-    <h1>Simple, transparent pricing.</h1>
-    <p>Enterprise-grade brand protection at a fraction of the cost. No six-figure contracts. No dedicated analysts required.</p>
+    <h1>One platform. One price.<br>Complete coverage.</h1>
+    <p>Companies spend $150K+ per year across separate brand protection, email security monitoring, and threat intelligence platforms — plus 2-3 dedicated analysts to operate them. Averrow consolidates all three into one AI-native platform.</p>
+  </div>
+</section>
+
+<!-- What You Replace -->
+<section class="value-prop">
+  <div class="value-prop-inner">
+    <div class="section-label" style="text-align:center;">What You Replace</div>
+    <div class="value-prop-grid">
+      <div class="value-prop-item">
+        <div class="value-prop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="value-prop-title">Brand Protection Platform</div>
+        <div class="value-prop-desc">Averrow detects impersonation, phishing domains, and social media abuse.</div>
+      </div>
+      <div class="value-prop-item">
+        <div class="value-prop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg>
+        </div>
+        <div class="value-prop-title">Email Security Monitoring</div>
+        <div class="value-prop-desc">Continuous SPF, DKIM, DMARC assessment with A+ through F grading.</div>
+      </div>
+      <div class="value-prop-item">
+        <div class="value-prop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+        </div>
+        <div class="value-prop-title">Threat Intelligence Feeds</div>
+        <div class="value-prop-desc">45+ feeds ingested automatically by six AI agents.</div>
+      </div>
+      <div class="value-prop-item">
+        <div class="value-prop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="value-prop-title">2-3 Security Analysts</div>
+        <div class="value-prop-desc">AI agents that reason about threats 24/7 — no headcount required.</div>
+      </div>
+    </div>
   </div>
 </section>
 
 <section class="pricing-section">
   <div class="pricing-toggle">
-    <div class="toggle-pill">
-      <label id="toggle-monthly" class="active" onclick="setPricing('monthly')">Monthly</label>
-      <label id="toggle-annual" onclick="setPricing('annual')">Annual</label>
-    </div>
-    <span class="save-badge">Save 20%</span>
+    <button id="pricing-monthly" class="pricing-toggle-btn active" onclick="setPricing('monthly')">MONTHLY</button>
+    <button id="pricing-annual" class="pricing-toggle-btn" onclick="setPricing('annual')">
+      ANNUAL <span style="background:#28A050;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">Save 20%</span>
+    </button>
   </div>
   <div class="pricing-grid">
     <!-- Free -->
     <div class="price-card">
       <div class="price-tier">Free</div>
-      <div class="price-desc">See how exposed your brand is</div>
-      <div class="price-amount" data-monthly="$0" data-annual="$0">$0</div>
-      <div class="price-billing" data-monthly="One-time scan" data-annual="One-time scan">One-time scan</div>
+      <div class="price-desc">Brand Exposure Report</div>
+      <div class="price-amount">$0</div>
+      <div class="price-billing">One-time scan</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Email security grade</li>
         <li>Threat feed check</li>
         <li>Lookalike domain scan</li>
         <li>Social handle check</li>
-        <li>AI assessment</li>
-        <li>Shareable report link</li>
+        <li>Exposure score</li>
       </ul>
       <div class="price-cta"><a href="/scan" class="btn btn-outline" style="width:100%;justify-content:center;">Scan Your Brand</a></div>
     </div>
@@ -107,20 +153,25 @@ export function renderPricingPage(): string {
     <div class="price-card popular">
       <span class="popular-badge">POPULAR</span>
       <div class="price-tier">Professional</div>
-      <div class="price-desc">Continuous brand protection for growing companies</div>
-      <div class="price-amount" data-monthly="$799<span>/mo</span>" data-annual="$639<span>/mo</span>">$799<span>/mo</span></div>
-      <div class="price-billing" data-monthly="Billed monthly" data-annual="Billed annually ($7,668/yr)">Billed monthly</div>
+      <div class="price-desc">For growing companies</div>
+      <div class="price-monthly">
+        <div class="price-amount">$1,499<span>/mo</span></div>
+        <div class="price-billing">Billed monthly</div>
+      </div>
+      <div class="price-annual" style="display:none">
+        <div class="price-amount">$1,199<span>/mo</span></div>
+        <div class="price-billing">Billed annually ($14,388/yr)</div>
+      </div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Free</li>
         <li>1 brand — continuous 24/7 monitoring</li>
         <li>Full Agent Squadron</li>
         <li>Daily Observer briefings</li>
-        <li>Email Security Posture Engine</li>
-        <li>Social Airspace Monitoring (6 platforms)</li>
-        <li>AI-powered impersonation detection with confidence scoring</li>
-        <li>Takedown evidence generation</li>
-        <li>Lookalike domain tracking</li>
+        <li>Email security posture monitoring</li>
+        <li>Social airspace monitoring</li>
+        <li>Threat trend analysis</li>
+        <li>API access</li>
       </ul>
       <div class="price-cta"><a href="/contact" class="btn btn-primary" style="width:100%;justify-content:center;">Get Started</a></div>
     </div>
@@ -128,19 +179,25 @@ export function renderPricingPage(): string {
     <!-- Business -->
     <div class="price-card">
       <div class="price-tier">Business</div>
-      <div class="price-desc">Full-spectrum brand defense for security-conscious organizations</div>
-      <div class="price-amount" data-monthly="$1,999<span>/mo</span>" data-annual="$1,599<span>/mo</span>">$1,999<span>/mo</span></div>
-      <div class="price-billing" data-monthly="Billed monthly" data-annual="Billed annually ($19,188/yr)">Billed monthly</div>
+      <div class="price-desc">Full-spectrum brand defense</div>
+      <div class="price-monthly">
+        <div class="price-amount">$3,999<span>/mo</span></div>
+        <div class="price-billing">Billed monthly</div>
+      </div>
+      <div class="price-annual" style="display:none">
+        <div class="price-amount">$3,199<span>/mo</span></div>
+        <div class="price-billing">Billed annually ($38,388/yr)</div>
+      </div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Professional</li>
-        <li>10 brands — multi-brand + team</li>
-        <li>AI-powered Social Airspace Monitoring across 6 platforms</li>
-        <li>STIX 2.1 export</li>
-        <li>Full API access</li>
-        <li>Webhook notifications</li>
-        <li>CT log monitoring</li>
-        <li>Priority support</li>
+        <li>Up to 10 brands</li>
+        <li>Dedicated account manager</li>
+        <li>Custom monitoring rules</li>
+        <li>Webhook & SIEM integration</li>
+        <li>Priority takedown processing</li>
+        <li>Campaign intelligence</li>
+        <li>Advanced API access</li>
       </ul>
       <div class="price-cta"><a href="/contact" class="btn btn-outline" style="width:100%;justify-content:center;">Contact Sales</a></div>
     </div>
@@ -154,41 +211,53 @@ export function renderPricingPage(): string {
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Business</li>
-        <li>Dedicated account manager</li>
+        <li>Unlimited brands</li>
+        <li>SSO / SAML / SCIM</li>
         <li>Custom integrations</li>
         <li>SLA guarantees</li>
-        <li>SSO / SAML</li>
-        <li>Unlimited brands</li>
-        <li>Priority support</li>
+        <li>Dedicated support</li>
+        <li>Custom threat feeds</li>
+        <li>Onboarding & training</li>
       </ul>
       <div class="price-cta"><a href="/contact" class="btn btn-primary" style="width:100%;justify-content:center;">Contact Sales</a></div>
     </div>
   </div>
 </section>
 
-<!-- Competitor Comparison -->
+<!-- Feature Comparison -->
 <section class="compare-section">
   <div class="container" style="text-align:center;">
-    <div class="section-label" style="text-align:center;">Comparison</div>
-    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;">Designed for AI-Powered Threats</h2>
+    <div class="section-label" style="text-align:center;">Compare Plans</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;">Everything you need, at every stage</h2>
   </div>
   <div class="compare-table-wrap">
     <table class="compare-table">
       <thead>
         <tr>
           <th></th>
-          <th class="highlight">Averrow Professional</th>
-          <th>Incumbent Entry-Level</th>
-          <th>Enterprise Platform</th>
+          <th>Free</th>
+          <th class="highlight">Professional</th>
+          <th>Business</th>
+          <th>Enterprise</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>Annual Cost</td><td style="color:var(--accent);font-weight:600;">$9,588/yr</td><td>$20,000–$30,000/yr</td><td>$50,000–$150,000+/yr</td></tr>
-        <tr><td>Setup Time</td><td>Minutes (zero config)</td><td>Days to weeks</td><td>Weeks to months</td></tr>
-        <tr><td>Email Security Posture Engine</td><td style="color:#28A050;">✓ Full posture engine</td><td style="color:#C83C3C;">✗ Not included</td><td style="color:var(--amber);">~ Limited</td></tr>
-        <tr><td>AI-Powered Analysis</td><td style="color:#28A050;">✓ Full Agent Squadron</td><td style="color:#C83C3C;">✗ Manual triage</td><td style="color:var(--amber);">~ Basic ML rules</td></tr>
-        <tr><td>Social Airspace Monitoring</td><td style="color:#28A050;">✓ 6 platforms</td><td style="color:var(--amber);">~ 2-3 platforms</td><td style="color:#28A050;">✓ Comprehensive</td></tr>
-        <tr><td>Minimum Commitment</td><td>Monthly</td><td>Annual contract</td><td>Multi-year contract</td></tr>
+        <tr><td>Brands</td><td>1 scan</td><td>1</td><td>Up to 10</td><td>Unlimited</td></tr>
+        <tr><td>Monitoring</td><td>One-time</td><td>Continuous 24/7</td><td>Continuous 24/7</td><td>Continuous 24/7</td></tr>
+        <tr><td>Agent Squadron</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓ Full</td><td style="color:#28A050;">✓ Full</td><td style="color:#28A050;">✓ Full</td></tr>
+        <tr><td>Observer Briefings</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓ Daily</td><td style="color:#28A050;">✓ Daily</td><td style="color:#28A050;">✓ Daily</td></tr>
+        <tr><td>Email Security Posture</td><td>Grade only</td><td style="color:#28A050;">✓ Full monitoring</td><td style="color:#28A050;">✓ Full monitoring</td><td style="color:#28A050;">✓ Full monitoring</td></tr>
+        <tr><td>Social Airspace Monitoring</td><td>Handle check</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Threat Trend Analysis</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>API Access</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓ Advanced</td><td style="color:#28A050;">✓ Advanced</td></tr>
+        <tr><td>Custom Monitoring Rules</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Webhook & SIEM Integration</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Dedicated Account Manager</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Campaign Intelligence</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>SSO / SAML / SCIM</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Custom Integrations</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>SLA Guarantees</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td></tr>
+        <tr><td>Custom Threat Feeds</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#C83C3C;">✗</td><td style="color:#28A050;">✓</td></tr>
       </tbody>
     </table>
   </div>
@@ -213,8 +282,8 @@ export function renderPricingPage(): string {
       <div class="faq-a">Yes. You can upgrade or downgrade your plan at any time. Changes take effect at the start of your next billing cycle. No penalties for switching.</div>
     </div>
     <div class="faq-item">
-      <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do you offer annual billing? <span class="faq-arrow">▼</span></button>
-      <div class="faq-a">Yes. Annual billing includes a discount. Contact our sales team for annual pricing details.</div>
+      <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">How does annual billing work? <span class="faq-arrow">▼</span></button>
+      <div class="faq-a">Annual billing saves you 20% compared to monthly pricing. Professional is $1,199/mo billed annually ($14,388/yr) and Business is $3,199/mo billed annually ($38,388/yr). Use the toggle above to compare.</div>
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">What payment methods do you accept? <span class="faq-arrow">▼</span></button>
@@ -240,18 +309,10 @@ export function renderPricingPage(): string {
 </section>
 <script>
 function setPricing(mode) {
-  var monthly = document.getElementById('toggle-monthly');
-  var annual = document.getElementById('toggle-annual');
-  if (mode === 'annual') {
-    annual.classList.add('active');
-    monthly.classList.remove('active');
-  } else {
-    monthly.classList.add('active');
-    annual.classList.remove('active');
-  }
-  document.querySelectorAll('[data-' + mode + ']').forEach(function(el) {
-    el.innerHTML = el.getAttribute('data-' + mode);
-  });
+  document.querySelectorAll('.price-monthly').forEach(function(el) { el.style.display = mode === 'monthly' ? 'block' : 'none'; });
+  document.querySelectorAll('.price-annual').forEach(function(el) { el.style.display = mode === 'annual' ? 'block' : 'none'; });
+  document.getElementById('pricing-monthly').classList.toggle('active', mode === 'monthly');
+  document.getElementById('pricing-annual').classList.toggle('active', mode === 'annual');
 }
 </script>
 ${generateSpiderTraps("averrow.com", "pricing")}

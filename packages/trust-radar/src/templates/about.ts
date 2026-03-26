@@ -69,7 +69,7 @@ export function renderAboutPage(): string {
   <div class="container">
     <div class="section-label" style="text-align:center;">About</div>
     <h1>Making brand protection<br>accessible.</h1>
-    <p>LRX Enterprises Inc. <span class="ca-flag">🇨🇦</span> is building the brand protection that every company deserves — not just enterprises with six-figure security budgets.</p>
+    <p>LRX Enterprises Inc. is building the brand protection that every company deserves — not just enterprises with six-figure security budgets.</p>
   </div>
 </section>
 
@@ -80,7 +80,7 @@ export function renderAboutPage(): string {
     <div class="our-story-container">
       <p>In 1958, Canada built the most advanced interceptor in the world — the Avro Arrow. Averrow carries that legacy into the digital domain. We detect, classify, and neutralize threats crossing into your brand's airspace before they reach their target.</p>
       <p>Enterprise brand protection platforms cost $20,000 to $150,000+ per year and require dedicated security analysts to operate. Meanwhile, companies of every size — the ones actually being targeted by phishing campaigns and brand impersonation — have no affordable option.</p>
-      <p>Averrow exists to close that gap. Founded in Canada by LRX Enterprises Inc., built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do — and intercept threats before they land.</p>
+      <p>Averrow exists to close that gap. Founded by LRX Enterprises Inc., built AI-native from day one, and deployed on edge infrastructure that keeps costs 10-50x lower than traditional platforms. We believe every company should be able to see their brand the way attackers do — and intercept threats before they land.</p>
     </div>
   </div>
 </section>
@@ -116,7 +116,7 @@ export function renderAboutPage(): string {
     <h2 style="font-family:var(--font-display);font-size:clamp(24px, 3vw, 36px);font-weight:700;margin-bottom:0.5rem;">Company Facts</h2>
   </div>
   <div class="facts-grid">
-    <div class="fact-card"><div class="fact-value"><span class="ca-flag">🇨🇦</span> LRX Enterprises Inc.</div><div class="fact-label">Canadian-incorporated</div></div>
+    <div class="fact-card"><div class="fact-value">LRX Enterprises Inc.</div><div class="fact-label">Parent company</div></div>
     <div class="fact-card"><div class="fact-value">AI-Native</div><div class="fact-label">Powered by advanced AI agents</div></div>
     <div class="fact-card"><div class="fact-value">Edge-First</div><div class="fact-label">Zero cold starts, globally distributed</div></div>
     <div class="fact-card"><div class="fact-value">6+</div><div class="fact-label">Integrated brand protection feeds</div></div>
