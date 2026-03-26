@@ -6,7 +6,7 @@ export function Login() {
   const { login } = useAuth();
 
   return (
-    <div className="min-h-screen bg-cockpit flex items-center justify-center">
+    <div className="animate-fade-in min-h-screen bg-cockpit flex items-center justify-center">
       <div className="text-center space-y-8">
         <AverrowLogo size="large" />
         <div>
