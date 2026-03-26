@@ -1,27 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
-
-interface ThreatPoint {
-  id: string;
-  lat: number;
-  lng: number;
-  threat_type: string;
-  severity: string;
-  brand_name: string | null;
-  malicious_domain: string | null;
-  country_code: string | null;
-}
-
-interface ArcData {
-  source_lat: number;
-  source_lng: number;
-  target_lat: number;
-  target_lng: number;
-  threat_type: string;
-  severity: string;
-  brand_name: string | null;
-  count: number;
-}
+import type { ThreatPoint, ArcData } from '@/hooks/useObservatory';
 
 interface TooltipInfo {
   x: number;
@@ -104,6 +83,7 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
 
       const layers = [];
 
+      // Threat points layer — data is CLUSTERED (grouped by lat/lng)
       if (showNodes && threats.length > 0) {
         layers.push(
           new ScatterplotLayer({
@@ -111,24 +91,24 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
             data: threats.filter(t => t.lat && t.lng),
             getPosition: (d: ThreatPoint) => [d.lng, d.lat],
             getRadius: (d: ThreatPoint) => {
-              const s = d.severity?.toLowerCase();
-              if (s === 'critical') return 8000;
-              if (s === 'high') return 6000;
+              // Size based on threat count
+              if (d.threat_count >= 50) return 15000;
+              if (d.threat_count >= 20) return 10000;
+              if (d.threat_count >= 5) return 7000;
               return 4000;
             },
-            getFillColor: (d: ThreatPoint) =>
-              colorBy === 'severity'
-                ? [...getSeverityColor(d.severity), 180]
-                : [...getThreatColor(d.threat_type), 180],
-            radiusMinPixels: 2,
-            radiusMaxPixels: 12,
+            getFillColor: (d: ThreatPoint) => {
+              if (colorBy === 'severity') {
+                const sev = d.top_severity?.toLowerCase() || 'low';
+                return [...getSeverityColor(sev), 180];
+              }
+              return [...getThreatColor(d.top_threat_type || 'phishing'), 180];
+            },
+            radiusMinPixels: 3,
+            radiusMaxPixels: 20,
             pickable: true,
             onHover: ({ object, x, y }: any) => {
               setTooltip(object ? { x, y, threat: object } : null);
-            },
-            transitions: {
-              getPosition: 500,
-              getFillColor: 500,
             },
           })
         );
@@ -139,11 +119,11 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
           new ArcLayer({
             id: 'threat-arcs',
             data: arcs,
-            getSourcePosition: (d: ArcData) => [d.source_lng, d.source_lat],
-            getTargetPosition: (d: ArcData) => [d.target_lng, d.target_lat],
+            getSourcePosition: (d: ArcData) => d.sourcePosition,
+            getTargetPosition: (d: ArcData) => d.targetPosition,
             getSourceColor: (d: ArcData) => [...getThreatColor(d.threat_type), 100],
             getTargetColor: (d: ArcData) => [...getThreatColor(d.threat_type), 200],
-            getWidth: (d: ArcData) => Math.min(d.count, 5),
+            getWidth: (d: ArcData) => Math.min(d.volume, 5),
             greatCircle: true,
             pickable: true,
             onHover: ({ object, x, y }: any) => {
@@ -175,24 +155,25 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
           {tooltip.threat && (
             <>
               <div className="font-mono font-bold text-parchment">
-                {tooltip.threat.malicious_domain || 'Unknown'}
+                {tooltip.threat.threat_count} threats
               </div>
               <div className="text-contrail/60 mt-1">
-                <span className="capitalize">{tooltip.threat.threat_type?.replace(/_/g, ' ')}</span>
-                {' · '}
-                <span
-                  className="uppercase"
-                  style={{ color: `rgb(${getSeverityColor(tooltip.threat.severity).join(',')})` }}
-                >
-                  {tooltip.threat.severity}
-                </span>
+                <span className="capitalize">{tooltip.threat.top_threat_type?.replace(/_/g, ' ') || 'Mixed'}</span>
+                {tooltip.threat.top_severity && (
+                  <>
+                    {' · '}
+                    <span className="uppercase" style={{ color: `rgb(${getSeverityColor(tooltip.threat.top_severity).join(',')})` }}>
+                      {tooltip.threat.top_severity}
+                    </span>
+                  </>
+                )}
               </div>
-              {tooltip.threat.brand_name && (
-                <div className="text-accent mt-1">Target: {tooltip.threat.brand_name}</div>
-              )}
               {tooltip.threat.country_code && (
                 <div className="text-contrail/40 mt-0.5">{tooltip.threat.country_code}</div>
               )}
+              <div className="text-contrail/30 mt-1 text-[9px]">
+                C:{tooltip.threat.critical} H:{tooltip.threat.high} M:{tooltip.threat.medium} L:{tooltip.threat.low}
+              </div>
             </>
           )}
           {tooltip.arc && (
@@ -200,11 +181,12 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
               <div className="font-mono font-bold text-parchment capitalize">
                 {tooltip.arc.threat_type?.replace(/_/g, ' ')}
               </div>
-              <div className="text-contrail/60 mt-1">
-                {tooltip.arc.count} threat{tooltip.arc.count > 1 ? 's' : ''}
-              </div>
+              <div className="text-contrail/60 mt-1">{tooltip.arc.volume} threat{tooltip.arc.volume > 1 ? 's' : ''}</div>
               {tooltip.arc.brand_name && (
                 <div className="text-accent mt-1">Target: {tooltip.arc.brand_name}</div>
+              )}
+              {tooltip.arc.source_region && (
+                <div className="text-contrail/40 mt-0.5">From: {tooltip.arc.source_region}</div>
               )}
             </>
           )}
