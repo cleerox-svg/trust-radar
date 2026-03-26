@@ -184,6 +184,69 @@ All colors are derived from the Orbital Lock logo gradient (Signal Red → Contr
 | D | #E8923C (amber-500) |
 | F | #C83C3C (red-500) |
 
+### Logo-Extracted Colors (Orbital Lock palette)
+
+Colors extracted directly from the Orbital Lock logo SVGs (`icon-192.svg`, `icon-512.svg`, `favicon.svg`).
+
+| Token | Hex | Source | Usage |
+|-------|-----|--------|-------|
+| Orbital Teal | #00d4ff | Orbital ring strokes, center dot, crosshair lines | Accents, active indicators, chart series 1 |
+| Wing Blue | #0a8ab5 | Derived mid-tone (teal → cockpit blend) | Hover states, secondary accents, chart series 2 |
+| Thrust | #7aeaff | Lightened orbital teal highlight | Highlights, selected states, glow accents |
+| Ring Glow | #00b8d9 | Shifted orbital teal for border distinction | Border accents, animated ring strokes |
+
+**Tailwind tokens:** `orbital-teal`, `wing-blue`, `thrust`, `ring-glow` — available as `bg-orbital-teal`, `text-wing-blue`, `border-ring-glow`, etc.
+
+### Core Brand Colors (Quick Reference)
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Signal Red | #C83C3C | Critical threats, CTAs, danger states |
+| Contrail Blue | #78A0C8 | Labels, info states, low severity, links |
+| Cockpit | #080E18 | Primary background |
+| Polar | #F8F7F5 | Primary text on dark |
+
+### Severity Palette (UI)
+
+| Level | Color | Hex | Usage |
+|-------|-------|-----|-------|
+| Critical | Red | #f87171 | Critical threats, FAIL badges, missing records |
+| High | Amber | #fb923c | High severity, elevated risk |
+| Medium | Yellow | #fbbf24 | Medium severity, warnings |
+| Low | Contrail | #78A0C8 | Low severity, info |
+| Clean | Green | #4ade80 | PASS badges, clean status, official profiles |
+
+### Color Rules
+
+- Never use only red — always use the full severity palette
+- Muted states: append `/50` or `/30` opacity (e.g. `text-contrail/50`)
+- Zero counts always render in `white/30` — never colored
+- Background badges: `color-900/40` bg + `color-400` text + `color-500/30` border
+
+---
+
+## 4B. STAT CARD PATTERN
+
+All detail view header rows use a 4-column StatCard grid. Each card:
+
+- **Outer:** `rounded-xl border border-white/10 bg-cockpit p-4`
+- **Title:** `font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3`
+- **Layout:** `flex items-center gap-3`
+- **Left:** `flex-1 min-w-0` — breakdown rows (dots + counts, bars, or table)
+- **Divider:** `border-l border-white/10 pl-3`
+- **Right:** `flex flex-col items-center gap-1` — 32px bold metric + 9px muted label
+
+### Row variants
+
+- **Dot rows:** 6px circle + 10px label + right-aligned count. Color if >0, `white/30` if 0.
+- **Mini bars:** 2px height, colored by type, width proportional to max value.
+- **Primary metric:** `text-[32px] font-bold leading-none` colored by severity tier.
+- **Metric label:** `text-[9px] text-white/50 uppercase` below metric.
+
+### Applies to
+
+Brand Detail, Provider Detail, Campaign Detail, and all future detail views.
+
 ---
 
 ## 5. TYPOGRAPHY
