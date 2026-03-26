@@ -5652,6 +5652,7 @@ function agentIcon(agentId, size = 24) {
     strategist: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="4" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="28" cy="26" r="3" stroke="currentColor" stroke-width="1.3"/><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1"/><line x1="25" y1="11" x2="21" y2="15" stroke="currentColor" stroke-width="1"/><line x1="11" y1="25" x2="15" y2="21" stroke="currentColor" stroke-width="1"/><line x1="25" y1="25" x2="21" y2="21" stroke="currentColor" stroke-width="1"/><line x1="11" y1="10" x2="25" y2="10" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/><line x1="8" y1="13" x2="8" y2="23" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/></svg>`,
     observer: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><polyline points="2,18 6,18 8,10 10,26 12,14 14,22 16,18 18,8 20,28 22,16 24,20 26,18 30,18 34,18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
     prospector: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="1.5"/><line x1="23" y1="23" x2="32" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1" opacity="0.5"/><line x1="16" y1="6" x2="16" y2="10" stroke="currentColor" stroke-width="1" opacity="0.4"/><line x1="16" y1="22" x2="16" y2="26" stroke="currentColor" stroke-width="1" opacity="0.4"/></svg>`,
+    sparrow: `<svg width="${size}" height="${size}" viewBox="0 0 36 36" fill="none"><path d="M18 4L26 18L18 32L10 18Z" stroke="currentColor" stroke-width="1.5" fill="currentColor" fill-opacity="0.15"/><circle cx="18" cy="18" r="12" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/><line x1="18" y1="6" x2="18" y2="30" stroke="currentColor" stroke-width="0.8" opacity="0.3"/><line x1="8" y1="18" x2="28" y2="18" stroke="currentColor" stroke-width="0.8" opacity="0.3"/><line x1="14" y1="24" x2="22" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="24" r="2" fill="currentColor" opacity="0.6"/><path d="M20 10l4 4M24 10l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>`,
   };
   return icons[agentId] || icons.sentinel;
 }
@@ -5665,6 +5666,7 @@ const AGENT_META = {
   observer:     { iconClass: 'observer',     color: '#78A0C8', role: 'Trend Analysis & Intelligence Synthesis',   label: 'Observer'   },
   narrator:     { iconClass: 'narrator',     color: '#8A8F9C', role: 'Threat Event History & Timelines',          label: 'Blackbox'   },
   prospector:   { iconClass: 'prospector',   color: '#28A050', role: 'Sales Intelligence & Lead Generation',     label: 'Pathfinder' },
+  sparrow:      { iconClass: 'sparrow',      color: '#28A050', role: 'Takedown Agent',                          label: 'Sparrow'    },
 };
 let _selectedAgent = null;
 let _agentHealthChart = null;
@@ -6119,6 +6121,7 @@ async function viewAdmin(el) {
       strategist: { val: backlogs.strategist ?? 0, label: 'unlinked' },
       observer: { val: null, label: backlogs.observer_last_run ? (() => { const m = Math.round((Date.now() - new Date(backlogs.observer_last_run + 'Z').getTime()) / 60000); return m < 60 ? `Last briefing: ${m}m ago` : `Last briefing: ${Math.round(m/60)}h ago`; })() : 'No briefings yet' },
       prospector: { val: null, label: backlogs.prospector_leads ?? 'Weekly sales intelligence' },
+      sparrow: { val: backlogs.sparrow ?? 0, label: 'pending takedowns' },
     };
     document.getElementById('adm-agent-summary').innerHTML = agents.map(a => {
       const aid = a.agent_id || a.name;
@@ -9333,28 +9336,42 @@ async function viewAdminTakedowns(el) {
             actionArea = `<span style="font-size:11px;padding:4px 12px;border-radius:4px;background:rgba(74,90,115,0.2);color:#4a5a73;font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:0.04em;border:1px solid rgba(74,90,115,0.27)">${(t.status).toUpperCase()}</span>`;
           }
 
+          const isSparrow = t.requested_by === 'sparrow_agent';
+          const typeBadgeColor = { DOMAIN: '#C83C3C', URL: '#E8923C', SOCIAL_PROFILE: '#78A0C8', EMAIL: '#5A80A8' }[(t.target_type || '').toUpperCase()] || '#8A8F9C';
+
           return `<div class="adm-panel at-row" data-id="${t.id}" style="margin-bottom:10px;cursor:pointer">
             <div class="adm-padded">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span style="width:10px;height:10px;border-radius:50%;background:${sevColor};flex-shrink:0"></span>
                 <span style="font-size:11px;font-weight:700;color:${sevColor}">${t.severity}</span>
-                <span class="text-12 fw-600 text-primary">${t.target_value}</span>
-                <span class="data-label">${(t.target_type || '').replace(/_/g, ' ')}</span>
+                <span class="text-12 fw-600 text-primary" style="word-break:break-all">${t.target_value}</span>
+                <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${typeBadgeColor}22;color:${typeBadgeColor};border:1px solid ${typeBadgeColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em">${(t.target_type || '').replace(/_/g, ' ').toUpperCase()}</span>
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${(t.status || '').replace(/_/g, ' ').toUpperCase()}</span>
+                ${isSparrow ? '<span style="font-size:9px;padding:2px 8px;border-radius:3px;background:#28A05022;color:#28A050;border:1px solid #28A05044;font-weight:600;font-family:\'IBM Plex Mono\',monospace;letter-spacing:0.04em">SPARROW</span>' : ''}
                 <span class="data-label" style="margin-left:4px">${timeAgo(t.created_at)}</span>
                 <div style="margin-left:auto;display:flex;align-items:center;gap:6px">${actionArea}</div>
               </div>
-              <div class="text-secondary" style="font-size:11px;margin-top:6px">
-                <span class="fw-600">${t.org_name || 'SOC'}</span> &middot; ${t.brand_name || 'Unknown'}${t.target_platform ? ' &middot; ' + t.target_platform : ''}
+              <div class="text-secondary" style="font-size:11px;margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span class="fw-600">${t.brand_name || 'Unknown'}</span>
+                ${t.provider_name ? `<span style="color:var(--text-tertiary)">&middot;</span> <span>${t.provider_name}</span>` : ''}
+                ${t.provider_abuse_contact ? `<span style="color:var(--text-tertiary)">&middot;</span> <span class="text-blue" style="font-size:10px">${t.provider_abuse_contact}</span>` : ''}
+                <span style="color:var(--text-tertiary)">&middot;</span> <span>${t.org_name || 'SOC'}</span>
+                ${t.target_platform ? `<span style="color:var(--text-tertiary)">&middot;</span> <span>${t.target_platform}</span>` : ''}
               </div>
             </div>
             <div class="at-detail" id="at-detail-${t.id}" style="display:none;padding:14px 16px;background:#0E1A2B;border-top:1px solid rgba(26,46,72,0.6)">
-              ${t.evidence_summary ? `<div class="text-secondary text-11 mb-8">${t.evidence_summary}</div>` : ''}
-              ${t.evidence_detail ? `<div class="data-label" style="margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:100px;overflow-y:auto">${t.evidence_detail}</div>` : ''}
-              ${t.provider_name ? `<div class="data-label mb-8">Provider: <span class="text-secondary fw-600">${t.provider_name}</span>${t.provider_abuse_contact ? ' &mdash; <a href="' + t.provider_abuse_contact + '" target="_blank" class="text-blue">' + t.provider_abuse_contact + '</a>' : ''}</div>` : ''}
-              <div class="mb-10">
+              ${t.evidence_summary ? `<div class="section-label" style="font-size:9px;color:#C83C3C;letter-spacing:0.2em;margin-bottom:6px">EVIDENCE SUMMARY</div><div class="text-secondary text-11 mb-8">${t.evidence_summary}</div>` : ''}
+              ${t.evidence_detail ? `<div class="section-label" style="font-size:9px;color:#C83C3C;letter-spacing:0.2em;margin-bottom:6px">EVIDENCE DETAIL</div><div class="data-label" style="margin-bottom:8px;padding:8px;background:rgba(4,8,16,0.4);border-radius:4px;max-height:120px;overflow-y:auto;white-space:pre-wrap">${t.evidence_detail}</div>` : ''}
+              ${t.provider_name ? `<div class="data-label mb-8">Provider: <span class="text-secondary fw-600">${t.provider_name}</span>${t.provider_abuse_contact ? (() => {
+                const url = t.provider_abuse_contact;
+                const isUrl = url.startsWith('http');
+                return ' &mdash; ' + (isUrl ? '<a href="' + url + '" target="_blank" class="text-blue" style="text-decoration:underline">' + url + '</a>' : '<span class="text-blue">' + url + '</span>');
+              })() : ''}</div>` : ''}
+              <div class="mb-10" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <span style="font-size:9px;padding:2px 8px;border-radius:3px;background:${sevColor}22;color:${sevColor};border:1px solid ${sevColor}44;font-weight:600;font-family:'IBM Plex Mono',monospace">${t.severity}</span>
+                ${t.source_type === 'url_scan' ? '<span style="font-size:9px;padding:2px 8px;border-radius:3px;background:#E8923C22;color:#E8923C;border:1px solid #E8923C44;font-weight:600;font-family:\'IBM Plex Mono\',monospace">URL SCAN</span>' : ''}
               </div>
+              <div class="at-evidence-artifacts" id="at-evidence-${t.id}" style="margin-bottom:10px"></div>
               <textarea class="at-notes-input" data-id="${t.id}" placeholder="Add notes before submitting..." style="width:100%;padding:8px;font-size:11px;border:1px solid rgba(26,46,72,0.8);border-radius:4px;background:rgba(4,8,16,0.4);color:var(--text-primary);resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit">${t.response_notes || ''}</textarea>
             </div>
           </div>`;
@@ -9365,7 +9382,32 @@ async function viewAdminTakedowns(el) {
             if (e.target.closest('.at-act') || e.target.tagName === 'A' || e.target.tagName === 'TEXTAREA') return;
             const id = row.dataset.id;
             const detail = document.getElementById('at-detail-' + id);
-            if (detail) detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+            if (detail) {
+              const wasHidden = detail.style.display === 'none';
+              detail.style.display = wasHidden ? 'block' : 'none';
+              // Load evidence artifacts on first expand
+              if (wasHidden) {
+                const evEl = document.getElementById('at-evidence-' + id);
+                if (evEl && !evEl.dataset.loaded) {
+                  evEl.dataset.loaded = '1';
+                  evEl.innerHTML = '<div class="data-label" style="font-size:10px;color:var(--text-tertiary)">Loading evidence...</div>';
+                  api('/admin/sparrow/evidence/' + id).then(res => {
+                    const evidence = res?.data || [];
+                    if (evidence.length) {
+                      evEl.innerHTML = `<div class="section-label" style="font-size:9px;color:#28A050;letter-spacing:0.2em;margin-bottom:6px">EVIDENCE ARTIFACTS</div>` +
+                        evidence.map(ev => `<div style="padding:8px;margin-bottom:6px;background:rgba(4,8,16,0.4);border-radius:4px;border-left:3px solid #28A050">
+                          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="mono-label" style="font-size:10px;font-weight:600;color:#28A050">${ev.title || ev.evidence_type || 'Evidence'}</span><span class="data-label" style="font-size:9px">${timeAgo(ev.created_at)}</span></div>
+                          <div class="text-secondary" style="font-size:11px;white-space:pre-wrap;max-height:80px;overflow-y:auto">${ev.content_text || ''}</div>
+                        </div>`).join('');
+                    } else {
+                      evEl.innerHTML = '<div class="data-label" style="font-size:10px;color:var(--text-tertiary)">No evidence artifacts yet</div>';
+                    }
+                  }).catch(() => {
+                    evEl.innerHTML = '<div class="data-label" style="font-size:10px;color:var(--text-tertiary)">No evidence artifacts</div>';
+                  });
+                }
+              }
+            }
           });
         });
 
