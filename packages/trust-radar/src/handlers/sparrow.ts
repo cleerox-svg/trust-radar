@@ -84,3 +84,39 @@ export const handleGetEvidence = (takedownId: string) => handler(async (_request
   ).bind(takedownId).all();
   return success(evidence.results, ctx.origin);
 });
+
+// ── GET /api/admin/sparrow/resolve-provider/:domain ────────────
+
+export const handleResolveProvider = (domain: string) => handler(async (_request, env, ctx) => {
+  if (!domain) return error("Missing domain", 400, ctx.origin);
+  const { resolveProvider } = await import("../lib/provider-resolver");
+  const result = await resolveProvider(env, domain);
+  return success(result, ctx.origin);
+});
+
+// ── POST /api/admin/sparrow/generate-draft/:takedownId ─────────
+
+export const handleGenerateDraft = (takedownId: string) => handler(async (_request, env, ctx) => {
+  if (!takedownId) return error("Missing takedown ID", 400, ctx.origin);
+
+  const takedown = await env.DB.prepare(
+    "SELECT tr.*, b.name as brand_name FROM takedown_requests tr LEFT JOIN brands b ON b.id = tr.brand_id WHERE tr.id = ?"
+  ).bind(takedownId).first();
+  if (!takedown) return error("Takedown not found", 404, ctx.origin);
+
+  const { resolveProvider, generateSubmissionDraft } = await import("../lib/provider-resolver");
+  const providerInfo = await resolveProvider(env, takedown.target_value as string);
+  const draft = generateSubmissionDraft(
+    {
+      target_type: takedown.target_type as string,
+      target_value: takedown.target_value as string,
+      target_url: takedown.target_url as string | null,
+      evidence_summary: takedown.evidence_summary as string,
+      evidence_detail: takedown.evidence_detail as string | null,
+      brand_name: takedown.brand_name as string,
+    },
+    providerInfo.abuse_contact,
+    providerInfo,
+  );
+  return success({ provider: providerInfo, draft }, ctx.origin);
+});
