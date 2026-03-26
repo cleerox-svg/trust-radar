@@ -91,7 +91,7 @@ export function Providers() {
 
                   <div className="flex items-center gap-2.5">
                     <img
-                      src={`https://www.google.com/s2/favicons?domain=${provider.name.toLowerCase().replace(/\s/g, '')}.com&sz=32`}
+                      src={`https://www.google.com/s2/favicons?domain=${(provider.name ?? '').toLowerCase().replace(/\s/g, '')}.com&sz=32`}
                       alt=""
                       className="w-6 h-6 rounded"
                       loading="lazy"

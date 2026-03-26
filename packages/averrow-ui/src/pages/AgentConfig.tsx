@@ -138,17 +138,17 @@ function ApiUsagePanel() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-5">
         <div>
-          <div className="font-display text-lg font-bold text-parchment">{usage.tokens_24h.toLocaleString()}</div>
+          <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_24h ?? 0).toLocaleString()}</div>
           <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 24h</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_24h}</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">{usage.tokens_7d.toLocaleString()}</div>
+          <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_7d ?? 0).toLocaleString()}</div>
           <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 7d</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_7d}</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">{usage.tokens_30d.toLocaleString()}</div>
+          <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_30d ?? 0).toLocaleString()}</div>
           <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 30d</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_30d}</div>
         </div>

@@ -138,7 +138,7 @@ export function SpamTrap() {
         <StatCard label="Captured" value={stats?.total_captures ?? '—'} sublabel={stats ? `+${stats.captures_24h} last 24h` : undefined} />
         <StatCard label="Brands Spoofed" value={stats?.brands_spoofed ?? '—'} />
         <StatCard label="Unique IPs" value={stats?.unique_ips ?? '—'} />
-        <StatCard label="Auth Fail Rate" value={stats ? `${(stats.auth_fail_rate * 100).toFixed(1)}%` : '—'} />
+        <StatCard label="Auth Fail Rate" value={stats ? `${((stats?.auth_fail_rate ?? 0) * 100).toFixed(1)}%` : '—'} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

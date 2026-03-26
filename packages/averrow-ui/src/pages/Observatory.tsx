@@ -286,7 +286,7 @@ function TopProvidersList({ period }: { period: string }) {
               'font-mono text-[9px]',
               provider.trend_7d > 0 ? 'text-accent' : 'text-positive'
             )}>
-              {provider.trend_7d > 0 ? '+' : ''}{provider.trend_7d.toFixed(1)}%
+              {(provider.trend_7d ?? 0) > 0 ? '+' : ''}{(provider.trend_7d ?? 0).toFixed(1)}%
             </span>
           )}
         </div>
