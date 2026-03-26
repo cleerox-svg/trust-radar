@@ -4,6 +4,7 @@ import { requireAdmin, isAuthContext } from "../middleware/auth";
 import {
   handleScanCapture, handleScanBatch, handleScanResults,
   handleMaliciousResults, handleProviders,
+  handleAssembleEvidence, handleGetEvidence,
 } from "../handlers/sparrow";
 
 export function registerSparrowRoutes(router: RouterType<IRequest>): void {
@@ -35,5 +36,17 @@ export function registerSparrowRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleProviders(request, env);
+  });
+
+  router.post("/api/admin/sparrow/assemble-evidence/:takedownId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAssembleEvidence(request.params["takedownId"] ?? "")(request, env);
+  });
+
+  router.get("/api/admin/sparrow/evidence/:takedownId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetEvidence(request.params["takedownId"] ?? "")(request, env);
   });
 }
