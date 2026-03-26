@@ -2,10 +2,11 @@
  * Sparrow Agent — Takedown Agent.
  *
  * Runs every 6 hours (staggered at minute 15-20 after cartographer).
- * Three phases:
+ * Four phases:
  *   A) Scan unprocessed spam trap captures for malicious URLs
  *   B) Auto-create takedown request drafts from malicious URL scan results
  *   C) Auto-create takedown request drafts from impersonation social profiles
+ *   D) AI evidence assembly for unenriched takedown drafts
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -56,6 +57,38 @@ export const sparrowAgent: AgentModule = {
       });
     }
 
+    // ── Phase D: AI evidence assembly for unenriched takedowns ────
+    const unenrichedTakedowns = await env.DB.prepare(`
+      SELECT id FROM takedown_requests
+      WHERE status = 'draft'
+        AND id NOT IN (
+          SELECT takedown_id FROM takedown_evidence WHERE evidence_type = 'ai_report'
+        )
+      ORDER BY priority_score DESC
+      LIMIT 3
+    `).all<{ id: string }>();
+
+    let evidenceAssembled = 0;
+    for (const td of unenrichedTakedowns.results || []) {
+      try {
+        const { assembleEvidence } = await import("../lib/evidence-assembler");
+        await assembleEvidence(env, td.id);
+        evidenceAssembled++;
+      } catch (err) {
+        console.error(`[Sparrow] Evidence assembly failed for ${td.id}: ${err}`);
+      }
+    }
+
+    if (evidenceAssembled > 0) {
+      itemsCreated += evidenceAssembled;
+      outputs.push({
+        type: "diagnostic",
+        summary: `Assembled AI evidence for ${evidenceAssembled} takedown request(s)`,
+        severity: "info",
+        details: { evidence_assembled: evidenceAssembled },
+      });
+    }
+
     return {
       itemsProcessed,
       itemsCreated,
@@ -66,6 +99,7 @@ export const sparrowAgent: AgentModule = {
         malicious_found: scanResults.malicious_found,
         url_takedowns: urlTakedowns,
         social_takedowns: socialTakedowns,
+        evidence_assembled: evidenceAssembled,
       },
       agentOutputs: outputs,
     };
