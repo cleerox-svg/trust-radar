@@ -81,6 +81,19 @@ const RISK_BADGE_VARIANT: Record<string, 'critical' | 'high' | 'medium' | 'low'>
   low: 'low',
 };
 
+const RISK_BADGE_CLASSES: Record<string, string> = {
+  critical: 'bg-red-500/20 text-red-400 border-red-500/30',
+  high: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  medium: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+};
+
+function toTitleCase(str: string): string {
+  return str
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // ── Timeline Tooltip ───────────────────────────────────────────────────
 function TimelineTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -109,6 +122,7 @@ export function BrandDetail() {
   const [threatSort, setThreatSort] = useState<{ key: string; asc: boolean }>({ key: 'severity', asc: false });
   const [safeDomainInput, setSafeDomainInput] = useState('');
   const [expandedThreats, setExpandedThreats] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(false);
 
   // Data
   const { data, isLoading } = useBrandFullDetail(id);
@@ -333,38 +347,57 @@ export function BrandDetail() {
           {(brand.threat_analysis || analysis) && (() => {
             const astra = parseAstraAnalysis(analysis?.summary || analysis || brand.threat_analysis);
             if (!astra) return null;
-            const riskVariant = astra.riskLevel ? RISK_BADGE_VARIANT[astra.riskLevel] ?? 'default' : 'default';
+            const summaryText = astra.summary || '';
+            const needsTruncation = summaryText.length > 300;
+            const displaySummary = needsTruncation && !expandedSummary
+              ? summaryText.slice(0, 300) + '...'
+              : summaryText;
             return (
               <Card hover={false} className="border-l-[3px] border-accent">
                 <div className="space-y-4">
-                  {/* Header */}
+                  {/* Header row */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <SectionLabel>ASTRA Analysis</SectionLabel>
+                    <SectionLabel>ASTRA Analysis</SectionLabel>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="critical">CURRENT</Badge>
                       {astra.riskLevel && (
-                        <Badge variant={riskVariant}>{astra.riskLevel} risk</Badge>
+                        <span className={`inline-flex items-center font-mono text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded border ${RISK_BADGE_CLASSES[astra.riskLevel] || 'bg-white/5 text-white/60 border-white/10'}`}>
+                          {astra.riskLevel} &#9650;
+                        </span>
                       )}
                     </div>
-                    <Badge variant="critical">CURRENT</Badge>
                   </div>
 
                   {/* Summary */}
-                  {astra.summary && (
-                    <p className="text-sm text-parchment/80 leading-relaxed">
-                      {astra.summary}
-                    </p>
+                  {summaryText && (
+                    <div>
+                      <h4 className="font-mono text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-1.5">
+                        Summary
+                      </h4>
+                      <p className="text-sm text-white/80 leading-relaxed">
+                        {displaySummary}
+                        {needsTruncation && (
+                          <button
+                            onClick={() => setExpandedSummary(!expandedSummary)}
+                            className="ml-1.5 font-mono text-[10px] font-semibold text-contrail hover:text-white transition-colors"
+                          >
+                            {expandedSummary ? 'Show less' : 'Show more'}
+                          </button>
+                        )}
+                      </p>
+                    </div>
                   )}
 
                   {/* Key Findings */}
                   {astra.keyFindings.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest">
+                    <div>
+                      <h4 className="font-mono text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-2">
                         Key Findings
                       </h4>
                       <ul className="space-y-1.5">
                         {astra.keyFindings.map((finding, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-parchment/70">
-                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                          <li key={i} className="flex items-start gap-2.5 text-sm text-white/70">
+                            <span className="mt-[5px] text-accent text-[8px] flex-shrink-0">&#9670;</span>
                             {finding}
                           </li>
                         ))}
@@ -372,51 +405,25 @@ export function BrandDetail() {
                     </div>
                   )}
 
-                  {/* Attack Types */}
-                  {astra.attackTypes.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest">
-                        Attack Vectors
-                      </h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {astra.attackTypes.map((type, i) => (
-                          <Badge key={i} variant="info">{type}</Badge>
-                        ))}
-                      </div>
+                  {/* Actions + Timestamp */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex gap-2">
+                      <Button variant="primary" size="sm"
+                        onClick={() => triggerAnalysis.mutate(id)}
+                        disabled={triggerAnalysis.isPending}>
+                        {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
+                      </Button>
+                      <Button variant="ghost" size="sm"
+                        onClick={() => cleanFP.mutate(id)}
+                        disabled={cleanFP.isPending}>
+                        CLEAN FALSE POSITIVES
+                      </Button>
                     </div>
-                  )}
-
-                  {/* Recommendation */}
-                  {astra.recommendation && (
-                    <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] px-4 py-3">
-                      <h4 className="font-mono text-[10px] font-semibold text-contrail/60 uppercase tracking-widest mb-1.5">
-                        Recommendation
-                      </h4>
-                      <p className="text-sm text-parchment/70 leading-relaxed">
-                        {astra.recommendation}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Timestamp */}
-                  {(brand.analysis_updated_at || analysis?.updated_at) && (
-                    <div className="font-mono text-xs text-contrail/40">
-                      Updated {relativeTime(brand.analysis_updated_at || analysis?.updated_at)}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <Button variant="primary" size="sm"
-                      onClick={() => triggerAnalysis.mutate(id)}
-                      disabled={triggerAnalysis.isPending}>
-                      {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
-                    </Button>
-                    <Button variant="ghost" size="sm"
-                      onClick={() => cleanFP.mutate(id)}
-                      disabled={cleanFP.isPending}>
-                      CLEAN FALSE POSITIVES
-                    </Button>
+                    {(brand.analysis_updated_at || analysis?.updated_at) && (
+                      <span className="font-mono text-xs text-white/40">
+                        Updated {relativeTime(brand.analysis_updated_at || analysis?.updated_at)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -508,8 +515,8 @@ export function BrandDetail() {
         <div className="lg:col-span-2">
           <Card hover={false}>
             <div className="flex items-center justify-between mb-4">
-              <SectionLabel>Active Contacts</SectionLabel>
-              <span className="font-mono text-[10px] text-contrail/40">{threats.length} total</span>
+              <SectionLabel>Active Threats</SectionLabel>
+              <span className="font-mono text-[10px] text-white/40">{threats.length} total</span>
             </div>
 
             {threats.length === 0 ? (
@@ -535,52 +542,62 @@ export function BrandDetail() {
                 </div>
 
                 {/* Threat rows */}
-                {visibleThreats.map((t: any) => (
-                  <div key={t.id}
-                    className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_80px] gap-3 items-center py-2.5
-                    border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group">
-                    {/* Severity bar */}
-                    <div className="h-full rounded-full" style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
+                {visibleThreats.map((t: any) => {
+                  const secondaryLabel = t.url || t.domain || t.target_url || t.source || null;
+                  return (
+                    <div key={t.id}
+                      className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_100px] gap-3 items-center py-2.5
+                      border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group">
+                      {/* Severity bar */}
+                      <div className="h-full rounded-full" style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
 
-                    {/* Type + Severity */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8',
-                          boxShadow: t.severity === 'critical' ? `0 0 8px ${SEVERITY_COLORS.critical}` : 'none',
-                        }} />
-                      <div className="min-w-0">
-                        <div className="font-mono text-xs font-semibold text-parchment truncate">
-                          {(t.threat_type || 'unknown').replace(/_/g, ' ')}
+                      {/* Type + URL/domain */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8',
+                            boxShadow: t.severity === 'critical' ? `0 0 8px ${SEVERITY_COLORS.critical}` : 'none',
+                          }} />
+                        <div className="min-w-0">
+                          <div className="font-mono text-xs font-semibold text-white/90 truncate">
+                            {toTitleCase(t.threat_type || 'unknown')}
+                          </div>
+                          {secondaryLabel && (
+                            <div className="font-mono text-[9px] text-white/55 truncate">{secondaryLabel}</div>
+                          )}
                         </div>
-                        <div className="font-mono text-[9px] text-contrail/40">{t.id?.slice(0, 8)}</div>
+                      </div>
+
+                      {/* Target */}
+                      <div className="font-display text-xs font-semibold text-white/80 truncate">
+                        {t.target_url || t.domain || '\u2014'}
+                      </div>
+
+                      {/* Vector */}
+                      {t.vector ? (
+                        <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
+                      ) : (
+                        <span className="text-white/20 text-[10px]">\u2014</span>
+                      )}
+
+                      {/* Age + Score */}
+                      <div className="flex items-center justify-end gap-2 min-w-0">
+                        <span className="font-mono text-[10px] text-white/40">
+                          {relativeTime(t.detected_at || t.created_at)}
+                        </span>
+                        {t.score != null && (
+                          <span className="font-mono text-[9px] text-white/30">{t.score}</span>
+                        )}
                       </div>
                     </div>
-
-                    {/* Target */}
-                    <div className="font-display text-xs font-semibold text-parchment/80 truncate">
-                      {t.target_url || t.domain || '\u2014'}
-                    </div>
-
-                    {/* Vector */}
-                    {t.vector ? (
-                      <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
-                    ) : (
-                      <span className="text-contrail/20 text-[10px]">\u2014</span>
-                    )}
-
-                    {/* Age */}
-                    <div className="font-mono text-[10px] text-contrail/40 text-right">
-                      {relativeTime(t.detected_at || t.created_at)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {sortedThreats.length > 10 && (
                   <button onClick={() => setExpandedThreats(!expandedThreats)}
-                    className="w-full mt-3 py-2 font-mono text-[10px] text-contrail/50 hover:text-accent
+                    className="w-full mt-3 py-2 font-mono text-[10px] text-contrail hover:text-white
                     border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all">
-                    {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} CONTACTS`}
+                    {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} THREATS`}
                   </button>
                 )}
               </>
