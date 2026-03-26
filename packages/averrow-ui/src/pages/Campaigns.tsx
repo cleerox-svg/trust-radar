@@ -32,7 +32,7 @@ function formatDate(d: string) {
 export function Campaigns() {
   const navigate = useNavigate();
   const [status, setStatus] = useState('active');
-  const { data: statsData } = useCampaignStats() as { data: Record<string, number> | null };
+  const { data: statsData } = useCampaignStats();
   const { data: campaignsRes, isLoading } = useCampaigns({ status });
 
   if (isLoading) return <CardGridLoader count={9} />;
@@ -51,9 +51,9 @@ export function Campaigns() {
       <h1 className="font-display text-xl font-bold text-parchment">Campaign Intelligence</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Active Campaigns" value={statsData?.active ?? '—'} />
-        <StatCard label="Dormant" value={statsData?.dormant ?? '—'} />
-        <StatCard label="Disrupted" value={statsData?.disrupted ?? '—'} />
+        <StatCard label="Active Campaigns" value={statsData?.active_count ?? '—'} />
+        <StatCard label="Dormant" value={statsData?.dormant_count ?? '—'} />
+        <StatCard label="Disrupted" value={statsData?.disrupted_count ?? '—'} />
         <StatCard label="Brands Affected" value={statsData?.brands_affected ?? '—'} />
       </div>
 

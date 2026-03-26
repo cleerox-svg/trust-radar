@@ -15,13 +15,21 @@ interface Provider {
   reputation_score: number | null;
 }
 
-interface ProviderDetail extends Provider {
-  description: string | null;
-  threats: unknown[];
-  threat_type_breakdown: Array<{ threat_type: string; count: number }>;
-  target_brands: Array<{ brand_id: string; brand_name: string; count: number }>;
-  ai_assessment: string | null;
-  countries: Array<{ country_code: string; count: number }>;
+interface ProviderDetail {
+  id: string;
+  name: string;
+  asn: string | null;
+  country: string | null;
+  reputation_score: number | null;
+  avg_response_time: number | null;
+  total_threats: number;
+  active_threats: number;
+  brands_targeted: number;
+  campaigns: number;
+  first_seen: string;
+  last_seen: string;
+  brand_breakdown: Array<{ brand_id: string | null; brand_name: string | null; count: number }>;
+  type_breakdown: Array<{ threat_type: string; count: number }>;
 }
 
 export function useProviders(options?: { view?: string; limit?: number; offset?: number; timeRange?: string }) {

@@ -13,18 +13,6 @@ import { relativeTime } from '@/lib/time';
 
 const THREAT_TYPES = ['all', 'phishing', 'typosquatting', 'impersonation', 'credential_harvesting'] as const;
 
-function trendColor(val: number) {
-  if (val < 0) return 'text-positive';
-  if (val > 0) return 'text-accent';
-  return 'text-contrail/50';
-}
-
-function trendArrow(val: number) {
-  if (val < 0) return '↓';
-  if (val > 0) return '↑';
-  return '→';
-}
-
 function statusVariant(status: string): 'critical' | 'high' | 'success' | 'default' {
   if (status === 'active' || status === 'malicious') return 'critical';
   if (status === 'suspicious') return 'high';
@@ -48,7 +36,9 @@ export function ProviderDetail() {
 
   const threats = (threatsRes?.data ?? []) as Array<{
     id: string;
-    url: string;
+    malicious_url: string | null;
+    malicious_domain: string | null;
+    ip_address: string | null;
     threat_type: string;
     brand_name: string;
     first_seen: string;
@@ -88,17 +78,9 @@ export function ProviderDetail() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Active Threats" value={provider.active_threat_count} />
-        <StatCard
-          label="7d Trend"
-          value={`${trendArrow(provider.trend_7d)} ${Math.abs(provider.trend_7d)}%`}
-          className={trendColor(provider.trend_7d)}
-        />
-        <StatCard
-          label="30d Trend"
-          value={`${trendArrow(provider.trend_30d)} ${Math.abs(provider.trend_30d)}%`}
-          className={trendColor(provider.trend_30d)}
-        />
+        <StatCard label="Active Threats" value={provider.active_threats ?? 0} />
+        <StatCard label="Total Threats" value={provider.total_threats ?? 0} />
+        <StatCard label="Brands Targeted" value={provider.brands_targeted ?? 0} />
         <StatCard label="Avg Response" value={provider.avg_response_time ? `${provider.avg_response_time}h` : '—'} />
         <StatCard label="Reputation" value={provider.reputation_score ?? '—'} />
       </div>
@@ -130,7 +112,9 @@ export function ProviderDetail() {
               {threats.map(threat => (
                 <tr key={threat.id} className="hover:bg-white/[0.02] transition-colors">
                   <Td>
-                    <span className="font-mono text-xs text-parchment/90 break-all">{threat.url}</span>
+                    <span className="font-mono text-xs text-parchment/90 break-all">
+                      {threat.malicious_url || threat.malicious_domain || threat.ip_address || '—'}
+                    </span>
                   </Td>
                   <Td>
                     <Badge variant="info">{threat.threat_type}</Badge>
@@ -180,31 +164,17 @@ export function ProviderDetail() {
         </div>
 
         <div className="space-y-4">
-          {provider.countries && provider.countries.length > 0 && (
-            <Card hover={false}>
-              <SectionLabel className="mb-3">Target Locations</SectionLabel>
-              <div className="space-y-2">
-                {provider.countries.map(c => (
-                  <div key={c.country_code} className="flex items-center justify-between">
-                    <span className="text-sm text-parchment/80">{c.country_code}</span>
-                    <span className="font-mono text-xs text-contrail/50">{c.count}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {provider.target_brands && provider.target_brands.length > 0 && (
+          {provider.brand_breakdown && provider.brand_breakdown.length > 0 && (
             <Card hover={false}>
               <SectionLabel className="mb-3">Brands Targeted</SectionLabel>
               <div className="space-y-2">
-                {provider.target_brands.map(b => {
-                  const maxCount = provider.target_brands[0]?.count || 1;
+                {provider.brand_breakdown.map(b => {
+                  const maxCount = provider.brand_breakdown[0]?.count || 1;
                   const pct = (b.count / maxCount) * 100;
                   return (
-                    <div key={b.brand_id} className="space-y-1">
+                    <div key={b.brand_id ?? b.brand_name} className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-parchment/80 truncate">{b.brand_name}</span>
+                        <span className="text-sm text-parchment/80 truncate">{b.brand_name ?? 'Unknown'}</span>
                         <span className="font-mono text-xs text-contrail/50">{b.count}</span>
                       </div>
                       <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
@@ -220,12 +190,29 @@ export function ProviderDetail() {
             </Card>
           )}
 
-          {provider.ai_assessment && (
-            <Card hover={false} className="border-l-[3px] border-accent">
-              <SectionLabel className="mb-3">AI Assessment</SectionLabel>
-              <p className="text-sm text-parchment/80 whitespace-pre-line leading-relaxed">
-                {provider.ai_assessment}
-              </p>
+          {provider.type_breakdown && provider.type_breakdown.length > 0 && (
+            <Card hover={false}>
+              <SectionLabel className="mb-3">Threat Types</SectionLabel>
+              <div className="space-y-2">
+                {provider.type_breakdown.map(t => {
+                  const maxCount = provider.type_breakdown[0]?.count || 1;
+                  const pct = (t.count / maxCount) * 100;
+                  return (
+                    <div key={t.threat_type} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-parchment/80 truncate">{t.threat_type.replace(/_/g, ' ')}</span>
+                        <span className="font-mono text-xs text-contrail/50">{t.count}</span>
+                      </div>
+                      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           )}
         </div>

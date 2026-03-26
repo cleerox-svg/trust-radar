@@ -79,10 +79,12 @@ function PipelinePill({ name, pending, status }: { name: string; pending: number
 export function AdminDashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: agents, isLoading: agentsLoading } = useAgents();
-  const { data: pipelines, isLoading: pipelinesLoading } = usePipelineStatus();
+  const { data: pipelines, isLoading: pipelinesLoading } = usePipelineStatus(agents);
 
   const pathfinder = agents?.find((a) => a.name === 'prospector');
   const coreAgents = agents?.filter((a) => a.name !== 'prospector') || [];
+  const operationalCount = agents?.filter((a) => a.status !== 'error').length ?? 0;
+  const totalAgents = agents?.length ?? 0;
 
   if (statsLoading && agentsLoading) return <PageLoader />;
 
@@ -99,15 +101,15 @@ export function AdminDashboard() {
           </div>
         ) : stats ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Total Brands" value={stats.total_brands} sublabel={`${stats.monitored_brands} monitored`} />
-            <StatCard label="Active Threats" value={stats.active_threats} accentColor="#C83C3C" sublabel={`${stats.total_threats} total`} />
+            <StatCard label="Total Brands" value={stats.tranco_brand_count} sublabel={`${stats.users.total} users`} />
+            <StatCard label="Active Threats" value={stats.threats.active} accentColor="#C83C3C" sublabel={`${stats.threats.total} total`} />
             <StatCard
               label="Agents Operational"
-              value={`${stats.agents_operational}/${stats.agents_total}`}
+              value={`${operationalCount}/${totalAgents}`}
               accentColor="#28A050"
-              sublabel={`${stats.feeds_healthy}/${stats.feeds_total} feeds healthy`}
+              sublabel={`${stats.sessions.active} active sessions`}
             />
-            <StatCard label="Threats 24h" value={stats.threats_24h} accentColor="#E87040" sublabel={`${stats.takedowns_pending} takedowns pending`} />
+            <StatCard label="AI Attribution" value={stats.ai_attribution_pending} accentColor="#E87040" sublabel="pending" />
           </div>
         ) : (
           <EmptyState message="No dashboard data available" />

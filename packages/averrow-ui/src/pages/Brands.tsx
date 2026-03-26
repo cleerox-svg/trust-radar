@@ -48,10 +48,10 @@ export function Brands() {
       <h1 className="font-display text-xl font-bold text-parchment">Brands</h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Brands" value={statsData?.total_brands ?? '—'} />
-        <StatCard label="Monitored" value={statsData?.monitored ?? '—'} />
+        <StatCard label="Total Tracked" value={statsData?.total_tracked ?? '—'} />
         <StatCard label="New This Week" value={statsData?.new_this_week ?? '—'} />
-        <StatCard label="Top Attack Type" value={statsData?.top_type ?? '—'} sublabel={statsData?.top_type_pct ? `${statsData.top_type_pct}%` : undefined} />
+        <StatCard label="Fastest Rising" value={statsData?.fastest_rising ?? '—'} sublabel={statsData?.fastest_rising_pct ? `+${statsData.fastest_rising_pct}%` : undefined} />
+        <StatCard label="Top Threat Type" value={statsData?.top_threat_type?.replace(/_/g, ' ') ?? '—'} sublabel={statsData?.top_threat_type_pct ? `${statsData.top_threat_type_pct}%` : undefined} />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
