@@ -11,6 +11,11 @@ import { Takedowns } from '@/pages/Takedowns';
 import { SpamTrap } from '@/pages/SpamTrap';
 import { Leads } from '@/pages/Leads';
 import { AdminDashboard } from '@/pages/AdminDashboard';
+import { Providers } from '@/pages/Providers';
+import { ProviderDetail } from '@/pages/ProviderDetail';
+import { Campaigns } from '@/pages/Campaigns';
+import { CampaignDetail } from '@/pages/CampaignDetail';
+import { Trends } from '@/pages/Trends';
 import { NotFound } from '@/pages/NotFound';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -41,6 +46,11 @@ export default function App() {
         <Route path="observatory" element={<Observatory />} />
         <Route path="brands" element={<Brands />} />
         <Route path="brands/:brandId" element={<BrandDetail />} />
+        <Route path="providers" element={<Providers />} />
+        <Route path="providers/:providerId" element={<ProviderDetail />} />
+        <Route path="campaigns" element={<Campaigns />} />
+        <Route path="campaigns/:campaignId" element={<CampaignDetail />} />
+        <Route path="trends" element={<Trends />} />
         <Route path="agents" element={<Agents />} />
         <Route path="admin" element={<AdminDashboard />} />
         <Route path="admin/agent-config" element={<AgentConfig />} />

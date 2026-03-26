@@ -6,6 +6,9 @@ import { AverrowLogo } from '@/components/brand/AverrowLogo';
 const navItems = [
   { to: '/observatory', label: 'Observatory', section: 'platform' },
   { to: '/brands', label: 'Brands', section: 'platform' },
+  { to: '/providers', label: 'Providers', section: 'platform' },
+  { to: '/campaigns', label: 'Campaigns', section: 'platform' },
+  { to: '/trends', label: 'Trends', section: 'platform' },
   { to: '/agents', label: 'Agents', section: 'platform' },
   { to: '/admin', label: 'Dashboard', section: 'admin' },
   { to: '/admin/agent-config', label: 'Agent Config', section: 'admin' },
