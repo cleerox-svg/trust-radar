@@ -17,9 +17,9 @@ import { createNotification } from "../lib/notifications";
 
 export const cartographerAgent: AgentModule = {
   name: "cartographer",
-  displayName: "Cartographer",
+  displayName: "Navigator",
   description: "Infrastructure mapping & provider reputation scoring",
-  color: "#34D399",
+  color: "#5A80A8",
   trigger: "scheduled",
   requiresApproval: false,
 

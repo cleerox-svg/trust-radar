@@ -15,8 +15,8 @@ import { scanUnprocessedCaptures } from "../lib/url-scanner";
 export const sparrowAgent: AgentModule = {
   name: "sparrow",
   displayName: "Sparrow",
-  description: "Takedown Agent — scans URLs, auto-creates takedown requests from threats and impersonation signals",
-  color: "#C83C3C",
+  description: "Takedown agent — scans URLs, auto-creates takedowns, assembles evidence, resolves providers",
+  color: "#28A050",
   trigger: "scheduled",
   requiresApproval: false,
 

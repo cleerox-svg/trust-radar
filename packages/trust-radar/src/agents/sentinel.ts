@@ -60,7 +60,7 @@ export const sentinelAgent: AgentModule = {
   name: "sentinel",
   displayName: "Sentinel",
   description: "Certificate & domain surveillance — classifies new threats via AI",
-  color: "#22D3EE",
+  color: "#C83C3C",
   trigger: "event",
   requiresApproval: false,
 
