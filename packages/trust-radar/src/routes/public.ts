@@ -145,6 +145,18 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   );
   router.get("/api/stats/public", (request: Request, env: Env) => handlePublicStatsV2(request, env));
 
+  // ─── React app — serve v2/index.html for all /v2/* routes ────────
+  router.get("/v2/*", async (request: Request, env: Env) => {
+    const url = new URL(request.url);
+    // Try to serve the exact file (JS, CSS, assets)
+    const assetResponse = await env.ASSETS.fetch(new Request(new URL(url.pathname, request.url).toString()));
+    if (assetResponse.ok && !url.pathname.endsWith('/') && url.pathname.includes('.')) {
+      return assetResponse;
+    }
+    // Otherwise serve v2/index.html for client-side routing
+    return env.ASSETS.fetch(new Request(new URL("/v2/index.html", request.url).toString()));
+  });
+
   // ─── Static assets fallback (SPA) ────────────────────────────────
   router.all("*", async (request: Request, env: Env) => {
     const url = new URL(request.url);

@@ -55,6 +55,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build React UI
+        working-directory: packages/averrow-ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
       - name: Run DB migrations (production)
         working-directory: packages/trust-radar
         env:
