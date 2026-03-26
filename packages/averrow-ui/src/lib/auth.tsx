@@ -48,6 +48,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.history.replaceState({}, '', window.location.pathname);
     }
 
+    // If no token from hash, try localStorage (persisted from previous session)
+    if (!api.getToken()) {
+      // Try cookie-based refresh
+      try {
+        const refreshRes = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (refreshRes.ok) {
+          const data = await refreshRes.json() as any;
+          if (data.data?.token) {
+            api.setTokens(data.data.token, '');
+          }
+        }
+      } catch {}
+    }
+
     if (!api.getToken()) {
       setLoading(false);
       return;
