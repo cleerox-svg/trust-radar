@@ -421,7 +421,8 @@ async function issueSession(
   await audit(env, { action: "login", userId, details: { method: "google_oauth" }, request });
 
   // Redirect to frontend with access token as hash fragment (never hits server)
-  const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
+  const returnTo = storedState || '/observatory';
+  const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}&return_to=${encodeURIComponent(returnTo)}`;
   const response = new Response(null, {
     status: 302,
     headers: { Location: redirectUrl },
