@@ -52,7 +52,7 @@ export function useObservatoryThreats(options?: { period?: string; source?: stri
     queryKey: ['observatory-threats', period, source, limit],
     queryFn: async () => {
       const params = new URLSearchParams({ period, source, limit: String(limit) });
-      const res = await api.get<ThreatPoint[]>(`/api/observatory/threats?${params}`);
+      const res = await api.get<ThreatPoint[]>(`/api/observatory/nodes?${params}`);
       return res.data || [];
     },
     refetchInterval: 120_000,
@@ -87,16 +87,11 @@ export function useObservatoryArcs(options?: { period?: string; source?: string 
   });
 }
 
-export function useObservatoryCountries(options?: { period?: string; source?: string }) {
-  const { period = '7d', source = 'all' } = options || {};
-
+// TODO: /api/observatory/countries endpoint does not exist yet
+export function useObservatoryCountries() {
   return useQuery({
-    queryKey: ['observatory-countries', period, source],
-    queryFn: async () => {
-      const params = new URLSearchParams({ period, source });
-      const res = await api.get<CountryCluster[]>(`/api/observatory/countries?${params}`);
-      return res.data || [];
-    },
-    refetchInterval: 120_000,
+    queryKey: ['observatory-countries'],
+    queryFn: async () => [] as CountryCluster[],
+    enabled: false,
   });
 }
