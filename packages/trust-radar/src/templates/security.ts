@@ -495,7 +495,7 @@ export function renderSecurityPage(): string {
       <div class="sec-timeline-item sec-tl-active">
         <div class="sec-timeline-date">Ongoing</div>
         <div class="sec-timeline-title">PIPEDA Compliance</div>
-        <div class="sec-timeline-desc">Adherence to Canadian privacy law (Personal Information Protection and Electronic Documents Act).</div>
+        <div class="sec-timeline-desc">Adherence to PIPEDA (Personal Information Protection and Electronic Documents Act).</div>
       </div>
       <div class="sec-timeline-item sec-tl-active">
         <div class="sec-timeline-date">Ongoing</div>
