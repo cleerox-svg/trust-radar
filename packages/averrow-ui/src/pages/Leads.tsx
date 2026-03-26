@@ -99,19 +99,19 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-contrail/50">Response Rate</span>
-                <span className="font-mono text-xs text-parchment">{(stats.response_rate * 100).toFixed(1)}%</span>
+                <span className="font-mono text-xs text-parchment">{((stats?.response_rate ?? 0) * 100).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-positive rounded" style={{ width: `${stats.response_rate * 100}%` }} />
+                <div className="h-full bg-positive rounded" style={{ width: `${(stats?.response_rate ?? 0) * 100}%` }} />
               </div>
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-contrail/50">Conversion Rate</span>
-                <span className="font-mono text-xs text-parchment">{(stats.conversion_rate * 100).toFixed(1)}%</span>
+                <span className="font-mono text-xs text-parchment">{((stats?.conversion_rate ?? 0) * 100).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-accent rounded" style={{ width: `${stats.conversion_rate * 100}%` }} />
+                <div className="h-full bg-accent rounded" style={{ width: `${(stats?.conversion_rate ?? 0) * 100}%` }} />
               </div>
             </div>
           </div>

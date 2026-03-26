@@ -145,7 +145,7 @@ export function BrandDetail() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-lg w-7 text-center">
-                    {PLATFORM_ICONS[profile.platform.toLowerCase()] ?? '●'}
+                    {PLATFORM_ICONS[(profile.platform ?? '').toLowerCase()] ?? '●'}
                   </span>
                   <span className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</span>
                 </div>
