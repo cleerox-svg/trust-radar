@@ -25,6 +25,11 @@ export default {
           low: '#78A0C8',
           clear: '#28A050',
         },
+        // Orbital Lock logo-extracted colors
+        'orbital-teal': '#00d4ff',
+        'wing-blue': '#0a8ab5',
+        'thrust': '#7aeaff',
+        'ring-glow': '#00b8d9',
       },
       fontFamily: {
         display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
