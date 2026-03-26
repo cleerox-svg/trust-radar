@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
+import { MapboxOverlay } from '@deck.gl/mapbox';
+import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
 import type { ThreatPoint, ArcData } from '@/hooks/useObservatory';
 
 interface TooltipInfo {
@@ -74,33 +76,39 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !map.loaded()) {
+      const onLoad = () => updateLayers();
+      map?.on('load', onLoad);
+      return () => { map?.off('load', onLoad); };
+    }
+    updateLayers();
 
-    import('deck.gl').then(({ MapboxOverlay, ScatterplotLayer, ArcLayer }) => {
+    function updateLayers() {
+      if (!mapRef.current) return;
+
+      // Remove existing overlay
       if (deckRef.current) {
-        map.removeControl(deckRef.current);
+        mapRef.current.removeControl(deckRef.current);
+        deckRef.current = null;
       }
 
       const layers = [];
 
-      // Threat points layer — data is CLUSTERED (grouped by lat/lng)
       if (showNodes && threats.length > 0) {
         layers.push(
           new ScatterplotLayer({
             id: 'threat-points',
             data: threats.filter(t => t.lat && t.lng),
-            getPosition: (d: ThreatPoint) => [d.lng, d.lat],
-            getRadius: (d: ThreatPoint) => {
-              // Size based on threat count
+            getPosition: (d: any) => [d.lng, d.lat],
+            getRadius: (d: any) => {
               if (d.threat_count >= 50) return 15000;
               if (d.threat_count >= 20) return 10000;
               if (d.threat_count >= 5) return 7000;
               return 4000;
             },
-            getFillColor: (d: ThreatPoint) => {
+            getFillColor: (d: any) => {
               if (colorBy === 'severity') {
-                const sev = d.top_severity?.toLowerCase() || 'low';
-                return [...getSeverityColor(sev), 180];
+                return [...getSeverityColor(d.top_severity || 'low'), 180];
               }
               return [...getThreatColor(d.top_threat_type || 'phishing'), 180];
             },
@@ -119,11 +127,11 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
           new ArcLayer({
             id: 'threat-arcs',
             data: arcs,
-            getSourcePosition: (d: ArcData) => d.sourcePosition,
-            getTargetPosition: (d: ArcData) => d.targetPosition,
-            getSourceColor: (d: ArcData) => [...getThreatColor(d.threat_type), 100],
-            getTargetColor: (d: ArcData) => [...getThreatColor(d.threat_type), 200],
-            getWidth: (d: ArcData) => Math.min(d.volume, 5),
+            getSourcePosition: (d: any) => d.sourcePosition,
+            getTargetPosition: (d: any) => d.targetPosition,
+            getSourceColor: (d: any) => [...getThreatColor(d.threat_type), 100],
+            getTargetColor: (d: any) => [...getThreatColor(d.threat_type), 200],
+            getWidth: (d: any) => Math.min(d.volume || 1, 5),
             greatCircle: true,
             pickable: true,
             onHover: ({ object, x, y }: any) => {
@@ -133,14 +141,15 @@ export function ThreatMap({ threats, arcs, showArcs, showNodes, colorBy }: Threa
         );
       }
 
-      const overlay = new MapboxOverlay({
-        interleaved: true,
-        layers,
-      });
-
-      map.addControl(overlay as any);
-      deckRef.current = overlay;
-    });
+      if (layers.length > 0) {
+        const overlay = new MapboxOverlay({
+          interleaved: true,
+          layers,
+        });
+        mapRef.current.addControl(overlay as any);
+        deckRef.current = overlay;
+      }
+    }
   }, [threats, arcs, showArcs, showNodes, colorBy]);
 
   return (
