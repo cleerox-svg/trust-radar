@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs } from '@/hooks/useObservatory';
 import { ThreatMap } from '@/components/observatory/ThreatMap';
 import { useBrands } from '@/hooks/useBrands';
@@ -16,7 +16,7 @@ const PERIODS = [
 ];
 
 const SOURCES = [
-  { id: 'all', label: 'All' },
+  { id: 'all', label: 'All Sources' },
   { id: 'feeds', label: 'Feeds' },
   { id: 'spam_trap', label: 'Spam Trap' },
 ];
@@ -24,60 +24,49 @@ const SOURCES = [
 export function Observatory() {
   const [period, setPeriod] = useState('7d');
   const [source, setSource] = useState('all');
-  const [showArcs, setShowArcs] = useState(true);
+  const [showBeams, setShowBeams] = useState(true);
+  const [showParticles, setShowParticles] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
   const [showPanel, setShowPanel] = useState(true);
+  const [clock, setClock] = useState('');
 
   const { data: threats = [] } = useObservatoryThreats({ period, source });
   const { data: stats } = useObservatoryStats({ period, source });
   const { data: arcs = [] } = useObservatoryArcs({ period, source });
 
+  // Live clock
+  useEffect(() => {
+    const tzAbbr = Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+      .formatToParts(new Date())
+      .find(p => p.type === 'timeZoneName')?.value || 'LOCAL';
+
+    function update() {
+      setClock(
+        new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + tzAbbr
+      );
+    }
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="relative h-[calc(100vh-3rem)] -m-6 overflow-hidden">
-      {/* Full-screen map */}
-      <ThreatMap
-        threats={threats}
-        arcs={arcs}
-        showArcs={showArcs}
-        showNodes={showNodes}
-        colorBy={colorBy}
-      />
-
-      {/* Top-left: Stats overlay */}
-      <div className="absolute top-4 left-4 z-10 flex gap-3">
-        {stats && (
-          <>
-            <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
-              <div className="font-display text-2xl font-extrabold text-parchment">
-                {stats.threats_mapped?.toLocaleString()}
-              </div>
-              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">
-                Threats Mapped
-              </div>
-            </div>
-            <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
-              <div className="font-display text-2xl font-extrabold text-accent">{stats.countries}</div>
-              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">Countries</div>
-            </div>
-            <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
-              <div className="font-display text-2xl font-extrabold text-contrail">
-                {stats.brands_monitored}
-              </div>
-              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">
-                Brands Monitored
-              </div>
-            </div>
-            <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
-              <div className="font-display text-2xl font-extrabold text-warning">{stats.active_campaigns}</div>
-              <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">Active Campaigns</div>
-            </div>
-          </>
-        )}
+      {/* Full-screen map — account for bottom bar */}
+      <div className="absolute inset-0 bottom-[52px]">
+        <ThreatMap
+          threats={threats}
+          arcs={arcs}
+          showBeams={showBeams}
+          showParticles={showParticles}
+          showNodes={showNodes}
+          colorBy={colorBy}
+        />
       </div>
 
-      {/* Top-right: Controls overlay */}
-      <div className="absolute top-4 right-16 z-10 flex flex-col gap-2">
+      {/* Top-left: Period selector + color mode + layer toggles */}
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
         {/* Period selector */}
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
           {PERIODS.map(p => (
@@ -94,46 +83,6 @@ export function Observatory() {
               {p.label}
             </button>
           ))}
-        </div>
-
-        {/* Source filter */}
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
-          {SOURCES.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSource(s.id)}
-              className={cn(
-                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-                source === s.id
-                  ? 'bg-contrail/20 text-contrail'
-                  : 'text-contrail/40 hover:text-parchment hover:bg-white/5'
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Layer toggles */}
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-2 space-y-1.5">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showNodes}
-              onChange={e => setShowNodes(e.target.checked)}
-              className="accent-accent w-3 h-3"
-            />
-            <span className="font-mono text-[10px] text-contrail/60">Nodes</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showArcs}
-              onChange={e => setShowArcs(e.target.checked)}
-              className="accent-accent w-3 h-3"
-            />
-            <span className="font-mono text-[10px] text-contrail/60">Arcs</span>
-          </label>
         </div>
 
         {/* Color mode */}
@@ -157,21 +106,46 @@ export function Observatory() {
             Type
           </button>
         </div>
-      </div>
 
-      {/* Bottom-right: LIVE indicator */}
-      <div className="absolute bottom-4 right-4 z-10">
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-positive animate-pulse" />
-          <span className="font-mono text-[10px] font-bold text-positive">LIVE</span>
-          <span className="font-mono text-[10px] text-contrail/40">
-            {threats.length.toLocaleString()} threats
-          </span>
+        {/* Layer toggles — styled pill buttons */}
+        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
+          <button
+            onClick={() => setShowBeams(!showBeams)}
+            className={cn(
+              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+              showBeams ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+            )}
+          >
+            Beams
+          </button>
+          <button
+            onClick={() => setShowParticles(!showParticles)}
+            className={cn(
+              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+              showParticles ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+            )}
+          >
+            Particles
+          </button>
+          <button
+            onClick={() => setShowNodes(!showNodes)}
+            className={cn(
+              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+              showNodes ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+            )}
+          >
+            Nodes
+          </button>
         </div>
       </div>
 
+      {/* Top-right: Live clock */}
+      <div className="absolute top-4 right-16 z-10">
+        <div className="font-mono text-accent text-lg font-bold">{clock}</div>
+      </div>
+
       {/* Bottom-left: Legend */}
-      <div className="absolute bottom-4 left-4 z-10">
+      <div className="absolute bottom-[68px] left-4 z-10">
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
           <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
             {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
@@ -197,9 +171,53 @@ export function Observatory() {
         </div>
       </div>
 
+      {/* Bottom-right: LIVE indicator */}
+      <div className="absolute bottom-[68px] right-4 z-10">
+        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-positive animate-pulse" />
+          <span className="font-mono text-[10px] font-bold text-positive">LIVE</span>
+          <span className="font-mono text-[10px] text-contrail/40">
+            {threats.length.toLocaleString()} threats
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom stats bar */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-cockpit/95 backdrop-blur-sm border-t border-white/5">
+        <div className="flex items-center justify-between px-6 py-3">
+          {/* Source filter */}
+          <div className="flex items-center gap-1">
+            {SOURCES.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSource(s.id)}
+                className={cn(
+                  'font-mono text-[11px] font-bold px-3 py-1 rounded transition-all',
+                  source === s.id ? 'text-parchment' : 'text-contrail/40 hover:text-parchment'
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Stats chips */}
+          <div className="flex items-center gap-6">
+            {stats && (
+              <>
+                <StatChip value={stats.threats_mapped} label="Threats Mapped" color="text-accent" />
+                <StatChip value={stats.countries} label="Countries" color="text-contrail" />
+                <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
+                <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Right sidebar panel */}
       {showPanel && (
-        <div className="absolute top-0 right-0 bottom-0 w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+        <div className="absolute top-0 right-0 bottom-[52px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
           {/* Top Targeted Brands */}
           <div className="p-4 border-b border-white/5">
             <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
@@ -233,6 +251,17 @@ export function Observatory() {
       >
         {showPanel ? '\u203A' : '\u2039'}
       </button>
+    </div>
+  );
+}
+
+function StatChip({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div>
+        <div className={cn('font-display text-lg font-extrabold', color)}>{(value ?? 0).toLocaleString()}</div>
+        <div className="font-mono text-[9px] text-contrail/40 uppercase">{label}</div>
+      </div>
     </div>
   );
 }
