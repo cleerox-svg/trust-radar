@@ -567,6 +567,63 @@ export interface ApiResponse<T = unknown> {
   message?: string;
 }
 
+// ─── Takedown Evidence ──────────────────────────────────────────
+export type EvidenceType = 'screenshot' | 'whois' | 'dns' | 'brand_comparison' | 'email_headers' | 'url_scan' | 'ai_report';
+
+export interface TakedownEvidence {
+  id: string;
+  takedown_id: string;
+  evidence_type: EvidenceType;
+  title: string;
+  content_text: string | null;
+  storage_key: string | null;
+  storage_url: string | null;
+  metadata_json: string | null;
+  created_at: string;
+}
+
+// ─── URL Scan Results ───────────────────────────────────────────
+export interface UrlScanResult {
+  id: number;
+  url: string;
+  domain: string;
+  source_type: 'spam_trap' | 'threat_signal' | 'manual';
+  source_id: string | null;
+  brand_id: string | null;
+  known_threat: number;
+  known_threat_id: string | null;
+  google_safe_browsing: string | null;
+  phishtank_status: string | null;
+  urlhaus_status: string | null;
+  virustotal_status: string | null;
+  domain_age_days: number | null;
+  registrar: string | null;
+  hosting_provider: string | null;
+  hosting_ip: string | null;
+  hosting_country: string | null;
+  ssl_issuer: string | null;
+  ssl_valid: number | null;
+  is_malicious: number;
+  malicious_reasons: string | null;
+  confidence_score: number | null;
+  takedown_id: string | null;
+  scanned_at: string;
+}
+
+// ─── Takedown Provider ──────────────────────────────────────────
+export interface TakedownProvider {
+  id: number;
+  provider_name: string;
+  provider_type: 'registrar' | 'hosting' | 'social_platform' | 'cdn' | 'email_provider' | 'reporting';
+  abuse_email: string | null;
+  abuse_url: string | null;
+  abuse_api_url: string | null;
+  abuse_api_type: 'rest' | 'form' | 'email' | null;
+  avg_response_hours: number | null;
+  success_rate: number | null;
+  notes: string | null;
+}
+
 // ─── v1 Legacy Types (used by existing handlers — remove during v2 migration) ──
 export type RiskLevel = "safe" | "low" | "medium" | "high" | "critical";
 export type UserPlan = "free" | "pro" | "enterprise";
