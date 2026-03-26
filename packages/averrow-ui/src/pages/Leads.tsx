@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLeads, useLeadStats, useEnrichLead } from '@/hooks/useLeads';
-import type { SalesLead } from '@/hooks/useLeads';
+import type { SalesLead, LeadStats } from '@/hooks/useLeads';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -14,31 +14,21 @@ import { TableLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 
-const KANBAN_COLUMNS = ['new', 'contacted', 'qualified', 'proposal_sent', 'converted', 'closed_lost'] as const;
-const PIPELINE_STATUSES = ['new', 'researched', 'drafted', 'approved', 'sent', 'replied', 'meeting', 'converted'] as const;
+const PIPELINE_STATUSES = ['new', 'researched', 'drafted', 'approved', 'sent', 'responded', 'meeting', 'converted'] as const;
 
 function columnLabel(s: string) {
   return s.replace(/_/g, ' ').toUpperCase();
 }
 
-function gradeVariant(grade: string | null): 'success' | 'info' | 'medium' | 'critical' | 'default' {
-  if (!grade) return 'default';
-  const g = grade.toUpperCase();
-  if (g === 'A+' || g === 'A') return 'success';
-  if (g === 'B+' || g === 'B') return 'info';
-  if (g === 'C+' || g === 'C') return 'medium';
-  return 'critical';
-}
-
 function KanbanView({ leads }: { leads: SalesLead[] }) {
-  const grouped = KANBAN_COLUMNS.reduce<Record<string, SalesLead[]>>((acc, col) => {
+  const grouped = PIPELINE_STATUSES.reduce<Record<string, SalesLead[]>>((acc, col) => {
     acc[col] = leads.filter(l => l.status === col);
     return acc;
   }, {} as Record<string, SalesLead[]>);
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
-      {KANBAN_COLUMNS.map(col => (
+      {PIPELINE_STATUSES.map(col => (
         <div key={col} className="min-w-[260px] flex-shrink-0">
           <div className="flex items-center gap-2 mb-3">
             <SectionLabel>{columnLabel(col)}</SectionLabel>
@@ -48,9 +38,9 @@ function KanbanView({ leads }: { leads: SalesLead[] }) {
             {(grouped[col] || []).map(lead => (
               <Card key={lead.id} className="space-y-2">
                 <div className="font-display font-semibold text-sm text-parchment truncate">
-                  {lead.company_name ?? 'Unknown'}
+                  {lead.target_name ?? 'Unknown'}
                 </div>
-                <div className="font-mono text-xs text-contrail/40">{lead.company_domain ?? '—'}</div>
+                <div className="font-mono text-xs text-contrail/40">{lead.target_email ?? '—'}</div>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-parchment">{lead.prospect_score}</span>
                   {lead.pitch_angle && <Badge variant="info">{lead.pitch_angle}</Badge>}
@@ -64,18 +54,34 @@ function KanbanView({ leads }: { leads: SalesLead[] }) {
   );
 }
 
-function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<typeof useLeadStats>['data'] }) {
+// Map pipeline stats field names to display-friendly counts
+function getPipelineCount(stats: LeadStats['pipeline'], status: string): number {
+  const map: Record<string, keyof LeadStats['pipeline']> = {
+    new: 'new_count',
+    researched: 'researched_count',
+    drafted: 'drafted_count',
+    approved: 'approved_count',
+    sent: 'sent_count',
+    responded: 'responded_count',
+    meeting: 'meeting_count',
+    converted: 'converted_count',
+  };
+  const key = map[status];
+  return key ? (stats[key] as number) ?? 0 : 0;
+}
+
+function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: LeadStats | null }) {
   const [statusFilter, setStatusFilter] = useState('');
   const [pitchFilter, setPitchFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filtered = leads.filter(l => {
     if (statusFilter && l.status !== statusFilter) return false;
     if (pitchFilter && l.pitch_angle !== pitchFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      return (l.company_name?.toLowerCase().includes(q) || l.company_domain?.toLowerCase().includes(q));
+      return (l.target_name?.toLowerCase().includes(q) || l.target_email?.toLowerCase().includes(q));
     }
     return true;
   });
@@ -89,7 +95,7 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {PIPELINE_STATUSES.map(s => (
               <div key={s} className="bg-instrument border border-white/[0.06] rounded-lg p-3 text-center">
-                <div className="font-display text-lg font-bold text-parchment">{stats[s as keyof typeof stats] ?? 0}</div>
+                <div className="font-display text-lg font-bold text-parchment">{getPipelineCount(stats.pipeline, s)}</div>
                 <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">{s}</div>
               </div>
             ))}
@@ -99,19 +105,19 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-contrail/50">Response Rate</span>
-                <span className="font-mono text-xs text-parchment">{((stats?.response_rate ?? 0) * 100).toFixed(1)}%</span>
+                <span className="font-mono text-xs text-parchment">{((stats.response_rate ?? 0) * 100).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-positive rounded" style={{ width: `${(stats?.response_rate ?? 0) * 100}%` }} />
+                <div className="h-full bg-positive rounded" style={{ width: `${(stats.response_rate ?? 0) * 100}%` }} />
               </div>
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase text-contrail/50">Conversion Rate</span>
-                <span className="font-mono text-xs text-parchment">{((stats?.conversion_rate ?? 0) * 100).toFixed(1)}%</span>
+                <span className="font-mono text-xs text-parchment">{((stats.conversion_rate ?? 0) * 100).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-accent rounded" style={{ width: `${(stats?.conversion_rate ?? 0) * 100}%` }} />
+                <div className="h-full bg-accent rounded" style={{ width: `${(stats.conversion_rate ?? 0) * 100}%` }} />
               </div>
             </div>
           </div>
@@ -136,7 +142,7 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
           ]}
         />
         <Input
-          placeholder="Search companies..."
+          placeholder="Search leads..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-56"
@@ -147,12 +153,11 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
         <Table>
           <thead>
             <tr>
-              <Th>Company</Th>
-              <Th>Domain</Th>
+              <Th>Name</Th>
+              <Th>Title</Th>
               <Th>Score</Th>
               <Th>Pitch Angle</Th>
-              <Th>Email Grade</Th>
-              <Th>Threats</Th>
+              <Th>Channel</Th>
               <Th>Status</Th>
               <Th>Created</Th>
             </tr>
@@ -165,23 +170,22 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
                   className="hover:bg-white/[0.02] cursor-pointer transition-colors"
                   onClick={() => setExpandedId(expandedId === lead.id ? null : lead.id)}
                 >
-                  <Td><span className="font-display font-semibold text-sm text-parchment">{lead.company_name ?? '—'}</span></Td>
-                  <Td><span className="font-mono text-xs text-contrail/60">{lead.company_domain ?? '—'}</span></Td>
+                  <Td><span className="font-display font-semibold text-sm text-parchment">{lead.target_name ?? '—'}</span></Td>
+                  <Td><span className="font-mono text-xs text-contrail/60">{lead.target_title ?? '—'}</span></Td>
                   <Td><span className="font-mono text-sm font-bold text-parchment">{lead.prospect_score}</span></Td>
                   <Td>{lead.pitch_angle ? <Badge variant="info">{lead.pitch_angle}</Badge> : '—'}</Td>
-                  <Td>{lead.email_security_grade ? <Badge variant={gradeVariant(lead.email_security_grade)}>{lead.email_security_grade}</Badge> : '—'}</Td>
-                  <Td><span className="font-mono text-sm">{lead.threat_count_30d ?? 0}</span></Td>
+                  <Td><span className="font-mono text-xs text-contrail/60">{lead.outreach_channel ?? '—'}</span></Td>
                   <Td><Badge variant="default">{columnLabel(lead.status)}</Badge></Td>
                   <Td><span className="font-mono text-xs text-contrail/40">{relativeTime(lead.created_at)}</span></Td>
                 </tr>
                 {expandedId === lead.id && (
                   <tr key={`${lead.id}-detail`}>
-                    <td colSpan={8} className="px-3 pb-4">
+                    <td colSpan={7} className="px-3 pb-4">
                       <div className="mt-2 space-y-3 bg-cockpit rounded-lg p-4 border border-white/[0.04]">
-                        {lead.findings_summary && (
+                        {lead.notes && (
                           <div>
-                            <SectionLabel className="mb-1">Findings</SectionLabel>
-                            <p className="text-sm text-parchment/70">{lead.findings_summary}</p>
+                            <SectionLabel className="mb-1">Notes</SectionLabel>
+                            <p className="text-sm text-parchment/70">{lead.notes}</p>
                           </div>
                         )}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -198,9 +202,6 @@ function PipelineView({ leads, stats }: { leads: SalesLead[]; stats: ReturnType<
                             </div>
                           )}
                         </div>
-                        <Badge variant={lead.ai_enriched ? 'success' : 'default'}>
-                          {lead.ai_enriched ? 'AI ENRICHED' : 'NOT ENRICHED'}
-                        </Badge>
                       </div>
                     </td>
                   </tr>
@@ -238,7 +239,7 @@ export function Leads() {
             size="sm"
             onClick={() => setActiveView('kanban')}
           >
-            Scan Leads
+            Kanban
           </Button>
           <Button
             variant={activeView === 'pipeline' ? 'primary' : 'secondary'}
@@ -268,7 +269,7 @@ export function Leads() {
       ) : activeView === 'kanban' ? (
         <KanbanView leads={leads} />
       ) : (
-        <PipelineView leads={leads} stats={stats} />
+        <PipelineView leads={leads} stats={stats ?? null} />
       )}
     </div>
   );

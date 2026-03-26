@@ -15,12 +15,19 @@ interface Campaign {
   severity: string | null;
 }
 
+interface CampaignStats {
+  total: number;
+  active_count: number;
+  dormant_count: number;
+  disrupted_count: number;
+  active_threats: number;
+  brands_affected: number;
+}
+
 interface CampaignDetail extends Campaign {
-  threats: unknown[];
-  brands: Array<{ brand_id: string; brand_name: string; count: number }>;
-  providers: Array<{ provider_id: string; provider_name: string; count: number }>;
-  ai_assessment: string | null;
-  timeline: Array<{ date: string; count: number }>;
+  ip_count: number;
+  brand_breakdown: Array<{ brand_id: string | null; brand_name: string | null; count: number }>;
+  provider_breakdown: Array<{ provider_id: string | null; provider_name: string | null; count: number }>;
 }
 
 export function useCampaigns(options?: { status?: string; limit?: number; offset?: number }) {
@@ -39,7 +46,7 @@ export function useCampaignStats() {
   return useQuery({
     queryKey: ['campaign-stats'],
     queryFn: async () => {
-      const res = await api.get<unknown>('/api/campaigns/stats');
+      const res = await api.get<CampaignStats>('/api/campaigns/stats');
       return res.data || null;
     },
   });

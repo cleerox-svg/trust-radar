@@ -90,7 +90,8 @@ function AgentOperationCard({ agent }: { agent: Agent }) {
 export function Agents() {
   const { data: agents, isLoading } = useAgents();
 
-  const operational = agents?.filter((a) => a.status === 'active').length || 0;
+  // Count agents where status !== 'error' as operational (idle agents that ran successfully are operational)
+  const operational = agents?.filter((a) => a.status !== 'error').length || 0;
   const total = agents?.length || 0;
   const totalOutputs = agents?.reduce((sum, a) => sum + a.outputs_24h, 0) || 0;
   const totalErrors = agents?.reduce((sum, a) => sum + a.error_count_24h, 0) || 0;

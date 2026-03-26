@@ -41,8 +41,19 @@ export function useSpamTrapStats() {
   return useQuery({
     queryKey: ['spam-trap-stats'],
     queryFn: async () => {
-      const res = await api.get<SpamTrapStats>('/api/spam-trap/stats');
-      return res.data || null;
+      const res = await api.get<{
+        stats: { total_captures: number; brands_spoofed: number; unique_ips: number; auth_fail_rate: number; last_24h: number };
+        daily: unknown[];
+        health: TrapHealth[];
+      }>('/api/spam-trap/stats');
+      const data = res.data;
+      return {
+        total_captures: data?.stats?.total_captures ?? 0,
+        captures_24h: data?.stats?.last_24h ?? 0,
+        brands_spoofed: data?.stats?.brands_spoofed ?? 0,
+        unique_ips: data?.stats?.unique_ips ?? 0,
+        auth_fail_rate: (data?.stats?.auth_fail_rate ?? 0) / 100,
+      } as SpamTrapStats;
     },
     refetchInterval: 60_000,
   });
@@ -74,8 +85,13 @@ export function useSpamTrapHealth() {
   return useQuery({
     queryKey: ['spam-trap-health'],
     queryFn: async () => {
-      const res = await api.get<TrapHealth[]>('/api/spam-trap/health');
-      return res.data || [];
+      // Health data is nested inside /api/spam-trap/stats, not a separate endpoint
+      const res = await api.get<{
+        stats: unknown;
+        daily: unknown[];
+        health: TrapHealth[];
+      }>('/api/spam-trap/stats');
+      return (res.data?.health ?? []) as TrapHealth[];
     },
   });
 }

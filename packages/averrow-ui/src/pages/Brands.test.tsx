@@ -30,7 +30,7 @@ describe('Brands Page', () => {
       isLoading: false,
     });
     (useBrandStats as any).mockReturnValue({
-      data: { total_brands: 9333, monitored: 500, new_this_week: 12, top_type: 'phishing', top_type_pct: '68' },
+      data: { total_tracked: 9333, new_this_week: 12, fastest_rising: null, fastest_rising_pct: 0, top_threat_type: 'phishing', top_threat_type_pct: 68 },
     });
   });
 
@@ -48,7 +48,7 @@ describe('Brands Page', () => {
 
   it('renders stat cards with data', () => {
     renderWithProviders(<Brands />);
-    expect(screen.getByText('Total Brands')).toBeInTheDocument();
+    expect(screen.getByText('Total Tracked')).toBeInTheDocument();
     expect(screen.getByText('9333')).toBeInTheDocument();
   });
 

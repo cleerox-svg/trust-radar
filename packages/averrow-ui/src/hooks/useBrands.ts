@@ -24,13 +24,12 @@ interface BrandDetail extends Brand {
 }
 
 interface BrandStats {
-  total_brands: number;
-  monitored: number;
+  total_tracked: number;
   new_this_week: number;
-  fastest_rising: string;
-  fastest_rising_delta: string;
-  top_type: string;
-  top_type_pct: string;
+  fastest_rising: string | null;
+  fastest_rising_pct: number;
+  top_threat_type: string | null;
+  top_threat_type_pct: number;
 }
 
 interface SocialProfile {

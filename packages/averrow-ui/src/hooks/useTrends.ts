@@ -1,32 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-interface TrendData {
-  date: string;
-  total: number;
-  phishing: number;
-  typosquatting: number;
-  malware_distribution: number;
-  credential_harvesting: number;
-  impersonation: number;
+interface TrendVolume {
+  labels: string[];
+  values: number[];
+  high_sev: number[];
+  active: number[];
 }
 
-interface ThreatBreakdown {
-  threat_type: string;
-  count: number;
-  percentage: number;
-}
-
-interface CountryBreakdown {
-  country_code: string;
-  count: number;
-  percentage: number;
-}
-
-interface FeedBreakdown {
-  source_feed: string;
-  count: number;
-  percentage: number;
+interface TrendSeries {
+  labels: string[];
+  series: Array<{ name: string; values: number[] }>;
 }
 
 export function useThreatTrends(options?: { period?: string }) {
@@ -34,8 +18,8 @@ export function useThreatTrends(options?: { period?: string }) {
   return useQuery({
     queryKey: ['threat-trends', period],
     queryFn: async () => {
-      const res = await api.get<TrendData[]>(`/api/trends/threats?period=${period}`);
-      return res.data || [];
+      const res = await api.get<TrendVolume>(`/api/trends/volume?period=${period}`);
+      return res.data || { labels: [], values: [], high_sev: [], active: [] };
     },
   });
 }
@@ -45,8 +29,8 @@ export function useThreatBreakdown(options?: { period?: string }) {
   return useQuery({
     queryKey: ['threat-breakdown', period],
     queryFn: async () => {
-      const res = await api.get<ThreatBreakdown[]>(`/api/trends/breakdown?period=${period}`);
-      return res.data || [];
+      const res = await api.get<TrendSeries>(`/api/trends/types?period=${period}`);
+      return res.data || { labels: [], series: [] };
     },
   });
 }
@@ -56,8 +40,8 @@ export function useCountryBreakdown(options?: { period?: string }) {
   return useQuery({
     queryKey: ['country-breakdown', period],
     queryFn: async () => {
-      const res = await api.get<CountryBreakdown[]>(`/api/trends/countries?period=${period}`);
-      return res.data || [];
+      const res = await api.get<TrendSeries>(`/api/trends/providers?period=${period}`);
+      return res.data || { labels: [], series: [] };
     },
   });
 }
@@ -67,8 +51,8 @@ export function useFeedBreakdown(options?: { period?: string }) {
   return useQuery({
     queryKey: ['feed-breakdown', period],
     queryFn: async () => {
-      const res = await api.get<FeedBreakdown[]>(`/api/trends/feeds?period=${period}`);
-      return res.data || [];
+      const res = await api.get<TrendSeries>(`/api/trends/tlds?period=${period}`);
+      return res.data || { labels: [], series: [] };
     },
   });
 }

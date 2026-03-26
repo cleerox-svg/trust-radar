@@ -41,20 +41,30 @@ describe('AdminDashboard', () => {
     vi.clearAllMocks();
     (useDashboardStats as any).mockReturnValue({
       data: {
-        total_brands: 9333,
-        monitored_brands: 500,
-        active_threats: 20374,
-        total_threats: 50000,
-        threats_24h: 150,
-        agents_operational: 7,
-        agents_total: 7,
-        feeds_healthy: 45,
-        feeds_total: 45,
-        takedowns_pending: 12,
-        total_users: 0,
-        total_orgs: 0,
-        leads_new: 0,
-        spam_captures_24h: 0,
+        users: {
+          total: 25,
+          super_admins: 1,
+          admins: 3,
+          analysts: 10,
+          clients: 11,
+          active: 8,
+        },
+        threats: {
+          total: 50000,
+          active: 20374,
+        },
+        sessions: {
+          active: 5,
+        },
+        agent_backlogs: {
+          sentinel: 3,
+          analyst: 0,
+          cartographer: 1,
+          strategist: 0,
+          observer_last_run: null,
+        },
+        ai_attribution_pending: 150,
+        tranco_brand_count: 9333,
       },
       isLoading: false,
     });

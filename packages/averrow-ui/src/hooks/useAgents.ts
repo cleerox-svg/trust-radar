@@ -45,20 +45,30 @@ export interface ApiUsage {
 }
 
 export interface DashboardStats {
-  total_brands: number;
-  monitored_brands: number;
-  total_threats: number;
-  active_threats: number;
-  threats_24h: number;
-  total_users: number;
-  total_orgs: number;
-  agents_operational: number;
-  agents_total: number;
-  feeds_healthy: number;
-  feeds_total: number;
-  takedowns_pending: number;
-  leads_new: number;
-  spam_captures_24h: number;
+  users: {
+    total: number;
+    super_admins: number;
+    admins: number;
+    analysts: number;
+    clients: number;
+    active: number;
+  };
+  threats: {
+    total: number;
+    active: number;
+  };
+  sessions: {
+    active: number;
+  };
+  agent_backlogs: {
+    sentinel: number;
+    analyst: number;
+    cartographer: number;
+    strategist: number;
+    observer_last_run: string | null;
+  };
+  ai_attribution_pending: number;
+  tranco_brand_count: number;
 }
 
 export interface PipelineStatus {
@@ -104,21 +114,27 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      const res = await api.get<DashboardStats>('/api/admin/dashboard');
+      const res = await api.get<DashboardStats>('/api/admin/stats');
       return res.data || null;
     },
     refetchInterval: 60_000,
   });
 }
 
-export function usePipelineStatus() {
+export function usePipelineStatus(agents: Agent[] | undefined) {
   return useQuery({
-    queryKey: ['pipeline-status'],
+    queryKey: ['pipeline-status', agents?.map(a => `${a.name}:${a.status}`).join(',')],
     queryFn: async () => {
-      const res = await api.get<PipelineStatus[]>('/api/admin/pipeline');
-      return res.data || [];
+      // Derive pipeline data from agent backlogs — /api/admin/pipeline does not exist
+      if (!agents) return [];
+      return agents.map((a) => ({
+        name: a.display_name,
+        pending: a.jobs_24h,
+        status: a.status === 'error' ? 'error' : a.status === 'degraded' ? 'degraded' : 'healthy',
+        schedule: a.schedule,
+      })) as PipelineStatus[];
     },
-    refetchInterval: 30_000,
+    enabled: !!agents,
   });
 }
 
