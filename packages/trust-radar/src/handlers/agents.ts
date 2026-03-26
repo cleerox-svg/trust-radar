@@ -13,6 +13,7 @@ const AGENT_SCHEDULES: Record<string, string> = {
   strategist: "every 6h",
   observer: "daily",
   prospector: "weekly",
+  sparrow: "every 6h",
 };
 
 // ─── List all agent definitions + their latest run ──────────────
