@@ -21,6 +21,13 @@ export function renderPricingPage(): string {
 .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .price-card.popular { border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow-glow); }
 .price-card.popular::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+
+.pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+.pricing-toggle input[type="radio"] { display: none; }
+.toggle-pill { display: flex; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 100px; overflow: hidden; }
+.toggle-pill label { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; padding: 0.5rem 1.25rem; cursor: pointer; color: var(--text-tertiary); transition: all 0.2s; user-select: none; }
+.toggle-pill label.active { background: var(--accent); color: white; border-radius: 100px; }
+.save-badge { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; background: var(--green); color: white; padding: 0.2rem 0.6rem; border-radius: 100px; letter-spacing: 0.03em; }
 .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 100px; letter-spacing: 0.05em; }
 .price-tier { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin-bottom: 0.25rem; }
 .price-desc { font-size: 15px; color: var(--text-tertiary); margin-bottom: 1.25rem; }
@@ -70,13 +77,20 @@ export function renderPricingPage(): string {
 </section>
 
 <section class="pricing-section">
+  <div class="pricing-toggle">
+    <div class="toggle-pill">
+      <label id="toggle-monthly" class="active" onclick="setPricing('monthly')">Monthly</label>
+      <label id="toggle-annual" onclick="setPricing('annual')">Annual</label>
+    </div>
+    <span class="save-badge">Save 20%</span>
+  </div>
   <div class="pricing-grid">
     <!-- Free -->
     <div class="price-card">
       <div class="price-tier">Free</div>
       <div class="price-desc">See how exposed your brand is</div>
-      <div class="price-amount">$0</div>
-      <div class="price-billing">One-time scan</div>
+      <div class="price-amount" data-monthly="$0" data-annual="$0">$0</div>
+      <div class="price-billing" data-monthly="One-time scan" data-annual="One-time scan">One-time scan</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Email security grade</li>
@@ -94,8 +108,8 @@ export function renderPricingPage(): string {
       <span class="popular-badge">POPULAR</span>
       <div class="price-tier">Professional</div>
       <div class="price-desc">Continuous brand protection for growing companies</div>
-      <div class="price-amount">$799<span>/mo</span></div>
-      <div class="price-billing">Billed monthly or annually</div>
+      <div class="price-amount" data-monthly="$799<span>/mo</span>" data-annual="$639<span>/mo</span>">$799<span>/mo</span></div>
+      <div class="price-billing" data-monthly="Billed monthly" data-annual="Billed annually ($7,668/yr)">Billed monthly</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Free</li>
@@ -115,8 +129,8 @@ export function renderPricingPage(): string {
     <div class="price-card">
       <div class="price-tier">Business</div>
       <div class="price-desc">Full-spectrum brand defense for security-conscious organizations</div>
-      <div class="price-amount">$1,999<span>/mo</span></div>
-      <div class="price-billing">Billed monthly or annually</div>
+      <div class="price-amount" data-monthly="$1,999<span>/mo</span>" data-annual="$1,599<span>/mo</span>">$1,999<span>/mo</span></div>
+      <div class="price-billing" data-monthly="Billed monthly" data-annual="Billed annually ($19,188/yr)">Billed monthly</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Professional</li>
@@ -134,20 +148,20 @@ export function renderPricingPage(): string {
     <!-- Enterprise -->
     <div class="price-card">
       <div class="price-tier">Enterprise</div>
-      <div class="price-desc">Custom brand protection for complex environments</div>
-      <div class="price-amount" style="font-size:1.8rem;">Starting $4,999</div>
-      <div class="price-billing">/mo — custom scope</div>
+      <div class="price-desc">Annual commitment</div>
+      <div class="price-amount" style="font-size:2.5rem;">Custom</div>
+      <div class="price-billing">Tailored to your organization</div>
       <div class="price-divider"></div>
       <ul class="price-features">
         <li>Everything in Business</li>
+        <li>Dedicated account manager</li>
+        <li>Custom integrations</li>
+        <li>SLA guarantees</li>
+        <li>SSO / SAML</li>
         <li>Unlimited brands</li>
-        <li>SSO (SAML / OIDC)</li>
-        <li>Custom AI tuning</li>
-        <li>Dedicated account team</li>
-        <li>SLA guarantee</li>
-        <li>SCIM provisioning</li>
+        <li>Priority support</li>
       </ul>
-      <div class="price-cta"><a href="/contact" class="btn btn-outline" style="width:100%;justify-content:center;">Talk to Us</a></div>
+      <div class="price-cta"><a href="/contact" class="btn btn-primary" style="width:100%;justify-content:center;">Contact Sales</a></div>
     </div>
   </div>
 </section>
@@ -224,6 +238,22 @@ export function renderPricingPage(): string {
     </div>
   </div>
 </section>
+<script>
+function setPricing(mode) {
+  var monthly = document.getElementById('toggle-monthly');
+  var annual = document.getElementById('toggle-annual');
+  if (mode === 'annual') {
+    annual.classList.add('active');
+    monthly.classList.remove('active');
+  } else {
+    monthly.classList.add('active');
+    annual.classList.remove('active');
+  }
+  document.querySelectorAll('[data-' + mode + ']').forEach(function(el) {
+    el.innerHTML = el.getAttribute('data-' + mode);
+  });
+}
+</script>
 ${generateSpiderTraps("averrow.com", "pricing")}
 `
   );
