@@ -112,28 +112,28 @@ function TimelineTooltip({ active, payload, label }: any) {
 // ── Severity helpers ─────────────────────────────────────────────────
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const;
 
-const SEVERITY_TW: Record<string, { dot: string; text: string; textMuted: string }> = {
-  critical: { dot: 'bg-severity-critical', text: 'text-severity-critical', textMuted: 'text-severity-critical/60' },
-  high:     { dot: 'bg-severity-high',     text: 'text-severity-high',     textMuted: 'text-severity-high/60' },
-  medium:   { dot: 'bg-severity-medium',   text: 'text-severity-medium',   textMuted: 'text-severity-medium/60' },
-  low:      { dot: 'bg-severity-low',      text: 'text-severity-low',      textMuted: 'text-severity-low/60' },
-  info:     { dot: 'bg-severity-low',      text: 'text-severity-low',      textMuted: 'text-severity-low/60' },
+const SEVERITY_TW: Record<string, { dot: string; text: string; hex: string }> = {
+  critical: { dot: 'bg-[#f87171]', text: 'text-[#f87171]', hex: '#f87171' },
+  high:     { dot: 'bg-[#fb923c]', text: 'text-[#fb923c]', hex: '#fb923c' },
+  medium:   { dot: 'bg-[#fbbf24]', text: 'text-[#fbbf24]', hex: '#fbbf24' },
+  low:      { dot: 'bg-contrail/50', text: 'text-contrail/50', hex: '#78A0C8' },
+  info:     { dot: 'bg-contrail/50', text: 'text-contrail/50', hex: '#78A0C8' },
 };
 
-const THREAT_TYPE_COLORS: Record<string, { bar: string; text: string }> = {
-  malware_distribution: { bar: 'bg-severity-high',     text: 'text-severity-high' },
-  phishing:             { bar: 'bg-severity-low',      text: 'text-severity-low' },
-  c2:                   { bar: 'bg-severity-critical',  text: 'text-severity-critical' },
-  credential_harvesting:{ bar: 'bg-[#E87040]',         text: 'text-[#E87040]' },
-  typosquatting:        { bar: 'bg-[#fbbf24]',         text: 'text-[#fbbf24]' },
-  impersonation:        { bar: 'bg-severity-high',     text: 'text-severity-high' },
+const THREAT_TYPE_COLORS: Record<string, { bar: string; hex: string }> = {
+  phishing:             { bar: 'bg-[#78A0C8]', hex: '#78A0C8' },
+  malware_distribution: { bar: 'bg-[#fb923c]', hex: '#fb923c' },
+  c2:                   { bar: 'bg-[#f87171]', hex: '#f87171' },
+  credential_harvesting:{ bar: 'bg-[#f97316]', hex: '#f97316' },
+  typosquatting:        { bar: 'bg-[#fbbf24]', hex: '#fbbf24' },
+  impersonation:        { bar: 'bg-[#fb923c]', hex: '#fb923c' },
 };
 
 function getExposureTier(score: number) {
-  if (score >= 80) return { color: 'text-severity-clear', stroke: '#28A050', label: 'LOW' };
-  if (score >= 60) return { color: 'text-severity-high', stroke: '#E8923C', label: 'MEDIUM' };
-  if (score >= 40) return { color: 'text-[#E87040]', stroke: '#E87040', label: 'HIGH' };
-  return { color: 'text-severity-critical', stroke: '#C83C3C', label: 'CRITICAL' };
+  if (score >= 80) return { color: 'text-[#4ade80]', stroke: '#4ade80', label: 'LOW' };
+  if (score >= 60) return { color: 'text-[#fbbf24]', stroke: '#fbbf24', label: 'MEDIUM' };
+  if (score >= 40) return { color: 'text-[#fb923c]', stroke: '#fb923c', label: 'HIGH' };
+  return { color: 'text-[#f87171]', stroke: '#f87171', label: 'CRITICAL' };
 }
 
 // ── Card 1: Exposure Index ──────────────────────────────────────────
@@ -157,7 +157,7 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
   return (
     <StatCard
       title="Exposure Index"
-      metricLabel={tier.label}
+      metricLabel={<span className={tier.color}>{tier.label}</span>}
       metric={
         <div className="relative w-[52px] h-[52px]">
           <svg width="52" height="52" viewBox="0 0 52 52">
@@ -172,7 +172,7 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className={`font-mono text-[13px] font-bold text-parchment`}>
+            <span className="font-mono text-[13px] font-bold" style={{ color: tier.stroke }}>
               {score ?? '\u2014'}
             </span>
           </div>
@@ -184,22 +184,22 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
           <div className="font-mono text-[10px] text-contrail/30">No threats detected</div>
         )}
         {topTypes.map(([type, count]) => {
-          const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-severity-low', text: 'text-severity-low' };
-          const pct = Math.round((count / maxCount) * 100);
+          const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-[#78A0C8]', hex: '#78A0C8' };
+          const pct = Math.max(count > 0 ? 4 : 0, Math.round((count / maxCount) * 100));
           return (
             <div key={type} className="space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-contrail/50 truncate">
+                <span className="font-mono text-[10px] text-contrail/60 truncate">
                   {type.replace(/_/g, ' ')}
                 </span>
-                <span className={`font-mono text-[10px] font-semibold ${tc.text}`}>
+                <span className="font-mono text-[10px] font-semibold" style={{ color: tc.hex }}>
                   {count}
                 </span>
               </div>
               <div className="w-full h-[2px] rounded-full bg-white/[0.04]">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${tc.bar}`}
-                  style={{ width: `${pct}%` }}
+                  style={{ width: `${pct}%`, minWidth: count > 0 ? '4px' : undefined }}
                 />
               </div>
             </div>
@@ -221,14 +221,14 @@ function ActiveThreatsCard({ threats }: { threats: any[] }) {
 
   const total = threats.length;
   const highestActive = SEVERITY_ORDER.find(s => counts[s] > 0) || 'low';
-  const totalColor = SEVERITY_TW[highestActive]?.text || 'text-severity-low';
+  const totalHex = SEVERITY_TW[highestActive]?.hex || '#78A0C8';
 
   return (
     <StatCard
       title="Active Threats"
       metricLabel="TOTAL"
       metric={
-        <span className={`font-display text-[32px] font-extrabold leading-none ${totalColor}`}>
+        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: totalHex }}>
           {total}
         </span>
       }
@@ -295,30 +295,32 @@ function getEmailStatus(protocol: string, emailSec: any) {
 }
 
 const EMAIL_STATUS_CLASSES: Record<string, string> = {
-  PASS:    'bg-severity-clear/10 text-severity-clear border-severity-clear/30',
-  FOUND:   'bg-severity-clear/10 text-severity-clear border-severity-clear/30',
-  FAIL:    'bg-severity-critical/10 text-severity-critical border-severity-critical/30',
-  MISSING: 'bg-severity-critical/10 text-severity-critical border-severity-critical/30',
-  PARTIAL: 'bg-severity-high/10 text-severity-high border-severity-high/30',
-  NONE:    'bg-severity-high/10 text-severity-high border-severity-high/30',
+  PASS:    'bg-green-900/40 text-green-400 border-green-500/30',
+  FOUND:   'bg-green-900/40 text-green-400 border-green-500/30',
+  FAIL:    'bg-red-900/40 text-red-400 border-red-500/30',
+  MISSING: 'bg-red-900/40 text-red-400 border-red-500/30',
+  PARTIAL: 'bg-amber-900/40 text-amber-400 border-amber-500/30',
+  NONE:    'bg-amber-900/40 text-amber-400 border-amber-500/30',
 };
 
-function getGradeColor(grade: string | null) {
-  if (!grade) return 'text-contrail/40';
+function getGradeColor(grade: string | null): string {
+  if (!grade) return '#78A0C8';
   const g = grade.toUpperCase();
-  if (g === 'A+' || g === 'A') return 'text-severity-clear';
-  if (g.startsWith('B')) return 'text-contrail';
-  if (g.startsWith('C')) return 'text-severity-high';
-  return 'text-severity-critical';
+  if (g === 'A+' || g === 'A') return '#4ade80';
+  if (g.startsWith('B')) return '#78A0C8';
+  if (g.startsWith('C')) return '#fbbf24';
+  if (g.startsWith('D')) return '#fb923c';
+  return '#f87171';
 }
 
 function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | null }) {
+  const gradeColor = getGradeColor(grade);
   return (
     <StatCard
       title="Email Posture"
       metricLabel="GRADE"
       metric={
-        <span className={`font-display text-[32px] font-extrabold leading-none ${getGradeColor(grade)}`}>
+        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: gradeColor }}>
           {grade || '\u2014'}
         </span>
       }
@@ -329,12 +331,12 @@ function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | 
           const cls = EMAIL_STATUS_CLASSES[status] || EMAIL_STATUS_CLASSES.MISSING;
           return (
             <div key={proto} className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-contrail w-10 flex-shrink-0">{proto}</span>
-              <span className={`font-mono text-[9px] font-semibold uppercase px-1.5 py-px rounded border leading-tight ${cls}`}>
+              <span className="font-mono text-[10px] text-contrail/70 w-10 flex-shrink-0">{proto}</span>
+              <span className={`font-mono text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded border leading-tight ${cls}`}>
                 {status}
               </span>
               {hint && (
-                <span className="font-mono text-[9px] text-contrail/30 truncate">{hint}</span>
+                <span className="font-mono text-[9px] text-white/40 truncate">{hint}</span>
               )}
             </div>
           );
@@ -365,13 +367,13 @@ function SocialRiskCard({
   const official = socialProfiles.filter((p: any) => p.classification === 'official' || p.classification === 'safe').length;
   const total = socialProfiles.length;
 
-  const totalColor = impersonation > 0
-    ? 'text-severity-critical'
+  const totalHex = impersonation > 0
+    ? '#f87171'
     : suspicious > 0
-      ? 'text-severity-high'
+      ? '#fb923c'
       : total > 0
-        ? 'text-severity-clear'
-        : 'text-contrail/40';
+        ? '#4ade80'
+        : undefined;
 
   const scanDaysAgo = lastScan
     ? Math.max(0, Math.round((Date.now() - new Date(lastScan).getTime()) / 86400000))
@@ -382,16 +384,16 @@ function SocialRiskCard({
       title="Social Risk"
       metricLabel="PROFILES"
       metric={
-        <span className={`font-display text-[32px] font-extrabold leading-none ${totalColor}`}>
+        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: totalHex ?? 'rgba(255,255,255,0.3)' }}>
           {total}
         </span>
       }
     >
       <div className="space-y-1.5">
         {([
-          { label: 'Impersonation', count: impersonation, dot: 'bg-severity-critical', text: 'text-severity-critical' },
-          { label: 'Suspicious', count: suspicious, dot: 'bg-severity-high', text: 'text-severity-high' },
-          { label: 'Official', count: official, dot: 'bg-severity-clear', text: 'text-severity-clear' },
+          { label: 'Impersonation', count: impersonation, dot: 'bg-[#f87171]', text: 'text-[#f87171]' },
+          { label: 'Suspicious', count: suspicious, dot: 'bg-[#fb923c]', text: 'text-[#fb923c]' },
+          { label: 'Official', count: official, dot: 'bg-green-500/50', text: 'text-green-400' },
         ] as const).map(row => (
           <div key={row.label} className="flex items-center gap-2">
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${row.dot}`} />
@@ -565,7 +567,7 @@ export function BrandDetail() {
       {/* ════════════════════════════════════════════════════════════════
            ROW 1 — Unified Stat Cards
            ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {/* ── Card 1: Exposure Index ── */}
         <ExposureIndexCard score={brand.exposure_score} threats={threats} />
 
@@ -609,7 +611,7 @@ export function BrandDetail() {
                 <div className="space-y-4">
                   {/* Header row */}
                   <div className="flex items-center justify-between">
-                    <SectionLabel>ASTRA Analysis</SectionLabel>
+                    <SectionLabel>AI Threat Analysis</SectionLabel>
                     <div className="flex items-center gap-2">
                       <Badge variant="critical">CURRENT</Badge>
                       {astra.riskLevel && (
