@@ -145,7 +145,7 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
   }
 
   // Issue session tokens
-  return issueSession(request, env, user.id, user.email, user.role, url.origin);
+  return issueSession(request, env, user.id, user.email, user.role, url.origin, storedState);
 }
 
 // ─── Token refresh ──────────────────────────────────────────────
@@ -382,6 +382,7 @@ async function issueSession(
   email: string,
   role: UserRole,
   siteOrigin: string,
+  returnToPath?: string,
 ): Promise<Response> {
   // Look up org membership (user might belong to one org)
   const membership = await env.DB.prepare(`
@@ -421,7 +422,7 @@ async function issueSession(
   await audit(env, { action: "login", userId, details: { method: "google_oauth" }, request });
 
   // Redirect to frontend with access token as hash fragment (never hits server)
-  const returnTo = storedState || '/observatory';
+  const returnTo = returnToPath || '/observatory';
   const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}&return_to=${encodeURIComponent(returnTo)}`;
   const response = new Response(null, {
     status: 302,
