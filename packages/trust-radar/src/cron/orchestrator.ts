@@ -339,6 +339,18 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   }
 
+  // Sparrow (takedown agent) — every 6 hours, minute 15-20 (staggered after cartographer)
+  if (hour % 6 === 0 && minute >= 15 && minute < 20) {
+    try {
+      const mod = allAgents["sparrow"];
+      if (mod) {
+        await executeAgent(env, mod, {}, "cron", "scheduled");
+      }
+    } catch (err) {
+      logger.error('cron_sparrow_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   // Observer + daily assessments — daily at midnight UTC
   if (hour === 0 && minute < 5) {
     try {

@@ -15,7 +15,8 @@ export type AgentName =
   | "cartographer"
   | "strategist"
   | "observer"
-  | "prospector";
+  | "prospector"
+  | "sparrow";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
