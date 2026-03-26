@@ -35,3 +35,8 @@ jobs:
       - name: Type check
         working-directory: packages/${{ matrix.package }}
         run: pnpm typecheck
+
+      - name: Run tests
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm test
+        if: matrix.package == 'trust-radar'
