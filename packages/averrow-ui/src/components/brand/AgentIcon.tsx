@@ -68,6 +68,34 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M20 10l4 4M24 10l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  nexus: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      <circle cx="18" cy="8" r="3" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="8" cy="26" r="3" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="28" cy="26" r="3" stroke="currentColor" strokeWidth="1.3"/>
+      <line x1="18" y1="11" x2="10" y2="23.5" stroke="currentColor" strokeWidth="1.2" opacity="0.6"/>
+      <line x1="18" y1="11" x2="26" y2="23.5" stroke="currentColor" strokeWidth="1.2" opacity="0.6"/>
+      <line x1="11" y1="26" x2="25" y2="26" stroke="currentColor" strokeWidth="1.2" opacity="0.6"/>
+      <circle cx="18" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="8" cy="26" r="1.2" fill="currentColor"/>
+      <circle cx="28" cy="26" r="1.2" fill="currentColor"/>
+      <circle cx="18" cy="20" r="2" fill="currentColor" opacity="0.3"/>
+    </svg>
+  ),
+  flight_control: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      <circle cx="18" cy="18" r="14" stroke="currentColor" strokeWidth="1" opacity="0.2"/>
+      <circle cx="18" cy="18" r="8" stroke="currentColor" strokeWidth="1.2" opacity="0.4"/>
+      <path d="M18 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M18 26V32" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M4 18H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M26 18H32" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M14 14L18 18L22 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="18" cy="18" r="2.5" fill="currentColor"/>
+      <path d="M7.5 7.5L12 12" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+      <path d="M24 12L28.5 7.5" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {

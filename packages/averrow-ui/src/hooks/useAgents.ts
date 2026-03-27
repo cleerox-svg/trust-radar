@@ -151,14 +151,67 @@ export function useTriggerAgent() {
   });
 }
 
+export interface AgentRun {
+  id: string;
+  agent_id: string;
+  status: string;
+  records_processed: number;
+  outputs_generated: number;
+  duration_ms: number | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface AgentOutput {
+  id: string;
+  agent_id: string;
+  type: string;
+  summary: string;
+  severity: string;
+  details: string | null;
+  related_brand_ids: string | null;
+  related_campaign_id: string | null;
+  related_provider_ids: string | null;
+  created_at: string;
+}
+
+export interface AgentDetailResponse {
+  agent: {
+    name: string;
+    displayName: string;
+    description: string;
+    color: string;
+    trigger: string;
+    requiresApproval: boolean;
+  };
+  runs: AgentRun[];
+  outputs: AgentOutput[];
+  stats: {
+    total_runs: number;
+    successes: number;
+    failures: number;
+    total_processed: number;
+    total_outputs: number;
+    avg_duration_ms: number | null;
+  } | null;
+}
+
+export interface AgentHealthResponse {
+  runs: number[];
+  errors: number[];
+  outputs: number[];
+}
+
 export function useAgentDetail(agentName: string) {
   return useQuery({
     queryKey: ['agent-detail', agentName],
     queryFn: async () => {
-      const res = await api.get<Record<string, unknown>>(`/api/agents/${agentName}`);
+      const res = await api.get<AgentDetailResponse>(`/api/agents/${agentName}`);
       return res.data || null;
     },
     enabled: !!agentName,
+    refetchInterval: 30_000,
   });
 }
 
@@ -166,8 +219,20 @@ export function useAgentHealth(agentName: string) {
   return useQuery({
     queryKey: ['agent-health', agentName],
     queryFn: async () => {
-      const res = await api.get<Record<string, unknown>>(`/api/agents/${agentName}/health`);
+      const res = await api.get<AgentHealthResponse>(`/api/agents/${agentName}/health`);
       return res.data || null;
+    },
+    enabled: !!agentName,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAgentOutputsByName(agentName: string) {
+  return useQuery({
+    queryKey: ['agent-outputs', agentName],
+    queryFn: async () => {
+      const res = await api.get<AgentOutput[]>(`/api/agents/${agentName}/outputs?limit=5`);
+      return res.data || [];
     },
     enabled: !!agentName,
   });
