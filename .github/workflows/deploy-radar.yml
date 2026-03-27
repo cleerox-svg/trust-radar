@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - "packages/trust-radar/**"
+      - "packages/averrow-ui/**"
       - ".github/workflows/deploy-radar.yml"
   workflow_dispatch:
 
@@ -57,9 +58,7 @@ jobs:
 
       - name: Build React UI
         working-directory: packages/averrow-ui
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
+        run: pnpm run build
 
       - name: Run DB migrations (production)
         working-directory: packages/trust-radar
