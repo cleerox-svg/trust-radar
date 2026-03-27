@@ -16,6 +16,10 @@ import {
   handleCampaignTimeline,
 } from "../handlers/campaigns";
 import {
+  handleListOperations, handleOperationsStats,
+  handleOperationTimeline, handleOperationThreats,
+} from "../handlers/operations";
+import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
   handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
 } from "../handlers/intel";
@@ -104,6 +108,28 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListSocialIOCs(request, env);
+  });
+
+  // ─── Operations (NEXUS infrastructure clusters) ─────────────────
+  router.get("/api/v1/operations/stats", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleOperationsStats(request, env);
+  });
+  router.get("/api/v1/operations", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListOperations(request, env);
+  });
+  router.get("/api/v1/operations/:id/timeline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleOperationTimeline(request, env, request.params["id"] ?? "");
+  });
+  router.get("/api/v1/operations/:id/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleOperationThreats(request, env, request.params["id"] ?? "");
   });
 
   // ─── Campaign Clusters ────────────────────────────────────────────

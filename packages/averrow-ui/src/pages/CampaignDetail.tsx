@@ -20,7 +20,7 @@ export function CampaignDetail() {
   return (
     <div className="animate-fade-in space-y-6">
       <button onClick={() => navigate('/campaigns')} className="font-mono text-xs text-contrail/50 hover:text-accent transition-colors">
-        &larr; Back to Campaigns
+        &larr; Back to Operations
       </button>
       <Card hover={false}>
         <h1 className="font-display text-xl font-bold text-parchment mb-3">
