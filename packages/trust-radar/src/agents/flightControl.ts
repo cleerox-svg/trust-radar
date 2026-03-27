@@ -161,44 +161,51 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
 // ─── Agent Health ────────────────────────────────────────────────
 
 async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
-  const health: AgentHealth[] = [];
+  // Single query gets latest run per agent — no loop (2 queries instead of 12)
+  const [results, avgResults] = await Promise.all([
+    db.prepare(`
+      SELECT
+        agent_id,
+        status as last_run_status,
+        started_at as last_run_at,
+        duration_ms
+      FROM agent_runs ar1
+      WHERE started_at = (
+        SELECT MAX(started_at) FROM agent_runs ar2
+        WHERE ar2.agent_id = ar1.agent_id
+      )
+      AND agent_id IN ('sentinel','cartographer','nexus','analyst','observer','sparrow')
+    `).all<{ agent_id: string; last_run_status: string; last_run_at: string; duration_ms: number | null }>(),
 
-  for (const agentId of AGENTS_TO_MONITOR) {
-    const [latest, avgResult] = await Promise.all([
-      db.prepare(`
-        SELECT status, started_at, duration_ms
-        FROM agent_runs
-        WHERE agent_id = ?
-        ORDER BY started_at DESC
-        LIMIT 1
-      `).bind(agentId).first<{ status: string; started_at: string; duration_ms: number | null }>(),
+    db.prepare(`
+      SELECT agent_id, AVG(duration_ms) as avg_ms
+      FROM agent_runs
+      WHERE started_at >= datetime('now', '-24 hours')
+        AND duration_ms IS NOT NULL
+        AND agent_id IN ('sentinel','cartographer','nexus','analyst','observer','sparrow')
+      GROUP BY agent_id
+    `).all<{ agent_id: string; avg_ms: number | null }>(),
+  ]);
 
-      db.prepare(`
-        SELECT AVG(duration_ms) as avg_ms
-        FROM agent_runs
-        WHERE agent_id = ?
-          AND started_at >= datetime('now', '-24 hours')
-          AND duration_ms IS NOT NULL
-      `).bind(agentId).first<{ avg_ms: number | null }>(),
-    ]);
+  const avgMap = new Map(avgResults.results.map(r => [r.agent_id, r.avg_ms]));
 
+  return AGENTS_TO_MONITOR.map(agentId => {
+    const latest = results.results.find(r => r.agent_id === agentId);
     const thresholdMs = (STALL_THRESHOLDS[agentId] ?? 60) * 60 * 1000;
-    const lastRunAge = latest?.started_at
-      ? Date.now() - new Date(latest.started_at + 'Z').getTime()
+    const lastRunAge = latest?.last_run_at
+      ? Date.now() - new Date(latest.last_run_at + 'Z').getTime()
       : Infinity;
     const isStalled = lastRunAge > thresholdMs ||
-      (latest?.status === 'partial' && lastRunAge > 45 * 60 * 1000);
+      (latest?.last_run_status === 'partial' && lastRunAge > 45 * 60 * 1000);
 
-    health.push({
+    return {
       agent_id: agentId,
-      last_run_at: latest?.started_at ?? null,
-      last_run_status: latest?.status ?? null,
-      avg_duration_ms: Math.round(avgResult?.avg_ms ?? 0),
+      last_run_at: latest?.last_run_at ?? null,
+      last_run_status: latest?.last_run_status ?? null,
+      avg_duration_ms: Math.round(avgMap.get(agentId) ?? 0),
       is_stalled: isStalled,
-    });
-  }
-
-  return health;
+    };
+  });
 }
 
 // ─── Token Budget ────────────────────────────────────────────────
