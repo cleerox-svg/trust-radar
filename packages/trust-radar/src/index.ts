@@ -27,6 +27,7 @@ import { registerExportRoutes } from "./routes/export";
 import { registerSparrowRoutes } from "./routes/sparrow";
 
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
+export { CartographerBackfillWorkflow } from "./workflows/cartographerBackfill";
 
 // ─── Honeypot Domain Server ─────────────────────────────────────────
 async function serveHoneypotDomain(url: URL, env: Env): Promise<Response> {
@@ -183,6 +184,47 @@ export default {
           }
           return Response.json({ triggered: true, agent: 'cartographer', batches: 10 });
         }
+
+        // Durable backfill workflow — replaces fragile batch endpoint
+        if (url.pathname === '/api/internal/agents/cartographer/backfill-workflow') {
+          const instance = await env.CARTOGRAPHER_BACKFILL.create({
+            params: { batchSize: 500, startOffset: 0 }
+          });
+          return Response.json({
+            instanceId: instance.id,
+            message: 'Backfill workflow started',
+          });
+        }
+      }
+
+      // Get workflow status (GET, still requires auth)
+      if (url.pathname.startsWith('/api/internal/agents/cartographer/backfill-workflow/')
+          && request.method === 'GET') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const instanceId = url.pathname.split('/').pop()!;
+        const instance = await env.CARTOGRAPHER_BACKFILL.get(instanceId);
+        const status = await instance.status();
+        return Response.json(status);
+      }
+
+      // Agent activity log endpoint
+      if (url.pathname === '/api/v1/agents/activity' && request.method === 'GET') {
+        const limit = parseInt(url.searchParams.get('limit') ?? '50');
+        const agentId = url.searchParams.get('agent_id');
+
+        const query = agentId
+          ? `SELECT * FROM agent_activity_log WHERE agent_id = ?
+             ORDER BY created_at DESC LIMIT ?`
+          : `SELECT * FROM agent_activity_log
+             ORDER BY created_at DESC LIMIT ?`;
+
+        const params = agentId ? [agentId, limit] : [limit];
+        const result = await env.DB.prepare(query).bind(...params).all();
+        return Response.json({ data: result.results });
       }
 
       const response = await router.fetch(request, env, ctx);
