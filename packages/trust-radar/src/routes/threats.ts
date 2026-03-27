@@ -48,13 +48,14 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     if (!isAuthContext(ctx)) return ctx;
     const url = new URL(request.url);
     const period = url.searchParams.get("period") || "7d";
-    const limit = Math.min(Number(url.searchParams.get("limit") || "5000"), 5000);
+    const limit = Math.min(Number(url.searchParams.get("limit") || "10000"), 10000);
     const dayMap: Record<string, string> = { "24h": "-1 days", "7d": "-7 days", "30d": "-30 days", "90d": "-90 days" };
     const interval = dayMap[period] || "-7 days";
     const rows = await env.DB.prepare(`
       SELECT lat, lng, severity, threat_type
       FROM threats
       WHERE lat IS NOT NULL AND lng IS NOT NULL
+        AND lat != 0 AND lng != 0
         AND created_at >= datetime('now', ?)
       LIMIT ?
     `).bind(interval, limit).all();

@@ -165,6 +165,7 @@ function getBrandCoords(brandName: string | null, canonicalDomain?: string | nul
 function periodToInterval(period: string): string {
   if (period === "24h") return "-1 days";
   if (period === "30d") return "-30 days";
+  if (period === "90d") return "-90 days";
   if (period === "all") return "-3650 days";
   return "-7 days"; // default 7d
 }
@@ -256,7 +257,38 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       target_sector: string | null; volume: number;
     }>();
 
-    const arcs = (rows.results ?? [])
+    // Fallback: if filtered result is too sparse, re-query without time filter
+    let resultRows = rows.results ?? [];
+    if (resultRows.length < 5) {
+      const fallbackRows = await env.DB.prepare(`
+        SELECT
+          ROUND(t.lat, 1) AS source_lat,
+          ROUND(t.lng, 1) AS source_lng,
+          t.threat_type,
+          t.severity,
+          t.country_code AS source_country,
+          b.name AS target_brand,
+          b.canonical_domain AS target_domain,
+          b.sector AS target_sector,
+          COUNT(*) AS volume
+        FROM threats t
+        JOIN brands b ON b.id = t.target_brand_id
+        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+          AND t.target_brand_id IS NOT NULL
+          AND t.status = 'active'${sourceFilter}
+        GROUP BY t.country_code, t.target_brand_id, t.threat_type
+        ORDER BY volume DESC
+        LIMIT 50
+      `).all<{
+        source_lat: number; source_lng: number; threat_type: string;
+        severity: string | null; source_country: string | null;
+        target_brand: string | null; target_domain: string | null;
+        target_sector: string | null; volume: number;
+      }>();
+      resultRows = fallbackRows.results ?? [];
+    }
+
+    const arcs = resultRows
       .map(row => {
         const targetCoords = getBrandCoords(row.target_brand, row.target_domain, row.source_country);
         const jitter: [number, number] = [

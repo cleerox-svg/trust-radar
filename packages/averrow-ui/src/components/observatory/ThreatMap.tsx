@@ -340,51 +340,58 @@ export function ThreatMap({
 
     // ═══ OPERATIONS MODE ═══
     if (mapMode === 'operations' && operations.length > 0) {
-      // Bloom layer
+      // Outer glow ring — pixel-based for visibility at world zoom
       layers.push(
         new ScatterplotLayer({
-          id: 'operations-bloom',
+          id: 'operations-clusters',
           data: operations,
           getPosition: (d: any) => getClusterPosition(parseJsonArray(d.countries ?? '[]')),
-          getRadius: (d: any) => Math.max(120000, Math.min(500000, d.threat_count * 250)),
+          getRadius: (d: any) => Math.max(20, Math.min(80, Math.sqrt(d.threat_count) * 2.5)),
+          radiusUnits: 'pixels' as any,
+          radiusMinPixels: 20,
+          radiusMaxPixels: 80,
           getFillColor: (d: any) => {
-            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 20] as [number, number, number, number];
-            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 15] as [number, number, number, number];
-            return [200, 60, 60, 18] as [number, number, number, number];
-          },
-          radiusUnits: 'meters' as any,
-          pickable: false,
-        })
-      );
-      // Main cluster blobs
-      layers.push(
-        new ScatterplotLayer({
-          id: 'operations-layer',
-          data: operations,
-          getPosition: (d: any) => getClusterPosition(parseJsonArray(d.countries ?? '[]')),
-          getRadius: (d: any) => Math.max(80000, Math.min(400000, d.threat_count * 200)),
-          getFillColor: (d: any) => {
-            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 60] as [number, number, number, number];
-            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 40] as [number, number, number, number];
-            return [200, 60, 60, 50] as [number, number, number, number];
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 35] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 25] as [number, number, number, number];
+            return [200, 60, 60, 30] as [number, number, number, number];
           },
           getLineColor: (d: any) => {
-            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 200] as [number, number, number, number];
-            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 180] as [number, number, number, number];
-            return [200, 60, 60, 180] as [number, number, number, number];
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 220] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 200] as [number, number, number, number];
+            return [200, 60, 60, 200] as [number, number, number, number];
           },
           stroked: true,
-          lineWidthMinPixels: 1,
+          lineWidthMinPixels: 1.5,
           lineWidthMaxPixels: 2,
-          radiusUnits: 'meters' as any,
           pickable: true,
           onClick: ({ object, x, y }: any) => {
             if (object && onClusterClick) {
               onClusterClick(object, x, y);
             }
           },
-          onHover: ({ object, x, y }: any) => {
-            setTooltip(object ? { x, y, threat: undefined, arc: undefined } : null);
+        })
+      );
+      // Inner bright dot — layered on top
+      layers.push(
+        new ScatterplotLayer({
+          id: 'operations-clusters-inner',
+          data: operations,
+          getPosition: (d: any) => getClusterPosition(parseJsonArray(d.countries ?? '[]')),
+          getRadius: (d: any) => Math.max(6, Math.min(20, Math.sqrt(d.threat_count))),
+          radiusUnits: 'pixels' as any,
+          radiusMinPixels: 6,
+          radiusMaxPixels: 20,
+          getFillColor: (d: any) => {
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 240] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 220] as [number, number, number, number];
+            return [200, 60, 60, 240] as [number, number, number, number];
+          },
+          stroked: false,
+          pickable: true,
+          onClick: ({ object, x, y }: any) => {
+            if (object && onClusterClick) {
+              onClusterClick(object, x, y);
+            }
           },
         })
       );
@@ -397,18 +404,20 @@ export function ThreatMap({
         data: heatmapData,
         getPosition: (d: any) => [d.lng, d.lat],
         getWeight: (d: any) => {
-          const weights: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+          const weights: Record<string, number> = { critical: 5, high: 3, medium: 2, low: 1 };
           return weights[d.severity] ?? 1;
         },
-        radiusPixels: 40,
-        intensity: 1.5,
-        threshold: 0.1,
+        radiusPixels: 80,
+        intensity: 2,
+        threshold: 0.05,
+        aggregation: 'SUM' as const,
         colorRange: [
           [0, 212, 255, 0],
-          [0, 212, 255, 120],
-          [251, 146, 60, 160],
-          [200, 60, 60, 200],
-          [200, 60, 60, 255],
+          [0, 212, 255, 80],
+          [0, 212, 255, 160],
+          [251, 146, 60, 180],
+          [200, 60, 60, 220],
+          [255, 50, 50, 255],
         ],
       };
       layers.push(new (HeatmapLayer as any)(heatmapProps));
