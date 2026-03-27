@@ -8,6 +8,7 @@ export interface Env {
   ASSETS: Fetcher;
   THREAT_PUSH_HUB: DurableObjectNamespace;
   CARTOGRAPHER_BACKFILL: Workflow;
+  NEXUS_RUN: Workflow;
   // Environment variables
   ENVIRONMENT: string;
   // Secrets
