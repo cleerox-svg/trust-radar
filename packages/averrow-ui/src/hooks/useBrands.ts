@@ -1,5 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+
+interface BrandSocialProfile {
+  platform: string;
+  classification?: string;
+}
 
 interface Brand {
   id: string;
@@ -13,6 +18,14 @@ interface Brand {
   social_risk_score: number | null;
   last_social_scan: string | null;
   logo_url: string | null;
+  social_profiles: BrandSocialProfile[] | null;
+  threat_trend: number | null;
+  top_threat_type: string | null;
+  threat_history: number[] | null;
+  monitored: boolean | null;
+  monitored_since: string | null;
+  monitored_by: string | null;
+  created_at: string | null;
 }
 
 interface BrandDetail extends Brand {
@@ -26,10 +39,17 @@ interface BrandDetail extends Brand {
 interface BrandStats {
   total_tracked: number;
   new_this_week: number;
+  newest_brand_name: string | null;
+  newest_brand_sector: string | null;
+  newest_brand_added_by: string | null;
   fastest_rising: string | null;
+  fastest_rising_domain: string | null;
   fastest_rising_pct: number;
   top_threat_type: string | null;
   top_threat_type_pct: number;
+  second_threat_type: string | null;
+  third_threat_type: string | null;
+  sector_breakdown: { sector: string; count: number }[] | null;
 }
 
 interface SocialProfile {
@@ -49,8 +69,10 @@ interface SocialProfile {
   status: string;
 }
 
+export type { Brand, BrandDetail, BrandStats, SocialProfile, BrandSocialProfile };
+
 export function useBrands(options?: { view?: string; limit?: number; offset?: number; timeRange?: string }) {
-  const { view = 'top', limit = 20, offset = 0, timeRange = '7d' } = options || {};
+  const { view = 'top', limit = 100, offset = 0, timeRange = '7d' } = options || {};
   return useQuery({
     queryKey: ['brands', view, limit, offset, timeRange],
     queryFn: async () => {
@@ -116,5 +138,37 @@ export function useBrandEmailSecurity(brandId: string) {
       return res.data || null;
     },
     enabled: !!brandId,
+  });
+}
+
+export function useToggleMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (brandId: string) => {
+      return api.patch(`/api/brands/${brandId}/monitor`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      queryClient.invalidateQueries({ queryKey: ['brand-stats'] });
+    },
+  });
+}
+
+export function useAddBrand() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      domain: string;
+      name?: string;
+      sector?: string;
+      reason?: string;
+      notes?: string;
+    }) => {
+      return api.post('/api/brands/monitor', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      queryClient.invalidateQueries({ queryKey: ['brand-stats'] });
+    },
   });
 }

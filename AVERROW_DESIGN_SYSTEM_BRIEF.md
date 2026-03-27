@@ -494,4 +494,93 @@ Things that should NEVER appear in Averrow UI or marketing:
 
 ---
 
+## 15. SHARED BRAND COMPONENTS
+
+### SocialDots — `components/brands/SocialDots.tsx`
+
+Renders a row of 8px colored dots representing a brand's social platform presence.
+
+**Props:**
+- `profiles: { platform: string; classification?: string }[] | null` — social profiles
+- `maxDots?: number` — max visible dots (default 6), overflow shows "+N"
+- `className?: string`
+
+**Platform colors:**
+| Platform | Color |
+|----------|-------|
+| Twitter/X | #1DA1F2 |
+| LinkedIn | #0A66C2 |
+| Facebook | #1877F2 |
+| Instagram | #E1306C |
+| YouTube | #FF0000 |
+| TikTok | #00d4ff (orbital-teal) |
+| Reddit | #FF4500 |
+
+**Classification overrides:**
+- IMPERSONATION → #f87171 (critical red)
+- SUSPICIOUS → #fbbf24 (medium yellow)
+- OFFICIAL → platform color above
+- No data → 3 placeholder dots at `bg-white/10`
+
+Tooltip on hover shows "Platform — Classification".
+
+### TrendBadge — `components/brands/TrendBadge.tsx`
+
+Displays a directional trend indicator.
+
+**Props:**
+- `trend: number | null`
+- `className?: string`
+
+**Color rules:**
+- Positive (threats increasing): `▲ {n}%` in `text-red-400`
+- Negative (threats decreasing): `▼ {n}%` in `text-green-400`
+- Zero or null: `—` in `text-white/30`
+
+### Sparkline — `components/brands/Sparkline.tsx`
+
+Inline SVG polyline chart for threat history. No external libraries.
+
+**Props:**
+- `data: number[]` — 7 data points typical
+- `color?: string` — overrides auto-tier color
+- `width?: number` (default 120)
+- `height?: number` (default 28)
+- `className?: string`
+
+**Color by threat tier (auto):**
+| Max value | Color |
+|-----------|-------|
+| ≥ 200 | #f87171 (critical) |
+| ≥ 100 | #fb923c (high) |
+| ≥ 50 | #fbbf24 (medium) |
+| < 50 | #78A0C8 (contrail) |
+
+strokeWidth 1.5, fill none, strokeLinecap round. Gracefully handles all-zero data (flat line).
+
+### Brand Card Layout
+
+Standard card used in Top Targeted and Monitored tabs:
+
+```
+┌─────────────────────────────────────┐
+│ [1] favicon  Brand Name    [GRADE]  │  rank badge + favicon + name + grade/status
+│              domain.com             │  domain in mono text-[11px] text-white/40
+│ ─────────────────────────────────── │
+│ [●●●●] social dots                  │  SocialDots component
+│ [███████░░] sparkline               │  inline SVG sparkline, full width
+│ 2,322          ▲ 12.4%  [phishing] │  threat count + TrendBadge + type pill
+│ active threats                      │
+└─────────────────────────────────────┘
+```
+
+Card wrapper: `rounded-xl border border-white/10 bg-cockpit p-4 hover:border-white/20 transition-colors cursor-pointer`
+
+### Design Notes
+
+- **orbital-teal (#00d4ff)** is used for: selected pill states, active borders, interactive CTAs, and stat card highlight metrics
+- All components exported from `components/brands/index.ts` for reuse across views
+
+---
+
 *This document is the single source of truth for all Averrow platform design decisions. When in doubt, reference this brief.*
