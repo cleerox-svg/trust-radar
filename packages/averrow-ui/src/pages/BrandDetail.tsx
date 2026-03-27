@@ -21,7 +21,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
 import { StatCard } from '@/components/brands/StatCard';
-import { relativeTime } from '@/lib/time';
+import { relativeTime, timeAgo } from '@/lib/time';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const PLATFORM_ICONS: Record<string, string> = {
@@ -120,26 +120,28 @@ const SEVERITY_TW: Record<string, { dot: string; text: string; hex: string }> = 
   info:     { dot: 'bg-contrail/50', text: 'text-contrail/50', hex: '#78A0C8' },
 };
 
-const THREAT_TYPE_COLORS: Record<string, { bar: string; hex: string }> = {
-  phishing:             { bar: 'bg-[#78A0C8]', hex: '#78A0C8' },
-  malware_distribution: { bar: 'bg-[#fb923c]', hex: '#fb923c' },
-  c2:                   { bar: 'bg-[#f87171]', hex: '#f87171' },
-  credential_harvesting:{ bar: 'bg-[#f97316]', hex: '#f97316' },
-  typosquatting:        { bar: 'bg-[#fbbf24]', hex: '#fbbf24' },
-  impersonation:        { bar: 'bg-[#fb923c]', hex: '#fb923c' },
+const THREAT_TYPE_COLORS: Record<string, { bar: string; text: string }> = {
+  phishing:             { bar: 'bg-[#78A0C8]', text: 'text-[#78A0C8]' },
+  malware_distribution: { bar: 'bg-[#fb923c]', text: 'text-[#fb923c]' },
+  c2:                   { bar: 'bg-[#f87171]', text: 'text-[#f87171]' },
+  credential_harvesting:{ bar: 'bg-[#f97316]', text: 'text-[#f97316]' },
+  typosquatting:        { bar: 'bg-[#fbbf24]', text: 'text-[#fbbf24]' },
+  impersonation:        { bar: 'bg-[#fb923c]', text: 'text-[#fb923c]' },
 };
 
-function getExposureTier(score: number) {
-  if (score >= 80) return { color: 'text-[#4ade80]', stroke: '#4ade80', label: 'LOW' };
-  if (score >= 60) return { color: 'text-[#fbbf24]', stroke: '#fbbf24', label: 'MEDIUM' };
-  if (score >= 40) return { color: 'text-[#fb923c]', stroke: '#fb923c', label: 'HIGH' };
-  return { color: 'text-[#f87171]', stroke: '#f87171', label: 'CRITICAL' };
+function getExposureTier(score: number | null) {
+  if (score === null || score === undefined) return { color: 'text-white/30', stroke: '#ffffff4d', label: 'NO DATA', arcClass: 'stroke-white/20' };
+  if (score >= 80) return { color: 'text-[#4ade80]', stroke: '#4ade80', label: 'LOW RISK', arcClass: 'stroke-[#4ade80]' };
+  if (score >= 60) return { color: 'text-[#fbbf24]', stroke: '#fbbf24', label: 'MEDIUM', arcClass: 'stroke-[#fbbf24]' };
+  if (score >= 40) return { color: 'text-[#fb923c]', stroke: '#fb923c', label: 'HIGH', arcClass: 'stroke-[#fb923c]' };
+  return { color: 'text-[#f87171]', stroke: '#f87171', label: 'CRITICAL', arcClass: 'stroke-[#f87171]' };
 }
 
 // ── Card 1: Exposure Index ──────────────────────────────────────────
-function ExposureIndexCard({ score, threats }: { score: number | null; threats: any[] }) {
+function ExposureIndexCard({ brand, threats }: { brand: any; threats: any[] }) {
+  const score = brand?.exposure_score ?? brand?.email_security_score ?? brand?.domain_risk_score ?? null;
+  const tier = getExposureTier(score);
   const s = score ?? 0;
-  const tier = getExposureTier(s);
   const circumference = 2 * Math.PI * 23;
   const offset = circumference * (1 - s / 100);
 
@@ -161,18 +163,20 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
       metric={
         <div className="relative w-[52px] h-[52px]">
           <svg width="52" height="52" viewBox="0 0 52 52">
-            <circle cx="26" cy="26" r="23" fill="none" stroke="#1e3048" strokeWidth="5" />
-            <circle
-              cx="26" cy="26" r="23" fill="none"
-              stroke={tier.stroke} strokeWidth="5" strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              transform="rotate(-90 26 26)"
-              className="transition-all duration-700"
-            />
+            <circle cx="26" cy="26" r="23" fill="none" className="stroke-[#1e3048]" strokeWidth="5" />
+            {score !== null && (
+              <circle
+                cx="26" cy="26" r="23" fill="none"
+                className={`transition-all duration-700 ${tier.arcClass}`}
+                strokeWidth="5" strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                transform="rotate(-90 26 26)"
+              />
+            )}
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="font-mono text-[13px] font-bold" style={{ color: tier.stroke }}>
+            <span className={`font-mono text-[13px] font-bold ${tier.color}`}>
               {score ?? '\u2014'}
             </span>
           </div>
@@ -184,7 +188,7 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
           <div className="font-mono text-[10px] text-contrail/30">No threats detected</div>
         )}
         {topTypes.map(([type, count]) => {
-          const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-[#78A0C8]', hex: '#78A0C8' };
+          const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-[#78A0C8]', text: 'text-[#78A0C8]' };
           const pct = Math.max(count > 0 ? 4 : 0, Math.round((count / maxCount) * 100));
           return (
             <div key={type} className="space-y-0.5">
@@ -192,14 +196,14 @@ function ExposureIndexCard({ score, threats }: { score: number | null; threats: 
                 <span className="font-mono text-[10px] text-contrail/60 truncate">
                   {type.replace(/_/g, ' ')}
                 </span>
-                <span className="font-mono text-[10px] font-semibold" style={{ color: tc.hex }}>
+                <span className={`font-mono text-[10px] font-semibold ${tc.text}`}>
                   {count}
                 </span>
               </div>
               <div className="w-full h-[2px] rounded-full bg-white/[0.04]">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${tc.bar}`}
-                  style={{ width: `${pct}%`, minWidth: count > 0 ? '4px' : undefined }}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             </div>
@@ -221,14 +225,14 @@ function ActiveThreatsCard({ threats }: { threats: any[] }) {
 
   const total = threats.length;
   const highestActive = SEVERITY_ORDER.find(s => counts[s] > 0) || 'low';
-  const totalHex = SEVERITY_TW[highestActive]?.hex || '#78A0C8';
+  const totalTextClass = SEVERITY_TW[highestActive]?.text || 'text-contrail/50';
 
   return (
     <StatCard
       title="Active Threats"
       metricLabel="TOTAL"
       metric={
-        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: totalHex }}>
+        <span className={`font-display text-[32px] font-extrabold leading-none ${totalTextClass}`}>
           {total}
         </span>
       }
@@ -260,38 +264,44 @@ const EMAIL_PROTOCOLS = ['SPF', 'DKIM', 'DMARC', 'MX'] as const;
 
 function getEmailStatus(protocol: string, emailSec: any) {
   if (!emailSec) return { status: 'MISSING', hint: '' };
-  const key = protocol.toLowerCase();
-  const result = emailSec[`${key}_result`] || emailSec[key] || null;
-  const record = emailSec[`${key}_record`] || emailSec[`${key}_value`] || '';
 
   if (protocol === 'MX') {
-    const mx = emailSec.mx_records || emailSec.mx || null;
-    if (mx && (Array.isArray(mx) ? mx.length > 0 : true)) {
-      return { status: 'FOUND', hint: typeof mx === 'string' ? mx.split(' ')[0] : Array.isArray(mx) ? mx[0]?.exchange || mx[0] : '' };
+    if (emailSec.mx_exists) {
+      const providers = emailSec.mx_providers;
+      const hint = Array.isArray(providers) && providers.length > 0
+        ? (typeof providers[0] === 'string' ? providers[0] : providers[0]?.exchange ?? '')
+        : '';
+      return { status: 'FOUND', hint };
     }
     return { status: 'MISSING', hint: 'risk' };
   }
 
-  if (!result || result === 'none' || result === 'missing') {
-    return { status: protocol === 'DMARC' ? 'NONE' : 'MISSING', hint: protocol === 'DMARC' ? 'p=none' : '' };
-  }
-  if (result === 'pass' || result === 'found') {
-    let hint = '';
-    if (protocol === 'SPF' && record) {
-      const match = String(record).match(/[~+-]all/);
-      hint = match ? match[0] : '';
-    }
-    if (protocol === 'DMARC' && record) {
-      const match = String(record).match(/p=\w+/);
-      hint = match ? match[0] : '';
-    }
-    if (protocol === 'DKIM') hint = 'valid';
+  if (protocol === 'SPF') {
+    if (!emailSec.spf_exists) return { status: 'MISSING', hint: '' };
+    if (emailSec.spf_too_many_lookups) return { status: 'PARTIAL', hint: '>10 lookups' };
+    const hint = emailSec.spf_raw
+      ? (String(emailSec.spf_raw).match(/[~+-]all/)?.[0] ?? '')
+      : '';
     return { status: 'PASS', hint };
   }
-  if (result === 'partial' || result === 'soft') {
-    return { status: 'PARTIAL', hint: record ? String(record).slice(0, 12) : '' };
+
+  if (protocol === 'DKIM') {
+    if (!emailSec.dkim_exists) return { status: 'MISSING', hint: '' };
+    const selectors = emailSec.dkim_selectors_found;
+    const hint = Array.isArray(selectors) && selectors.length > 0
+      ? `${selectors.length} selector${selectors.length > 1 ? 's' : ''}`
+      : 'valid';
+    return { status: 'PASS', hint };
   }
-  return { status: 'FAIL', hint: '' };
+
+  if (protocol === 'DMARC') {
+    if (!emailSec.dmarc_exists) return { status: 'NONE', hint: '' };
+    const policy = emailSec.dmarc_policy;
+    if (policy === 'none') return { status: 'NONE', hint: 'p=none' };
+    return { status: 'PASS', hint: policy ? `p=${policy}` : '' };
+  }
+
+  return { status: 'MISSING', hint: '' };
 }
 
 const EMAIL_STATUS_CLASSES: Record<string, string> = {
@@ -303,24 +313,24 @@ const EMAIL_STATUS_CLASSES: Record<string, string> = {
   NONE:    'bg-amber-900/40 text-amber-400 border-amber-500/30',
 };
 
-function getGradeColor(grade: string | null): string {
-  if (!grade) return '#78A0C8';
+function getGradeClass(grade: string | null): string {
+  if (!grade) return 'text-contrail/50';
   const g = grade.toUpperCase();
-  if (g === 'A+' || g === 'A') return '#4ade80';
-  if (g.startsWith('B')) return '#78A0C8';
-  if (g.startsWith('C')) return '#fbbf24';
-  if (g.startsWith('D')) return '#fb923c';
-  return '#f87171';
+  if (g === 'A+' || g === 'A') return 'text-[#4ade80]';
+  if (g.startsWith('B')) return 'text-contrail';
+  if (g.startsWith('C')) return 'text-[#fbbf24]';
+  if (g.startsWith('D')) return 'text-[#fb923c]';
+  return 'text-[#f87171]';
 }
 
 function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | null }) {
-  const gradeColor = getGradeColor(grade);
+  const gradeClass = getGradeClass(grade);
   return (
     <StatCard
       title="Email Posture"
       metricLabel="GRADE"
       metric={
-        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: gradeColor }}>
+        <span className={`font-display text-[32px] font-extrabold leading-none ${gradeClass}`}>
           {grade || '\u2014'}
         </span>
       }
@@ -367,13 +377,13 @@ function SocialRiskCard({
   const official = socialProfiles.filter((p: any) => p.classification === 'official' || p.classification === 'safe').length;
   const total = socialProfiles.length;
 
-  const totalHex = impersonation > 0
-    ? '#f87171'
+  const totalClass = impersonation > 0
+    ? 'text-[#f87171]'
     : suspicious > 0
-      ? '#fb923c'
+      ? 'text-[#fb923c]'
       : total > 0
-        ? '#4ade80'
-        : undefined;
+        ? 'text-[#4ade80]'
+        : 'text-white/30';
 
   const scanDaysAgo = lastScan
     ? Math.max(0, Math.round((Date.now() - new Date(lastScan).getTime()) / 86400000))
@@ -384,21 +394,21 @@ function SocialRiskCard({
       title="Social Risk"
       metricLabel="PROFILES"
       metric={
-        <span className="font-display text-[32px] font-extrabold leading-none" style={{ color: totalHex ?? 'rgba(255,255,255,0.3)' }}>
+        <span className={`font-display text-[32px] font-extrabold leading-none ${totalClass}`}>
           {total}
         </span>
       }
     >
-      <div className="space-y-1.5">
+      <div>
         {([
           { label: 'Impersonation', count: impersonation, dot: 'bg-[#f87171]', text: 'text-[#f87171]' },
           { label: 'Suspicious', count: suspicious, dot: 'bg-[#fb923c]', text: 'text-[#fb923c]' },
           { label: 'Official', count: official, dot: 'bg-green-500/50', text: 'text-green-400' },
         ] as const).map(row => (
-          <div key={row.label} className="flex items-center gap-2">
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${row.dot}`} />
-            <span className="font-mono text-[10px] text-contrail/50 flex-1">{row.label}</span>
-            <span className={`font-mono text-[10px] font-semibold ${row.count > 0 ? row.text : 'text-white/[0.15]'}`}>
+          <div key={row.label} className="flex items-center gap-2 py-1">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${row.dot}`} />
+            <span className="flex-1 text-[11px] font-mono text-white/60">{row.label}</span>
+            <span className={`text-[11px] font-mono ${row.count > 0 ? row.text : 'text-white/25'}`}>
               {row.count}
             </span>
           </div>
@@ -560,7 +570,12 @@ export function BrandDetail() {
               {brand.monitoring_status}
             </Badge>
           </div>
-          <div className="font-mono text-sm text-contrail/50">{brand.canonical_domain}</div>
+          <div className="font-mono text-sm text-contrail/50">
+            {brand.canonical_domain}
+            {timeAgo(brand.first_seen) && (
+              <span className="text-contrail/30 ml-2">&middot; tracked {timeAgo(brand.first_seen)}</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -569,7 +584,7 @@ export function BrandDetail() {
            ════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {/* ── Card 1: Exposure Index ── */}
-        <ExposureIndexCard score={brand.exposure_score} threats={threats} />
+        <ExposureIndexCard brand={brand} threats={threats} />
 
         {/* ── Card 2: Active Threats ── */}
         <ActiveThreatsCard threats={threats} />
