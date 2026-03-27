@@ -302,6 +302,16 @@ async function runThreatFeedScan(env: Env): Promise<void> {
       logger.error('threat_feed_scan_sentinel_error', { error: err instanceof Error ? err.message : String(err) });
     }
 
+    // Write feed_pulled event for traceability
+    try {
+      await env.DB.prepare(`
+        INSERT INTO agent_events (id, event_type, source_agent, target_agent, payload_json, priority, status)
+        VALUES (?, 'feed_pulled', 'sentinel', 'cartographer', ?, 2, 'pending')
+      `).bind(crypto.randomUUID(), JSON.stringify({ newItems: feedResult.totalNew, trigger: 'immediate' })).run();
+    } catch (err) {
+      logger.error('sentinel_event_write_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+
     // After Sentinel feed pull, trigger Cartographer immediately to enrich new threats
     try {
       const cartographerMod = allAgents["cartographer"];
@@ -328,7 +338,8 @@ async function runThreatFeedScan(env: Env): Promise<void> {
 
   // Cartographer — every 15 minutes to clear enrichment backlog
   // (also triggered above after Sentinel, but this ensures it runs even without new feeds)
-  if (minute % 15 >= 5 && minute % 15 < 10) {
+  // Runs at every cron tick (*/15) — stagger by checking we didn't just run via Sentinel trigger
+  if (!(feedResult.totalNew > 0)) {
     try {
       const mod = allAgents["cartographer"];
       if (mod) {
@@ -351,8 +362,8 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   }
 
-  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), minute 10-15
-  if (hour % 4 === 0 && minute >= 10 && minute < 15) {
+  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), at minute 0
+  if (hour % 4 === 0 && minute === 0) {
     try {
       const mod = allAgents["nexus"];
       if (mod) {

@@ -139,7 +139,7 @@ export const cartographerAgent: AgentModule = {
         FROM threats
         WHERE enriched_at IS NULL
           AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
-        LIMIT 100
+        LIMIT 500
       `).all<{
         id: string;
         ip_address: string | null;
