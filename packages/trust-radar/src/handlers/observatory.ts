@@ -288,6 +288,7 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
+  const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
   try {
     const rows = await env.DB.prepare(`
@@ -308,8 +309,8 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
         AND t.status = 'active'${sourceFilter}
       ORDER BY t.created_at DESC
-      LIMIT 20
-    `).all<{
+      LIMIT ?
+    `).bind(limit).all<{
       id: string; malicious_domain: string | null; malicious_url: string | null;
       ioc_value: string | null; threat_type: string; severity: string | null;
       lat: number; lng: number; country_code: string | null;
@@ -431,6 +432,48 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
 
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
     return json(data, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ── GET /api/observatory/operations ─────────────────────────────────────────
+// Lightweight unauthenticated operations list for the Observatory sidebar
+export async function handleObservatoryOperations(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status");
+    const limit = Math.min(10, parseInt(url.searchParams.get("limit") ?? "5", 10));
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (status) {
+      conditions.push("ic.status = ?");
+      params.push(status);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    params.push(limit);
+
+    const rows = await env.DB.prepare(`
+      SELECT ic.id, ic.cluster_name, ic.threat_count,
+             ic.status, ic.confidence_score, ic.agent_notes,
+             ic.countries
+      FROM infrastructure_clusters ic ${where}
+      ORDER BY
+        CASE ic.status
+          WHEN 'accelerating' THEN 0
+          WHEN 'pivot' THEN 1
+          WHEN 'active' THEN 2
+          ELSE 3
+        END,
+        ic.threat_count DESC
+      LIMIT ?
+    `).bind(...params).all();
+
+    return json({ success: true, data: rows.results ?? [] }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }

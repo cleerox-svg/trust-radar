@@ -6,7 +6,7 @@ import { handleStats, handleSourceMix, handleQualityTrend } from "../handlers/st
 import { handleHeatmap } from "../handlers/heatmap";
 import {
   handleObservatoryNodes, handleObservatoryArcs, handleObservatoryLive,
-  handleObservatoryBrandArcs, handleObservatoryStats,
+  handleObservatoryBrandArcs, handleObservatoryStats, handleObservatoryOperations,
 } from "../handlers/observatory";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "../handlers/dashboard";
 import { handleSignals, handleIngestSignal } from "../handlers/signals";
@@ -53,6 +53,7 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
   router.get("/api/observatory/live",       (request: Request, env: Env) => handleObservatoryLive(request, env));
   router.get("/api/observatory/brand-arcs", (request: Request, env: Env) => handleObservatoryBrandArcs(request, env));
   router.get("/api/observatory/stats",      (request: Request, env: Env) => handleObservatoryStats(request, env));
+  router.get("/api/observatory/operations", (request: Request, env: Env) => handleObservatoryOperations(request, env));
 
   // ─── Signals ──────────────────────────────────────────────────────
   router.get("/api/signals", (request: Request, env: Env) => handleSignals(request, env));
