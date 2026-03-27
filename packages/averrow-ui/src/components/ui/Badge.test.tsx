@@ -10,7 +10,7 @@ describe('Badge', () => {
 
   it('applies variant classes for critical', () => {
     const { container } = render(<Badge variant="critical">HIGH</Badge>);
-    expect(container.firstChild).toHaveClass('text-accent');
+    expect(container.firstChild).toHaveClass('badge-critical');
   });
 
   it('applies default variant when none specified', () => {
