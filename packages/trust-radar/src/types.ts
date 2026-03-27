@@ -7,6 +7,7 @@ export interface Env {
   CACHE: KVNamespace;
   ASSETS: Fetcher;
   THREAT_PUSH_HUB: DurableObjectNamespace;
+  CARTOGRAPHER_BACKFILL: Workflow;
   // Environment variables
   ENVIRONMENT: string;
   // Secrets

@@ -96,6 +96,12 @@ async function processAgentEvents(env: Env, ctx: ExecutionContext): Promise<void
 
     if (events.results.length === 0) return;
 
+    // Log Flight Control event processing decision to activity log
+    await logFlightControlActivity(env, 'scaling', `Processing ${events.results.length} pending agent events`, {
+      eventCount: events.results.length,
+      eventTypes: events.results.map(e => e.event_type),
+    }, 'info');
+
     const { agentModules } = await import('../agents/index');
     const { executeAgent } = await import('../lib/agentRunner');
 
@@ -135,6 +141,12 @@ async function processAgentEvents(env: Env, ctx: ExecutionContext): Promise<void
         await env.DB.prepare(
           `UPDATE agent_events SET status = 'failed' WHERE id = ?`
         ).bind(event.id).run();
+
+        await logFlightControlActivity(env, 'recovery', `Agent event processing failed for ${event.target_agent}: ${message}`, {
+          event_id: event.id,
+          target_agent: event.target_agent,
+          event_type: event.event_type,
+        }, 'warning');
       }
     }
 
@@ -623,4 +635,28 @@ async function runThreatNarratives(env: Env): Promise<void> {
     brands_checked: brandsWithSignals.results.length,
     narratives_generated: generated,
   });
+}
+
+// ─── Flight Control Activity Logger ──────────────────────────
+async function logFlightControlActivity(
+  env: Env,
+  eventType: string,
+  message: string,
+  metadata: Record<string, unknown>,
+  severity: 'info' | 'warning' | 'critical'
+): Promise<void> {
+  try {
+    await env.DB.prepare(`
+      INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity)
+      VALUES (?, 'flight_control', ?, ?, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      eventType,
+      message,
+      JSON.stringify(metadata),
+      severity
+    ).run();
+  } catch {
+    // Don't let activity logging failures break the cron
+  }
 }

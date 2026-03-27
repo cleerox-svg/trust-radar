@@ -23,8 +23,15 @@ serve_directly = false
 not_found_handling = "404-page"
 
 # ─── Cron Triggers (automated feed ingestion) ────────────────
+# Hourly cron (15min CPU limit) — agents handle their own scheduling internally
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["0 * * * *"]
+
+# ─── Workflows (durable multi-step processing) ──────────────
+[[workflows]]
+name = "cartographer-backfill"
+binding = "CARTOGRAPHER_BACKFILL"
+class_name = "CartographerBackfillWorkflow"
 
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
