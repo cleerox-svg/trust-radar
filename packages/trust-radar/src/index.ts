@@ -144,6 +144,47 @@ export default {
         }
       }
 
+      // ─── Internal agent trigger endpoints ─────────────────────────
+      if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
+        const internalSecret = (env as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+
+        if (url.pathname === '/api/internal/agents/cartographer/run') {
+          const { agentModules } = await import('./agents/index');
+          const { executeAgent } = await import('./lib/agentRunner');
+          const mod = agentModules["cartographer"];
+          if (mod) ctx.waitUntil(executeAgent(env, mod, { trigger: 'manual' }, "api", "event"));
+          return Response.json({ triggered: true, agent: 'cartographer' });
+        }
+
+        if (url.pathname === '/api/internal/agents/nexus/run') {
+          const { agentModules } = await import('./agents/index');
+          const { executeAgent } = await import('./lib/agentRunner');
+          const mod = agentModules["nexus"];
+          if (mod) ctx.waitUntil(executeAgent(env, mod, {}, "api", "event"));
+          return Response.json({ triggered: true, agent: 'nexus' });
+        }
+
+        if (url.pathname === '/api/internal/agents/cartographer/backfill') {
+          const { agentModules } = await import('./agents/index');
+          const { executeAgent } = await import('./lib/agentRunner');
+          const mod = agentModules["cartographer"];
+          if (mod) {
+            const batches = 10;
+            ctx.waitUntil((async () => {
+              for (let i = 0; i < batches; i++) {
+                await executeAgent(env, mod, { trigger: 'backfill', batch: i + 1 }, "api", "event");
+                if (i < batches - 1) await new Promise(r => setTimeout(r, 2000));
+              }
+            })());
+          }
+          return Response.json({ triggered: true, agent: 'cartographer', batches: 10 });
+        }
+      }
+
       const response = await router.fetch(request, env, ctx);
       return applySecurityHeaders(response);
     } catch (e: unknown) {
