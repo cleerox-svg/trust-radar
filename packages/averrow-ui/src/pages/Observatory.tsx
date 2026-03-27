@@ -4,9 +4,12 @@ import { ThreatMap } from '@/components/observatory/ThreatMap';
 import { useBrands } from '@/hooks/useBrands';
 import { useProviders } from '@/hooks/useProviders';
 import { useAgents } from '@/hooks/useAgents';
+import { useOperations } from '@/hooks/useOperations';
 import { Badge } from '@/components/ui/Badge';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
 const PERIODS = [
   { id: '24h', label: '24H' },
@@ -161,10 +164,11 @@ export function Observatory() {
             ) : (
               <>
                 <LegendItem color="rgb(200,60,60)" label="Phishing" />
-                <LegendItem color="rgb(232,146,60)" label="Typosquatting" />
-                <LegendItem color="rgb(180,60,60)" label="Malware" />
-                <LegendItem color="rgb(200,80,120)" label="Credential" />
-                <LegendItem color="rgb(120,80,200)" label="Impersonation" />
+                <LegendItem color="rgb(251,146,60)" label="Credential" />
+                <LegendItem color="rgb(168,85,247)" label="Malware" />
+                <LegendItem color="rgb(239,68,68)" label="C2" />
+                <LegendItem color="rgb(251,113,133)" label="Web Attack" />
+                <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
               </>
             )}
           </div>
@@ -235,11 +239,27 @@ export function Observatory() {
           </div>
 
           {/* Agent Intelligence */}
-          <div className="p-4">
+          <div className="p-4 border-b border-white/5">
             <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
               Agent Intelligence
             </div>
             <AgentIntelFeed />
+          </div>
+
+          {/* Active Operations */}
+          <div className="p-4 border-b border-white/5">
+            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+              Active Operations
+            </div>
+            <ActiveOperationsPanel />
+          </div>
+
+          {/* Live Feed */}
+          <div className="p-4">
+            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+              Live Feed
+            </div>
+            <LiveThreatFeed />
           </div>
         </div>
       )}
@@ -284,12 +304,18 @@ function TopBrandsList({ period }: { period: string }) {
         <div key={brand.id} className="flex items-center gap-3 py-1">
           <span className="font-mono text-[10px] text-contrail/30 w-4">{i + 1}</span>
           <img
-            src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=16`}
+            src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`}
             alt=""
             className="w-4 h-4"
           />
           <span className="text-xs text-parchment/80 flex-1 truncate">{brand.name}</span>
-          <span className="font-mono text-xs font-bold text-accent">{brand.threat_count}</span>
+          <span className={cn(
+            'font-mono text-xs font-bold',
+            brand.threat_count >= 100 ? 'text-red-400' :
+            brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment'
+          )}>
+            {brand.threat_count}
+          </span>
         </div>
       ))}
     </div>
@@ -345,6 +371,99 @@ function AgentIntelFeed() {
           <div className="text-contrail/50">
             {agent.outputs_24h} outputs &middot; {relativeTime(agent.last_output_at)}
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActiveOperationsPanel() {
+  const { data: operations = [] } = useOperations({ status: 'active', limit: 5 });
+
+  if (operations.length === 0) {
+    return <div className="text-[10px] text-contrail/30 font-mono">No active operations</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {operations.slice(0, 5).map(op => (
+        <div key={op.id} className="py-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-parchment/80 truncate flex-1 mr-2">
+              {op.cluster_name || `Cluster ${op.id.slice(0, 8)}`}
+            </span>
+            <span className="font-mono text-[10px] font-bold text-accent">{op.threat_count}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            {op.status === 'active' && (op.confidence_score ?? 0) >= 70 && (
+              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
+                ACCELERATING
+              </span>
+            )}
+            {op.agent_notes?.toLowerCase().includes('pivot') && (
+              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                PIVOT
+              </span>
+            )}
+            {op.countries && (
+              <span className="font-mono text-[9px] text-contrail/30 truncate">
+                {(() => { try { return (JSON.parse(op.countries) as string[]).slice(0, 3).join(', '); } catch { return ''; } })()}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface LiveThreatEntry {
+  id: string;
+  threat_type: string;
+  severity: string | null;
+  country_code: string | null;
+  created_at: string;
+  malicious_domain: string | null;
+}
+
+const SEVERITY_DOT_COLORS: Record<string, string> = {
+  critical: 'bg-red-400',
+  high: 'bg-amber-400',
+  medium: 'bg-yellow-400',
+  low: 'bg-blue-400',
+};
+
+function LiveThreatFeed() {
+  const { data: entries = [] } = useQuery({
+    queryKey: ['observatory-live-feed'],
+    queryFn: async () => {
+      const res = await api.get<LiveThreatEntry[]>('/api/threats/recent?limit=8');
+      return res.data ?? [];
+    },
+    refetchInterval: 15_000,
+  });
+
+  if (entries.length === 0) {
+    return <div className="text-[10px] text-contrail/30 font-mono">Waiting for threats...</div>;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {entries.slice(0, 8).map(entry => (
+        <div key={entry.id} className="flex items-center gap-2 py-0.5 animate-fade-in">
+          <span className={cn(
+            'w-1.5 h-1.5 rounded-full flex-shrink-0',
+            SEVERITY_DOT_COLORS[entry.severity?.toLowerCase() ?? ''] ?? 'bg-blue-400'
+          )} />
+          <span className="font-mono text-[10px] text-parchment/70 truncate flex-1">
+            {entry.threat_type?.replace(/_/g, ' ')}
+          </span>
+          {entry.country_code && (
+            <span className="font-mono text-[9px] text-contrail/40">{entry.country_code}</span>
+          )}
+          <span className="font-mono text-[9px] text-contrail/30 flex-shrink-0">
+            {relativeTime(entry.created_at)}
+          </span>
         </div>
       ))}
     </div>
