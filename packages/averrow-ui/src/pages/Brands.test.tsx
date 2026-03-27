@@ -12,6 +12,15 @@ vi.mock('@/hooks/useBrands', () => ({
   }),
   useBrandStats: vi.fn().mockReturnValue({
     data: null,
+    isLoading: false,
+  }),
+  useToggleMonitor: vi.fn().mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useAddBrand: vi.fn().mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
   }),
 }));
 
@@ -31,6 +40,7 @@ describe('Brands Page', () => {
     });
     (useBrandStats as any).mockReturnValue({
       data: { total_tracked: 9333, new_this_week: 12, fastest_rising: null, fastest_rising_pct: 0, top_threat_type: 'phishing', top_threat_type_pct: 68 },
+      isLoading: false,
     });
   });
 
@@ -48,7 +58,7 @@ describe('Brands Page', () => {
 
   it('renders stat cards with data', () => {
     renderWithProviders(<Brands />);
-    expect(screen.getByText('Total Tracked')).toBeInTheDocument();
+    expect(screen.getByText('Total Brands')).toBeInTheDocument();
     expect(screen.getByText('9333')).toBeInTheDocument();
   });
 
@@ -88,9 +98,10 @@ describe('Brands Page', () => {
     expect(screen.getByText('second.com')).toBeInTheDocument();
   });
 
-  it('shows sector badges', () => {
+  it('shows stat card labels', () => {
     renderWithProviders(<Brands />);
-    const techBadges = screen.getAllByText('tech');
-    expect(techBadges.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('New This Week')).toBeInTheDocument();
+    expect(screen.getByText('Fastest Rising')).toBeInTheDocument();
+    expect(screen.getByText('Top Attack Type')).toBeInTheDocument();
   });
 });
