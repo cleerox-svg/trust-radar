@@ -366,7 +366,9 @@ function getFlowBrandHQ(domain: string | null, brandName?: string | null): [numb
   const clean = domain.replace(/^www\./, '').toLowerCase();
   if (BRAND_HQ_COORDS[clean]) return BRAND_HQ_COORDS[clean];
   for (const [key, coords] of Object.entries(BRAND_HQ_COORDS)) {
-    if (clean.includes(key.split('.')[0]) || key.includes(clean.split('.')[0])) return coords;
+    const keyBase = key.split('.')[0] ?? '';
+    const cleanBase = clean.split('.')[0] ?? '';
+    if (cleanBase && keyBase && (clean.includes(keyBase) || key.includes(cleanBase))) return coords;
   }
   return null;
 }
