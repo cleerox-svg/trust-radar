@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-interface Provider {
+// ─── Types ────────────────────────────────────────────────────
+
+export interface Provider {
   id: string;
   name: string;
   asn: string | null;
@@ -10,12 +12,37 @@ interface Provider {
   total_threat_count: number;
   trend_7d: number | null;
   trend_30d: number | null;
-  trend_90d: number | null;
-  avg_response_time: number | null;
   reputation_score: number | null;
+  avg_response_time: number | null;
+  is_bulletproof: number | null;
+  first_threat: string | null;
+  last_threat: string | null;
 }
 
-interface ProviderDetail {
+export interface IntelligenceStats {
+  total_providers: number;
+  active_operations: number;
+  accelerating: number;
+  pivots_detected: number;
+  total_clusters: number;
+  active_clusters: number;
+}
+
+export interface Cluster {
+  id: string;
+  cluster_name: string | null;
+  asns: string; // JSON array
+  countries: string | null; // JSON array
+  threat_count: number;
+  status: string;
+  confidence_score: number | null;
+  agent_notes: string | null;
+  first_detected: string | null;
+  last_seen: string | null;
+  last_updated: string | null;
+}
+
+export interface ProviderDetail {
   id: string;
   name: string;
   asn: string | null;
@@ -32,37 +59,136 @@ interface ProviderDetail {
   type_breakdown: Array<{ threat_type: string; count: number }>;
 }
 
-export function useProviders(options?: { view?: string; limit?: number; offset?: number; timeRange?: string }) {
-  const { view = 'worst', limit = 20, offset = 0, timeRange = '7d' } = options || {};
+export interface ProviderThreat {
+  id: string;
+  threat_type: string;
+  severity: string;
+  status: string;
+  malicious_domain: string | null;
+  malicious_url: string | null;
+  ip_address: string | null;
+  country_code: string | null;
+  target_brand_id: string | null;
+  brand_name: string | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  created_at: string;
+}
+
+export interface TimelineData {
+  labels: string[];
+  values: number[];
+}
+
+// ─── Intelligence Summary ─────────────────────────────────────
+
+export function useProviderIntelligence() {
   return useQuery({
-    queryKey: ['providers', view, limit, offset, timeRange],
+    queryKey: ['provider-intelligence'],
     queryFn: async () => {
-      const params = new URLSearchParams({ view, limit: String(limit), offset: String(offset), range: timeRange });
-      const res = await api.get<Provider[]>(`/api/providers?${params}`);
+      const res = await api.get<IntelligenceStats>('/api/providers/intelligence');
+      return res.data ?? null;
+    },
+  });
+}
+
+// ─── Provider List (v2 with status/sort/cluster filtering) ────
+
+export function useProviders(options?: {
+  view?: string;
+  limit?: number;
+  offset?: number;
+  timeRange?: string;
+  sort?: string;
+  country?: string;
+  status?: string;
+  search?: string;
+  clusterId?: string;
+}) {
+  const {
+    limit = 50, offset = 0, sort = 'active_threats',
+    country, status, search, clusterId,
+  } = options || {};
+
+  return useQuery({
+    queryKey: ['providers-v2', limit, offset, sort, country, status, search, clusterId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+        sort,
+      });
+      if (country) params.set('country', country);
+      if (status) params.set('status', status);
+      if (search) params.set('q', search);
+      if (clusterId) params.set('cluster_id', clusterId);
+      const res = await api.get<Provider[]>(`/api/providers/v2?${params}`);
       return res.data ?? [];
     },
   });
 }
 
-export function useProviderDetail(providerId: string) {
+// ─── Clusters ─────────────────────────────────────────────────
+
+export function useClusters() {
+  return useQuery({
+    queryKey: ['infrastructure-clusters'],
+    queryFn: async () => {
+      const res = await api.get<Cluster[]>('/api/providers/clusters');
+      return res.data ?? [];
+    },
+  });
+}
+
+// ─── Provider Detail ──────────────────────────────────────────
+
+export function useProviderDetail(providerId: string | null) {
   return useQuery({
     queryKey: ['provider', providerId],
     queryFn: async () => {
       const res = await api.get<ProviderDetail>(`/api/providers/${providerId}`);
-      return res.data || null;
+      return res.data ?? null;
     },
     enabled: !!providerId,
   });
 }
 
-export function useProviderThreats(providerId: string, options?: { limit?: number; offset?: number; type?: string }) {
-  const { limit = 20, offset = 0, type } = options || {};
+// ─── Provider Threats ─────────────────────────────────────────
+
+export function useProviderThreats(providerId: string | null, options?: { limit?: number; offset?: number; type?: string }) {
+  const { limit = 10, offset = 0, type } = options || {};
   return useQuery({
     queryKey: ['provider-threats', providerId, limit, offset, type],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (type) params.set('type', type);
-      const res = await api.get<unknown>(`/api/providers/${providerId}/threats?${params}`);
+      const res = await api.get<ProviderThreat[]>(`/api/providers/${providerId}/threats?${params}`);
+      return res.data ?? [];
+    },
+    enabled: !!providerId,
+  });
+}
+
+// ─── Provider Timeline ────────────────────────────────────────
+
+export function useProviderTimeline(providerId: string | null) {
+  return useQuery({
+    queryKey: ['provider-timeline', providerId],
+    queryFn: async () => {
+      const res = await api.get<TimelineData>(`/api/providers/${providerId}/timeline?period=30d`);
+      return res.data ?? { labels: [], values: [] };
+    },
+    enabled: !!providerId,
+  });
+}
+
+// ─── Provider Clusters ────────────────────────────────────────
+
+export function useProviderClusters(providerId: string | null) {
+  return useQuery({
+    queryKey: ['provider-clusters', providerId],
+    queryFn: async () => {
+      const res = await api.get<Cluster[]>(`/api/providers/${providerId}/clusters`);
       return res.data ?? [];
     },
     enabled: !!providerId,

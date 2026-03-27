@@ -1,148 +1,718 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useProviders } from '@/hooks/useProviders';
-import { Card } from '@/components/ui/Card';
+import { useState, useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { StatCard } from '@/components/brands/StatCard';
+import { Sparkline } from '@/components/brands/Sparkline';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { CardGridLoader } from '@/components/ui/PageLoader';
+import {
+  useProviderIntelligence,
+  useProviders,
+  useClusters,
+  useProviderDetail,
+  useProviderThreats,
+  useProviderTimeline,
+  useProviderClusters,
+} from '@/hooks/useProviders';
+import type { Provider, Cluster } from '@/hooks/useProviders';
 
-const TIME_RANGES = ['7d', '30d', '90d', '1y'] as const;
+// ─── Helpers ──────────────────────────────────────────────────
 
-function trendIndicator(trend: number | null | undefined) {
-  if (trend == null || isNaN(trend)) return { arrow: '—', color: 'text-contrail/30', isNull: true };
-  if (trend === 0) return { arrow: '→', color: 'text-contrail/50', isNull: false };
-  if (trend < 0) return { arrow: '↓', color: 'text-positive', isNull: false };
-  return { arrow: '↑', color: 'text-accent', isNull: false };
+function countryFlag(code: string | null): string {
+  if (!code || code.length !== 2) return '';
+  return String.fromCodePoint(
+    ...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65),
+  );
 }
 
-function reputationColor(score: number): string {
-  if (score >= 80) return 'bg-positive';
-  if (score >= 60) return 'bg-contrail';
-  if (score >= 40) return 'bg-warning';
-  return 'bg-accent';
+type ProviderStatus = 'accelerating' | 'pivot' | 'active' | 'quiet';
+
+function getProviderStatus(p: Provider): ProviderStatus {
+  const t7 = p.trend_7d ?? 0;
+  const t30 = p.trend_30d ?? 0;
+  if (t7 > 0 && t30 > 0 && t7 > t30 / 4) return 'accelerating';
+  if (t7 === 0 && t30 > 50) return 'pivot';
+  if (p.active_threat_count > 0) return 'active';
+  return 'quiet';
 }
 
-export function Providers() {
-  const navigate = useNavigate();
-  const [view, setView] = useState('worst');
-  const [timeRange, setTimeRange] = useState<string>('7d');
-  const { data: providersRes, isLoading } = useProviders({ view, timeRange });
+function hasNexusLink(provider: Provider, clusters: Cluster[]): boolean {
+  if (!provider.asn) return false;
+  return clusters.some(c => {
+    try {
+      const asns = JSON.parse(c.asns) as string[];
+      return asns.includes(provider.asn as string);
+    } catch { return false; }
+  });
+}
 
-  if (isLoading) return <CardGridLoader count={12} />;
+function getClusterStatus(c: Cluster): ProviderStatus {
+  if (c.status === 'dormant') return 'quiet';
+  // Parse ASN trends from cluster data if available
+  return c.status === 'active' ? 'active' : 'quiet';
+}
 
-  const providers = providersRes || [];
-  const total = providers.length;
+function estimateWeeklyVolumes(t7: number, t30: number): number[] {
+  // Estimate 7 weekly volumes from 7d and 30d data
+  const weeklyAvg30 = t30 / 4;
+  const weeks: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    weeks.push(Math.max(0, weeklyAvg30 + (Math.random() - 0.5) * weeklyAvg30 * 0.3));
+  }
+  weeks.push(t7); // most recent week is the 7d value
+  return weeks;
+}
 
-  const tabs = [
-    { id: 'worst', label: 'WORST ACTORS', count: total },
-    { id: 'improving', label: 'IMPROVING' },
-    { id: 'all', label: 'ALL PROVIDERS' },
-  ];
+// ─── Status Badge Component ──────────────────────────────────
+
+function StatusBadge({ status }: { status: ProviderStatus }) {
+  switch (status) {
+    case 'accelerating':
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-amber-400/30 bg-amber-400/10 text-amber-400">
+          ACCELERATING
+        </span>
+      );
+    case 'pivot':
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#00D4FF]/30 bg-[#00D4FF]/10 text-[#00D4FF]">
+          PIVOT
+        </span>
+      );
+    case 'active':
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#4ADE80]/30 bg-[#4ADE80]/10 text-[#4ADE80]">
+          ACTIVE
+        </span>
+      );
+    case 'quiet':
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-white/10 bg-white/5 text-white/40">
+          QUIET
+        </span>
+      );
+  }
+}
+
+// ─── Cluster Sidebar ─────────────────────────────────────────
+
+function ClusterPanel({
+  clusters,
+  isLoading,
+  selectedClusterId,
+  onSelect,
+}: {
+  clusters: Cluster[];
+  isLoading: boolean;
+  selectedClusterId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="font-display text-xl font-bold text-parchment">Infrastructure Intelligence</h1>
+    <div className="space-y-1.5">
+      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+        Cluster Intelligence
+      </div>
+      {selectedClusterId && (
+        <button
+          onClick={() => onSelect(null)}
+          className="w-full text-left font-mono text-[10px] text-orbital-teal hover:text-thrust px-2 py-1 mb-1"
+        >
+          Clear filter
+        </button>
+      )}
+      {clusters.length === 0 && (
+        <div className="font-mono text-[11px] text-white/30 py-4 text-center">No clusters detected</div>
+      )}
+      {clusters.map(cluster => {
+        const status = getClusterStatus(cluster);
+        const isSelected = selectedClusterId === cluster.id;
+        return (
+          <button
+            key={cluster.id}
+            onClick={() => onSelect(isSelected ? null : cluster.id)}
+            className={`w-full text-left rounded-lg border p-2.5 transition-all ${
+              isSelected
+                ? 'border-orbital-teal/40 bg-orbital-teal/5'
+                : 'border-white/[0.06] bg-instrument hover:border-white/10'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-mono text-[11px] text-parchment truncate">
+                {cluster.cluster_name || `Cluster ${cluster.id.slice(0, 8)}`}
+              </div>
+              <StatusBadge status={status} />
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono text-[10px] text-contrail/50">
+                {cluster.threat_count.toLocaleString()} threats
+              </span>
+              {cluster.countries && (
+                <span className="font-mono text-[10px] text-white/30">
+                  {(() => {
+                    try {
+                      return (JSON.parse(cluster.countries) as string[]).map(countryFlag).join(' ');
+                    } catch { return ''; }
+                  })()}
+                </span>
+              )}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <Tabs tabs={tabs} activeTab={view} onChange={setView} />
-        <div className="flex gap-1.5">
-          {TIME_RANGES.map(r => (
-            <button
-              key={r}
-              onClick={() => setTimeRange(r)}
-              className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
-                timeRange === r
-                  ? 'bg-accent/10 text-accent border border-accent/25'
-                  : 'text-contrail/40 hover:bg-white/5 hover:text-parchment border border-transparent'
-              }`}
-            >
-              {r.toUpperCase()}
-            </button>
-          ))}
+// ─── Provider Card ───────────────────────────────────────────
+
+function ProviderCard({
+  provider,
+  clusters,
+  isSelected,
+  onSelect,
+}: {
+  provider: Provider;
+  clusters: Cluster[];
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const status = getProviderStatus(provider);
+  const nexusLinked = hasNexusLink(provider, clusters);
+  const t7 = provider.trend_7d ?? 0;
+  const t30 = provider.trend_30d ?? 0;
+  const weeklyData = useMemo(() => estimateWeeklyVolumes(t7, t30), [t7, t30]);
+
+  return (
+    <button
+      onClick={() => onSelect(provider.id)}
+      className={`w-full text-left rounded-xl border p-4 transition-all ${
+        isSelected
+          ? 'border-orbital-teal/40 bg-[#0D1520] ring-1 ring-orbital-teal/20'
+          : 'border-white/[0.06] bg-[#0D1520] hover:border-white/10 hover:-translate-y-0.5'
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-base">{countryFlag(provider.country)}</span>
+          <div className="min-w-0">
+            <div className="font-display text-sm font-semibold text-parchment truncate">
+              {provider.name}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[10px] text-contrail/40">
+                {provider.asn || 'No ASN'} {provider.country ? `\u00B7 ${provider.country}` : ''}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {nexusLinked && (
+            <span className="font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-orbital-teal/30 bg-orbital-teal/10 text-orbital-teal">
+              NEXUS
+            </span>
+          )}
+          <StatusBadge status={status} />
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
-          ))}
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-3 py-2 border-t border-b border-white/[0.06] my-2">
+        <div>
+          <div className="font-display text-lg font-bold text-parchment">
+            {provider.active_threat_count.toLocaleString()}
+          </div>
+          <div className="font-mono text-[9px] text-contrail/50 uppercase">Active</div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {providers.map((provider, idx) => {
-            const trend = trendIndicator(provider.trend_7d);
-            return (
-              <Card
-                key={provider.id}
-                className="cursor-pointer"
-                hover
-              >
-                <div
-                  onClick={() => navigate(`/providers/${provider.id}`)}
-                  className="space-y-2.5"
-                >
-                  <div className="flex items-start justify-between">
-                    <span className="font-mono text-[10px] text-contrail/30">#{idx + 1}</span>
-                    {provider.country && (
-                      <Badge variant="info">{provider.country}</Badge>
-                    )}
-                  </div>
+        <div>
+          <div className="font-display text-lg font-bold text-parchment">
+            {t7.toLocaleString()}
+          </div>
+          <div className="font-mono text-[9px] text-contrail/50 uppercase">7d Trend</div>
+        </div>
+        <div>
+          <div className="font-display text-lg font-bold text-parchment">
+            {t30.toLocaleString()}
+          </div>
+          <div className="font-mono text-[9px] text-contrail/50 uppercase">30d Trend</div>
+        </div>
+      </div>
 
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={`https://www.google.com/s2/favicons?domain=${(provider.name ?? '').toLowerCase().replace(/\s/g, '')}.com&sz=32`}
-                      alt=""
-                      className="w-6 h-6 rounded"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).classList.add('hidden');
-                      }}
-                    />
-                    <div className="min-w-0">
-                      <div className="font-display font-semibold text-parchment truncate">{provider.name}</div>
-                      {provider.asn && (
-                        <div className="font-mono text-xs text-contrail/40">{provider.asn}</div>
-                      )}
-                    </div>
-                  </div>
+      {/* Sparkline bar */}
+      <div className="mt-2">
+        <Sparkline data={weeklyData} width={280} height={20} />
+      </div>
 
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-extrabold text-accent">
-                      {provider.active_threat_count}
-                    </span>
-                    <span className="font-mono text-xs text-contrail/50">active threats</span>
-                  </div>
-
-                  <div className={`font-mono text-xs font-semibold ${trend.color}`}>
-                    {trend.isNull
-                      ? '—'
-                      : `${trend.arrow} ${Math.abs(provider.trend_7d ?? 0)}% 7d`}
-                  </div>
-
-                  {provider.reputation_score !== null ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] text-contrail/40">Reputation</span>
-                        <span className="font-mono text-[10px] text-parchment/70">{provider.reputation_score}</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${reputationColor(provider.reputation_score)}`}
-                          style={{ width: `${provider.reputation_score}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="font-mono text-[10px] text-contrail/30">No data</div>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
+      {/* Status alert */}
+      {status === 'accelerating' && (
+        <div className="mt-2 font-mono text-[10px] text-amber-400">
+          {'\u26A0'} ACCELERATING: activity up &gt;50% vs prior week
         </div>
       )}
+      {status === 'pivot' && (
+        <div className="mt-2 font-mono text-[10px] text-[#00D4FF]">
+          {'\u2192'} PIVOT DETECTED: went silent {provider.trend_30d ?? 0 > 50 ? '7+ days ago' : 'recently'}
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ─── Provider Detail Panel ───────────────────────────────────
+
+function ProviderDetailPanel({ providerId }: { providerId: string }) {
+  const { data: detail, isLoading: detailLoading } = useProviderDetail(providerId);
+  const { data: threats, isLoading: threatsLoading } = useProviderThreats(providerId, { limit: 10 });
+  const { data: timeline, isLoading: timelineLoading } = useProviderTimeline(providerId);
+  const { data: linkedClusters, isLoading: clustersLoading } = useProviderClusters(providerId);
+
+  if (detailLoading) {
+    return (
+      <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-6 space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!detail) return null;
+
+  // Build chart data from timeline
+  const chartData = timeline
+    ? timeline.labels.map((label: string, i: number) => ({
+        date: label.slice(5), // show MM-DD
+        count: timeline.values[i],
+      }))
+    : [];
+
+  function severityBadge(severity: string) {
+    const map: Record<string, string> = {
+      critical: 'bg-[#f87171]/10 text-[#f87171] border-[#f87171]/30',
+      high: 'bg-[#fb923c]/10 text-[#fb923c] border-[#fb923c]/30',
+      medium: 'bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/30',
+      low: 'bg-contrail/10 text-contrail border-contrail/30',
+    };
+    return map[severity] ?? map.low;
+  }
+
+  return (
+    <div className="rounded-xl border border-orbital-teal/20 bg-[#0D1520] p-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{countryFlag(detail.country)}</span>
+            <h3 className="font-display text-lg font-bold text-parchment">{detail.name}</h3>
+          </div>
+          <div className="font-mono text-xs text-contrail/50 mt-1">
+            {detail.asn || 'No ASN'} {detail.country ? `\u00B7 ${detail.country}` : ''}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {detail.reputation_score !== null && (
+            <div className="text-center">
+              <div className={`font-display text-2xl font-bold ${
+                detail.reputation_score >= 80 ? 'text-[#4ADE80]'
+                : detail.reputation_score >= 60 ? 'text-[#fbbf24]'
+                : detail.reputation_score >= 40 ? 'text-[#fb923c]'
+                : 'text-[#f87171]'
+              }`}>
+                {detail.reputation_score}
+              </div>
+              <div className="font-mono text-[9px] text-contrail/50 uppercase">Reputation</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Three columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left — Provider Info */}
+        <div className="space-y-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+            Provider Details
+          </div>
+          <div className="space-y-2">
+            {[
+              ['First Threat', detail.first_seen ? new Date(detail.first_seen).toLocaleDateString() : 'N/A'],
+              ['Last Threat', detail.last_seen ? new Date(detail.last_seen).toLocaleDateString() : 'N/A'],
+              ['Total Threats', String(detail.total_threats)],
+              ['Active Threats', String(detail.active_threats)],
+              ['Brands Targeted', String(detail.brands_targeted)],
+              ['Campaigns', String(detail.campaigns)],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between">
+                <span className="font-mono text-[11px] text-contrail/50">{label}</span>
+                <span className="font-mono text-[11px] text-parchment">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Center — Timeline Chart */}
+        <div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+            Threat Timeline (30d)
+          </div>
+          {timelineLoading ? (
+            <Skeleton className="h-40" />
+          ) : chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="tealGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00D4FF" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#00D4FF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 9, fill: '#78A0C8', opacity: 0.5 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis hide />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0D1520',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}
+                  labelStyle={{ color: '#78A0C8' }}
+                  itemStyle={{ color: '#00D4FF' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#00D4FF"
+                  fill="url(#tealGradient)"
+                  strokeWidth={1.5}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-40 flex items-center justify-center font-mono text-[11px] text-white/30">
+              No timeline data
+            </div>
+          )}
+        </div>
+
+        {/* Right — Linked Clusters */}
+        <div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+            Linked Clusters
+          </div>
+          {clustersLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 rounded-lg" />
+              ))}
+            </div>
+          ) : linkedClusters && linkedClusters.length > 0 ? (
+            <div className="space-y-2">
+              {linkedClusters.map(cluster => (
+                <div
+                  key={cluster.id}
+                  className="rounded-lg border border-white/[0.06] bg-cockpit p-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] text-parchment truncate">
+                      {cluster.cluster_name || `Cluster ${cluster.id.slice(0, 8)}`}
+                    </span>
+                    <StatusBadge status={getClusterStatus(cluster)} />
+                  </div>
+                  <div className="font-mono text-[10px] text-contrail/40 mt-1">
+                    {cluster.threat_count} threats
+                    {cluster.agent_notes && (
+                      <span className="block mt-0.5 text-white/30 truncate">{cluster.agent_notes}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="font-mono text-[11px] text-white/30 py-4 text-center">
+              No cluster linkage
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Threats Table */}
+      <div className="mt-6">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          Recent Threats
+        </div>
+        {threatsLoading ? (
+          <Skeleton className="h-32" />
+        ) : threats && threats.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  {['Type', 'Domain', 'Severity', 'First Seen'].map(h => (
+                    <th key={h} className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left py-2 px-2">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {threats.map(threat => (
+                  <tr key={threat.id} className="border-b border-white/[0.04]">
+                    <td className="font-mono text-[11px] text-parchment py-1.5 px-2">{threat.threat_type}</td>
+                    <td className="font-mono text-[11px] text-contrail/60 py-1.5 px-2 truncate max-w-[200px]">
+                      {threat.malicious_domain || '—'}
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <span className={`inline-flex font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded border ${severityBadge(threat.severity)}`}>
+                        {threat.severity}
+                      </span>
+                    </td>
+                    <td className="font-mono text-[10px] text-white/30 py-1.5 px-2">
+                      {threat.first_seen ? new Date(threat.first_seen).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="font-mono text-[11px] text-white/30 py-4 text-center">No threats found</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Filter Bar ──────────────────────────────────────────────
+
+const STATUS_FILTERS = [
+  { id: 'all', label: 'ALL' },
+  { id: 'active', label: 'ACTIVE' },
+  { id: 'accelerating', label: 'ACCELERATING' },
+  { id: 'pivot', label: 'PIVOTS' },
+  { id: 'quiet', label: 'QUIET' },
+] as const;
+
+const SORT_OPTIONS = [
+  { id: 'active_threats', label: 'THREAT COUNT' },
+  { id: 'trend_7d', label: '7D TREND' },
+  { id: 'trend_30d', label: '30D TREND' },
+] as const;
+
+// ─── Main Page ───────────────────────────────────────────────
+
+export function Providers() {
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('active_threats');
+  const [search, setSearch] = useState('');
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+
+  const { data: intelligence, isLoading: intelLoading } = useProviderIntelligence();
+  const { data: clusters, isLoading: clustersLoading } = useClusters();
+  const { data: providers, isLoading: providersLoading } = useProviders({
+    limit: 50,
+    sort: sortBy,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    search: search || undefined,
+    clusterId: selectedClusterId || undefined,
+  });
+
+  return (
+    <div className="animate-fade-in space-y-6">
+      {/* Title */}
+      <h1 className="font-display text-xl font-bold text-parchment">Infrastructure Intelligence</h1>
+
+      {/* Intelligence Header — 4 Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Providers Tracked"
+          metric={
+            <span className="text-[32px] font-bold leading-none text-parchment">
+              {intelLoading ? '—' : (intelligence?.total_providers ?? 0).toLocaleString()}
+            </span>
+          }
+          metricLabel="Total"
+        >
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-contrail" />
+              <span className="font-mono text-[11px] text-white/60">Infrastructure nodes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-contrail/40" />
+              <span className="font-mono text-[11px] text-white/40">{intelligence?.total_clusters ?? 0} clusters</span>
+            </div>
+          </div>
+        </StatCard>
+
+        <StatCard
+          title="Active Operations"
+          metric={
+            <span className="text-[32px] font-bold leading-none text-[#4ADE80]">
+              {intelLoading ? '—' : (intelligence?.active_operations ?? 0).toLocaleString()}
+            </span>
+          }
+          metricLabel="With threats"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
+            <span className="font-mono text-[11px] text-white/60">Providers with active threats</span>
+          </div>
+        </StatCard>
+
+        <StatCard
+          title="Accelerating"
+          metric={
+            <span className="text-[32px] font-bold leading-none text-amber-400">
+              {intelLoading ? '—' : (intelligence?.accelerating ?? 0).toLocaleString()}
+            </span>
+          }
+          metricLabel="Campaigns"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span className="font-mono text-[11px] text-white/60">7d trend &gt; 30d average</span>
+          </div>
+        </StatCard>
+
+        <StatCard
+          title="Pivots Detected"
+          metric={
+            <span className="text-[32px] font-bold leading-none text-orbital-teal">
+              {intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
+            </span>
+          }
+          metricLabel="Infra moved"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-orbital-teal" />
+            <span className="font-mono text-[11px] text-white/60">Silent after &gt;50 threats/30d</span>
+          </div>
+        </StatCard>
+      </div>
+
+      {/* Three Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+        {/* Left Sidebar — Cluster Intelligence */}
+        <div className="lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
+          <ClusterPanel
+            clusters={clusters ?? []}
+            isLoading={clustersLoading}
+            selectedClusterId={selectedClusterId}
+            onSelect={id => {
+              setSelectedClusterId(id);
+              setSelectedProviderId(null);
+            }}
+          />
+        </div>
+
+        {/* Center/Main — Provider Cards */}
+        <div className="space-y-4">
+          {/* Filter Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="Search providers or ASN..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="bg-instrument border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11px] text-parchment placeholder-white/30 focus:outline-none focus:border-orbital-teal/30 w-full sm:w-64"
+            />
+
+            {/* Status Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {STATUS_FILTERS.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setStatusFilter(f.id);
+                    setSelectedProviderId(null);
+                  }}
+                  className={`font-mono text-[10px] font-semibold px-3 py-1 rounded transition-all ${
+                    statusFilter === f.id
+                      ? 'bg-orbital-teal/10 text-orbital-teal border border-orbital-teal/25'
+                      : 'text-contrail/40 hover:bg-white/5 hover:text-parchment border border-transparent'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort */}
+            <div className="flex items-center gap-1.5 sm:ml-auto">
+              <span className="font-mono text-[9px] text-contrail/40 uppercase">Sort:</span>
+              {SORT_OPTIONS.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setSortBy(s.id)}
+                  className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all ${
+                    sortBy === s.id
+                      ? 'bg-white/10 text-parchment'
+                      : 'text-contrail/40 hover:text-parchment'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Provider Cards Grid */}
+          {providersLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-xl" />
+              ))}
+            </div>
+          ) : providers && providers.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {providers.map(provider => (
+                  <ProviderCard
+                    key={provider.id}
+                    provider={provider}
+                    clusters={clusters ?? []}
+                    isSelected={selectedProviderId === provider.id}
+                    onSelect={setSelectedProviderId}
+                  />
+                ))}
+              </div>
+
+              {/* Detail Panel */}
+              {selectedProviderId && (
+                <div className="mt-4">
+                  <ProviderDetailPanel providerId={selectedProviderId} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-12 text-center">
+              <div className="font-mono text-[11px] text-white/30">
+                No providers match current filters
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

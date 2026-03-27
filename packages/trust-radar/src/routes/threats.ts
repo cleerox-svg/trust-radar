@@ -23,6 +23,7 @@ import {
   handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders,
   handleGetProvider, handleProviderDrilldown, handleProviderBrands,
   handleProviderTimeline, handleProviderLocations,
+  handleProviderIntelligence, handleListProvidersV2, handleListClusters, handleProviderClusters,
 } from "../handlers/providers";
 import { handleThreatFeedStats } from "../handlers/threatAssessment";
 
@@ -183,6 +184,21 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
   });
 
   // ─── Hosting Provider Intelligence ───────────────────────────────
+  router.get("/api/providers/intelligence", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleProviderIntelligence(request, env);
+  });
+  router.get("/api/providers/v2", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListProvidersV2(request, env);
+  });
+  router.get("/api/providers/clusters", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListClusters(request, env);
+  });
   router.get("/api/providers/stats", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
@@ -212,6 +228,11 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleProviderDrilldown(request, env, request.params["id"] ?? "");
+  });
+  router.get("/api/providers/:id/clusters", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleProviderClusters(request, env, request.params["id"] ?? "");
   });
   router.get("/api/providers/:id/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
