@@ -34,6 +34,7 @@ describe('Brands Page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     (useBrands as any).mockReturnValue({
       data: { success: true, data: mockBrands, total: 2 },
       isLoading: false,
@@ -44,7 +45,7 @@ describe('Brands Page', () => {
     });
   });
 
-  it('renders brand cards after loading', () => {
+  it('renders brand rows after loading', () => {
     renderWithProviders(<Brands />);
     expect(screen.getByText('Test Brand')).toBeInTheDocument();
     expect(screen.getByText('Second Brand')).toBeInTheDocument();
@@ -71,19 +72,18 @@ describe('Brands Page', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('renders tab navigation', () => {
+  it('renders view toggle buttons', () => {
     renderWithProviders(<Brands />);
-    expect(screen.getByText('TOP TARGETED')).toBeInTheDocument();
-    expect(screen.getByText('MONITORED')).toBeInTheDocument();
-    expect(screen.getByText('ALL BRANDS')).toBeInTheDocument();
+    expect(screen.getByText('≡ LIST')).toBeInTheDocument();
+    expect(screen.getByText('▦ MAP')).toBeInTheDocument();
+    expect(screen.getByText('║ LANES')).toBeInTheDocument();
   });
 
-  it('renders time range filters', () => {
+  it('renders filter tab buttons', () => {
     renderWithProviders(<Brands />);
-    expect(screen.getByText('7D')).toBeInTheDocument();
-    expect(screen.getByText('30D')).toBeInTheDocument();
-    expect(screen.getByText('90D')).toBeInTheDocument();
-    expect(screen.getByText('1Y')).toBeInTheDocument();
+    expect(screen.getByText('all')).toBeInTheDocument();
+    expect(screen.getByText('monitored')).toBeInTheDocument();
+    expect(screen.getByText('Top Threatened')).toBeInTheDocument();
   });
 
   it('shows email security grade badges', () => {
