@@ -13,11 +13,11 @@ export function StatCard({ title, children, metric, metricLabel, className }: St
   return (
     <div
       className={cn(
-        'glass-card card-accent-top rounded-xl p-4 flex flex-col',
+        'glass-card glass-card-teal relative rounded-xl p-4 flex flex-col',
         className,
       )}
     >
-      <div className="mb-3 font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+      <div className="mb-3 section-label">
         {title}
       </div>
       <div className="flex items-center gap-3">

@@ -32,7 +32,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <AverrowLogo />
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-widest px-3 pt-3 pb-1">Platform</div>
+        <div className="section-label px-3 pt-3 pb-1">Platform</div>
         {platformItems.map(item => (
           <NavLink
             key={item.to}
@@ -48,7 +48,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             {item.label}
           </NavLink>
         ))}
-        <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-widest px-3 pt-6 pb-1">Admin</div>
+        <div className="section-label px-3 pt-6 pb-1">Admin</div>
         {adminItems.map(item => (
           <NavLink
             key={item.to}

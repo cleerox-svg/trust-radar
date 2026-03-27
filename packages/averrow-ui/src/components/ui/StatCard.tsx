@@ -14,14 +14,14 @@ export function StatCard({ label, value, sublabel, trend, trendDirection, accent
   return (
     <div
       className={cn(
-        'glass-card card-accent-top rounded-xl p-5 transition-all',
+        'glass-card glass-card-teal relative rounded-xl p-5 transition-all',
         accentColor && 'border-l-[3px]',
         className,
       )}
       style={accentColor ? { borderLeftColor: accentColor } : undefined}
     >
       <div className={cn(
-        'font-display text-2xl font-extrabold text-parchment',
+        'font-display text-2xl font-extrabold text-parchment tabular-nums',
         accentColor === '#C83C3C' && 'glow-red',
         accentColor === '#FB923C' && 'glow-amber',
         accentColor === '#4ADE80' && 'glow-green',

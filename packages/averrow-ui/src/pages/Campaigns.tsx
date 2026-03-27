@@ -50,25 +50,25 @@ function StatusBadge({ status }: { status: string }) {
   switch (s) {
     case 'accelerating':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-accelerating">
+        <span className="badge-glass badge-accelerating font-mono text-[10px] font-bold">
           ACCELERATING
         </span>
       );
     case 'pivot':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-pivot">
+        <span className="badge-glass badge-pivot font-mono text-[10px] font-bold">
           {'\u2192'} PIVOT
         </span>
       );
     case 'active':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-active">
+        <span className="badge-glass badge-active font-mono text-[10px] font-bold">
           ACTIVE
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-white/10 bg-white/5 text-white/40">
+        <span className="badge-glass badge-dormant font-mono text-[10px] font-bold">
           DORMANT
         </span>
       );
@@ -311,7 +311,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
             NEXUS Intelligence
           </div>
           {operation.agent_notes ? (
-            <div className="rounded-lg border border-white/[0.06] bg-cockpit p-3">
+            <div className="rounded-lg p-3 glass-card">
               <div className="font-mono text-[11px] text-parchment/80 leading-relaxed">
                 {operation.agent_notes}
               </div>
@@ -654,7 +654,7 @@ export function Campaigns() {
             placeholder="Search campaigns..."
             value={campaignSearch}
             onChange={e => setCampaignSearch(e.target.value)}
-            className="bg-instrument border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11px] text-parchment placeholder-white/30 focus:outline-none focus:border-orbital-teal/30 w-full sm:w-64"
+            className="glass-input rounded-lg px-3 py-1.5 font-mono text-[11px] w-full sm:w-64"
           />
 
           <div className="flex flex-wrap gap-1.5">

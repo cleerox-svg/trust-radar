@@ -178,9 +178,8 @@ export function Observatory() {
       {/* Bottom-right: LIVE indicator */}
       <div className="absolute bottom-[68px] right-4 z-10">
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-positive animate-pulse" />
-          <span className="font-mono text-[10px] font-bold text-positive">LIVE</span>
-          <span className="font-mono text-[10px] text-contrail/40">
+          <span className="live-indicator">LIVE</span>
+          <span className="font-mono text-[10px] text-contrail/40 tabular-nums">
             {threats.length.toLocaleString()} threats
           </span>
         </div>
@@ -279,7 +278,7 @@ function StatChip({ value, label, color }: { value: number; label: string; color
   return (
     <div className="flex items-center gap-2">
       <div>
-        <div className={cn('font-display text-lg font-extrabold', color)}>{(value ?? 0).toLocaleString()}</div>
+        <div className={cn('font-display text-lg font-extrabold tabular-nums', color)}>{(value ?? 0).toLocaleString()}</div>
         <div className="font-mono text-[9px] text-contrail/40 uppercase">{label}</div>
       </div>
     </div>
