@@ -437,17 +437,16 @@ export async function handleRecentThreats(request: Request, env: Env): Promise<R
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
-    const since = url.searchParams.get("since") || new Date(Date.now() - 60000).toISOString();
     const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
     const rows = await env.DB.prepare(`
       SELECT id, threat_type, severity, source_feed, malicious_domain,
              ip_address, country_code, lat, lng, created_at
       FROM threats
-      WHERE created_at > ?
+      WHERE status = 'active'
       ORDER BY created_at DESC
       LIMIT ?
-    `).bind(since, limit).all();
+    `).bind(limit).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {

@@ -4,7 +4,7 @@ import { ThreatMap } from '@/components/observatory/ThreatMap';
 import { useBrands } from '@/hooks/useBrands';
 import { useProviders } from '@/hooks/useProviders';
 import { useAgents } from '@/hooks/useAgents';
-import { useOperations } from '@/hooks/useOperations';
+import type { Operation } from '@/hooks/useOperations';
 import { Badge } from '@/components/ui/Badge';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
@@ -378,7 +378,14 @@ function AgentIntelFeed() {
 }
 
 function ActiveOperationsPanel() {
-  const { data: operations = [] } = useOperations({ status: 'active', limit: 5 });
+  const { data: operations = [] } = useQuery({
+    queryKey: ['observatory-operations'],
+    queryFn: async () => {
+      const res = await api.get<Operation[]>('/api/observatory/operations?status=active&limit=5');
+      return res.data ?? [];
+    },
+    refetchInterval: 60_000,
+  });
 
   if (operations.length === 0) {
     return <div className="text-[10px] text-contrail/30 font-mono">No active operations</div>;
@@ -437,7 +444,7 @@ function LiveThreatFeed() {
   const { data: entries = [] } = useQuery({
     queryKey: ['observatory-live-feed'],
     queryFn: async () => {
-      const res = await api.get<LiveThreatEntry[]>('/api/threats/recent?limit=8');
+      const res = await api.get<LiveThreatEntry[]>('/api/observatory/live?limit=8');
       return res.data ?? [];
     },
     refetchInterval: 15_000,

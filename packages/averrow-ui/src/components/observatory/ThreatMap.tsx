@@ -11,35 +11,47 @@ interface TooltipInfo {
   arc?: ArcData;
 }
 
-const SEVERITY_COLORS: Record<string, [number, number, number]> = {
-  critical: [200, 60, 60],
-  high: [232, 146, 60],
-  medium: [220, 170, 50],
-  low: [120, 160, 200],
-  info: [90, 128, 168],
+const SEVERITY_COLORS: Record<string, [number, number, number, number]> = {
+  critical: [200, 60,  60,  255],
+  high:     [251, 146, 60,  220],
+  medium:   [250, 204, 21,  180],
+  low:      [120, 160, 200, 160],
+  info:     [90,  128, 168, 140],
 };
 
-function getSeverityColor(severity: string, alpha = 180): [number, number, number, number] {
-  const rgb = SEVERITY_COLORS[severity?.toLowerCase()] || SEVERITY_COLORS.info;
-  return [...rgb, alpha] as [number, number, number, number];
+const THREAT_TYPE_COLORS: Record<string, [number, number, number, number]> = {
+  phishing:               [200, 60,  60,  220],  // Signal Red
+  credential_harvesting:  [251, 146, 60,  220],  // Amber
+  malware_distribution:   [167, 139, 250, 220],  // Purple
+  c2:                     [239, 68,  68,  255],  // Bright red
+  malicious_ip:           [120, 160, 200, 180],  // Blue-grey
+  web_attack:             [251, 113, 133, 200],  // Rose
+  brute_force:            [250, 204, 21,  200],  // Yellow
+  spam_botnet_c2:         [34,  211, 238, 220],  // Teal
+  typosquatting:          [220, 170, 50,  200],  // Gold
+  scanning:               [120, 160, 200, 180],  // Contrail blue
+  impersonation:          [232, 146, 60,  220],  // Amber
+};
+
+function getSeverityColor(severity: string, alpha?: number): [number, number, number, number] {
+  const c = SEVERITY_COLORS[severity?.toLowerCase()] || SEVERITY_COLORS.info;
+  return alpha != null ? [c[0], c[1], c[2], alpha] : c;
 }
 
-function getTypeColor(type: string, alpha = 200): [number, number, number, number] {
-  const map: Record<string, [number, number, number]> = {
-    phishing:               [200,  60,  60],  // Signal Red
-    credential_harvesting:  [251, 146,  60],  // Amber
-    malware_distribution:   [168,  85, 247],  // Purple
-    c2:                     [239,  68,  68],  // Bright red
-    malicious_ip:           [120, 160, 200],  // Contrail blue
-    web_attack:             [251, 113, 133],  // Rose
-    brute_force:            [250, 204,  21],  // Yellow
-    spam_botnet_c2:         [ 34, 211, 238],  // Teal
-    typosquatting:          [220, 170,  50],  // Gold
-    scanning:               [120, 160, 200],  // Contrail blue
-    impersonation:          [232, 146,  60],  // Amber
-  };
-  const rgb = map[type] || [120, 160, 200];
-  return [...rgb, alpha] as [number, number, number, number];
+function getTypeColor(type: string, alpha?: number): [number, number, number, number] {
+  const c = THREAT_TYPE_COLORS[type] || [120, 160, 200, 180];
+  return alpha != null ? [c[0], c[1], c[2], alpha] : c;
+}
+
+function getArcColor(
+  d: { severity?: string | null; threat_type?: string | null },
+  colorMode: 'severity' | 'type',
+  alpha?: number,
+): [number, number, number, number] {
+  if (colorMode === 'severity') {
+    return getSeverityColor(d.severity ?? 'medium', alpha);
+  }
+  return getTypeColor(d.threat_type ?? 'phishing', alpha);
 }
 
 function computeBezierPath(srcLng: number, srcLat: number, tgtLng: number, tgtLat: number, segments = 30): [number, number][] {
@@ -185,13 +197,12 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
           id: 'beam-glow',
           data: arcDataWithPaths,
           getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => colorBy === 'severity'
-            ? getSeverityColor(d.severity ?? 'medium', 51)
-            : getTypeColor(d.threat_type, 51),
+          getColor: (d: any) => getArcColor(d, colorBy, 51),
           getWidth: (d: any) => Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
           widthUnits: 'pixels',
           widthMinPixels: 1,
           widthMaxPixels: 2,
+          updateTriggers: { getColor: colorBy },
         })
       );
       // Core pass
@@ -200,13 +211,12 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
           id: 'beam-core',
           data: arcDataWithPaths,
           getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => colorBy === 'severity'
-            ? getSeverityColor(d.severity ?? 'medium', 76)
-            : getTypeColor(d.threat_type, 76),
+          getColor: (d: any) => getArcColor(d, colorBy, 76),
           getWidth: 1,
           widthUnits: 'pixels',
           widthMinPixels: 1,
           widthMaxPixels: 1,
+          updateTriggers: { getColor: colorBy },
           pickable: true,
           onHover: ({ object, x, y }: any) => {
             setTooltip(object ? { x, y, arc: object } : null);
@@ -323,9 +333,7 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
             arc.sourcePosition[0], arc.sourcePosition[1],
             arc.targetPosition[0], arc.targetPosition[1], tc
           );
-          const col = colorBy === 'severity'
-            ? getSeverityColor(arc.severity ?? 'medium', 14)
-            : getTypeColor(arc.threat_type, 14);
+          const col = getArcColor(arc, colorBy, 14);
           glowData.push({ pos: [lon, lat], col });
           coreData.push({ pos: [lon, lat], col: [255, 255, 255, 160] });
         });
