@@ -346,7 +346,7 @@ const BRAND_HQ_COORDS: Record<string, [number, number]> = {
   'instagram.com':     [37.4847, -122.1477],
   'linkedin.com':      [37.3861, -122.0839],
   'tiktok.com':        [37.3861, -122.0839],
-  'roblox.com':        [37.7749, -122.4194],
+  'roblox.com':        [37.5630, -122.0530],
   'github.com':        [37.7820, -122.3918],
   'walmart.com':       [36.3729,  -94.2088],
   'target.com':        [44.8600,  -93.3420],
@@ -355,18 +355,20 @@ const BRAND_HQ_COORDS: Record<string, [number, number]> = {
   'bankofamerica.com': [35.2271,  -80.8431],
   'att.com':           [32.7767,  -96.7970],
   'verizon.com':       [40.7128,  -74.0060],
+  'files.fm':          [56.9460,   24.1059],
+  'zdnet.com':         [40.7128,  -74.0060],
+  'jd.com':            [39.9042,  116.4074],
+  'lowes.com':         [35.5276,  -80.8504],
 };
 
-const ATTACK_FLOW_DEFAULT: [number, number] = [37.7749, -122.4194]; // SF default
-
-function getFlowBrandHQ(domain: string | null): [number, number] {
-  if (!domain) return ATTACK_FLOW_DEFAULT;
+function getFlowBrandHQ(domain: string | null, brandName?: string | null): [number, number] | null {
+  if (!domain) return null;
   const clean = domain.replace(/^www\./, '').toLowerCase();
   if (BRAND_HQ_COORDS[clean]) return BRAND_HQ_COORDS[clean];
   for (const [key, coords] of Object.entries(BRAND_HQ_COORDS)) {
-    if (clean.includes(key.replace('.com', '').replace('.pl', '')) || key.includes(clean)) return coords;
+    if (clean.includes(key.split('.')[0]) || key.includes(clean.split('.')[0])) return coords;
   }
-  return ATTACK_FLOW_DEFAULT;
+  return null;
 }
 
 // ─── Attack flows for Observatory arc overlay ─────────────────
@@ -381,6 +383,7 @@ export async function handleAttackFlows(request: Request, env: Env): Promise<Res
              t.lat AS origin_lat, t.lng AS origin_lng,
              t.threat_type,
              b.canonical_domain AS target_name,
+             b.name AS brand_name,
              COUNT(*) AS volume
       FROM threats t
       JOIN brands b ON b.id = t.target_brand_id
@@ -388,25 +391,38 @@ export async function handleAttackFlows(request: Request, env: Env): Promise<Res
         AND t.lng IS NOT NULL
         AND t.target_brand_id IS NOT NULL
         AND t.status = 'active'
+        AND t.threat_type IN ('phishing', 'credential_harvesting',
+                              'typosquatting', 'impersonation', 'c2',
+                              'malware_distribution')
+        AND b.canonical_domain NOT LIKE '%.net'
+        AND b.canonical_domain NOT LIKE '%1x1%'
+        AND b.canonical_domain NOT LIKE '%1e1%'
+        AND b.name NOT LIKE '1%'
+        AND LENGTH(b.name) > 4
+        AND b.threat_count >= 5
       GROUP BY t.country_code, t.target_brand_id, t.threat_type
       ORDER BY volume DESC
       LIMIT ?
     `).bind(limit).all();
 
-    const flows = rows.results.map((r: Record<string, unknown>) => {
-      const [target_lat, target_lng] = getFlowBrandHQ(r.target_name as string | null);
-      const jitter = () => (Math.random() - 0.5) * 0.5;
-      return {
-        origin_lat: r.origin_lat,
-        origin_lng: r.origin_lng,
-        target_lat: target_lat + jitter(),
-        target_lng: target_lng + jitter(),
-        volume: r.volume,
-        origin_country: r.origin_country,
-        target_name: r.target_name,
-        threat_type: r.threat_type ?? 'phishing',
-      };
-    });
+    const flows = rows.results
+      .map((r: Record<string, unknown>) => {
+        const coords = getFlowBrandHQ(r.target_name as string | null, r.brand_name as string | null);
+        if (!coords) return null;
+        const [target_lat, target_lng] = coords;
+        const jitter = () => (Math.random() - 0.5) * 0.8;
+        return {
+          origin_lat: r.origin_lat,
+          origin_lng: r.origin_lng,
+          target_lat: target_lat + jitter(),
+          target_lng: target_lng + jitter(),
+          volume: r.volume,
+          origin_country: r.origin_country,
+          target_name: r.target_name,
+          threat_type: r.threat_type ?? 'phishing',
+        };
+      })
+      .filter(Boolean);
 
     return json({ success: true, data: flows }, 200, origin);
   } catch (err) {

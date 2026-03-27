@@ -72,8 +72,8 @@ const BRAND_HQ: Record<string, [number, number]> = {
   'tiktok.com':        [-122.0839,  37.3861],
   'tiktok':            [-122.0839,  37.3861],
   // Gaming
-  'roblox.com':        [-122.4194,  37.7749],
-  'roblox':            [-122.4194,  37.7749],
+  'roblox.com':        [-122.0530,  37.5630],
+  'roblox':            [-122.0530,  37.5630],
   'github.com':        [-122.3918,  37.7820],
   'github':            [-122.3918,  37.7820],
   // Retail
@@ -106,17 +106,20 @@ const BRAND_HQ: Record<string, [number, number]> = {
   'att':               [ -96.7970,  32.7767],
   'verizon.com':       [ -74.0060,  40.7128],
   'verizon':           [ -74.0060,  40.7128],
+  // Additional brands from threat data
+  'files.fm':          [  24.1059,  56.9460],
+  'zdnet.com':         [ -74.0060,  40.7128],
+  'jd.com':            [ 116.4074,  39.9042],
+  'lowes.com':         [ -80.8504,  35.5276],
 };
 
-const FALLBACK_COORDS: [number, number] = [-74.0, 40.7]; // New York, NY
-
-function getBrandCoords(brandName: string | null, canonicalDomain?: string | null): [number, number] {
+function getBrandCoords(brandName: string | null, canonicalDomain?: string | null): [number, number] | null {
   // Try canonical domain first (most precise)
   if (canonicalDomain) {
     const clean = canonicalDomain.replace(/^www\./, "").toLowerCase();
     if (BRAND_HQ[clean]) return BRAND_HQ[clean];
   }
-  if (!brandName) return FALLBACK_COORDS;
+  if (!brandName) return null;
   // Try brand name slug
   const key = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (BRAND_HQ[key]) return BRAND_HQ[key];
@@ -125,7 +128,7 @@ function getBrandCoords(brandName: string | null, canonicalDomain?: string | nul
     if (k.includes(".")) continue; // skip domain keys for partial match
     if (key.includes(k) || k.includes(key)) return coords;
   }
-  return FALLBACK_COORDS;
+  return null;
 }
 
 function periodToInterval(period: string): string {
@@ -207,10 +210,20 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         b.sector AS target_sector,
         COUNT(*) AS volume
       FROM threats t
-      LEFT JOIN brands b ON b.id = t.target_brand_id
+      JOIN brands b ON b.id = t.target_brand_id
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+        AND t.target_brand_id IS NOT NULL
         AND t.status = 'active'
         AND t.created_at > datetime('now', '${interval}')${sourceFilter}
+        AND t.threat_type IN ('phishing', 'credential_harvesting',
+                              'typosquatting', 'impersonation', 'c2',
+                              'malware_distribution')
+        AND b.canonical_domain NOT LIKE '%.net'
+        AND b.canonical_domain NOT LIKE '%1x1%'
+        AND b.canonical_domain NOT LIKE '%1e1%'
+        AND b.name NOT LIKE '1%'
+        AND LENGTH(b.name) > 4
+        AND b.threat_count >= 5
       GROUP BY ROUND(t.lat, 1), ROUND(t.lng, 1), t.threat_type, t.target_brand_id
       ORDER BY volume DESC
       LIMIT ${limit}
@@ -221,24 +234,26 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       target_sector: string | null; volume: number;
     }>();
 
-    const arcs = (rows.results ?? []).map(row => {
-      const targetCoords = getBrandCoords(row.target_brand, row.target_domain);
-      // Slight jitter so multiple arcs to same brand don't perfectly overlap
-      const jitter: [number, number] = [
-        targetCoords[0] + (Math.random() - 0.5) * 0.5,
-        targetCoords[1] + (Math.random() - 0.5) * 0.5,
-      ];
-      return {
-        sourcePosition: [row.source_lng, row.source_lat] as [number, number],
-        targetPosition: jitter,
-        threat_type: row.threat_type,
-        severity: row.severity ?? "low",
-        source_region: row.source_country ?? "Unknown",
-        target_brand: row.target_brand ?? "Unknown",
-        brand_name: row.target_brand ?? null,
-        volume: row.volume,
-      };
-    });
+    const arcs = (rows.results ?? [])
+      .map(row => {
+        const targetCoords = getBrandCoords(row.target_brand, row.target_domain);
+        if (!targetCoords) return null;
+        const jitter: [number, number] = [
+          targetCoords[0] + (Math.random() - 0.5) * 0.5,
+          targetCoords[1] + (Math.random() - 0.5) * 0.5,
+        ];
+        return {
+          sourcePosition: [row.source_lng, row.source_lat] as [number, number],
+          targetPosition: jitter,
+          threat_type: row.threat_type,
+          severity: row.severity ?? "low",
+          source_region: row.source_country ?? "Unknown",
+          target_brand: row.target_brand ?? "Unknown",
+          brand_name: row.target_brand ?? null,
+          volume: row.volume,
+        };
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null);
 
     return json({ success: true, data: arcs }, 200, origin);
   } catch (err) {
@@ -305,7 +320,7 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       "SELECT id, name, canonical_domain FROM brands WHERE id = ? LIMIT 1"
     ).bind(brandId).first<{ id: string; name: string; canonical_domain: string | null }>();
 
-    const targetCoords = getBrandCoords(brand?.name ?? null, brand?.canonical_domain);
+    const targetCoords = getBrandCoords(brand?.name ?? null, brand?.canonical_domain) ?? [-74.0, 40.7];
 
     const rows = await env.DB.prepare(`
       SELECT
