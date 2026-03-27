@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { CardGridLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
-import { severityColor, threatTypeColor } from '@/lib/severityColor';
+import { severityColor, severityOpacity, threatTypeColor } from '@/lib/severityColor';
 
 /* ─── Types ─── */
 
@@ -729,14 +729,200 @@ export function Brands() {
             <AttackVectorsCard brands={filteredBrands} />
           </div>
         </div>
+      ) : view === 'heatmap' ? (
+        /* ─── Heatmap View ─── */
+        (() => {
+          const maxCount = Math.max(...filteredBrands.map(b => b.threat_count ?? 0), 1);
+          const cols = filteredBrands.length < 20 ? 5
+            : filteredBrands.length < 50 ? 8
+            : filteredBrands.length < 100 ? 10 : 12;
+          const heatmapBrands = [...filteredBrands].sort((a, b) => (b.threat_count ?? 0) - (a.threat_count ?? 0));
+          const criticalCount = filteredBrands.filter(b => (b.threat_count ?? 0) >= 200).length;
+          const cleanCount = filteredBrands.filter(b => (b.threat_count ?? 0) === 0).length;
+          const totalThreats = filteredBrands.reduce((sum, b) => sum + (b.threat_count ?? 0), 0);
+
+          return (
+            <div className="mt-4">
+              {/* Header bar */}
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <div className="flex items-center gap-4">
+                  <span className="text-[9px] font-mono text-white/35 tracking-widest">EXPOSURE</span>
+                  {[
+                    { label: 'Critical', color: '#f87171' },
+                    { label: 'High',     color: '#fb923c' },
+                    { label: 'Medium',   color: '#fbbf24' },
+                    { label: 'Low',      color: '#78A0C8' },
+                    { label: 'Clean',    color: '#4ade80' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-sm" style={{ background: s.color }} />
+                      <span className="text-[9px] text-white/50">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search brands..."
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-orbital-teal/50 w-48"
+                />
+              </div>
+
+              {/* Grid */}
+              {heatmapBrands.length > 0 ? (
+                <div
+                  className="grid gap-1.5"
+                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                >
+                  {heatmapBrands.map(brand => (
+                    <div
+                      key={brand.id}
+                      className="aspect-square rounded cursor-pointer transition-all hover:ring-2 hover:ring-white/30 hover:scale-110 relative group"
+                      style={{
+                        background: severityColor(brand.exposure_score, brand.threat_count),
+                        opacity: severityOpacity(brand.threat_count ?? 0, maxCount),
+                      }}
+                      onClick={() => navigate(`/brands/${brand.id}`)}
+                    >
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
+                        <div className="bg-cockpit border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono shadow-lg">
+                          <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
+                          <div className="text-[10px] text-white/50">
+                            {brand.threat_count ?? 0} threats
+                            {brand.email_security_grade ? ` · ${brand.email_security_grade}` : ''}
+                          </div>
+                        </div>
+                        <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-16 text-white/30 text-sm">
+                  No brands match current filters
+                </div>
+              )}
+
+              {/* Summary bar */}
+              <div className="flex gap-6 mt-4 text-[10px] font-mono">
+                <span>
+                  <span className="text-red-400 font-bold">{criticalCount}</span>
+                  <span className="text-white/30 ml-1">critical brands</span>
+                </span>
+                <span>
+                  <span className="text-green-400 font-bold">{cleanCount}</span>
+                  <span className="text-white/30 ml-1">clean</span>
+                </span>
+                <span>
+                  <span className="text-white/60 font-bold">{totalThreats.toLocaleString()}</span>
+                  <span className="text-white/30 ml-1">total threats</span>
+                </span>
+                <span>
+                  <span className="text-white/60 font-bold">{filteredBrands.length}</span>
+                  <span className="text-white/30 ml-1">brands shown</span>
+                </span>
+              </div>
+            </div>
+          );
+        })()
       ) : (
-        /* Heatmap / Swimlane placeholders */
-        <div className="flex flex-col items-center justify-center py-20 text-white/30">
-          <div className="font-mono text-[10px] tracking-widest mb-2">
-            {view === 'heatmap' ? '▦ HEATMAP VIEW' : '║ SWIMLANE VIEW'}
-          </div>
-          <div className="text-sm">Coming in next build</div>
-        </div>
+        /* ─── Swimlane View ─── */
+        (() => {
+          const SWIMLANE_SECTORS = [
+            'Financial Services', 'Technology', 'Cryptocurrency',
+            'Healthcare', 'Retail', 'Government', 'Media', 'Other',
+          ];
+
+          const grouped = SWIMLANE_SECTORS.reduce((acc, s) => {
+            const sectorBrands = filteredBrands
+              .filter(b => {
+                const brandSector = b.sector ?? 'Other';
+                return brandSector === s || (s === 'Other' && !SWIMLANE_SECTORS.includes(brandSector));
+              })
+              .sort((a, b) => (b.threat_count ?? 0) - (a.threat_count ?? 0));
+            if (sectorBrands.length > 0) acc[s] = sectorBrands;
+            return acc;
+          }, {} as Record<string, Brand[]>);
+
+          return (
+            <div className="flex flex-col gap-6 mt-2">
+              {Object.entries(grouped).map(([sectorName, sectorBrands]) => {
+                const maxInSector = Math.max(...sectorBrands.map(b => b.threat_count ?? 0), 1);
+                const visible = sectorBrands.slice(0, 7);
+                const overflow = sectorBrands.length - 7;
+
+                return (
+                  <div key={sectorName}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-[9px] font-mono text-white/35 tracking-widest uppercase flex-shrink-0">
+                        {sectorName}
+                      </span>
+                      <span className="text-[9px] font-mono text-white/20 border border-white/10 rounded px-1.5 py-0.5 flex-shrink-0">
+                        {sectorBrands.length}
+                      </span>
+                      <div className="flex-1 h-px bg-white/[0.06]" />
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      {visible.map(brand => {
+                        const pillWidth = Math.max(56, Math.min(200, Math.round(
+                          48 + ((brand.threat_count ?? 0) / maxInSector) * 152
+                        )));
+                        const color = severityColor(brand.exposure_score, brand.threat_count);
+
+                        return (
+                          <div
+                            key={brand.id}
+                            className="h-8 rounded flex items-center gap-1.5 justify-center px-2 cursor-pointer transition-all hover:brightness-110 hover:scale-105 flex-shrink-0 relative group"
+                            style={{ background: color, width: `${pillWidth}px`, opacity: 0.82 }}
+                            onClick={() => navigate(`/brands/${brand.id}`)}
+                          >
+                            <span className="text-[9px] font-bold text-cockpit truncate">
+                              {brand.name}
+                            </span>
+                            {(brand.threat_count ?? 0) > 0 && (
+                              <span className="text-[9px] text-cockpit/60 flex-shrink-0">
+                                {(brand.threat_count ?? 0) >= 1000
+                                  ? `${((brand.threat_count ?? 0) / 1000).toFixed(1)}k`
+                                  : brand.threat_count}
+                              </span>
+                            )}
+
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
+                              <div className="bg-cockpit border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono">
+                                <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
+                                <div className="text-[10px] text-white/50">
+                                  {brand.canonical_domain}
+                                  {brand.email_security_grade ? ` · ${brand.email_security_grade}` : ''}
+                                </div>
+                                <div className="text-[10px]" style={{ color }}>
+                                  {brand.threat_count ?? 0} threats
+                                </div>
+                              </div>
+                              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/20" />
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {overflow > 0 && (
+                        <div className="h-8 rounded border border-white/10 flex items-center px-3 text-[9px] font-mono text-white/30 flex-shrink-0">
+                          +{overflow} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {Object.keys(grouped).length === 0 && (
+                <div className="flex items-center justify-center py-16 text-white/30 text-sm">
+                  No brands match current filters
+                </div>
+              )}
+            </div>
+          );
+        })()
       )}
 
       <AddBrandModal open={modalOpen} onClose={() => setModalOpen(false)} />
