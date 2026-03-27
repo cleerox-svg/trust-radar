@@ -146,7 +146,7 @@ export default {
 
       // ─── Internal agent trigger endpoints ─────────────────────────
       if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
-        const internalSecret = (env as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
