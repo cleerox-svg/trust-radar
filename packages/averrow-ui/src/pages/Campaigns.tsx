@@ -50,19 +50,19 @@ function StatusBadge({ status }: { status: string }) {
   switch (s) {
     case 'accelerating':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-amber-400/30 bg-amber-400/10 text-amber-400">
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-accelerating">
           ACCELERATING
         </span>
       );
     case 'pivot':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#00D4FF]/30 bg-[#00D4FF]/10 text-[#00D4FF]">
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-pivot">
           {'\u2192'} PIVOT
         </span>
       );
     case 'active':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#4ADE80]/30 bg-[#4ADE80]/10 text-[#4ADE80]">
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded badge-active">
           ACTIVE
         </span>
       );
@@ -113,10 +113,10 @@ function OperationCard({
   return (
     <button
       onClick={() => onSelect(operation.id)}
-      className={`w-full text-left rounded-xl border p-4 transition-all ${
+      className={`w-full text-left rounded-xl p-4 transition-all glass-card glass-card-purple ${
         isSelected
-          ? 'border-orbital-teal/40 bg-[#0D1520] ring-1 ring-orbital-teal/20'
-          : 'border-white/[0.06] bg-[#0D1520] hover:border-white/10 hover:-translate-y-0.5'
+          ? 'ring-1 ring-orbital-teal/20 border-orbital-teal/40'
+          : 'hover:-translate-y-0.5'
       }`}
     >
       {/* Header */}
@@ -169,12 +169,12 @@ function OperationCard({
 
       {/* Status alert */}
       {operation.status === 'accelerating' && (
-        <div className="mt-2 font-mono text-[10px] text-amber-400">
+        <div className="mt-2 font-mono text-[10px] text-amber-400 glow-amber">
           {'\u26A0'} ACCELERATING: activity increasing across infrastructure
         </div>
       )}
       {operation.status === 'pivot' && (
-        <div className="mt-2 font-mono text-[10px] text-[#00D4FF]">
+        <div className="mt-2 font-mono text-[10px] text-[#00D4FF] glow-teal">
           {'\u2192'} PIVOT DETECTED: infrastructure migration observed
         </div>
       )}
@@ -214,7 +214,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
   }
 
   return (
-    <div className="rounded-xl border border-orbital-teal/20 bg-[#0D1520] p-6 animate-fade-in">
+    <div className="rounded-xl p-6 animate-fade-in glass-card glass-card-purple">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -405,7 +405,7 @@ function CampaignCard({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-xl border border-white/[0.06] bg-[#0D1520] p-4 hover:border-white/10 hover:-translate-y-0.5 transition-all"
+      className="w-full text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all glass-card"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -587,7 +587,7 @@ export function Campaigns() {
       {/* ─── Section A: Threat Actor Operations ────────────────── */}
       <section>
         <div className="mb-4">
-          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C83C3C] mb-1">
+          <div className="section-label font-mono font-bold mb-1">
             NEXUS Correlated Operations
           </div>
           <div className="font-mono text-[11px] text-contrail/50">
@@ -630,7 +630,7 @@ export function Campaigns() {
             )}
           </>
         ) : (
-          <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-12 text-center">
+          <div className="rounded-xl p-12 text-center glass-card">
             <div className="font-mono text-[11px] text-white/30">No NEXUS operations detected</div>
           </div>
         )}
@@ -639,7 +639,7 @@ export function Campaigns() {
       {/* ─── Section B: Active Campaigns ───────────────────────── */}
       <section>
         <div className="mb-4">
-          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C83C3C] mb-1">
+          <div className="section-label font-mono font-bold mb-1">
             Active Campaigns
           </div>
           <div className="font-mono text-[11px] text-contrail/50">
@@ -664,8 +664,8 @@ export function Campaigns() {
                 onClick={() => setAttackFilter(f.id)}
                 className={`font-mono text-[10px] font-semibold px-3 py-1 rounded transition-all ${
                   attackFilter === f.id
-                    ? 'bg-orbital-teal/10 text-orbital-teal border border-orbital-teal/25'
-                    : 'text-contrail/40 hover:bg-white/5 hover:text-parchment border border-transparent'
+                    ? 'glass-btn-active'
+                    : 'glass-btn'
                 }`}
               >
                 {f.label}
@@ -709,7 +709,7 @@ export function Campaigns() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-12 text-center">
+          <div className="rounded-xl p-12 text-center glass-card">
             <div className="font-mono text-[11px] text-white/30">
               No campaigns match current filters
             </div>

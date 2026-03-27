@@ -108,6 +108,20 @@ function statusDotColor(agent: Agent): string {
   return '#4B5563';
 }
 
+function statusDotClass(agent: Agent): string {
+  if (agent.status === 'active') return 'dot-pulse-green';
+  if (agent.status === 'error') return 'dot-pulse-red';
+  if (agent.status === 'degraded') return 'dot-pulse-amber';
+  return '';
+}
+
+function pipelineDotClass(status: string): string {
+  if (status === 'active') return 'dot-pulse-green';
+  if (status === 'error') return 'dot-pulse-red';
+  if (status === 'degraded') return 'dot-pulse-amber';
+  return '';
+}
+
 const severityVariant: Record<string, 'critical' | 'high' | 'medium' | 'low' | 'default'> = {
   critical: 'critical',
   high: 'high',
@@ -150,10 +164,8 @@ function AgentCard({
   return (
     <div
       className={cn(
-        'bg-[#0D1520] border rounded-xl p-5 transition-all duration-200 cursor-pointer group',
-        isSelected
-          ? 'border-white/25 scale-[1.01]'
-          : 'border-white/10 hover:border-white/20 hover:scale-[1.005]',
+        'glass-card card-accent-top rounded-xl p-5 transition-all duration-200 cursor-pointer group',
+        isSelected && 'border-white/25 scale-[1.01]',
       )}
       onClick={onSelect}
     >
@@ -168,8 +180,8 @@ function AgentCard({
               {meta?.displayName ?? agent.display_name}
             </span>
             <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: statusDotColor(agent) }}
+              className={cn('w-2 h-2 rounded-full shrink-0', statusDotClass(agent))}
+              style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
             />
           </div>
           <div className="font-mono text-[10px] text-white/40 leading-relaxed line-clamp-2">
@@ -234,10 +246,8 @@ function FlightControlCard({
   return (
     <div
       className={cn(
-        'col-span-1 lg:col-span-3 bg-[#0D1520] border rounded-xl p-6 transition-all duration-200 cursor-pointer',
-        isSelected
-          ? 'border-white/25'
-          : 'border-white/10 hover:border-white/20',
+        'col-span-1 lg:col-span-3 glass-card card-accent-top rounded-xl p-6 transition-all duration-200 cursor-pointer',
+        isSelected && 'border-white/25',
       )}
       onClick={onSelect}
     >
@@ -251,8 +261,8 @@ function FlightControlCard({
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm font-bold text-parchment">Flight Control</span>
               <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: statusDotColor(agent) }}
+                className={cn('w-2 h-2 rounded-full', statusDotClass(agent))}
+                style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
               />
               <Badge variant={statusVariant[agent.status] || 'default'}>{agent.status}</Badge>
             </div>
@@ -271,11 +281,11 @@ function FlightControlCard({
               return (
                 <div
                   key={a.name}
-                  className="flex items-center gap-1.5 bg-white/[0.04] rounded-lg px-2.5 py-1.5 border border-white/[0.06]"
+                  className="flex items-center gap-1.5 glass-btn rounded-lg px-2.5 py-1.5"
                 >
                   <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: statusDotColor(a) }}
+                    className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusDotClass(a))}
+                    style={!statusDotClass(a) ? { backgroundColor: statusDotColor(a) } : undefined}
                   />
                   <span className="font-mono text-[10px] text-white/60" style={{ color: meta?.color ?? a.color }}>
                     {meta?.displayName ?? a.display_name}
@@ -299,7 +309,7 @@ function FlightControlCard({
             <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${tokenPct}%`, backgroundColor: tokenBarColor }}
+                style={{ width: `${tokenPct}%`, backgroundColor: tokenBarColor, boxShadow: `0 0 10px ${tokenBarColor}66` }}
               />
             </div>
           </div>
@@ -357,7 +367,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
   }, [typedHealth]);
 
   return (
-    <div className="col-span-1 lg:col-span-3 bg-[#0D1520] border border-white/10 rounded-xl p-6 animate-fade-in">
+    <div className="col-span-1 lg:col-span-3 glass-card rounded-xl p-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left: Agent info */}
         <div className="lg:w-72 shrink-0 space-y-4">
@@ -539,8 +549,8 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
   ];
 
   return (
-    <div className="bg-[#0D1520] border border-white/10 rounded-xl p-4">
-      <div className="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-3">
+    <div className="glass-card rounded-xl p-4">
+      <div className="section-label font-mono font-bold mb-3">
         Pipeline Automation
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -553,14 +563,10 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[8px] text-white/30 uppercase">{p.schedule}</span>
               <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  backgroundColor:
-                    p.status === 'active' ? '#4ADE80'
-                    : p.status === 'error' ? '#C83C3C'
-                    : p.status === 'degraded' ? '#FB923C'
-                    : '#4B5563',
-                }}
+                className={cn('w-1.5 h-1.5 rounded-full', pipelineDotClass(p.status))}
+                style={!pipelineDotClass(p.status) ? {
+                  backgroundColor: '#4B5563',
+                } : undefined}
               />
             </div>
           </div>

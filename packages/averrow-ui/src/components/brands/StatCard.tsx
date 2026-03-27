@@ -13,7 +13,7 @@ export function StatCard({ title, children, metric, metricLabel, className }: St
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/10 bg-cockpit p-4 flex flex-col',
+        'glass-card card-accent-top rounded-xl p-4 flex flex-col',
         className,
       )}
     >

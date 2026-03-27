@@ -194,10 +194,10 @@ function ProviderCard({
   return (
     <button
       onClick={() => onSelect(provider.id)}
-      className={`w-full text-left rounded-xl border p-4 transition-all ${
+      className={`w-full text-left rounded-xl p-4 transition-all glass-card ${
         isSelected
-          ? 'border-orbital-teal/40 bg-[#0D1520] ring-1 ring-orbital-teal/20'
-          : 'border-white/[0.06] bg-[#0D1520] hover:border-white/10 hover:-translate-y-0.5'
+          ? 'ring-1 ring-orbital-teal/20 border-orbital-teal/40'
+          : 'hover:-translate-y-0.5'
       }`}
     >
       {/* Header */}
@@ -277,7 +277,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
 
   if (detailLoading) {
     return (
-      <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-6 space-y-4">
+      <div className="rounded-xl p-6 space-y-4 glass-card">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-3 gap-4">
           <Skeleton className="h-48" />
@@ -309,7 +309,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
   }
 
   return (
-    <div className="rounded-xl border border-orbital-teal/20 bg-[#0D1520] p-6 animate-fade-in">
+    <div className="rounded-xl p-6 animate-fade-in glass-card">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -705,7 +705,7 @@ export function Providers() {
               )}
             </>
           ) : (
-            <div className="rounded-xl border border-white/[0.06] bg-[#0D1520] p-12 text-center">
+            <div className="rounded-xl p-12 text-center glass-card">
               <div className="font-mono text-[11px] text-white/30">
                 No providers match current filters
               </div>
