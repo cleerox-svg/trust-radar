@@ -11,6 +11,9 @@ interface CronJobResult {
 }
 
 export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  // ─── Flight Control v1: consume pending agent_events before cron jobs ───
+  await processAgentEvents(env, ctx);
+
   const now = new Date();
   const minute = now.getUTCMinutes();
   const hour = now.getUTCHours();
@@ -71,6 +74,76 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     timestamp: now.toISOString(),
     results,
   }), { expirationTtl: 7200 }); // 2 hour TTL
+}
+
+// ─── Flight Control v1: Agent Event Consumer ────────────────────
+async function processAgentEvents(env: Env, ctx: ExecutionContext): Promise<void> {
+  try {
+    const events = await env.DB.prepare(`
+      SELECT id, event_type, source_agent, target_agent, payload_json, priority
+      FROM agent_events
+      WHERE status = 'pending'
+      ORDER BY priority ASC, created_at ASC
+      LIMIT 10
+    `).all<{
+      id: string;
+      event_type: string;
+      source_agent: string;
+      target_agent: string;
+      payload_json: string | null;
+      priority: number;
+    }>();
+
+    if (events.results.length === 0) return;
+
+    const { agentModules } = await import('../agents/index');
+    const { executeAgent } = await import('../lib/agentRunner');
+
+    for (const event of events.results) {
+      // Mark as processing to prevent double-processing
+      await env.DB.prepare(
+        `UPDATE agent_events SET status = 'processing' WHERE id = ?`
+      ).bind(event.id).run();
+
+      try {
+        const payload = event.payload_json ? JSON.parse(event.payload_json) as Record<string, unknown> : {};
+        const mod = agentModules[event.target_agent];
+
+        if (mod) {
+          ctx.waitUntil(
+            executeAgent(env, mod, { ...payload, triggeredByEvent: event.event_type }, "cron", "event")
+          );
+        } else {
+          logger.warn('agent_event_unknown_target', {
+            event_id: event.id,
+            target_agent: event.target_agent,
+            event_type: event.event_type,
+          });
+        }
+
+        await env.DB.prepare(
+          `UPDATE agent_events SET status = 'done', processed_at = datetime('now') WHERE id = ?`
+        ).bind(event.id).run();
+
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error('agent_event_processing_failed', {
+          event_id: event.id,
+          target_agent: event.target_agent,
+          error: message,
+        });
+        await env.DB.prepare(
+          `UPDATE agent_events SET status = 'failed' WHERE id = ?`
+        ).bind(event.id).run();
+      }
+    }
+
+    logger.info('agent_events_processed', { count: events.results.length });
+  } catch (err) {
+    logger.error('agent_events_consumer_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 async function runJob(name: string, fn: () => Promise<void>): Promise<CronJobResult> {
