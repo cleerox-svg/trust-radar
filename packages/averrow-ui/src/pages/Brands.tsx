@@ -528,10 +528,8 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
 
 export function Brands() {
   const navigate = useNavigate();
-  const { data: brandsRes, isLoading } = useBrands({ view: 'all', timeRange: '7d' });
+  const { data: brands = [], isLoading } = useBrands({ view: 'all', timeRange: '7d' });
   const toggleMonitor = useToggleMonitor();
-
-  const brands = brandsRes?.data ?? [];
 
   /* ─── View toggle with localStorage persistence ─── */
   const [view, setView] = useState<BrandView>(() => {

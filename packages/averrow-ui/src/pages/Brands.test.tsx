@@ -36,7 +36,7 @@ describe('Brands Page', () => {
     vi.clearAllMocks();
     localStorage.clear();
     (useBrands as any).mockReturnValue({
-      data: { success: true, data: mockBrands, total: 2 },
+      data: mockBrands,
       isLoading: false,
     });
     (useBrandStats as any).mockReturnValue({

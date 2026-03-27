@@ -143,7 +143,7 @@ export function useTriggerAgent() {
   return useMutation({
     mutationFn: async (agentId: string) => {
       const res = await api.post(`/api/agents/${agentId}/trigger`);
-      return res;
+      return res.data ?? null;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });

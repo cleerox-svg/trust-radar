@@ -34,7 +34,7 @@ export function ProviderDetail() {
     type: threatType === 'all' ? undefined : threatType,
   });
 
-  const threats = (threatsRes?.data ?? []) as Array<{
+  const threats = (threatsRes ?? []) as Array<{
     id: string;
     malicious_url: string | null;
     malicious_domain: string | null;

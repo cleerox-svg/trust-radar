@@ -276,8 +276,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 }
 
 function TopBrandsList({ period }: { period: string }) {
-  const { data } = useBrands({ view: 'top', limit: 10, timeRange: period });
-  const brands = data?.data || [];
+  const { data: brands = [] } = useBrands({ view: 'top', limit: 10, timeRange: period });
 
   return (
     <div className="space-y-2">
@@ -299,7 +298,7 @@ function TopBrandsList({ period }: { period: string }) {
 
 function TopProvidersList({ period }: { period: string }) {
   const { data } = useProviders({ view: 'worst', limit: 5, timeRange: period });
-  const providers = data?.data || [];
+  const providers = data || [];
 
   return (
     <div className="space-y-2">

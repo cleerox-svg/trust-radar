@@ -78,7 +78,7 @@ export function useBrands(options?: { view?: string; limit?: number; offset?: nu
     queryFn: async () => {
       const params = new URLSearchParams({ view, limit: String(limit), offset: String(offset), range: timeRange });
       const res = await api.get<Brand[]>(`/api/brands?${params}`);
-      return res;
+      return res.data ?? [];
     },
   });
 }
@@ -113,7 +113,7 @@ export function useBrandThreats(brandId: string, options?: { limit?: number; off
       if (type) params.set('type', type);
       if (status) params.set('status', status);
       const res = await api.get<unknown>(`/api/brands/${brandId}/threats?${params}`);
-      return res;
+      return res.data ?? [];
     },
     enabled: !!brandId,
   });

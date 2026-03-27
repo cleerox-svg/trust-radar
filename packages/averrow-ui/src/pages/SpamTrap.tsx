@@ -126,7 +126,7 @@ export function SpamTrap() {
   const { data: health } = useSpamTrapHealth();
   const { data: campaigns } = useSpamTrapCampaigns();
 
-  const captures = capturesRes?.data || [];
+  const captures = capturesRes || [];
 
   if (isLoading) return <PageLoader />;
 

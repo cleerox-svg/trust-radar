@@ -35,7 +35,7 @@ export function LiveFeedCard() {
     queryKey: ['threats', 'recent'],
     queryFn: async () => {
       const res = await api.get<RecentThreat[]>('/api/v1/threats/recent?limit=8');
-      return res;
+      return res.data ?? [];
     },
     refetchInterval: 30000,
   });

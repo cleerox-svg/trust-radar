@@ -39,7 +39,7 @@ export function useProviders(options?: { view?: string; limit?: number; offset?:
     queryFn: async () => {
       const params = new URLSearchParams({ view, limit: String(limit), offset: String(offset), range: timeRange });
       const res = await api.get<Provider[]>(`/api/providers?${params}`);
-      return res;
+      return res.data ?? [];
     },
   });
 }
@@ -63,7 +63,7 @@ export function useProviderThreats(providerId: string, options?: { limit?: numbe
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (type) params.set('type', type);
       const res = await api.get<unknown>(`/api/providers/${providerId}/threats?${params}`);
-      return res;
+      return res.data ?? [];
     },
     enabled: !!providerId,
   });

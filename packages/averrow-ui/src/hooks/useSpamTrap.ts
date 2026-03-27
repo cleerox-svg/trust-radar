@@ -65,7 +65,7 @@ export function useSpamTrapCaptures(options?: { limit?: number; offset?: number 
     queryKey: ['spam-trap-captures', limit, offset],
     queryFn: async () => {
       const res = await api.get<SpamTrapCapture[]>(`/api/spam-trap/captures?limit=${limit}&offset=${offset}`);
-      return res;
+      return res.data ?? [];
     },
   });
 }

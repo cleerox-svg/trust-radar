@@ -37,7 +37,7 @@ export function useCampaigns(options?: { status?: string; limit?: number; offset
     queryFn: async () => {
       const params = new URLSearchParams({ status, limit: String(limit), offset: String(offset) });
       const res = await api.get<Campaign[]>(`/api/campaigns?${params}`);
-      return res;
+      return res.data ?? [];
     },
   });
 }

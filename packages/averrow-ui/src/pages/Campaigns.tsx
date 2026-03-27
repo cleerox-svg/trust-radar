@@ -37,8 +37,8 @@ export function Campaigns() {
 
   if (isLoading) return <CardGridLoader count={9} />;
 
-  const campaigns = campaignsRes?.data || [];
-  const total = campaignsRes?.total || campaigns.length;
+  const campaigns = campaignsRes || [];
+  const total = campaigns.length;
 
   const tabs = [
     { id: 'active', label: 'ACTIVE', count: total },

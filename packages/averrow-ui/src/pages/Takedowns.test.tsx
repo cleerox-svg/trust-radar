@@ -32,7 +32,7 @@ describe('Takedowns Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useAdminTakedowns as any).mockReturnValue({
-      data: { success: true, data: mockTakedowns, total: 2 },
+      data: mockTakedowns,
       isLoading: false,
     });
     (useUpdateTakedown as any).mockReturnValue({

@@ -30,8 +30,8 @@ export function Providers() {
 
   if (isLoading) return <CardGridLoader count={12} />;
 
-  const providers = providersRes?.data || [];
-  const total = providersRes?.total || providers.length;
+  const providers = providersRes || [];
+  const total = providers.length;
 
   const tabs = [
     { id: 'worst', label: 'WORST ACTORS', count: total },

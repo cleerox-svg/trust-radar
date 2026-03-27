@@ -100,7 +100,7 @@ export function Takedowns() {
   const updateTakedown = useUpdateTakedown();
   const { showToast } = useToast();
 
-  const takedowns = res?.data || [];
+  const takedowns = res || [];
 
   const statusCounts: Record<string, number> = {};
   takedowns.forEach(t => {

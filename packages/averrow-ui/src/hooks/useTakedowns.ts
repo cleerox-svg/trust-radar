@@ -43,7 +43,7 @@ export function useAdminTakedowns(options?: { status?: string; severity?: string
       if (status) params.set('status', status);
       if (severity) params.set('severity', severity);
       const res = await api.get<Takedown[]>(`/api/admin/takedowns?${params}`);
-      return res;
+      return res.data ?? [];
     },
     refetchInterval: 30_000,
   });
