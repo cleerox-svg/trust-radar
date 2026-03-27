@@ -9,10 +9,11 @@ import { CardGridLoader } from '@/components/ui/PageLoader';
 
 const TIME_RANGES = ['7d', '30d', '90d', '1y'] as const;
 
-function trendIndicator(trend: number) {
-  if (trend === 0) return { arrow: '→', color: 'text-contrail/50' };
-  if (trend < 0) return { arrow: '↓', color: 'text-positive' };
-  return { arrow: '↑', color: 'text-accent' };
+function trendIndicator(trend: number | null | undefined) {
+  if (trend == null || isNaN(trend)) return { arrow: '—', color: 'text-contrail/30', isNull: true };
+  if (trend === 0) return { arrow: '→', color: 'text-contrail/50', isNull: false };
+  if (trend < 0) return { arrow: '↓', color: 'text-positive', isNull: false };
+  return { arrow: '↑', color: 'text-accent', isNull: false };
 }
 
 function reputationColor(score: number): string {
@@ -115,7 +116,9 @@ export function Providers() {
                   </div>
 
                   <div className={`font-mono text-xs font-semibold ${trend.color}`}>
-                    {trend.arrow} {Math.abs(provider.trend_7d)}% 7d
+                    {trend.isNull
+                      ? '—'
+                      : `${trend.arrow} ${Math.abs(provider.trend_7d ?? 0)}% 7d`}
                   </div>
 
                   {provider.reputation_score !== null ? (

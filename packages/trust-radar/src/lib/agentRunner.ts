@@ -17,6 +17,7 @@ export type AgentName =
   | "observer"
   | "prospector"
   | "sparrow"
+  | "nexus"
   | "trustbot"
   | "seed_strategist";
 

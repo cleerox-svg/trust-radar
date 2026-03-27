@@ -8,9 +8,9 @@ interface Provider {
   country: string | null;
   active_threat_count: number;
   total_threat_count: number;
-  trend_7d: number;
-  trend_30d: number;
-  trend_90d: number;
+  trend_7d: number | null;
+  trend_30d: number | null;
+  trend_90d: number | null;
   avg_response_time: number | null;
   reputation_score: number | null;
 }

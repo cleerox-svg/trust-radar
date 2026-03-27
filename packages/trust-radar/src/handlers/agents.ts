@@ -29,11 +29,12 @@ function getAgentDefinitions(): Array<{
 const AGENT_SCHEDULES: Record<string, string> = {
   sentinel: "5m (event)",
   analyst: "every 15m",
-  cartographer: "every 6h",
+  cartographer: "every 15m + Sentinel trigger",
   strategist: "every 6h",
   observer: "daily",
   prospector: "weekly",
   sparrow: "every 6h",
+  nexus: "every 4h",
 };
 
 // ─── List all agent definitions + their latest run ──────────────

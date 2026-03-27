@@ -95,10 +95,10 @@ export async function handleWorstProviders(request: Request, env: Env): Promise<
              COUNT(*) AS threat_count,
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_count,
              COUNT(DISTINCT t.target_brand_id) AS brands_targeted,
-             ROUND(
+             COALESCE(ROUND(
                (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
                 NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
-             , 1) AS trend_7d_pct
+             , 1), 0) AS trend_7d_pct
       FROM threats t
       LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
       WHERE t.hosting_provider_id IS NOT NULL
@@ -125,10 +125,10 @@ export async function handleImprovingProviders(request: Request, env: Env): Prom
              SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS threat_count,
              SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS recent,
              SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) AS previous,
-             ROUND(
+             COALESCE(ROUND(
                (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
                 NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
-             , 1) AS trend_7d_pct
+             , 1), 0) AS trend_7d_pct
       FROM threats t
       LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
       WHERE t.hosting_provider_id IS NOT NULL AND t.created_at >= datetime('now', '-14 days')

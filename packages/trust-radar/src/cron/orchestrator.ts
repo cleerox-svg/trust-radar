@@ -301,6 +301,17 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     } catch (err) {
       logger.error('threat_feed_scan_sentinel_error', { error: err instanceof Error ? err.message : String(err) });
     }
+
+    // After Sentinel feed pull, trigger Cartographer immediately to enrich new threats
+    try {
+      const cartographerMod = allAgents["cartographer"];
+      if (cartographerMod) {
+        await executeAgent(env, cartographerMod, { trigger: 'sentinel', newItems: feedResult.totalNew }, "cron", "event");
+        logger.info('sentinel_triggered_cartographer', { newItems: feedResult.totalNew });
+      }
+    } catch (err) {
+      logger.error('sentinel_cartographer_trigger_error', { error: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   // Analyst agent — runs every 15 minutes (checked within 30-min window)
@@ -312,6 +323,19 @@ async function runThreatFeedScan(env: Env): Promise<void> {
       }
     } catch (err) {
       logger.error('threat_feed_scan_analyst_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Cartographer — every 15 minutes to clear enrichment backlog
+  // (also triggered above after Sentinel, but this ensures it runs even without new feeds)
+  if (minute % 15 >= 5 && minute % 15 < 10) {
+    try {
+      const mod = allAgents["cartographer"];
+      if (mod) {
+        await executeAgent(env, mod, { trigger: 'scheduled' }, "cron", "scheduled");
+      }
+    } catch (err) {
+      logger.error('threat_feed_scan_cartographer_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -327,15 +351,16 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   }
 
-  // Cartographer — every 6 hours, minute 10-15 (staggered)
-  if (hour % 6 === 0 && minute >= 10 && minute < 15) {
+  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), minute 10-15
+  if (hour % 4 === 0 && minute >= 10 && minute < 15) {
     try {
-      const mod = allAgents["cartographer"];
+      const mod = allAgents["nexus"];
       if (mod) {
         await executeAgent(env, mod, {}, "cron", "scheduled");
+        logger.info('nexus_scheduled_run', { hour, minute });
       }
     } catch (err) {
-      logger.error('threat_feed_scan_cartographer_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('cron_nexus_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
