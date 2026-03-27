@@ -12,48 +12,120 @@
 import { json } from "../lib/cors";
 import type { Env } from "../types";
 
-// ── Static brand HQ coordinates (fallback when no geo data on brand) ──────────
-// Used as target positions for arcs targeting known brands.
-// Format: [longitude, latitude]
+// ── Brand HQ coordinates — real locations ────────────────────────────────────
+// Used as arc target positions. Format: [longitude, latitude]
+// Keyed by canonical_domain AND by brand-name slug for flexible matching.
 const BRAND_HQ: Record<string, [number, number]> = {
-  paypal:       [-121.9, 37.3],   // San Jose, CA
-  amazon:       [-122.3, 47.6],   // Seattle, WA
-  microsoft:    [-122.1, 47.6],   // Redmond, WA
-  google:       [-122.1, 37.4],   // Mountain View, CA
-  apple:        [-122.0, 37.3],   // Cupertino, CA
-  facebook:     [-122.5, 37.5],   // Menlo Park, CA
-  meta:         [-122.5, 37.5],   // Menlo Park, CA
-  netflix:      [-118.4, 34.1],   // Los Gatos, CA
-  twitter:      [-122.4, 37.8],   // San Francisco, CA
-  instagram:    [-122.5, 37.5],   // Menlo Park, CA
-  linkedin:     [-122.0, 37.4],   // Sunnyvale, CA
-  chase:        [-74.0,  40.7],   // New York, NY
-  wellsfargo:   [-122.4, 37.8],   // San Francisco, CA
-  bankofamerica:[-80.8,  35.2],   // Charlotte, NC
-  citibank:     [-74.0,  40.7],   // New York, NY
-  hsbc:         [-0.1,   51.5],   // London, UK
-  barclays:     [-0.1,   51.5],   // London, UK
-  dhl:          [8.7,    50.1],   // Frankfurt, DE
-  fedex:        [-90.0,  35.1],   // Memphis, TN
-  ups:          [-84.3,  33.8],   // Atlanta, GA
-  netflix2:     [-118.4, 34.1],
-  docusign:     [-122.4, 37.8],
-  salesforce:   [-122.4, 37.8],
-  dropbox:      [-122.4, 37.8],
-  slack:        [-122.4, 37.8],
-  adobe:        [-117.2, 32.9],   // San Diego, CA
-  walmart:      [-94.2,  36.4],   // Bentonville, AR
-  target:       [-93.2,  44.9],   // Minneapolis, MN
-  ebay:         [-122.0, 37.4],   // San Jose, CA
-  default:      [-74.0,  40.7],   // New York, NY (fallback)
+  // Fintech
+  'paypal.com':        [-121.9687,  37.3790],
+  'paypal':            [-121.9687,  37.3790],
+  'stripe.com':        [-122.4194,  37.7749],
+  'stripe':            [-122.4194,  37.7749],
+  'visa.com':          [-122.1430,  37.4419],
+  'visa':              [-122.1430,  37.4419],
+  'mastercard.com':    [ -73.9840,  40.7549],
+  'mastercard':        [ -73.9840,  40.7549],
+  // Tech Giants
+  'google.com':        [-122.0841,  37.4220],
+  'google':            [-122.0841,  37.4220],
+  'microsoft.com':     [-122.1391,  47.6423],
+  'microsoft':         [-122.1391,  47.6423],
+  'apple.com':         [-122.0090,  37.3346],
+  'apple':             [-122.0090,  37.3346],
+  'amazon.com':        [-122.3321,  47.6062],
+  'amazon':            [-122.3321,  47.6062],
+  'meta.com':          [-122.1477,  37.4847],
+  'meta':              [-122.1477,  37.4847],
+  'facebook.com':      [-122.1477,  37.4847],
+  'facebook':          [-122.1477,  37.4847],
+  'netflix.com':       [-121.9626,  37.2585],
+  'netflix':           [-121.9626,  37.2585],
+  'twitter.com':       [-122.4194,  37.7749],
+  'twitter':           [-122.4194,  37.7749],
+  // E-commerce
+  'shopify.com':       [ -75.6972,  45.4215],
+  'shopify':           [ -75.6972,  45.4215],
+  'ebay.com':          [-122.0839,  37.3861],
+  'ebay':              [-122.0839,  37.3861],
+  'allegro.pl':        [  16.9252,  52.4064],
+  'allegro':           [  16.9252,  52.4064],
+  // Enterprise / Cloud
+  'docusign.com':      [-122.0554,  37.3890],
+  'docusign':          [-122.0554,  37.3890],
+  'salesforce.com':    [-122.4194,  37.7749],
+  'salesforce':        [-122.4194,  37.7749],
+  'okta.com':          [-122.4194,  37.7749],
+  'okta':              [-122.4194,  37.7749],
+  'cloudflare.com':    [-122.4194,  37.7749],
+  'cloudflare':        [-122.4194,  37.7749],
+  'dropbox.com':       [-122.4194,  37.7749],
+  'dropbox':           [-122.4194,  37.7749],
+  'slack.com':         [-122.4194,  37.7749],
+  'slack':             [-122.4194,  37.7749],
+  'adobe.com':         [-117.2000,  32.9000],
+  'adobe':             [-117.2000,  32.9000],
+  // Social
+  'instagram.com':     [-122.1477,  37.4847],
+  'instagram':         [-122.1477,  37.4847],
+  'linkedin.com':      [-122.0839,  37.3861],
+  'linkedin':          [-122.0839,  37.3861],
+  'tiktok.com':        [-122.0839,  37.3861],
+  'tiktok':            [-122.0839,  37.3861],
+  // Gaming
+  'roblox.com':        [-122.4194,  37.7749],
+  'roblox':            [-122.4194,  37.7749],
+  'github.com':        [-122.3918,  37.7820],
+  'github':            [-122.3918,  37.7820],
+  // Retail
+  'walmart.com':       [ -94.2088,  36.3729],
+  'walmart':           [ -94.2088,  36.3729],
+  'target.com':        [ -93.3420,  44.8600],
+  'target':            [ -93.3420,  44.8600],
+  // Financial
+  'chase.com':         [ -73.9840,  40.7549],
+  'chase':             [ -73.9840,  40.7549],
+  'wellsfargo.com':    [-122.4194,  37.7749],
+  'wellsfargo':        [-122.4194,  37.7749],
+  'bankofamerica.com': [ -80.8431,  35.2271],
+  'bankofamerica':     [ -80.8431,  35.2271],
+  'citibank.com':      [ -73.9840,  40.7549],
+  'citibank':          [ -73.9840,  40.7549],
+  'hsbc.com':          [  -0.1000,  51.5000],
+  'hsbc':              [  -0.1000,  51.5000],
+  'barclays.com':      [  -0.1000,  51.5000],
+  'barclays':          [  -0.1000,  51.5000],
+  // Logistics
+  'dhl.com':           [   8.7000,  50.1000],
+  'dhl':               [   8.7000,  50.1000],
+  'fedex.com':         [ -90.0000,  35.1000],
+  'fedex':             [ -90.0000,  35.1000],
+  'ups.com':           [ -84.3000,  33.8000],
+  'ups':               [ -84.3000,  33.8000],
+  // Telecom
+  'att.com':           [ -96.7970,  32.7767],
+  'att':               [ -96.7970,  32.7767],
+  'verizon.com':       [ -74.0060,  40.7128],
+  'verizon':           [ -74.0060,  40.7128],
 };
 
 const FALLBACK_COORDS: [number, number] = [-74.0, 40.7]; // New York, NY
 
-function getBrandCoords(brandName: string | null): [number, number] {
+function getBrandCoords(brandName: string | null, canonicalDomain?: string | null): [number, number] {
+  // Try canonical domain first (most precise)
+  if (canonicalDomain) {
+    const clean = canonicalDomain.replace(/^www\./, "").toLowerCase();
+    if (BRAND_HQ[clean]) return BRAND_HQ[clean];
+  }
   if (!brandName) return FALLBACK_COORDS;
+  // Try brand name slug
   const key = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return BRAND_HQ[key] ?? FALLBACK_COORDS;
+  if (BRAND_HQ[key]) return BRAND_HQ[key];
+  // Partial match
+  for (const [k, coords] of Object.entries(BRAND_HQ)) {
+    if (k.includes(".")) continue; // skip domain keys for partial match
+    if (key.includes(k) || k.includes(key)) return coords;
+  }
+  return FALLBACK_COORDS;
 }
 
 function periodToInterval(period: string): string {
@@ -131,6 +203,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         t.severity,
         t.country_code AS source_country,
         b.name AS target_brand,
+        b.canonical_domain AS target_domain,
         b.sector AS target_sector,
         COUNT(*) AS volume
       FROM threats t
@@ -144,16 +217,16 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     `).all<{
       source_lat: number; source_lng: number; threat_type: string;
       severity: string | null; source_country: string | null;
-      target_brand: string | null; target_sector: string | null;
-      volume: number;
+      target_brand: string | null; target_domain: string | null;
+      target_sector: string | null; volume: number;
     }>();
 
     const arcs = (rows.results ?? []).map(row => {
-      const targetCoords = getBrandCoords(row.target_brand);
-      // Add slight jitter to target to spread arcs landing at same brand
+      const targetCoords = getBrandCoords(row.target_brand, row.target_domain);
+      // Slight jitter so multiple arcs to same brand don't perfectly overlap
       const jitter: [number, number] = [
-        targetCoords[0] + (Math.random() - 0.5) * 2,
-        targetCoords[1] + (Math.random() - 0.5) * 2,
+        targetCoords[0] + (Math.random() - 0.5) * 0.5,
+        targetCoords[1] + (Math.random() - 0.5) * 0.5,
       ];
       return {
         sourcePosition: [row.source_lng, row.source_lat] as [number, number],
@@ -227,12 +300,12 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
   }
 
   try {
-    // Get brand name for coordinate lookup
+    // Get brand name + domain for coordinate lookup
     const brand = await env.DB.prepare(
-      "SELECT id, name FROM brands WHERE id = ? LIMIT 1"
-    ).bind(brandId).first<{ id: string; name: string }>();
+      "SELECT id, name, canonical_domain FROM brands WHERE id = ? LIMIT 1"
+    ).bind(brandId).first<{ id: string; name: string; canonical_domain: string | null }>();
 
-    const targetCoords = getBrandCoords(brand?.name ?? null);
+    const targetCoords = getBrandCoords(brand?.name ?? null, brand?.canonical_domain);
 
     const rows = await env.DB.prepare(`
       SELECT

@@ -26,13 +26,17 @@ function getSeverityColor(severity: string, alpha = 180): [number, number, numbe
 
 function getTypeColor(type: string, alpha = 200): [number, number, number, number] {
   const map: Record<string, [number, number, number]> = {
-    phishing: [200, 60, 60],
-    malware_distribution: [232, 146, 60],
-    c2: [120, 160, 200],
-    typosquatting: [220, 170, 50],
-    scanning: [120, 160, 200],
-    credential_harvesting: [200, 60, 60],
-    impersonation: [232, 146, 60],
+    phishing:               [200,  60,  60],  // Signal Red
+    credential_harvesting:  [251, 146,  60],  // Amber
+    malware_distribution:   [168,  85, 247],  // Purple
+    c2:                     [239,  68,  68],  // Bright red
+    malicious_ip:           [120, 160, 200],  // Contrail blue
+    web_attack:             [251, 113, 133],  // Rose
+    brute_force:            [250, 204,  21],  // Yellow
+    spam_botnet_c2:         [ 34, 211, 238],  // Teal
+    typosquatting:          [220, 170,  50],  // Gold
+    scanning:               [120, 160, 200],  // Contrail blue
+    impersonation:          [232, 146,  60],  // Amber
   };
   const rgb = map[type] || [120, 160, 200];
   return [...rgb, alpha] as [number, number, number, number];

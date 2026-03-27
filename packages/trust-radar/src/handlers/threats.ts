@@ -322,37 +322,91 @@ export async function handleGeoClusters(request: Request, env: Env): Promise<Res
   }
 }
 
+// ─── Brand HQ coordinates for attack flow arc targets ─────────
+const BRAND_HQ_COORDS: Record<string, [number, number]> = {
+  'paypal.com':        [37.3790, -121.9687],
+  'stripe.com':        [37.7749, -122.4194],
+  'visa.com':          [37.4419, -122.1430],
+  'mastercard.com':    [40.7549,  -73.9840],
+  'google.com':        [37.4220, -122.0841],
+  'microsoft.com':     [47.6423, -122.1391],
+  'apple.com':         [37.3346, -122.0090],
+  'amazon.com':        [47.6062, -122.3321],
+  'meta.com':          [37.4847, -122.1477],
+  'facebook.com':      [37.4847, -122.1477],
+  'netflix.com':       [37.2585, -121.9626],
+  'twitter.com':       [37.7749, -122.4194],
+  'shopify.com':       [45.4215,  -75.6972],
+  'ebay.com':          [37.3861, -122.0839],
+  'allegro.pl':        [52.4064,   16.9252],
+  'docusign.com':      [37.3890, -122.0554],
+  'salesforce.com':    [37.7749, -122.4194],
+  'okta.com':          [37.7749, -122.4194],
+  'cloudflare.com':    [37.7749, -122.4194],
+  'instagram.com':     [37.4847, -122.1477],
+  'linkedin.com':      [37.3861, -122.0839],
+  'tiktok.com':        [37.3861, -122.0839],
+  'roblox.com':        [37.7749, -122.4194],
+  'github.com':        [37.7820, -122.3918],
+  'walmart.com':       [36.3729,  -94.2088],
+  'target.com':        [44.8600,  -93.3420],
+  'chase.com':         [40.7549,  -73.9840],
+  'wellsfargo.com':    [37.7749, -122.4194],
+  'bankofamerica.com': [35.2271,  -80.8431],
+  'att.com':           [32.7767,  -96.7970],
+  'verizon.com':       [40.7128,  -74.0060],
+};
+
+const ATTACK_FLOW_DEFAULT: [number, number] = [37.7749, -122.4194]; // SF default
+
+function getFlowBrandHQ(domain: string | null): [number, number] {
+  if (!domain) return ATTACK_FLOW_DEFAULT;
+  const clean = domain.replace(/^www\./, '').toLowerCase();
+  if (BRAND_HQ_COORDS[clean]) return BRAND_HQ_COORDS[clean];
+  for (const [key, coords] of Object.entries(BRAND_HQ_COORDS)) {
+    if (clean.includes(key.replace('.com', '').replace('.pl', '')) || key.includes(clean)) return coords;
+  }
+  return ATTACK_FLOW_DEFAULT;
+}
+
 // ─── Attack flows for Observatory arc overlay ─────────────────
 export async function handleAttackFlows(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
-    const limit = Math.min(30, parseInt(url.searchParams.get("limit") ?? "15", 10));
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
 
-    // Find top origin→target brand location flows
     const rows = await env.DB.prepare(`
       SELECT t.country_code AS origin_country,
              t.lat AS origin_lat, t.lng AS origin_lng,
+             t.threat_type,
              b.canonical_domain AS target_name,
              COUNT(*) AS volume
       FROM threats t
       JOIN brands b ON b.id = t.target_brand_id
-      WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL AND t.target_brand_id IS NOT NULL
-      GROUP BY t.country_code, t.target_brand_id
+      WHERE t.lat IS NOT NULL
+        AND t.lng IS NOT NULL
+        AND t.target_brand_id IS NOT NULL
+        AND t.status = 'active'
+      GROUP BY t.country_code, t.target_brand_id, t.threat_type
       ORDER BY volume DESC
       LIMIT ?
     `).bind(limit).all();
 
-    // Map flows with approximate target locations (brand HQ approximations)
-    const flows = rows.results.map((r: Record<string, unknown>) => ({
-      origin_lat: r.origin_lat,
-      origin_lng: r.origin_lng,
-      target_lat: 37.7749 + (Math.random() - 0.5) * 10, // Approximate target
-      target_lng: -98.5795 + (Math.random() - 0.5) * 30,
-      volume: r.volume,
-      origin_country: r.origin_country,
-      target_name: r.target_name,
-    }));
+    const flows = rows.results.map((r: Record<string, unknown>) => {
+      const [target_lat, target_lng] = getFlowBrandHQ(r.target_name as string | null);
+      const jitter = () => (Math.random() - 0.5) * 0.5;
+      return {
+        origin_lat: r.origin_lat,
+        origin_lng: r.origin_lng,
+        target_lat: target_lat + jitter(),
+        target_lng: target_lng + jitter(),
+        volume: r.volume,
+        origin_country: r.origin_country,
+        target_name: r.target_name,
+        threat_type: r.threat_type ?? 'phishing',
+      };
+    });
 
     return json({ success: true, data: flows }, 200, origin);
   } catch (err) {
