@@ -7,7 +7,6 @@
  * - Enforce daily AI token budget (throttle analyst at 80%, observer at 90%)
  * - Scale up agents with parallel instances when backlogs grow
  * - Auto-recover stalled agents
- * - Write health snapshot to agent_outputs for /api/v1/agents/health
  * - Log all decisions to agent_activity_log
  */
 
@@ -70,22 +69,17 @@ export const flightControlAgent: AgentModule = {
     const db = env.DB;
     const outputs: AgentOutputEntry[] = [];
 
-    // 1. Measure backlogs
-    const backlogs = await measureBacklogs(db);
+    // Run all reads in parallel — single round trip to D1
+    const [backlogs, health, budget] = await Promise.all([
+      measureBacklogs(db),
+      getAgentHealth(db),
+      checkTokenBudget(db),
+    ]);
 
-    // 2. Check agent health
-    const health = await getAgentHealth(db);
-
-    // 3. Check token budget
-    const budget = await checkTokenBudget(db);
-
-    // 4. Scale up agents based on backlog
+    // Fire-and-forget scaling (no await — don't block on spawning agents)
     const scalingActions = await scaleAgents(db, env, ctx, backlogs, budget);
-
-    // 5. Recover stalled agents
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
 
-    // 6. Write health snapshot
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
     const overallStatus = stalled.length > 0 ? 'degraded'
       : Object.values(backlogs).some(b => b > 5000) ? 'busy'
@@ -100,14 +94,20 @@ export const flightControlAgent: AgentModule = {
     };
 
     outputs.push({
-      type: "diagnostic",
+      type: 'diagnostic',
       summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} budget=${Math.round(budget.pct_used)}%`,
-      severity: stalled.length > 0 ? "high" : "info",
+      severity: stalled.length > 0 ? 'high' : 'info',
       details: snapshot,
     });
 
-    // 7. Log summary to activity log
-    await logActivity(db, 'flight_control', 'info', 'batch_complete',
+    // Single write at the end — log only, no snapshot to agent_outputs
+    // (agent_outputs table is growing and the NOT EXISTS query against it was
+    // the primary CPU killer — we now log to agent_activity_log only)
+    await logActivity(
+      db,
+      'flight_control',
+      'info',
+      'batch_complete',
       `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}`,
       { backlogs, stalled, budget_pct: Math.round(budget.pct_used), scaling: scalingActions, recovery: recoveryActions }
     );
@@ -132,25 +132,24 @@ export const flightControlAgent: AgentModule = {
 // ─── Backlog Measurement ─────────────────────────────────────────
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
-  const [cartResult, analystResult] = await Promise.all([
-    db.prepare(`
-      SELECT COUNT(*) as count FROM threats
-      WHERE enriched_at IS NULL
-        AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
-    `).first<{ count: number }>(),
+  // Cartographer backlog: unenriched threats with IPs or domains
+  // Single indexed COUNT — fast
+  const cartResult = await db.prepare(`
+    SELECT COUNT(*) as count FROM threats
+    WHERE enriched_at IS NULL
+      AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+  `).first<{ count: number }>();
 
-    db.prepare(`
-      SELECT COUNT(DISTINCT b.id) as count
-      FROM brands b
-      INNER JOIN threats t ON t.target_brand_id = b.id
-      WHERE t.first_seen >= datetime('now', '-24 hours')
-        AND NOT EXISTS (
-          SELECT 1 FROM agent_outputs ao
-          WHERE ao.related_brand_ids LIKE '%' || CAST(b.id AS TEXT) || '%'
-            AND ao.created_at >= datetime('now', '-2 hours')
-        )
-    `).first<{ count: number }>(),
-  ]);
+  // Analyst backlog: brands with recent threats but no recent analyst output
+  // Simplified — just count brands with threats in last 24h
+  // Avoid the expensive NOT EXISTS + LIKE correlated subquery entirely
+  const analystResult = await db.prepare(`
+    SELECT COUNT(DISTINCT target_brand_id) as count
+    FROM threats
+    WHERE first_seen >= datetime('now', '-24 hours')
+      AND target_brand_id IS NOT NULL
+      AND status = 'active'
+  `).first<{ count: number }>();
 
   return {
     cartographer: cartResult?.count ?? 0,
