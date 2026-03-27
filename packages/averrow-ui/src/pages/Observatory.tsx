@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs } from '@/hooks/useObservatory';
+import { useState, useEffect, useCallback } from 'react';
+import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs, useObservatoryHeatmap } from '@/hooks/useObservatory';
+import type { ArcData } from '@/hooks/useObservatory';
 import { ThreatMap } from '@/components/observatory/ThreatMap';
+import type { MapMode } from '@/components/observatory/ThreatMap';
 import { useBrands } from '@/hooks/useBrands';
 import { useProviders } from '@/hooks/useProviders';
 import { useAgents } from '@/hooks/useAgents';
+import { useOperations } from '@/hooks/useOperations';
 import type { Operation } from '@/hooks/useOperations';
 import { Badge } from '@/components/ui/Badge';
 import { relativeTime } from '@/lib/time';
@@ -24,6 +27,25 @@ const SOURCES = [
   { id: 'spam_trap', label: 'Spam Trap' },
 ];
 
+const MAP_MODES: { id: MapMode; label: string }[] = [
+  { id: 'global', label: 'GLOBAL' },
+  { id: 'operations', label: 'OPERATIONS' },
+  { id: 'heatmap', label: 'HEATMAP' },
+];
+
+function parseJsonArray(val: string | null): string[] {
+  if (!val) return [];
+  try { return JSON.parse(val) as string[]; }
+  catch { return []; }
+}
+
+function countryFlag(code: string): string {
+  if (!code || code.length !== 2) return '';
+  return String.fromCodePoint(
+    ...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65),
+  );
+}
+
 export function Observatory() {
   const [period, setPeriod] = useState('7d');
   const [source, setSource] = useState('all');
@@ -33,10 +55,50 @@ export function Observatory() {
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
   const [showPanel, setShowPanel] = useState(true);
   const [clock, setClock] = useState('');
+  const [mapMode, setMapMode] = useState<MapMode>('global');
+
+  // Clicked element state
+  const [clickedArc, setClickedArc] = useState<{ arc: ArcData; x: number; y: number } | null>(null);
+  const [clickedCluster, setClickedCluster] = useState<{ cluster: Operation; x: number; y: number } | null>(null);
 
   const { data: threats = [] } = useObservatoryThreats({ period, source });
   const { data: stats } = useObservatoryStats({ period, source });
   const { data: arcs = [] } = useObservatoryArcs({ period, source });
+  const { data: operations = [] } = useOperations({ status: 'active', limit: 50 });
+  const { data: heatmapData = [] } = useObservatoryHeatmap({ period });
+
+  // Close click cards on Escape or click elsewhere
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setClickedArc(null);
+        setClickedCluster(null);
+      }
+    }
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  const handleArcClick = useCallback((arc: ArcData, x: number, y: number) => {
+    setClickedCluster(null);
+    setClickedArc({ arc, x: Math.min(x, window.innerWidth - 340), y: Math.min(y, window.innerHeight - 200) });
+  }, []);
+
+  const handleClusterClick = useCallback((cluster: Operation, x: number, y: number) => {
+    setClickedArc(null);
+    setClickedCluster({ cluster, x: Math.min(x, window.innerWidth - 340), y: Math.min(y, window.innerHeight - 250) });
+  }, []);
+
+  // Close panels when switching modes
+  useEffect(() => {
+    setClickedArc(null);
+    setClickedCluster(null);
+    if (mapMode === 'heatmap') {
+      setShowPanel(false);
+    } else {
+      setShowPanel(true);
+    }
+  }, [mapMode]);
 
   // Live clock
   useEffect(() => {
@@ -56,7 +118,7 @@ export function Observatory() {
 
   return (
     <div className="relative h-[calc(100vh-3rem)] -m-6 overflow-hidden">
-      {/* Full-screen map — account for bottom bar */}
+      {/* Full-screen map */}
       <div className="absolute inset-0 bottom-[52px]">
         <ThreatMap
           threats={threats}
@@ -65,11 +127,32 @@ export function Observatory() {
           showParticles={showParticles}
           showNodes={showNodes}
           colorBy={colorBy}
+          mapMode={mapMode}
+          operations={operations}
+          heatmapData={heatmapData}
+          onArcClick={handleArcClick}
+          onClusterClick={handleClusterClick}
         />
       </div>
 
-      {/* Top-left: Period selector + color mode + layer toggles */}
+      {/* Top-left: Mode switcher + Period selector + Color mode */}
       <div className="absolute top-4 left-4 z-10 flex gap-2">
+        {/* Mode switcher */}
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+          {MAP_MODES.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setMapMode(m.id)}
+              className={cn(
+                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+                mapMode === m.id ? 'glass-btn-active' : 'glass-btn'
+              )}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         {/* Period selector */}
         <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           {PERIODS.map(p => (
@@ -78,9 +161,7 @@ export function Observatory() {
               onClick={() => setPeriod(p.id)}
               className={cn(
                 'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-                period === p.id
-                  ? 'glass-btn-active'
-                  : 'glass-btn'
+                period === p.id ? 'glass-btn-active' : 'glass-btn'
               )}
             >
               {p.label}
@@ -88,92 +169,99 @@ export function Observatory() {
           ))}
         </div>
 
-        {/* Color mode */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-          <button
-            onClick={() => setColorBy('severity')}
-            className={cn(
-              'font-mono text-[10px] px-2 py-1 rounded transition-all',
-              colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
-            )}
-          >
-            Severity
-          </button>
-          <button
-            onClick={() => setColorBy('type')}
-            className={cn(
-              'font-mono text-[10px] px-2 py-1 rounded transition-all',
-              colorBy === 'type' ? 'glass-btn-active' : 'glass-btn'
-            )}
-          >
-            Type
-          </button>
-        </div>
+        {/* Color mode (Global mode only) */}
+        {mapMode === 'global' && (
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            <button
+              onClick={() => setColorBy('severity')}
+              className={cn(
+                'font-mono text-[10px] px-2 py-1 rounded transition-all',
+                colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
+              )}
+            >
+              Severity
+            </button>
+            <button
+              onClick={() => setColorBy('type')}
+              className={cn(
+                'font-mono text-[10px] px-2 py-1 rounded transition-all',
+                colorBy === 'type' ? 'glass-btn-active' : 'glass-btn'
+              )}
+            >
+              Type
+            </button>
+          </div>
+        )}
 
-        {/* Layer toggles — styled pill buttons */}
+        {/* Source filter */}
         <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-          <button
-            onClick={() => setShowBeams(!showBeams)}
-            className={cn(
-              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showBeams ? 'glass-btn-active' : 'glass-btn'
-            )}
-          >
-            Beams
-          </button>
-          <button
-            onClick={() => setShowParticles(!showParticles)}
-            className={cn(
-              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showParticles ? 'glass-btn-active' : 'glass-btn'
-            )}
-          >
-            Particles
-          </button>
-          <button
-            onClick={() => setShowNodes(!showNodes)}
-            className={cn(
-              'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showNodes ? 'glass-btn-active' : 'glass-btn'
-            )}
-          >
-            Nodes
-          </button>
+          {SOURCES.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setSource(s.id)}
+              className={cn(
+                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+                source === s.id ? 'glass-btn-active' : 'glass-btn'
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Top-right: Live clock */}
       <div className="absolute top-4 right-16 z-10">
-        <div className="font-mono text-accent text-lg font-bold">{clock}</div>
+        <div className="font-mono text-accent text-lg font-bold tabular-nums">{clock}</div>
       </div>
 
       {/* Bottom-left: Legend */}
-      <div className="absolute bottom-[68px] left-4 z-10">
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
-          <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
-            {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
-          </div>
-          <div className="space-y-1">
-            {colorBy === 'severity' ? (
-              <>
-                <LegendItem color="rgb(200,60,60)" label="Critical" />
-                <LegendItem color="rgb(232,146,60)" label="High" />
-                <LegendItem color="rgb(220,170,50)" label="Medium" />
-                <LegendItem color="rgb(120,160,200)" label="Low" />
-              </>
-            ) : (
-              <>
-                <LegendItem color="rgb(200,60,60)" label="Phishing" />
-                <LegendItem color="rgb(251,146,60)" label="Credential" />
-                <LegendItem color="rgb(168,85,247)" label="Malware" />
-                <LegendItem color="rgb(239,68,68)" label="C2" />
-                <LegendItem color="rgb(251,113,133)" label="Web Attack" />
-                <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
-              </>
-            )}
+      {mapMode === 'global' && (
+        <div className="absolute bottom-[68px] left-4 z-10">
+          <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
+            <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
+              {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
+            </div>
+            <div className="space-y-1">
+              {colorBy === 'severity' ? (
+                <>
+                  <LegendItem color="rgb(200,60,60)" label="Critical" />
+                  <LegendItem color="rgb(232,146,60)" label="High" />
+                  <LegendItem color="rgb(220,170,50)" label="Medium" />
+                  <LegendItem color="rgb(120,160,200)" label="Low" />
+                </>
+              ) : (
+                <>
+                  <LegendItem color="rgb(200,60,60)" label="Phishing" />
+                  <LegendItem color="rgb(251,146,60)" label="Credential" />
+                  <LegendItem color="rgb(168,85,247)" label="Malware" />
+                  <LegendItem color="rgb(239,68,68)" label="C2" />
+                  <LegendItem color="rgb(251,113,133)" label="Web Attack" />
+                  <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Heatmap legend (bottom-left) */}
+      {mapMode === 'heatmap' && (
+        <div className="absolute bottom-[68px] left-4 z-10">
+          <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-4 glass-card glass-card-teal">
+            <div className="section-label mb-3">Attack Density ({period.toUpperCase()})</div>
+            <div className="flex items-center gap-3 mb-3">
+              <LegendItem color="rgb(0,212,255)" label="Low" />
+              <LegendItem color="rgb(251,146,60)" label="Medium" />
+              <LegendItem color="rgb(200,60,60)" label="High" />
+              <LegendItem color="rgb(200,60,60)" label="Critical" />
+            </div>
+            <div className="font-mono text-[10px] text-contrail/50">
+              {heatmapData.length.toLocaleString()} threat points mapped
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom-right: LIVE indicator */}
       <div className="absolute bottom-[68px] right-4 z-10">
@@ -188,20 +276,11 @@ export function Observatory() {
       {/* Bottom stats bar */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-cockpit/95 backdrop-blur-sm border-t border-white/5">
         <div className="flex items-center justify-between px-6 py-3">
-          {/* Source filter */}
-          <div className="flex items-center gap-1">
-            {SOURCES.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSource(s.id)}
-                className={cn(
-                  'font-mono text-[11px] font-bold px-3 py-1 rounded transition-all',
-                  source === s.id ? 'text-parchment' : 'text-contrail/40 hover:text-parchment'
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
+          {/* Mode label */}
+          <div className="flex items-center gap-3">
+            <span className="section-label">
+              {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
+            </span>
           </div>
 
           {/* Stats chips */}
@@ -218,61 +297,169 @@ export function Observatory() {
         </div>
       </div>
 
-      {/* Right sidebar panel */}
-      {showPanel && (
-        <div className="absolute top-0 right-0 bottom-[52px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
-          {/* Top Targeted Brands */}
-          <div className="p-4 border-b border-white/5">
-            <div className="section-label font-mono font-bold mb-3">
-              Top Targeted Brands
-            </div>
-            <TopBrandsList period={period} />
+      {/* ─── Clicked Arc Detail Card ─── */}
+      {clickedArc && (
+        <div
+          className="absolute z-30 w-80 glass-card glass-card-red rounded-xl p-4 animate-fade-in"
+          style={{ left: clickedArc.x, top: clickedArc.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setClickedArc(null)}
+            className="absolute top-2 right-2 text-white/30 hover:text-white text-xs"
+          >
+            {'\u2715'}
+          </button>
+          <div className="font-mono text-[11px] text-parchment font-bold mb-1">
+            {clickedArc.arc.source_region} {'\u2192'} {clickedArc.arc.brand_name || 'Unknown'}
           </div>
-
-          {/* Hosting Providers */}
-          <div className="p-4 border-b border-white/5">
-            <div className="section-label font-mono font-bold mb-3">
-              Hosting Providers
+          <div className="hud-divider" />
+          <div className="space-y-1.5">
+            {clickedArc.arc.brand_name && (
+              <div className="flex justify-between">
+                <span className="font-mono text-[10px] text-contrail/50">TARGET</span>
+                <span className="font-mono text-[10px] text-parchment">{clickedArc.arc.brand_name}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="font-mono text-[10px] text-contrail/50">TYPE</span>
+              <span className="font-mono text-[10px] text-parchment capitalize">{clickedArc.arc.threat_type?.replace(/_/g, ' ')}</span>
             </div>
-            <TopProvidersList period={period} />
-          </div>
-
-          {/* Agent Intelligence */}
-          <div className="p-4 border-b border-white/5">
-            <div className="section-label font-mono font-bold mb-3">
-              Agent Intelligence
+            <div className="flex justify-between">
+              <span className="font-mono text-[10px] text-contrail/50">SEVERITY</span>
+              <span className="font-mono text-[10px] text-parchment uppercase">{clickedArc.arc.severity}</span>
             </div>
-            <AgentIntelFeed />
-          </div>
-
-          {/* Active Operations */}
-          <div className="p-4 border-b border-white/5">
-            <div className="section-label font-mono font-bold mb-3">
-              Active Operations
+            <div className="flex justify-between">
+              <span className="font-mono text-[10px] text-contrail/50">VOLUME</span>
+              <span className="font-mono text-[10px] text-parchment">{clickedArc.arc.volume} attacks</span>
             </div>
-            <ActiveOperationsPanel />
-          </div>
-
-          {/* Live Feed */}
-          <div className="p-4">
-            <div className="section-label font-mono font-bold mb-3">
-              Live Feed
-            </div>
-            <LiveThreatFeed />
           </div>
         </div>
       )}
+
+      {/* ─── Clicked Cluster Detail Card ─── */}
+      {clickedCluster && (
+        <div
+          className={cn(
+            'absolute z-30 w-80 glass-card rounded-xl p-4 animate-fade-in',
+            clickedCluster.cluster.agent_notes?.includes('ACCELERATING') ? 'glass-card-amber' :
+            clickedCluster.cluster.agent_notes?.includes('PIVOT') ? 'glass-card-teal' : 'glass-card-red'
+          )}
+          style={{ left: clickedCluster.x, top: clickedCluster.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setClickedCluster(null)}
+            className="absolute top-2 right-2 text-white/30 hover:text-white text-xs"
+          >
+            {'\u2715'}
+          </button>
+          {clickedCluster.cluster.agent_notes?.includes('ACCELERATING') && (
+            <span className="badge-glass badge-accelerating font-mono text-[9px] font-bold mb-2 inline-block">ACCELERATING</span>
+          )}
+          {clickedCluster.cluster.agent_notes?.includes('PIVOT') && (
+            <span className="badge-glass badge-pivot font-mono text-[9px] font-bold mb-2 inline-block">PIVOT</span>
+          )}
+          <div className="font-mono text-[11px] text-parchment font-bold mb-1">
+            {clickedCluster.cluster.cluster_name || `Cluster ${clickedCluster.cluster.id.slice(0, 8)}`}
+          </div>
+          <div className="font-mono text-[10px] text-contrail/40 mb-2">
+            {parseJsonArray(clickedCluster.cluster.asns).join(', ')} {'\u00B7'} {parseJsonArray(clickedCluster.cluster.countries).map(countryFlag).join(' ')}
+          </div>
+          <div className="hud-divider" />
+          <div className="space-y-1.5">
+            <div className="flex justify-between">
+              <span className="font-mono text-[10px] text-contrail/50">THREATS</span>
+              <span className="font-mono text-[10px] text-parchment tabular-nums">{clickedCluster.cluster.threat_count.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono text-[10px] text-contrail/50">CONFIDENCE</span>
+              <span className="font-mono text-[10px] text-parchment tabular-nums">{clickedCluster.cluster.confidence_score ?? '—'}</span>
+            </div>
+          </div>
+          {clickedCluster.cluster.agent_notes && (
+            <>
+              <div className="hud-divider" />
+              <div className="font-mono text-[10px] text-contrail/60 leading-relaxed">
+                {clickedCluster.cluster.agent_notes}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ─── Right sidebar panel ─── */}
+      {showPanel && mapMode !== 'heatmap' && (
+        <div className="absolute top-0 right-0 bottom-[52px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+          {/* Mode-aware header */}
+          {mapMode === 'global' && (
+            <>
+              <div className="p-4 border-b border-white/5">
+                <div className="section-label font-mono font-bold mb-3">
+                  Top Targeted Brands
+                </div>
+                <TopBrandsList period={period} />
+              </div>
+              <div className="p-4 border-b border-white/5">
+                <div className="section-label font-mono font-bold mb-3">
+                  Hosting Providers
+                </div>
+                <TopProvidersList period={period} />
+              </div>
+              <div className="p-4 border-b border-white/5">
+                <div className="section-label font-mono font-bold mb-3">
+                  Agent Intelligence
+                </div>
+                <AgentIntelFeed />
+              </div>
+              <div className="p-4 border-b border-white/5">
+                <div className="section-label font-mono font-bold mb-3">
+                  Active Operations
+                </div>
+                <ActiveOperationsPanel />
+              </div>
+              <div className="p-4">
+                <div className="section-label font-mono font-bold mb-3">
+                  Live Feed
+                </div>
+                <LiveThreatFeed />
+              </div>
+            </>
+          )}
+
+          {mapMode === 'operations' && (
+            <div className="p-4">
+              <div className="section-label font-mono font-bold mb-3">
+                Active Operations
+              </div>
+              <OperationsClusterList
+                operations={operations}
+                onSelect={(op) => {
+                  const countries = parseJsonArray(op.countries);
+                  const pos = countries.length > 0 ? countries[0] : '';
+                  setClickedCluster({ cluster: op, x: window.innerWidth / 2 - 160, y: 100 });
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Panel toggle button */}
-      <button
-        onClick={() => setShowPanel(!showPanel)}
-        className="absolute top-1/2 z-20 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
-        style={showPanel ? { right: '320px' } : { right: 0 }}
-      >
-        {showPanel ? '\u203A' : '\u2039'}
-      </button>
+      {mapMode !== 'heatmap' && (
+        <button
+          onClick={() => setShowPanel(!showPanel)}
+          className="absolute top-1/2 z-20 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
+          style={showPanel ? { right: '320px' } : { right: 0 }}
+        >
+          {showPanel ? '\u203A' : '\u2039'}
+        </button>
+      )}
     </div>
   );
 }
+
+// ─── Supporting components ───────────────────────────────────
 
 function StatChip({ value, label, color }: { value: number; label: string; color: string }) {
   return (
@@ -294,6 +481,47 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
+function OperationsClusterList({ operations, onSelect }: { operations: Operation[]; onSelect: (op: Operation) => void }) {
+  if (operations.length === 0) {
+    return <div className="text-[10px] text-contrail/30 font-mono">No active operations</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {operations.map(op => {
+        const countries = parseJsonArray(op.countries);
+        const isAccelerating = op.agent_notes?.includes('ACCELERATING');
+        const isPivot = op.agent_notes?.includes('PIVOT');
+        return (
+          <button
+            key={op.id}
+            onClick={() => onSelect(op)}
+            className="w-full text-left rounded-lg p-2.5 transition-all glass-card hover:border-orbital-teal/30"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[11px] text-parchment truncate">
+                {op.cluster_name || `Cluster ${op.id.slice(0, 8)}`}
+              </span>
+              {isAccelerating && <span className="badge-glass badge-accelerating font-mono text-[9px] font-bold">ACCEL</span>}
+              {isPivot && <span className="badge-glass badge-pivot font-mono text-[9px] font-bold">PIVOT</span>}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono text-[10px] text-contrail/50 tabular-nums">
+                {op.threat_count.toLocaleString()} threats
+              </span>
+              {countries.length > 0 && (
+                <span className="font-mono text-[10px] text-white/30">
+                  {countries.map(countryFlag).join(' ')}
+                </span>
+              )}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function TopBrandsList({ period }: { period: string }) {
   const { data: brands = [] } = useBrands({ view: 'top', limit: 10, timeRange: period });
 
@@ -309,8 +537,8 @@ function TopBrandsList({ period }: { period: string }) {
           />
           <span className="text-xs text-parchment/80 flex-1 truncate">{brand.name}</span>
           <span className={cn(
-            'font-mono text-xs font-bold',
-            brand.threat_count >= 100 ? 'text-red-400' :
+            'font-mono text-xs font-bold tabular-nums',
+            brand.threat_count >= 100 ? 'text-red-400 glow-red' :
             brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment'
           )}>
             {brand.threat_count}
@@ -331,7 +559,7 @@ function TopProvidersList({ period }: { period: string }) {
         <div key={provider.id} className="py-1">
           <div className="flex items-center justify-between">
             <span className="text-xs text-parchment/80 truncate">{provider.name}</span>
-            <span className="font-mono text-xs font-bold text-accent">{provider.active_threat_count}</span>
+            <span className="font-mono text-xs font-bold text-accent tabular-nums">{provider.active_threat_count}</span>
           </div>
           <div className="font-mono text-[9px] text-contrail/30">{provider.asn}</div>
           {provider.trend_7d != null && provider.trend_7d !== 0 && (
@@ -398,16 +626,16 @@ function ActiveOperationsPanel() {
             <span className="text-xs text-parchment/80 truncate flex-1 mr-2">
               {op.cluster_name || `Cluster ${op.id.slice(0, 8)}`}
             </span>
-            <span className="font-mono text-[10px] font-bold text-accent">{op.threat_count}</span>
+            <span className="font-mono text-[10px] font-bold text-accent tabular-nums">{op.threat_count}</span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             {op.status === 'active' && (op.confidence_score ?? 0) >= 70 && (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
+              <span className="badge-glass badge-accelerating font-mono text-[9px]">
                 ACCELERATING
               </span>
             )}
             {op.agent_notes?.toLowerCase().includes('pivot') && (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
+              <span className="badge-glass badge-pivot font-mono text-[9px]">
                 PIVOT
               </span>
             )}
@@ -433,10 +661,10 @@ interface LiveThreatEntry {
 }
 
 const SEVERITY_DOT_COLORS: Record<string, string> = {
-  critical: 'bg-red-400',
-  high: 'bg-amber-400',
+  critical: 'dot-pulse-red',
+  high: 'dot-pulse-amber',
   medium: 'bg-yellow-400',
-  low: 'bg-blue-400',
+  low: 'dot-pulse-teal',
 };
 
 function LiveThreatFeed() {
@@ -475,3 +703,4 @@ function LiveThreatFeed() {
     </div>
   );
 }
+

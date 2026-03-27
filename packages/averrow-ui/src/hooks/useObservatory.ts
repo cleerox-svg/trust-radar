@@ -86,11 +86,23 @@ export function useObservatoryArcs(options?: { period?: string; source?: string 
   });
 }
 
-// TODO: /api/observatory/countries endpoint does not exist yet
-export function useObservatoryCountries() {
+export interface HeatmapPoint {
+  lat: number;
+  lng: number;
+  severity: string;
+  threat_type: string;
+}
+
+export function useObservatoryHeatmap(options?: { period?: string; limit?: number }) {
+  const { period = '7d', limit = 5000 } = options || {};
+
   return useQuery({
-    queryKey: ['observatory-countries'],
-    queryFn: async () => [] as CountryCluster[],
-    enabled: false,
+    queryKey: ['observatory-heatmap', period, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({ period, limit: String(limit) });
+      const res = await api.get<HeatmapPoint[]>(`/api/threats/heatmap?${params}`);
+      return res.data || [];
+    },
+    refetchInterval: 120_000,
   });
 }
