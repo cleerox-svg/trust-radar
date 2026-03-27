@@ -265,6 +265,179 @@ export async function handleProviderTimeline(request: Request, env: Env, provide
   }
 }
 
+// GET /api/providers/intelligence — Infrastructure Intelligence summary stats
+export async function handleProviderIntelligence(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const [providerStats, clusterStats] = await Promise.all([
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) AS total_providers,
+          SUM(CASE WHEN active_threat_count > 0 THEN 1 ELSE 0 END) AS active_operations,
+          SUM(CASE WHEN trend_7d > 0 AND trend_30d > 0 AND trend_7d > trend_30d / 4.0 THEN 1 ELSE 0 END) AS accelerating,
+          SUM(CASE WHEN trend_7d = 0 AND trend_30d > 50 THEN 1 ELSE 0 END) AS pivots_detected
+        FROM hosting_providers
+      `).first(),
+      env.DB.prepare(`
+        SELECT COUNT(*) AS total_clusters,
+               SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_clusters
+        FROM infrastructure_clusters
+      `).first(),
+    ]);
+
+    return json({
+      success: true,
+      data: {
+        total_providers: providerStats?.total_providers ?? 0,
+        active_operations: providerStats?.active_operations ?? 0,
+        accelerating: providerStats?.accelerating ?? 0,
+        pivots_detected: providerStats?.pivots_detected ?? 0,
+        total_clusters: clusterStats?.total_clusters ?? 0,
+        active_clusters: clusterStats?.active_clusters ?? 0,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/v2 — Enhanced provider list with status filtering and cluster linkage
+export async function handleListProvidersV2(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const search = url.searchParams.get("q");
+    const country = url.searchParams.get("country");
+    const status = url.searchParams.get("status"); // active|accelerating|pivot|quiet
+    const sort = url.searchParams.get("sort") ?? "active_threats"; // active_threats|trend_7d|trend_30d
+    const clusterId = url.searchParams.get("cluster_id");
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (search) {
+      conditions.push("(hp.name LIKE ? OR hp.asn LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    if (country) {
+      conditions.push("hp.country = ?");
+      params.push(country);
+    }
+    if (status === "accelerating") {
+      conditions.push("hp.trend_7d > 0 AND hp.trend_30d > 0 AND hp.trend_7d > hp.trend_30d / 4.0");
+    } else if (status === "pivot") {
+      conditions.push("hp.trend_7d = 0 AND hp.trend_30d > 50");
+    } else if (status === "active") {
+      conditions.push("hp.active_threat_count > 0");
+    } else if (status === "quiet") {
+      conditions.push("hp.active_threat_count = 0");
+    }
+
+    // If filtering by cluster, get ASNs from cluster first
+    let clusterAsnFilter = "";
+    if (clusterId) {
+      const cluster = await env.DB.prepare(
+        "SELECT asns FROM infrastructure_clusters WHERE id = ?"
+      ).bind(clusterId).first<{ asns: string }>();
+      if (cluster?.asns) {
+        try {
+          const asns = JSON.parse(cluster.asns) as string[];
+          if (asns.length > 0) {
+            const placeholders = asns.map(() => "?").join(",");
+            clusterAsnFilter = `hp.asn IN (${placeholders})`;
+            conditions.push(clusterAsnFilter);
+            params.push(...asns);
+          }
+        } catch { /* ignore parse error */ }
+      }
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    let orderBy = "hp.active_threat_count DESC";
+    if (sort === "trend_7d") orderBy = "hp.trend_7d DESC";
+    else if (sort === "trend_30d") orderBy = "hp.trend_30d DESC";
+
+    params.push(limit, offset);
+
+    const rows = await env.DB.prepare(`
+      SELECT hp.id, hp.name, hp.asn, hp.country,
+             hp.active_threat_count, hp.total_threat_count,
+             hp.trend_7d, hp.trend_30d,
+             hp.reputation_score, hp.avg_response_time,
+             hp.is_bulletproof,
+             MIN(t.created_at) AS first_threat,
+             MAX(t.created_at) AS last_threat
+      FROM hosting_providers hp
+      LEFT JOIN threats t ON t.hosting_provider_id = hp.id
+      ${where}
+      GROUP BY hp.id
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `).bind(...params).all();
+
+    // Count total for pagination
+    const countResult = await env.DB.prepare(`
+      SELECT COUNT(*) AS total FROM hosting_providers hp ${where}
+    `).bind(...params.slice(0, params.length - 2)).all();
+    const total = (countResult.results[0] as Record<string, unknown>)?.total ?? 0;
+
+    return json({ success: true, data: rows.results, meta: { total, limit, offset } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/clusters — List infrastructure clusters
+export async function handleListClusters(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "30", 10));
+
+    const rows = await env.DB.prepare(`
+      SELECT id, cluster_name, asns, countries, threat_count, status,
+             confidence_score, agent_notes, first_detected, last_seen, last_updated
+      FROM infrastructure_clusters
+      ORDER BY threat_count DESC
+      LIMIT ?
+    `).bind(limit).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/providers/:id/clusters — Clusters linked to a provider's ASN
+export async function handleProviderClusters(request: Request, env: Env, providerId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const decoded = decodeURIComponent(providerId);
+    const provider = await env.DB.prepare(
+      "SELECT asn FROM hosting_providers WHERE id = ?"
+    ).bind(decoded).first<{ asn: string | null }>();
+
+    if (!provider?.asn) {
+      return json({ success: true, data: [] }, 200, origin);
+    }
+
+    const rows = await env.DB.prepare(`
+      SELECT id, cluster_name, asns, countries, threat_count, status,
+             confidence_score, agent_notes, first_detected, last_seen
+      FROM infrastructure_clusters
+      WHERE asns LIKE ?
+      ORDER BY threat_count DESC
+    `).bind(`%${provider.asn}%`).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // GET /api/providers/:id/locations
 export async function handleProviderLocations(request: Request, env: Env, providerId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
