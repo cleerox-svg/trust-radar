@@ -111,24 +111,55 @@ const BRAND_HQ: Record<string, [number, number]> = {
   'zdnet.com':         [ -74.0060,  40.7128],
   'jd.com':            [ 116.4074,  39.9042],
   'lowes.com':         [ -80.8504,  35.5276],
+  '1e100.net':         [-122.0841,  37.4220],  // Google infra → Mountain View
+  'httpwg.org':        [-122.4194,  37.7749],  // W3C/IETF working group → SF
 };
 
-function getBrandCoords(brandName: string | null, canonicalDomain?: string | null): [number, number] | null {
+// Continent-based fallback coords [lng, lat] — ensures arcs always draw
+const CONTINENT_DEFAULTS: Record<string, [number, number]> = {
+  'US': [-122.4194,  37.7749],  // SF
+  'GB': [  -0.1278,  51.5074],  // London
+  'DE': [  13.4050,  52.5200],  // Berlin
+  'FR': [   2.3522,  48.8566],  // Paris
+  'JP': [ 139.6503,  35.6762],  // Tokyo
+  'CN': [ 116.4074,  39.9042],  // Beijing
+  'AU': [ 151.2093, -33.8688],  // Sydney
+  'CA': [ -79.3832,  43.6532],  // Toronto
+  'IN': [  77.2090,  28.6139],  // New Delhi
+  'BR': [ -46.6333, -23.5505],  // São Paulo
+  'SG': [ 103.8198,   1.3521],  // Singapore
+  'NL': [   4.9041,  52.3676],  // Amsterdam
+};
+
+function getContinentFallback(country?: string | null): [number, number] {
+  if (!country) return [-122.4194, 37.7749]; // default SF
+  return CONTINENT_DEFAULTS[country] ?? [-122.4194, 37.7749];
+}
+
+function getBrandCoords(brandName: string | null, canonicalDomain?: string | null, originCountry?: string | null): [number, number] {
   // Try canonical domain first (most precise)
   if (canonicalDomain) {
     const clean = canonicalDomain.replace(/^www\./, "").toLowerCase();
     if (BRAND_HQ[clean]) return BRAND_HQ[clean];
+    // Partial match on domain
+    for (const [k, coords] of Object.entries(BRAND_HQ)) {
+      if (!k.includes(".")) continue;
+      if (clean === k || clean.endsWith("." + k) || k.endsWith("." + clean.split(".")[0])) {
+        return coords;
+      }
+    }
   }
-  if (!brandName) return null;
+  if (!brandName) return getContinentFallback(originCountry);
   // Try brand name slug
   const key = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (BRAND_HQ[key]) return BRAND_HQ[key];
-  // Partial match
+  // Partial match on brand name
   for (const [k, coords] of Object.entries(BRAND_HQ)) {
-    if (k.includes(".")) continue; // skip domain keys for partial match
+    if (k.includes(".")) continue;
     if (key.includes(k) || k.includes(key)) return coords;
   }
-  return null;
+  // Fallback — continent default, NOT null
+  return getContinentFallback(originCountry);
 }
 
 function periodToInterval(period: string): string {
@@ -215,16 +246,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         AND t.target_brand_id IS NOT NULL
         AND t.status = 'active'
         AND t.created_at > datetime('now', '${interval}')${sourceFilter}
-        AND t.threat_type IN ('phishing', 'credential_harvesting',
-                              'typosquatting', 'impersonation', 'c2',
-                              'malware_distribution')
-        AND b.canonical_domain NOT LIKE '%.net'
-        AND b.canonical_domain NOT LIKE '%1x1%'
-        AND b.canonical_domain NOT LIKE '%1e1%'
-        AND b.name NOT LIKE '1%'
-        AND LENGTH(b.name) > 4
-        AND b.threat_count >= 5
-      GROUP BY ROUND(t.lat, 1), ROUND(t.lng, 1), t.threat_type, t.target_brand_id
+      GROUP BY t.country_code, t.target_brand_id, t.threat_type
       ORDER BY volume DESC
       LIMIT ${limit}
     `).all<{
@@ -236,8 +258,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 
     const arcs = (rows.results ?? [])
       .map(row => {
-        const targetCoords = getBrandCoords(row.target_brand, row.target_domain);
-        if (!targetCoords) return null;
+        const targetCoords = getBrandCoords(row.target_brand, row.target_domain, row.source_country);
         const jitter: [number, number] = [
           targetCoords[0] + (Math.random() - 0.5) * 0.5,
           targetCoords[1] + (Math.random() - 0.5) * 0.5,
