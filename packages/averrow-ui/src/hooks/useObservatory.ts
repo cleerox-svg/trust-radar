@@ -94,7 +94,7 @@ export interface HeatmapPoint {
 }
 
 export function useObservatoryHeatmap(options?: { period?: string; limit?: number }) {
-  const { period = '7d', limit = 5000 } = options || {};
+  const { period = '7d', limit = 10000 } = options || {};
 
   return useQuery({
     queryKey: ['observatory-heatmap', period, limit],
