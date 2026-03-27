@@ -2,7 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer, PathLayer } from '@deck.gl/layers';
-import type { ThreatPoint, ArcData } from '@/hooks/useObservatory';
+import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+import type { ThreatPoint, ArcData, HeatmapPoint } from '@/hooks/useObservatory';
+import type { Operation } from '@/hooks/useOperations';
+import { cn } from '@/lib/cn';
+
+// ─── Types ──────────────────────────────────────────────────
+export type MapMode = 'global' | 'operations' | 'heatmap';
 
 interface TooltipInfo {
   x: number;
@@ -11,6 +17,19 @@ interface TooltipInfo {
   arc?: ArcData;
 }
 
+interface ClickedArc {
+  arc: ArcData;
+  x: number;
+  y: number;
+}
+
+interface ClickedCluster {
+  cluster: Operation;
+  x: number;
+  y: number;
+}
+
+// ─── Color helpers ──────────────────────────────────────────
 const SEVERITY_COLORS: Record<string, [number, number, number, number]> = {
   critical: [200, 60,  60,  255],
   high:     [251, 146, 60,  220],
@@ -20,17 +39,17 @@ const SEVERITY_COLORS: Record<string, [number, number, number, number]> = {
 };
 
 const THREAT_TYPE_COLORS: Record<string, [number, number, number, number]> = {
-  phishing:               [200, 60,  60,  220],  // Signal Red
-  credential_harvesting:  [251, 146, 60,  220],  // Amber
-  malware_distribution:   [167, 139, 250, 220],  // Purple
-  c2:                     [239, 68,  68,  255],  // Bright red
-  malicious_ip:           [120, 160, 200, 180],  // Blue-grey
-  web_attack:             [251, 113, 133, 200],  // Rose
-  brute_force:            [250, 204, 21,  200],  // Yellow
-  spam_botnet_c2:         [34,  211, 238, 220],  // Teal
-  typosquatting:          [220, 170, 50,  200],  // Gold
-  scanning:               [120, 160, 200, 180],  // Contrail blue
-  impersonation:          [232, 146, 60,  220],  // Amber
+  phishing:               [200, 60,  60,  220],
+  credential_harvesting:  [251, 146, 60,  220],
+  malware_distribution:   [167, 139, 250, 220],
+  c2:                     [239, 68,  68,  255],
+  malicious_ip:           [120, 160, 200, 180],
+  web_attack:             [251, 113, 133, 200],
+  brute_force:            [250, 204, 21,  200],
+  spam_botnet_c2:         [34,  211, 238, 220],
+  typosquatting:          [220, 170, 50,  200],
+  scanning:               [120, 160, 200, 180],
+  impersonation:          [232, 146, 60,  220],
 };
 
 function getSeverityColor(severity: string, alpha?: number): [number, number, number, number] {
@@ -54,6 +73,7 @@ function getArcColor(
   return getTypeColor(d.threat_type ?? 'phishing', alpha);
 }
 
+// ─── Bezier helpers ─────────────────────────────────────────
 function computeBezierPath(srcLng: number, srcLat: number, tgtLng: number, tgtLat: number, segments = 30): [number, number][] {
   const midLng = (srcLng + tgtLng) / 2;
   const midLat = (srcLat + tgtLat) / 2;
@@ -85,8 +105,55 @@ function bezierInterp(srcLng: number, srcLat: number, tgtLng: number, tgtLat: nu
   ];
 }
 
+// ─── Country centroids ──────────────────────────────────────
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+  CN: [104.1954, 35.8617],
+  PK: [69.3451, 30.3753],
+  IN: [78.9629, 20.5937],
+  US: [-95.7129, 37.0902],
+  NL: [5.2913, 52.1326],
+  DE: [10.4515, 51.1657],
+  GB: [-3.4360, 55.3781],
+  RU: [105.3188, 61.5240],
+  BR: [-51.9253, -14.2350],
+  ZA: [22.9375, -30.5595],
+  SG: [103.8198, 1.3521],
+  JP: [138.2529, 36.2048],
+  FR: [2.2137, 46.2276],
+  AU: [133.7751, -25.2744],
+  KR: [127.7669, 35.9078],
+  CA: [-106.3468, 56.1304],
+  ID: [113.9213, -0.7893],
+  VN: [108.2772, 14.0583],
+  TH: [100.9925, 15.8700],
+  UA: [31.1656, 48.3794],
+  TR: [35.2433, 38.9637],
+  IT: [12.5674, 41.8719],
+  ES: [-3.7492, 40.4637],
+  PL: [19.1451, 51.9194],
+  MX: [-102.5528, 23.6345],
+  NG: [8.6753, 9.0820],
+  EG: [30.8025, 26.8206],
+  BD: [90.3563, 23.6850],
+  PH: [121.7740, 12.8797],
+  HK: [114.1694, 22.3193],
+};
+
+function getClusterPosition(countries: string[]): [number, number] {
+  const primary = countries[0];
+  return COUNTRY_CENTROIDS[primary] ?? [0, 20];
+}
+
+function parseJsonArray(val: string | null): string[] {
+  if (!val) return [];
+  try { return JSON.parse(val) as string[]; }
+  catch { return []; }
+}
+
+// ─── Map style ──────────────────────────────────────────────
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
+// ─── Props ──────────────────────────────────────────────────
 interface ThreatMapProps {
   threats: ThreatPoint[];
   arcs: ArcData[];
@@ -94,9 +161,18 @@ interface ThreatMapProps {
   showParticles: boolean;
   showNodes: boolean;
   colorBy: 'severity' | 'type';
+  mapMode: MapMode;
+  operations?: Operation[];
+  heatmapData?: HeatmapPoint[];
+  onArcClick?: (arc: ArcData, x: number, y: number) => void;
+  onClusterClick?: (cluster: Operation, x: number, y: number) => void;
 }
 
-export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, colorBy }: ThreatMapProps) {
+export function ThreatMap({
+  threats, arcs, showBeams, showParticles, showNodes, colorBy,
+  mapMode, operations = [], heatmapData = [],
+  onArcClick, onClusterClick,
+}: ThreatMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const deckRef = useRef<any>(null);
@@ -130,139 +206,216 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
 
   const buildBaseLayers = useCallback(() => {
     const layers: any[] = [];
-    const filteredThreats = threats.filter(t => t.lat && t.lng);
 
-    // --- Source nodes: triple pass ---
-    if (showNodes && filteredThreats.length > 0) {
-      // Bloom
+    // ═══ GLOBAL MODE ═══
+    if (mapMode === 'global') {
+      const filteredThreats = threats.filter(t => t.lat && t.lng);
+
+      // Source nodes: triple pass
+      if (showNodes && filteredThreats.length > 0) {
+        layers.push(
+          new ScatterplotLayer({
+            id: 'nodes-bloom',
+            data: filteredThreats,
+            getPosition: (d: any) => [d.lng, d.lat],
+            getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 5400,
+            getFillColor: (d: any) => getSeverityColor(d.top_severity || 'low', 6),
+            radiusMinPixels: 3,
+            radiusMaxPixels: 24,
+          })
+        );
+        layers.push(
+          new ScatterplotLayer({
+            id: 'nodes-glow',
+            data: filteredThreats,
+            getPosition: (d: any) => [d.lng, d.lat],
+            getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 2900,
+            getFillColor: (d: any) => getSeverityColor(d.top_severity || 'low', 12),
+            radiusMinPixels: 2,
+            radiusMaxPixels: 14,
+          })
+        );
+        layers.push(
+          new ScatterplotLayer({
+            id: 'nodes-core',
+            data: filteredThreats,
+            getPosition: (d: any) => [d.lng, d.lat],
+            getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 1440,
+            getFillColor: (d: any) => getSeverityColor(d.top_severity?.toLowerCase() || 'low'),
+            stroked: true,
+            filled: true,
+            radiusMinPixels: 1.5,
+            radiusMaxPixels: 9,
+            pickable: true,
+            onHover: ({ object, x, y }: any) => {
+              setTooltip(object ? { x, y, threat: object } : null);
+            },
+          })
+        );
+      }
+
+      // Bezier beams: dual pass
+      if (showBeams && arcs.length > 0) {
+        const arcDataWithPaths = arcs.map(a => ({
+          ...a,
+          bezierPath: computeBezierPath(
+            a.sourcePosition[0], a.sourcePosition[1],
+            a.targetPosition[0], a.targetPosition[1]
+          ),
+        }));
+
+        layers.push(
+          new PathLayer({
+            id: 'beam-glow',
+            data: arcDataWithPaths,
+            getPath: (d: any) => d.bezierPath,
+            getColor: (d: any) => getArcColor(d, colorBy, 51),
+            getWidth: (d: any) => Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
+            widthUnits: 'pixels',
+            widthMinPixels: 1,
+            widthMaxPixels: 2,
+            updateTriggers: { getColor: colorBy },
+          })
+        );
+        layers.push(
+          new PathLayer({
+            id: 'beam-core',
+            data: arcDataWithPaths,
+            getPath: (d: any) => d.bezierPath,
+            getColor: (d: any) => getArcColor(d, colorBy, 76),
+            getWidth: 1,
+            widthUnits: 'pixels',
+            widthMinPixels: 1,
+            widthMaxPixels: 1,
+            updateTriggers: { getColor: colorBy },
+            pickable: true,
+            onHover: ({ object, x, y }: any) => {
+              setTooltip(object ? { x, y, arc: object } : null);
+            },
+            onClick: ({ object, x, y }: any) => {
+              if (object && onArcClick) {
+                onArcClick(object, x, y);
+              }
+            },
+          })
+        );
+      }
+
+      // Target destination rings
+      if (arcs.length > 0 && (showBeams || showNodes)) {
+        const targetMap = new Map<string, ArcData>();
+        arcs.forEach(a => {
+          const k = a.targetPosition.join(',');
+          if (!targetMap.has(k)) targetMap.set(k, a);
+        });
+        const targetNodes = Array.from(targetMap.values());
+
+        layers.push(
+          new ScatterplotLayer({
+            id: 'targets-ring',
+            data: targetNodes,
+            getPosition: (d: any) => d.targetPosition,
+            getRadius: 12000,
+            getFillColor: [255, 255, 255, 6] as [number, number, number, number],
+            getLineColor: [255, 255, 255, 40] as [number, number, number, number],
+            lineWidthMinPixels: 1,
+            stroked: true,
+            radiusMinPixels: 3,
+            radiusMaxPixels: 14,
+          })
+        );
+        layers.push(
+          new ScatterplotLayer({
+            id: 'targets-core',
+            data: targetNodes,
+            getPosition: (d: any) => d.targetPosition,
+            getRadius: 3600,
+            getFillColor: [255, 255, 255, 45] as [number, number, number, number],
+            radiusMinPixels: 1.5,
+            radiusMaxPixels: 5,
+          })
+        );
+      }
+    }
+
+    // ═══ OPERATIONS MODE ═══
+    if (mapMode === 'operations' && operations.length > 0) {
+      // Bloom layer
       layers.push(
         new ScatterplotLayer({
-          id: 'nodes-bloom',
-          data: filteredThreats,
-          getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 5400,
-          getFillColor: (d: any) => getSeverityColor(d.top_severity || 'low', 6),
-          radiusMinPixels: 3,
-          radiusMaxPixels: 24,
-        })
-      );
-      // Glow
-      layers.push(
-        new ScatterplotLayer({
-          id: 'nodes-glow',
-          data: filteredThreats,
-          getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 2900,
-          getFillColor: (d: any) => getSeverityColor(d.top_severity || 'low', 12),
-          radiusMinPixels: 2,
-          radiusMaxPixels: 14,
-        })
-      );
-      // Core
-      layers.push(
-        new ScatterplotLayer({
-          id: 'nodes-core',
-          data: filteredThreats,
-          getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: (d: any) => Math.sqrt(Math.max(1, d.threat_count)) * 1440,
+          id: 'operations-bloom',
+          data: operations,
+          getPosition: (d: any) => getClusterPosition(parseJsonArray(d.countries ?? '[]')),
+          getRadius: (d: any) => Math.max(120000, Math.min(500000, d.threat_count * 250)),
           getFillColor: (d: any) => {
-            const sev = d.top_severity?.toLowerCase() || 'low';
-            return getSeverityColor(sev);
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 20] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 15] as [number, number, number, number];
+            return [200, 60, 60, 18] as [number, number, number, number];
           },
-          stroked: true,
-          filled: true,
-          radiusMinPixels: 1.5,
-          radiusMaxPixels: 9,
-          pickable: true,
-          onHover: ({ object, x, y }: any) => {
-            setTooltip(object ? { x, y, threat: object } : null);
-          },
+          radiusUnits: 'meters' as any,
+          pickable: false,
         })
       );
-    }
-
-    // --- Bezier beams: dual pass ---
-    if (showBeams && arcs.length > 0) {
-      const arcDataWithPaths = arcs.map(a => ({
-        ...a,
-        bezierPath: computeBezierPath(
-          a.sourcePosition[0], a.sourcePosition[1],
-          a.targetPosition[0], a.targetPosition[1]
-        ),
-      }));
-
-      // Glow pass
-      layers.push(
-        new PathLayer({
-          id: 'beam-glow',
-          data: arcDataWithPaths,
-          getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => getArcColor(d, colorBy, 51),
-          getWidth: (d: any) => Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
-          widthUnits: 'pixels',
-          widthMinPixels: 1,
-          widthMaxPixels: 2,
-          updateTriggers: { getColor: colorBy },
-        })
-      );
-      // Core pass
-      layers.push(
-        new PathLayer({
-          id: 'beam-core',
-          data: arcDataWithPaths,
-          getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => getArcColor(d, colorBy, 76),
-          getWidth: 1,
-          widthUnits: 'pixels',
-          widthMinPixels: 1,
-          widthMaxPixels: 1,
-          updateTriggers: { getColor: colorBy },
-          pickable: true,
-          onHover: ({ object, x, y }: any) => {
-            setTooltip(object ? { x, y, arc: object } : null);
-          },
-        })
-      );
-    }
-
-    // --- Target destination rings ---
-    if (arcs.length > 0 && (showBeams || showNodes)) {
-      const targetMap = new Map<string, ArcData>();
-      arcs.forEach(a => {
-        const k = a.targetPosition.join(',');
-        if (!targetMap.has(k)) targetMap.set(k, a);
-      });
-      const targetNodes = Array.from(targetMap.values());
-
+      // Main cluster blobs
       layers.push(
         new ScatterplotLayer({
-          id: 'targets-ring',
-          data: targetNodes,
-          getPosition: (d: any) => d.targetPosition,
-          getRadius: 12000,
-          getFillColor: [255, 255, 255, 6] as [number, number, number, number],
-          getLineColor: [255, 255, 255, 40] as [number, number, number, number],
+          id: 'operations-layer',
+          data: operations,
+          getPosition: (d: any) => getClusterPosition(parseJsonArray(d.countries ?? '[]')),
+          getRadius: (d: any) => Math.max(80000, Math.min(400000, d.threat_count * 200)),
+          getFillColor: (d: any) => {
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 60] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 40] as [number, number, number, number];
+            return [200, 60, 60, 50] as [number, number, number, number];
+          },
+          getLineColor: (d: any) => {
+            if (d.agent_notes?.includes('ACCELERATING')) return [251, 146, 60, 200] as [number, number, number, number];
+            if (d.agent_notes?.includes('PIVOT')) return [0, 212, 255, 180] as [number, number, number, number];
+            return [200, 60, 60, 180] as [number, number, number, number];
+          },
+          stroked: true,
           lineWidthMinPixels: 1,
-          stroked: true,
-          radiusMinPixels: 3,
-          radiusMaxPixels: 14,
+          lineWidthMaxPixels: 2,
+          radiusUnits: 'meters' as any,
+          pickable: true,
+          onClick: ({ object, x, y }: any) => {
+            if (object && onClusterClick) {
+              onClusterClick(object, x, y);
+            }
+          },
+          onHover: ({ object, x, y }: any) => {
+            setTooltip(object ? { x, y, threat: undefined, arc: undefined } : null);
+          },
         })
       );
-      layers.push(
-        new ScatterplotLayer({
-          id: 'targets-core',
-          data: targetNodes,
-          getPosition: (d: any) => d.targetPosition,
-          getRadius: 3600,
-          getFillColor: [255, 255, 255, 45] as [number, number, number, number],
-          radiusMinPixels: 1.5,
-          radiusMaxPixels: 5,
-        })
-      );
+    }
+
+    // ═══ HEATMAP MODE ═══
+    if (mapMode === 'heatmap' && heatmapData.length > 0) {
+      const heatmapProps = {
+        id: 'heatmap-layer',
+        data: heatmapData,
+        getPosition: (d: any) => [d.lng, d.lat],
+        getWeight: (d: any) => {
+          const weights: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+          return weights[d.severity] ?? 1;
+        },
+        radiusPixels: 40,
+        intensity: 1.5,
+        threshold: 0.1,
+        colorRange: [
+          [0, 212, 255, 0],
+          [0, 212, 255, 120],
+          [251, 146, 60, 160],
+          [200, 60, 60, 200],
+          [200, 60, 60, 255],
+        ],
+      };
+      layers.push(new (HeatmapLayer as any)(heatmapProps));
     }
 
     return layers;
-  }, [threats, arcs, showBeams, showNodes, colorBy]);
+  }, [threats, arcs, showBeams, showNodes, colorBy, mapMode, operations, heatmapData, onArcClick, onClusterClick]);
 
   // Update overlay when data/settings change
   useEffect(() => {
@@ -290,16 +443,16 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
         deckRef.current = overlay;
       }
     }
-  }, [threats, arcs, showBeams, showNodes, showParticles, colorBy, buildBaseLayers]);
+  }, [threats, arcs, showBeams, showNodes, showParticles, colorBy, mapMode, operations, heatmapData, buildBaseLayers]);
 
-  // Particle animation
+  // Particle animation (only in global mode)
   useEffect(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
 
-    if (!showParticles || arcs.length === 0) return;
+    if (!showParticles || arcs.length === 0 || mapMode !== 'global') return;
 
     const particles: Array<{ arc: number; t: number; speed: number }> = [];
     arcs.forEach((_, i) => {
@@ -369,7 +522,7 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [arcs, showParticles, colorBy]);
+  }, [arcs, showParticles, colorBy, mapMode]);
 
   return (
     <div className="relative w-full h-full">
