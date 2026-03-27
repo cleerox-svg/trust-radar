@@ -185,7 +185,9 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
           id: 'beam-glow',
           data: arcDataWithPaths,
           getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => getTypeColor(d.threat_type, 51),
+          getColor: (d: any) => colorBy === 'severity'
+            ? getSeverityColor(d.severity ?? 'medium', 51)
+            : getTypeColor(d.threat_type, 51),
           getWidth: (d: any) => Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
           widthUnits: 'pixels',
           widthMinPixels: 1,
@@ -198,7 +200,9 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
           id: 'beam-core',
           data: arcDataWithPaths,
           getPath: (d: any) => d.bezierPath,
-          getColor: (d: any) => getTypeColor(d.threat_type, 76),
+          getColor: (d: any) => colorBy === 'severity'
+            ? getSeverityColor(d.severity ?? 'medium', 76)
+            : getTypeColor(d.threat_type, 76),
           getWidth: 1,
           widthUnits: 'pixels',
           widthMinPixels: 1,
@@ -319,8 +323,10 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
             arc.sourcePosition[0], arc.sourcePosition[1],
             arc.targetPosition[0], arc.targetPosition[1], tc
           );
-          const typeCol = getTypeColor(arc.threat_type, 14);
-          glowData.push({ pos: [lon, lat], col: typeCol });
+          const col = colorBy === 'severity'
+            ? getSeverityColor(arc.severity ?? 'medium', 14)
+            : getTypeColor(arc.threat_type, 14);
+          glowData.push({ pos: [lon, lat], col });
           coreData.push({ pos: [lon, lat], col: [255, 255, 255, 160] });
         });
 
@@ -355,7 +361,7 @@ export function ThreatMap({ threats, arcs, showBeams, showParticles, showNodes, 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [arcs, showParticles]);
+  }, [arcs, showParticles, colorBy]);
 
   return (
     <div className="relative w-full h-full">
