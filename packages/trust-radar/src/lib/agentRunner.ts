@@ -19,7 +19,8 @@ export type AgentName =
   | "sparrow"
   | "nexus"
   | "trustbot"
-  | "seed_strategist";
+  | "seed_strategist"
+  | "flight_control";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

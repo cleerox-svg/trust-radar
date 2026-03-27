@@ -211,6 +211,29 @@ export default {
         return Response.json(status);
       }
 
+      // Flight Control health snapshot endpoint
+      if (url.pathname === '/api/v1/agents/health' && request.method === 'GET') {
+        const snapshot = await env.DB.prepare(`
+          SELECT details, created_at
+          FROM agent_outputs
+          WHERE agent_id = 'flight_control' AND type = 'diagnostic'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `).first<{ details: string; created_at: string }>();
+
+        if (!snapshot) {
+          return Response.json({ status: 'no_data', message: 'Flight Control has not run yet' });
+        }
+
+        const parsed = JSON.parse(snapshot.details) as Record<string, unknown>;
+        return Response.json({
+          ...parsed,
+          snapshot_age_seconds: Math.round(
+            (Date.now() - new Date(snapshot.created_at + 'Z').getTime()) / 1000
+          ),
+        });
+      }
+
       // Agent activity log endpoint
       if (url.pathname === '/api/v1/agents/activity' && request.method === 'GET') {
         const limit = parseInt(url.searchParams.get('limit') ?? '50');
