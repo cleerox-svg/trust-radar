@@ -28,6 +28,7 @@ import { registerSparrowRoutes } from "./routes/sparrow";
 
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 export { CartographerBackfillWorkflow } from "./workflows/cartographerBackfill";
+export { NexusWorkflow } from "./workflows/nexusRun";
 
 // ─── Honeypot Domain Server ─────────────────────────────────────────
 async function serveHoneypotDomain(url: URL, env: Env): Promise<Response> {
@@ -195,6 +196,13 @@ export default {
             message: 'Backfill workflow started',
           });
         }
+
+        // NEXUS durable workflow — on-demand correlation run
+        if (url.pathname === '/api/internal/agents/nexus/workflow') {
+          const id = crypto.randomUUID();
+          const instance = await env.NEXUS_RUN.create({ id, params: {} });
+          return Response.json({ triggered: true, instanceId: instance.id });
+        }
       }
 
       // Get workflow status (GET, still requires auth)
@@ -207,6 +215,20 @@ export default {
         }
         const instanceId = url.pathname.split('/').pop()!;
         const instance = await env.CARTOGRAPHER_BACKFILL.get(instanceId);
+        const status = await instance.status();
+        return Response.json(status);
+      }
+
+      // NEXUS workflow status (GET, requires auth)
+      if (url.pathname.startsWith('/api/internal/agents/nexus/workflow/')
+          && request.method === 'GET') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const instanceId = url.pathname.split('/').pop()!;
+        const instance = await env.NEXUS_RUN.get(instanceId);
         const status = await instance.status();
         return Response.json(status);
       }

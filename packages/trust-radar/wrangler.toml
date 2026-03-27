@@ -33,6 +33,11 @@ name = "cartographer-backfill"
 binding = "CARTOGRAPHER_BACKFILL"
 class_name = "CartographerBackfillWorkflow"
 
+[[workflows]]
+name = "nexus-run"
+binding = "NEXUS_RUN"
+class_name = "NexusWorkflow"
+
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
 binding = "DB"
