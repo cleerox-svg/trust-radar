@@ -11,6 +11,15 @@ interface CronJobResult {
 }
 
 export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  // ─── Flight Control: autonomous supervisor runs first every tick ───
+  try {
+    const { flightControlAgent } = await import('../agents/flightControl');
+    const { executeAgent } = await import('../lib/agentRunner');
+    await executeAgent(env, flightControlAgent, {}, 'cron', 'scheduled');
+  } catch (err) {
+    logger.error('flight_control_error', { error: err instanceof Error ? err.message : String(err) });
+  }
+
   // ─── Flight Control v1: consume pending agent_events before cron jobs ───
   await processAgentEvents(env, ctx);
 

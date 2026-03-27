@@ -81,7 +81,7 @@ Cartographer (geo-enrichment agent) last ran 3 days ago. This is why:
 | Sparrow | 2 | — | ⚠ 1 failure |
 | Cartographer | 0 | — | ✗ Not running |
 | Nexus | — | — | ✗ Does not exist yet |
-| Flight Control | — | — | ✗ Does not exist yet |
+| Flight Control | every tick | — | ✓ Autonomous supervisor |
 
 ### React Migration Status
 - **Old SPA:** Live at primary URL — **DO NOT TOUCH — demo safety**
@@ -136,19 +136,24 @@ Cartographer (geo-enrichment agent) last ran 3 days ago. This is why:
 
 ### Agent Specifications
 
-#### FLIGHT CONTROL (New — Durable Object)
-**Purpose:** Orchestration supervisor — the platform never sleeps, never backlogs  
-**Trigger:** Continuous — Durable Object alarm loop  
+#### FLIGHT CONTROL (Implemented — Cron Supervisor)
+**Purpose:** Orchestration supervisor — the platform never sleeps, never backlogs
+**Trigger:** Every cron tick (runs first, before all other agents)
+**Implementation:** `src/agents/flightControl.ts` — AgentModule pattern
 **Responsibilities:**
-- Listens for `agent_events` table inserts
-- On Sentinel completion → immediately triggers Cartographer with batch IDs
-- On Cartographer completion → triggers Nexus
-- On Nexus cluster detection → triggers Analyst, Observer (if high severity), Sparrow
-- Monitors queue depth per agent — if backlog > 500 records, spawns parallel worker
-- Enforces Haiku token budget: hard cap per hour, graceful throttle, fallback to Sonnet
-- Routes to Gemini/GPT-4o for on-demand deep analysis
-- Exposes health metrics to `/api/v1/agents/health` endpoint
-- Never uses cron — runs via Durable Object alarm rescheduling itself
+- Runs first on every scheduled cron tick
+- Measures backlogs: cartographer enrichment queue, analyst scoring queue
+- Checks agent health: detects stalled agents across all 6 monitored agents
+- Enforces daily AI token budget: throttle analyst at 80%, observer at 90%
+- Scales Cartographer up to 3 parallel instances based on backlog depth (500/2000/5000 thresholds)
+- Scales Analyst up to 3 parallel instances (50/200/500 thresholds), respects token budget
+- Auto-recovers stalled agents (cartographer, analyst, nexus) by re-triggering
+- Writes health snapshot to `agent_outputs` (type=diagnostic) every tick
+- Logs all scaling/recovery/throttle decisions to `agent_activity_log`
+- Exposes health metrics via `/api/v1/agents/health` endpoint
+- Exposes activity log via `/api/v1/agents/activity` endpoint
+- Cartographer accepts offset parameter for parallel instance slicing
+- Agent event consumer (`processAgentEvents`) runs after Flight Control as safety net
 
 #### SENTINEL (Enhance existing)
 **Purpose:** Feed ingestion  
@@ -350,7 +355,7 @@ infrastructure_clusters → Providers UI (operations per provider)
 
 - [ ] **Migration 0018–0022:** agent_events, infrastructure_clusters, provider_abuse_contacts, threats additions, hosting_providers additions
 - [ ] **Cartographer fix:** Event-driven, ip-api.com batch enrichment, RDAP registrar lookup, runs within minutes of Sentinel
-- [ ] **Flight Control v1:** Durable Object, agent_events polling, downstream triggering, basic health endpoint
+- [x] **Flight Control v1:** Autonomous supervisor with parallel scaling, stall recovery, token budget enforcement, health API
 - [ ] **NEXUS v1:** SQL-only correlation (no AI cost), writes infrastructure_clusters, emits pivot alerts
 - [ ] **Fix NaN% trends:** Populate hosting_providers.trend_7d/30d nightly from threats table
 - [ ] **Add feeds:** Abuse.ch ThreatFox, Feodo Tracker C2, PhishTank

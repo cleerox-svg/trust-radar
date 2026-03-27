@@ -132,20 +132,23 @@ export const cartographerAgent: AgentModule = {
 
     // ─── Phase 0: ip-api.com batch enrichment for unenriched threats ───
     // Process up to 5 batches of 500 (2,500 threats) per cron tick to clear backlog faster
+    // Flight Control can pass an offset via ctx.input to allow parallel instances
     const BATCH_SIZE = 500;
     const MAX_BATCHES_PER_RUN = 5;
+    const startOffset = typeof ctx.input.offset === 'number' ? ctx.input.offset : 0;
     let batchEnriched = 0;
     let rdapEnriched = 0;
 
     try {
       for (let batchIndex = 0; batchIndex < MAX_BATCHES_PER_RUN; batchIndex++) {
+        const currentOffset = startOffset + (batchIndex * BATCH_SIZE);
         const unenriched = await env.DB.prepare(`
           SELECT id, ip_address, malicious_domain, malicious_url, hosting_provider_id
           FROM threats
           WHERE enriched_at IS NULL
             AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
-          LIMIT ${BATCH_SIZE}
-        `).all<{
+          LIMIT ? OFFSET ?
+        `).bind(BATCH_SIZE, currentOffset).all<{
           id: string;
           ip_address: string | null;
           malicious_domain: string | null;
