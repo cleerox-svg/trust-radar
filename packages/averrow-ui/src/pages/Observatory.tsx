@@ -309,10 +309,10 @@ function TopProvidersList({ period }: { period: string }) {
             <span className="font-mono text-xs font-bold text-accent">{provider.active_threat_count}</span>
           </div>
           <div className="font-mono text-[9px] text-contrail/30">{provider.asn}</div>
-          {provider.trend_7d !== 0 && (
+          {provider.trend_7d != null && provider.trend_7d !== 0 && (
             <span className={cn(
               'font-mono text-[9px]',
-              provider.trend_7d > 0 ? 'text-accent' : 'text-positive'
+              (provider.trend_7d ?? 0) > 0 ? 'text-accent' : 'text-positive'
             )}>
               {(provider.trend_7d ?? 0) > 0 ? '+' : ''}{(provider.trend_7d ?? 0).toFixed(1)}%
             </span>

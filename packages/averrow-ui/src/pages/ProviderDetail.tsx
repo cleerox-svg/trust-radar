@@ -44,7 +44,7 @@ export function ProviderDetail() {
     first_seen: string;
     status: string;
   }>;
-  const threatTotal = threatsRes?.total ?? threats.length;
+  const threatTotal = (threatsRes as { total?: number } | undefined)?.total ?? threats.length;
   const totalPages = Math.ceil(threatTotal / limit);
 
   const threatTabs = THREAT_TYPES.map(t => ({

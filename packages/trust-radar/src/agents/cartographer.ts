@@ -1,13 +1,21 @@
 /**
  * Cartographer Agent — Infrastructure mapping & provider reputation scoring.
  *
- * Runs every 6 hours.
+ * Runs every 15 minutes (clearing enrichment backlog) and on Sentinel trigger.
  * Maps threat infrastructure to hosting providers and computes
  * reputation scores via Haiku AI analysis.
  *
+ * Enrichment pipeline:
+ * - ip-api.com batch (100 IPs/req, 45 req/min free) → lat/lng/ASN/country
+ * - RDAP → registrar + registration date for domains
+ * - hosting_providers table upsert from ASN data
+ * - agent_events emitted after each enrichment batch
+ *
  * Also performs:
- * - Geo enrichment of unenriched threats (merged from hosting-provider-analysis)
- * - Provider threat stats aggregation across time periods (merged from hosting-provider-analysis)
+ * - Geo enrichment of unenriched threats (ipinfo.io fallback)
+ * - Provider threat stats aggregation across time periods
+ * - Email security posture scans
+ * - DMARC source IP geo enrichment
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
@@ -15,10 +23,99 @@ import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 import { createNotification } from "../lib/notifications";
 
+// ─── ip-api.com batch types ───────────────────────────────────────
+
+interface IpApiResult {
+  status: string;
+  lat: number;
+  lon: number;
+  as: string;
+  country: string;
+  countryCode: string;
+  isp: string;
+  org: string;
+}
+
+interface IpGeoResult {
+  status: string;
+  lat: number;
+  lon: number;
+  as: string;
+  country: string;
+  countryCode: string;
+  isp: string;
+  org: string;
+}
+
+// ─── Utility ──────────────────────────────────────────────────────
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ─── ip-api.com batch enrichment ──────────────────────────────────
+
+async function enrichIpBatch(ips: string[]): Promise<Map<string, IpGeoResult>> {
+  const chunks = chunkArray(ips.filter(Boolean), 100);
+  const results = new Map<string, IpGeoResult>();
+
+  for (const chunk of chunks) {
+    try {
+      const res = await fetch('http://ip-api.com/batch?fields=status,lat,lon,as,country,countryCode,isp,org', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chunk.map(ip => ({ query: ip }))),
+      });
+      if (!res.ok) continue;
+      const data = await res.json() as IpGeoResult[];
+      chunk.forEach((ip, i) => {
+        if (data[i]?.status === 'success') results.set(ip, data[i]);
+      });
+      // Respect 45 req/min rate limit
+      if (chunks.length > 1) await sleep(1400);
+    } catch (err) {
+      console.error('[cartographer] ip-api batch error:', err);
+    }
+  }
+  return results;
+}
+
+// ─── RDAP registrar lookup ────────────────────────────────────────
+
+async function lookupRegistrar(domain: string): Promise<{ registrar: string | null; registration_date: string | null }> {
+  try {
+    const res = await fetch(`https://rdap.org/domain/${domain}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return { registrar: null, registration_date: null };
+    const data = await res.json() as {
+      entities?: Array<{ roles?: string[]; vcardArray?: [string, Array<[string, unknown, string, string]>] }>;
+      events?: Array<{ eventAction?: string; eventDate?: string }>;
+    };
+    const registrar = data.entities?.find((e) => e.roles?.includes('registrar'))?.vcardArray?.[1]
+      ?.find((v) => v[0] === 'fn')?.[3] ?? null;
+    const registration_date = data.events?.find((e) => e.eventAction === 'registration')?.eventDate ?? null;
+    return { registrar, registration_date };
+  } catch {
+    return { registrar: null, registration_date: null };
+  }
+}
+
+// ─── Agent Definition ─────────────────────────────────────────────
+
 export const cartographerAgent: AgentModule = {
   name: "cartographer",
   displayName: "Navigator",
-  description: "Infrastructure mapping & provider reputation scoring",
+  description: "Infrastructure mapping, geo enrichment & provider reputation scoring",
   color: "#5A80A8",
   trigger: "scheduled",
   requiresApproval: false,
@@ -33,7 +130,120 @@ export const cartographerAgent: AgentModule = {
     let model: string | undefined;
     const outputs: AgentOutputEntry[] = [];
 
-    // Phase 1: Geo-enrich any threats missing location data
+    // ─── Phase 0: ip-api.com batch enrichment for unenriched threats ───
+    let batchEnriched = 0;
+    let rdapEnriched = 0;
+    try {
+      const unenriched = await env.DB.prepare(`
+        SELECT id, ip_address, malicious_domain, malicious_url, hosting_provider_id
+        FROM threats
+        WHERE enriched_at IS NULL
+          AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+        LIMIT 100
+      `).all<{
+        id: string;
+        ip_address: string | null;
+        malicious_domain: string | null;
+        malicious_url: string | null;
+        hosting_provider_id: string | null;
+      }>();
+
+      if (unenriched.results.length > 0) {
+        // Batch enrich IPs via ip-api.com
+        const ips = unenriched.results
+          .map(t => t.ip_address)
+          .filter((ip): ip is string => ip != null && ip !== '');
+        const geoResults = ips.length > 0 ? await enrichIpBatch([...new Set(ips)]) : new Map<string, IpGeoResult>();
+
+        // Update each threat
+        for (const threat of unenriched.results) {
+          const geo = threat.ip_address ? geoResults.get(threat.ip_address) : null;
+
+          // Match or create hosting provider from ASN
+          let providerId = threat.hosting_provider_id;
+          if (!providerId && geo?.as) {
+            const asn = geo.as.split(' ')[0]; // "AS4837"
+            const providerName = geo.as.replace(/^AS\d+\s*/, '').trim() || geo.isp || geo.org;
+
+            if (providerName) {
+              // Upsert hosting provider by ASN
+              const hpId = `hp_${providerName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+              try {
+                await env.DB.prepare(`
+                  INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
+                  VALUES (?, ?, ?, ?, datetime('now'))
+                  ON CONFLICT(id) DO UPDATE SET
+                    last_enriched = datetime('now'),
+                    asn = COALESCE(hosting_providers.asn, excluded.asn),
+                    country = COALESCE(hosting_providers.country, excluded.country)
+                `).bind(hpId, providerName, asn, geo.countryCode).run();
+                providerId = hpId;
+              } catch (err) {
+                console.error('[cartographer] provider upsert error:', err);
+              }
+            }
+          }
+
+          // RDAP for domain (throttled — max 10 per batch to avoid overload)
+          let registrar: string | null = null;
+          let registration_date: string | null = null;
+          if (threat.malicious_domain && rdapEnriched < 10) {
+            const rdap = await lookupRegistrar(threat.malicious_domain);
+            registrar = rdap.registrar;
+            registration_date = rdap.registration_date;
+            if (registrar || registration_date) rdapEnriched++;
+          }
+
+          // Update threat with enriched data
+          try {
+            await env.DB.prepare(`
+              UPDATE threats SET
+                lat = COALESCE(lat, ?),
+                lng = COALESCE(lng, ?),
+                country_code = COALESCE(country_code, ?),
+                asn = COALESCE(asn, ?),
+                hosting_provider_id = COALESCE(hosting_provider_id, ?),
+                registrar = COALESCE(registrar, ?),
+                registration_date = COALESCE(registration_date, ?),
+                enriched_at = datetime('now')
+              WHERE id = ?
+            `).bind(
+              geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
+              geo?.as?.split(' ')[0] ?? null, providerId,
+              registrar, registration_date, threat.id
+            ).run();
+            batchEnriched++;
+            itemsUpdated++;
+          } catch (err) {
+            console.error(`[cartographer] threat update error for ${threat.id}:`, err);
+          }
+        }
+
+        // Emit agent_event after enrichment batch
+        try {
+          await env.DB.prepare(`
+            INSERT INTO agent_events (id, event_type, source_agent, payload_json, priority)
+            VALUES (?, 'threats_enriched', 'cartographer', ?, 3)
+          `).bind(
+            crypto.randomUUID(),
+            JSON.stringify({ count: unenriched.results.length, enriched: batchEnriched, batch_complete: true })
+          ).run();
+        } catch (err) {
+          console.error('[cartographer] agent_event emit error:', err);
+        }
+
+        outputs.push({
+          type: "diagnostic",
+          summary: `ip-api.com batch: ${batchEnriched}/${unenriched.results.length} threats enriched, ${rdapEnriched} RDAP lookups`,
+          severity: "info",
+          details: { batch_enriched: batchEnriched, rdap_enriched: rdapEnriched, total_unenriched: unenriched.results.length },
+        });
+      }
+    } catch (err) {
+      console.error("[cartographer] ip-api batch enrichment error:", err);
+    }
+
+    // ─── Phase 1: ipinfo.io fallback for threats still missing country_code ───
     try {
       const { enrichThreatsGeo } = await import("../lib/geoip");
       const enrichResult = await enrichThreatsGeo(env.DB, env.CACHE, env.IPINFO_TOKEN);
@@ -42,7 +252,7 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] geo enrichment error:", err);
     }
 
-    // Phase 2: Score hosting providers via Haiku AI
+    // ─── Phase 2: Score hosting providers via Haiku AI ───
     const providers = await env.DB.prepare(
       `SELECT hp.id, hp.name, hp.asn, hp.active_threat_count, hp.total_threat_count,
               hp.avg_response_time, hp.trend_7d, hp.trend_30d
@@ -71,7 +281,7 @@ export const cartographerAgent: AgentModule = {
       FROM threats
       WHERE hosting_provider_id IN (${providerIds.map(() => '?').join(',')})
       GROUP BY hosting_provider_id, threat_type
-    `).bind(...providerIds).all<{ hosting_provider_id: string; threat_type: string; count: number }>() : { results: [] };
+    `).bind(...providerIds).all<{ hosting_provider_id: string; threat_type: string; count: number }>() : { results: [] as { hosting_provider_id: string; threat_type: string; count: number }[] };
 
     const breakdownsByProvider = new Map<string, Record<string, number>>();
     for (const row of allTypeBreakdowns.results) {
@@ -87,7 +297,7 @@ export const cartographerAgent: AgentModule = {
       WHERE hosting_provider_id IN (${providerIds.map(() => '?').join(',')})
         AND campaign_id IS NOT NULL
       GROUP BY hosting_provider_id
-    `).bind(...providerIds).all<{ hosting_provider_id: string; campaign_count: number }>() : { results: [] };
+    `).bind(...providerIds).all<{ hosting_provider_id: string; campaign_count: number }>() : { results: [] as { hosting_provider_id: string; campaign_count: number }[] };
 
     const campaignCountByProvider = new Map<string, number>();
     for (const row of allCampaignStats.results) {
@@ -157,7 +367,7 @@ export const cartographerAgent: AgentModule = {
       }
     }
 
-    // Phase 3: Email security posture scans — 50 brands per cycle, oldest first
+    // ─── Phase 3: Email security posture scans — 50 brands per cycle, oldest first ───
     let emailScanned = 0;
     let emailErrors = 0;
     try {
@@ -167,13 +377,6 @@ export const cartographerAgent: AgentModule = {
         WHERE source = 'tranco_import' AND (canonical_domain IS NULL OR canonical_domain = '')
       `).run();
 
-      // Debug stats
-      const brandStats = await env.DB.prepare(`
-        SELECT COUNT(*) as total,
-          SUM(CASE WHEN canonical_domain IS NOT NULL AND canonical_domain != '' THEN 1 ELSE 0 END) as has_domain,
-          SUM(CASE WHEN email_security_scanned_at IS NOT NULL THEN 1 ELSE 0 END) as scanned
-        FROM brands WHERE monitoring_status = 'active'
-      `).first<{ total: number; has_domain: number; scanned: number }>();
       // Include brands without canonical_domain by falling back to name
       const brandsToScan = await env.DB.prepare(`
         SELECT b.id, COALESCE(b.canonical_domain, LOWER(b.name)) AS domain, b.email_security_grade AS existing_grade
@@ -230,7 +433,7 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] email security phase error:", e);
     }
 
-    // Phase 4: Geo-enrich DMARC source IPs — up to 10 per cycle
+    // ─── Phase 4: Geo-enrich DMARC source IPs — up to 10 per cycle ───
     let dmarcGeoEnriched = 0;
     try {
       const unenrichedIps = await env.DB.prepare(`
@@ -266,16 +469,18 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] DMARC geo enrichment error:", e);
     }
 
-    // Phase 5: Aggregate provider threat stats across time periods
+    // ─── Phase 5: Aggregate provider threat stats across time periods ───
     const statsCreated = await aggregateProviderStats(env);
     itemsCreated += statsCreated;
 
     // Emit diagnostic output so cartographer never shows 0 outputs silently
     outputs.push({
       type: "diagnostic",
-      summary: `Cartographer: ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      summary: `Cartographer: ${batchEnriched} ip-api enriched, ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
       severity: providers.results.length === 0 ? "medium" : "info",
       details: {
+        ip_api_enriched: batchEnriched,
+        rdap_enriched: rdapEnriched,
         providers_with_threats: providers.results.length,
         total_providers: totalProviders?.n ?? 0,
         haiku_scored: haikuSuccessCount,
@@ -294,7 +499,7 @@ export const cartographerAgent: AgentModule = {
       itemsProcessed,
       itemsCreated,
       itemsUpdated,
-      output: { providersScored: providers.results.length, statsEntries: statsCreated },
+      output: { providersScored: providers.results.length, statsEntries: statsCreated, ipApiBatchEnriched: batchEnriched },
       model,
       tokensUsed: totalTokens,
       agentOutputs: outputs,
