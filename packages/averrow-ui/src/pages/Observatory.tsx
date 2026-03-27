@@ -71,7 +71,7 @@ export function Observatory() {
       {/* Top-left: Period selector + color mode + layer toggles */}
       <div className="absolute top-4 left-4 z-10 flex gap-2">
         {/* Period selector */}
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           {PERIODS.map(p => (
             <button
               key={p.id}
@@ -79,8 +79,8 @@ export function Observatory() {
               className={cn(
                 'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
                 period === p.id
-                  ? 'bg-accent text-white'
-                  : 'text-contrail/50 hover:text-parchment hover:bg-white/5'
+                  ? 'glass-btn-active'
+                  : 'glass-btn'
               )}
             >
               {p.label}
@@ -89,12 +89,12 @@ export function Observatory() {
         </div>
 
         {/* Color mode */}
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           <button
             onClick={() => setColorBy('severity')}
             className={cn(
-              'font-mono text-[10px] px-2 py-1 rounded',
-              colorBy === 'severity' ? 'bg-accent/20 text-accent' : 'text-contrail/40'
+              'font-mono text-[10px] px-2 py-1 rounded transition-all',
+              colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
             )}
           >
             Severity
@@ -102,8 +102,8 @@ export function Observatory() {
           <button
             onClick={() => setColorBy('type')}
             className={cn(
-              'font-mono text-[10px] px-2 py-1 rounded',
-              colorBy === 'type' ? 'bg-accent/20 text-accent' : 'text-contrail/40'
+              'font-mono text-[10px] px-2 py-1 rounded transition-all',
+              colorBy === 'type' ? 'glass-btn-active' : 'glass-btn'
             )}
           >
             Type
@@ -111,12 +111,12 @@ export function Observatory() {
         </div>
 
         {/* Layer toggles — styled pill buttons */}
-        <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-1.5 flex gap-1">
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           <button
             onClick={() => setShowBeams(!showBeams)}
             className={cn(
               'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showBeams ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+              showBeams ? 'glass-btn-active' : 'glass-btn'
             )}
           >
             Beams
@@ -125,7 +125,7 @@ export function Observatory() {
             onClick={() => setShowParticles(!showParticles)}
             className={cn(
               'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showParticles ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+              showParticles ? 'glass-btn-active' : 'glass-btn'
             )}
           >
             Particles
@@ -134,7 +134,7 @@ export function Observatory() {
             onClick={() => setShowNodes(!showNodes)}
             className={cn(
               'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-              showNodes ? 'bg-accent/20 text-accent' : 'text-contrail/30'
+              showNodes ? 'glass-btn-active' : 'glass-btn'
             )}
           >
             Nodes
@@ -224,7 +224,7 @@ export function Observatory() {
         <div className="absolute top-0 right-0 bottom-[52px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
           {/* Top Targeted Brands */}
           <div className="p-4 border-b border-white/5">
-            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+            <div className="section-label font-mono font-bold mb-3">
               Top Targeted Brands
             </div>
             <TopBrandsList period={period} />
@@ -232,7 +232,7 @@ export function Observatory() {
 
           {/* Hosting Providers */}
           <div className="p-4 border-b border-white/5">
-            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+            <div className="section-label font-mono font-bold mb-3">
               Hosting Providers
             </div>
             <TopProvidersList period={period} />
@@ -240,7 +240,7 @@ export function Observatory() {
 
           {/* Agent Intelligence */}
           <div className="p-4 border-b border-white/5">
-            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+            <div className="section-label font-mono font-bold mb-3">
               Agent Intelligence
             </div>
             <AgentIntelFeed />
@@ -248,7 +248,7 @@ export function Observatory() {
 
           {/* Active Operations */}
           <div className="p-4 border-b border-white/5">
-            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+            <div className="section-label font-mono font-bold mb-3">
               Active Operations
             </div>
             <ActiveOperationsPanel />
@@ -256,7 +256,7 @@ export function Observatory() {
 
           {/* Live Feed */}
           <div className="p-4">
-            <div className="font-mono text-[10px] text-accent uppercase tracking-wider font-bold mb-3">
+            <div className="section-label font-mono font-bold mb-3">
               Live Feed
             </div>
             <LiveThreatFeed />
