@@ -68,25 +68,25 @@ function StatusBadge({ status }: { status: ProviderStatus }) {
   switch (status) {
     case 'accelerating':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-amber-400/30 bg-amber-400/10 text-amber-400">
+        <span className="badge-glass badge-accelerating font-mono text-[10px] font-bold">
           ACCELERATING
         </span>
       );
     case 'pivot':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#00D4FF]/30 bg-[#00D4FF]/10 text-[#00D4FF]">
+        <span className="badge-glass badge-pivot font-mono text-[10px] font-bold">
           PIVOT
         </span>
       );
     case 'active':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-[#4ADE80]/30 bg-[#4ADE80]/10 text-[#4ADE80]">
+        <span className="badge-glass badge-active font-mono text-[10px] font-bold">
           ACTIVE
         </span>
       );
     case 'quiet':
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-white/10 bg-white/5 text-white/40">
+        <span className="badge-glass badge-dormant font-mono text-[10px] font-bold">
           QUIET
         </span>
       );
@@ -139,10 +139,10 @@ function ClusterPanel({
           <button
             key={cluster.id}
             onClick={() => onSelect(isSelected ? null : cluster.id)}
-            className={`w-full text-left rounded-lg border p-2.5 transition-all ${
+            className={`w-full text-left rounded-lg p-2.5 transition-all glass-card ${
               isSelected
                 ? 'border-orbital-teal/40 bg-orbital-teal/5'
-                : 'border-white/[0.06] bg-instrument hover:border-white/10'
+                : ''
             }`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -217,7 +217,7 @@ function ProviderCard({
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {nexusLinked && (
-            <span className="font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-orbital-teal/30 bg-orbital-teal/10 text-orbital-teal">
+            <span className="badge-glass badge-nexus font-mono text-[9px] font-bold">
               NEXUS
             </span>
           )}
@@ -428,7 +428,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               {linkedClusters.map(cluster => (
                 <div
                   key={cluster.id}
-                  className="rounded-lg border border-white/[0.06] bg-cockpit p-2.5"
+                  className="rounded-lg p-2.5 glass-card"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[11px] text-parchment truncate">
@@ -634,7 +634,7 @@ export function Providers() {
               placeholder="Search providers or ASN..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="bg-instrument border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono text-[11px] text-parchment placeholder-white/30 focus:outline-none focus:border-orbital-teal/30 w-full sm:w-64"
+              className="glass-input rounded-lg px-3 py-1.5 font-mono text-[11px] w-full sm:w-64"
             />
 
             {/* Status Pills */}
@@ -648,8 +648,8 @@ export function Providers() {
                   }}
                   className={`font-mono text-[10px] font-semibold px-3 py-1 rounded transition-all ${
                     statusFilter === f.id
-                      ? 'bg-orbital-teal/10 text-orbital-teal border border-orbital-teal/25'
-                      : 'text-contrail/40 hover:bg-white/5 hover:text-parchment border border-transparent'
+                      ? 'glass-btn-active'
+                      : 'glass-btn'
                   }`}
                 >
                   {f.label}

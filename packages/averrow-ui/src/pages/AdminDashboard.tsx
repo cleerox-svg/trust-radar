@@ -22,7 +22,7 @@ function AgentCard({ agent }: { agent: Agent }) {
 
   return (
     <div
-      className="bg-instrument border border-white/[0.06] rounded-xl p-4 transition-all hover:border-accent/15 border-l-[3px]"
+      className="glass-card rounded-xl p-4 transition-all border-l-[3px]"
       style={{ borderLeftColor: agent.color }}
     >
       <div className="flex items-center gap-3 mb-3">
@@ -30,7 +30,11 @@ function AgentCard({ agent }: { agent: Agent }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-bold text-parchment truncate">{agent.display_name}</span>
-            <span className={cn('w-2 h-2 rounded-full shrink-0', dotClass, agent.status === 'active' && 'animate-pulse')} />
+            <span className={cn('w-2 h-2 rounded-full shrink-0',
+              agent.status === 'active' ? 'dot-pulse-green' :
+              agent.status === 'error' ? 'dot-pulse-red' :
+              agent.status === 'degraded' ? 'dot-pulse-amber' : 'dot-pulse-gray'
+            )} />
           </div>
           <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider">{agent.description}</div>
         </div>

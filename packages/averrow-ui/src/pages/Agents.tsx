@@ -306,10 +306,12 @@ function FlightControlCard({
                 {tokensUsed.toLocaleString()} / {tokenBudget.toLocaleString()}
               </span>
             </div>
-            <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="progress-bar-track h-2">
               <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${tokenPct}%`, backgroundColor: tokenBarColor, boxShadow: `0 0 10px ${tokenBarColor}66` }}
+                className={cn(
+                  tokenPct >= 90 ? 'progress-bar-fill-red' : tokenPct >= 80 ? 'progress-bar-fill-amber' : 'progress-bar-fill-teal',
+                )}
+                style={{ width: `${tokenPct}%` }}
               />
             </div>
           </div>
@@ -605,13 +607,7 @@ export function Agents() {
       {/* Page header with LIVE badge */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold text-parchment">AI Agent Operations</h1>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-positive" />
-          </span>
-          <span className="font-mono text-[10px] text-positive uppercase tracking-wider">Live</span>
-        </div>
+        <span className="live-indicator">LIVE</span>
       </div>
 
       {/* TOP STATS BAR */}

@@ -43,7 +43,7 @@ export function LiveFeedCard() {
   const items = threats ?? [];
 
   return (
-    <div className="rounded-xl border border-white/10 bg-cockpit p-4">
+    <div className="rounded-xl glass-card glass-card-teal p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="font-mono text-[9px] tracking-widest text-orbital-teal">LIVE FEED</span>
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-orbital-teal" />

@@ -21,7 +21,7 @@ export function AttackVectorsCard({ brands }: AttackVectorsCardProps) {
   const max = sorted.length > 0 ? sorted[0][1] : 0;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-cockpit p-4">
+    <div className="rounded-xl glass-card glass-card-red p-4">
       <div className="mb-3 font-mono text-[9px] uppercase tracking-widest text-contrail/70">
         Attack Vectors
       </div>

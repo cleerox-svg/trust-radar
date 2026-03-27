@@ -1,13 +1,13 @@
 import { cn } from '@/lib/cn';
 
 const variants = {
-  critical: 'badge-critical',
-  high: 'badge-accelerating',
-  medium: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/25',
-  low: 'bg-contrail/10 text-contrail border-contrail/25',
-  success: 'badge-active',
-  info: 'bg-contrail/8 text-contrail border-contrail/15',
-  default: 'bg-white/5 text-parchment/60 border-white/10',
+  critical: 'badge-glass badge-critical',
+  high: 'badge-glass badge-high',
+  medium: 'badge-glass badge-dormant',
+  low: 'badge-glass badge-dormant',
+  success: 'badge-glass badge-active',
+  info: 'badge-glass badge-pivot',
+  default: 'badge-glass badge-dormant',
 } as const;
 
 interface BadgeProps {

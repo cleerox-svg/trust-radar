@@ -211,13 +211,13 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   if (!open) return null;
 
-  const inputClass = 'w-full bg-cockpit border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-parchment placeholder:text-white/30 focus:border-orbital-teal/50 focus:outline-none';
+  const inputClass = 'w-full glass-input rounded-lg px-3 py-2 font-mono text-sm';
   const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-contrail/60 mb-1.5';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-instrument p-6 shadow-2xl">
+      <div className="relative w-full max-w-md rounded-xl p-6 shadow-2xl glass-card">
         <h2 className="font-display text-lg font-bold text-parchment mb-5">Monitor Brand</h2>
 
         <div className="space-y-4">
@@ -601,10 +601,10 @@ export function Brands() {
                 key={opt.key}
                 onClick={() => handleViewChange(opt.key)}
                 className={cn(
-                  'px-3 py-1.5 text-[10px] font-mono tracking-wider rounded-lg border transition-colors',
+                  'px-3 py-1.5 text-[10px] font-mono tracking-wider rounded-lg transition-colors',
                   view === opt.key
-                    ? 'bg-orbital-teal/15 border-orbital-teal/50 text-orbital-teal'
-                    : 'border-white/10 text-white/30 hover:text-white/60 hover:border-white/20'
+                    ? 'glass-btn-active'
+                    : 'glass-btn'
                 )}
               >
                 {opt.label}
@@ -636,10 +636,10 @@ export function Brands() {
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                 placeholder="Search brands or domains..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-orbital-teal/50"
+                className="flex-1 glass-input rounded-lg px-3 py-1.5 text-sm"
               />
               <select
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 font-mono text-xs text-white/60 focus:border-orbital-teal/50 focus:outline-none"
+                className="glass-input rounded-lg px-3 py-1.5 font-mono text-xs"
                 value={sector}
                 onChange={(e) => { setSector(e.target.value); setPage(1); }}
               >
@@ -762,7 +762,7 @@ export function Brands() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search brands..."
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-orbital-teal/50 w-48"
+                  className="glass-input rounded-lg px-3 py-1.5 text-sm w-48"
                 />
               </div>
 
