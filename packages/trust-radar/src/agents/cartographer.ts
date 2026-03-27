@@ -131,24 +131,30 @@ export const cartographerAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
 
     // ─── Phase 0: ip-api.com batch enrichment for unenriched threats ───
+    // Process up to 5 batches of 500 (2,500 threats) per cron tick to clear backlog faster
+    const BATCH_SIZE = 500;
+    const MAX_BATCHES_PER_RUN = 5;
     let batchEnriched = 0;
     let rdapEnriched = 0;
-    try {
-      const unenriched = await env.DB.prepare(`
-        SELECT id, ip_address, malicious_domain, malicious_url, hosting_provider_id
-        FROM threats
-        WHERE enriched_at IS NULL
-          AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
-        LIMIT 500
-      `).all<{
-        id: string;
-        ip_address: string | null;
-        malicious_domain: string | null;
-        malicious_url: string | null;
-        hosting_provider_id: string | null;
-      }>();
 
-      if (unenriched.results.length > 0) {
+    try {
+      for (let batchIndex = 0; batchIndex < MAX_BATCHES_PER_RUN; batchIndex++) {
+        const unenriched = await env.DB.prepare(`
+          SELECT id, ip_address, malicious_domain, malicious_url, hosting_provider_id
+          FROM threats
+          WHERE enriched_at IS NULL
+            AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+          LIMIT ${BATCH_SIZE}
+        `).all<{
+          id: string;
+          ip_address: string | null;
+          malicious_domain: string | null;
+          malicious_url: string | null;
+          hosting_provider_id: string | null;
+        }>();
+
+        if (unenriched.results.length === 0) break; // backlog cleared
+
         // Batch enrich IPs via ip-api.com
         const ips = unenriched.results
           .map(t => t.ip_address)
@@ -184,7 +190,7 @@ export const cartographerAgent: AgentModule = {
             }
           }
 
-          // RDAP for domain (throttled — max 10 per batch to avoid overload)
+          // RDAP for domain (throttled — max 10 per run to avoid overload)
           let registrar: string | null = null;
           let registration_date: string | null = null;
           if (threat.malicious_domain && rdapEnriched < 10) {
@@ -219,24 +225,31 @@ export const cartographerAgent: AgentModule = {
           }
         }
 
-        // Emit agent_event after enrichment batch
+        // Emit agent_event after each enrichment batch
         try {
           await env.DB.prepare(`
             INSERT INTO agent_events (id, event_type, source_agent, payload_json, priority)
             VALUES (?, 'threats_enriched', 'cartographer', ?, 3)
           `).bind(
             crypto.randomUUID(),
-            JSON.stringify({ count: unenriched.results.length, enriched: batchEnriched, batch_complete: true })
+            JSON.stringify({ count: unenriched.results.length, enriched: batchEnriched, batch: batchIndex + 1, batch_complete: true })
           ).run();
         } catch (err) {
           console.error('[cartographer] agent_event emit error:', err);
         }
 
+        // Brief pause between batches to respect ip-api.com rate limit (45 req/min)
+        if (batchIndex < MAX_BATCHES_PER_RUN - 1 && unenriched.results.length === BATCH_SIZE) {
+          await sleep(1500);
+        }
+      }
+
+      if (batchEnriched > 0) {
         outputs.push({
           type: "diagnostic",
-          summary: `ip-api.com batch: ${batchEnriched}/${unenriched.results.length} threats enriched, ${rdapEnriched} RDAP lookups`,
+          summary: `ip-api.com batch: ${batchEnriched} threats enriched across up to ${MAX_BATCHES_PER_RUN} batches, ${rdapEnriched} RDAP lookups`,
           severity: "info",
-          details: { batch_enriched: batchEnriched, rdap_enriched: rdapEnriched, total_unenriched: unenriched.results.length },
+          details: { batch_enriched: batchEnriched, rdap_enriched: rdapEnriched, batch_size: BATCH_SIZE, max_batches: MAX_BATCHES_PER_RUN },
         });
       }
     } catch (err) {
