@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { severityColor, threatTypeColor } from '@/lib/severityColor';
+import { severityColor } from '@/lib/severityColor';
 
 interface RecentThreat {
   id: string;
@@ -56,7 +56,6 @@ export function LiveFeedCard() {
           {items.map((t) => {
             const score = SEVERITY_SCORE[t.severity?.toLowerCase()] ?? 50;
             const dotColor = severityColor(score);
-            const typeColor = threatTypeColor(t.type);
             return (
               <div
                 key={t.id}
@@ -66,7 +65,7 @@ export function LiveFeedCard() {
                   className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
                   style={{ backgroundColor: dotColor }}
                 />
-                <span className="flex-shrink-0 font-mono text-[9px]" style={{ color: typeColor }}>
+                <span className="flex-shrink-0 font-mono text-[9px]" style={{ color: dotColor }}>
                   {t.type}
                 </span>
                 <span className="flex-shrink-0 text-[11px] text-white/80">{t.brand_name}</span>
