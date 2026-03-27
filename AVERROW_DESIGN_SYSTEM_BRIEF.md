@@ -581,6 +581,31 @@ Card wrapper: `rounded-xl border border-white/10 bg-cockpit p-4 hover:border-whi
 - **orbital-teal (#00d4ff)** is used for: selected pill states, active borders, interactive CTAs, and stat card highlight metrics
 - All components exported from `components/brands/index.ts` for reuse across views
 
+### Brands Hub — Three-View System
+
+The Brands page supports three views toggled via a persistent (localStorage) selector: **List**, **Heatmap**, and **Swimlane**.
+
+**Heatmap View:**
+- Brands sorted by `threat_count` descending (hottest top-left)
+- Cell color from `severityColor()`, opacity driven by `severityOpacity(count, max)`
+- Dynamic column count: <20 brands → 5 cols, <50 → 8, <100 → 10, else 12
+- Legend bar (Critical/High/Medium/Low/Clean) + search input
+- Summary bar: critical brands, clean brands, total threats, brands shown
+- Hover tooltips with brand name, threat count, email grade
+
+**Swimlane View:**
+- Grouped by sector: Financial Services, Technology, Cryptocurrency, Healthcare, Retail, Government, Media, Other
+- Only non-empty sectors rendered; unrecognized sectors fall into "Other"
+- Pill width proportional to threat count: `48 + (count / maxInSector) * 152px`, min 56px, max 200px
+- Pill color from `severityColor()`, opacity 0.82
+- Max 7 visible pills per lane; overflow shows "+N more" pill
+- Hover tooltips with brand name, domain, email grade, threat count
+
+**Shared:**
+- Both views use the shared `filteredBrands` array — no separate data fetch
+- `severityColor()` and `severityOpacity()` always imported from `lib/severityColor.ts` — never redefined
+- Empty state shown when no brands match filters
+
 ---
 
 *This document is the single source of truth for all Averrow platform design decisions. When in doubt, reference this brief.*
