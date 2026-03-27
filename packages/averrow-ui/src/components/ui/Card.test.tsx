@@ -10,17 +10,17 @@ describe('Card', () => {
 
   it('applies hover styles by default', () => {
     const { container } = render(<Card>Content</Card>);
-    expect(container.firstChild).toHaveClass('hover:border-accent/15');
+    expect(container.firstChild).toHaveClass('hover:-translate-y-0.5');
   });
 
   it('disables hover when hover=false', () => {
     const { container } = render(<Card hover={false}>Content</Card>);
-    expect(container.firstChild).not.toHaveClass('hover:border-accent/15');
+    expect(container.firstChild).not.toHaveClass('hover:-translate-y-0.5');
   });
 
   it('applies base styling', () => {
     const { container } = render(<Card>Content</Card>);
-    expect(container.firstChild).toHaveClass('bg-instrument');
+    expect(container.firstChild).toHaveClass('glass-card');
     expect(container.firstChild).toHaveClass('rounded-xl');
     expect(container.firstChild).toHaveClass('p-4');
   });

@@ -15,7 +15,7 @@ describe('Badge', () => {
 
   it('applies default variant when none specified', () => {
     const { container } = render(<Badge>DEFAULT</Badge>);
-    expect(container.firstChild).toHaveClass('bg-white/5');
+    expect(container.firstChild).toHaveClass('badge-dormant');
   });
 
   it('accepts custom className', () => {
