@@ -9,11 +9,15 @@ import { CardGridLoader } from '@/components/ui/PageLoader';
 import { Badge } from '@/components/ui/Badge';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
+import { HistoryView } from '@/components/agents/HistoryView';
+import { ConfigView } from '@/components/agents/ConfigView';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
+
+type AgentTab = 'MONITOR' | 'HISTORY' | 'CONFIG';
 
 // ─── Agent metadata registry ────────────────────────────────────────
 const AGENT_REGISTRY: Record<string, {
@@ -578,9 +582,9 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────
-export function Agents() {
-  const { data: agents, isLoading } = useAgents();
+// ─── Monitor View (existing content, wrapped) ─────────────────
+function MonitorView() {
+  const { data: agents } = useAgents();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const flightControl = agents?.find(a => a.name === 'flight_control') ?? null;
@@ -600,16 +604,8 @@ export function Agents() {
 
   const selectedAgentData = agents?.find(a => a.name === selectedAgent) ?? null;
 
-  if (isLoading) return <CardGridLoader count={6} />;
-
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Page header with LIVE badge */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold text-parchment">AI Agent Operations</h1>
-        <span className="live-indicator">LIVE</span>
-      </div>
-
+    <div className="space-y-6">
       {/* TOP STATS BAR */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Agents Operational" value={`${operational}/${total}`} accentColor="#4ADE80" />
@@ -671,6 +667,45 @@ export function Agents() {
       {agents && agents.length > 0 && (
         <PipelineStrip agents={agents} />
       )}
+    </div>
+  );
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────
+export function Agents() {
+  const { isLoading } = useAgents();
+  const [activeTab, setActiveTab] = useState<AgentTab>('MONITOR');
+
+  if (isLoading) return <CardGridLoader count={6} />;
+
+  return (
+    <div className="animate-fade-in space-y-6">
+      {/* Page header with LIVE badge */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold text-parchment">AI Agent Operations</h1>
+        <span className="live-indicator">LIVE</span>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1">
+        {(['MONITOR', 'HISTORY', 'CONFIG'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'flex-1 sm:flex-none rounded-lg px-4 py-2 text-[11px] font-mono font-semibold tracking-wider uppercase',
+              activeTab === tab ? 'glass-btn-active' : 'glass-btn',
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab panels */}
+      {activeTab === 'MONITOR' && <MonitorView />}
+      {activeTab === 'HISTORY' && <HistoryView />}
+      {activeTab === 'CONFIG' && <ConfigView />}
     </div>
   );
 }
