@@ -5,8 +5,6 @@ import { renderWithProviders } from '@/test/utils';
 import { createMockTakedown } from '@/test/mocks';
 import { Takedowns } from './Takedowns';
 
-const mockMutate = vi.fn();
-
 vi.mock('@/hooks/useTakedowns', () => ({
   useAdminTakedowns: vi.fn().mockReturnValue({
     data: null,
@@ -25,18 +23,27 @@ import { useAdminTakedowns, useUpdateTakedown } from '@/hooks/useTakedowns';
 
 describe('Takedowns Page', () => {
   const mockTakedowns = [
-    createMockTakedown({ status: 'draft' }),
-    createMockTakedown({ id: 'td-002', status: 'submitted', target_value: 'evil.com', severity: 'CRITICAL' }),
+    createMockTakedown({ status: 'draft', target_platform: 'github' }),
+    createMockTakedown({ id: 'td-002', status: 'submitted', target_value: 'evil.com', severity: 'CRITICAL', target_platform: null }),
   ];
+
+  const mockData = {
+    takedowns: mockTakedowns,
+    total: 2,
+    statusCounts: [
+      { status: 'draft', count: 1 },
+      { status: 'submitted', count: 1 },
+    ],
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useAdminTakedowns as any).mockReturnValue({
-      data: mockTakedowns,
+    (useAdminTakedowns as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: mockData,
       isLoading: false,
     });
-    (useUpdateTakedown as any).mockReturnValue({
-      mutate: mockMutate,
+    (useUpdateTakedown as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
     });
   });
 
@@ -46,47 +53,35 @@ describe('Takedowns Page', () => {
     expect(screen.getByText('evil.com')).toBeInTheDocument();
   });
 
-  it('shows status-appropriate action buttons for draft', () => {
+  it('renders stat cards with correct values', () => {
     renderWithProviders(<Takedowns />);
-    expect(screen.getByText('SUBMIT')).toBeInTheDocument();
-    expect(screen.getByText('WITHDRAW')).toBeInTheDocument();
+    expect(screen.getByText('Total Takedowns')).toBeInTheDocument();
+    expect(screen.getByText('Pending Review')).toBeInTheDocument();
+    expect(screen.getByText('Submitted')).toBeInTheDocument();
+    expect(screen.getByText('Resolved')).toBeInTheDocument();
   });
 
-  it('shows status-appropriate action buttons for submitted', () => {
+  it('renders status filter pills', () => {
     renderWithProviders(<Takedowns />);
-    expect(screen.getByText('PENDING')).toBeInTheDocument();
-    // "TAKEN DOWN" appears as both a tab and a button, so use getAllByText
-    const takenDownElements = screen.getAllByText('TAKEN DOWN');
-    expect(takenDownElements.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('ALL', { selector: 'button' })).toBeInTheDocument();
+    expect(screen.getByText('DRAFT', { selector: 'button' })).toBeInTheDocument();
+    expect(screen.getByText('SUBMITTED', { selector: 'button' })).toBeInTheDocument();
   });
 
-  it('renders status tabs', () => {
+  it('renders type filter pills', () => {
     renderWithProviders(<Takedowns />);
-    expect(screen.getByText('All')).toBeInTheDocument();
-    expect(screen.getByText('DRAFT')).toBeInTheDocument();
-    expect(screen.getByText('SUBMITTED')).toBeInTheDocument();
+    expect(screen.getByText('SOCIAL', { selector: 'button' })).toBeInTheDocument();
+    expect(screen.getByText('URL', { selector: 'button' })).toBeInTheDocument();
+    expect(screen.getByText('DOMAIN', { selector: 'button' })).toBeInTheDocument();
   });
 
-  it('shows target type badges', () => {
+  it('renders platform badges', () => {
     renderWithProviders(<Takedowns />);
-    const urlBadges = screen.getAllByText('url');
-    expect(urlBadges.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('shows provider name', () => {
-    renderWithProviders(<Takedowns />);
-    const providers = screen.getAllByText('via Cloudflare');
-    expect(providers.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('shows SPARROW badge for auto-generated takedowns', () => {
-    renderWithProviders(<Takedowns />);
-    const sparrowBadges = screen.getAllByText('SPARROW');
-    expect(sparrowBadges.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('GH')).toBeInTheDocument();
   });
 
   it('shows loading state when loading', () => {
-    (useAdminTakedowns as any).mockReturnValue({
+    (useAdminTakedowns as ReturnType<typeof vi.fn>).mockReturnValue({
       data: null,
       isLoading: true,
     });
@@ -97,6 +92,13 @@ describe('Takedowns Page', () => {
   it('expands takedown details on click', async () => {
     renderWithProviders(<Takedowns />);
     await userEvent.click(screen.getByText('phishing.test.com'));
-    expect(screen.getByText('Malicious URL targeting Test Brand')).toBeInTheDocument();
+    expect(screen.getByText('TARGET DETAILS')).toBeInTheDocument();
+    expect(screen.getByText('EVIDENCE')).toBeInTheDocument();
+    expect(screen.getByText('ACTIONS')).toBeInTheDocument();
+  });
+
+  it('shows search input', () => {
+    renderWithProviders(<Takedowns />);
+    expect(screen.getByPlaceholderText('Search by brand, handle, or URL...')).toBeInTheDocument();
   });
 });

@@ -32,8 +32,8 @@ const TENANT_ALLOWED_TRANSITIONS: Record<string, string[]> = {
 };
 const ADMIN_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   draft: ["requested", "submitted", "withdrawn"],
-  requested: ["submitted", "withdrawn"],
-  submitted: ["pending_response", "taken_down", "failed"],
+  requested: ["submitted", "withdrawn", "draft"],
+  submitted: ["pending_response", "taken_down", "failed", "requested"],
   pending_response: ["taken_down", "failed", "expired"],
 };
 
@@ -310,38 +310,67 @@ export async function handleUpdateTakedown(
 // ─── GET /api/admin/takedowns (superadmin SOC queue) ─────────
 
 export const handleAdminListTakedowns = handler(async (request, env, ctx) => {
+  const url = new URL(request.url);
   const { limit, offset } = parsePagination(request);
-  const filters = parseFilters(request, ["status", "org_id", "severity"]);
+  const filters = parseFilters(request, ["status", "org_id", "severity", "target_type"]);
   const { clause: filterClause, bindings: filterBindings } = buildWhereClause(filters, {
     status: "tr.status",
     org_id: "tr.org_id",
     severity: "tr.severity",
+    target_type: "tr.target_type",
   });
 
-  const result = await env.DB.prepare(`
-    SELECT tr.*, b.name AS brand_name, o.name AS org_name
-    FROM takedown_requests tr
-    JOIN brands b ON b.id = tr.brand_id
-    LEFT JOIN organizations o ON o.id = tr.org_id
-    WHERE ${filterClause}
-    ORDER BY
-      CASE tr.status
+  // Search support
+  const search = url.searchParams.get("search")?.trim() || "";
+  let searchClause = "";
+  const searchBindings: unknown[] = [];
+  if (search) {
+    searchClause = " AND (b.name LIKE ? OR tr.target_value LIKE ? OR tr.target_url LIKE ?)";
+    const like = `%${search}%`;
+    searchBindings.push(like, like, like);
+  }
+
+  // Sort support
+  const sort = url.searchParams.get("sort") || "priority";
+  let orderClause: string;
+  switch (sort) {
+    case "newest":
+      orderClause = "tr.created_at DESC";
+      break;
+    case "brand":
+      orderClause = "b.name ASC, tr.priority_score DESC";
+      break;
+    default: // "priority"
+      orderClause = `CASE tr.status
         WHEN 'requested' THEN 1
         WHEN 'submitted' THEN 2
         WHEN 'pending_response' THEN 3
         WHEN 'draft' THEN 4
         ELSE 5
-      END,
-      tr.priority_score DESC,
-      tr.created_at ASC
+      END, tr.priority_score DESC, tr.created_at DESC`;
+      break;
+  }
+
+  const allBindings = [...filterBindings, ...searchBindings];
+
+  const result = await env.DB.prepare(`
+    SELECT tr.*, b.name AS brand_name, b.canonical_domain AS brand_domain,
+           o.name AS org_name,
+           (SELECT COUNT(*) FROM takedown_evidence te WHERE te.takedown_id = tr.id) AS evidence_count
+    FROM takedown_requests tr
+    JOIN brands b ON b.id = tr.brand_id
+    LEFT JOIN organizations o ON o.id = tr.org_id
+    WHERE ${filterClause}${searchClause}
+    ORDER BY ${orderClause}
     LIMIT ? OFFSET ?
-  `).bind(...filterBindings, limit, offset).all();
+  `).bind(...allBindings, limit, offset).all();
 
   const countResult = await env.DB.prepare(`
     SELECT COUNT(*) AS total
     FROM takedown_requests tr
-    WHERE ${filterClause}
-  `).bind(...filterBindings).first<{ total: number }>();
+    JOIN brands b ON b.id = tr.brand_id
+    WHERE ${filterClause}${searchClause}
+  `).bind(...allBindings).first<{ total: number }>();
 
   const statusCounts = await env.DB.prepare(`
     SELECT status, COUNT(*) AS count FROM takedown_requests GROUP BY status
