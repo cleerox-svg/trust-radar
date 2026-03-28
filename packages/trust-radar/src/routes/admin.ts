@@ -27,6 +27,7 @@ import {
 } from "../handlers/salesLeads";
 import { handleListAuditLog, handleExportAuditLog } from "../handlers/audit";
 import { handleEnrichGeo, handleEnrichAll, handleDailySnapshots } from "../handlers/threats";
+import { handleBudgetStatus, handleBudgetBreakdown, handleBudgetConfigPatch } from "../handlers/budget";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -283,6 +284,23 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     } catch (err) {
       return json({ success: false, error: err instanceof Error ? err.message : String(err) }, 500);
     }
+  });
+
+  // ─── AI Budget Management ─────────────────────────────────────────
+  router.get("/api/admin/budget/status", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBudgetStatus(request, env);
+  });
+  router.get("/api/admin/budget/breakdown", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBudgetBreakdown(request, env);
+  });
+  router.patch("/api/admin/budget/config", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBudgetConfigPatch(request, env);
   });
 
   // ─── Enrichment Utilities ─────────────────────────────────────────

@@ -27,6 +27,8 @@ export interface Env {
   // Threat intelligence feeds (optional)
   ABUSEIPDB_API_KEY?: string;
   HIBP_API_KEY?: string;
+  // Anthropic Admin API (optional — budget verification)
+  ANTHROPIC_ADMIN_KEY?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────

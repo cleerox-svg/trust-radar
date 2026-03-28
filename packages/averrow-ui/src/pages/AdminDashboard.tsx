@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
+import { useBudgetStatus, useBudgetBreakdown, useBudgetConfigMutation } from '@/hooks/useBudget';
+import type { BudgetStatus } from '@/hooks/useBudget';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -22,6 +25,160 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
     <div className="rounded-lg border border-white/10 bg-cockpit/95 px-3 py-2 backdrop-blur-sm">
       <div className="font-mono text-[10px] text-contrail/60">{label}</div>
       <div className="font-mono text-sm font-bold text-parchment">{fmt(payload[0].value)} threats</div>
+    </div>
+  );
+}
+
+function throttleColor(level: BudgetStatus['throttle_level']): string {
+  switch (level) {
+    case 'emergency': return 'text-accent';
+    case 'hard': return 'text-[#fb923c]';
+    case 'soft': return 'text-[#fbbf24]';
+    default: return 'text-positive';
+  }
+}
+
+function throttleBadge(level: BudgetStatus['throttle_level']): string {
+  switch (level) {
+    case 'emergency': return 'badge-critical';
+    case 'hard': return 'badge-accelerating';
+    case 'soft': return 'badge-accelerating';
+    default: return 'badge-active';
+  }
+}
+
+function BudgetPanel() {
+  const { data: budget } = useBudgetStatus();
+  const { data: breakdown } = useBudgetBreakdown();
+  const mutation = useBudgetConfigMutation();
+  const [editing, setEditing] = useState(false);
+  const [limitInput, setLimitInput] = useState('');
+
+  if (!budget) return null;
+
+  const barPct = Math.min(budget.pct_used, 100);
+  const barColor = budget.throttle_level === 'emergency' ? 'progress-bar-fill-red'
+    : budget.throttle_level === 'hard' ? 'progress-bar-fill-amber'
+    : budget.throttle_level === 'soft' ? 'progress-bar-fill-amber'
+    : 'progress-bar-fill-teal';
+
+  return (
+    <div className="glass-card glass-card-teal rounded-xl p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="section-label">AI Budget</div>
+        <span className={`badge-glass ${throttleBadge(budget.throttle_level)}`}>
+          {budget.throttle_level === 'none' ? 'NORMAL' : budget.throttle_level.toUpperCase()}
+        </span>
+      </div>
+
+      {/* Spend bar */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <span className={`font-display text-lg font-bold ${throttleColor(budget.throttle_level)}`}>
+            ${budget.spent_this_month.toFixed(2)}
+          </span>
+          <span className="font-mono text-[10px] text-contrail/50">
+            / ${budget.config.monthly_limit_usd.toFixed(2)}
+          </span>
+        </div>
+        <div className="progress-bar-track h-2 mb-1">
+          <div className={barColor} style={{ width: `${barPct}%` }} />
+        </div>
+        <div className="font-mono text-[10px] text-contrail/40">{budget.pct_used.toFixed(1)}% used</div>
+      </div>
+
+      <hr className="hud-divider" />
+
+      {/* Key metrics */}
+      <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
+        <div>
+          <div className="text-contrail/50 mb-0.5">Remaining</div>
+          <div className="text-parchment font-semibold">${budget.remaining.toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-contrail/50 mb-0.5">Daily burn</div>
+          <div className="text-parchment font-semibold">${budget.daily_burn_rate.toFixed(2)}/day</div>
+        </div>
+        <div>
+          <div className="text-contrail/50 mb-0.5">Projected</div>
+          <div className={`font-semibold ${budget.projected_monthly > budget.config.monthly_limit_usd ? 'text-accent' : 'text-parchment'}`}>
+            ${budget.projected_monthly.toFixed(2)}
+          </div>
+        </div>
+        <div>
+          <div className="text-contrail/50 mb-0.5">Days left</div>
+          <div className="text-parchment font-semibold">{budget.days_in_month - budget.days_elapsed}</div>
+        </div>
+      </div>
+
+      {budget.anthropic_reported > 0 && (
+        <>
+          <hr className="hud-divider" />
+          <div className="font-mono text-[10px] text-contrail/40">
+            Anthropic reported: ${budget.anthropic_reported.toFixed(2)}
+          </div>
+        </>
+      )}
+
+      {/* Agent breakdown */}
+      {breakdown && breakdown.length > 0 && (
+        <>
+          <hr className="hud-divider" />
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Spend by Agent</div>
+          <div className="space-y-1.5">
+            {breakdown.map((a) => (
+              <div key={a.agent_id} className="flex items-center justify-between font-mono text-[10px]">
+                <span className="text-parchment/80">{a.agent_id}</span>
+                <span className="text-contrail/60">${a.cost_usd.toFixed(3)} ({a.calls})</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Edit limit */}
+      <hr className="hud-divider" />
+      {!editing ? (
+        <button
+          type="button"
+          onClick={() => { setEditing(true); setLimitInput(String(budget.config.monthly_limit_usd)); }}
+          className="font-mono text-[10px] text-orbital-teal hover:text-thrust transition-colors"
+        >
+          Edit monthly limit &rarr;
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-contrail/50">$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={limitInput}
+            onChange={(e) => setLimitInput(e.target.value)}
+            className="w-20 rounded border border-white/10 bg-cockpit px-2 py-1 font-mono text-[11px] text-parchment outline-none focus:border-orbital-teal"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const val = parseFloat(limitInput);
+              if (!isNaN(val) && val >= 0) {
+                mutation.mutate({ monthly_limit_usd: val });
+              }
+              setEditing(false);
+            }}
+            className="font-mono text-[10px] text-positive hover:text-thrust transition-colors"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="font-mono text-[10px] text-contrail/40 hover:text-accent transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -272,6 +429,9 @@ export function AdminDashboard() {
         {/* RIGHT — Security & Compliance */}
         <div className="space-y-4">
           <SectionLabel>Security &amp; Compliance</SectionLabel>
+
+          {/* AI Budget */}
+          <BudgetPanel />
 
           {/* Sessions */}
           <div className="glass-card glass-card-teal rounded-xl p-4">
