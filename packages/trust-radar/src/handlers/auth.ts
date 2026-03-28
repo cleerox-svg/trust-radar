@@ -4,7 +4,7 @@
 import { json } from "../lib/cors";
 import { signJWT, ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL, ABSOLUTE_SESSION_TTL } from "../lib/jwt";
 import { hashToken, generateRefreshToken } from "../lib/hash";
-import { buildGoogleAuthURL, exchangeCodeForTokens, fetchGoogleUserInfo, getRedirectUri } from "../lib/oauth";
+import { buildGoogleAuthURL, exchangeCodeForTokens, fetchGoogleUserInfo, getRedirectUri, CANONICAL_ORIGIN } from "../lib/oauth";
 import { audit } from "../lib/audit";
 import type { Env, UserRole } from "../types";
 
@@ -76,10 +76,10 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
   const error = url.searchParams.get("error");
 
   if (error) {
-    return redirectWithError(url.origin, `OAuth error: ${error}`);
+    return redirectWithError(CANONICAL_ORIGIN, `OAuth error: ${error}`);
   }
   if (!code || !state) {
-    return redirectWithError(url.origin, "Missing code or state");
+    return redirectWithError(CANONICAL_ORIGIN, "Missing code or state");
   }
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
     return json({ success: false, error: "OAuth not configured" }, 503, origin);
@@ -88,7 +88,7 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
   // Validate CSRF state
   const storedState = await env.CACHE.get(`oauth_state:${state}`);
   if (!storedState) {
-    return redirectWithError(url.origin, "Invalid or expired OAuth state");
+    return redirectWithError(CANONICAL_ORIGIN, "Invalid or expired OAuth state");
   }
   await env.CACHE.delete(`oauth_state:${state}`);
 
@@ -100,12 +100,12 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
     googleUser = await fetchGoogleUserInfo(tokens.access_token);
   } catch (err) {
     await audit(env, { action: "oauth_token_exchange_failed", details: { error: String(err) }, outcome: "failure", request });
-    return redirectWithError(url.origin, "Failed to authenticate with Google");
+    return redirectWithError(CANONICAL_ORIGIN, "Failed to authenticate with Google");
   }
 
   if (!googleUser.email_verified) {
     await audit(env, { action: "oauth_unverified_email", details: { email: googleUser.email }, outcome: "denied", request });
-    return redirectWithError(url.origin, "Google account email is not verified");
+    return redirectWithError(CANONICAL_ORIGIN, "Google account email is not verified");
   }
 
   // Check if this is an invite flow
@@ -113,7 +113,7 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
   const inviteToken = isInviteFlow ? storedState.slice("__invite__:".length) : null;
 
   if (isInviteFlow && inviteToken) {
-    return handleInviteAcceptance(request, env, googleUser, inviteToken, url.origin);
+    return handleInviteAcceptance(request, env, googleUser, inviteToken, CANONICAL_ORIGIN);
   }
 
   // Regular login — look up existing user by google_sub
@@ -136,16 +136,16 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
 
   if (!user) {
     await audit(env, { action: "login_no_account", details: { email: googleUser.email, google_sub: googleUser.sub }, outcome: "denied", request });
-    return redirectWithError(url.origin, "No account found. Access is invitation-only.");
+    return redirectWithError(CANONICAL_ORIGIN, "No account found. Access is invitation-only.");
   }
 
   if (user.status !== "active") {
     await audit(env, { action: "login_inactive", userId: user.id, details: { status: user.status }, outcome: "denied", request });
-    return redirectWithError(url.origin, "Account is suspended or deactivated");
+    return redirectWithError(CANONICAL_ORIGIN, "Account is suspended or deactivated");
   }
 
   // Issue session tokens
-  return issueSession(request, env, user.id, user.email, user.role, url.origin, storedState);
+  return issueSession(request, env, user.id, user.email, user.role, CANONICAL_ORIGIN, storedState);
 }
 
 // ─── Token refresh ──────────────────────────────────────────────

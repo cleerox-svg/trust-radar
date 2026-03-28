@@ -82,10 +82,12 @@ export async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUs
   return res.json() as Promise<GoogleUserInfo>;
 }
 
+/** Canonical origin — always redirect to non-www domain */
+export const CANONICAL_ORIGIN = "https://averrow.com";
+
 /**
- * Determine the OAuth redirect URI based on the request origin.
+ * Determine the OAuth redirect URI using the canonical origin.
  */
-export function getRedirectUri(request: Request): string {
-  const url = new URL(request.url);
-  return `${url.origin}/api/auth/callback`;
+export function getRedirectUri(_request: Request): string {
+  return `${CANONICAL_ORIGIN}/api/auth/callback`;
 }
