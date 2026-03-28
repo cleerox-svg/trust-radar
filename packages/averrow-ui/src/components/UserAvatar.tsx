@@ -63,10 +63,10 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
           <button
             key={item.label}
             onClick={() => item.path && handleNav(item.path)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors touch-target"
+            className="w-full flex items-center gap-3 px-4 py-2.5 md:py-2.5 min-h-[52px] md:min-h-0 text-left hover:bg-white/5 transition-colors touch-target border-b border-white/[0.04] md:border-b-0"
           >
             <item.icon size={15} className="text-white/40 flex-shrink-0" />
-            <span className="text-[12px] text-parchment/80">{item.label}</span>
+            <span className="text-[14px] md:text-[12px] text-parchment/80">{item.label}</span>
           </button>
         ))}
       </div>
@@ -74,10 +74,10 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
       <div className="border-t border-white/5 py-1">
         <button
           onClick={() => { logout(); onClose(); }}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#C83C3C]/10 transition-colors touch-target"
+          className="w-full flex items-center gap-3 px-4 py-2.5 md:py-2.5 min-h-[52px] md:min-h-0 text-left hover:bg-[#C83C3C]/10 transition-colors touch-target"
         >
           <LogOut size={15} className="text-[#C83C3C]/70 flex-shrink-0" />
-          <span className="text-[12px] text-[#C83C3C]/80">Logout</span>
+          <span className="text-[14px] md:text-[12px] text-[#C83C3C]/80">Logout</span>
         </button>
       </div>
     </div>
