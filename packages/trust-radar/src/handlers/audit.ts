@@ -1,4 +1,3 @@
-// TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Audit Log Viewer (Admin)
 
 import { json } from "../lib/cors";
@@ -17,9 +16,18 @@ export async function handleListAuditLog(request: Request, env: Env): Promise<Re
     const outcome = url.searchParams.get("outcome");
     const since = url.searchParams.get("since");
     const until = url.searchParams.get("until");
+    const window = url.searchParams.get("window");
+    const search = url.searchParams.get("search");
 
     const conditions: string[] = [];
     const params: unknown[] = [];
+
+    // window shorthand: 24h, 7d, 30d, all
+    if (window && !since) {
+      const days = window === "24h" ? 1 : window === "30d" ? 30 : window === "all" ? 3650 : 7;
+      conditions.push("timestamp >= datetime('now', ?)");
+      params.push(`-${days} days`);
+    }
 
     if (userId) { conditions.push("user_id = ?"); params.push(userId); }
     if (action) { conditions.push("action = ?"); params.push(action); }
@@ -27,6 +35,11 @@ export async function handleListAuditLog(request: Request, env: Env): Promise<Re
     if (outcome) { conditions.push("outcome = ?"); params.push(outcome); }
     if (since) { conditions.push("timestamp >= ?"); params.push(since); }
     if (until) { conditions.push("timestamp <= ?"); params.push(until); }
+    if (search) {
+      conditions.push("(action LIKE ? OR ip_address LIKE ? OR resource_type LIKE ? OR user_id LIKE ?)");
+      const term = `%${search}%`;
+      params.push(term, term, term, term);
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const countParams = [...params];
