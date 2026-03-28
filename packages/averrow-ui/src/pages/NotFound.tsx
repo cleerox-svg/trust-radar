@@ -1,13 +1,18 @@
-import { Card, CardHeader } from '@/components/ui/Card';
+import { Link } from 'react-router-dom';
 
 export function NotFound() {
   return (
-    <div className="animate-fade-in">
-      <h1 className="font-display text-xl font-bold text-parchment mb-6">Not Found</h1>
-      <Card>
-        <CardHeader>404</CardHeader>
-        <p className="text-sm text-contrail/60">The page you're looking for doesn't exist.</p>
-      </Card>
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
+      <div className="text-6xl font-mono font-bold text-white/10">404</div>
+      <div className="text-white/50 font-mono text-sm tracking-widest uppercase">
+        Route not found
+      </div>
+      <Link
+        to="/observatory"
+        className="glass-btn px-4 py-2 rounded-lg text-sm text-orbital-teal mt-2"
+      >
+        &larr; Back to Observatory
+      </Link>
     </div>
   );
 }
