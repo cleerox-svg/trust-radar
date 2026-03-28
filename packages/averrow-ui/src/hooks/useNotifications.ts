@@ -38,7 +38,7 @@ export function useNotifications(enabled: boolean) {
   return useQuery({
     queryKey: ['notifications', 'list'],
     queryFn: async () => {
-      const res = await api.get<NotificationsResponse>('/api/notifications?limit=20&unread=true');
+      const res = await api.get<NotificationsResponse>('/api/notifications?limit=20');
       return res.data;
     },
     enabled,

@@ -184,12 +184,14 @@ export function ThreatMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    const isMobileViewport = window.innerWidth < 768;
+
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLE,
-      center: [10, 25],
-      zoom: 2,
-      pitch: 20,
+      center: isMobileViewport ? [0, 20] : [10, 25],
+      zoom: isMobileViewport ? 0.8 : 2,
+      pitch: isMobileViewport ? 0 : 20,
       bearing: 0,
       antialias: true,
       attributionControl: false,
