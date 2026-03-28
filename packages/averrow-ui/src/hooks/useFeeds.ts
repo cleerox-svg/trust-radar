@@ -10,9 +10,9 @@ export interface FeedOverview {
   schedule_cron: string;
   batch_size: number | null;
   rate_limit: number | null;
-  filter_config: string | null;
-  retry_max: number | null;
-  retry_delay_ms: number | null;
+  filters: string | null;
+  retry_count: number | null;
+  retry_delay_seconds: number | null;
   total_pulls: number;
   total_ingested: number;
   total_rejected: number;
