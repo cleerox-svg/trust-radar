@@ -327,18 +327,18 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
         <DetailRow label="Schedule" value={humanizeCron(feed.schedule_cron)} />
         {feed.batch_size != null && <DetailRow label="Batch Size" value={String(feed.batch_size)} />}
         {feed.rate_limit != null && <DetailRow label="Rate Limit" value={String(feed.rate_limit)} />}
-        {feed.retry_max != null && (
+        {feed.retry_count != null && (
           <DetailRow
             label="Retry Config"
-            value={`${feed.retry_max} retries, ${feed.retry_delay_ms ?? 0}ms delay`}
+            value={`${feed.retry_count} retries, ${feed.retry_delay_seconds ?? 0}s delay`}
           />
         )}
         <DetailRow label="Status" value={feed.enabled ? 'Enabled' : 'Disabled'} />
-        {feed.filter_config && (
+        {feed.filters && (
           <div>
-            <span className="text-[10px] font-mono text-white/40 block mb-1">Filter Config</span>
+            <span className="text-[10px] font-mono text-white/40 block mb-1">Filters</span>
             <pre className="text-[10px] font-mono text-white/50 bg-white/5 rounded p-2 overflow-x-auto">
-              {feed.filter_config}
+              {feed.filters}
             </pre>
           </div>
         )}
