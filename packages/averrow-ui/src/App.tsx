@@ -31,7 +31,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     <div className="text-contrail font-mono text-sm">Loading...</div>
   </div>;
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    // Redirect to public homepage — don't trap users in an in-app login screen.
+    // The public site has the proper "Sign In" flow via /login → /api/auth/login.
+    window.location.href = '/';
+    return null;
+  }
   return <>{children}</>;
 }
 
