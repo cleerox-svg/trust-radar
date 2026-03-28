@@ -9,19 +9,42 @@ interface SpamTrapStats {
   auth_fail_rate: number;
 }
 
-interface SpamTrapCapture {
+export interface SpamTrapCapture {
   id: number;
+  trap_address: string | null;
+  trap_channel: string | null;
   from_address: string | null;
   from_domain: string | null;
   subject: string | null;
   spoofed_brand_id: string | null;
+  spoofed_domain: string | null;
   brand_name?: string;
   spf_result: string | null;
   dkim_result: string | null;
   dmarc_result: string | null;
+  dmarc_disposition: string | null;
+  sending_ip: string | null;
   category: string;
   severity: string;
+  url_count: number;
+  attachment_count: number;
+  country_code: string | null;
   captured_at: string;
+  threat_id: string | null;
+  body_preview: string | null;
+}
+
+export interface SpamTrapCaptureDetail extends SpamTrapCapture {
+  reply_to: string | null;
+  return_path: string | null;
+  helo_hostname: string | null;
+  x_mailer: string | null;
+  spf_domain: string | null;
+  dkim_domain: string | null;
+  raw_headers: string | null;
+  urls: string[];
+  attachments: string[];
+  brand_confidence: number | null;
 }
 
 interface TrapHealth {
@@ -29,13 +52,30 @@ interface TrapHealth {
   count: number;
 }
 
-interface SeedCampaign {
+export interface SeedCampaign {
+  id: number;
   name: string;
   channel: string;
-  catches: number;
+  status: string;
+  target_brands: string | null;
+  addresses_seeded: number;
+  total_catches: number;
+  unique_ips_caught: number;
+  brands_spoofed: number;
+  last_catch_at: string | null;
+  created_by: string | null;
+  strategist_notes: string | null;
+  created_at: string;
+  updated_at: string | null;
 }
 
-export type { SpamTrapCapture };
+export interface DailyStats {
+  date: string;
+  total: number;
+  phishing: number;
+  spam: number;
+  malware: number;
+}
 
 export function useSpamTrapStats() {
   return useQuery({
@@ -43,7 +83,7 @@ export function useSpamTrapStats() {
     queryFn: async () => {
       const res = await api.get<{
         stats: { total_captures: number; brands_spoofed: number; unique_ips: number; auth_fail_rate: number; last_24h: number };
-        daily: unknown[];
+        daily: DailyStats[];
         health: TrapHealth[];
       }>('/api/spam-trap/stats');
       const data = res.data;
@@ -59,8 +99,23 @@ export function useSpamTrapStats() {
   });
 }
 
+export function useSpamTrapDaily() {
+  return useQuery({
+    queryKey: ['spam-trap-daily'],
+    queryFn: async () => {
+      const res = await api.get<{
+        stats: unknown;
+        daily: DailyStats[];
+        health: unknown[];
+      }>('/api/spam-trap/stats');
+      return (res.data?.daily ?? []) as DailyStats[];
+    },
+    refetchInterval: 60_000,
+  });
+}
+
 export function useSpamTrapCaptures(options?: { limit?: number; offset?: number }) {
-  const { limit = 20, offset = 0 } = options || {};
+  const { limit = 50, offset = 0 } = options || {};
   return useQuery({
     queryKey: ['spam-trap-captures', limit, offset],
     queryFn: async () => {
@@ -74,7 +129,7 @@ export function useSpamTrapCapture(captureId: number | null) {
   return useQuery({
     queryKey: ['spam-trap-capture', captureId],
     queryFn: async () => {
-      const res = await api.get<unknown>(`/api/spam-trap/captures/${captureId}`);
+      const res = await api.get<SpamTrapCaptureDetail>(`/api/spam-trap/captures/${captureId}`);
       return res.data || null;
     },
     enabled: !!captureId,
@@ -101,7 +156,7 @@ export function useSpamTrapCampaigns() {
     queryKey: ['spam-trap-campaigns'],
     queryFn: async () => {
       const res = await api.get<SeedCampaign[]>('/api/spam-trap/campaigns');
-      return res.data || [];
+      return (res.data ?? []) as SeedCampaign[];
     },
   });
 }
