@@ -105,3 +105,25 @@ export function useSpamTrapCampaigns() {
     },
   });
 }
+
+export interface SeedAddress {
+  id: number;
+  address: string;
+  domain: string;
+  channel: string;
+  seeded_location: string | null;
+  total_catches: number;
+  status: string;
+  seeded_at: string;
+}
+
+export function useSpamTrapAddresses() {
+  return useQuery({
+    queryKey: ['spam-trap-addresses'],
+    queryFn: async () => {
+      const res = await api.get<SeedAddress[]>('/api/spam-trap/addresses');
+      return res.data ?? [];
+    },
+    refetchInterval: 60_000,
+  });
+}
