@@ -50,7 +50,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Brands',       path: '/brands',       icon: Shield },
         { label: 'Providers',    path: '/providers',     icon: Server },
         { label: 'Operations',   path: '/campaigns',     icon: Activity },
-        { label: 'Trends',       path: '/trends',        icon: TrendingUp },
+        { label: 'Intelligence', path: '/trends',        icon: TrendingUp },
       ],
     },
     {
