@@ -60,23 +60,11 @@ const LEGACY_REDIRECTS: Record<string, string> = {
 };
 
 export function registerPublicRoutes(router: RouterType<IRequest>): void {
-  // ─── Root — session-aware redirect ────────────────────────────────
-  // Logged-in users (have radar_refresh cookie) → /v2
-  // Everyone else → public marketing homepage
-  router.get("/", async (request: Request) => {
-    const cookies = request.headers.get("Cookie") ?? "";
-    const hasSession = cookies.split(";").some(c => c.trim().startsWith("radar_refresh=") && c.trim() !== "radar_refresh=");
-    if (hasSession) {
-      const url = new URL(request.url);
-      return Response.redirect(`${url.origin}/v2`, 302);
-    }
-    return new Response(renderHomepage(), {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=300, s-maxage=600",
-      },
-    });
-  });
+  // ─── Root — always serve public homepage ───────────────────────────
+  // The React app at /v2 handles its own auth. We don't redirect based
+  // on cookies here because stale/expired cookies send users into the
+  // app login screen instead of showing the public marketing site.
+  router.get("/", htmlPage(renderHomepage));
 
   // ─── Legacy redirects (old admin routes → /v2) ──────────────────
   for (const [oldPath, newPath] of Object.entries(LEGACY_REDIRECTS)) {
@@ -89,7 +77,7 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   // ─── /login redirect → OAuth flow ────────────────────────────────
   router.get("/login", (request: Request) => {
     const url = new URL(request.url);
-    return Response.redirect(`${url.origin}/api/auth/login`, 302);
+    return Response.redirect(`${url.origin}/api/auth/login?return_to=/v2/observatory`, 302);
   });
 
   // ─── Legacy escape hatch — old homepage at /legacy ──────────────
