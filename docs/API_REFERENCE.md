@@ -277,6 +277,11 @@ Complete reference for the Trust Radar API. All authenticated endpoints require 
 | GET | `/api/trends/providers` | User | Provider trends |
 | GET | `/api/trends/tlds` | User | TLD trends |
 | GET | `/api/trends/compare` | User | Compare periods |
+| GET | `/api/trends/intelligence` | User | Observer intelligence insights |
+| GET | `/api/trends/threat-volume` | User | Threat volume by type over time window |
+| GET | `/api/trends/brand-momentum` | User | Brand threat momentum (week-over-week) |
+| GET | `/api/trends/provider-momentum` | User | Hosting provider momentum (7d/30d) |
+| GET | `/api/trends/nexus-active` | User | Active accelerating Nexus clusters |
 
 ## Insights
 

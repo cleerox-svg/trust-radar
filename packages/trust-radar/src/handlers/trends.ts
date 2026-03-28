@@ -179,6 +179,106 @@ export async function handleTrendTypes(request: Request, env: Env): Promise<Resp
   }
 }
 
+// GET /api/trends/intelligence
+export async function handleTrendIntelligence(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const limit = Math.min(20, parseInt(new URL(request.url).searchParams.get("limit") ?? "6", 10));
+
+    const rows = await env.DB.prepare(`
+      SELECT id, type, summary, severity, created_at
+      FROM agent_outputs
+      WHERE agent_id = 'observer' AND type = 'insight'
+      ORDER BY created_at DESC LIMIT ?
+    `).bind(limit).all<{ id: string; type: string; summary: string; severity: string; created_at: string }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/trends/threat-volume
+export async function handleTrendThreatVolume(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const windowParam = new URL(request.url).searchParams.get("window") ?? "30d";
+    const days = parseInt(windowParam.replace("d", ""), 10) || 30;
+
+    const rows = await env.DB.prepare(`
+      SELECT date(first_seen) as day, threat_type, COUNT(*) as count
+      FROM threats
+      WHERE first_seen >= datetime('now', '-' || ? || ' days')
+      GROUP BY date(first_seen), threat_type
+      ORDER BY day ASC
+    `).bind(days).all<{ day: string; threat_type: string; count: number }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/trends/brand-momentum
+export async function handleTrendBrandMomentum(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT t.target_brand_id, b.name as brand_name,
+        b.canonical_domain,
+        SUM(CASE WHEN t.first_seen >= datetime('now','-7 days')
+            THEN 1 ELSE 0 END) as this_week,
+        SUM(CASE WHEN t.first_seen >= datetime('now','-14 days')
+             AND t.first_seen < datetime('now','-7 days')
+            THEN 1 ELSE 0 END) as last_week
+      FROM threats t
+      LEFT JOIN brands b ON b.id = t.target_brand_id
+      WHERE t.target_brand_id IS NOT NULL
+      GROUP BY t.target_brand_id
+      HAVING this_week > 0
+      ORDER BY this_week DESC LIMIT 10
+    `).all<{ target_brand_id: string; brand_name: string; canonical_domain: string; this_week: number; last_week: number }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/trends/provider-momentum
+export async function handleTrendProviderMomentum(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT name, asn, active_threat_count, trend_7d, trend_30d
+      FROM hosting_providers
+      WHERE trend_7d > 0
+      ORDER BY trend_7d DESC LIMIT 8
+    `).all<{ name: string; asn: string; active_threat_count: number; trend_7d: number; trend_30d: number }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// GET /api/trends/nexus-active
+export async function handleTrendNexusActive(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT cluster_name, threat_count, status, agent_notes
+      FROM infrastructure_clusters
+      WHERE status = 'active' AND agent_notes LIKE '%ACCELERATING%'
+      ORDER BY threat_count DESC LIMIT 5
+    `).all<{ cluster_name: string; threat_count: number; status: string; agent_notes: string }>();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // GET /api/trends/compare
 export async function handleTrendCompare(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
