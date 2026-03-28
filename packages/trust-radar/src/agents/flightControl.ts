@@ -11,6 +11,8 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
+import type { BudgetStatus, AgentBudgetLimits } from "../lib/budgetManager";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -27,14 +29,6 @@ interface Backlog {
   analyst: number;
   totalUnlinked: number;
   totalNoGeo: number;
-}
-
-interface TokenBudget {
-  used_today: number;
-  daily_limit: number;
-  pct_used: number;
-  throttle_analyst: boolean;
-  throttle_observer: boolean;
 }
 
 // Parallel instance thresholds per backlog level
@@ -54,7 +48,6 @@ const STALL_THRESHOLDS: Record<string, number> = {
 };
 
 const AGENTS_TO_MONITOR = ['sentinel', 'cartographer', 'nexus', 'analyst', 'observer', 'sparrow'];
-const DAILY_TOKEN_LIMIT = 500_000;
 
 // ─── Agent Module ────────────────────────────────────────────────
 
@@ -70,12 +63,25 @@ export const flightControlAgent: AgentModule = {
     const { env } = ctx;
     const db = env.DB;
     const outputs: AgentOutputEntry[] = [];
+    const budgetMgr = new BudgetManager(db);
+
+    // Fetch Anthropic usage report (once per hour, guarded by KV)
+    let anthropicReported = 0;
+    const anthropicAdminKey = (env as unknown as Record<string, string | undefined>).ANTHROPIC_ADMIN_KEY;
+    if (anthropicAdminKey) {
+      const lastCheck = await env.CACHE.get('budget:anthropic_last_check');
+      if (!lastCheck) {
+        anthropicReported = await fetchAnthropicUsageReport(anthropicAdminKey);
+        await env.CACHE.put('budget:anthropic_last_check', String(Date.now()), { expirationTtl: 3600 });
+      }
+    }
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budget, lastCuratorRun, unscannedEmails] = await Promise.all([
+    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
-      checkTokenBudget(db),
+      budgetMgr.getStatus(anthropicReported),
+      budgetMgr.getAgentLimits(),
       db.prepare(`
         SELECT MAX(created_at) as last_run
         FROM agent_outputs
@@ -87,8 +93,26 @@ export const flightControlAgent: AgentModule = {
       `).first<{ count: number }>(),
     ]);
 
+    // Log emergency budget state
+    if (budgetStatus.throttle_level === 'emergency') {
+      await logActivity(db, 'flight_control', 'critical', 'budget_emergency',
+        `EMERGENCY: Budget exhausted — AI agents paused ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
+        { budget: budgetStatus }
+      );
+    } else if (budgetStatus.throttle_level === 'hard') {
+      await logActivity(db, 'flight_control', 'warning', 'budget_hard',
+        `Budget hard limit — minimal AI processing ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
+        { budget: budgetStatus }
+      );
+    } else if (budgetStatus.throttle_level === 'soft') {
+      await logActivity(db, 'flight_control', 'info', 'budget_soft',
+        `Budget soft limit — reduced batch sizes ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
+        { budget: budgetStatus }
+      );
+    }
+
     // Fire-and-forget scaling (no await — don't block on spawning agents)
-    const scalingActions = await scaleAgents(db, env, ctx, backlogs, budget);
+    const scalingActions = await scaleAgents(db, env, ctx, backlogs, budgetStatus, agentLimits);
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
 
     // ── Curator weekly trigger ─────────────────────────────────
@@ -100,7 +124,8 @@ export const flightControlAgent: AgentModule = {
       : 999;
 
     // Run if: > 6 days since last run (weekly) OR email scan backlog very large
-    if (daysSinceCuratorRun > 6 || (unscannedEmails?.count ?? 0) > 5000) {
+    // Skip curator if budget is at hard or emergency level
+    if ((daysSinceCuratorRun > 6 || (unscannedEmails?.count ?? 0) > 5000) && !agentLimits.skip_curator) {
       const { curatorAgent } = await import('./curator');
       const { executeAgent } = await import('../lib/agentRunner');
       executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event')
@@ -122,27 +147,25 @@ export const flightControlAgent: AgentModule = {
       timestamp: new Date().toISOString(),
       backlogs,
       agents: health,
-      budget,
+      budget: budgetStatus,
       overall_status: overallStatus,
     };
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} budget=${Math.round(budget.pct_used)}%`,
-      severity: stalled.length > 0 ? 'high' : 'info',
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
 
     // Single write at the end — log only, no snapshot to agent_outputs
-    // (agent_outputs table is growing and the NOT EXISTS query against it was
-    // the primary CPU killer — we now log to agent_activity_log only)
     await logActivity(
       db,
       'flight_control',
       'info',
       'batch_complete',
-      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, unlinked: ${backlogs.totalUnlinked}, no_geo: ${backlogs.totalNoGeo}`,
-      { backlogs, stalled, budget_pct: Math.round(budget.pct_used), scaling: scalingActions, recovery: recoveryActions }
+      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, budget: $${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      { backlogs, stalled, budget: budgetStatus, scaling: scalingActions, recovery: recoveryActions }
     );
 
     return {
@@ -153,7 +176,7 @@ export const flightControlAgent: AgentModule = {
         overall_status: overallStatus,
         backlogs,
         stalled,
-        budget_pct: Math.round(budget.pct_used),
+        budget: budgetStatus,
         scaling_actions: scalingActions,
         recovery_actions: recoveryActions,
       },
@@ -256,28 +279,6 @@ async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
   });
 }
 
-// ─── Token Budget ────────────────────────────────────────────────
-
-async function checkTokenBudget(db: D1Database): Promise<TokenBudget> {
-  const result = await db.prepare(`
-    SELECT COALESCE(SUM(tokens_used), 0) as total
-    FROM agent_runs
-    WHERE started_at >= datetime('now', 'start of day')
-      AND tokens_used > 0
-  `).first<{ total: number }>();
-
-  const usedToday = result?.total ?? 0;
-  const pctUsed = (usedToday / DAILY_TOKEN_LIMIT) * 100;
-
-  return {
-    used_today: usedToday,
-    daily_limit: DAILY_TOKEN_LIMIT,
-    pct_used: pctUsed,
-    throttle_analyst: pctUsed > 80,
-    throttle_observer: pctUsed > 90,
-  };
-}
-
 // ─── Scaling ─────────────────────────────────────────────────────
 
 async function scaleAgents(
@@ -285,16 +286,17 @@ async function scaleAgents(
   env: AgentContext['env'],
   ctx: AgentContext,
   backlogs: Backlog,
-  budget: TokenBudget
+  budget: BudgetStatus,
+  limits: AgentBudgetLimits
 ): Promise<number> {
   // We need the agent runner + modules to trigger agents
   const { agentModules } = await import('./index');
   const { executeAgent } = await import('../lib/agentRunner');
   let actions = 0;
 
-  // Scale Cartographer
+  // Scale Cartographer (geo enrichment is non-AI, but AI classification may be throttled)
   const cartBacklog = backlogs.cartographer;
-  if (cartBacklog > 0) {
+  if (cartBacklog > 0 && !limits.pause_all_ai) {
     const cfg = SCALING.cartographer;
     const instances = cartBacklog >= cfg.high ? cfg.max_parallel
       : cartBacklog >= cfg.medium ? 2
@@ -335,9 +337,10 @@ async function scaleAgents(
   }
 
   // Scale Analyst — factor in TOTAL unlinked backlog, not just recent
+  // Emergency: pause all AI. Hard/Soft: reduced batches handled by agent limits.
   const analystBacklog = backlogs.analyst;
   const totalUnlinked = backlogs.totalUnlinked;
-  if ((analystBacklog > 0 || totalUnlinked > 0) && !budget.throttle_analyst) {
+  if ((analystBacklog > 0 || totalUnlinked > 0) && !limits.pause_all_ai) {
     // If total unlinked > 50k, max scale; > 10k, scale to 2; else use recent backlog
     const instances = totalUnlinked > 50000 ? 3
       : totalUnlinked > 10000 ? 2
@@ -349,7 +352,10 @@ async function scaleAgents(
     const analystMod = agentModules['analyst'];
     if (analystMod) {
       for (let i = 0; i < instances; i++) {
-        executeAgent(env, analystMod, { trigger: 'flight_control' }, 'flight_control', 'event')
+        executeAgent(env, analystMod, {
+          trigger: 'flight_control',
+          budget_batch_limit: limits.analyst_batch,
+        }, 'flight_control', 'event')
           .catch(() => { /* logged by agentRunner */ });
         actions++;
       }
@@ -357,14 +363,14 @@ async function scaleAgents(
 
     if (instances > 1) {
       await logActivity(db, 'flight_control', 'info', 'scaling',
-        `Scaling Analyst to ${instances} parallel instances (backlog: ${analystBacklog}, unlinked: ${totalUnlinked})`,
-        { agent: 'analyst', instances, backlog: analystBacklog, total_unlinked: totalUnlinked }
+        `Scaling Analyst to ${instances} parallel instances (backlog: ${analystBacklog}, unlinked: ${totalUnlinked}, batch limit: ${limits.analyst_batch})`,
+        { agent: 'analyst', instances, backlog: analystBacklog, total_unlinked: totalUnlinked, batch_limit: limits.analyst_batch }
       );
     }
-  } else if (budget.throttle_analyst && analystBacklog > 0) {
-    await logActivity(db, 'flight_control', 'warning', 'throttle',
-      `Analyst throttled — token budget at ${Math.round(budget.pct_used)}%`,
-      { budget_pct: Math.round(budget.pct_used), analyst_backlog: analystBacklog }
+  } else if (limits.pause_all_ai && analystBacklog > 0) {
+    await logActivity(db, 'flight_control', 'critical', 'throttle',
+      `Analyst paused — budget ${budget.throttle_level} ($${budget.spent_this_month}/$${budget.config.monthly_limit_usd})`,
+      { throttle_level: budget.throttle_level, spent: budget.spent_this_month }
     );
   }
 
