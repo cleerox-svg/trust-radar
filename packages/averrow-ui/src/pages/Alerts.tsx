@@ -1,47 +1,690 @@
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import { SectionLabel } from '@/components/ui/SectionLabel';
+import { useState, useMemo } from 'react';
+import { cn } from '@/lib/cn';
+import { StatCard } from '@/components/ui/StatCard';
+import { Badge } from '@/components/ui/Badge';
+import {
+  useAlerts, useAlertStats, useUpdateAlert, useBulkAcknowledge, useBulkTakedown,
+  type Alert, type AlertFilters,
+} from '@/hooks/useAlerts';
 
-export function Alerts() {
-  const [total, setTotal] = useState<number | null>(null);
+// ── Helpers ─────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetch('/api/v1/alerts?status=open&limit=1')
-      .then(r => r.json())
-      .then(d => setTotal(d.total ?? 0))
-      .catch(() => setTotal(0));
-  }, []);
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function extractScore(summary: string): number | null {
+  const m = summary.match(/(\d+)%/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function extractHandle(title: string): string {
+  const m = title.match(/@[\w.]+/);
+  return m ? m[0] : title;
+}
+
+function extractPlatform(title: string): string {
+  const lower = title.toLowerCase();
+  if (lower.includes('tiktok')) return 'TikTok';
+  if (lower.includes('youtube')) return 'YouTube';
+  if (lower.includes('github')) return 'GitHub';
+  if (lower.includes('linkedin')) return 'LinkedIn';
+  if (lower.includes('twitter') || lower.includes(' x ')) return 'X';
+  if (lower.includes('instagram')) return 'Instagram';
+  if (lower.includes('facebook')) return 'Facebook';
+  return 'Social';
+}
+
+const platformColors: Record<string, string> = {
+  TikTok: 'bg-[#00d4ff]/15 text-[#00d4ff] border-[#00d4ff]/30',
+  YouTube: 'bg-red-500/15 text-red-400 border-red-500/30',
+  GitHub: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  LinkedIn: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  X: 'bg-white/10 text-white/80 border-white/20',
+  Instagram: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
+  Facebook: 'bg-blue-600/15 text-blue-400 border-blue-600/30',
+  Social: 'bg-contrail/10 text-contrail border-contrail/20',
+};
+
+const severityBadgeMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+};
+
+// ── Filter Pills ────────────────────────────────────────────────
+
+interface PillGroupProps {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string;
+  onChange: (v: string) => void;
+}
+
+function PillGroup({ label, options, selected, onChange }: PillGroupProps) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/40 mr-1">{label}</span>
+      {options.map(o => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'font-mono text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border transition-all',
+            selected === o.value
+              ? 'bg-orbital-teal/15 text-[#00d4ff] border-orbital-teal/40'
+              : 'bg-white/[0.03] text-contrail/50 border-white/[0.06] hover:border-white/15 hover:text-contrail/70',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Brand Group ─────────────────────────────────────────────────
+
+interface BrandGroup {
+  brand_id: string;
+  brand_name: string | null;
+  brand_domain: string | null;
+  alerts: Alert[];
+}
+
+function groupByBrand(alerts: Alert[]): BrandGroup[] {
+  const map = new Map<string, BrandGroup>();
+  for (const a of alerts) {
+    const key = a.brand_id || 'unknown';
+    if (!map.has(key)) {
+      map.set(key, { brand_id: key, brand_name: a.brand_name, brand_domain: a.brand_domain, alerts: [] });
+    }
+    map.get(key)!.alerts.push(a);
+  }
+  return Array.from(map.values()).sort((a, b) => b.alerts.length - a.alerts.length);
+}
+
+interface BrandGroupCardProps {
+  group: BrandGroup;
+  selectedAlertId: string | null;
+  onSelectAlert: (a: Alert) => void;
+  onAcknowledgeAll: () => void;
+  onCreateTakedowns: () => void;
+  isAcknowledging: boolean;
+  isCreatingTakedowns: boolean;
+}
+
+function BrandGroupCard({
+  group, selectedAlertId, onSelectAlert,
+  onAcknowledgeAll, onCreateTakedowns,
+  isAcknowledging, isCreatingTakedowns,
+}: BrandGroupCardProps) {
+  const [expanded, setExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const visibleAlerts = showAll ? group.alerts : group.alerts.slice(0, 5);
+  const remaining = group.alerts.length - 5;
+  const newCount = group.alerts.filter(a => a.status === 'new').length;
 
   return (
-    <div className="space-y-6">
+    <div className="glass-card rounded-xl overflow-hidden">
+      {/* Group header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors"
+      >
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${group.brand_domain ?? 'example.com'}&sz=32`}
+          alt=""
+          className="w-5 h-5 rounded-sm"
+        />
+        <div className="flex-1 text-left min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-display text-sm font-bold text-parchment uppercase tracking-wide">
+              {group.brand_name ?? 'Unknown Brand'}
+            </span>
+            <Badge variant="critical">{group.alerts.length} alerts</Badge>
+          </div>
+          <div className="font-mono text-[10px] text-white/40">{group.brand_domain ?? ''}</div>
+        </div>
+        <svg
+          className={cn('w-4 h-4 text-contrail/40 transition-transform', expanded && 'rotate-180')}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <>
+          {/* Alert rows */}
+          <div className="border-t border-white/[0.06]">
+            {visibleAlerts.map(alert => {
+              const score = extractScore(alert.summary);
+              const handle = extractHandle(alert.title);
+              const platform = extractPlatform(alert.title);
+              const isSelected = selectedAlertId === alert.id;
+
+              return (
+                <button
+                  key={alert.id}
+                  onClick={() => onSelectAlert(alert)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all border-l-2',
+                    isSelected
+                      ? 'bg-orbital-teal/[0.06] border-l-orbital-teal'
+                      : 'border-l-transparent hover:bg-white/[0.02] hover:border-l-white/10',
+                  )}
+                >
+                  {/* Severity dot */}
+                  <span className={cn(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    alert.severity === 'CRITICAL' && 'bg-[#f87171] dot-pulse-red',
+                    alert.severity === 'HIGH' && 'bg-[#fb923c] dot-pulse-amber',
+                    alert.severity === 'MEDIUM' && 'bg-[#fbbf24]',
+                    alert.severity === 'LOW' && 'bg-contrail',
+                  )} />
+
+                  {/* Handle + platform */}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-mono text-[11px] font-semibold text-parchment">{handle}</span>
+                    <span className="font-mono text-[10px] text-white/40 ml-1.5">on</span>
+                    <span className={cn(
+                      'ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
+                      platformColors[platform] ?? platformColors.Social,
+                    )}>
+                      {platform}
+                    </span>
+                  </div>
+
+                  {/* Score */}
+                  {score !== null && (
+                    <span className={cn(
+                      'font-mono text-[12px] font-bold tabular-nums',
+                      score >= 75 ? 'text-[#fb923c]' : 'text-contrail/60',
+                    )}>
+                      {score}%
+                    </span>
+                  )}
+
+                  {/* Severity badge */}
+                  <Badge variant={severityBadgeMap[alert.severity] ?? 'low'}>{alert.severity}</Badge>
+
+                  {/* Status */}
+                  <span className={cn(
+                    'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
+                    alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
+                    alert.status === 'acknowledged' && 'bg-orbital-teal/15 text-[#00d4ff]',
+                    alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
+                    alert.status === 'false_positive' && 'bg-white/5 text-white/40',
+                  )}>
+                    {alert.status === 'false_positive' ? 'dismissed' : alert.status}
+                  </span>
+
+                  {/* Time */}
+                  <span className="font-mono text-[10px] text-white/30 tabular-nums w-14 text-right flex-shrink-0">
+                    {timeAgo(alert.created_at)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Show more + actions */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/[0.06]">
+            <div className="flex items-center gap-2">
+              {remaining > 0 && !showAll && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="font-mono text-[10px] font-semibold text-orbital-teal hover:text-thrust transition-colors"
+                >
+                  + {remaining} more
+                </button>
+              )}
+              {showAll && remaining > 0 && (
+                <button
+                  onClick={() => setShowAll(false)}
+                  className="font-mono text-[10px] font-semibold text-contrail/50 hover:text-contrail transition-colors"
+                >
+                  Show less
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {newCount > 0 && (
+                <button
+                  onClick={onAcknowledgeAll}
+                  disabled={isAcknowledging}
+                  className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md border border-orbital-teal/30 text-[#00d4ff] hover:bg-orbital-teal/10 transition-all disabled:opacity-50"
+                >
+                  {isAcknowledging ? 'Acknowledging...' : 'Acknowledge All'}
+                </button>
+              )}
+              <button
+                onClick={onCreateTakedowns}
+                disabled={isCreatingTakedowns}
+                className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-accent text-parchment hover:bg-accent/80 transition-all disabled:opacity-50"
+              >
+                {isCreatingTakedowns ? 'Creating...' : 'Create Takedowns'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Alert Detail Panel ──────────────────────────────────────────
+
+interface AlertDetailProps {
+  alert: Alert;
+  onClose: () => void;
+  onUpdate: (status: string, notes?: string) => void;
+  isUpdating: boolean;
+}
+
+function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps) {
+  const [notes, setNotes] = useState(alert.resolution_notes ?? '');
+  const score = extractScore(alert.summary);
+  const handle = extractHandle(alert.title);
+  const platform = extractPlatform(alert.title);
+
+  return (
+    <div className="glass-card glass-card-teal rounded-xl p-5 mt-1">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Badge variant={severityBadgeMap[alert.severity] ?? 'low'}>{alert.severity}</Badge>
+          <span className={cn(
+            'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
+            alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
+            alert.status === 'acknowledged' && 'bg-orbital-teal/15 text-[#00d4ff]',
+            alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
+            alert.status === 'false_positive' && 'bg-white/5 text-white/40',
+          )}>
+            {alert.status === 'false_positive' ? 'dismissed' : alert.status}
+          </span>
+          <span className="badge-glass badge-nexus font-mono text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border">
+            Social Impersonation
+          </span>
+        </div>
+        <button onClick={onClose} className="text-contrail/40 hover:text-parchment transition-colors p-1">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* LEFT — Alert Details */}
+        <div className="space-y-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Alert Details</div>
+
+          <div className="flex items-center gap-2">
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${alert.brand_domain ?? 'example.com'}&sz=32`}
+              alt=""
+              className="w-4 h-4 rounded-sm"
+            />
+            <span className="font-display text-sm font-bold text-parchment">{alert.brand_name ?? 'Unknown'}</span>
+            <span className="font-mono text-[10px] text-white/40">{alert.brand_domain ?? ''}</span>
+          </div>
+
+          <div>
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Platform</div>
+            <span className={cn(
+              'inline-flex items-center font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border',
+              platformColors[platform] ?? platformColors.Social,
+            )}>
+              {platform}
+            </span>
+          </div>
+
+          <div>
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Handle Detected</div>
+            <span className="font-mono text-[13px] font-bold text-parchment">{handle}</span>
+          </div>
+
+          {score !== null && (
+            <div>
+              <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Impersonation Score</div>
+              <div className="flex items-baseline gap-2">
+                <span className={cn(
+                  'font-display text-[28px] font-extrabold tabular-nums leading-none',
+                  score >= 75 ? 'text-[#fb923c] glow-amber' : 'text-contrail',
+                )}>
+                  {score}%
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Detected</div>
+            <span className="font-mono text-[11px] text-parchment/70">{timeAgo(alert.created_at)}</span>
+          </div>
+
+          <div>
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Source</div>
+            <span className="font-mono text-[11px] text-contrail/60">Social Monitor Agent</span>
+          </div>
+        </div>
+
+        {/* CENTER — Evidence & Assessment */}
+        <div className="space-y-3 border-l border-white/[0.06] pl-5">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Evidence & Assessment</div>
+
+          <div>
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Summary</div>
+            <p className="text-[12px] text-parchment/80 leading-relaxed">{alert.summary}</p>
+          </div>
+
+          {score !== null && (
+            <div>
+              <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Score</div>
+              <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${score}%`,
+                    backgroundColor: score >= 75 ? '#fb923c' : score >= 50 ? '#fbbf24' : '#78A0C8',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">AI Assessment</div>
+            {alert.ai_assessment ? (
+              <div className="space-y-2">
+                <p className="text-[12px] text-parchment/80 leading-relaxed">{alert.ai_assessment}</p>
+                {alert.ai_recommendations && (
+                  <div>
+                    <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Recommendations</div>
+                    <p className="text-[12px] text-contrail/70 leading-relaxed">{alert.ai_recommendations}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-[11px] text-contrail/40 italic">No AI assessment yet</div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT — Actions */}
+        <div className="space-y-3 border-l border-white/[0.06] pl-5">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Actions</div>
+
+          <div className="flex flex-col gap-2">
+            {alert.status === 'new' && (
+              <>
+                <button
+                  onClick={() => onUpdate('acknowledged')}
+                  disabled={isUpdating}
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-orbital-teal/30 text-[#00d4ff] hover:bg-orbital-teal/10 transition-all disabled:opacity-50"
+                >
+                  Acknowledge
+                </button>
+                <button
+                  onClick={() => onUpdate('false_positive')}
+                  disabled={isUpdating}
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                >
+                  Dismiss
+                </button>
+              </>
+            )}
+            {alert.status === 'acknowledged' && (
+              <>
+                <button
+                  onClick={() => onUpdate('resolved')}
+                  disabled={isUpdating}
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md bg-[#28A050] text-white hover:bg-[#28A050]/80 transition-all disabled:opacity-50"
+                >
+                  Mark Resolved
+                </button>
+                <button
+                  onClick={() => onUpdate('new')}
+                  disabled={isUpdating}
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                >
+                  Re-open
+                </button>
+              </>
+            )}
+            {alert.status === 'resolved' && (
+              <button
+                onClick={() => onUpdate('new')}
+                disabled={isUpdating}
+                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+              >
+                Re-open
+              </button>
+            )}
+            {alert.status === 'false_positive' && (
+              <button
+                onClick={() => onUpdate('new')}
+                disabled={isUpdating}
+                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+              >
+                Re-open
+              </button>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="pt-2">
+            <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Notes</div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Add notes..."
+              rows={3}
+              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-orbital-teal/30 resize-none font-mono"
+            />
+            {notes !== (alert.resolution_notes ?? '') && (
+              <button
+                onClick={() => onUpdate(alert.status, notes)}
+                disabled={isUpdating}
+                className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-orbital-teal/15 text-[#00d4ff] border border-orbital-teal/30 hover:bg-orbital-teal/25 transition-all disabled:opacity-50"
+              >
+                Save Notes
+              </button>
+            )}
+          </div>
+
+          {/* Resolution notes */}
+          {alert.status === 'resolved' && alert.resolution_notes && (
+            <div className="pt-2">
+              <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Resolution Notes</div>
+              <p className="text-[11px] text-parchment/70 leading-relaxed">{alert.resolution_notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ───────────────────────────────────────────────────
+
+export function Alerts() {
+  const [filters, setFilters] = useState<AlertFilters>({ limit: 200 });
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [search, setSearch] = useState('');
+
+  const { data: statsData, isLoading: statsLoading } = useAlertStats();
+  const { data: alertsData, isLoading: alertsLoading } = useAlerts({
+    ...filters,
+    search: search || undefined,
+  });
+
+  const updateAlert = useUpdateAlert();
+  const bulkAck = useBulkAcknowledge();
+  const bulkTakedown = useBulkTakedown();
+
+  const alerts = alertsData?.alerts ?? [];
+  const stats = statsData;
+
+  const groups = useMemo(() => groupByBrand(alerts), [alerts]);
+
+  const setFilter = (key: keyof AlertFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value === 'all' ? undefined : value }));
+    setSelectedAlert(null);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Page header */}
       <div>
         <h1 className="text-xl font-bold text-parchment font-display">Alerts</h1>
         <p className="text-sm text-contrail/50 font-mono mt-1">Active contacts requiring attention</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card hover={false}>
-          <SectionLabel className="mb-2">Open Alerts</SectionLabel>
-          <div className="text-2xl font-bold text-parchment font-display">
-            {total !== null ? total : '—'}
-          </div>
-        </Card>
-        <Card hover={false}>
-          <SectionLabel className="mb-2">Status</SectionLabel>
-          <div className="text-sm text-contrail/60 font-mono">Monitoring</div>
-        </Card>
-        <Card hover={false}>
-          <SectionLabel className="mb-2">Last Check</SectionLabel>
-          <div className="text-sm text-contrail/60 font-mono">Just now</div>
-        </Card>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          label="Total Alerts"
+          value={statsLoading ? '...' : (stats?.total ?? 0)}
+          accentColor="#C83C3C"
+        />
+        <StatCard
+          label="New / Unacknowledged"
+          value={statsLoading ? '...' : (stats?.new_count ?? 0)}
+          accentColor="#FB923C"
+        />
+        <StatCard
+          label="Acknowledged"
+          value={statsLoading ? '...' : (stats?.acknowledged ?? 0)}
+          accentColor="#00d4ff"
+        />
+        <StatCard
+          label="Resolved"
+          value={statsLoading ? '...' : (stats?.resolved ?? 0)}
+          accentColor="#4ADE80"
+        />
       </div>
 
-      <Card hover={false}>
-        <SectionLabel className="mb-3">Alert Management</SectionLabel>
-        <p className="text-sm text-contrail/40">
-          Full alert management with triage, assignment, and escalation coming soon.
-        </p>
-      </Card>
+      {/* Warning banner */}
+      {stats && stats.new_count > 0 && (
+        <div className="glass-card glass-card-red rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#f87171] dot-pulse-red flex-shrink-0" />
+          <span className="font-mono text-[11px] font-semibold text-parchment">
+            {stats.new_count} unacknowledged {stats.high > 0 ? 'HIGH' : ''} severity alert{stats.new_count !== 1 ? 's' : ''} require review
+          </span>
+        </div>
+      )}
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-4">
+        <PillGroup
+          label="Status"
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'new', label: 'New' },
+            { value: 'acknowledged', label: 'Ack' },
+            { value: 'resolved', label: 'Resolved' },
+            { value: 'false_positive', label: 'Dismissed' },
+          ]}
+          selected={filters.status ?? 'all'}
+          onChange={v => setFilter('status', v)}
+        />
+        <PillGroup
+          label="Severity"
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'CRITICAL', label: 'Critical' },
+            { value: 'HIGH', label: 'High' },
+            { value: 'MEDIUM', label: 'Medium' },
+          ]}
+          selected={filters.severity ?? 'all'}
+          onChange={v => setFilter('severity', v)}
+        />
+        <PillGroup
+          label="Type"
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'social_impersonation', label: 'Social' },
+            { value: 'phishing_detected', label: 'Phishing' },
+            { value: 'lookalike_domain_active', label: 'Lookalike' },
+          ]}
+          selected={filters.alert_type ?? 'all'}
+          onChange={v => setFilter('alert_type', v)}
+        />
+
+        {/* Search */}
+        <div className="ml-auto">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search alerts..."
+            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-orbital-teal/30 font-mono"
+          />
+        </div>
+      </div>
+
+      {/* Loading */}
+      {alertsLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-6 h-6 border-2 border-orbital-teal/30 border-t-orbital-teal rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Grouped alert list */}
+      {!alertsLoading && (
+        <div className="space-y-3">
+          {groups.length === 0 && (
+            <div className="glass-card rounded-xl p-8 text-center">
+              <div className="font-mono text-[11px] text-contrail/40">No alerts match your filters</div>
+            </div>
+          )}
+
+          {groups.map(group => (
+            <div key={group.brand_id}>
+              <BrandGroupCard
+                group={group}
+                selectedAlertId={selectedAlert?.id ?? null}
+                onSelectAlert={a => setSelectedAlert(prev => prev?.id === a.id ? null : a)}
+                onAcknowledgeAll={() => bulkAck.mutate({ brand_id: group.brand_id })}
+                onCreateTakedowns={() => bulkTakedown.mutate({ brand_id: group.brand_id })}
+                isAcknowledging={bulkAck.isPending}
+                isCreatingTakedowns={bulkTakedown.isPending}
+              />
+
+              {/* Detail panel - rendered below the group */}
+              {selectedAlert && group.alerts.some(a => a.id === selectedAlert.id) && (
+                <AlertDetail
+                  alert={selectedAlert}
+                  onClose={() => setSelectedAlert(null)}
+                  onUpdate={(status, notes) => {
+                    updateAlert.mutate(
+                      { id: selectedAlert.id, status, notes },
+                      { onSuccess: () => setSelectedAlert(null) },
+                    );
+                  }}
+                  isUpdating={updateAlert.isPending}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Total count */}
+      {!alertsLoading && alertsData && (
+        <div className="text-center font-mono text-[10px] text-white/20 pb-4">
+          Showing {alerts.length} of {alertsData.total} alerts
+        </div>
+      )}
     </div>
   );
 }
