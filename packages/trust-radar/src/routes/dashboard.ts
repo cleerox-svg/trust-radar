@@ -10,7 +10,7 @@ import {
 } from "../handlers/observatory";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "../handlers/dashboard";
 import { handleSignals, handleIngestSignal } from "../handlers/signals";
-import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats } from "../handlers/alerts";
+import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats, handleBulkAcknowledge, handleBulkTakedown } from "../handlers/alerts";
 import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
@@ -83,6 +83,16 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListAlerts(request, env, ctx.userId);
+  });
+  router.post("/api/alerts/bulk-acknowledge", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBulkAcknowledge(request, env, ctx.userId);
+  });
+  router.post("/api/alerts/bulk-takedown", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBulkTakedown(request, env, ctx.userId);
   });
 
   // ─── Notifications ────────────────────────────────────────────────
