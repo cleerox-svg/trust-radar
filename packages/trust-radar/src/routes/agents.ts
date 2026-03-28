@@ -4,8 +4,8 @@ import type { Env } from "../types";
 import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
 import {
   handleListAgents, handleGetAgent, handleTriggerAgent, handleTriggerAllAgents, handleAgentRuns,
-  handleListApprovals, handleResolveApproval, handleTrustBotChat, handleAgentStats,
-  handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
+  handleAgentTokenUsage, handleListApprovals, handleResolveApproval, handleTrustBotChat,
+  handleAgentStats, handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
   handleAgentApiUsage, handleAgentConfig,
 } from "../handlers/agents";
 
@@ -34,6 +34,11 @@ export function registerAgentRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAgentRuns(request, env);
+  });
+  router.get("/api/agents/token-usage", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAgentTokenUsage(request, env);
   });
   router.get("/api/agents/outputs", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);

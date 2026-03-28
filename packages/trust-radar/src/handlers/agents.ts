@@ -3,7 +3,7 @@ import { executeAgent, resolveApproval } from "../lib/agentRunner";
 import type { AgentName, TriggerType } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
 import { getDailyUsage } from "../lib/haiku";
-import { handler, parsePagination, parseFilters, buildWhereClause, success, error, parseBody } from "../lib/handler-utils";
+import { handler, parsePagination, parseFilters, buildWhereClause, paginatedResponse, success, error, parseBody } from "../lib/handler-utils";
 import type { Env } from "../types";
 
 // ─── Derive agent definitions from modules ──────────────────────
@@ -223,22 +223,66 @@ export async function handleTriggerAllAgents(
 
 // ─── Get run history across all agents ──────────────────────────
 export const handleAgentRuns = handler(async (request, env, ctx) => {
-  const { limit } = parsePagination(request);
-  const agentFilter = new URL(request.url).searchParams.get("agent");
+  const { limit, offset } = parsePagination(request);
+  const url = new URL(request.url);
+  const agentFilter = url.searchParams.get("agent");
+  const statusFilter = url.searchParams.get("status");
+  const window = url.searchParams.get("window");
 
-  let query = `SELECT id, agent_id, status, records_processed, outputs_generated,
-                      duration_ms, error_message, started_at, completed_at
-               FROM agent_runs`;
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
 
   if (agentFilter) {
-    query += ` WHERE agent_id = ?`;
-    const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
-      .bind(agentFilter, limit).all();
-    return success(rows.results, ctx.origin);
+    conditions.push("agent_id = ?");
+    bindings.push(agentFilter);
+  }
+  if (statusFilter) {
+    conditions.push("status = ?");
+    bindings.push(statusFilter);
+  }
+  if (window) {
+    const windowMap: Record<string, string> = {
+      "24h": "-1 day", "7d": "-7 days", "30d": "-30 days",
+    };
+    const interval = windowMap[window];
+    if (interval) {
+      conditions.push("started_at >= datetime('now', ?)");
+      bindings.push(interval);
+    }
   }
 
-  const rows = await env.DB.prepare(query + " ORDER BY started_at DESC LIMIT ?")
-    .bind(limit).all();
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const [rows, countRow] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, agent_id, status, records_processed, outputs_generated,
+              duration_ms, tokens_used, input_tokens, output_tokens,
+              error_message, started_at, completed_at
+       FROM agent_runs ${where}
+       ORDER BY started_at DESC LIMIT ? OFFSET ?`
+    ).bind(...bindings, limit, offset).all(),
+    env.DB.prepare(
+      `SELECT COUNT(*) as total FROM agent_runs ${where}`
+    ).bind(...bindings).first<{ total: number }>(),
+  ]);
+
+  return paginatedResponse(rows.results, countRow?.total ?? 0, ctx.origin);
+});
+
+// ─── Token usage by agent (all time) ───────────────────────────
+export const handleAgentTokenUsage = handler(async (_request, env, ctx) => {
+  const rows = await env.DB.prepare(
+    `SELECT agent_id,
+            SUM(tokens_used) as total_tokens,
+            SUM(input_tokens) as total_input_tokens,
+            SUM(output_tokens) as total_output_tokens,
+            COUNT(*) as runs_with_tokens
+     FROM agent_runs
+     WHERE tokens_used > 0
+     GROUP BY agent_id
+     ORDER BY total_tokens DESC`
+  ).all<{ agent_id: string; total_tokens: number; total_input_tokens: number; total_output_tokens: number; runs_with_tokens: number }>();
+
   return success(rows.results, ctx.origin);
 });
 

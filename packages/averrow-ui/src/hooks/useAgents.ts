@@ -158,6 +158,9 @@ export interface AgentRun {
   records_processed: number;
   outputs_generated: number;
   duration_ms: number | null;
+  tokens_used: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
   error_message: string | null;
   started_at: string;
   completed_at: string | null;
@@ -224,6 +227,59 @@ export function useAgentHealth(agentName: string) {
     },
     enabled: !!agentName,
     refetchInterval: 30_000,
+  });
+}
+
+// ─── Agent run history (paginated, filterable) ─────────────────
+export interface AgentRunsParams {
+  agent?: string;
+  status?: string;
+  window?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AgentRunsResponse {
+  data: AgentRun[];
+  total: number;
+}
+
+export function useAgentRuns(params: AgentRunsParams) {
+  const qs = new URLSearchParams();
+  if (params.agent) qs.set('agent', params.agent);
+  if (params.status) qs.set('status', params.status);
+  if (params.window) qs.set('window', params.window);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  const queryString = qs.toString();
+
+  return useQuery({
+    queryKey: ['agent-runs', queryString],
+    queryFn: async () => {
+      const res = await api.get<AgentRun[]>(`/api/agents/runs?${queryString}`);
+      return { data: res.data || [], total: (res as unknown as { total?: number }).total ?? 0 };
+    },
+    refetchInterval: 30_000,
+  });
+}
+
+// ─── Token usage by agent ──────────────────────────────────────
+export interface TokenUsageEntry {
+  agent_id: string;
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  runs_with_tokens: number;
+}
+
+export function useAgentTokenUsage() {
+  return useQuery({
+    queryKey: ['agent-token-usage'],
+    queryFn: async () => {
+      const res = await api.get<TokenUsageEntry[]>('/api/agents/token-usage');
+      return res.data || [];
+    },
+    refetchInterval: 60_000,
   });
 }
 
