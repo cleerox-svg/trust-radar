@@ -9,6 +9,7 @@ import { useAgents } from '@/hooks/useAgents';
 import { useOperations } from '@/hooks/useOperations';
 import type { Operation } from '@/hooks/useOperations';
 import { Badge } from '@/components/ui/Badge';
+import { EventTicker } from '@/components/observatory/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
@@ -119,7 +120,7 @@ export function Observatory() {
   return (
     <div className="relative h-[calc(100vh-3rem)] -m-6 overflow-hidden">
       {/* Full-screen map */}
-      <div className="absolute inset-0 bottom-[52px]">
+      <div className="absolute inset-0 bottom-[84px]">
         <ThreatMap
           threats={threats}
           arcs={arcs}
@@ -217,7 +218,7 @@ export function Observatory() {
 
       {/* Bottom-left: Legend */}
       {mapMode === 'global' && (
-        <div className="absolute bottom-[68px] left-4 z-10">
+        <div className="absolute bottom-[100px] left-4 z-10">
           <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
             <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
               {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
@@ -247,7 +248,7 @@ export function Observatory() {
 
       {/* Heatmap legend (bottom-left) */}
       {mapMode === 'heatmap' && (
-        <div className="absolute bottom-[68px] left-4 z-10">
+        <div className="absolute bottom-[100px] left-4 z-10">
           <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-4 glass-card glass-card-teal">
             <div className="section-label mb-3">Attack Density ({period.toUpperCase()})</div>
             <div className="flex items-center gap-3 mb-3">
@@ -264,13 +265,18 @@ export function Observatory() {
       )}
 
       {/* Bottom-right: LIVE indicator */}
-      <div className="absolute bottom-[68px] right-4 z-10">
+      <div className="absolute bottom-[100px] right-4 z-10">
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
           <span className="live-indicator">LIVE</span>
           <span className="font-mono text-[10px] text-contrail/40 tabular-nums">
             {threats.length.toLocaleString()} threats
           </span>
         </div>
+      </div>
+
+      {/* Event ticker */}
+      <div className="absolute bottom-[52px] left-0 right-0 z-10">
+        <EventTicker />
       </div>
 
       {/* Bottom stats bar */}
@@ -390,7 +396,7 @@ export function Observatory() {
 
       {/* ─── Right sidebar panel ─── */}
       {showPanel && mapMode !== 'heatmap' && (
-        <div className="absolute top-0 right-0 bottom-[52px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+        <div className="absolute top-0 right-0 bottom-[84px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
           {/* Mode-aware header */}
           {mapMode === 'global' && (
             <>

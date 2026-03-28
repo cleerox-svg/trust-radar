@@ -359,3 +359,97 @@
   font-variant-numeric: tabular-nums;
   font-family: 'IBM Plex Mono', monospace;
 }
+
+/* ── EVENT TICKER ───────────────────────────── */
+.event-ticker {
+  height: 32px;
+  background: rgba(4, 9, 18, 0.92);
+  border-top: 1px solid rgba(0, 212, 255, 0.15);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  backdrop-filter: blur(8px);
+}
+
+.ticker-label {
+  flex-shrink: 0;
+  padding: 0 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 212, 255, 0.08);
+  border-right: 1px solid rgba(0, 212, 255, 0.2);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #00D4FF;
+  text-transform: uppercase;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ticker-track {
+  display: flex;
+  align-items: center;
+  animation: ticker-scroll 60s linear infinite;
+  white-space: nowrap;
+  gap: 0;
+  will-change: transform;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.7);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+}
+
+.ticker-item-critical { color: #f87171; }
+.ticker-item-high     { color: #fb923c; }
+.ticker-item-warning  { color: #fbbf24; }
+.ticker-item-info     { color: rgba(255, 255, 255, 0.6); }
+.ticker-item-success  { color: #4ADE80; }
+
+.ticker-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ticker-dot-critical { background: #f87171; box-shadow: 0 0 4px rgba(248,113,113,0.8); }
+.ticker-dot-high     { background: #fb923c; box-shadow: 0 0 4px rgba(251,146,60,0.8); }
+.ticker-dot-warning  { background: #fbbf24; box-shadow: 0 0 4px rgba(251,191,36,0.6); }
+.ticker-dot-info     { background: rgba(255,255,255,0.3); }
+.ticker-dot-success  { background: #4ADE80; box-shadow: 0 0 4px rgba(74,222,128,0.6); }
+
+.ticker-agent {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.55rem;
+  opacity: 0.7;
+}
+
+.ticker-bullet {
+  color: rgba(0, 212, 255, 0.4);
+  font-size: 0.5rem;
+  padding: 0 4px;
+}
