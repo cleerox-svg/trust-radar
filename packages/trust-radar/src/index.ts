@@ -256,6 +256,30 @@ export default {
         });
       }
 
+      // Agent outputs endpoint (ticker feed)
+      if (url.pathname === '/api/v1/agents/outputs' && request.method === 'GET') {
+        const limit = Math.min(50, parseInt(url.searchParams.get('limit') ?? '10'));
+        const severityParam = url.searchParams.get('severity');
+        const allowed = ['critical', 'high', 'medium', 'low', 'info'];
+        const severities = severityParam
+          ? severityParam.split(',').map(s => s.trim()).filter(s => allowed.includes(s))
+          : ['critical', 'high'];
+
+        const placeholders = severities.map(() => '?').join(',');
+        const rows = await env.DB.prepare(`
+          SELECT agent_id, type, summary, severity, created_at
+          FROM agent_outputs
+          WHERE severity IN (${placeholders})
+            AND summary IS NOT NULL
+            AND LENGTH(summary) > 10
+            AND created_at >= datetime('now', '-24 hours')
+          ORDER BY created_at DESC
+          LIMIT ?
+        `).bind(...severities, limit).all();
+
+        return Response.json({ success: true, data: rows.results });
+      }
+
       // Agent activity log endpoint
       if (url.pathname === '/api/v1/agents/activity' && request.method === 'GET') {
         const limit = parseInt(url.searchParams.get('limit') ?? '50');
