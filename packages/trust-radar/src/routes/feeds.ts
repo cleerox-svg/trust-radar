@@ -6,10 +6,29 @@ import { json } from "../lib/cors";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
-  handleResetCircuit, handleFeedQuota,
+  handleResetCircuit, handleFeedQuota, handleFeedsOverview, handleFeedPullHistory,
+  handleFeedsAggregateStats,
 } from "../handlers/feeds";
 
 export function registerFeedRoutes(router: RouterType<IRequest>): void {
+  // ─── Feeds page endpoints (aggregated overview) ──────────────
+  router.get("/api/feeds/overview", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleFeedsOverview(request, env);
+  });
+  router.get("/api/feeds/aggregate-stats", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleFeedsAggregateStats(request, env);
+  });
+  router.get("/api/feeds/:id/history", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleFeedPullHistory(request, env, request.params["id"] ?? "");
+  });
+
+  // ─── Existing feed endpoints ─────────────────────────────────
   router.get("/api/feeds", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
