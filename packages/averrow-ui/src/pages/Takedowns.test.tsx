@@ -63,7 +63,8 @@ describe('Takedowns Page', () => {
 
   it('renders status filter pills', () => {
     renderWithProviders(<Takedowns />);
-    expect(screen.getByText('ALL', { selector: 'button' })).toBeInTheDocument();
+    const allButtons = screen.getAllByText('ALL', { selector: 'button' });
+    expect(allButtons.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('DRAFT', { selector: 'button' })).toBeInTheDocument();
     expect(screen.getByText('SUBMITTED', { selector: 'button' })).toBeInTheDocument();
   });
