@@ -25,6 +25,8 @@ interface AgentHealth {
 interface Backlog {
   cartographer: number;
   analyst: number;
+  totalUnlinked: number;
+  totalNoGeo: number;
 }
 
 interface TokenBudget {
@@ -70,15 +72,46 @@ export const flightControlAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budget] = await Promise.all([
+    const [backlogs, health, budget, lastCuratorRun, unscannedEmails] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
       checkTokenBudget(db),
+      db.prepare(`
+        SELECT MAX(created_at) as last_run
+        FROM agent_outputs
+        WHERE agent_id = 'curator' AND type = 'hygiene_report'
+      `).first<{ last_run: string | null }>(),
+      db.prepare(`
+        SELECT COUNT(*) as count FROM brands
+        WHERE email_security_grade IS NULL
+      `).first<{ count: number }>(),
     ]);
 
     // Fire-and-forget scaling (no await — don't block on spawning agents)
     const scalingActions = await scaleAgents(db, env, ctx, backlogs, budget);
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
+
+    // ── Curator weekly trigger ─────────────────────────────────
+    const lastRun = lastCuratorRun?.last_run
+      ? new Date(lastCuratorRun.last_run + 'Z')
+      : null;
+    const daysSinceCuratorRun = lastRun
+      ? (Date.now() - lastRun.getTime()) / (1000 * 60 * 60 * 24)
+      : 999;
+
+    // Run if: > 6 days since last run (weekly) OR email scan backlog very large
+    if (daysSinceCuratorRun > 6 || (unscannedEmails?.count ?? 0) > 5000) {
+      const { curatorAgent } = await import('./curator');
+      const { executeAgent } = await import('../lib/agentRunner');
+      executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event')
+        .catch(() => { /* logged by agentRunner */ });
+
+      await logActivity(db, 'flight_control', 'info', 'scheduling',
+        'Triggered Curator weekly hygiene run', {
+          days_since_last: Math.round(daysSinceCuratorRun),
+          unscanned_emails: unscannedEmails?.count ?? 0,
+        });
+    }
 
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
     const overallStatus = stalled.length > 0 ? 'degraded'
@@ -108,7 +141,7 @@ export const flightControlAgent: AgentModule = {
       'flight_control',
       'info',
       'batch_complete',
-      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}`,
+      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, unlinked: ${backlogs.totalUnlinked}, no_geo: ${backlogs.totalNoGeo}`,
       { backlogs, stalled, budget_pct: Math.round(budget.pct_used), scaling: scalingActions, recovery: recoveryActions }
     );
 
@@ -132,28 +165,44 @@ export const flightControlAgent: AgentModule = {
 // ─── Backlog Measurement ─────────────────────────────────────────
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
-  // Cartographer backlog: unenriched threats with IPs or domains
-  // Single indexed COUNT — fast
-  const cartResult = await db.prepare(`
-    SELECT COUNT(*) as count FROM threats
-    WHERE enriched_at IS NULL
-      AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
-  `).first<{ count: number }>();
+  // Run all backlog queries in parallel
+  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult] = await Promise.all([
+    // Cartographer backlog: unenriched threats with IPs or domains
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE enriched_at IS NULL
+        AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+    `).first<{ count: number }>(),
 
-  // Analyst backlog: brands with recent threats but no recent analyst output
-  // Simplified — just count brands with threats in last 24h
-  // Avoid the expensive NOT EXISTS + LIKE correlated subquery entirely
-  const analystResult = await db.prepare(`
-    SELECT COUNT(DISTINCT target_brand_id) as count
-    FROM threats
-    WHERE first_seen >= datetime('now', '-24 hours')
-      AND target_brand_id IS NOT NULL
+    // Analyst backlog: brands with recent threats but no recent analyst output
+    db.prepare(`
+      SELECT COUNT(DISTINCT target_brand_id) as count
+      FROM threats
+      WHERE first_seen >= datetime('now', '-24 hours')
+        AND target_brand_id IS NOT NULL
+        AND status = 'active'
+    `).first<{ count: number }>(),
+
+    // Total unlinked threat backlog (not just recent)
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE target_brand_id IS NULL
       AND status = 'active'
-  `).first<{ count: number }>();
+    `).first<{ count: number }>(),
+
+    // Total geo backlog
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE (lat IS NULL OR lng IS NULL)
+      AND status = 'active'
+    `).first<{ count: number }>(),
+  ]);
 
   return {
     cartographer: cartResult?.count ?? 0,
     analyst: analystResult?.count ?? 0,
+    totalUnlinked: totalUnlinkedResult?.count ?? 0,
+    totalNoGeo: totalNoGeoResult?.count ?? 0,
   };
 }
 
@@ -269,13 +318,33 @@ async function scaleAgents(
     }
   }
 
-  // Scale Analyst (only if within token budget)
+  // Cartographer geo backlog — trigger geo enrichment if geo backlog is large
+  // and cartographer isn't already busy with unenriched threats
+  if (backlogs.totalNoGeo > 5000 && cartBacklog === 0) {
+    const cartMod2 = agentModules['cartographer'];
+    if (cartMod2) {
+      executeAgent(env, cartMod2, { trigger: 'flight_control', mode: 'geo_backlog', priority: 'low' }, 'flight_control', 'event')
+        .catch(() => { /* logged by agentRunner */ });
+      actions++;
+
+      await logActivity(db, 'flight_control', 'info', 'scaling',
+        `Queued Cartographer geo backlog run (${backlogs.totalNoGeo} threats missing geo)`,
+        { agent: 'cartographer', mode: 'geo_backlog', no_geo_count: backlogs.totalNoGeo }
+      );
+    }
+  }
+
+  // Scale Analyst — factor in TOTAL unlinked backlog, not just recent
   const analystBacklog = backlogs.analyst;
-  if (analystBacklog > 0 && !budget.throttle_analyst) {
-    const cfg = SCALING.analyst;
-    const instances = analystBacklog >= cfg.high ? cfg.max_parallel
-      : analystBacklog >= cfg.medium ? 2
-      : 1;
+  const totalUnlinked = backlogs.totalUnlinked;
+  if ((analystBacklog > 0 || totalUnlinked > 0) && !budget.throttle_analyst) {
+    // If total unlinked > 50k, max scale; > 10k, scale to 2; else use recent backlog
+    const instances = totalUnlinked > 50000 ? 3
+      : totalUnlinked > 10000 ? 2
+      : analystBacklog >= SCALING.analyst.high ? SCALING.analyst.max_parallel
+      : analystBacklog >= SCALING.analyst.medium ? 2
+      : analystBacklog > 0 ? 1
+      : 0;
 
     const analystMod = agentModules['analyst'];
     if (analystMod) {
@@ -288,8 +357,8 @@ async function scaleAgents(
 
     if (instances > 1) {
       await logActivity(db, 'flight_control', 'info', 'scaling',
-        `Scaling Analyst to ${instances} parallel instances (backlog: ${analystBacklog})`,
-        { agent: 'analyst', instances, backlog: analystBacklog }
+        `Scaling Analyst to ${instances} parallel instances (backlog: ${analystBacklog}, unlinked: ${totalUnlinked})`,
+        { agent: 'analyst', instances, backlog: analystBacklog, total_unlinked: totalUnlinked }
       );
     }
   } else if (budget.throttle_analyst && analystBacklog > 0) {

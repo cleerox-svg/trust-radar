@@ -90,11 +90,18 @@ const AGENT_REGISTRY: Record<string, {
     schedule: 'every 4 hours',
     trigger: 'cron',
   },
+  curator: {
+    displayName: 'Curator',
+    description: 'Platform Hygiene & Data Quality',
+    color: '#4ADE80',
+    schedule: 'Weekly (Sunday, FC-triggered)',
+    trigger: 'event',
+  },
 };
 
 const AGENT_ORDER = [
   'sentinel', 'cartographer', 'nexus', 'analyst', 'observer',
-  'sparrow', 'prospector', 'strategist',
+  'sparrow', 'prospector', 'strategist', 'curator',
 ];
 
 // ─── Status helpers ─────────────────────────────────────────────────
