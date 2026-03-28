@@ -19,6 +19,8 @@ import { handleLatestInsights } from "../handlers/insights";
 import {
   handleTrendVolume, handleTrendBrands, handleTrendProviders,
   handleTrendTLDs, handleTrendTypes, handleTrendCompare,
+  handleTrendIntelligence, handleTrendThreatVolume, handleTrendBrandMomentum,
+  handleTrendProviderMomentum, handleTrendNexusActive,
 } from "../handlers/trends";
 
 export function registerDashboardRoutes(router: RouterType<IRequest>): void {
@@ -164,5 +166,32 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendCompare(request, env);
+  });
+
+  // ─── Trend Intelligence ───────────────────────────────────────────
+  router.get("/api/trends/intelligence", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTrendIntelligence(request, env);
+  });
+  router.get("/api/trends/threat-volume", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTrendThreatVolume(request, env);
+  });
+  router.get("/api/trends/brand-momentum", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTrendBrandMomentum(request, env);
+  });
+  router.get("/api/trends/provider-momentum", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTrendProviderMomentum(request, env);
+  });
+  router.get("/api/trends/nexus-active", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTrendNexusActive(request, env);
   });
 }
