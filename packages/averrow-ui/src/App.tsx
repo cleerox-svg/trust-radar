@@ -7,11 +7,13 @@ import { Observatory } from '@/pages/Observatory';
 import { Brands } from '@/pages/Brands';
 import { BrandDetail } from '@/pages/BrandDetail';
 import { Agents } from '@/pages/Agents';
-import { AgentConfig } from '@/pages/AgentConfig';
 import { Takedowns } from '@/pages/Takedowns';
 import { SpamTrap } from '@/pages/SpamTrap';
-import { Leads } from '@/pages/Leads';
+import { Alerts } from '@/pages/Alerts';
+import { Feeds } from '@/pages/Feeds';
 import { AdminDashboard } from '@/pages/AdminDashboard';
+import { AdminUsers } from '@/pages/AdminUsers';
+import { AdminAudit } from '@/pages/AdminAudit';
 import { Providers } from '@/pages/Providers';
 import { ProviderDetail } from '@/pages/ProviderDetail';
 import { Campaigns } from '@/pages/Campaigns';
@@ -53,11 +55,13 @@ export default function App() {
         <Route path="campaigns/:campaignId" element={<ErrorBoundary><CampaignDetail /></ErrorBoundary>} />
         <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
         <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
+        <Route path="alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
+        <Route path="feeds" element={<ErrorBoundary><Feeds /></ErrorBoundary>} />
         <Route path="admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-        <Route path="admin/agent-config" element={<ErrorBoundary><AgentConfig /></ErrorBoundary>} />
         <Route path="admin/takedowns" element={<ErrorBoundary><Takedowns /></ErrorBoundary>} />
         <Route path="admin/spam-trap" element={<ErrorBoundary><SpamTrap /></ErrorBoundary>} />
-        <Route path="admin/leads" element={<ErrorBoundary><Leads /></ErrorBoundary>} />
+        <Route path="admin/users" element={<ErrorBoundary><AdminUsers /></ErrorBoundary>} />
+        <Route path="admin/audit" element={<ErrorBoundary><AdminAudit /></ErrorBoundary>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
