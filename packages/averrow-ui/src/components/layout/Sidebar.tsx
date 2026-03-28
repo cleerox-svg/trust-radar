@@ -1,21 +1,26 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import {
+  Globe, Shield, Server, Activity, TrendingUp,
+  Gavel, Bell, Inbox,
+  Cpu, Rss, LayoutDashboard, Users, ClipboardList,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/lib/auth';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
 
-const navItems = [
-  { to: '/observatory', label: 'Observatory', section: 'platform' },
-  { to: '/brands', label: 'Brands', section: 'platform' },
-  { to: '/providers', label: 'Providers', section: 'platform' },
-  { to: '/campaigns', label: 'Operations', section: 'platform' },
-  { to: '/trends', label: 'Trends', section: 'platform' },
-  { to: '/agents', label: 'Agents', section: 'platform' },
-  { to: '/admin', label: 'Dashboard', section: 'admin' },
-  { to: '/admin/agent-config', label: 'Agent Config', section: 'admin' },
-  { to: '/admin/takedowns', label: 'Takedowns', section: 'admin' },
-  { to: '/admin/spam-trap', label: 'Spam Trap', section: 'admin' },
-  { to: '/admin/leads', label: 'Leads', section: 'admin' },
-];
+interface NavItem {
+  label: string;
+  path: string;
+  icon: LucideIcon;
+  badge?: number;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -23,8 +28,50 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
-  const platformItems = navItems.filter(n => n.section === 'platform');
-  const adminItems = navItems.filter(n => n.section === 'admin');
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    const fetchAlerts = () => {
+      fetch('/api/v1/alerts?status=open&limit=1')
+        .then(r => r.json())
+        .then(d => setAlertCount(d.total ?? 0))
+        .catch(() => {});
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const NAV_SECTIONS: NavSection[] = [
+    {
+      label: 'INTELLIGENCE',
+      items: [
+        { label: 'Observatory',  path: '/observatory',  icon: Globe },
+        { label: 'Brands',       path: '/brands',       icon: Shield },
+        { label: 'Providers',    path: '/providers',     icon: Server },
+        { label: 'Operations',   path: '/campaigns',     icon: Activity },
+        { label: 'Trends',       path: '/trends',        icon: TrendingUp },
+      ],
+    },
+    {
+      label: 'RESPONSE',
+      items: [
+        { label: 'Takedowns',    path: '/admin/takedowns',  icon: Gavel },
+        { label: 'Alerts',       path: '/alerts',           icon: Bell, badge: alertCount },
+        { label: 'Spam Trap',    path: '/admin/spam-trap',  icon: Inbox },
+      ],
+    },
+    {
+      label: 'PLATFORM',
+      items: [
+        { label: 'Agents',       path: '/agents',           icon: Cpu },
+        { label: 'Feeds',        path: '/feeds',             icon: Rss },
+        { label: 'Dashboard',    path: '/admin',             icon: LayoutDashboard },
+        { label: 'Users',        path: '/admin/users',       icon: Users },
+        { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
+      ],
+    },
+  ];
 
   return (
     <aside className="w-56 h-full bg-instrument border-r border-[rgba(0,212,255,0.08)] flex flex-col">
@@ -32,37 +79,32 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <AverrowLogo />
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="section-label px-3 pt-3 pb-1">Platform</div>
-        {platformItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onNavigate}
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-              isActive
-                ? 'nav-item-active text-[#00D4FF] font-medium'
-                : 'text-parchment/70 hover:bg-white/5 hover:text-parchment'
-            )}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-        <div className="section-label px-3 pt-6 pb-1">Admin</div>
-        {adminItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onNavigate}
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-              isActive
-                ? 'nav-item-active text-[#00D4FF] font-medium'
-                : 'text-parchment/70 hover:bg-white/5 hover:text-parchment'
-            )}
-          >
-            {item.label}
-          </NavLink>
+        {NAV_SECTIONS.map((section, idx) => (
+          <div key={section.label} className={idx > 0 ? 'mt-2' : ''}>
+            <div className="section-label px-3 pt-3 pb-1">{section.label}</div>
+            {section.items.map(item => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onNavigate}
+                end={item.path === '/observatory'}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  isActive
+                    ? 'nav-item-active text-[#00D4FF] font-medium'
+                    : 'text-parchment/70 hover:bg-white/5 hover:text-parchment'
+                )}
+              >
+                <item.icon size={16} className="shrink-0 opacity-70" />
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="badge-glass badge-critical ml-auto text-xs px-1.5 py-0.5">
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="p-4 border-t border-white/5">
