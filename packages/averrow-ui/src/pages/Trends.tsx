@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useTrends';
 import type { IntelligenceBriefing, VolumePoint } from '@/hooks/useTrends';
 import { Card } from '@/components/ui/Card';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -61,7 +62,7 @@ function ChartTooltip({ active, payload, label }: {
       {payload.map((p) => (
         <div key={p.name} className="flex justify-between gap-4">
           <span style={{ color: p.color }}>{THREAT_TYPE_LABELS[p.name] ?? p.name}</span>
-          <span className="font-mono text-parchment">{p.value.toLocaleString()}</span>
+          <span className="font-mono text-parchment">{(p.value ?? 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -217,16 +218,26 @@ function BrandRiskMomentum() {
               </tr>
             </thead>
             <tbody>
-              {brands.map((b) => (
-                <tr key={b.brand_name} className="border-t border-white/5">
-                  <td className="py-2 text-parchment">{b.brand_name}</td>
-                  <td className="py-2 text-right font-mono text-parchment/80">{b.this_week}</td>
-                  <td className="py-2 text-right font-mono text-contrail/60">{b.last_week}</td>
-                  <td className={`py-2 text-right font-mono font-semibold ${changeGlow(b.change_pct)}`}>
-                    {b.change_pct > 0 ? '+' : ''}{b.change_pct.toFixed(0)}%
-                  </td>
-                </tr>
-              ))}
+              {brands.map((b) => {
+                const thisWeek = b.this_week ?? 0;
+                const lastWeek = b.last_week ?? 0;
+                const changePct = lastWeek === 0
+                  ? (thisWeek > 0 ? 100 : 0)
+                  : ((thisWeek - lastWeek) / lastWeek) * 100;
+                const displayChange = isFinite(changePct)
+                  ? `${changePct > 0 ? '+' : ''}${Math.round(changePct)}%`
+                  : 'NEW';
+                return (
+                  <tr key={b.brand_name} className="border-t border-white/5">
+                    <td className="py-2 text-parchment">{b.brand_name}</td>
+                    <td className="py-2 text-right font-mono text-parchment/80">{thisWeek.toLocaleString()}</td>
+                    <td className="py-2 text-right font-mono text-contrail/60">{lastWeek.toLocaleString()}</td>
+                    <td className={`py-2 text-right font-mono font-semibold ${changeGlow(isFinite(changePct) ? changePct : 0)}`}>
+                      {displayChange}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -242,12 +253,13 @@ function ProviderMomentumPanel() {
   const { data: clusters, isLoading: nexusLoading } = useNexusActive();
 
   const maxCount = providers?.length
-    ? Math.max(...providers.map((p) => p.count))
+    ? Math.max(...providers.map((p) => p.count ?? 0), 1)
     : 1;
 
-  function barColor(count: number): string {
-    if (count > 500) return '#C83C3C';
-    if (count > 100) return '#E8923C';
+  function barColor(count: number | undefined | null): string {
+    const c = count ?? 0;
+    if (c > 500) return '#C83C3C';
+    if (c > 100) return '#E8923C';
     return '#00d4ff';
   }
 
@@ -262,8 +274,9 @@ function ProviderMomentumPanel() {
         ) : (
           <div className="space-y-2">
             {providers.map((p) => {
-              const pct = (p.count / maxCount) * 100;
-              const color = barColor(p.count);
+              const count = p.count ?? 0;
+              const pct = (count / maxCount) * 100;
+              const color = barColor(count);
               return (
                 <div key={p.provider} className="flex items-center gap-3">
                   <div className="w-28 text-xs text-parchment/80 truncate font-mono">{p.provider}</div>
@@ -274,7 +287,7 @@ function ProviderMomentumPanel() {
                     />
                   </div>
                   <div className="font-mono text-[11px] text-contrail/60 w-12 text-right">
-                    {p.count.toLocaleString()}
+                    {count.toLocaleString()}
                   </div>
                 </div>
               );
@@ -301,7 +314,7 @@ function ProviderMomentumPanel() {
                   <span className="text-xs text-parchment truncate">{c.label}</span>
                 </div>
                 <span className="font-mono text-[10px] text-contrail/50 shrink-0">
-                  {c.threat_count} threats
+                  {(c.threat_count ?? 0).toLocaleString()} threats
                 </span>
               </div>
             ))}
@@ -349,7 +362,7 @@ function ThreatTypeTotals({ volume }: { volume: VolumePoint[] }) {
                 const item = payload[0];
                 return (
                   <div className="glass-card rounded-lg px-3 py-2 text-xs">
-                    <span className="text-parchment font-mono">{item.value?.toLocaleString()}</span>
+                    <span className="text-parchment font-mono">{((item.value as number) ?? 0).toLocaleString()}</span>
                   </div>
                 );
               }}
@@ -368,7 +381,7 @@ function ThreatTypeTotals({ volume }: { volume: VolumePoint[] }) {
 
 /* ── Main Page ── */
 
-export function Trends() {
+function TrendsContent() {
   const [window, setWindow] = useState<string>('30d');
   const { data: volume, isLoading } = useThreatVolume(window);
 
@@ -413,5 +426,13 @@ export function Trends() {
       {/* Section 4: Threat Type Totals */}
       {volume?.length ? <ThreatTypeTotals volume={volume} /> : null}
     </div>
+  );
+}
+
+export function Trends() {
+  return (
+    <ErrorBoundary>
+      <TrendsContent />
+    </ErrorBoundary>
   );
 }
