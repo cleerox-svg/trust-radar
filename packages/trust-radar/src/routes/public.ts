@@ -60,10 +60,22 @@ const LEGACY_REDIRECTS: Record<string, string> = {
 };
 
 export function registerPublicRoutes(router: RouterType<IRequest>): void {
-  // ─── Root → /v2 redirect (Phase 8 cutover) ──────────────────────
-  router.get("/", (request: Request) => {
-    const url = new URL(request.url);
-    return Response.redirect(`${url.origin}/v2`, 301);
+  // ─── Root — session-aware redirect ────────────────────────────────
+  // Logged-in users (have radar_refresh cookie) → /v2
+  // Everyone else → public marketing homepage
+  router.get("/", async (request: Request) => {
+    const cookies = request.headers.get("Cookie") ?? "";
+    const hasSession = cookies.split(";").some(c => c.trim().startsWith("radar_refresh=") && c.trim() !== "radar_refresh=");
+    if (hasSession) {
+      const url = new URL(request.url);
+      return Response.redirect(`${url.origin}/v2`, 302);
+    }
+    return new Response(renderHomepage(), {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=300, s-maxage=600",
+      },
+    });
   });
 
   // ─── Legacy redirects (old admin routes → /v2) ──────────────────
