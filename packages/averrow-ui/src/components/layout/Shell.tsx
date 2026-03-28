@@ -11,19 +11,27 @@ export function Shell() {
 
   return (
     <div className="flex h-screen bg-cockpit">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <div className={cn(
-        'fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-200 lg:translate-x-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
-        <Sidebar onNavigate={() => setSidebarOpen(false)} />
+      {/* Desktop sidebar — always visible on lg+ */}
+      <div className="hidden lg:block">
+        <Sidebar />
       </div>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm lg:hidden"
+            style={{ zIndex: 'var(--z-sidebar-overlay)' }}
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div
+            className="fixed left-0 top-0 bottom-0 w-72 bg-[#040912] border-r border-white/10 transform transition-transform duration-200 lg:hidden"
+            style={{ zIndex: 'var(--z-sidebar)' }}
+          >
+            <Sidebar onNavigate={() => setSidebarOpen(false)} />
+          </div>
+        </>
+      )}
 
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />

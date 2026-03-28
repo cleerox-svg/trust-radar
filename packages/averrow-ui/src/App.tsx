@@ -20,6 +20,9 @@ import { Campaigns } from '@/pages/Campaigns';
 import { CampaignDetail } from '@/pages/CampaignDetail';
 import { Trends } from '@/pages/Trends';
 import { NotFound } from '@/pages/NotFound';
+import { Profile } from '@/pages/Profile';
+import { Notifications } from '@/pages/Notifications';
+import { NotificationPreferences } from '@/pages/NotificationPreferences';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -62,6 +65,9 @@ export default function App() {
         <Route path="admin/spam-trap" element={<ErrorBoundary><SpamTrap /></ErrorBoundary>} />
         <Route path="admin/users" element={<ErrorBoundary><AdminUsers /></ErrorBoundary>} />
         <Route path="admin/audit" element={<ErrorBoundary><AdminAudit /></ErrorBoundary>} />
+        <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+        <Route path="notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
+        <Route path="notifications/preferences" element={<ErrorBoundary><NotificationPreferences /></ErrorBoundary>} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
