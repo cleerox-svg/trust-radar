@@ -266,16 +266,18 @@ export function ThreatMap({
           ),
         }));
 
+        const isMobileViewport = window.innerWidth < 768;
+
         layers.push(
           new PathLayer({
             id: 'beam-glow',
             data: arcDataWithPaths,
             getPath: (d: any) => d.bezierPath,
             getColor: (d: any) => getArcColor(d, colorBy, 51),
-            getWidth: (d: any) => Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
+            getWidth: (d: any) => isMobileViewport ? 2.5 : Math.max(1, Math.min(3, (d.volume || 1) * 0.3)),
             widthUnits: 'pixels',
-            widthMinPixels: 1,
-            widthMaxPixels: 2,
+            widthMinPixels: isMobileViewport ? 2 : 1,
+            widthMaxPixels: isMobileViewport ? 4 : 2,
             updateTriggers: { getColor: colorBy },
           })
         );
@@ -285,10 +287,10 @@ export function ThreatMap({
             data: arcDataWithPaths,
             getPath: (d: any) => d.bezierPath,
             getColor: (d: any) => getArcColor(d, colorBy, 76),
-            getWidth: 1,
+            getWidth: isMobileViewport ? 2.5 : 1,
             widthUnits: 'pixels',
-            widthMinPixels: 1,
-            widthMaxPixels: 1,
+            widthMinPixels: isMobileViewport ? 2 : 1,
+            widthMaxPixels: isMobileViewport ? 3 : 1,
             updateTriggers: { getColor: colorBy },
             pickable: true,
             onHover: ({ object, x, y }: any) => {

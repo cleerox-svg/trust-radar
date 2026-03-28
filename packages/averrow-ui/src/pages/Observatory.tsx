@@ -12,9 +12,10 @@ import { Badge } from '@/components/ui/Badge';
 import { EventTicker } from '@/components/observatory/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useIsMobile } from '@/hooks/useWindowWidth';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 const PERIODS = [
   { id: '24h', label: '24H' },
@@ -49,7 +50,7 @@ function countryFlag(code: string): string {
 }
 
 export function Observatory() {
-  const isMobile = useIsMobile();
+  const { isMobile } = useBreakpoint();
   const [period, setPeriod] = useState('7d');
   const [source, setSource] = useState('all');
   const [showBeams, setShowBeams] = useState(true);
@@ -139,79 +140,130 @@ export function Observatory() {
       </div>
 
       {/* Top-left: Mode switcher + Period selector + Color mode */}
-      <div className="absolute top-4 left-4 right-4 md:right-auto z-10 flex flex-wrap md:flex-nowrap gap-1.5 md:gap-2 overflow-x-auto scrollbar-none">
-        {/* Mode switcher */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-          {MAP_MODES.map(m => (
-            <button
-              key={m.id}
-              onClick={() => setMapMode(m.id)}
-              className={cn(
-                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-                mapMode === m.id ? 'glass-btn-active' : 'glass-btn'
-              )}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Period selector */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-          {PERIODS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPeriod(p.id)}
-              className={cn(
-                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-                period === p.id ? 'glass-btn-active' : 'glass-btn'
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Color mode (Global mode only) */}
-        {mapMode === 'global' && (
-          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-            <button
-              onClick={() => setColorBy('severity')}
-              className={cn(
-                'font-mono text-[10px] px-2 py-1 rounded transition-all',
-                colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
-              )}
-            >
-              {isMobile ? 'Sev' : 'Severity'}
-            </button>
-            <button
-              onClick={() => setColorBy('type')}
-              className={cn(
-                'font-mono text-[10px] px-2 py-1 rounded transition-all',
-                colorBy === 'type' ? 'glass-btn-active' : 'glass-btn'
-              )}
-            >
-              Type
-            </button>
+      {isMobile ? (
+        <div className="absolute top-3 left-3 right-3 z-10 flex flex-col gap-1.5">
+          {/* Row 1: Mode tabs */}
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1 flex gap-1 h-10" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            {MAP_MODES.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setMapMode(m.id)}
+                className={cn(
+                  'font-mono text-[10px] font-bold flex-1 rounded transition-all',
+                  mapMode === m.id ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
-        )}
-
-        {/* Source filter */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-          {SOURCES.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSource(s.id)}
-              className={cn(
-                'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
-                source === s.id ? 'glass-btn-active' : 'glass-btn'
-              )}
+          {/* Row 2: Period + Color/Source filters */}
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1 flex gap-1 h-10" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            <select
+              value={period}
+              onChange={e => setPeriod(e.target.value)}
+              className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
             >
-              {isMobile && s.id === 'all' ? 'All' : s.label}
-            </button>
-          ))}
+              {PERIODS.map(p => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
+            {mapMode === 'global' && (
+              <select
+                value={colorBy}
+                onChange={e => setColorBy(e.target.value as 'severity' | 'type')}
+                className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
+              >
+                <option value="severity">Severity</option>
+                <option value="type">Type</option>
+              </select>
+            )}
+            <select
+              value={source}
+              onChange={e => setSource(e.target.value)}
+              className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
+            >
+              {SOURCES.map(s => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
+          {/* Mode switcher */}
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            {MAP_MODES.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setMapMode(m.id)}
+                className={cn(
+                  'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+                  mapMode === m.id ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Period selector */}
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            {PERIODS.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={cn(
+                  'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+                  period === p.id ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Color mode (Global mode only) */}
+          {mapMode === 'global' && (
+            <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+              <button
+                onClick={() => setColorBy('severity')}
+                className={cn(
+                  'font-mono text-[10px] px-2 py-1 rounded transition-all',
+                  colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                Severity
+              </button>
+              <button
+                onClick={() => setColorBy('type')}
+                className={cn(
+                  'font-mono text-[10px] px-2 py-1 rounded transition-all',
+                  colorBy === 'type' ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                Type
+              </button>
+            </div>
+          )}
+
+          {/* Source filter */}
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+            {SOURCES.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSource(s.id)}
+                className={cn(
+                  'font-mono text-[10px] font-bold px-3 py-1 rounded transition-all',
+                  source === s.id ? 'glass-btn-active' : 'glass-btn'
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Top-right: Live clock — hidden on mobile to avoid overlap with control bar */}
       <div className="hidden md:block absolute top-4 right-16 z-10">
@@ -318,9 +370,9 @@ export function Observatory() {
         >
           <button
             onClick={() => setClickedArc(null)}
-            className="absolute top-2 right-2 text-white/30 hover:text-white text-xs"
+            className="absolute top-2 right-2 glass-btn p-1.5 rounded md:bg-transparent md:p-0"
           >
-            {'\u2715'}
+            <X className="w-4 h-4 text-white/50 hover:text-white" />
           </button>
           <div className="font-mono text-[11px] text-parchment font-bold mb-1">
             {clickedArc.arc.source_region} {'\u2192'} {clickedArc.arc.brand_name || 'Unknown'}
@@ -362,9 +414,9 @@ export function Observatory() {
         >
           <button
             onClick={() => setClickedCluster(null)}
-            className="absolute top-2 right-2 text-white/30 hover:text-white text-xs"
+            className="absolute top-2 right-2 glass-btn p-1.5 rounded md:bg-transparent md:p-0"
           >
-            {'\u2715'}
+            <X className="w-4 h-4 text-white/50 hover:text-white" />
           </button>
           {clickedCluster.cluster.agent_notes?.includes('ACCELERATING') && (
             <span className="badge-glass badge-accelerating font-mono text-[9px] font-bold mb-2 inline-block">ACCELERATING</span>
