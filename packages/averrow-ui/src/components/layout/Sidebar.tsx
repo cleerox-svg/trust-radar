@@ -67,7 +67,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Agents',       path: '/agents',           icon: Cpu },
         { label: 'Feeds',        path: '/feeds',             icon: Rss },
         { label: 'Dashboard',    path: '/admin',             icon: LayoutDashboard },
-        { label: 'Users',        path: '/admin/users',       icon: Users },
+        { label: 'Organization', path: '/admin/users',       icon: Users },
         { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
       ],
     },

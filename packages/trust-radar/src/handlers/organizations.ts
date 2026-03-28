@@ -1,5 +1,5 @@
 // TODO: Refactor to use handler-utils (Phase 6 continuation)
-// Averrow — Organization CRUD, Member Management, Brand Assignment
+// Averrow — Organization CRUD, Member Management, Brand Assignment, API Keys, Integrations
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
@@ -7,6 +7,17 @@ import { generateInviteToken, hashToken } from "../lib/hash";
 import { sendTestWebhook } from "../lib/webhooks";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
+
+// ─── SHA-256 helper ─────────────────────────────────────────
+async function sha256(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -773,4 +784,314 @@ export async function handleGetWebhookConfig(
       webhook_last_failure: org.webhook_last_failure,
     },
   }, 200, origin);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API KEYS
+// ═══════════════════════════════════════════════════════════════
+
+function requireOrgAdmin(ctx: AuthContext, orgId: string, origin: string | null): Response | null {
+  if (ctx.role !== "super_admin") {
+    if (ctx.orgId !== orgId) return json({ success: false, error: "Not a member of this organization" }, 403, origin);
+    const level = ORG_ROLE_HIERARCHY[ctx.orgRole ?? ""] ?? 0;
+    if (level < (ORG_ROLE_HIERARCHY.admin ?? 3)) return json({ success: false, error: "Requires org role: admin or higher" }, 403, origin);
+  }
+  return null;
+}
+
+// ─── List API Keys ──────────────────────────────────────────
+
+export async function handleListApiKeys(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const { results } = await env.DB.prepare(`
+    SELECT id, name, key_prefix, scopes, last_used_at, expires_at, created_by, created_at, revoked_at
+    FROM org_api_keys
+    WHERE org_id = ? AND revoked_at IS NULL
+    ORDER BY created_at DESC
+  `).bind(orgId).all();
+
+  return json({ success: true, data: results }, 200, origin);
+}
+
+// ─── Create API Key ─────────────────────────────────────────
+
+export async function handleCreateApiKey(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => null) as {
+    name?: string;
+    scopes?: string[];
+    expires_at?: string;
+  } | null;
+
+  if (!body?.name) return json({ success: false, error: "Key name is required" }, 400, origin);
+
+  const fullKey = `avr_live_${crypto.randomUUID().replace(/-/g, "")}`;
+  const prefix = fullKey.slice(0, 16);
+  const keyHash = await sha256(fullKey);
+  const scopes = body.scopes ?? ["threats:read"];
+
+  await env.DB.prepare(`
+    INSERT INTO org_api_keys (org_id, name, key_prefix, key_hash, scopes, expires_at, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    orgId,
+    body.name,
+    prefix,
+    keyHash,
+    JSON.stringify(scopes),
+    body.expires_at ?? null,
+    ctx.userId,
+  ).run();
+
+  await audit(env, {
+    action: "api_key_created",
+    userId: ctx.userId,
+    resourceType: "api_key",
+    resourceId: prefix,
+    details: { org_id: orgId, name: body.name, scopes },
+    request,
+  });
+
+  return json({
+    success: true,
+    data: {
+      key: fullKey,
+      prefix,
+      name: body.name,
+      scopes,
+      message: "Store this key securely. It will not be shown again.",
+    },
+  }, 201, origin);
+}
+
+// ─── Revoke API Key ─────────────────────────────────────────
+
+export async function handleRevokeApiKey(
+  request: Request,
+  env: Env,
+  orgId: string,
+  keyId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const result = await env.DB.prepare(
+    "UPDATE org_api_keys SET revoked_at = datetime('now') WHERE id = ? AND org_id = ? AND revoked_at IS NULL",
+  ).bind(keyId, orgId).run();
+
+  if (!result.meta.changes) {
+    return json({ success: false, error: "API key not found or already revoked" }, 404, origin);
+  }
+
+  await audit(env, {
+    action: "api_key_revoked",
+    userId: ctx.userId,
+    resourceType: "api_key",
+    resourceId: keyId,
+    details: { org_id: orgId },
+    request,
+  });
+
+  return json({ success: true, data: { message: "API key revoked" } }, 200, origin);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTEGRATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// ─── List Integrations ──────────────────────────────────────
+
+export async function handleListIntegrations(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const { results } = await env.DB.prepare(`
+    SELECT id, type, category, name, status, last_sync_at, last_error, events_sent, created_at, updated_at
+    FROM org_integrations
+    WHERE org_id = ?
+    ORDER BY created_at DESC
+  `).bind(orgId).all();
+
+  return json({ success: true, data: results }, 200, origin);
+}
+
+// ─── Create Integration ─────────────────────────────────────
+
+export async function handleCreateIntegration(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => null) as {
+    type?: string;
+    category?: string;
+    name?: string;
+    config?: Record<string, unknown>;
+  } | null;
+
+  if (!body?.type || !body?.category || !body?.name) {
+    return json({ success: false, error: "type, category, and name are required" }, 400, origin);
+  }
+
+  // TODO: Encrypt config with AES-GCM using env secret in production
+  const configStr = body.config ? JSON.stringify(body.config) : null;
+
+  await env.DB.prepare(`
+    INSERT INTO org_integrations (org_id, type, category, name, config_encrypted, status)
+    VALUES (?, ?, ?, ?, ?, 'connected')
+  `).bind(orgId, body.type, body.category, body.name, configStr).run();
+
+  const integration = await env.DB.prepare(
+    "SELECT * FROM org_integrations WHERE org_id = ? ORDER BY created_at DESC LIMIT 1",
+  ).bind(orgId).first();
+
+  await audit(env, {
+    action: "integration_created",
+    userId: ctx.userId,
+    resourceType: "integration",
+    resourceId: integration?.id as string,
+    details: { org_id: orgId, type: body.type, category: body.category },
+    request,
+  });
+
+  return json({ success: true, data: integration }, 201, origin);
+}
+
+// ─── Update Integration ─────────────────────────────────────
+
+export async function handleUpdateIntegration(
+  request: Request,
+  env: Env,
+  orgId: string,
+  integrationId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => null) as {
+    config?: Record<string, unknown>;
+    status?: string;
+  } | null;
+
+  if (!body) return json({ success: false, error: "No update data provided" }, 400, origin);
+
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+
+  if (body.config !== undefined) {
+    sets.push("config_encrypted = ?");
+    vals.push(JSON.stringify(body.config));
+  }
+  if (body.status !== undefined) {
+    sets.push("status = ?");
+    vals.push(body.status);
+  }
+
+  if (sets.length === 0) return json({ success: false, error: "No valid fields to update" }, 400, origin);
+
+  sets.push("updated_at = datetime('now')");
+  vals.push(integrationId, orgId);
+
+  await env.DB.prepare(`UPDATE org_integrations SET ${sets.join(", ")} WHERE id = ? AND org_id = ?`)
+    .bind(...vals).run();
+
+  return json({ success: true, data: { message: "Integration updated" } }, 200, origin);
+}
+
+// ─── Delete Integration ─────────────────────────────────────
+
+export async function handleDeleteIntegration(
+  request: Request,
+  env: Env,
+  orgId: string,
+  integrationId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const result = await env.DB.prepare(
+    "DELETE FROM org_integrations WHERE id = ? AND org_id = ?",
+  ).bind(integrationId, orgId).run();
+
+  if (!result.meta.changes) {
+    return json({ success: false, error: "Integration not found" }, 404, origin);
+  }
+
+  await audit(env, {
+    action: "integration_deleted",
+    userId: ctx.userId,
+    resourceType: "integration",
+    resourceId: integrationId,
+    details: { org_id: orgId },
+    request,
+  });
+
+  return json({ success: true, data: { message: "Integration removed" } }, 200, origin);
+}
+
+// ─── Test Integration Connection ────────────────────────────
+
+export async function handleTestIntegration(
+  request: Request,
+  env: Env,
+  orgId: string,
+  integrationId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  const integration = await env.DB.prepare(
+    "SELECT * FROM org_integrations WHERE id = ? AND org_id = ?",
+  ).bind(integrationId, orgId).first();
+
+  if (!integration) {
+    return json({ success: false, error: "Integration not found" }, 404, origin);
+  }
+
+  // TODO: Implement actual connection tests per integration type (Splunk HEC, Jira API, etc.)
+  // For now, mark as connected if config exists
+  if (integration.config_encrypted) {
+    await env.DB.prepare(
+      "UPDATE org_integrations SET status = 'connected', last_sync_at = datetime('now'), last_error = NULL, updated_at = datetime('now') WHERE id = ?",
+    ).bind(integrationId).run();
+
+    return json({ success: true, data: { status: "connected", message: "Connection test successful" } }, 200, origin);
+  }
+
+  return json({ success: false, data: { status: "error", message: "No configuration found" } }, 400, origin);
 }

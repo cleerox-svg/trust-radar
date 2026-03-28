@@ -8,6 +8,9 @@ import {
   handleAssignOrgBrand, handleRemoveOrgBrand, handleListOrgBrands,
   handleListOrgInvites, handleRevokeOrgInvite,
   handleUpdateWebhook, handleRegenerateSecret, handleTestWebhook, handleGetWebhookConfig,
+  handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
+  handleListIntegrations, handleCreateIntegration, handleUpdateIntegration,
+  handleDeleteIntegration, handleTestIntegration,
 } from "../handlers/organizations";
 import {
   handleTenantDashboard, handleTenantAlerts, handleTenantUpdateAlert,
@@ -71,6 +74,50 @@ export function registerTenantRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleRevokeOrgInvite(request, env, request.params["orgId"] ?? "", request.params["inviteId"] ?? "", ctx);
+  });
+
+  // ─── API Keys ──────────────────────────────────────────────────────
+  router.get("/api/orgs/:orgId/api-keys", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListApiKeys(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/api-keys", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleCreateApiKey(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.delete("/api/orgs/:orgId/api-keys/:keyId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRevokeApiKey(request, env, request.params["orgId"] ?? "", request.params["keyId"] ?? "", ctx);
+  });
+
+  // ─── Integrations ────────────────────────────────────────────────
+  router.get("/api/orgs/:orgId/integrations", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListIntegrations(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/integrations", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleCreateIntegration(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.patch("/api/orgs/:orgId/integrations/:integrationId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateIntegration(request, env, request.params["orgId"] ?? "", request.params["integrationId"] ?? "", ctx);
+  });
+  router.delete("/api/orgs/:orgId/integrations/:integrationId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleDeleteIntegration(request, env, request.params["orgId"] ?? "", request.params["integrationId"] ?? "", ctx);
+  });
+  router.post("/api/orgs/:orgId/integrations/:integrationId/test", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTestIntegration(request, env, request.params["orgId"] ?? "", request.params["integrationId"] ?? "", ctx);
   });
 
   // ─── Webhook Management ───────────────────────────────────────────
