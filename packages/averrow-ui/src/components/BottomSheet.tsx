@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface BottomSheetProps {
   open: boolean;
@@ -29,7 +30,10 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
 
   if (!open) return null;
 
-  return (
+  // Portal to document.body so `fixed` positioning works correctly.
+  // Parent elements with backdrop-filter (e.g. TopBar) create a new
+  // containing block that breaks fixed positioning on mobile browsers.
+  return createPortal(
     <div className="fixed inset-0" style={{ zIndex: 'var(--z-modal)' }}>
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -47,6 +51,7 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
