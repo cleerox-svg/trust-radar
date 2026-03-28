@@ -3,6 +3,9 @@ import { useAuth } from '@/lib/auth';
 import { useSpamTrapAddresses } from '@/hooks/useSpamTrap';
 import { StatCard } from '@/components/ui/StatCard';
 import { HoneypotNetworkPanel } from '@/components/spam-trap/HoneypotNetworkPanel';
+import { CaptureForensicsPanel } from '@/components/spam-trap/CaptureForensicsPanel';
+import { CampaignPanel } from '@/components/spam-trap/CampaignPanel';
+import { ThreatActorPanel } from '@/components/spam-trap/ThreatActorPanel';
 import { PageLoader } from '@/components/ui/PageLoader';
 
 export function SpamTrap() {
@@ -49,21 +52,9 @@ export function SpamTrap() {
       {/* 2x2 panel grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <HoneypotNetworkPanel />
-        <div className="glass-card rounded-xl p-4 min-h-[400px] flex items-center justify-center">
-          <span className="text-white/20 text-sm font-mono">
-            CAPTURE FORENSICS — COMING NEXT
-          </span>
-        </div>
-        <div className="glass-card rounded-xl p-4 min-h-[400px] flex items-center justify-center">
-          <span className="text-white/20 text-sm font-mono">
-            CAMPAIGN INTELLIGENCE — COMING NEXT
-          </span>
-        </div>
-        <div className="glass-card rounded-xl p-4 min-h-[400px] flex items-center justify-center">
-          <span className="text-white/20 text-sm font-mono">
-            THREAT ACTOR PROFILING — COMING NEXT
-          </span>
-        </div>
+        <CaptureForensicsPanel />
+        <CampaignPanel />
+        <ThreatActorPanel />
       </div>
     </div>
   );

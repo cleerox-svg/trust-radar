@@ -42,9 +42,13 @@ export interface SpamTrapCaptureDetail extends SpamTrapCapture {
   raw_headers: string | null;
   return_path: string | null;
   reply_to: string | null;
+  helo_hostname: string | null;
   x_mailer: string | null;
+  spf_domain: string | null;
+  dkim_domain: string | null;
   message_id: string | null;
   spoofed_confidence: number | null;
+  brand_confidence: number | null;
 }
 
 export interface SeedAddress {
@@ -172,6 +176,7 @@ export function useSpamTrapAddresses() {
       const res = await api.get<SeedAddress[]>('/api/spam-trap/addresses');
       return (res.data ?? []) as SeedAddress[];
     },
+    refetchInterval: 60_000,
   });
 }
 
@@ -206,27 +211,5 @@ export function useRunStrategist() {
       const res = await api.post<unknown>('/api/spam-trap/strategist/run');
       return res.data ?? null;
     },
-  });
-}
-
-export interface SeedAddress {
-  id: number;
-  address: string;
-  domain: string;
-  channel: string;
-  seeded_location: string | null;
-  total_catches: number;
-  status: string;
-  seeded_at: string;
-}
-
-export function useSpamTrapAddresses() {
-  return useQuery({
-    queryKey: ['spam-trap-addresses'],
-    queryFn: async () => {
-      const res = await api.get<SeedAddress[]>('/api/spam-trap/addresses');
-      return res.data ?? [];
-    },
-    refetchInterval: 60_000,
   });
 }
