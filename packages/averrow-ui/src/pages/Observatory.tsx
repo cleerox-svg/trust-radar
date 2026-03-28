@@ -14,6 +14,7 @@ import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useWindowWidth';
 
 const PERIODS = [
   { id: '24h', label: '24H' },
@@ -48,13 +49,14 @@ function countryFlag(code: string): string {
 }
 
 export function Observatory() {
+  const isMobile = useIsMobile();
   const [period, setPeriod] = useState('7d');
   const [source, setSource] = useState('all');
   const [showBeams, setShowBeams] = useState(true);
   const [showParticles, setShowParticles] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
-  const [showPanel, setShowPanel] = useState(true);
+  const [showPanel, setShowPanel] = useState(!isMobile);
   const [clock, setClock] = useState('');
   const [mapMode, setMapMode] = useState<MapMode>('global');
 
@@ -97,9 +99,9 @@ export function Observatory() {
     if (mapMode === 'heatmap') {
       setShowPanel(false);
     } else {
-      setShowPanel(true);
+      setShowPanel(!isMobile);
     }
-  }, [mapMode]);
+  }, [mapMode, isMobile]);
 
   // Live clock
   useEffect(() => {
@@ -137,9 +139,9 @@ export function Observatory() {
       </div>
 
       {/* Top-left: Mode switcher + Period selector + Color mode */}
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
+      <div className="absolute top-4 left-4 right-4 md:right-auto z-10 flex flex-wrap md:flex-nowrap gap-1.5 md:gap-2 overflow-x-auto scrollbar-none">
         {/* Mode switcher */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           {MAP_MODES.map(m => (
             <button
               key={m.id}
@@ -155,7 +157,7 @@ export function Observatory() {
         </div>
 
         {/* Period selector */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           {PERIODS.map(p => (
             <button
               key={p.id}
@@ -172,7 +174,7 @@ export function Observatory() {
 
         {/* Color mode (Global mode only) */}
         {mapMode === 'global' && (
-          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
             <button
               onClick={() => setColorBy('severity')}
               className={cn(
@@ -180,7 +182,7 @@ export function Observatory() {
                 colorBy === 'severity' ? 'glass-btn-active' : 'glass-btn'
               )}
             >
-              Severity
+              {isMobile ? 'Sev' : 'Severity'}
             </button>
             <button
               onClick={() => setColorBy('type')}
@@ -195,7 +197,7 @@ export function Observatory() {
         )}
 
         {/* Source filter */}
-        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
+        <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1.5 flex gap-1 flex-shrink-0" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
           {SOURCES.map(s => (
             <button
               key={s.id}
@@ -205,14 +207,14 @@ export function Observatory() {
                 source === s.id ? 'glass-btn-active' : 'glass-btn'
               )}
             >
-              {s.label}
+              {isMobile && s.id === 'all' ? 'All' : s.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Top-right: Live clock */}
-      <div className="absolute top-4 right-16 z-10">
+      {/* Top-right: Live clock — hidden on mobile to avoid overlap with control bar */}
+      <div className="hidden md:block absolute top-4 right-16 z-10">
         <div className="font-mono text-accent text-lg font-bold tabular-nums">{clock}</div>
       </div>
 
@@ -281,22 +283,26 @@ export function Observatory() {
 
       {/* Bottom stats bar */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-cockpit/95 backdrop-blur-sm border-t border-white/5">
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between px-3 md:px-6 py-2 md:py-3">
           {/* Mode label */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <span className="section-label">
               {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
             </span>
           </div>
 
           {/* Stats chips */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6 overflow-x-auto scrollbar-none">
             {stats && (
               <>
-                <StatChip value={stats.threats_mapped} label="Threats Mapped" color="text-accent" />
+                <StatChip value={stats.threats_mapped} label={isMobile ? 'Threats' : 'Threats Mapped'} color="text-accent" />
                 <StatChip value={stats.countries} label="Countries" color="text-contrail" />
-                <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
-                <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
+                <div className="hidden md:block">
+                  <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
+                </div>
+                <div className="hidden md:block">
+                  <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
+                </div>
               </>
             )}
           </div>
@@ -394,9 +400,20 @@ export function Observatory() {
         </div>
       )}
 
+      {/* ─── Mobile sidebar backdrop ─── */}
+      {isMobile && showPanel && mapMode !== 'heatmap' && (
+        <div
+          className="absolute inset-0 z-10 bg-black/50 md:hidden"
+          onClick={() => setShowPanel(false)}
+        />
+      )}
+
       {/* ─── Right sidebar panel ─── */}
       {showPanel && mapMode !== 'heatmap' && (
-        <div className="absolute top-0 right-0 bottom-[84px] w-80 z-10 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+        <div className={cn(
+          'absolute top-0 right-0 bottom-[84px] z-20 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto',
+          isMobile ? 'left-0 w-full' : 'w-80'
+        )}>
           {/* Mode-aware header */}
           {mapMode === 'global' && (
             <>
@@ -455,8 +472,11 @@ export function Observatory() {
       {mapMode !== 'heatmap' && (
         <button
           onClick={() => setShowPanel(!showPanel)}
-          className="absolute top-1/2 z-20 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
-          style={showPanel ? { right: '320px' } : { right: 0 }}
+          className={cn(
+            'absolute top-1/2 z-30 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment',
+            isMobile ? 'right-0' : ''
+          )}
+          style={!isMobile && showPanel ? { right: '320px' } : !isMobile ? { right: 0 } : undefined}
         >
           {showPanel ? '\u203A' : '\u2039'}
         </button>

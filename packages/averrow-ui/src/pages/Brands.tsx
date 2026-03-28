@@ -14,6 +14,7 @@ import { CardGridLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { severityColor, severityOpacity, threatTypeColor } from '@/lib/severityColor';
+import { useIsMobile } from '@/hooks/useWindowWidth';
 
 /* ─── Types ─── */
 
@@ -305,7 +306,7 @@ function StatsRow() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[0, 1, 2, 3].map(i => (
           <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
@@ -316,7 +317,7 @@ function StatsRow() {
   const sectors = stats?.sector_breakdown?.slice(0, 3) ?? [];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
         title="Total Brands"
         metric={
@@ -428,7 +429,7 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
   return (
     <div
       onClick={() => navigate(`/brands/${brand.id}`)}
-      className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] hover:bg-white/[0.03] cursor-pointer transition-colors group"
+      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] hover:bg-white/[0.03] cursor-pointer transition-colors group min-w-0"
     >
       {/* 1. Favicon */}
       <img
@@ -456,13 +457,13 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
         <span className="text-[11px] text-white/35 font-mono truncate">{brand.canonical_domain}</span>
       </div>
 
-      {/* 3. Social dots */}
-      <div className="flex-shrink-0">
+      {/* 3. Social dots — hidden on mobile */}
+      <div className="flex-shrink-0 hidden md:block">
         <SocialDots profiles={brand.social_profiles} maxDots={4} />
       </div>
 
-      {/* 4. Sparkline */}
-      <div className="flex-shrink-0">
+      {/* 4. Sparkline — hidden on mobile */}
+      <div className="flex-shrink-0 hidden sm:block">
         <Sparkline data={brand.threat_history ?? []} width={80} height={20} />
       </div>
 
@@ -479,8 +480,8 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
         <TrendBadge trend={brand.threat_trend ?? 0} />
       </div>
 
-      {/* 7. Type pill */}
-      <div className="flex-shrink-0">
+      {/* 7. Type pill — hidden on mobile */}
+      <div className="flex-shrink-0 hidden md:block">
         {brand.top_threat_type ? (
           <span
             className="text-[9px] font-mono px-2 py-0.5 rounded border"
@@ -493,8 +494,8 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
         )}
       </div>
 
-      {/* 8. Grade badge */}
-      <div className="w-9 text-center flex-shrink-0">
+      {/* 8. Grade badge — hidden on mobile */}
+      <div className="w-9 text-center flex-shrink-0 hidden md:block">
         {gradeBadge(brand.email_security_grade)}
       </div>
 
@@ -592,9 +593,9 @@ export function Brands() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header row with title + view toggle + add brand */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-xl font-bold text-parchment">Brands</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex gap-1">
             {VIEW_OPTIONS.map(opt => (
               <button
@@ -613,9 +614,10 @@ export function Brands() {
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-1.5 rounded-lg border border-orbital-teal/50 text-orbital-teal hover:bg-orbital-teal/10 transition-colors"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-orbital-teal/50 text-orbital-teal hover:bg-orbital-teal/10 transition-colors whitespace-nowrap"
           >
-            Monitor Brand
+            <span className="hidden sm:inline">Monitor Brand</span>
+            <span className="sm:hidden">+ Brand</span>
           </button>
         </div>
       </div>
@@ -627,40 +629,42 @@ export function Brands() {
       {isLoading ? (
         <CardGridLoader count={12} />
       ) : view === 'list' ? (
-        <div className="grid grid-cols-[1fr_240px] gap-4 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4 mt-4">
           {/* Left: filter bar + brand rows */}
-          <div>
+          <div className="min-w-0">
             {/* Filter bar */}
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                 placeholder="Search brands or domains..."
-                className="flex-1 glass-input rounded-lg px-3 py-1.5 text-sm"
+                className="flex-1 glass-input rounded-lg px-3 py-1.5 text-sm min-w-0"
               />
-              <select
-                className="glass-input rounded-lg px-3 py-1.5 font-mono text-xs"
-                value={sector}
-                onChange={(e) => { setSector(e.target.value); setPage(1); }}
-              >
-                <option value="all">All Sectors</option>
-                {SECTORS.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <div className="flex gap-1">
-                {(['all', 'monitored', 'targeted'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => { setActiveTab(tab); setPage(1); }}
-                    className={cn(
-                      'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors',
-                      activeTab === tab
-                        ? 'text-orbital-teal border-orbital-teal/40 bg-orbital-teal/10'
-                        : 'text-white/30 border-white/10 hover:text-white/50'
-                    )}
-                  >
-                    {tab === 'targeted' ? 'Top Threatened' : tab}
-                  </button>
-                ))}
+              <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+                <select
+                  className="glass-input rounded-lg px-3 py-1.5 font-mono text-xs flex-shrink-0"
+                  value={sector}
+                  onChange={(e) => { setSector(e.target.value); setPage(1); }}
+                >
+                  <option value="all">All Sectors</option>
+                  {SECTORS.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <div className="flex gap-1 flex-shrink-0">
+                  {(['all', 'monitored', 'targeted'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => { setActiveTab(tab); setPage(1); }}
+                      className={cn(
+                        'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors whitespace-nowrap',
+                        activeTab === tab
+                          ? 'text-orbital-teal border-orbital-teal/40 bg-orbital-teal/10'
+                          : 'text-white/30 border-white/10 hover:text-white/50'
+                      )}
+                    >
+                      {tab === 'targeted' ? 'Top Threatened' : tab}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -678,7 +682,7 @@ export function Brands() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-3">
                 <span className="font-mono text-[11px] text-white/40">
                   Showing {showFrom}&ndash;{showTo} of {filteredBrands.length} brands
                 </span>
