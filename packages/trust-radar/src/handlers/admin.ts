@@ -80,6 +80,82 @@ export async function handleAdminHealth(request: Request, env: Env): Promise<Res
   }, 200, origin);
 }
 
+export async function handleSystemHealth(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const [
+    threatStats,
+    agentStats,
+    feedStats,
+    sessionCount,
+    migrationInfo,
+    auditCount,
+    threatTrend,
+  ] = await Promise.all([
+    env.DB.prepare(`
+      SELECT COUNT(*) as total,
+        SUM(CASE WHEN created_at >= datetime('now','-1 day') THEN 1 ELSE 0 END) as today,
+        SUM(CASE WHEN created_at >= datetime('now','-7 days') THEN 1 ELSE 0 END) as week
+      FROM threats
+    `).first<{ total: number; today: number; week: number }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) as total,
+        SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as successes,
+        SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) as errors
+      FROM agent_runs
+      WHERE started_at >= datetime('now','-1 day')
+    `).first<{ total: number; successes: number; errors: number }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) as pulls,
+        COALESCE(SUM(records_ingested),0) as ingested
+      FROM feed_pull_history
+      WHERE started_at >= datetime('now','-1 day')
+    `).first<{ pulls: number; ingested: number }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) as count FROM sessions
+      WHERE expires_at > datetime('now') AND revoked_at IS NULL
+    `).first<{ count: number }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) as total, MAX(applied_at) as last_run,
+        (SELECT name FROM d1_migrations ORDER BY applied_at DESC LIMIT 1) as last_name
+      FROM d1_migrations
+    `).first<{ total: number; last_run: string | null; last_name: string | null }>(),
+    env.AUDIT_DB.prepare(
+      `SELECT COUNT(*) as count FROM audit_log`
+    ).first<{ count: number }>(),
+    env.DB.prepare(`
+      SELECT date(created_at) as day, COUNT(*) as count
+      FROM threats
+      WHERE created_at >= datetime('now','-14 days')
+      GROUP BY date(created_at)
+      ORDER BY day ASC
+    `).all<{ day: string; count: number }>(),
+  ]);
+
+  return json({
+    success: true,
+    data: {
+      threats: threatStats,
+      agents: agentStats,
+      feeds: feedStats,
+      sessions: sessionCount,
+      migrations: migrationInfo,
+      audit: auditCount,
+      trend: threatTrend.results,
+      infrastructure: {
+        mainDb: { name: 'trust-radar-v2', sizeMb: 79.5, tables: 57, region: 'ENAM' },
+        auditDb: { name: 'trust-radar-v2-audit', sizeKb: 180, tables: 2, region: 'ENAM' },
+        worker: { name: 'trust-radar', platform: 'Cloudflare Workers' },
+        kvNamespaces: [
+          { name: 'trust-radar-cache' },
+          { name: 'SESSIONS' },
+          { name: 'CACHE' },
+        ],
+      },
+    },
+  }, 200, origin);
+}
+
 const UpdateUserSchema = z.object({
   role: z.enum(["super_admin", "admin", "analyst", "client"] as const).optional(),
   status: z.enum(["active", "suspended", "deactivated"] as const).optional(),

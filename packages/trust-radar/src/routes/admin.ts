@@ -4,7 +4,7 @@ import type { Env } from "../types";
 import { requireAdmin, requireSuperAdmin, isAuthContext } from "../middleware/auth";
 import { json } from "../lib/cors";
 import {
-  handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth,
+  handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleSystemHealth,
   handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch,
   handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands,
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
@@ -39,6 +39,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAdminHealth(request, env);
+  });
+  router.get("/api/admin/system-health", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSystemHealth(request, env);
   });
 
   // ─── Admin Users ──────────────────────────────────────────────────
