@@ -108,11 +108,26 @@ const AGENT_CONFIGS: Record<string, AgentConfigDef> = {
     icon: 'Compass',
     color: '#fbbf24',
   },
+  curator: {
+    name: 'Curator',
+    description: 'Platform Hygiene & Data Quality',
+    schedule: 'Weekly (Sunday, FC-triggered)',
+    model: 'none (algorithmic)',
+    scope: 'Email security scanning, safe domain cleanup, social discovery',
+    outputs: [
+      'brands (email_security_grade)',
+      'threats (false_positive removal)',
+      'social_profiles',
+      'agent_outputs (hygiene_report)',
+    ],
+    icon: 'Sparkles',
+    color: '#4ADE80',
+  },
 };
 
 const AGENT_ORDER = [
   'flight_control', 'sentinel', 'analyst', 'cartographer',
-  'observer', 'nexus', 'sparrow', 'strategist', 'prospector',
+  'observer', 'nexus', 'sparrow', 'strategist', 'prospector', 'curator',
 ];
 
 // ─── Config Card (accordion item) ──────────────────────────────

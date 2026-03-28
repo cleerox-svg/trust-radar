@@ -20,7 +20,8 @@ export type AgentName =
   | "nexus"
   | "trustbot"
   | "seed_strategist"
-  | "flight_control";
+  | "flight_control"
+  | "curator";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
@@ -71,7 +72,7 @@ export interface AgentResult {
 }
 
 export interface AgentOutputEntry {
-  type: "insight" | "classification" | "correlation" | "score" | "trend_report" | "diagnostic";
+  type: "insight" | "classification" | "correlation" | "score" | "trend_report" | "diagnostic" | "hygiene_report";
   summary: string;
   severity?: "critical" | "high" | "medium" | "low" | "info";
   details?: Record<string, unknown>;
