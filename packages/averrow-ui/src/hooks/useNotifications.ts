@@ -13,22 +13,12 @@ export interface Notification {
   metadata: string | null;
 }
 
-interface UnreadCountResponse {
-  unread_count: number;
-}
-
-interface NotificationsResponse {
-  notifications: Notification[];
-  unread_count: number;
-  total: number;
-}
-
 export function useUnreadCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: async () => {
-      const res = await api.get<UnreadCountResponse>('/api/notifications/unread-count');
-      return res.data?.unread_count ?? 0;
+      const res = await api.get('/api/notifications/unread-count') as unknown as { count: number };
+      return res.count ?? 0;
     },
     refetchInterval: 60_000,
   });
@@ -38,8 +28,14 @@ export function useNotifications(enabled: boolean) {
   return useQuery({
     queryKey: ['notifications', 'list'],
     queryFn: async () => {
-      const res = await api.get<NotificationsResponse>('/api/notifications?limit=20');
-      return res.data;
+      const res = await api.get('/api/notifications?limit=20') as unknown as {
+        data: Notification[];
+        unread_count: number;
+      };
+      return {
+        notifications: res.data ?? [],
+        unread_count: res.unread_count ?? 0,
+      };
     },
     enabled,
   });
