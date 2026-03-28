@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useBudgetStatus, useBudgetBreakdown, useBudgetConfigMutation } from '@/hooks/useBudget';
 import type { BudgetStatus } from '@/hooks/useBudget';
+import { useAdminAction } from '@/hooks/useAdminAction';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
+import { Mail, Rss, Download, Brain, Zap, ChevronDown, ChevronUp, AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -177,6 +181,340 @@ function BudgetPanel() {
           >
             Cancel
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Email Security Stats ─── */
+
+interface EmailSecurityStats {
+  scanned: number;
+  pending: number;
+  avg_score: number;
+  total_brands: number;
+  grades: { grade: string; count: number }[];
+}
+
+const GRADE_COLORS: Record<string, string> = {
+  'A+': '#4ade80',
+  'A': '#2dd4bf',
+  'B': '#5eadb0',
+  'C': '#fbbf24',
+  'D': '#fb923c',
+  'F': '#f87171',
+};
+
+function EmailSecuritySection() {
+  const { data: stats } = useQuery({
+    queryKey: ['email-security-stats'],
+    queryFn: async () => {
+      const res = await api.get<EmailSecurityStats>('/api/email-security/stats');
+      return res.data ?? null;
+    },
+  });
+
+  const scanAction = useAdminAction('/api/email-security/scan-all');
+
+  const scanned = stats?.scanned ?? 0;
+  const pending = stats?.pending ?? 0;
+  const avgScore = stats?.avg_score ?? 0;
+  const total = stats?.total_brands ?? (scanned + pending);
+  const grades = stats?.grades ?? [];
+  const coveragePct = total > 0 ? ((scanned / total) * 100) : 0;
+  const maxGradeCount = Math.max(...grades.map(g => g.count ?? 0), 1);
+
+  return (
+    <div className="glass-card rounded-xl p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="section-label">Email Security Coverage</div>
+        <div>
+          {scanAction.state === 'idle' && (
+            <button
+              type="button"
+              onClick={scanAction.confirm}
+              className="glass-btn flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Scan All Brands &rarr;
+            </button>
+          )}
+          {scanAction.state === 'confirming' && (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-amber-400">Scan all pending brands?</span>
+              <button
+                type="button"
+                onClick={scanAction.execute}
+                className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-green-400"
+              >
+                <Check className="w-3 h-3" /> Confirm
+              </button>
+              <button
+                type="button"
+                onClick={scanAction.cancel}
+                className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-white/40"
+              >
+                <X className="w-3 h-3" /> Cancel
+              </button>
+            </div>
+          )}
+          {scanAction.state === 'loading' && (
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-orbital-teal">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...
+            </span>
+          )}
+          {scanAction.state === 'success' && (
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-green-400">
+              <Check className="w-3.5 h-3.5" /> Email security scan queued for {pending} brands
+            </span>
+          )}
+          {scanAction.state === 'error' && (
+            <span className="font-mono text-[10px] text-red-400">{scanAction.error}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Summary stats */}
+      <div className="flex items-center gap-4 font-mono text-[11px] text-contrail/60">
+        <span><strong className="text-parchment">{fmt(scanned)}</strong> scanned</span>
+        <span>&middot;</span>
+        <span><strong className="text-parchment">{fmt(pending)}</strong> pending</span>
+        <span>&middot;</span>
+        <span>Avg score: <strong className="text-parchment">{avgScore}/100</strong></span>
+      </div>
+
+      <hr className="hud-divider" />
+
+      {/* Grade distribution */}
+      {grades.length > 0 && (
+        <div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-3">Grade Distribution</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            {grades.map((g) => {
+              const color = GRADE_COLORS[g.grade] ?? '#78A0C8';
+              const barWidth = maxGradeCount > 0 ? Math.max((g.count / maxGradeCount) * 100, 4) : 4;
+              const isF = g.grade === 'F';
+              return (
+                <div key={g.grade} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`font-mono text-[12px] font-bold ${isF ? 'glow-red' : ''}`}
+                      style={{ color }}
+                    >
+                      {g.grade}
+                    </span>
+                    <span
+                      className={`font-mono text-[11px] ${isF ? 'font-bold' : ''}`}
+                      style={{ color: isF ? color : undefined }}
+                    >
+                      {isF ? (
+                        <span className="text-red-400 font-bold">{fmt(g.count)}</span>
+                      ) : (
+                        <span className="text-parchment/80">{fmt(g.count)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${barWidth}%`, backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <hr className="hud-divider" />
+
+      {/* Scan coverage bar */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/50">Scan Coverage</span>
+          <span className="font-mono text-[10px] text-parchment/70">
+            {coveragePct.toFixed(1)}% &nbsp;({fmt(scanned)} / {fmt(total)})
+          </span>
+        </div>
+        <div className="progress-bar-track h-2.5">
+          <div className="progress-bar-fill-amber" style={{ width: `${Math.min(coveragePct, 100)}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Maintenance Operations ─── */
+
+interface OperationConfig {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge: string;
+  confirmText: string;
+  endpoint: string;
+}
+
+const OPERATIONS: OperationConfig[] = [
+  {
+    label: 'Force Feed Pull',
+    icon: Rss,
+    badge: 'Trigger all 15 active feeds now',
+    confirmText: 'Force-pull all active feeds now, ignoring schedules.',
+    endpoint: '/api/feeds/trigger-all',
+  },
+  {
+    label: 'Import Top Brands',
+    icon: Download,
+    badge: 'Import from Tranco list',
+    confirmText: 'Import top 10K brands from Tranco domain list. May take several minutes.',
+    endpoint: '/api/admin/import-tranco',
+  },
+  {
+    label: 'AI Attribution',
+    icon: Brain,
+    badge: 'Haiku-powered brand attribution',
+    confirmText: 'Run AI attribution on unattributed threats.',
+    endpoint: '/api/admin/backfill-ai-attribution',
+  },
+  {
+    label: 'Run 10x Feeds',
+    icon: Zap,
+    badge: '10 batches with 15s delays',
+    confirmText: 'Run feeds 10 times in sequence. Only use for initial data loading.',
+    endpoint: '/api/feeds/trigger-all',
+  },
+];
+
+function OperationCard({ op }: { op: OperationConfig }) {
+  const action = useAdminAction(op.endpoint);
+  const Icon = op.icon;
+
+  return (
+    <div className="glass-card rounded-xl p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-amber-400" />
+        <span className="font-mono text-[12px] font-semibold text-parchment">{op.label}</span>
+      </div>
+      <div className="font-mono text-[10px] text-contrail/50">{op.badge}</div>
+
+      {action.state === 'idle' && (
+        <button
+          type="button"
+          onClick={action.confirm}
+          className="glass-btn w-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+        >
+          Run
+        </button>
+      )}
+      {action.state === 'confirming' && (
+        <div className="space-y-2">
+          <div className="font-mono text-[10px] text-amber-400/80">{op.confirmText}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={action.execute}
+              className="glass-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-green-400"
+            >
+              <Check className="w-3 h-3" /> Confirm
+            </button>
+            <button
+              type="button"
+              onClick={action.cancel}
+              className="glass-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-white/40"
+            >
+              <X className="w-3 h-3" /> Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {action.state === 'loading' && (
+        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-orbital-teal">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Running...
+        </div>
+      )}
+      {action.state === 'success' && (
+        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-green-400">
+          <Check className="w-3.5 h-3.5" /> Done
+        </div>
+      )}
+      {action.state === 'error' && (
+        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-red-400">
+          <X className="w-3.5 h-3.5" /> {action.error || 'Failed'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaintenanceSection() {
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      return localStorage.getItem('dashboard-maintenance') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dashboard-maintenance', String(expanded));
+    } catch {}
+  }, [expanded]);
+
+  const { data: emailStats } = useQuery({
+    queryKey: ['email-security-stats'],
+    queryFn: async () => {
+      const res = await api.get<EmailSecurityStats>('/api/email-security/stats');
+      return res.data ?? null;
+    },
+  });
+
+  const { data: systemHealth } = useSystemHealth();
+
+  const unlinkedThreats = systemHealth?.threats?.total ?? 0;
+  const pendingScans = emailStats?.pending ?? 0;
+
+  return (
+    <div className="glass-card glass-card-amber rounded-xl overflow-hidden">
+      {/* Header — always visible */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4"
+      >
+        <div className="flex items-center gap-3">
+          <span className="section-label !mb-0">Maintenance Operations</span>
+          <span className="flex items-center gap-1 font-mono text-[9px] text-amber-400 uppercase tracking-wider">
+            <AlertTriangle className="w-3 h-3" /> Super Admin Only
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronUp className="w-4 h-4 text-contrail/40" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-contrail/40" />
+        )}
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {OPERATIONS.map((op) => (
+              <OperationCard key={op.label} op={op} />
+            ))}
+          </div>
+
+          <hr className="hud-divider" />
+
+          {/* Stats bar */}
+          <div className="flex items-center gap-4 font-mono text-[10px] text-contrail/50">
+            <span>Unlinked threats: <strong className="text-parchment">{fmt(unlinkedThreats)}</strong></span>
+            <span>&middot;</span>
+            <span>Pending email scans: <strong className="text-parchment">{fmt(pendingScans)}</strong></span>
+          </div>
         </div>
       )}
     </div>
@@ -506,6 +844,12 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── EMAIL SECURITY COVERAGE ────────────────── */}
+      <EmailSecuritySection />
+
+      {/* ── MAINTENANCE OPERATIONS ─────────────────── */}
+      <MaintenanceSection />
     </div>
   );
 }
