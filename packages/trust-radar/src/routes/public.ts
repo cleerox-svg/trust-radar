@@ -37,10 +37,46 @@ const htmlPage = (render: () => string) => () =>
     },
   });
 
+/** Wraps the old homepage with a legacy banner */
+function renderLegacyHomepage(): string {
+  const banner = `<div style="background:#C83C3C;color:white;padding:8px 16px;font-family:monospace;font-size:12px;text-align:center;position:sticky;top:0;z-index:9999">\u26A0 You are viewing the legacy interface. <a href="/v2" style="color:white;text-decoration:underline">Switch to Averrow v2 \u2192</a></div>`;
+  const html = renderHomepage();
+  return html.replace(/<body([^>]*)>/, `<body$1>${banner}`);
+}
+
+// ─── Legacy redirects (old admin routes → /v2 equivalents) ──────
+const LEGACY_REDIRECTS: Record<string, string> = {
+  '/admin':               '/v2/admin',
+  '/admin/dashboard':     '/v2/admin',
+  '/admin/users':         '/v2/admin/users',
+  '/admin/organizations': '/v2/admin/users',
+  '/admin/feeds':         '/v2/feeds',
+  '/admin/agent-config':  '/v2/agents',
+  '/admin/audit':         '/v2/admin/audit',
+  '/admin/spam-trap':     '/v2/admin/spam-trap',
+  '/admin/takedowns':     '/v2/admin/takedowns',
+  '/observatory':         '/v2',
+  '/brands':              '/v2/brands',
+};
+
 export function registerPublicRoutes(router: RouterType<IRequest>): void {
-  // ─── Homepage ────────────────────────────────────────────────────
-  router.get("/", () =>
-    new Response(renderHomepage(), {
+  // ─── Root → /v2 redirect (Phase 8 cutover) ──────────────────────
+  router.get("/", (request: Request) => {
+    const url = new URL(request.url);
+    return Response.redirect(`${url.origin}/v2`, 301);
+  });
+
+  // ─── Legacy redirects (old admin routes → /v2) ──────────────────
+  for (const [oldPath, newPath] of Object.entries(LEGACY_REDIRECTS)) {
+    router.get(oldPath, (request: Request) => {
+      const url = new URL(request.url);
+      return Response.redirect(`${url.origin}${newPath}`, 301);
+    });
+  }
+
+  // ─── Legacy escape hatch — old homepage at /legacy ──────────────
+  router.get("/legacy", () =>
+    new Response(renderLegacyHomepage(), {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "public, max-age=300, s-maxage=600",
