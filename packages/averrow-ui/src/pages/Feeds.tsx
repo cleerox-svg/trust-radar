@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFeeds, useFeedHistory } from '@/hooks/useFeeds';
+import { useAdminAction } from '@/hooks/useAdminAction';
 import type { FeedOverview, FeedPullRecord } from '@/hooks/useFeeds';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/cn';
+import { RotateCw, Loader2, Check, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 /* ─── Helpers ─── */
 
@@ -72,6 +75,124 @@ function categorizeFeed(feed: FeedOverview): FeedCategory {
 function formatNumber(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
   return String(n);
+}
+
+/* ─── Trigger Buttons ─── */
+
+function TriggerAllButton() {
+  const queryClient = useQueryClient();
+  const action = useAdminAction('/api/feeds/trigger-all', () => {
+    setTimeout(() => queryClient.invalidateQueries({ queryKey: ['feeds-overview'] }), 3000);
+  });
+
+  if (action.state === 'idle') {
+    return (
+      <button
+        type="button"
+        onClick={action.confirm}
+        className="glass-btn flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+      >
+        <RotateCw className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Trigger All</span>
+      </button>
+    );
+  }
+  if (action.state === 'confirming') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-amber-400">Trigger all feeds?</span>
+        <button
+          type="button"
+          onClick={action.execute}
+          className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-green-400"
+        >
+          <Check className="w-3 h-3" /> Confirm
+        </button>
+        <button
+          type="button"
+          onClick={action.cancel}
+          className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-white/40"
+        >
+          <X className="w-3 h-3" /> Cancel
+        </button>
+      </div>
+    );
+  }
+  if (action.state === 'loading') {
+    return (
+      <span className="flex items-center gap-1.5 font-mono text-[10px] text-orbital-teal">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Triggering...
+      </span>
+    );
+  }
+  if (action.state === 'success') {
+    return (
+      <span className="flex items-center gap-1.5 font-mono text-[10px] text-green-400">
+        <Check className="w-3.5 h-3.5" /> Feeds triggered
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] text-red-400">{action.error || 'Failed'}</span>
+  );
+}
+
+function RetryButton({ feedName }: { feedName: string }) {
+  const queryClient = useQueryClient();
+  const action = useAdminAction(`/api/feeds/${feedName}/trigger`, () => {
+    setTimeout(() => queryClient.invalidateQueries({ queryKey: ['feeds-overview'] }), 3000);
+  });
+
+  if (action.state === 'idle') {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); action.confirm(); }}
+        className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-amber-400"
+      >
+        <RotateCw className="w-3 h-3" /> Retry
+      </button>
+    );
+  }
+  if (action.state === 'confirming') {
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={action.execute}
+          className="glass-btn flex items-center gap-0.5 px-1.5 py-1 font-mono text-[9px] text-green-400"
+        >
+          <Check className="w-3 h-3" />
+        </button>
+        <button
+          type="button"
+          onClick={action.cancel}
+          className="glass-btn flex items-center gap-0.5 px-1.5 py-1 font-mono text-[9px] text-white/40"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+    );
+  }
+  if (action.state === 'loading') {
+    return (
+      <span className="flex items-center gap-1 font-mono text-[9px] text-orbital-teal" onClick={(e) => e.stopPropagation()}>
+        <Loader2 className="w-3 h-3 animate-spin" />
+      </span>
+    );
+  }
+  if (action.state === 'success') {
+    return (
+      <span className="flex items-center gap-1 font-mono text-[9px] text-green-400">
+        <Check className="w-3 h-3" />
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[9px] text-red-400">
+      <X className="w-3 h-3 inline" />
+    </span>
+  );
 }
 
 /* ─── Components ─── */
@@ -254,8 +375,13 @@ function FeedCard({
 
         {/* Issue banner for attention feeds */}
         {issue && (
-          <div className="text-[11px] text-amber-400 font-mono mb-2 flex items-center gap-1">
-            <span>&#9888;</span> {issue}
+          <div className="text-[11px] text-amber-400 font-mono mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <span>&#9888;</span> {issue}
+            </div>
+            {category === 'attention' && (
+              <RetryButton feedName={feed.feed_name} />
+            )}
           </div>
         )}
 
@@ -529,11 +655,14 @@ export function Feeds() {
   return (
     <div className="space-y-5">
       {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-parchment font-display">Feeds</h1>
-        <p className="text-sm text-contrail/50 font-mono mt-1">
-          {allFeeds.length} feed configurations &middot; Threat intelligence ingestion
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-parchment font-display">Feeds</h1>
+          <p className="text-sm text-contrail/50 font-mono mt-1">
+            {allFeeds.length} feed configurations &middot; Threat intelligence ingestion
+          </p>
+        </div>
+        <TriggerAllButton />
       </div>
 
       {/* 1. Header stats */}
