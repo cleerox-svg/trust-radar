@@ -250,3 +250,81 @@ export async function handleFeedQuota(request: Request, env: Env): Promise<Respo
   const origin = request.headers.get("Origin");
   return json({ success: true, data: [] }, 200, origin);
 }
+
+// ─── Feeds overview with aggregated pull stats ─────────────────
+export async function handleFeedsOverview(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT
+        fc.feed_name,
+        fc.display_name,
+        fc.description,
+        fc.source_url,
+        fc.enabled,
+        fc.schedule_cron,
+        fc.batch_size,
+        fc.rate_limit,
+        fc.filters,
+        fc.retry_count,
+        fc.retry_delay_seconds,
+        COUNT(fph.id) as total_pulls,
+        COALESCE(SUM(fph.records_ingested), 0) as total_ingested,
+        COALESCE(SUM(fph.records_rejected), 0) as total_rejected,
+        SUM(CASE WHEN fph.status='success' THEN 1 ELSE 0 END) as successes,
+        SUM(CASE WHEN fph.status='error' THEN 1 ELSE 0 END) as errors,
+        MAX(fph.started_at) as last_run,
+        MAX(fph.completed_at) as last_completed
+      FROM feed_configs fc
+      LEFT JOIN feed_pull_history fph ON fph.feed_name = fc.feed_name
+      GROUP BY fc.feed_name
+      ORDER BY total_ingested DESC
+    `).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Feed pull history for a specific feed ────────────────────
+export async function handleFeedPullHistory(request: Request, env: Env, feedName: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
+
+    const rows = await env.DB.prepare(`
+      SELECT id, feed_name, started_at, completed_at, duration_ms,
+             records_ingested, records_rejected, status, error_message
+      FROM feed_pull_history
+      WHERE feed_name = ?
+      ORDER BY started_at DESC
+      LIMIT ?
+    `).bind(feedName, limit).all();
+
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// ─── Aggregated feed stats ────────────────────────────────────
+export async function handleFeedsAggregateStats(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const stats = await env.DB.prepare(`
+      SELECT
+        COUNT(CASE WHEN enabled=1 THEN 1 END) as active,
+        COUNT(CASE WHEN enabled=0 THEN 1 END) as disabled,
+        COALESCE((
+          SELECT SUM(records_ingested) FROM feed_pull_history
+        ), 0) as total_ingested
+      FROM feed_configs
+    `).first();
+
+    return json({ success: true, data: stats }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}

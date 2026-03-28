@@ -1,12 +1,13 @@
-// TODO: Refactor to use handler-utils (Phase 6 continuation)
 /**
  * Unified Alerts API handlers.
  *
  * Endpoints:
- *   GET    /api/alerts        — list alerts (filtered, paginated)
- *   GET    /api/alerts/stats  — severity/status breakdown
- *   GET    /api/alerts/:id    — single alert detail
- *   PATCH  /api/alerts/:id    — update status (acknowledge, resolve, etc.)
+ *   GET    /api/alerts             — list alerts (filtered, paginated, with brand join)
+ *   GET    /api/alerts/stats       — severity/status breakdown
+ *   GET    /api/alerts/:id         — single alert detail
+ *   PATCH  /api/alerts/:id         — update status (acknowledge, resolve, etc.)
+ *   POST   /api/alerts/bulk-acknowledge — bulk acknowledge alerts
+ *   POST   /api/alerts/bulk-takedown    — bulk create takedown requests from alerts
  */
 
 import { json } from "../lib/cors";
@@ -21,19 +22,58 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
     const url = new URL(request.url);
     const status = url.searchParams.get("status") as AlertStatus | null;
     const severity = url.searchParams.get("severity") as Severity | null;
+    const alertType = url.searchParams.get("alert_type");
     const brandId = url.searchParams.get("brand_id");
-    const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
+    const search = url.searchParams.get("search");
+    const groupBy = url.searchParams.get("group_by");
+    const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
-    const result = await getAlerts(env.DB, userId, {
-      status: status ?? undefined,
-      severity: severity ?? undefined,
-      brandId: brandId ?? undefined,
-      limit,
-      offset,
-    });
+    // Build WHERE clause
+    let where = `WHERE a.user_id = ?`;
+    const params: unknown[] = [userId];
 
-    return json({ success: true, data: result.alerts, total: result.total }, 200, origin);
+    if (status) {
+      where += ` AND a.status = ?`;
+      params.push(status);
+    }
+    if (severity) {
+      where += ` AND a.severity = ?`;
+      params.push(severity);
+    }
+    if (alertType) {
+      where += ` AND a.alert_type = ?`;
+      params.push(alertType);
+    }
+    if (brandId) {
+      where += ` AND a.brand_id = ?`;
+      params.push(brandId);
+    }
+    if (search) {
+      where += ` AND (a.title LIKE ? OR a.summary LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // Count
+    const countRow = await env.DB.prepare(
+      `SELECT COUNT(*) as c FROM alerts a ${where}`
+    ).bind(...params).first<{ c: number }>();
+    const total = countRow?.c ?? 0;
+
+    // Get paginated results with brand join
+    const rows = await env.DB.prepare(
+      `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain
+       FROM alerts a
+       LEFT JOIN brands b ON b.id = a.brand_id
+       ${where}
+       ORDER BY
+         CASE a.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2
+                         WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+         a.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(...params, Math.min(200, limit), offset).all();
+
+    return json({ success: true, data: rows.results, total }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -44,7 +84,10 @@ export async function handleGetAlert(request: Request, env: Env, alertId: string
   const origin = request.headers.get("Origin");
   try {
     const row = await env.DB.prepare(
-      `SELECT * FROM alerts WHERE id = ?`
+      `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain
+       FROM alerts a
+       LEFT JOIN brands b ON b.id = a.brand_id
+       WHERE a.id = ?`
     ).bind(alertId).first();
 
     if (!row) {
@@ -87,31 +130,148 @@ export async function handleUpdateAlert(request: Request, env: Env, alertId: str
 export async function handleAlertStats(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const byStatus = await env.DB.prepare(
-      `SELECT status, COUNT(*) as count FROM alerts WHERE user_id = ? GROUP BY status`
-    ).bind(userId).all<{ status: string; count: number }>();
+    const stats = await env.DB.prepare(
+      `SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status='new' THEN 1 ELSE 0 END) as new_count,
+        SUM(CASE WHEN status='acknowledged' THEN 1 ELSE 0 END) as acknowledged,
+        SUM(CASE WHEN status='resolved' THEN 1 ELSE 0 END) as resolved,
+        SUM(CASE WHEN status='false_positive' THEN 1 ELSE 0 END) as dismissed,
+        SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) as critical,
+        SUM(CASE WHEN severity='HIGH' THEN 1 ELSE 0 END) as high,
+        SUM(CASE WHEN severity='MEDIUM' THEN 1 ELSE 0 END) as medium,
+        SUM(CASE WHEN severity='LOW' THEN 1 ELSE 0 END) as low
+       FROM alerts WHERE user_id = ?`
+    ).bind(userId).first<Record<string, number>>();
 
-    const bySeverity = await env.DB.prepare(
-      `SELECT severity, COUNT(*) as count FROM alerts WHERE user_id = ? AND status = 'new' GROUP BY severity`
-    ).bind(userId).all<{ severity: string; count: number }>();
-
-    const byType = await env.DB.prepare(
-      `SELECT alert_type, COUNT(*) as count FROM alerts WHERE user_id = ? AND status = 'new' GROUP BY alert_type`
-    ).bind(userId).all<{ alert_type: string; count: number }>();
-
-    const recentCount = await env.DB.prepare(
-      `SELECT COUNT(*) as c FROM alerts WHERE user_id = ? AND created_at > datetime('now', '-24 hours')`
-    ).bind(userId).first<{ c: number }>();
+    const byBrand = await env.DB.prepare(
+      `SELECT a.brand_id, b.name as brand_name, b.canonical_domain as brand_domain,
+              COUNT(*) as alert_count,
+              SUM(CASE WHEN a.status='new' THEN 1 ELSE 0 END) as new_count
+       FROM alerts a
+       LEFT JOIN brands b ON b.id = a.brand_id
+       WHERE a.user_id = ?
+       GROUP BY a.brand_id
+       ORDER BY alert_count DESC`
+    ).bind(userId).all();
 
     return json({
       success: true,
       data: {
-        by_status: byStatus.results,
-        by_severity: bySeverity.results,
-        by_type: byType.results,
-        last_24h: recentCount?.c ?? 0,
+        total: stats?.total ?? 0,
+        new_count: stats?.new_count ?? 0,
+        acknowledged: stats?.acknowledged ?? 0,
+        resolved: stats?.resolved ?? 0,
+        dismissed: stats?.dismissed ?? 0,
+        critical: stats?.critical ?? 0,
+        high: stats?.high ?? 0,
+        medium: stats?.medium ?? 0,
+        low: stats?.low ?? 0,
+        by_brand: byBrand.results,
       },
     }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/alerts/bulk-acknowledge
+export async function handleBulkAcknowledge(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { alert_ids?: string[]; brand_id?: string };
+
+    if (body.brand_id) {
+      // Acknowledge all new alerts for a brand
+      const result = await env.DB.prepare(
+        `UPDATE alerts SET status='acknowledged', acknowledged_at=datetime('now'), updated_at=datetime('now')
+         WHERE brand_id = ? AND user_id = ? AND status='new'`
+      ).bind(body.brand_id, userId).run();
+      return json({ success: true, data: { updated: result.meta.changes ?? 0 } }, 200, origin);
+    }
+
+    if (!body.alert_ids || body.alert_ids.length === 0) {
+      return json({ success: false, error: "Missing alert_ids or brand_id" }, 400, origin);
+    }
+
+    // Bulk acknowledge by IDs
+    const placeholders = body.alert_ids.map(() => '?').join(',');
+    const result = await env.DB.prepare(
+      `UPDATE alerts SET status='acknowledged', acknowledged_at=datetime('now'), updated_at=datetime('now')
+       WHERE id IN (${placeholders}) AND user_id = ? AND status='new'`
+    ).bind(...body.alert_ids, userId).run();
+
+    return json({ success: true, data: { updated: result.meta.changes ?? 0 } }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
+// POST /api/alerts/bulk-takedown
+export async function handleBulkTakedown(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { alert_ids?: string[]; brand_id?: string };
+
+    // Resolve which alerts to process
+    let alerts: { id: string; brand_id: string; title: string; summary: string; severity: string; source_id: string | null; brand_name: string | null; brand_domain: string | null }[];
+
+    if (body.brand_id) {
+      const rows = await env.DB.prepare(
+        `SELECT a.id, a.brand_id, a.title, a.summary, a.severity, a.source_id,
+                b.name as brand_name, b.canonical_domain as brand_domain
+         FROM alerts a
+         LEFT JOIN brands b ON b.id = a.brand_id
+         WHERE a.brand_id = ? AND a.user_id = ? AND a.status IN ('new','acknowledged')`
+      ).bind(body.brand_id, userId).all();
+      alerts = rows.results as typeof alerts;
+    } else if (body.alert_ids && body.alert_ids.length > 0) {
+      const placeholders = body.alert_ids.map(() => '?').join(',');
+      const rows = await env.DB.prepare(
+        `SELECT a.id, a.brand_id, a.title, a.summary, a.severity, a.source_id,
+                b.name as brand_name, b.canonical_domain as brand_domain
+         FROM alerts a
+         LEFT JOIN brands b ON b.id = a.brand_id
+         WHERE a.id IN (${placeholders}) AND a.user_id = ?`
+      ).bind(...body.alert_ids, userId).all();
+      alerts = rows.results as typeof alerts;
+    } else {
+      return json({ success: false, error: "Missing alert_ids or brand_id" }, 400, origin);
+    }
+
+    if (alerts.length === 0) {
+      return json({ success: false, error: "No eligible alerts found" }, 404, origin);
+    }
+
+    // Create takedown requests for each alert
+    let created = 0;
+    for (const alert of alerts) {
+      const takedownId = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO takedown_requests (id, brand_id, target_type, target_value, target_platform, evidence_summary, severity, priority_score, source_type, status, created_at, updated_at)
+         VALUES (?, ?, 'social_profile', ?, 'tiktok', ?, ?, 50, 'alert', 'draft', datetime('now'), datetime('now'))
+         ON CONFLICT DO NOTHING`
+      ).bind(
+        takedownId,
+        alert.brand_id,
+        alert.title,
+        alert.summary,
+        alert.severity,
+      ).run();
+      created++;
+    }
+
+    // Acknowledge the alerts
+    const alertIds = alerts.map(a => a.id);
+    if (alertIds.length > 0) {
+      const placeholders = alertIds.map(() => '?').join(',');
+      await env.DB.prepare(
+        `UPDATE alerts SET status='acknowledged', acknowledged_at=datetime('now'), updated_at=datetime('now')
+         WHERE id IN (${placeholders})`
+      ).bind(...alertIds).run();
+    }
+
+    return json({ success: true, data: { takedowns_created: created, alerts_acknowledged: alertIds.length } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
