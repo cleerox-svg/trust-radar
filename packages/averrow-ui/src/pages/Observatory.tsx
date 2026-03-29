@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs, useObservatoryHeatmap } from '@/hooks/useObservatory';
 import type { ArcData } from '@/hooks/useObservatory';
 import { ThreatMap } from '@/components/observatory/ThreatMap';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EventTicker } from '@/components/observatory/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -61,6 +61,20 @@ export function Observatory() {
   const [mobileActiveTab, setMobileActiveTab] = useState<'brands' | 'intel' | 'feed' | null>(null);
   const [clock, setClock] = useState('');
   const [mapMode, setMapMode] = useState<MapMode>('global');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleFilterSelect = useCallback((setter: () => void) => {
+    setter();
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    collapseTimer.current = setTimeout(() => setFiltersExpanded(false), 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    };
+  }, []);
 
   // Clicked element state
   const [clickedArc, setClickedArc] = useState<{ arc: ArcData; x: number; y: number } | null>(null);
@@ -162,57 +176,103 @@ export function Observatory() {
               ))}
             </div>
           </div>
-          {/* Row 2: Period + Color + Source — horizontally scrollable pills */}
-          <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-2 flex-nowrap w-max px-10">
-              {PERIODS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPeriod(p.id)}
-                  className={cn(
-                    'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
-                    period === p.id
-                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
-                      : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-              <span className="w-px bg-white/10 self-stretch flex-shrink-0" />
-              {mapMode === 'global' && (
-                <>
-                  {(['severity', 'type'] as const).map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setColorBy(c)}
-                      className={cn(
-                        'flex-shrink-0 font-mono text-xs px-3 py-1 rounded-full whitespace-nowrap transition-all capitalize',
-                        colorBy === c
-                          ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
-                          : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
-                      )}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                  <span className="w-px bg-white/10 self-stretch flex-shrink-0" />
-                </>
+          {/* Row 2: Collapsible filter bar */}
+          <div className="mx-4">
+            {/* Summary bar (collapsed) */}
+            <button
+              onClick={() => setFiltersExpanded(prev => !prev)}
+              className="w-full bg-cockpit/80 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center justify-between"
+            >
+              <span className="text-xs font-mono">
+                <span className="text-orbital-teal">{PERIODS.find(p => p.id === period)?.label}</span>
+                {mapMode === 'global' && (
+                  <>
+                    <span className="text-contrail/40"> · </span>
+                    <span className="text-orbital-teal capitalize">{colorBy}</span>
+                  </>
+                )}
+                <span className="text-contrail/40"> · </span>
+                <span className="text-orbital-teal">{SOURCES.find(s => s.id === source)?.label}</span>
+              </span>
+              <ChevronDown className={cn(
+                'w-3.5 h-3.5 text-contrail/40 transition-transform duration-300',
+                filtersExpanded && 'rotate-180'
+              )} />
+            </button>
+
+            {/* Expanded filter groups */}
+            <div
+              className={cn(
+                'overflow-hidden transition-all duration-300 ease-in-out',
+                filtersExpanded ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'
               )}
-              {SOURCES.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setSource(s.id)}
-                  className={cn(
-                    'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
-                    source === s.id
-                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
-                      : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
+            >
+              <div className="bg-cockpit/80 backdrop-blur-sm rounded-lg mt-1 px-4 py-2">
+                {/* TIME group */}
+                <div className="py-2">
+                  <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Time</div>
+                  <div className="flex gap-2">
+                    {PERIODS.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleFilterSelect(() => setPeriod(p.id))}
+                        className={cn(
+                          'text-xs px-3 py-1 rounded-full border transition-all font-mono',
+                          period === p.id
+                            ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                            : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* COLOR group (global mode only) */}
+                {mapMode === 'global' && (
+                  <div className="py-2 border-t border-cyan-800/10">
+                    <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Color</div>
+                    <div className="flex gap-2">
+                      {(['severity', 'type'] as const).map(c => (
+                        <button
+                          key={c}
+                          onClick={() => handleFilterSelect(() => setColorBy(c))}
+                          className={cn(
+                            'text-xs px-3 py-1 rounded-full border transition-all font-mono capitalize',
+                            colorBy === c
+                              ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                              : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
+                          )}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SOURCE group */}
+                <div className="py-2 border-t border-cyan-800/10">
+                  <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Source</div>
+                  <div className="flex gap-2">
+                    {SOURCES.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleFilterSelect(() => setSource(s.id))}
+                        className={cn(
+                          'text-xs px-3 py-1 rounded-full border transition-all font-mono',
+                          source === s.id
+                            ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                            : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
+                        )}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -301,7 +361,7 @@ export function Observatory() {
       {mapMode === 'global' && (
         isMobile ? (
           /* Mobile: horizontal strip below filter rows, top-left */
-          <div className="absolute top-[100px] left-9 z-10">
+          <div className="absolute top-[88px] left-4 z-10">
             <div className="bg-cockpit/80 backdrop-blur-sm rounded px-2 py-1 flex flex-row gap-3">
               {colorBy === 'severity' ? (
                 <>
