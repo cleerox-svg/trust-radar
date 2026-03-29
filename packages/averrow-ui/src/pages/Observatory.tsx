@@ -145,7 +145,7 @@ export function Observatory() {
         <div className="absolute top-3 left-0 right-0 z-10 flex flex-col gap-1.5">
           {/* Row 1: Mode tabs — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-2 flex-nowrap w-max px-5">
+            <div className="flex gap-2 flex-nowrap w-max px-10">
               {MAP_MODES.map(m => (
                 <button
                   key={m.id}
@@ -164,7 +164,7 @@ export function Observatory() {
           </div>
           {/* Row 2: Period + Color + Source — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-2 flex-nowrap w-max px-5">
+            <div className="flex gap-2 flex-nowrap w-max px-10">
               {PERIODS.map(p => (
                 <button
                   key={p.id}
@@ -301,7 +301,7 @@ export function Observatory() {
       {mapMode === 'global' && (
         isMobile ? (
           /* Mobile: horizontal strip below filter rows, top-left */
-          <div className="absolute top-[100px] left-3 z-10">
+          <div className="absolute top-[100px] left-9 z-10">
             <div className="bg-cockpit/80 backdrop-blur-sm rounded px-2 py-1 flex flex-row gap-3">
               {colorBy === 'severity' ? (
                 <>
