@@ -47,25 +47,36 @@ export const observerAgent: AgentModule = {
       feed_count: number; type_count: number; country_count: number;
     }>();
 
-    // ─── Enrichment validation summary (SURBL + VT, last 24h) ────
+    // ─── Enrichment validation summary (SURBL + VT + GSB + DBL, last 24h) ────
     const enrichmentSummary = await env.DB.prepare(`
       SELECT
         SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed_today,
         SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged_today,
-        SUM(CASE WHEN vt_malicious > 5 THEN 1 ELSE 0 END) as vt_critical_today
+        SUM(CASE WHEN vt_malicious > 5 THEN 1 ELSE 0 END) as vt_critical_today,
+        SUM(CASE WHEN gsb_flagged = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as gsb_24h,
+        SUM(CASE WHEN dbl_listed = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as dbl_24h
       FROM threats
       WHERE first_seen >= datetime('now', '-24 hours')
     `).first<{
       surbl_confirmed_today: number;
       vt_flagged_today: number;
       vt_critical_today: number;
+      gsb_24h: number;
+      dbl_24h: number;
     }>();
 
     const surblConfirmed = enrichmentSummary?.surbl_confirmed_today ?? 0;
     const vtFlagged = enrichmentSummary?.vt_flagged_today ?? 0;
     const vtCritical = enrichmentSummary?.vt_critical_today ?? 0;
-    const enrichmentContext = (surblConfirmed > 0 || vtFlagged > 0)
-      ? `External validation: ${surblConfirmed} threats confirmed by SURBL, ${vtFlagged} threats flagged by VirusTotal (${vtCritical} critical).`
+    const gsb24h = enrichmentSummary?.gsb_24h ?? 0;
+    const dbl24h = enrichmentSummary?.dbl_24h ?? 0;
+    const enrichmentParts: string[] = [];
+    if (surblConfirmed > 0) enrichmentParts.push(`${surblConfirmed} confirmed by SURBL`);
+    if (vtFlagged > 0) enrichmentParts.push(`${vtFlagged} flagged by VirusTotal (${vtCritical} critical)`);
+    if (gsb24h > 0) enrichmentParts.push(`${gsb24h} confirmed by Google Safe Browsing`);
+    if (dbl24h > 0) enrichmentParts.push(`${dbl24h} confirmed by Spamhaus DBL`);
+    const enrichmentContext = enrichmentParts.length > 0
+      ? `External validation: ${enrichmentParts.join(', ')}.`
       : '';
 
     // ─── Top targeted brands (with IDs for linking) ──────────────

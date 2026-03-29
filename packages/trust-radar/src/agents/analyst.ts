@@ -210,17 +210,21 @@ export const analystAgent: AgentModule = {
         target_brand_id,
         SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed,
         SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged,
-        ROUND(AVG(CASE WHEN vt_malicious > 0 THEN vt_malicious ELSE NULL END), 1) as vt_avg_malicious
+        ROUND(AVG(CASE WHEN vt_malicious > 0 THEN vt_malicious ELSE NULL END), 1) as vt_avg_malicious,
+        SUM(CASE WHEN gsb_flagged = 1 THEN 1 ELSE 0 END) as gsb_confirmed,
+        SUM(CASE WHEN dbl_listed = 1 THEN 1 ELSE 0 END) as dbl_confirmed
       FROM threats
       WHERE target_brand_id IS NOT NULL
         AND status = 'active'
-        AND (surbl_listed = 1 OR vt_malicious > 0)
+        AND (surbl_listed = 1 OR vt_malicious > 0 OR gsb_flagged = 1 OR dbl_listed = 1)
       GROUP BY target_brand_id
     `).all<{
       target_brand_id: string;
       surbl_confirmed: number;
       vt_flagged: number;
       vt_avg_malicious: number | null;
+      gsb_confirmed: number;
+      dbl_confirmed: number;
     }>();
 
     const enrichmentByBrand = new Map(
@@ -304,18 +308,25 @@ export const analystAgent: AgentModule = {
     // ─── Phase 3.5: Enrichment validation summaries per brand ──────
     for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
       const enrichment = enrichmentByBrand.get(bid);
-      if (enrichment && (enrichment.surbl_confirmed > 0 || enrichment.vt_flagged > 0)) {
+      if (enrichment && (enrichment.surbl_confirmed > 0 || enrichment.vt_flagged > 0 || enrichment.gsb_confirmed > 0 || enrichment.dbl_confirmed > 0)) {
         const brand = await getBrandById(env, bid);
         const brandName = brand?.name ?? bid;
+        const parts: string[] = [];
+        if (enrichment.surbl_confirmed > 0) parts.push(`${enrichment.surbl_confirmed} confirmed by SURBL`);
+        if (enrichment.vt_flagged > 0) parts.push(`${enrichment.vt_flagged} flagged by VirusTotal (avg ${enrichment.vt_avg_malicious ?? 0} engines)`);
+        if (enrichment.gsb_confirmed > 0) parts.push(`${enrichment.gsb_confirmed} confirmed by Google Safe Browsing`);
+        if (enrichment.dbl_confirmed > 0) parts.push(`${enrichment.dbl_confirmed} confirmed by Spamhaus DBL`);
         outputs.push({
           type: 'classification',
-          summary: `**External Validation** — ${brandName}: ${enrichment.surbl_confirmed} threats confirmed as phishing/malware by SURBL domain reputation. ${enrichment.vt_flagged} threats flagged by VirusTotal with an average of ${enrichment.vt_avg_malicious ?? 0} detection engines.`,
-          severity: enrichment.vt_flagged > 5 || enrichment.surbl_confirmed > 10 ? 'high' : 'medium',
+          summary: `**External Validation** — ${brandName}: ${parts.join('. ')}.`,
+          severity: enrichment.vt_flagged > 5 || enrichment.surbl_confirmed > 10 || enrichment.gsb_confirmed > 5 || enrichment.dbl_confirmed > 5 ? 'high' : 'medium',
           details: {
             brand_id: bid,
             surbl_confirmed: enrichment.surbl_confirmed,
             vt_flagged: enrichment.vt_flagged,
             vt_avg_malicious: enrichment.vt_avg_malicious,
+            gsb_confirmed: enrichment.gsb_confirmed,
+            dbl_confirmed: enrichment.dbl_confirmed,
           },
           relatedBrandIds: [bid],
         });

@@ -31,6 +31,8 @@ interface Backlog {
   totalNoGeo: number;
   surblUnchecked: number;
   vtUnchecked: number;
+  gsbUnchecked: number;
+  dblUnchecked: number;
 }
 
 interface DegradedFeed {
@@ -137,6 +139,18 @@ export const flightControlAgent: AgentModule = {
         { backlog: 'virustotal', count: backlogs.vtUnchecked }
       );
     }
+    if (backlogs.gsbUnchecked > 1000) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `GSB enrichment backlog: ${backlogs.gsbUnchecked} URLs/domains unchecked`,
+        { backlog: 'google_safe_browsing', count: backlogs.gsbUnchecked }
+      );
+    }
+    if (backlogs.dblUnchecked > 1000) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `DBL enrichment backlog: ${backlogs.dblUnchecked} domains unchecked`,
+        { backlog: 'spamhaus_dbl', count: backlogs.dblUnchecked }
+      );
+    }
 
     // ── Degraded feed health monitoring ───────────────────────────
     if (degradedFeeds.results.length > 0) {
@@ -191,7 +205,7 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -227,7 +241,7 @@ export const flightControlAgent: AgentModule = {
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
   // Run all backlog queries in parallel
-  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult] = await Promise.all([
+  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult] = await Promise.all([
     // Cartographer backlog: unenriched threats with IPs or domains
     db.prepare(`
       SELECT COUNT(*) as count FROM threats
@@ -274,6 +288,22 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
     `).first<{ count: number }>(),
+
+    // GSB enrichment backlog: unchecked URLs/domains from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE gsb_checked = 0
+        AND (malicious_url IS NOT NULL OR malicious_domain IS NOT NULL)
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
+
+    // DBL enrichment backlog: unchecked domains from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE dbl_checked = 0
+        AND malicious_domain IS NOT NULL
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
   ]);
 
   return {
@@ -283,6 +313,8 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     totalNoGeo: totalNoGeoResult?.count ?? 0,
     surblUnchecked: surblResult?.count ?? 0,
     vtUnchecked: vtResult?.count ?? 0,
+    gsbUnchecked: gsbResult?.count ?? 0,
+    dblUnchecked: dblResult?.count ?? 0,
   };
 }
 
