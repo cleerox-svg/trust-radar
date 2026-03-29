@@ -143,51 +143,77 @@ export function Observatory() {
       {/* Top-left: Mode switcher + Period selector + Color mode */}
       {isMobile ? (
         <div className="absolute top-3 left-3 right-3 z-10 flex flex-col gap-1.5">
-          {/* Row 1: Mode tabs */}
-          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1 flex gap-1 h-10" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-            {MAP_MODES.map(m => (
-              <button
-                key={m.id}
-                onClick={() => setMapMode(m.id)}
-                className={cn(
-                  'font-mono text-[10px] font-bold flex-1 rounded transition-all',
-                  mapMode === m.id ? 'glass-btn-active' : 'glass-btn'
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
+          {/* Row 1: Mode tabs — horizontally scrollable pills */}
+          <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex gap-2 flex-nowrap w-max">
+              {MAP_MODES.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setMapMode(m.id)}
+                  className={cn(
+                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    mapMode === m.id
+                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
+                      : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
-          {/* Row 2: Period + Color/Source filters */}
-          <div className="bg-cockpit/90 backdrop-blur-sm rounded-lg p-1 flex gap-1 h-10" style={{ border: '1px solid rgba(0,212,255,0.1)' }}>
-            <select
-              value={period}
-              onChange={e => setPeriod(e.target.value)}
-              className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
-            >
+          {/* Row 2: Period + Color + Source — horizontally scrollable pills */}
+          <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex gap-2 flex-nowrap w-max">
               {PERIODS.map(p => (
-                <option key={p.id} value={p.id}>{p.label}</option>
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={cn(
+                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    period === p.id
+                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
+                      : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
+                  )}
+                >
+                  {p.label}
+                </button>
               ))}
-            </select>
-            {mapMode === 'global' && (
-              <select
-                value={colorBy}
-                onChange={e => setColorBy(e.target.value as 'severity' | 'type')}
-                className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
-              >
-                <option value="severity">Severity</option>
-                <option value="type">Type</option>
-              </select>
-            )}
-            <select
-              value={source}
-              onChange={e => setSource(e.target.value)}
-              className="flex-1 bg-transparent font-mono text-[10px] font-bold text-white/80 rounded glass-btn appearance-none text-center"
-            >
+              <span className="w-px bg-white/10 self-stretch flex-shrink-0" />
+              {mapMode === 'global' && (
+                <>
+                  {(['severity', 'type'] as const).map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setColorBy(c)}
+                      className={cn(
+                        'font-mono text-xs px-3 py-1 rounded-full whitespace-nowrap transition-all capitalize',
+                        colorBy === c
+                          ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
+                          : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
+                      )}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                  <span className="w-px bg-white/10 self-stretch flex-shrink-0" />
+                </>
+              )}
               {SOURCES.map(s => (
-                <option key={s.id} value={s.id}>{s.label}</option>
+                <button
+                  key={s.id}
+                  onClick={() => setSource(s.id)}
+                  className={cn(
+                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    source === s.id
+                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
+                      : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
+                  )}
+                >
+                  {s.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         </div>
       ) : (
@@ -329,10 +355,8 @@ export function Observatory() {
         </div>
       </div>
 
-      {/* Event ticker */}
-      <div className="absolute bottom-[52px] left-0 right-0 z-10">
-        <EventTicker />
-      </div>
+      {/* Event ticker — self-positions with fixed at bottom */}
+      <EventTicker />
 
       {/* Bottom stats bar */}
       <div className="absolute bottom-0 left-0 right-0 z-10 bg-cockpit/95 backdrop-blur-sm border-t border-white/5">

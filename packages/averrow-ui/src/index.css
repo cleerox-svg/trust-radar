@@ -372,14 +372,11 @@
 /* ── EVENT TICKER ───────────────────────────── */
 .event-ticker {
   height: 32px;
-  background: rgba(4, 9, 18, 0.92);
   border-top: 1px solid rgba(0, 212, 255, 0.15);
   border-bottom: 1px solid rgba(0, 212, 255, 0.08);
   display: flex;
   align-items: center;
   overflow: hidden;
-  position: relative;
-  backdrop-filter: blur(8px);
 }
 
 .ticker-label {
