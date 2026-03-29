@@ -99,16 +99,14 @@ export function EventTicker() {
 
   if (events.length === 0) return null;
 
-  // Dynamic scroll duration based on content length — fast enough to feel like a stock ticker
-  const CHARS_PER_SECOND = 40;
-  const totalChars = events.reduce((sum, e) => sum + e.message.length, 0);
-  const duration = Math.max(15, Math.min(25, totalChars / CHARS_PER_SECOND));
+  // Fixed ticker speed — fast enough to feel like a news/stock ticker
+  const duration = 18;
 
   // Double events for seamless loop
   const doubled = [...events, ...events];
 
   return (
-    <div className="event-ticker fixed bottom-[52px] left-0 w-full z-30 bg-black/80 backdrop-blur-sm">
+    <div className="event-ticker fixed bottom-9 left-0 w-full z-30 bg-black/80 backdrop-blur-sm md:bottom-[52px]">
       {/* Left label */}
       <div className="ticker-label">
         <span className="dot-pulse dot-pulse-teal" style={{ width: 5, height: 5 }} />

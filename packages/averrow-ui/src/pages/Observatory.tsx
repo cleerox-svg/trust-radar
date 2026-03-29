@@ -58,12 +58,9 @@ export function Observatory() {
   const [showNodes, setShowNodes] = useState(true);
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
   const [showPanel, setShowPanel] = useState(!isMobile);
-  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
-  const [mobileIntelOpen, setMobileIntelOpen] = useState(false);
-  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState<'brands' | 'intel' | 'feed' | null>(null);
   const [clock, setClock] = useState('');
   const [mapMode, setMapMode] = useState<MapMode>('global');
-  const [legendOpen, setLegendOpen] = useState(!isMobile);
 
   // Clicked element state
   const [clickedArc, setClickedArc] = useState<{ arc: ArcData; x: number; y: number } | null>(null);
@@ -127,7 +124,7 @@ export function Observatory() {
   return (
     <div className="relative h-[calc(100vh-3rem)] -m-6 overflow-hidden">
       {/* Full-screen map */}
-      <div className="absolute inset-0 bottom-[84px]">
+      <div className={cn('absolute inset-0', isMobile ? 'bottom-[108px]' : 'bottom-[84px]')}>
         <ThreatMap
           threats={threats}
           arcs={arcs}
@@ -148,13 +145,13 @@ export function Observatory() {
         <div className="absolute top-3 left-0 right-0 z-10 flex flex-col gap-1.5">
           {/* Row 1: Mode tabs — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-1.5 flex-nowrap w-max px-4">
+            <div className="flex gap-2 flex-nowrap w-max px-5">
               {MAP_MODES.map(m => (
                 <button
                   key={m.id}
                   onClick={() => setMapMode(m.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
+                    'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
                     mapMode === m.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -167,13 +164,13 @@ export function Observatory() {
           </div>
           {/* Row 2: Period + Color + Source — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-1.5 flex-nowrap w-max px-4">
+            <div className="flex gap-2 flex-nowrap w-max px-5">
               {PERIODS.map(p => (
                 <button
                   key={p.id}
                   onClick={() => setPeriod(p.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
+                    'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
                     period === p.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -190,7 +187,7 @@ export function Observatory() {
                       key={c}
                       onClick={() => setColorBy(c)}
                       className={cn(
-                        'font-mono text-xs px-2 py-1 rounded-full whitespace-nowrap transition-all capitalize',
+                        'flex-shrink-0 font-mono text-xs px-3 py-1 rounded-full whitespace-nowrap transition-all capitalize',
                         colorBy === c
                           ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                           : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -207,7 +204,7 @@ export function Observatory() {
                   key={s.id}
                   onClick={() => setSource(s.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
+                    'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
                     source === s.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -300,85 +297,63 @@ export function Observatory() {
         <div className="font-mono text-accent text-lg font-bold tabular-nums">{clock}</div>
       </div>
 
-      {/* Bottom-left: Legend */}
+      {/* Legend */}
       {mapMode === 'global' && (
-        <div className={cn(
-          'absolute left-4 z-10',
-          isMobile ? 'bottom-[140px]' : 'bottom-[100px]'
-        )}>
-          <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg">
-            {isMobile ? (
-              <>
-                <button
-                  onClick={() => setLegendOpen(!legendOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2"
-                >
-                  <span className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider">
-                    {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
-                  </span>
-                  <span className={cn(
-                    'font-mono text-[9px] text-contrail/40 transition-transform duration-200',
-                    legendOpen ? 'rotate-180' : ''
-                  )}>▼</span>
-                </button>
-                <div className={cn(
-                  'overflow-hidden transition-all duration-200',
-                  legendOpen ? 'max-h-40 px-3 pb-2' : 'max-h-0'
-                )}>
-                  <div className="space-y-1">
-                    {colorBy === 'severity' ? (
-                      <>
-                        <LegendItem color="rgb(200,60,60)" label="Critical" />
-                        <LegendItem color="rgb(232,146,60)" label="High" />
-                        <LegendItem color="rgb(220,170,50)" label="Medium" />
-                        <LegendItem color="rgb(120,160,200)" label="Low" />
-                      </>
-                    ) : (
-                      <>
-                        <LegendItem color="rgb(200,60,60)" label="Phishing" />
-                        <LegendItem color="rgb(251,146,60)" label="Credential" />
-                        <LegendItem color="rgb(168,85,247)" label="Malware" />
-                        <LegendItem color="rgb(239,68,68)" label="C2" />
-                        <LegendItem color="rgb(251,113,133)" label="Web Attack" />
-                        <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="p-3">
-                <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
-                  {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
-                </div>
-                <div className="space-y-1">
-                  {colorBy === 'severity' ? (
-                    <>
-                      <LegendItem color="rgb(200,60,60)" label="Critical" />
-                      <LegendItem color="rgb(232,146,60)" label="High" />
-                      <LegendItem color="rgb(220,170,50)" label="Medium" />
-                      <LegendItem color="rgb(120,160,200)" label="Low" />
-                    </>
-                  ) : (
-                    <>
-                      <LegendItem color="rgb(200,60,60)" label="Phishing" />
-                      <LegendItem color="rgb(251,146,60)" label="Credential" />
-                      <LegendItem color="rgb(168,85,247)" label="Malware" />
-                      <LegendItem color="rgb(239,68,68)" label="C2" />
-                      <LegendItem color="rgb(251,113,133)" label="Web Attack" />
-                      <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+        isMobile ? (
+          /* Mobile: horizontal strip below filter rows, top-left */
+          <div className="absolute top-[100px] left-3 z-10">
+            <div className="bg-cockpit/80 backdrop-blur-sm rounded px-2 py-1 flex flex-row gap-3">
+              {colorBy === 'severity' ? (
+                <>
+                  <LegendItem color="rgb(200,60,60)" label="Critical" />
+                  <LegendItem color="rgb(232,146,60)" label="High" />
+                  <LegendItem color="rgb(220,170,50)" label="Medium" />
+                  <LegendItem color="rgb(120,160,200)" label="Low" />
+                </>
+              ) : (
+                <>
+                  <LegendItem color="rgb(200,60,60)" label="Phishing" />
+                  <LegendItem color="rgb(251,146,60)" label="Credential" />
+                  <LegendItem color="rgb(168,85,247)" label="Malware" />
+                  <LegendItem color="rgb(239,68,68)" label="C2" />
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Desktop: vertical legend bottom-left */
+          <div className="absolute left-4 bottom-[100px] z-10">
+            <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
+              <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
+                {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
+              </div>
+              <div className="space-y-1">
+                {colorBy === 'severity' ? (
+                  <>
+                    <LegendItem color="rgb(200,60,60)" label="Critical" />
+                    <LegendItem color="rgb(232,146,60)" label="High" />
+                    <LegendItem color="rgb(220,170,50)" label="Medium" />
+                    <LegendItem color="rgb(120,160,200)" label="Low" />
+                  </>
+                ) : (
+                  <>
+                    <LegendItem color="rgb(200,60,60)" label="Phishing" />
+                    <LegendItem color="rgb(251,146,60)" label="Credential" />
+                    <LegendItem color="rgb(168,85,247)" label="Malware" />
+                    <LegendItem color="rgb(239,68,68)" label="C2" />
+                    <LegendItem color="rgb(251,113,133)" label="Web Attack" />
+                    <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
       )}
 
       {/* Heatmap legend (bottom-left) */}
       {mapMode === 'heatmap' && (
-        <div className="absolute bottom-[100px] left-4 z-10">
+        <div className={cn('absolute left-4 z-10', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
           <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-4 glass-card glass-card-teal">
             <div className="section-label mb-3">Attack Density ({period.toUpperCase()})</div>
             <div className="flex items-center gap-3 mb-3">
@@ -395,7 +370,7 @@ export function Observatory() {
       )}
 
       {/* Bottom-right: LIVE indicator */}
-      <div className="absolute bottom-[100px] right-4 z-10">
+      <div className={cn('absolute right-4 z-10', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
           <span className="live-indicator">LIVE</span>
           <span className="font-mono text-[10px] text-contrail/40 tabular-nums">
@@ -407,12 +382,21 @@ export function Observatory() {
       {/* Event ticker — self-positions with fixed at bottom */}
       <EventTicker />
 
-      {/* Bottom stats bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-cockpit/95 backdrop-blur-sm border-t border-white/5">
-        <div className="flex items-center justify-between px-3 md:px-6 py-2 md:py-3">
+      {/* Bottom stats bar — always visible, pinned at very bottom */}
+      <div className={cn(
+        'z-20 bg-cockpit border-t border-cyan-800/20',
+        isMobile ? 'fixed bottom-0 left-0 w-full h-9' : 'absolute bottom-0 left-0 right-0'
+      )}>
+        <div className={cn(
+          'flex items-center justify-between',
+          isMobile ? 'px-4 h-full' : 'px-3 md:px-6 py-2 md:py-3'
+        )}>
           {/* Mode label */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="section-label">
+            <span className={cn(
+              'font-mono uppercase tracking-wider',
+              isMobile ? 'text-[10px] text-contrail/60' : 'section-label'
+            )}>
               {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
             </span>
           </div>
@@ -421,14 +405,29 @@ export function Observatory() {
           <div className="flex items-center gap-3 md:gap-6 overflow-x-auto scrollbar-none">
             {stats && (
               <>
-                <StatChip value={stats.threats_mapped} label={isMobile ? 'Threats' : 'Threats Mapped'} color="text-accent" />
-                <StatChip value={stats.countries} label="Countries" color="text-contrail" />
-                <div className="hidden md:block">
-                  <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
-                </div>
-                <div className="hidden md:block">
-                  <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
-                </div>
+                {isMobile ? (
+                  <>
+                    <span className="font-mono text-[10px] text-orbital-teal font-bold tabular-nums">
+                      {(stats.threats_mapped ?? 0).toLocaleString()}
+                    </span>
+                    <span className="font-mono text-[10px] text-contrail/40">THREATS</span>
+                    <span className="font-mono text-[10px] text-thrust font-bold tabular-nums">
+                      {(stats.countries ?? 0).toLocaleString()}
+                    </span>
+                    <span className="font-mono text-[10px] text-contrail/40">COUNTRIES</span>
+                  </>
+                ) : (
+                  <>
+                    <StatChip value={stats.threats_mapped} label="Threats Mapped" color="text-accent" />
+                    <StatChip value={stats.countries} label="Countries" color="text-contrail" />
+                    <div className="hidden md:block">
+                      <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
+                    </div>
+                    <div className="hidden md:block">
+                      <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -526,77 +525,45 @@ export function Observatory() {
         </div>
       )}
 
-      {/* ─── Mobile bottom intel panel ─── */}
+      {/* ─── Mobile bottom tab bar + expandable panel ─── */}
       {isMobile && (
-        <div className="absolute left-0 right-0 bottom-[84px] z-20 md:hidden">
-          <div className="bg-cockpit/90 backdrop-blur-sm border-t border-x border-cyan-800/30 rounded-t-xl overflow-hidden">
-            {/* Top Brands section */}
-            <button
-              onClick={() => setMobileBrandsOpen(!mobileBrandsOpen)}
-              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
-            >
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
-                Top Brands
-              </span>
-              <span className={cn(
-                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
-                mobileBrandsOpen ? 'rotate-180' : ''
-              )}>▲</span>
-            </button>
-            <div className={cn(
-              'overflow-hidden transition-all duration-300 ease-in-out',
-              mobileBrandsOpen ? 'max-h-56' : 'max-h-0'
-            )}>
-              <div className="overflow-y-auto max-h-56 px-3 py-2">
-                <MobileTopBrandsList period={period} />
-              </div>
-            </div>
-
-            {/* Intel Briefings section */}
-            <button
-              onClick={() => setMobileIntelOpen(!mobileIntelOpen)}
-              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
-            >
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
-                Intel Briefings
-              </span>
-              <span className={cn(
-                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
-                mobileIntelOpen ? 'rotate-180' : ''
-              )}>▲</span>
-            </button>
-            <div className={cn(
-              'overflow-hidden transition-all duration-300 ease-in-out',
-              mobileIntelOpen ? 'max-h-56' : 'max-h-0'
-            )}>
-              <div className="overflow-y-auto max-h-56 px-3 py-2">
-                <AgentIntelFeed />
-              </div>
-            </div>
-
-            {/* Live Stats section */}
-            <button
-              onClick={() => setMobileStatsOpen(!mobileStatsOpen)}
-              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
-            >
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
-                Live Feed
-              </span>
-              <span className={cn(
-                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
-                mobileStatsOpen ? 'rotate-180' : ''
-              )}>▲</span>
-            </button>
-            <div className={cn(
-              'overflow-hidden transition-all duration-300 ease-in-out',
-              mobileStatsOpen ? 'max-h-56' : 'max-h-0'
-            )}>
-              <div className="overflow-y-auto max-h-56 px-3 py-2">
-                <LiveThreatFeed />
-              </div>
+        <>
+          {/* Expanded panel — slides up from above the tab bar */}
+          <div className={cn(
+            'fixed left-0 w-full z-20 overflow-hidden transition-all duration-300 ease-in-out',
+            mobileActiveTab ? 'max-h-64' : 'max-h-0'
+          )} style={{ bottom: 'calc(36px + 32px + 40px)' /* stats + ticker + tab bar */ }}>
+            <div className="bg-cockpit/95 backdrop-blur-md overflow-y-auto max-h-64 px-3 py-2">
+              {mobileActiveTab === 'brands' && <MobileTopBrandsList period={period} />}
+              {mobileActiveTab === 'intel' && <AgentIntelFeed />}
+              {mobileActiveTab === 'feed' && <LiveThreatFeed />}
             </div>
           </div>
-        </div>
+
+          {/* Tab bar — fixed above ticker */}
+          <div className="fixed left-0 w-full z-20 bg-cockpit/95 backdrop-blur-md border-t border-cyan-800/20" style={{ bottom: 'calc(36px + 32px)' /* stats + ticker */ }}>
+            <div className="flex justify-evenly items-center h-10">
+              {([
+                { key: 'brands' as const, label: 'TOP BRANDS' },
+                { key: 'intel' as const, label: 'INTEL' },
+                { key: 'feed' as const, label: 'LIVE FEED' },
+              ]).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setMobileActiveTab(mobileActiveTab === tab.key ? null : tab.key)}
+                  className={cn(
+                    'font-mono text-xs uppercase tracking-wider px-3 py-2 transition-all',
+                    mobileActiveTab === tab.key
+                      ? 'text-orbital-teal border-b-2 border-orbital-teal'
+                      : 'text-contrail/50'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* ─── Desktop sidebar backdrop (no longer used on mobile) ─── */}
@@ -685,11 +652,11 @@ function StatChip({ value, label, color }: { value: number; label: string; color
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
+function LegendItem({ color, label, compact }: { color: string; label: string; compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-      <span className="font-mono text-[10px] text-contrail/60">{label}</span>
+    <div className={cn('flex items-center', compact ? 'gap-1' : 'gap-2')}>
+      <span className={cn('rounded-full', compact ? 'w-2 h-2' : 'w-2.5 h-2.5')} style={{ backgroundColor: color }} />
+      <span className={cn('font-mono text-contrail/60', compact ? 'text-[10px]' : 'text-[10px]')}>{label}</span>
     </div>
   );
 }
