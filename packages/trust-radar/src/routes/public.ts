@@ -70,7 +70,7 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   for (const [oldPath, newPath] of Object.entries(LEGACY_REDIRECTS)) {
     router.get(oldPath, (request: Request) => {
       const url = new URL(request.url);
-      return Response.redirect(`${url.origin}${newPath}`, 301);
+      return Response.redirect(`${url.origin}${newPath}`, 302);
     });
   }
 
@@ -135,7 +135,7 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   );
 
   // ─── Redirect ────────────────────────────────────────────────────
-  router.get("/dashboard/social", () => Response.redirect("/social", 301));
+  router.get("/dashboard/social", () => Response.redirect("/social", 302));
 
   // ─── Corporate Site Pages ─────────────────────────────────────────
   router.get("/platform", htmlPage(renderPlatformPage));
@@ -196,7 +196,16 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
       return assetResponse;
     }
     // Otherwise serve v2/index.html for client-side routing
-    return env.ASSETS.fetch(new Request(new URL("/v2/index.html", request.url).toString()));
+    const htmlResponse = await env.ASSETS.fetch(new Request(new URL("/v2/index.html", request.url).toString()));
+    return new Response(htmlResponse.body, {
+      status: htmlResponse.status,
+      headers: {
+        ...Object.fromEntries(htmlResponse.headers.entries()),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   });
 
   // ─── Static assets fallback (SPA) ────────────────────────────────
