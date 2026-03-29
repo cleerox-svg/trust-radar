@@ -33,6 +33,8 @@ interface Backlog {
   vtUnchecked: number;
   gsbUnchecked: number;
   dblUnchecked: number;
+  abuseipdbUnchecked: number;
+  pdnsUnchecked: number;
 }
 
 interface DegradedFeed {
@@ -151,6 +153,18 @@ export const flightControlAgent: AgentModule = {
         { backlog: 'spamhaus_dbl', count: backlogs.dblUnchecked }
       );
     }
+    if (backlogs.abuseipdbUnchecked > 500) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `AbuseIPDB enrichment backlog: ${backlogs.abuseipdbUnchecked} IPs unchecked`,
+        { backlog: 'abuseipdb', count: backlogs.abuseipdbUnchecked }
+      );
+    }
+    if (backlogs.pdnsUnchecked > 200) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `PDNS enrichment backlog: ${backlogs.pdnsUnchecked} domains unchecked`,
+        { backlog: 'circl_pdns', count: backlogs.pdnsUnchecked }
+      );
+    }
 
     // ── Degraded feed health monitoring ───────────────────────────
     if (degradedFeeds.results.length > 0) {
@@ -205,7 +219,7 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -241,7 +255,7 @@ export const flightControlAgent: AgentModule = {
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
   // Run all backlog queries in parallel
-  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult] = await Promise.all([
+  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult, abuseipdbResult, pdnsResult] = await Promise.all([
     // Cartographer backlog: unenriched threats with IPs or domains
     db.prepare(`
       SELECT COUNT(*) as count FROM threats
@@ -304,6 +318,23 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
     `).first<{ count: number }>(),
+
+    // AbuseIPDB enrichment backlog: unchecked IPs from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE abuseipdb_checked = 0
+        AND ip_address IS NOT NULL
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
+
+    // PDNS enrichment backlog: unchecked high-severity domains from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE pdns_checked = 0
+        AND severity IN ('critical', 'high')
+        AND malicious_domain IS NOT NULL
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
   ]);
 
   return {
@@ -315,6 +346,8 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     vtUnchecked: vtResult?.count ?? 0,
     gsbUnchecked: gsbResult?.count ?? 0,
     dblUnchecked: dblResult?.count ?? 0,
+    abuseipdbUnchecked: abuseipdbResult?.count ?? 0,
+    pdnsUnchecked: pdnsResult?.count ?? 0,
   };
 }
 
