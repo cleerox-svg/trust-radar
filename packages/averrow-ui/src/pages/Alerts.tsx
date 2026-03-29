@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
+import { Sparkline } from '@/components/brands/Sparkline';
 import {
   useAlerts, useAlertStats, useUpdateAlert, useBulkAcknowledge, useBulkTakedown,
   type Alert, type AlertFilters,
 } from '@/hooks/useAlerts';
+import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -514,9 +517,233 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
   );
 }
 
+// ── Mobile Alert Row ───────────────────────────────────────────
+
+function MobileAlertRow({ alert }: { alert: Alert }) {
+  const [expanded, setExpanded] = useState(false);
+  const handle = extractHandle(alert.title);
+  const severityDotColor: Record<string, string> = {
+    CRITICAL: '#f87171',
+    HIGH: '#fb923c',
+    MEDIUM: '#fbbf24',
+    LOW: '#78A0C8',
+  };
+  const dotColor = severityDotColor[alert.severity] ?? '#78A0C8';
+  const severityPillClass: Record<string, string> = {
+    CRITICAL: 'text-[#f87171] bg-[#f87171]/10',
+    HIGH: 'text-[#fb923c] bg-[#fb923c]/10',
+    MEDIUM: 'text-[#fbbf24] bg-[#fbbf24]/10',
+    LOW: 'text-contrail bg-contrail/10',
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded(prev => !prev)}
+      className="w-full text-left border-b border-bulkhead/20 px-4 py-3"
+    >
+      <div className="flex items-center gap-2.5">
+        {/* Severity dot with glow */}
+        <span
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{
+            backgroundColor: dotColor,
+            boxShadow: `0 0 6px ${dotColor}60`,
+          }}
+        />
+
+        {/* Severity badge pill */}
+        <span className={cn(
+          'font-mono text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
+          severityPillClass[alert.severity] ?? severityPillClass.LOW,
+        )}>
+          {alert.severity}
+        </span>
+
+        {/* Brand name */}
+        <span className="flex-1 font-mono text-[11px] font-bold text-parchment truncate">
+          {alert.brand_name ?? handle}
+        </span>
+
+        {/* Time ago */}
+        <span className="font-mono text-[9px] text-contrail/40 tabular-nums flex-shrink-0">
+          {timeAgo(alert.created_at)}
+        </span>
+      </div>
+
+      {/* Message text */}
+      <div className="mt-1 ml-5 font-mono text-[10px] text-contrail/50 leading-relaxed truncate">
+        {alert.summary}
+      </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="mt-2 ml-5 space-y-1.5 border-l-2 border-bulkhead/40 pl-3">
+          <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wide">Handle</div>
+          <div className="font-mono text-[11px] text-parchment">{handle}</div>
+          {alert.ai_assessment && (
+            <>
+              <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wide mt-1.5">AI Assessment</div>
+              <div className="font-mono text-[10px] text-contrail/60 leading-relaxed">{alert.ai_assessment}</div>
+            </>
+          )}
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ── Mobile Alerts Layout ───────────────────────────────────────
+
+type SeverityFilter = 'all' | 'CRITICAL' | 'HIGH' | 'MEDIUM';
+
+function MobileAlertsLayout({
+  alerts,
+  stats,
+  statsLoading,
+}: {
+  alerts: Alert[];
+  stats: { total: number; new_count: number; critical: number; high: number; medium: number } | undefined;
+  statsLoading: boolean;
+}) {
+  const navigate = useNavigate();
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+
+  const activeCount = stats ? stats.new_count : 0;
+
+  // Severity breakdown hero stats
+  const heroStats = useMemo(() => [
+    {
+      label: 'CRITICAL',
+      value: statsLoading ? '...' : String(stats?.critical ?? 0),
+      color: '#f87171',
+    },
+    {
+      label: 'HIGH',
+      value: statsLoading ? '...' : String(stats?.high ?? 0),
+      color: '#fb923c',
+    },
+    {
+      label: 'MEDIUM',
+      value: statsLoading ? '...' : String(stats?.medium ?? 0),
+      color: '#fbbf24',
+    },
+  ], [stats, statsLoading]);
+
+  // 24h trend calculation
+  const now = Date.now();
+  const alerts24h = useMemo(() =>
+    alerts.filter(a => now - new Date(a.created_at).getTime() < 86_400_000),
+  [alerts, now]);
+  const alertsYesterday = useMemo(() =>
+    alerts.filter(a => {
+      const age = now - new Date(a.created_at).getTime();
+      return age >= 86_400_000 && age < 172_800_000;
+    }),
+  [alerts, now]);
+  const pctChange = alertsYesterday.length > 0
+    ? Math.round(((alerts24h.length - alertsYesterday.length) / alertsYesterday.length) * 100)
+    : 0;
+
+  // Generate sparkline data (7 buckets across 24h)
+  const sparklineData = useMemo(() => {
+    const buckets = Array(7).fill(0) as number[];
+    const bucketSize = 86_400_000 / 7;
+    for (const a of alerts24h) {
+      const age = now - new Date(a.created_at).getTime();
+      const idx = Math.min(6, Math.floor((86_400_000 - age) / bucketSize));
+      buckets[idx]++;
+    }
+    return buckets;
+  }, [alerts24h, now]);
+
+  // Filter alerts by severity for the bottom sheet
+  const filteredAlerts = useMemo(() => {
+    if (severityFilter === 'all') return alerts;
+    return alerts.filter(a => a.severity === severityFilter);
+  }, [alerts, severityFilter]);
+
+  const filterChips = useMemo(() => [
+    { label: 'All', active: severityFilter === 'all', onClick: () => setSeverityFilter('all') },
+    { label: 'Critical', active: severityFilter === 'CRITICAL', onClick: () => setSeverityFilter('CRITICAL') },
+    { label: 'High', active: severityFilter === 'HIGH', onClick: () => setSeverityFilter('HIGH') },
+    { label: 'Medium', active: severityFilter === 'MEDIUM', onClick: () => setSeverityFilter('MEDIUM') },
+  ], [severityFilter]);
+
+  return (
+    <div className="fixed inset-0 bg-cockpit flex flex-col">
+      {/* DrillHeader */}
+      <DrillHeader
+        title="ALERTS"
+        badge={`${activeCount} active`}
+        onBack={() => navigate('/v2/')}
+      />
+
+      {/* Scrollable hero area */}
+      <div className="flex-1 overflow-y-auto pt-[52px] pb-[120px]">
+        <div className="p-4 space-y-3">
+          {/* 3-col severity breakdown */}
+          <HeroStatGrid stats={heroStats} cols={3} />
+
+          {/* 24h trend card */}
+          <div className="rounded-[10px] border border-bulkhead/40 bg-instrument p-3">
+            <span className="text-[8px] font-mono uppercase tracking-widest text-contrail/45">
+              LAST 24 HOURS
+            </span>
+            <div className="mt-1.5 flex items-center justify-between">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-parchment leading-none">
+                  {alerts24h.length}
+                </span>
+                {pctChange !== 0 && (
+                  <span className={cn(
+                    'font-mono text-[10px] font-bold',
+                    pctChange > 0 ? 'text-[#f87171]' : 'text-[#4ade80]',
+                  )}>
+                    {pctChange > 0 ? '▲' : '▼'} {Math.abs(pctChange)}%
+                  </span>
+                )}
+              </div>
+              <Sparkline data={sparklineData} width={80} height={24} color="#fb923c" />
+            </div>
+            <span className="mt-0.5 block text-[9px] text-contrail/40">vs yesterday</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom sheet */}
+      <MobileBottomSheet
+        peekHeight={110}
+        halfHeight={340}
+        fullHeight={500}
+        defaultState="half"
+        headerLeft={
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">ALL ALERTS</span>
+            <span className="text-[9px] font-mono text-contrail/40">{filteredAlerts.length}</span>
+          </div>
+        }
+        headerRight={<MobileFilterChips filters={filterChips} />}
+      >
+        <div className="flex flex-col">
+          {filteredAlerts.map(alert => (
+            <MobileAlertRow key={alert.id} alert={alert} />
+          ))}
+          {filteredAlerts.length === 0 && (
+            <div className="text-center py-12 font-mono text-sm text-contrail/30">
+              No alerts found
+            </div>
+          )}
+        </div>
+      </MobileBottomSheet>
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────
 
 export function Alerts() {
+  const isMobile = useMobile();
   const [filters, setFilters] = useState<AlertFilters>({ limit: 200 });
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [search, setSearch] = useState('');
@@ -541,6 +768,18 @@ export function Alerts() {
     setSelectedAlert(null);
   };
 
+  /* ─── Mobile layout ─── */
+  if (isMobile) {
+    return (
+      <MobileAlertsLayout
+        alerts={alerts}
+        stats={stats}
+        statsLoading={statsLoading}
+      />
+    );
+  }
+
+  /* ─── Desktop layout (unchanged) ─── */
   return (
     <div className="space-y-5">
       {/* Page header */}
