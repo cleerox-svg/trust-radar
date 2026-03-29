@@ -203,9 +203,32 @@ export const analystAgent: AgentModule = {
       }
     }
 
+    // ─── Phase 2.5: Enrichment validation context per brand ─────
+    // Query enrichment stats for brands that had threats matched this run
+    const enrichmentStats = await env.DB.prepare(`
+      SELECT
+        target_brand_id,
+        SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed,
+        SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged,
+        ROUND(AVG(CASE WHEN vt_malicious > 0 THEN vt_malicious ELSE NULL END), 1) as vt_avg_malicious
+      FROM threats
+      WHERE target_brand_id IS NOT NULL
+        AND status = 'active'
+        AND (surbl_listed = 1 OR vt_malicious > 0)
+      GROUP BY target_brand_id
+    `).all<{
+      target_brand_id: string;
+      surbl_confirmed: number;
+      vt_flagged: number;
+      vt_avg_malicious: number | null;
+    }>();
+
+    const enrichmentByBrand = new Map(
+      enrichmentStats.results.map(r => [r.target_brand_id, r])
+    );
+
     // ─── Phase 3: Brand threat correlation escalation ──────────
     // After processing threats, run correlation for brands with new matches
-    // Batch: get brand IDs for all processed threats in one query
     const matchedBrandIds = new Set<string>();
     if (threats.results.length > 0) {
       const threatIds = threats.results.map(t => t.id);
@@ -275,6 +298,27 @@ export const analystAgent: AgentModule = {
         }
       } catch (corrErr) {
         console.error(`[analyst] correlation check failed for brand ${bid}:`, corrErr);
+      }
+    }
+
+    // ─── Phase 3.5: Enrichment validation summaries per brand ──────
+    for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
+      const enrichment = enrichmentByBrand.get(bid);
+      if (enrichment && (enrichment.surbl_confirmed > 0 || enrichment.vt_flagged > 0)) {
+        const brand = await getBrandById(env, bid);
+        const brandName = brand?.name ?? bid;
+        outputs.push({
+          type: 'classification',
+          summary: `**External Validation** — ${brandName}: ${enrichment.surbl_confirmed} threats confirmed as phishing/malware by SURBL domain reputation. ${enrichment.vt_flagged} threats flagged by VirusTotal with an average of ${enrichment.vt_avg_malicious ?? 0} detection engines.`,
+          severity: enrichment.vt_flagged > 5 || enrichment.surbl_confirmed > 10 ? 'high' : 'medium',
+          details: {
+            brand_id: bid,
+            surbl_confirmed: enrichment.surbl_confirmed,
+            vt_flagged: enrichment.vt_flagged,
+            vt_avg_malicious: enrichment.vt_avg_malicious,
+          },
+          relatedBrandIds: [bid],
+        });
       }
     }
 

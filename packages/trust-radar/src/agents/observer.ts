@@ -47,6 +47,27 @@ export const observerAgent: AgentModule = {
       feed_count: number; type_count: number; country_count: number;
     }>();
 
+    // ─── Enrichment validation summary (SURBL + VT, last 24h) ────
+    const enrichmentSummary = await env.DB.prepare(`
+      SELECT
+        SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed_today,
+        SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged_today,
+        SUM(CASE WHEN vt_malicious > 5 THEN 1 ELSE 0 END) as vt_critical_today
+      FROM threats
+      WHERE first_seen >= datetime('now', '-24 hours')
+    `).first<{
+      surbl_confirmed_today: number;
+      vt_flagged_today: number;
+      vt_critical_today: number;
+    }>();
+
+    const surblConfirmed = enrichmentSummary?.surbl_confirmed_today ?? 0;
+    const vtFlagged = enrichmentSummary?.vt_flagged_today ?? 0;
+    const vtCritical = enrichmentSummary?.vt_critical_today ?? 0;
+    const enrichmentContext = (surblConfirmed > 0 || vtFlagged > 0)
+      ? `External validation: ${surblConfirmed} threats confirmed by SURBL, ${vtFlagged} threats flagged by VirusTotal (${vtCritical} critical).`
+      : '';
+
     // ─── Top targeted brands (with IDs for linking) ──────────────
     const topBrands = await env.DB.prepare(`
       SELECT b.id, b.name, COUNT(*) as count
@@ -366,6 +387,7 @@ export const observerAgent: AgentModule = {
       social_monitor_summary: socialMonitorContext,
       lookalike_domain_summary: lookalikeContext,
       ct_certificate_summary: ctCertContext,
+      enrichment_validation_summary: enrichmentContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -434,6 +456,21 @@ export const observerAgent: AgentModule = {
           severity: campaign.threat_count >= 10 ? "high" : "medium",
           details: { title: `Campaign: ${campaign.name}` },
           relatedCampaignId: campaign.id,
+        });
+      }
+
+      // Item: Enrichment validation (SURBL + VT)
+      if (enrichmentContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Enrichment Validation** — ${enrichmentContext}`,
+          severity: vtCritical > 0 ? 'high' : 'medium',
+          details: {
+            title: 'Enrichment Validation',
+            surbl_confirmed: surblConfirmed,
+            vt_flagged: vtFlagged,
+            vt_critical: vtCritical,
+          },
         });
       }
 
@@ -602,6 +639,7 @@ export const observerAgent: AgentModule = {
             social_monitor_summary: socialMonitorContext,
             lookalike_domain_summary: lookalikeContext,
             ct_certificate_summary: ctCertContext,
+            enrichment_validation_summary: enrichmentContext,
           });
 
           if (weeklyResult.success && weeklyResult.data?.items?.length) {

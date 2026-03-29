@@ -144,13 +144,15 @@ export const surbl: FeedModule = {
         if (result.listed) {
           const surblType = result.types.join(",") || "UNKNOWN";
           const severityFloor = surblSeverityFloor(result.types);
+          const confidenceBoost = result.types.includes("PH") ? 15 : 10;
 
-          // Update all threats with this domain: set SURBL fields and escalate severity if needed
+          // Update all threats with this domain: set SURBL fields, escalate severity, boost confidence
           await env.DB.prepare(`
             UPDATE threats SET
               surbl_checked = 1,
               surbl_listed = 1,
               surbl_type = ?,
+              confidence_score = MIN(100, COALESCE(confidence_score, 60) + ?),
               severity = CASE
                 WHEN ? > COALESCE(
                   CASE severity
@@ -163,10 +165,20 @@ export const surbl: FeedModule = {
             WHERE malicious_domain = ?
           `).bind(
             surblType,
+            confidenceBoost,
             SEVERITY_RANK[severityFloor] ?? 2,
             severityFloor,
             row.malicious_domain,
           ).run();
+
+          // Combined escalation: if SURBL listed AND VT already flagged (>= 3 engines), auto-escalate to critical
+          await env.DB.prepare(`
+            UPDATE threats SET severity = 'critical'
+            WHERE malicious_domain = ?
+              AND surbl_listed = 1
+              AND vt_malicious >= 3
+              AND severity != 'critical'
+          `).bind(row.malicious_domain).run();
 
           itemsNew++;
         } else {

@@ -29,6 +29,14 @@ interface Backlog {
   analyst: number;
   totalUnlinked: number;
   totalNoGeo: number;
+  surblUnchecked: number;
+  vtUnchecked: number;
+}
+
+interface DegradedFeed {
+  feed_name: string;
+  last_failure: string | null;
+  health_status: string;
 }
 
 // Parallel instance thresholds per backlog level
@@ -77,7 +85,7 @@ export const flightControlAgent: AgentModule = {
     }
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails] = await Promise.all([
+    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
       budgetMgr.getStatus(anthropicReported),
@@ -91,6 +99,11 @@ export const flightControlAgent: AgentModule = {
         SELECT COUNT(*) as count FROM brands
         WHERE email_security_grade IS NULL
       `).first<{ count: number }>(),
+      db.prepare(`
+        SELECT feed_name, last_failure, health_status FROM feed_status
+        WHERE health_status IN ('degraded', 'down')
+          AND feed_name IN (SELECT feed_name FROM feed_configs WHERE enabled = 1)
+      `).all<DegradedFeed>(),
     ]);
 
     // Log emergency budget state
@@ -109,6 +122,30 @@ export const flightControlAgent: AgentModule = {
         `Budget soft limit — reduced batch sizes ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
         { budget: budgetStatus }
       );
+    }
+
+    // ── Enrichment backlog warnings ──────────────────────────────
+    if (backlogs.surblUnchecked > 1000) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `SURBL enrichment backlog: ${backlogs.surblUnchecked} domains unchecked`,
+        { backlog: 'surbl', count: backlogs.surblUnchecked }
+      );
+    }
+    if (backlogs.vtUnchecked > 500) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `VT enrichment backlog: ${backlogs.vtUnchecked} high-severity threats unchecked`,
+        { backlog: 'virustotal', count: backlogs.vtUnchecked }
+      );
+    }
+
+    // ── Degraded feed health monitoring ───────────────────────────
+    if (degradedFeeds.results.length > 0) {
+      for (const feed of degradedFeeds.results) {
+        await logActivity(db, 'flight_control', 'warning', 'feed_degraded',
+          `Feed ${feed.feed_name} is ${feed.health_status}${feed.last_failure ? ` (last failure: ${feed.last_failure})` : ''}`,
+          { feed_name: feed.feed_name, health_status: feed.health_status, last_failure: feed.last_failure }
+        );
+      }
     }
 
     // Fire-and-forget scaling (no await — don't block on spawning agents)
@@ -149,11 +186,12 @@ export const flightControlAgent: AgentModule = {
       agents: health,
       budget: budgetStatus,
       overall_status: overallStatus,
+      degraded_feeds: degradedFeeds.results,
     };
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -189,7 +227,7 @@ export const flightControlAgent: AgentModule = {
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
   // Run all backlog queries in parallel
-  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult] = await Promise.all([
+  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult] = await Promise.all([
     // Cartographer backlog: unenriched threats with IPs or domains
     db.prepare(`
       SELECT COUNT(*) as count FROM threats
@@ -219,6 +257,23 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
       WHERE (lat IS NULL OR lng IS NULL)
       AND status = 'active'
     `).first<{ count: number }>(),
+
+    // SURBL enrichment backlog: unchecked domains from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE surbl_checked = 0
+        AND malicious_domain IS NOT NULL
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
+
+    // VT enrichment backlog: unchecked high-severity threats from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE vt_checked = 0
+        AND severity IN ('critical', 'high')
+        AND malicious_domain IS NOT NULL
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>(),
   ]);
 
   return {
@@ -226,6 +281,8 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     analyst: analystResult?.count ?? 0,
     totalUnlinked: totalUnlinkedResult?.count ?? 0,
     totalNoGeo: totalNoGeoResult?.count ?? 0,
+    surblUnchecked: surblResult?.count ?? 0,
+    vtUnchecked: vtResult?.count ?? 0,
   };
 }
 
