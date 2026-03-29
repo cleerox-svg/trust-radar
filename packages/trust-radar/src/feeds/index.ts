@@ -7,7 +7,7 @@ import { urlhaus } from "./urlhaus";
 import { openphish } from "./openphish";
 import { threatfox } from "./threatfox";
 import { feodo } from "./feodo";
-import { phishstats } from "./phishstats";
+// PhishStats removed 2026-03 — service dead (522/404)
 import { phishdestroy } from "./phishdestroy";
 import { nrd_hagezi } from "./nrd_hagezi";
 import { dshield } from "./dshield";
@@ -30,7 +30,6 @@ export const feedModules: Record<string, FeedModule> = {
   openphish,
   threatfox,
   feodo,
-  phishstats,
   phishdestroy,
   nrd_hagezi,
   dshield,

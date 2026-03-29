@@ -6,7 +6,8 @@ import { diagnosticFetch } from "../lib/feedDiagnostic";
 /** ThreatFox (abuse.ch) — IOCs: domains, URLs, IPs, hashes */
 export const threatfox: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    const res = await diagnosticFetch(ctx.env.DB, "threatfox", ctx.feedUrl, {
+    const feedUrl = ctx.feedUrl || "https://threatfox-api.abuse.ch/api/v1/";
+    const res = await diagnosticFetch(ctx.env.DB, "threatfox", feedUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -16,11 +17,19 @@ export const threatfox: FeedModule = {
     });
     if (!res.ok) throw new Error(`ThreatFox HTTP ${res.status}`);
 
-    const data = await res.json() as { query_status: string; data?: Array<{
+    const rawText = await res.text();
+    let data: { query_status: string; data?: Array<{
       id: number; ioc: string; ioc_type: string; threat_type: string;
       malware?: string; confidence_level?: number; tags?: string[];
     }> };
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseErr) {
+      console.error(`[threatfox] JSON parse error. Body preview: ${rawText.slice(0, 300)}`);
+      throw new Error(`ThreatFox JSON parse failed: ${parseErr}`);
+    }
     if (data.query_status !== "ok" || !data.data) {
+      console.error(`[threatfox] Unexpected response: query_status=${data.query_status}, data length=${data.data?.length ?? "null"}, body preview: ${rawText.slice(0, 300)}`);
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 
@@ -53,8 +62,12 @@ export const threatfox: FeedModule = {
         await markSeen(ctx.env, iocType, ioc.ioc);
         itemsNew++;
       } catch (err) {
-        console.error(`[threatfox] insert error for ioc=${ioc.ioc} type=${ioc.ioc_type} threat=${ioc.threat_type}: ${err instanceof Error ? err.message : err}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[threatfox] insert error for ioc=${ioc.ioc} type=${ioc.ioc_type} threat=${ioc.threat_type}: ${msg}`);
         itemsError++;
+        if (itemsError <= 3) {
+          console.error(`[threatfox] Full error detail:`, err);
+        }
       }
     }
 

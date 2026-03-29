@@ -25,6 +25,7 @@ export interface Env {
   // GeoIP
   IPINFO_TOKEN?: string;
   // Threat intelligence feeds (optional)
+  OTX_API_KEY?: string;
   ABUSEIPDB_API_KEY?: string;
   HIBP_API_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
