@@ -2,15 +2,15 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 
-/** PhishTank Community — Verified phishing URLs */
+/** PhishTank Community — Verified phishing URLs (bulk download) */
 export const phishtank: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const feedUrl = "http://data.phishtank.com/data/online-valid.json";
     let res: Response;
     try {
       res = await fetch(feedUrl, {
-        headers: { "User-Agent": "trust-radar/2.0" },
-        signal: AbortSignal.timeout(30000),
+        headers: { "User-Agent": "Averrow-ThreatIntel/1.0 (contact: support@averrow.com)" },
+        signal: AbortSignal.timeout(60000),
       });
     } catch (fetchErr) {
       console.error(`[phishtank] fetch error:`, fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
@@ -22,7 +22,21 @@ export const phishtank: FeedModule = {
       throw new Error(`PhishTank HTTP ${res.status}: ${body.slice(0, 100)}`);
     }
 
-    const data = await res.json() as Array<{
+    // Guard: PhishTank returns a JPEG captcha/block page instead of JSON when blocked
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("json") && !contentType.includes("text")) {
+      console.error(`[phishtank] unexpected content-type: ${contentType} — likely blocked/captcha`);
+      throw new Error(`PhishTank returned non-JSON content-type: ${contentType}`);
+    }
+
+    // Additional guard: check first bytes for image magic bytes
+    const rawText = await res.text();
+    if (rawText.length > 0 && !rawText.trimStart().startsWith("[") && !rawText.trimStart().startsWith("{")) {
+      console.error(`[phishtank] response body does not look like JSON (starts with: ${rawText.slice(0, 20)})`);
+      throw new Error("PhishTank response is not JSON — possible captcha or block page");
+    }
+
+    const data = JSON.parse(rawText) as Array<{
       phish_id: number; url: string; phish_detail_url?: string;
       submission_time?: string; verified?: string; target?: string;
     }>;
