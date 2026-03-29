@@ -1,6 +1,6 @@
 import type { FeedModule } from "./types";
 
-// ─── Feed Modules ───────────────────────────────────────────────
+// ─── Ingest Feed Modules ────────────────────────────────────────
 import { certstream } from "./certstream";
 import { phishtank } from "./phishtank";
 import { urlhaus } from "./urlhaus";
@@ -18,6 +18,11 @@ import { cloudflare_email } from "./cloudflare_email";
 import { otx_alienvault } from "./otx_alienvault";
 import { cisa_kev } from "./cisa_kev";
 import { malwarebazaar } from "./malwarebazaar";
+
+// ─── Enrichment Feed Modules ────────────────────────────────────
+import { surbl } from "./surbl";
+import { virustotal } from "./virustotal";
+import { hibp_stealer_logs } from "./hibp";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -40,4 +45,15 @@ export const feedModules: Record<string, FeedModule> = {
   otx_alienvault,
   cisa_kev,
   malwarebazaar,
+};
+
+/**
+ * Enrichment feeds — run AFTER ingest feeds complete.
+ * These query existing threats and add metadata/scores, rather than creating new threats.
+ * Keys match feed_configs.feed_name where feed_type = 'enrichment'.
+ */
+export const enrichmentModules: Record<string, FeedModule> = {
+  surbl,
+  virustotal,
+  hibp_stealer_logs,
 };
