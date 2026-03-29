@@ -199,7 +199,9 @@ export function ThreatMap({
       attributionControl: false,
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    if (!isMobileViewport) {
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    }
     mapRef.current = map;
 
     return () => {
