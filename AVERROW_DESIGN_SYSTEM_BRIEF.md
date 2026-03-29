@@ -608,4 +608,40 @@ The Brands page supports three views toggled via a persistent (localStorage) sel
 
 ---
 
+## 16. MOBILE UX PATTERN — Command Center + Drill + Bottom Sheet
+
+### Mobile Navigation Architecture
+- Entry point: Command Center (6-tile dashboard at /v2/ on mobile)
+- Navigation: Tap tile → drill into page → DrillHeader with back button → return to Command Center
+- Each drilled page: Hero stats area (always visible) + BottomSheet (expandable data list)
+- Desktop layouts are NEVER modified by mobile changes — use `useMobile()` hook to branch
+
+### Shared Mobile Components (`src/components/mobile/`)
+
+| Component | Purpose | Key Props |
+|-----------|---------|-----------|
+| `useMobile` | Single source of truth for mobile detection | Returns `boolean` (isMobile) |
+| `DrillHeader` | Back nav + page title + optional badge | `title`, `badge?`, `onBack` |
+| `MobileBottomSheet` | 3-state expandable panel (peek/half/full) | `peekHeight`, `halfHeight`, `fullHeight`, `headerLeft`, `headerRight`, `children` |
+| `HeroStatGrid` | 2x2 or 3-col stat card grid | `stats[]`, `cols?` |
+| `MobileFilterChips` | Compact horizontal filter pills | `filters[]` |
+
+### Mobile Page Template
+
+Every mobile page MUST follow this structure:
+1. `DrillHeader` (back to Command Center)
+2. Hero area: `HeroStatGrid` + any page-specific summary (donut, trend chart, status bar)
+3. `MobileBottomSheet`: `headerLeft` (section title) + `headerRight` (`MobileFilterChips`) + scrollable list rows
+4. No infinite scroll pages — data lives inside the BottomSheet
+
+### Rules
+- ALL mobile detection uses `useMobile()` hook — no other `window.innerWidth` checks
+- ALL mobile pages use `DrillHeader` + `MobileBottomSheet` — no exceptions
+- Tailwind only — zero inline styles (except dynamic severity colors via `style={{ color }}`)
+- Sheet default state: `'half'` for data-heavy pages, `'peek'` for visualization-heavy pages (Observatory)
+- Filter chips use `MobileFilterChips` component — never standalone pill JSX
+- Brand/item rows inside BottomSheet follow consistent layout: rank + icon + name/subtitle + right-aligned metric + chevron
+
+---
+
 *This document is the single source of truth for all Averrow platform design decisions. When in doubt, reference this brief.*
