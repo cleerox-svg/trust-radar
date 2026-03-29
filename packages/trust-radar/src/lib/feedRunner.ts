@@ -336,6 +336,70 @@ function parseCronIntervalMs(cron: string): number {
   return 5 * 60 * 1000;
 }
 
+// ─── Run Enrichment Feeds (after ingest) ────────────────────────
+
+/**
+ * Run enrichment feeds — these enrich existing threats rather than ingesting new ones.
+ * Called AFTER runAllFeeds so enrichment operates on freshly ingested data.
+ */
+export async function runAllEnrichmentFeeds(
+  env: Env,
+  enrichmentModules: Record<string, FeedModule>,
+): Promise<{
+  feedsRun: number;
+  feedsSkipped: number;
+  feedsFailed: number;
+  totalEnriched: number;
+}> {
+  // Fetch enrichment feed configs (feed_type = 'enrichment' AND enabled)
+  const configs = await env.DB.prepare(
+    "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'enrichment'"
+  ).all<FeedConfigRow>();
+
+  const statuses = await env.DB.prepare(
+    "SELECT * FROM feed_status"
+  ).all<FeedStatusRow>();
+  const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
+
+  let feedsRun = 0;
+  let feedsSkipped = 0;
+  let feedsFailed = 0;
+  let totalEnriched = 0;
+
+  const now = new Date();
+  const toRun: Array<{ config: FeedConfigRow; mod: FeedModule }> = [];
+
+  for (const config of configs.results) {
+    const mod = enrichmentModules[config.feed_name];
+    if (!mod) {
+      feedsSkipped++;
+      continue;
+    }
+
+    const status = statusMap.get(config.feed_name);
+    const shouldRun = shouldRunNow(config, status, now);
+    if (!shouldRun) {
+      feedsSkipped++;
+      continue;
+    }
+
+    toRun.push({ config, mod });
+  }
+
+  // Run enrichment feeds sequentially to respect rate limits
+  for (const { config, mod } of toRun) {
+    feedsRun++;
+    try {
+      const result = await runFeed(env, config, mod);
+      totalEnriched += result.itemsNew;
+    } catch {
+      feedsFailed++;
+    }
+  }
+
+  return { feedsRun, feedsSkipped, feedsFailed, totalEnriched };
+}
+
 // ─── Reset daily counters (called at start of day) ───────────────
 
 export async function resetDailyCounters(db: D1Database): Promise<void> {

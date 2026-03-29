@@ -1,5 +1,5 @@
 import { logger } from '../lib/logger';
-import { feedModules } from '../feeds/index';
+import { feedModules, enrichmentModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
 import type { Env } from '../types';
 
@@ -195,7 +195,7 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   }
 
   // Feed ingestion
-  const { runAllFeeds } = await import('../lib/feedRunner');
+  const { runAllFeeds, runAllEnrichmentFeeds } = await import('../lib/feedRunner');
   const feedResult = await runAllFeeds(env, feedModules);
   logger.info('threat_feed_scan_feeds', {
     feedsRun: feedResult.feedsRun,
@@ -203,6 +203,19 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     feedsFailed: feedResult.feedsFailed,
     feedsSkipped: feedResult.feedsSkipped,
   });
+
+  // Enrichment feeds (SURBL, VirusTotal, HIBP) — run AFTER ingest feeds
+  try {
+    const enrichResult = await runAllEnrichmentFeeds(env, enrichmentModules);
+    logger.info('threat_feed_scan_enrichment_feeds', {
+      feedsRun: enrichResult.feedsRun,
+      totalEnriched: enrichResult.totalEnriched,
+      feedsFailed: enrichResult.feedsFailed,
+      feedsSkipped: enrichResult.feedsSkipped,
+    });
+  } catch (err) {
+    logger.error('enrichment_feeds_error', { error: err instanceof Error ? err.message : String(err) });
+  }
 
   // Enrichment pipeline
   try {
