@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAdminTakedowns, useTakedownEvidence, useUpdateTakedown } from '@/hooks/useTakedowns';
 import type { Takedown, TakedownEvidence } from '@/hooks/useTakedowns';
 import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
+import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 
 // ─── Status mapping (DB → display) ────────────────────────────
 
@@ -427,9 +429,178 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
   );
 }
 
+// ─── Sortie ID generator ──────────────────────────────────────
+
+function sortieId(index: number): string {
+  return `SPR-${String(index + 1).padStart(4, '0')}`;
+}
+
+// ─── Mobile takedown row ──────────────────────────────────────
+
+const MOBILE_STATUS_COLOR: Record<string, string> = {
+  draft: 'bg-white/10 text-white/60',
+  requested: 'bg-amber-500/15 text-amber-400',
+  submitted: 'bg-orbital-teal/15 text-orbital-teal',
+  pending_response: 'bg-amber-500/15 text-amber-400',
+  taken_down: 'bg-green-500/15 text-green-400',
+  failed: 'bg-red-500/15 text-red-400',
+  expired: 'bg-white/10 text-white/40',
+  withdrawn: 'bg-white/10 text-white/40',
+};
+
+function MobileTakedownRow({
+  takedown,
+  index,
+  onTap,
+}: {
+  takedown: Takedown;
+  index: number;
+  onTap: () => void;
+}) {
+  const status = takedown.status;
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className="flex w-full items-center gap-3 border-b border-bulkhead/25 px-4 py-3 text-left"
+    >
+      {/* Left: sortie ID + brand → domain */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] font-bold text-contrail/50">
+            {sortieId(index)}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[8px] font-mono font-bold uppercase ${MOBILE_STATUS_COLOR[status] ?? 'bg-white/10 text-white/40'}`}
+          >
+            {STATUS_DISPLAY[status] ?? status}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-1 text-[11px]">
+          <span className="text-parchment truncate">{takedown.brand_name ?? 'Unknown'}</span>
+          <span className="text-contrail/30">&rarr;</span>
+          <span className="font-mono text-contrail/60 truncate">{takedown.target_value}</span>
+        </div>
+      </div>
+
+      {/* Right: time filed */}
+      <span className="shrink-0 font-mono text-[9px] text-contrail/40">
+        {relativeTime(takedown.created_at)}
+      </span>
+    </button>
+  );
+}
+
+// ─── Mobile view ──────────────────────────────────────────────
+
+function TakedownsMobileView() {
+  const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const { data, isLoading } = useAdminTakedowns({ limit: 100 });
+
+  const takedowns = data?.takedowns ?? [];
+  const statusCounts = data?.statusCounts ?? [];
+
+  const stats = useMemo(() => {
+    const map: Record<string, number> = {};
+    statusCounts.forEach((sc) => { map[sc.status] = sc.count; });
+    const total = Object.values(map).reduce((a, b) => a + b, 0);
+    const pending = (map.draft ?? 0) + (map.requested ?? 0);
+    const resolved = map.taken_down ?? 0;
+    const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+    return { total, pending, rate };
+  }, [statusCounts]);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return takedowns;
+    if (statusFilter === 'pending') return takedowns.filter((t) => t.status === 'draft' || t.status === 'requested');
+    if (statusFilter === 'submitted') return takedowns.filter((t) => t.status === 'submitted' || t.status === 'pending_response');
+    if (statusFilter === 'complete') return takedowns.filter((t) => t.status === 'taken_down');
+    return takedowns;
+  }, [takedowns, statusFilter]);
+
+  const filterChips = useMemo(
+    () => [
+      { label: 'All', active: statusFilter === 'all', onClick: () => setStatusFilter('all') },
+      { label: 'Pending', active: statusFilter === 'pending', onClick: () => setStatusFilter('pending') },
+      { label: 'Submitted', active: statusFilter === 'submitted', onClick: () => setStatusFilter('submitted') },
+      { label: 'Complete', active: statusFilter === 'complete', onClick: () => setStatusFilter('complete') },
+    ],
+    [statusFilter],
+  );
+
+  const heroStats = useMemo(
+    () => [
+      { label: 'TOTAL', value: String(stats.total), color: '#F8F7F5' },
+      { label: 'PENDING', value: String(stats.pending), color: '#fbbf24' },
+      { label: 'SUCCESS RATE', value: `${stats.rate}%`, color: '#4ade80' },
+    ],
+    [stats],
+  );
+
+  return (
+    <div className="fixed inset-0 bg-cockpit flex flex-col">
+      <DrillHeader
+        title="TAKEDOWNS"
+        badge={`${stats.pending} pending`}
+        onBack={() => navigate('/v2/')}
+      />
+
+      {/* Scrollable hero area */}
+      <div className="flex-1 overflow-y-auto pt-[52px] pb-[120px]">
+        <div className="p-4 space-y-3">
+          <HeroStatGrid stats={heroStats} cols={3} />
+        </div>
+      </div>
+
+      {/* Bottom sheet with takedown list */}
+      <MobileBottomSheet
+        peekHeight={110}
+        halfHeight={380}
+        fullHeight={520}
+        defaultState="half"
+        headerLeft={
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">SPARROW DRAFTS</span>
+            <span className="text-[9px] font-mono text-contrail/40">{filtered.length} items</span>
+          </div>
+        }
+        headerRight={<MobileFilterChips filters={filterChips} />}
+      >
+        <div className="flex flex-col">
+          {isLoading && (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-14 animate-pulse rounded-lg bg-white/[0.03]" />
+              ))}
+            </div>
+          )}
+          {!isLoading && filtered.length === 0 && (
+            <div className="p-8 text-center">
+              <span className="font-mono text-[10px] text-contrail/40 uppercase tracking-wider">
+                No takedowns match filter
+              </span>
+            </div>
+          )}
+          {!isLoading &&
+            filtered.map((td, i) => (
+              <MobileTakedownRow
+                key={td.id}
+                takedown={td}
+                index={i}
+                onTap={() => navigate(`/v2/takedowns/${td.id}`)}
+              />
+            ))}
+        </div>
+      </MobileBottomSheet>
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────
 
-export function Takedowns() {
+function TakedownsDesktop() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('priority');
@@ -605,4 +776,12 @@ export function Takedowns() {
       )}
     </div>
   );
+}
+
+// ─── Exported wrapper (mobile vs desktop) ─────────────────────
+
+export function Takedowns() {
+  const isMobile = useMobile();
+  if (isMobile) return <TakedownsMobileView />;
+  return <TakedownsDesktop />;
 }
