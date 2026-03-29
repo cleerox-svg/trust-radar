@@ -122,7 +122,7 @@ export function Observatory() {
   }, []);
 
   return (
-    <div className="relative h-[calc(100vh-3rem)] -m-6 overflow-hidden">
+    <div className="relative h-[calc(100vh-3rem)] overflow-hidden">
       {/* Full-screen map */}
       <div className={cn('absolute inset-0', isMobile ? 'bottom-[108px]' : 'bottom-[84px]')}>
         <ThreatMap
