@@ -407,17 +407,27 @@ export async function runAllEnrichmentFeeds(
     }
   } else {
     // Direct mode: no feed_configs rows for enrichment — run all registered modules
-    console.log("[enrichment] no feed_configs rows found for enrichment feeds, running all registered modules directly");
+    // Use runFeed() with synthetic configs so feed_status + feed_pull_history are tracked
+    console.log(`[enrichment] no feed_configs rows found, running ${Object.keys(enrichmentModules).length} registered modules: ${Object.keys(enrichmentModules).join(', ')}`);
     for (const [name, mod] of Object.entries(enrichmentModules)) {
       feedsRun++;
-      const ctx: FeedContext = { env, feedName: name, feedUrl: "" };
+      const syntheticConfig: FeedConfigRow = {
+        feed_name: name,
+        display_name: name,
+        source_url: null,
+        schedule_cron: '*/30 * * * *',
+        rate_limit: 0,
+        batch_size: 0,
+        retry_count: 0,
+        enabled: 1,
+      };
       try {
-        const result = await mod.ingest(ctx);
+        const result = await runFeed(env, syntheticConfig, mod);
         totalEnriched += result.itemsNew;
-        console.log(`[enrichment] ${name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
+        console.log(`[enrichment] ${name}: fetched=${result.itemsFetched} enriched=${result.itemsNew} errors=${result.itemsError}`);
       } catch (err) {
         feedsFailed++;
-        console.error(`[enrichment] ${name} failed:`, err instanceof Error ? err.message : String(err));
+        console.error(`[enrichment] ${name} FAILED:`, err instanceof Error ? err.message : String(err));
       }
     }
   }

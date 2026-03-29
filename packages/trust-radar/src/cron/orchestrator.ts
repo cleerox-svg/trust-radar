@@ -206,8 +206,11 @@ async function runThreatFeedScan(env: Env): Promise<void> {
 
   // Enrichment feeds (SURBL, VirusTotal, HIBP) — run AFTER ingest feeds
   try {
-    console.log('[cron] running enrichment feeds (SURBL, VirusTotal, HIBP)...');
+    const enrichmentNames = Object.keys(enrichmentModules);
+    console.log(`[cron] About to run enrichment feeds...`);
+    console.log(`[cron] Enrichment modules registered: ${enrichmentNames.join(', ')}`);
     const enrichResult = await runAllEnrichmentFeeds(env, enrichmentModules);
+    console.log(`[cron] Enrichment feeds complete: run=${enrichResult.feedsRun} enriched=${enrichResult.totalEnriched} failed=${enrichResult.feedsFailed} skipped=${enrichResult.feedsSkipped}`);
     logger.info('threat_feed_scan_enrichment_feeds', {
       feedsRun: enrichResult.feedsRun,
       totalEnriched: enrichResult.totalEnriched,
@@ -215,6 +218,7 @@ async function runThreatFeedScan(env: Env): Promise<void> {
       feedsSkipped: enrichResult.feedsSkipped,
     });
   } catch (err) {
+    console.error('[cron] ENRICHMENT FEEDS FAILED:', err instanceof Error ? err.message : String(err));
     logger.error('enrichment_feeds_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
