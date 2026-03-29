@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Badge } from '@/components/ui/Badge';
@@ -19,6 +20,7 @@ import {
   useUpdateOrg,
 } from '@/hooks/useOrganization';
 import type { Integration } from '@/hooks/useOrganization';
+import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 
 // ─── Integration catalog ────────────────────────────────────
 

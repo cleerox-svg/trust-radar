@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFeeds, useFeedHistory } from '@/hooks/useFeeds';
 import { useAdminAction } from '@/hooks/useAdminAction';
@@ -7,6 +8,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/cn';
 import { RotateCw, Loader2, Check, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 
 /* ─── Helpers ─── */
 
@@ -608,9 +610,109 @@ function FeedSection({
   );
 }
 
+/* ─── Mobile Feed Row ─── */
+
+function MobileFeedRow({ feed }: { feed: FeedOverview }) {
+  const category = categorizeFeed(feed);
+  const rate = successRate(feed);
+
+  const dotClass = cn(
+    'w-2 h-2 rounded-full flex-shrink-0',
+    category === 'healthy' && 'bg-green-400',
+    category === 'attention' && 'bg-amber-400 animate-pulse',
+    category === 'disabled' && 'border border-white/20',
+  );
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.04]">
+      <div className={dotClass} />
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-medium text-parchment truncate">{feed.display_name}</div>
+        <div className="text-[10px] font-mono text-white/40">
+          {humanizeCron(feed.schedule_cron)} · {timeAgo(feed.last_run)}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-[12px] font-bold font-mono text-parchment">
+          {formatNumber(feed.total_ingested)}
+        </div>
+        <div className="text-[9px] font-mono text-white/40">{rate}%</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Mobile Feeds ─── */
+
+function MobileFeeds({ feeds }: { feeds: FeedOverview[] }) {
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState<'all' | 'healthy' | 'attention' | 'disabled'>('all');
+
+  const active = feeds.filter(f => f.enabled).length;
+  const disabled = feeds.filter(f => !f.enabled).length;
+  const totalIngested = feeds.reduce((s, f) => s + f.total_ingested, 0);
+  const lastSync = feeds.reduce((latest, f) => {
+    if (!f.last_run) return latest;
+    return !latest || new Date(f.last_run) > new Date(latest) ? f.last_run : latest;
+  }, null as string | null);
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return feeds;
+    return feeds.filter(f => categorizeFeed(f) === filter);
+  }, [feeds, filter]);
+
+  const filterChips = useMemo(() => [
+    { label: `All (${feeds.length})`, active: filter === 'all', onClick: () => setFilter('all') },
+    { label: 'Healthy', active: filter === 'healthy', onClick: () => setFilter('healthy') },
+    { label: 'Attention', active: filter === 'attention', onClick: () => setFilter('attention') },
+    { label: 'Disabled', active: filter === 'disabled', onClick: () => setFilter('disabled') },
+  ], [filter, feeds.length]);
+
+  return (
+    <div className="fixed inset-0 bg-cockpit flex flex-col">
+      <DrillHeader title="INTEL FEEDS" badge={`${feeds.length}`} onBack={() => navigate('/v2/')} />
+
+      <div className="flex-1 overflow-y-auto pt-[52px] pb-[120px]">
+        <div className="p-4 space-y-3">
+          <HeroStatGrid stats={[
+            { label: 'ACTIVE FEEDS', value: String(active), color: '#4ADE80' },
+            { label: 'DISABLED', value: String(disabled), color: disabled > 0 ? '#78A0C8' : 'rgba(255,255,255,0.3)' },
+            { label: 'TOTAL INGESTED', value: totalIngested.toLocaleString(), color: '#78A0C8' },
+            { label: 'LAST SYNC', value: lastSync ? timeAgo(lastSync) : 'Never', color: '#F0EDE8' },
+          ]} />
+        </div>
+      </div>
+
+      <MobileBottomSheet
+        peekHeight={110}
+        halfHeight={380}
+        fullHeight={550}
+        defaultState="half"
+        headerLeft={
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">FEED STATUS</span>
+            <span className="text-[9px] font-mono text-contrail/40">{filtered.length}</span>
+          </div>
+        }
+        headerRight={<MobileFilterChips filters={filterChips} />}
+      >
+        <div className="flex flex-col">
+          {filtered.map(feed => (
+            <MobileFeedRow key={feed.feed_name} feed={feed} />
+          ))}
+          {filtered.length === 0 && (
+            <div className="text-center py-12 font-mono text-sm text-contrail/30">No feeds found</div>
+          )}
+        </div>
+      </MobileBottomSheet>
+    </div>
+  );
+}
+
 /* ─── Page ─── */
 
 export function Feeds() {
+  const isMobile = useMobile();
   const { data: feeds, isLoading } = useFeeds();
   const [expandedFeed, setExpandedFeed] = useState<string | null>(null);
 
@@ -651,6 +753,8 @@ export function Feeds() {
   }
 
   const allFeeds = feeds ?? [];
+
+  if (isMobile) return <MobileFeeds feeds={allFeeds} />;
 
   return (
     <div className="space-y-5">
