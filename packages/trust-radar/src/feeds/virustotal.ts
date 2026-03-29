@@ -139,14 +139,16 @@ export const virustotal: FeedModule = {
         await incrementDailyCallCount(env);
 
         if (result.malicious_count > 0) {
-          // Determine if severity should be escalated
+          // Determine severity escalation and confidence boost
           const shouldEscalate = result.malicious_count > 5;
+          const confidenceBoost = result.malicious_count >= 5 ? 20 : 10;
 
           await env.DB.prepare(`
             UPDATE threats SET
               vt_checked = 1,
               vt_malicious = ?,
               vt_reputation = ?,
+              confidence_score = MIN(100, COALESCE(confidence_score, 60) + ?),
               severity = CASE
                 WHEN ? = 1 AND severity != 'critical' THEN 'critical'
                 ELSE severity
@@ -155,9 +157,21 @@ export const virustotal: FeedModule = {
           `).bind(
             result.malicious_count,
             result.reputation,
+            confidenceBoost,
             shouldEscalate ? 1 : 0,
             row.malicious_domain,
           ).run();
+
+          // Combined escalation: if VT flagged AND SURBL already listed, auto-escalate to critical
+          if (result.malicious_count >= 3) {
+            await env.DB.prepare(`
+              UPDATE threats SET severity = 'critical'
+              WHERE malicious_domain = ?
+                AND surbl_listed = 1
+                AND vt_malicious >= 3
+                AND severity != 'critical'
+            `).bind(row.malicious_domain).run();
+          }
 
           itemsNew++;
         } else {
