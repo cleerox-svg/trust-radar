@@ -351,49 +351,74 @@ export async function runAllEnrichmentFeeds(
   feedsFailed: number;
   totalEnriched: number;
 }> {
-  // Fetch enrichment feed configs (feed_type = 'enrichment' AND enabled)
-  const configs = await env.DB.prepare(
-    "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'enrichment'"
-  ).all<FeedConfigRow>();
-
-  const statuses = await env.DB.prepare(
-    "SELECT * FROM feed_status"
-  ).all<FeedStatusRow>();
-  const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
-
   let feedsRun = 0;
   let feedsSkipped = 0;
   let feedsFailed = 0;
   let totalEnriched = 0;
 
-  const now = new Date();
-  const toRun: Array<{ config: FeedConfigRow; mod: FeedModule }> = [];
-
-  for (const config of configs.results) {
-    const mod = enrichmentModules[config.feed_name];
-    if (!mod) {
-      feedsSkipped++;
-      continue;
-    }
-
-    const status = statusMap.get(config.feed_name);
-    const shouldRun = shouldRunNow(config, status, now);
-    if (!shouldRun) {
-      feedsSkipped++;
-      continue;
-    }
-
-    toRun.push({ config, mod });
+  // Try to load enrichment configs from feed_configs table.
+  // Fall back to running all registered enrichment modules directly if the query
+  // fails (e.g. feed_type column doesn't exist) or returns no rows.
+  let configs: { results: FeedConfigRow[] } = { results: [] };
+  try {
+    configs = await env.DB.prepare(
+      "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'enrichment'"
+    ).all<FeedConfigRow>();
+  } catch {
+    // feed_type column likely doesn't exist — fall through to direct execution
   }
 
-  // Run enrichment feeds sequentially to respect rate limits
-  for (const { config, mod } of toRun) {
-    feedsRun++;
-    try {
-      const result = await runFeed(env, config, mod);
-      totalEnriched += result.itemsNew;
-    } catch {
-      feedsFailed++;
+  if (configs.results.length > 0) {
+    // Config-driven mode: use feed_configs for scheduling
+    const statuses = await env.DB.prepare(
+      "SELECT * FROM feed_status"
+    ).all<FeedStatusRow>();
+    const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
+
+    const now = new Date();
+    const toRun: Array<{ config: FeedConfigRow; mod: FeedModule }> = [];
+
+    for (const config of configs.results) {
+      const mod = enrichmentModules[config.feed_name];
+      if (!mod) {
+        feedsSkipped++;
+        continue;
+      }
+
+      const status = statusMap.get(config.feed_name);
+      const shouldRun = shouldRunNow(config, status, now);
+      if (!shouldRun) {
+        feedsSkipped++;
+        continue;
+      }
+
+      toRun.push({ config, mod });
+    }
+
+    // Run enrichment feeds sequentially to respect rate limits
+    for (const { config, mod } of toRun) {
+      feedsRun++;
+      try {
+        const result = await runFeed(env, config, mod);
+        totalEnriched += result.itemsNew;
+      } catch {
+        feedsFailed++;
+      }
+    }
+  } else {
+    // Direct mode: no feed_configs rows for enrichment — run all registered modules
+    console.log("[enrichment] no feed_configs rows found for enrichment feeds, running all registered modules directly");
+    for (const [name, mod] of Object.entries(enrichmentModules)) {
+      feedsRun++;
+      const ctx: FeedContext = { env, feedName: name, feedUrl: "" };
+      try {
+        const result = await mod.ingest(ctx);
+        totalEnriched += result.itemsNew;
+        console.log(`[enrichment] ${name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
+      } catch (err) {
+        feedsFailed++;
+        console.error(`[enrichment] ${name} failed:`, err instanceof Error ? err.message : String(err));
+      }
     }
   }
 

@@ -206,6 +206,7 @@ async function runThreatFeedScan(env: Env): Promise<void> {
 
   // Enrichment feeds (SURBL, VirusTotal, HIBP) — run AFTER ingest feeds
   try {
+    console.log('[cron] running enrichment feeds (SURBL, VirusTotal, HIBP)...');
     const enrichResult = await runAllEnrichmentFeeds(env, enrichmentModules);
     logger.info('threat_feed_scan_enrichment_feeds', {
       feedsRun: enrichResult.feedsRun,

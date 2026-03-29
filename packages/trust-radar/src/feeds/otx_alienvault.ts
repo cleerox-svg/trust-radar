@@ -17,9 +17,11 @@ export const otx_alienvault: FeedModule = {
       return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
     }
 
-    const feedUrl = "https://otx.alienvault.com/api/v1/pulses/subscribed";
+    // OTX requires modified_since param — without it, subscribed endpoint returns 403
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const feedUrl = `https://otx.alienvault.com/api/v1/pulses/subscribed?modified_since=${encodeURIComponent(since)}`;
     const headers: Record<string, string> = {
-      "User-Agent": "trust-radar/2.0",
+      "User-Agent": "Averrow-ThreatIntel/1.0",
       Accept: "application/json",
       "X-OTX-API-KEY": ctx.env.OTX_API_KEY,
     };
