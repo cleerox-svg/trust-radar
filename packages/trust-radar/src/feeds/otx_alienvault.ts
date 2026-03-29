@@ -4,17 +4,26 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
 
 /**
- * AlienVault OTX — Public pulse activity feed.
- * No API key required for the public activity endpoint.
+ * AlienVault OTX — Pulse activity feed.
+ * Requires OTX_API_KEY for authenticated access (free account at otx.alienvault.com).
+ * Falls back to public endpoint if no key, but may get HTTP 403.
  * Extracts domain, URL, and IPv4 indicators from recent pulses.
  * Schedule: every 2 hours.
  */
 export const otx_alienvault: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    const feedUrl = "https://otx.alienvault.com/api/v1/pulses/activity";
-    const res = await diagnosticFetch(ctx.env.DB, "otx_alienvault", feedUrl, {
-      headers: { "User-Agent": "trust-radar/2.0", Accept: "application/json" },
-    });
+    if (!ctx.env.OTX_API_KEY) {
+      console.error("[otx] OTX feed disabled — OTX_API_KEY secret not set. Create a free account at otx.alienvault.com and run: wrangler secret put OTX_API_KEY");
+      return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
+    }
+
+    const feedUrl = "https://otx.alienvault.com/api/v1/pulses/subscribed";
+    const headers: Record<string, string> = {
+      "User-Agent": "trust-radar/2.0",
+      Accept: "application/json",
+      "X-OTX-API-KEY": ctx.env.OTX_API_KEY,
+    };
+    const res = await diagnosticFetch(ctx.env.DB, "otx_alienvault", feedUrl, { headers });
     if (!res.ok) throw new Error(`OTX HTTP ${res.status}`);
 
     let body: {

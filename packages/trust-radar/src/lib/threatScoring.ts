@@ -19,7 +19,6 @@ const SOURCE_BASELINE: Record<string, number> = {
   dshield: 50,
   cins_army: 55,
   feodo: 85,
-  phishstats: 55,
   otx_alienvault: 60,
   cisa_kev: 70,
 };
