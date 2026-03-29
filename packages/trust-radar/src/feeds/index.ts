@@ -23,6 +23,8 @@ import { malwarebazaar } from "./malwarebazaar";
 import { surbl } from "./surbl";
 import { virustotal } from "./virustotal";
 import { hibp_stealer_logs } from "./hibp";
+import { google_safe_browsing } from "./googleSafeBrowsing";
+import { spamhaus_dbl } from "./spamhausDbl";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -56,4 +58,6 @@ export const enrichmentModules: Record<string, FeedModule> = {
   surbl,
   virustotal,
   hibp_stealer_logs,
+  google_safe_browsing,
+  spamhaus_dbl,
 };

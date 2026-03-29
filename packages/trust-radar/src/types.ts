@@ -28,6 +28,8 @@ export interface Env {
   OTX_API_KEY?: string;
   ABUSEIPDB_API_KEY?: string;
   HIBP_API_KEY?: string;
+  // Google Safe Browsing
+  GOOGLE_SAFE_BROWSING_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
   ANTHROPIC_ADMIN_KEY?: string;
 }
