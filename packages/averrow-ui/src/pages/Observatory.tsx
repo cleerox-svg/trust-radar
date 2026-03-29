@@ -58,6 +58,7 @@ export function Observatory() {
   const [showNodes, setShowNodes] = useState(true);
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
   const [showPanel, setShowPanel] = useState(!isMobile);
+  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
   const [clock, setClock] = useState('');
   const [mapMode, setMapMode] = useState<MapMode>('global');
 
@@ -452,20 +453,44 @@ export function Observatory() {
         </div>
       )}
 
-      {/* ─── Mobile sidebar backdrop ─── */}
-      {isMobile && showPanel && mapMode !== 'heatmap' && (
-        <div
-          className="absolute inset-0 z-10 bg-black/50 md:hidden"
-          onClick={() => setShowPanel(false)}
-        />
+      {/* ─── Mobile bottom brands panel ─── */}
+      {isMobile && mapMode === 'global' && (
+        <div className={cn(
+          'absolute left-0 right-0 z-20 md:hidden transition-all duration-300 ease-in-out',
+          mobileBrandsOpen ? 'bottom-[84px]' : 'bottom-[84px]'
+        )}>
+          {/* Handle / toggle bar */}
+          <button
+            onClick={() => setMobileBrandsOpen(!mobileBrandsOpen)}
+            className="w-full flex items-center justify-center gap-2 bg-cockpit/90 backdrop-blur-sm border-t border-x border-cyan-800/30 rounded-t-xl px-4 py-2"
+          >
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
+              Top Brands
+            </span>
+            <span className={cn(
+              'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
+              mobileBrandsOpen ? 'rotate-180' : ''
+            )}>
+              ▲
+            </span>
+          </button>
+          {/* Expandable brand list */}
+          <div className={cn(
+            'overflow-hidden transition-all duration-300 ease-in-out bg-cockpit/90 backdrop-blur-sm border-x border-cyan-800/30',
+            mobileBrandsOpen ? 'max-h-72' : 'max-h-0'
+          )}>
+            <div className="overflow-y-auto max-h-72 px-3 py-2">
+              <MobileTopBrandsList period={period} />
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ─── Right sidebar panel ─── */}
-      {showPanel && mapMode !== 'heatmap' && (
-        <div className={cn(
-          'absolute top-0 right-0 bottom-[84px] z-20 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto',
-          isMobile ? 'left-0 w-full' : 'w-80'
-        )}>
+      {/* ─── Desktop sidebar backdrop (no longer used on mobile) ─── */}
+
+      {/* ─── Right sidebar panel (desktop only) ─── */}
+      {!isMobile && showPanel && mapMode !== 'heatmap' && (
+        <div className="absolute top-0 right-0 bottom-[84px] z-20 w-80 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
           {/* Mode-aware header */}
           {mapMode === 'global' && (
             <>
@@ -520,15 +545,12 @@ export function Observatory() {
         </div>
       )}
 
-      {/* Panel toggle button */}
-      {mapMode !== 'heatmap' && (
+      {/* Panel toggle button (desktop only) */}
+      {!isMobile && mapMode !== 'heatmap' && (
         <button
           onClick={() => setShowPanel(!showPanel)}
-          className={cn(
-            'absolute top-1/2 z-30 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment',
-            isMobile ? 'right-0' : ''
-          )}
-          style={!isMobile && showPanel ? { right: '320px' } : !isMobile ? { right: 0 } : undefined}
+          className="absolute top-1/2 z-30 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
+          style={showPanel ? { right: '320px' } : { right: 0 }}
         >
           {showPanel ? '\u203A' : '\u2039'}
         </button>
@@ -618,6 +640,37 @@ function TopBrandsList({ period }: { period: string }) {
             'font-mono text-xs font-bold tabular-nums',
             brand.threat_count >= 100 ? 'text-red-400 glow-red' :
             brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment'
+          )}>
+            {brand.threat_count}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MobileTopBrandsList({ period }: { period: string }) {
+  const { data: brands = [] } = useBrands({ view: 'top', limit: 8, timeRange: period });
+
+  if (brands.length === 0) {
+    return <div className="text-[10px] text-contrail/30 font-mono py-2">Loading brands...</div>;
+  }
+
+  return (
+    <div className="space-y-1">
+      {brands.map((brand, i) => (
+        <div key={brand.id} className="flex items-center gap-2 py-1">
+          <span className="font-mono text-[10px] text-contrail/40 w-4 flex-shrink-0">{i + 1}</span>
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`}
+            alt=""
+            className="w-3.5 h-3.5 flex-shrink-0"
+          />
+          <span className="font-mono text-[11px] text-parchment/80 flex-1 truncate">{brand.name}</span>
+          <span className={cn(
+            'font-mono text-[11px] font-bold tabular-nums flex-shrink-0',
+            brand.threat_count >= 100 ? 'text-red-400' :
+            brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment/60'
           )}>
             {brand.threat_count}
           </span>
