@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn';
 
 export function Shell() {
   const location = useLocation();
-  const isFullScreen = location.pathname.includes('/observatory');
+  const isFullScreen = location.pathname.includes('/observatory') || location.pathname === '/';
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
