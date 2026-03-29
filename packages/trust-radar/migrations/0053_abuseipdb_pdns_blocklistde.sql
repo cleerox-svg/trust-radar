@@ -1,13 +1,9 @@
 -- Migration 0053: AbuseIPDB + CIRCL Passive DNS + Blocklist.de infrastructure intelligence
--- AbuseIPDB enrichment columns
-ALTER TABLE threats ADD COLUMN abuseipdb_checked INTEGER DEFAULT 0;
-ALTER TABLE threats ADD COLUMN abuseipdb_score INTEGER;
-ALTER TABLE threats ADD COLUMN abuseipdb_reports INTEGER;
-ALTER TABLE threats ADD COLUMN abuseipdb_isp TEXT;
-
--- CIRCL Passive DNS enrichment columns
-ALTER TABLE threats ADD COLUMN pdns_checked INTEGER DEFAULT 0;
-ALTER TABLE threats ADD COLUMN pdns_correlations INTEGER DEFAULT 0;
+--
+-- NOTE: ALTER TABLE statements for abuseipdb_checked, abuseipdb_score,
+-- abuseipdb_reports, abuseipdb_isp, pdns_checked, pdns_correlations were
+-- already applied to production before this migration was tracked.
+-- They are omitted here to keep the migration idempotent.
 
 -- Passive DNS resolution records (relational — one domain maps to many IPs over time)
 CREATE TABLE IF NOT EXISTS passive_dns_records (
