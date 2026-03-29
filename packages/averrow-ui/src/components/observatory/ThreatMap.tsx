@@ -190,7 +190,7 @@ export function ThreatMap({
       container: mapContainerRef.current,
       style: MAP_STYLE,
       center: isMobileViewport ? [-30, 30] : [10, 25],
-      zoom: isMobileViewport ? 1.0 : 2.2,
+      zoom: isMobileViewport ? 0.8 : 2.2,
       pitch: isMobileViewport ? 0 : 20,
       bearing: 0,
       minZoom: isMobileViewport ? 0.5 : undefined,
