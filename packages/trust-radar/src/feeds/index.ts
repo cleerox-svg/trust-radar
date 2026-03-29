@@ -19,12 +19,17 @@ import { otx_alienvault } from "./otx_alienvault";
 import { cisa_kev } from "./cisa_kev";
 import { malwarebazaar } from "./malwarebazaar";
 
+// ─── Ingest Feed Modules (continued) ────────────────────────────
+import { blocklist_de } from "./blocklistde";
+
 // ─── Enrichment Feed Modules ────────────────────────────────────
 import { surbl } from "./surbl";
 import { virustotal } from "./virustotal";
 import { hibp_stealer_logs } from "./hibp";
 import { google_safe_browsing } from "./googleSafeBrowsing";
 import { spamhaus_dbl } from "./spamhausDbl";
+import { abuseipdb } from "./abuseipdb";
+import { circl_pdns } from "./circlPassiveDns";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -47,6 +52,7 @@ export const feedModules: Record<string, FeedModule> = {
   otx_alienvault,
   cisa_kev,
   malwarebazaar,
+  blocklist_de,
 };
 
 /**
@@ -60,4 +66,6 @@ export const enrichmentModules: Record<string, FeedModule> = {
   hibp_stealer_logs,
   google_safe_browsing,
   spamhaus_dbl,
+  abuseipdb,
+  circl_pdns,
 };
