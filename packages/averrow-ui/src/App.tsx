@@ -20,6 +20,7 @@ import { Campaigns } from '@/pages/Campaigns';
 import { CampaignDetail } from '@/pages/CampaignDetail';
 import { Trends } from '@/pages/Trends';
 import { NotFound } from '@/pages/NotFound';
+import { Home } from '@/pages/Home';
 import { Profile } from '@/pages/Profile';
 import { Notifications } from '@/pages/Notifications';
 import { NotificationPreferences } from '@/pages/NotificationPreferences';
@@ -53,7 +54,7 @@ export default function App() {
           <Shell />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="/observatory" replace />} />
+        <Route index element={<ErrorBoundary><Home /></ErrorBoundary>} />
         <Route path="observatory" element={<ErrorBoundary><Observatory /></ErrorBoundary>} />
         <Route path="brands" element={<ErrorBoundary><Brands /></ErrorBoundary>} />
         <Route path="brands/:brandId" element={<ErrorBoundary><BrandDetail /></ErrorBoundary>} />
