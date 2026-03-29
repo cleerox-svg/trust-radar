@@ -59,8 +59,11 @@ export function Observatory() {
   const [colorBy, setColorBy] = useState<'severity' | 'type'>('severity');
   const [showPanel, setShowPanel] = useState(!isMobile);
   const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
+  const [mobileIntelOpen, setMobileIntelOpen] = useState(false);
+  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [clock, setClock] = useState('');
   const [mapMode, setMapMode] = useState<MapMode>('global');
+  const [legendOpen, setLegendOpen] = useState(!isMobile);
 
   // Clicked element state
   const [clickedArc, setClickedArc] = useState<{ arc: ArcData; x: number; y: number } | null>(null);
@@ -142,16 +145,16 @@ export function Observatory() {
 
       {/* Top-left: Mode switcher + Period selector + Color mode */}
       {isMobile ? (
-        <div className="absolute top-3 left-3 right-3 z-10 flex flex-col gap-1.5">
+        <div className="absolute top-3 left-0 right-0 z-10 flex flex-col gap-1.5">
           {/* Row 1: Mode tabs — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-2 flex-nowrap w-max">
+            <div className="flex gap-1.5 flex-nowrap w-max px-4">
               {MAP_MODES.map(m => (
                 <button
                   key={m.id}
                   onClick={() => setMapMode(m.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
                     mapMode === m.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -164,13 +167,13 @@ export function Observatory() {
           </div>
           {/* Row 2: Period + Color + Source — horizontally scrollable pills */}
           <div className="overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-2 flex-nowrap w-max">
+            <div className="flex gap-1.5 flex-nowrap w-max px-4">
               {PERIODS.map(p => (
                 <button
                   key={p.id}
                   onClick={() => setPeriod(p.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
                     period === p.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -187,7 +190,7 @@ export function Observatory() {
                       key={c}
                       onClick={() => setColorBy(c)}
                       className={cn(
-                        'font-mono text-xs px-3 py-1 rounded-full whitespace-nowrap transition-all capitalize',
+                        'font-mono text-xs px-2 py-1 rounded-full whitespace-nowrap transition-all capitalize',
                         colorBy === c
                           ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                           : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -204,7 +207,7 @@ export function Observatory() {
                   key={s.id}
                   onClick={() => setSource(s.id)}
                   className={cn(
-                    'font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
+                    'font-mono text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap transition-all',
                     source === s.id
                       ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
@@ -299,30 +302,76 @@ export function Observatory() {
 
       {/* Bottom-left: Legend */}
       {mapMode === 'global' && (
-        <div className="absolute bottom-[100px] left-4 z-10">
-          <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
-            <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
-              {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
-            </div>
-            <div className="space-y-1">
-              {colorBy === 'severity' ? (
-                <>
-                  <LegendItem color="rgb(200,60,60)" label="Critical" />
-                  <LegendItem color="rgb(232,146,60)" label="High" />
-                  <LegendItem color="rgb(220,170,50)" label="Medium" />
-                  <LegendItem color="rgb(120,160,200)" label="Low" />
-                </>
-              ) : (
-                <>
-                  <LegendItem color="rgb(200,60,60)" label="Phishing" />
-                  <LegendItem color="rgb(251,146,60)" label="Credential" />
-                  <LegendItem color="rgb(168,85,247)" label="Malware" />
-                  <LegendItem color="rgb(239,68,68)" label="C2" />
-                  <LegendItem color="rgb(251,113,133)" label="Web Attack" />
-                  <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
-                </>
-              )}
-            </div>
+        <div className={cn(
+          'absolute left-4 z-10',
+          isMobile ? 'bottom-[140px]' : 'bottom-[100px]'
+        )}>
+          <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg">
+            {isMobile ? (
+              <>
+                <button
+                  onClick={() => setLegendOpen(!legendOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2"
+                >
+                  <span className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider">
+                    {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
+                  </span>
+                  <span className={cn(
+                    'font-mono text-[9px] text-contrail/40 transition-transform duration-200',
+                    legendOpen ? 'rotate-180' : ''
+                  )}>▼</span>
+                </button>
+                <div className={cn(
+                  'overflow-hidden transition-all duration-200',
+                  legendOpen ? 'max-h-40 px-3 pb-2' : 'max-h-0'
+                )}>
+                  <div className="space-y-1">
+                    {colorBy === 'severity' ? (
+                      <>
+                        <LegendItem color="rgb(200,60,60)" label="Critical" />
+                        <LegendItem color="rgb(232,146,60)" label="High" />
+                        <LegendItem color="rgb(220,170,50)" label="Medium" />
+                        <LegendItem color="rgb(120,160,200)" label="Low" />
+                      </>
+                    ) : (
+                      <>
+                        <LegendItem color="rgb(200,60,60)" label="Phishing" />
+                        <LegendItem color="rgb(251,146,60)" label="Credential" />
+                        <LegendItem color="rgb(168,85,247)" label="Malware" />
+                        <LegendItem color="rgb(239,68,68)" label="C2" />
+                        <LegendItem color="rgb(251,113,133)" label="Web Attack" />
+                        <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="p-3">
+                <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
+                  {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
+                </div>
+                <div className="space-y-1">
+                  {colorBy === 'severity' ? (
+                    <>
+                      <LegendItem color="rgb(200,60,60)" label="Critical" />
+                      <LegendItem color="rgb(232,146,60)" label="High" />
+                      <LegendItem color="rgb(220,170,50)" label="Medium" />
+                      <LegendItem color="rgb(120,160,200)" label="Low" />
+                    </>
+                  ) : (
+                    <>
+                      <LegendItem color="rgb(200,60,60)" label="Phishing" />
+                      <LegendItem color="rgb(251,146,60)" label="Credential" />
+                      <LegendItem color="rgb(168,85,247)" label="Malware" />
+                      <LegendItem color="rgb(239,68,68)" label="C2" />
+                      <LegendItem color="rgb(251,113,133)" label="Web Attack" />
+                      <LegendItem color="rgb(34,211,238)" label="Spam/Botnet" />
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -477,34 +526,74 @@ export function Observatory() {
         </div>
       )}
 
-      {/* ─── Mobile bottom brands panel ─── */}
-      {isMobile && mapMode === 'global' && (
-        <div className={cn(
-          'absolute left-0 right-0 z-20 md:hidden transition-all duration-300 ease-in-out',
-          mobileBrandsOpen ? 'bottom-[84px]' : 'bottom-[84px]'
-        )}>
-          {/* Handle / toggle bar */}
-          <button
-            onClick={() => setMobileBrandsOpen(!mobileBrandsOpen)}
-            className="w-full flex items-center justify-center gap-2 bg-cockpit/90 backdrop-blur-sm border-t border-x border-cyan-800/30 rounded-t-xl px-4 py-2"
-          >
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
-              Top Brands
-            </span>
-            <span className={cn(
-              'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
-              mobileBrandsOpen ? 'rotate-180' : ''
+      {/* ─── Mobile bottom intel panel ─── */}
+      {isMobile && (
+        <div className="absolute left-0 right-0 bottom-[84px] z-20 md:hidden">
+          <div className="bg-cockpit/90 backdrop-blur-sm border-t border-x border-cyan-800/30 rounded-t-xl overflow-hidden">
+            {/* Top Brands section */}
+            <button
+              onClick={() => setMobileBrandsOpen(!mobileBrandsOpen)}
+              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
+            >
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
+                Top Brands
+              </span>
+              <span className={cn(
+                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
+                mobileBrandsOpen ? 'rotate-180' : ''
+              )}>▲</span>
+            </button>
+            <div className={cn(
+              'overflow-hidden transition-all duration-300 ease-in-out',
+              mobileBrandsOpen ? 'max-h-56' : 'max-h-0'
             )}>
-              ▲
-            </span>
-          </button>
-          {/* Expandable brand list */}
-          <div className={cn(
-            'overflow-hidden transition-all duration-300 ease-in-out bg-cockpit/90 backdrop-blur-sm border-x border-cyan-800/30',
-            mobileBrandsOpen ? 'max-h-72' : 'max-h-0'
-          )}>
-            <div className="overflow-y-auto max-h-72 px-3 py-2">
-              <MobileTopBrandsList period={period} />
+              <div className="overflow-y-auto max-h-56 px-3 py-2">
+                <MobileTopBrandsList period={period} />
+              </div>
+            </div>
+
+            {/* Intel Briefings section */}
+            <button
+              onClick={() => setMobileIntelOpen(!mobileIntelOpen)}
+              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
+            >
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
+                Intel Briefings
+              </span>
+              <span className={cn(
+                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
+                mobileIntelOpen ? 'rotate-180' : ''
+              )}>▲</span>
+            </button>
+            <div className={cn(
+              'overflow-hidden transition-all duration-300 ease-in-out',
+              mobileIntelOpen ? 'max-h-56' : 'max-h-0'
+            )}>
+              <div className="overflow-y-auto max-h-56 px-3 py-2">
+                <AgentIntelFeed />
+              </div>
+            </div>
+
+            {/* Live Stats section */}
+            <button
+              onClick={() => setMobileStatsOpen(!mobileStatsOpen)}
+              className="w-full flex items-center justify-between px-4 py-2 border-b border-white/5"
+            >
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orbital-teal">
+                Live Feed
+              </span>
+              <span className={cn(
+                'font-mono text-[10px] text-orbital-teal transition-transform duration-300',
+                mobileStatsOpen ? 'rotate-180' : ''
+              )}>▲</span>
+            </button>
+            <div className={cn(
+              'overflow-hidden transition-all duration-300 ease-in-out',
+              mobileStatsOpen ? 'max-h-56' : 'max-h-0'
+            )}>
+              <div className="overflow-y-auto max-h-56 px-3 py-2">
+                <LiveThreatFeed />
+              </div>
             </div>
           </div>
         </div>

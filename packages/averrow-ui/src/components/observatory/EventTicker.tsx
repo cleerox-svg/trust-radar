@@ -99,10 +99,10 @@ export function EventTicker() {
 
   if (events.length === 0) return null;
 
-  // Dynamic scroll duration based on content length
-  const CHARS_PER_SECOND = 15;
+  // Dynamic scroll duration based on content length — fast enough to feel like a stock ticker
+  const CHARS_PER_SECOND = 40;
   const totalChars = events.reduce((sum, e) => sum + e.message.length, 0);
-  const duration = Math.max(40, Math.min(120, totalChars / CHARS_PER_SECOND));
+  const duration = Math.max(15, Math.min(25, totalChars / CHARS_PER_SECOND));
 
   // Double events for seamless loop
   const doubled = [...events, ...events];

@@ -189,8 +189,8 @@ export function ThreatMap({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLE,
-      center: isMobileViewport ? [0, 20] : [10, 25],
-      zoom: isMobileViewport ? 0.8 : 2,
+      center: isMobileViewport ? [10, 30] : [10, 25],
+      zoom: isMobileViewport ? 1.5 : 2,
       pitch: isMobileViewport ? 0 : 20,
       bearing: 0,
       antialias: true,
