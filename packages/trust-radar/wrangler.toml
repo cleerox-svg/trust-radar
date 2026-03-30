@@ -60,14 +60,22 @@ id = "2f168effdbf54d3b913a1070524d6cc1"
 # binding = "EVIDENCE"
 # bucket_name = "trust-radar-evidence"
 
-# ─── Durable Objects (WebSocket push hub) ────────────────────
+# ─── Durable Objects (WebSocket push hub + CertStream monitor) ──
 [[durable_objects.bindings]]
 name = "THREAT_PUSH_HUB"
 class_name = "ThreatPushHub"
 
+[[durable_objects.bindings]]
+name = "CERTSTREAM_MONITOR"
+class_name = "CertStreamMonitor"
+
 [[migrations]]
 tag = "v1-threat-push-hub"
 new_classes = ["ThreatPushHub"]
+
+[[migrations]]
+tag = "v2-certstream-monitor"
+new_classes = ["CertStreamMonitor"]
 
 # ─── Environment variables ────────────────────────────────────
 [vars]

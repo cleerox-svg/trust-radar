@@ -7,6 +7,7 @@ export interface Env {
   CACHE: KVNamespace;
   ASSETS: Fetcher;
   THREAT_PUSH_HUB: DurableObjectNamespace;
+  CERTSTREAM_MONITOR: DurableObjectNamespace;
   CARTOGRAPHER_BACKFILL: Workflow;
   NEXUS_RUN: Workflow;
   // Environment variables
