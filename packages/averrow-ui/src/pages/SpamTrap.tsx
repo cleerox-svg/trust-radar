@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { useSpamTrapAddresses } from '@/hooks/useSpamTrap';
+import { useSpamTrapAddresses, useSpamTrapStats } from '@/hooks/useSpamTrap';
 import { StatCard } from '@/components/ui/StatCard';
 import { HoneypotNetworkPanel } from '@/components/spam-trap/HoneypotNetworkPanel';
 import { CaptureForensicsPanel } from '@/components/spam-trap/CaptureForensicsPanel';
@@ -11,6 +11,7 @@ import { PageLoader } from '@/components/ui/PageLoader';
 export function SpamTrap() {
   const { isSuperAdmin, loading: authLoading } = useAuth();
   const { data: addresses } = useSpamTrapAddresses();
+  const { data: stats } = useSpamTrapStats();
 
   if (authLoading) return <PageLoader />;
   if (!isSuperAdmin) return <Navigate to="/" replace />;
@@ -19,9 +20,7 @@ export function SpamTrap() {
   const domainCount = addresses
     ? new Set(addresses.map((a) => a.domain)).size
     : 0;
-  const captureCount = addresses
-    ? addresses.reduce((sum, a) => sum + a.total_catches, 0)
-    : 0;
+  const captureCount = stats?.total_captures ?? 0;
   const catchRate =
     seedCount > 0 ? ((captureCount / seedCount) * 100).toFixed(1) + '%' : '—';
 
