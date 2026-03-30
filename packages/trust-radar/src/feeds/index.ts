@@ -21,6 +21,11 @@ import { malwarebazaar } from "./malwarebazaar";
 
 // ─── Ingest Feed Modules (continued) ────────────────────────────
 import { blocklist_de } from "./blocklistde";
+import { c2_tracker } from "./c2tracker";
+import { spamhaus_drop } from "./spamhausDrop";
+import { tor_exit_nodes } from "./torExitNodes";
+import { emerging_threats } from "./emergingThreats";
+import { disposable_email } from "./disposableEmail";
 
 // ─── Social Feed Modules ────────────────────────────────────────
 import { reddit } from "./reddit";
@@ -59,6 +64,11 @@ export const feedModules: Record<string, FeedModule> = {
   cisa_kev,
   malwarebazaar,
   blocklist_de,
+  c2_tracker,
+  spamhaus_drop,
+  tor_exit_nodes,
+  emerging_threats,
+  disposable_email,
 };
 
 /**
