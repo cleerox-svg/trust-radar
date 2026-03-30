@@ -1,9 +1,9 @@
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Shell } from '@/components/layout/Shell';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Login } from '@/pages/Login';
-import { Observatory } from '@/pages/Observatory';
 import { Brands } from '@/pages/Brands';
 import { BrandDetail } from '@/pages/BrandDetail';
 import { Agents } from '@/pages/Agents';
@@ -24,6 +24,17 @@ import { Home } from '@/pages/Home';
 import { Profile } from '@/pages/Profile';
 import { Notifications } from '@/pages/Notifications';
 import { NotificationPreferences } from '@/pages/NotificationPreferences';
+
+// Lazy-load Observatory to prevent deck.gl/WebGL from initializing on all pages
+const Observatory = React.lazy(() => import('@/pages/Observatory').then(m => ({ default: m.Observatory })));
+
+function ObservatoryLoader() {
+  return (
+    <div className="flex items-center justify-center h-full bg-cockpit">
+      <div className="text-contrail font-mono text-sm">Loading Observatory...</div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -55,7 +66,7 @@ export default function App() {
         </ProtectedRoute>
       }>
         <Route index element={<ErrorBoundary><Home /></ErrorBoundary>} />
-        <Route path="observatory" element={<ErrorBoundary><Observatory /></ErrorBoundary>} />
+        <Route path="observatory" element={<ErrorBoundary><Suspense fallback={<ObservatoryLoader />}><Observatory /></Suspense></ErrorBoundary>} />
         <Route path="brands" element={<ErrorBoundary><Brands /></ErrorBoundary>} />
         <Route path="brands/:brandId" element={<ErrorBoundary><BrandDetail /></ErrorBoundary>} />
         <Route path="providers" element={<ErrorBoundary><Providers /></ErrorBoundary>} />

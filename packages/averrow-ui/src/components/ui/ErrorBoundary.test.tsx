@@ -33,7 +33,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
     expect(screen.getByText('System Error')).toBeInTheDocument();
-    expect(screen.getByText('Test error')).toBeInTheDocument();
+    // Error message should NOT be exposed to users
+    expect(screen.queryByText('Test error')).not.toBeInTheDocument();
   });
 
   it('shows descriptive error message', () => {
@@ -42,7 +43,7 @@ describe('ErrorBoundary', () => {
         <BrokenComponent />
       </ErrorBoundary>
     );
-    expect(screen.getByText('Something went wrong loading this view.')).toBeInTheDocument();
+    expect(screen.getByText('Something went wrong loading this view. Please try again.')).toBeInTheDocument();
   });
 
   it('shows Try Again button that resets error state', async () => {
