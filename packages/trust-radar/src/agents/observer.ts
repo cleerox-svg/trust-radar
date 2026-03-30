@@ -372,6 +372,35 @@ export const observerAgent: AgentModule = {
       }
     } catch { /* brand_threat_assessments table may not exist yet */ }
 
+    // ─── Social mentions summary (Reddit, Telegram, GitHub, Mastodon) ──
+    let socialMentionsContext = "";
+    try {
+      const socialMentionsSummary = await env.DB.prepare(`
+        SELECT
+          COUNT(*) as social_24h,
+          SUM(CASE WHEN severity IN ('critical', 'high') THEN 1 ELSE 0 END) as social_high_24h,
+          SUM(CASE WHEN platform = 'reddit' THEN 1 ELSE 0 END) as reddit_24h,
+          SUM(CASE WHEN platform = 'telegram' THEN 1 ELSE 0 END) as telegram_24h,
+          SUM(CASE WHEN platform = 'github' THEN 1 ELSE 0 END) as github_24h,
+          SUM(CASE WHEN platform = 'mastodon' THEN 1 ELSE 0 END) as mastodon_24h,
+          SUM(CASE WHEN threat_type = 'credential_leak' THEN 1 ELSE 0 END) as cred_leaks_24h
+        FROM social_mentions
+        WHERE created_at >= datetime('now', '-24 hours')
+        AND status != 'false_positive'
+      `).first<{
+        social_24h: number; social_high_24h: number;
+        reddit_24h: number; telegram_24h: number;
+        github_24h: number; mastodon_24h: number;
+        cred_leaks_24h: number;
+      }>();
+
+      if (socialMentionsSummary && socialMentionsSummary.social_24h > 0) {
+        socialMentionsContext = `Social Intelligence: ${socialMentionsSummary.social_24h} mentions detected (${socialMentionsSummary.social_high_24h} high-severity). By platform: Reddit ${socialMentionsSummary.reddit_24h}, Telegram ${socialMentionsSummary.telegram_24h}, GitHub ${socialMentionsSummary.github_24h}, Mastodon ${socialMentionsSummary.mastodon_24h}. Credential leaks detected: ${socialMentionsSummary.cred_leaks_24h}.`;
+      }
+    } catch (err) {
+      console.warn("[observer] social mentions query error:", String(err));
+    }
+
     // ─── Send to Haiku for intelligence briefing ─────────────────
     const insightResult = await generateInsight(env, {
       period: "daily",
@@ -399,6 +428,7 @@ export const observerAgent: AgentModule = {
       lookalike_domain_summary: lookalikeContext,
       ct_certificate_summary: ctCertContext,
       enrichment_validation_summary: enrichmentContext,
+      social_mentions_summary: socialMentionsContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -531,6 +561,16 @@ export const observerAgent: AgentModule = {
         });
       }
 
+      // Item: Social mentions intelligence
+      if (socialMentionsContext) {
+        outputs.push({
+          type: 'insight',
+          summary: `**Social Platform Monitoring** — ${socialMentionsContext}`,
+          severity: socialMentionsContext.includes('Credential leaks detected: 0') ? 'info' : 'high',
+          details: { title: 'Social Platform Monitoring' },
+        });
+      }
+
       // Item: Lookalike domain changes
       if (lookalikeContext) {
         outputs.push({
@@ -651,6 +691,7 @@ export const observerAgent: AgentModule = {
             lookalike_domain_summary: lookalikeContext,
             ct_certificate_summary: ctCertContext,
             enrichment_validation_summary: enrichmentContext,
+            social_mentions_summary: socialMentionsContext,
           });
 
           if (weeklyResult.success && weeklyResult.data?.items?.length) {

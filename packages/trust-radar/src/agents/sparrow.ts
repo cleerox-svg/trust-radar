@@ -89,6 +89,71 @@ export const sparrowAgent: AgentModule = {
       });
     }
 
+    // ── Phase D2: Attach social evidence to existing takedown drafts ──
+    let socialEvidenceAttached = 0;
+    try {
+      const takedownsNeedingSocialEvidence = await env.DB.prepare(`
+        SELECT tr.id, tr.brand_id, tr.source_id, tr.source_type
+        FROM takedown_requests tr
+        WHERE tr.status = 'draft'
+          AND tr.brand_id IS NOT NULL
+          AND tr.id NOT IN (
+            SELECT takedown_id FROM takedown_evidence WHERE evidence_type = 'social_mention'
+          )
+        ORDER BY tr.priority_score DESC
+        LIMIT 10
+      `).all<{ id: string; brand_id: string; source_id: string | null; source_type: string | null }>();
+
+      for (const td of takedownsNeedingSocialEvidence.results) {
+        // Look for social mentions related to the same brand with escalated threat
+        const socialEvidence = await env.DB.prepare(`
+          SELECT content_url, content_text, platform, content_author, threat_type
+          FROM social_mentions
+          WHERE brand_id = ?
+            AND status IN ('classified', 'escalated')
+            AND severity IN ('critical', 'high')
+            AND created_at >= datetime('now', '-30 days')
+          ORDER BY created_at DESC
+          LIMIT 5
+        `).bind(td.brand_id).all<{
+          content_url: string | null;
+          content_text: string | null;
+          platform: string;
+          content_author: string | null;
+          threat_type: string | null;
+        }>();
+
+        if (socialEvidence.results.length > 0) {
+          const evidenceLines = socialEvidence.results.map(se =>
+            `- [${se.platform}] ${se.threat_type ?? 'threat'} by ${se.content_author ?? 'unknown'}: ${se.content_url ?? 'no URL'}`
+          ).join('\n');
+
+          await env.DB.prepare(`
+            INSERT INTO takedown_evidence (id, takedown_id, evidence_type, title, content_text, metadata_json, created_at)
+            VALUES (?, ?, 'social_mention', 'Social Platform Evidence', ?, ?, datetime('now'))
+          `).bind(
+            crypto.randomUUID(),
+            td.id,
+            `Social platform evidence corroborating this threat:\n${evidenceLines}`,
+            JSON.stringify({ mentions: socialEvidence.results.length, platforms: [...new Set(socialEvidence.results.map(s => s.platform))] }),
+          ).run();
+
+          socialEvidenceAttached++;
+        }
+      }
+    } catch (err) {
+      console.error('[Sparrow] Social evidence attachment error:', err instanceof Error ? err.message : String(err));
+    }
+
+    if (socialEvidenceAttached > 0) {
+      outputs.push({
+        type: "diagnostic",
+        summary: `Attached social evidence to ${socialEvidenceAttached} takedown draft(s)`,
+        severity: "info",
+        details: { social_evidence_attached: socialEvidenceAttached },
+      });
+    }
+
     // ── Phase E: Resolve providers and generate submission drafts ───
     let providersResolved = 0;
     const noProviderTakedowns = await env.DB.prepare(`
@@ -163,7 +228,7 @@ export const sparrowAgent: AgentModule = {
 
     return {
       itemsProcessed,
-      itemsCreated,
+      itemsCreated: itemsCreated + socialEvidenceAttached,
       itemsUpdated: providersResolved,
       output: {
         captures_scanned: scanResults.captures_processed,
@@ -172,6 +237,7 @@ export const sparrowAgent: AgentModule = {
         url_takedowns: urlTakedowns,
         social_takedowns: socialTakedowns,
         evidence_assembled: evidenceAssembled,
+        social_evidence_attached: socialEvidenceAttached,
         providers_resolved: providersResolved,
       },
       agentOutputs: outputs,
