@@ -18,6 +18,7 @@ import { sparrowAgent } from "./sparrow";
 import { nexusAgent } from "./nexus";
 import { flightControlAgent } from "./flightControl";
 import { curatorAgent } from "./curator";
+import { watchdogAgent } from "./watchdog";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -33,4 +34,5 @@ export const agentModules: Record<string, AgentModule> = {
   "nexus": nexusAgent,
   "flight_control": flightControlAgent,
   "curator": curatorAgent,
+  "watchdog": watchdogAgent,
 };

@@ -435,6 +435,110 @@ export async function runAllEnrichmentFeeds(
   return { feedsRun, feedsSkipped, feedsFailed, totalEnriched };
 }
 
+// ─── Run Social Feeds (after enrichment) ────────────────────────
+
+/**
+ * Run social feeds — these monitor social platforms for brand mentions.
+ * They insert into social_mentions table (not threats directly).
+ * Watchdog agent handles classification and escalation.
+ */
+export async function runAllSocialFeeds(
+  env: Env,
+  socialModules: Record<string, FeedModule>,
+): Promise<{
+  feedsRun: number;
+  feedsSkipped: number;
+  feedsFailed: number;
+  totalNew: number;
+}> {
+  let feedsRun = 0;
+  let feedsSkipped = 0;
+  let feedsFailed = 0;
+  let totalNew = 0;
+
+  // Try config-driven mode first
+  let configs: { results: FeedConfigRow[] } = { results: [] };
+  try {
+    configs = await env.DB.prepare(
+      "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'social'"
+    ).all<FeedConfigRow>();
+  } catch {
+    // feed_type column may not exist — fall through to direct execution
+  }
+
+  if (configs.results.length > 0) {
+    const statuses = await env.DB.prepare(
+      "SELECT * FROM feed_status"
+    ).all<{ feed_name: string; last_successful_pull: string | null; health_status: string }>();
+    const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
+    const now = new Date();
+
+    // Run social feeds sequentially (rate limit sensitive)
+    for (const config of configs.results) {
+      const mod = socialModules[config.feed_name];
+      if (!mod) { feedsSkipped++; continue; }
+
+      const status = statusMap.get(config.feed_name);
+      // Simple interval check — reuse logic from shouldRunNow
+      if (status?.last_successful_pull) {
+        const intervalMs = parseSocialCronInterval(config.schedule_cron);
+        const lastPull = status.last_successful_pull;
+        const lastRun = new Date(lastPull.includes('Z') || lastPull.includes('+') ? lastPull : lastPull + 'Z').getTime();
+        if (now.getTime() - lastRun < intervalMs - 60_000) {
+          feedsSkipped++;
+          continue;
+        }
+      }
+
+      feedsRun++;
+      try {
+        const result = await runFeed(env, config, mod);
+        totalNew += result.itemsNew;
+        console.log(`[social] ${config.feed_name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
+      } catch {
+        feedsFailed++;
+      }
+    }
+  } else {
+    // Direct mode: run all registered social modules
+    console.log(`[social] No feed_configs rows found, running ${Object.keys(socialModules).length} registered modules`);
+    for (const [name, mod] of Object.entries(socialModules)) {
+      feedsRun++;
+      const syntheticConfig: FeedConfigRow = {
+        feed_name: name,
+        display_name: name,
+        source_url: null,
+        schedule_cron: '0 */2 * * *',
+        rate_limit: 0,
+        batch_size: 0,
+        retry_count: 0,
+        enabled: 1,
+      };
+      try {
+        const result = await runFeed(env, syntheticConfig, mod);
+        totalNew += result.itemsNew;
+        console.log(`[social] ${name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
+      } catch (err) {
+        feedsFailed++;
+        console.error(`[social] ${name} FAILED:`, err instanceof Error ? err.message : String(err));
+      }
+    }
+  }
+
+  return { feedsRun, feedsSkipped, feedsFailed, totalNew };
+}
+
+function parseSocialCronInterval(cron: string): number {
+  const parts = cron.split(/\s+/);
+  if (parts.length < 5) return 2 * 60 * 60 * 1000; // default 2h
+  const minute = parts[0] ?? '*';
+  const hour = parts[1] ?? '*';
+  if (minute === '0' && hour.startsWith('*/')) {
+    return parseInt(hour.slice(2), 10) * 60 * 60 * 1000;
+  }
+  return 2 * 60 * 60 * 1000; // default 2h
+}
+
 // ─── Reset daily counters (called at start of day) ───────────────
 
 export async function resetDailyCounters(db: D1Database): Promise<void> {

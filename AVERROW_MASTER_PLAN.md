@@ -236,6 +236,18 @@ Cartographer (geo-enrichment agent) last ran 3 days ago. This is why:
 - Track response time → update `provider_abuse_contacts.avg_response_days`
 - Build provider responsiveness score from real data over time
 
+#### WATCHDOG (New — Social Mention Classifier)
+**Purpose:** Classify and escalate social platform mentions (Reddit, GitHub, etc.)
+**Trigger:** Every 15 minutes when `social_mentions WHERE status = 'new'` backlog > 0
+**Implementation:** `src/agents/watchdog.ts`
+**Processing:**
+- Fetches up to 50 unclassified mentions per run from `social_mentions`
+- Uses Claude Haiku for threat classification (with heuristic fallback)
+- Classification types: impersonation, credential_leak, phishing_link, brand_abuse, code_leak, threat_actor_chatter, vulnerability_disclosure, benign
+- Escalates critical/high severity findings to `threats` table
+- Marks high-confidence benign mentions as false positives
+- Flight Control monitors watchdog backlog, warns if > 100 unclassified
+
 #### PATHFINDER (Enhance existing)
 **Purpose:** Sales lead generation  
 **Changes:**
@@ -334,6 +346,27 @@ ALTER TABLE hosting_providers ADD COLUMN is_bulletproof INTEGER DEFAULT 0;
 ALTER TABLE hosting_providers ADD COLUMN last_enriched TEXT;
 ```
 
+#### social_mentions (Migration 0054)
+```sql
+CREATE TABLE social_mentions (
+  id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,              -- 'reddit', 'github', 'telegram', 'mastodon'
+  source_feed TEXT NOT NULL,
+  content_type TEXT NOT NULL,          -- 'post', 'comment', 'repo', 'advisory', 'code_file'
+  content_url TEXT, content_text TEXT,
+  content_author TEXT, content_author_url TEXT, content_created TEXT,
+  brand_id TEXT REFERENCES brands(id),
+  brand_name TEXT, match_type TEXT, match_confidence REAL,
+  threat_type TEXT, severity TEXT DEFAULT 'low',
+  ai_assessment TEXT, ai_confidence REAL,
+  status TEXT DEFAULT 'new',           -- 'new', 'classified', 'escalated', 'resolved', 'false_positive'
+  escalated_to_threat_id TEXT,
+  platform_metadata TEXT,              -- JSON
+  created_at TEXT, updated_at TEXT
+);
+-- Indexed: brand_id, platform+created_at, status, severity
+```
+
 ### Key Data Relationships
 ```
 threat_signals → [Sentinel] → threats
@@ -379,7 +412,7 @@ infrastructure_clusters → Providers UI (operations per provider)
 - [ ] **Sparrow cluster takedowns:** Bundle by ASN, use provider_abuse_contacts, track response rates
 - [ ] **SIEM/IOC export:** STIX 2.0 format, webhook push, CSV export
 - [ ] **Tenant data contribution:** Orgs connect email security platform → feeds into global graph
-- [ ] **Social media expansion:** Twitter/X API, Reddit monitoring, expanded PhishTank
+- [x] **Social media expansion:** Reddit + GitHub feeds active (Migration 0054), Watchdog agent for classification. Twitter/X API next.
 - [ ] **Dark web monitoring:** Flare.io or DarkOwl integration (evaluate cost vs data quality)
 - [ ] **VirusTotal community:** URL verdicts, file hash lookups
 - [ ] **URLScan.io:** Page content for AI detection and brand impersonation analysis
@@ -434,8 +467,9 @@ infrastructure_clusters → Providers UI (operations per provider)
 | Recorded Future | $100K+/yr | Threat actor attribution (long-term) |
 
 ### Social Media Feeds (Priority)
+- **Reddit (Active):** Brand-specific search + cybersecurity subreddit monitoring (r/cybersecurity, r/netsec, r/phishing, r/scams, r/hacking). OAuth app-only auth, rotates 10 brands/run, every 2 hours. `src/feeds/reddit.ts`
+- **GitHub (Active):** Code leak detection (leaked credentials, API keys, configs) + security advisory monitoring (CVEs). Fine-grained PAT auth, rotates 10 brands/run, every 4 hours. `src/feeds/github.ts`
 - Twitter/X: real-time brand mentions, impersonation handle detection
-- Reddit: fake brand subreddits, scam posts
 - Phishtank: community phishing (already partial — expand)
 - Meta Content Library: Facebook/Instagram brand impersonation
 - LinkedIn API: professional network impersonation
