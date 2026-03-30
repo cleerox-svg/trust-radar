@@ -24,10 +24,22 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   try {
     const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
     const csStub = env.CERTSTREAM_MONITOR.get(csId);
-    await csStub.fetch(new Request('https://internal/start'));
-    console.log('[cron] CertStream monitor pinged');
+    const csResponse = await csStub.fetch(new Request('https://internal/start'));
+    const csStatus = await csResponse.json() as { status: string; stats?: { connected: boolean; certsProcessed: number; certsMatched: number; errors: number } };
+    console.log(`[cron] CertStream pinged — status=${csStatus.status}, connected=${csStatus.stats?.connected}, processed=${csStatus.stats?.certsProcessed}, matched=${csStatus.stats?.certsMatched}, errors=${csStatus.stats?.errors}`);
+
+    // Log to agent_activity_log for Flight Control visibility
+    await logFlightControlActivity(env, 'health_check', `CertStream DO: ${csStatus.status}`, {
+      connected: csStatus.stats?.connected,
+      certsProcessed: csStatus.stats?.certsProcessed,
+      certsMatched: csStatus.stats?.certsMatched,
+      errors: csStatus.stats?.errors,
+    }, csStatus.stats?.connected ? 'info' : 'warning');
   } catch (err) {
-    console.error('[cron] CertStream ping failed:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[cron] CertStream ping failed:', errMsg);
+    logger.error('certstream_ping_failed', { error: errMsg });
+    await logFlightControlActivity(env, 'health_check', `CertStream DO ping failed: ${errMsg}`, { error: errMsg }, 'warning');
   }
 
   // ─── Flight Control v1: consume pending agent_events before cron jobs ───
@@ -213,6 +225,25 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     feedsFailed: feedResult.feedsFailed,
     feedsSkipped: feedResult.feedsSkipped,
   });
+
+  // ─── API Key Health Check: log presence of enrichment API keys ───
+  {
+    const keyStatus = {
+      GREYNOISE_API_KEY: !!env.GREYNOISE_API_KEY,
+      SECLOOKUP_API_KEY: !!env.SECLOOKUP_API_KEY,
+      VIRUSTOTAL_API_KEY: !!env.VIRUSTOTAL_API_KEY,
+      ABUSEIPDB_API_KEY: !!env.ABUSEIPDB_API_KEY,
+      HIBP_API_KEY: !!env.HIBP_API_KEY,
+      GOOGLE_SAFE_BROWSING_KEY: !!env.GOOGLE_SAFE_BROWSING_KEY,
+    };
+    const missing = Object.entries(keyStatus).filter(([, v]) => !v).map(([k]) => k);
+    if (missing.length > 0) {
+      console.warn(`[cron] Missing API keys: ${missing.join(', ')}`);
+      logger.warn('enrichment_api_keys_missing', { missing, present: Object.entries(keyStatus).filter(([, v]) => v).map(([k]) => k) });
+    } else {
+      console.log('[cron] All enrichment API keys present');
+    }
+  }
 
   // Enrichment feeds (SURBL, VirusTotal, HIBP) — run AFTER ingest feeds
   try {
