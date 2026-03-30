@@ -25,6 +25,8 @@ import { blocklist_de } from "./blocklistde";
 // ─── Social Feed Modules ────────────────────────────────────────
 import { reddit } from "./reddit";
 import { github } from "./github";
+import { telegram } from "./telegram";
+import { mastodon } from "./mastodon";
 
 // ─── Enrichment Feed Modules ────────────────────────────────────
 import { surbl } from "./surbl";
@@ -73,6 +75,8 @@ export const feedModules: Record<string, FeedModule> = {
 export const socialModules: Record<string, FeedModule> = {
   reddit,
   github,
+  telegram,
+  mastodon,
 };
 
 export const enrichmentModules: Record<string, FeedModule> = {

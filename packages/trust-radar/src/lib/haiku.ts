@@ -310,6 +310,7 @@ export async function generateInsight(
     high_risk_brands_summary?: string;
     narrative_summary?: string;
     social_monitor_summary?: string;
+    social_mentions_summary?: string;
     lookalike_domain_summary?: string;
     ct_certificate_summary?: string;
     enrichment_validation_summary?: string;

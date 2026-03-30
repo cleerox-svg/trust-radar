@@ -175,6 +175,21 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    // High backlog: trigger additional watchdog run
+    if (backlogs.watchdog > 200) {
+      const { agentModules: allAgents } = await import('./index');
+      const { executeAgent } = await import('../lib/agentRunner');
+      const watchdogMod = allAgents['watchdog'];
+      if (watchdogMod) {
+        executeAgent(env, watchdogMod, { trigger: 'flight_control_backlog', backlog: backlogs.watchdog }, 'flight_control', 'event')
+          .catch(() => { /* logged by agentRunner */ });
+        await logActivity(db, 'flight_control', 'info', 'scaling',
+          `Triggered extra Watchdog run — backlog: ${backlogs.watchdog} unclassified social mentions`,
+          { agent: 'watchdog', backlog: backlogs.watchdog }
+        );
+      }
+    }
+
     // ── Degraded feed health monitoring ───────────────────────────
     if (degradedFeeds.results.length > 0) {
       for (const feed of degradedFeeds.results) {

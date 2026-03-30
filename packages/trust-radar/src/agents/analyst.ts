@@ -402,6 +402,76 @@ export const analystAgent: AgentModule = {
       }
     }
 
+    // ─── Phase 4.5: Social mentions intelligence (Reddit, Telegram, GitHub, Mastodon) ──
+    for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
+      try {
+        const mentionStats = await env.DB.prepare(`
+          SELECT
+            COUNT(*) as total_mentions,
+            SUM(CASE WHEN severity IN ('critical', 'high') THEN 1 ELSE 0 END) as high_severity,
+            SUM(CASE WHEN threat_type = 'credential_leak' THEN 1 ELSE 0 END) as credential_leaks,
+            SUM(CASE WHEN threat_type = 'phishing_link' THEN 1 ELSE 0 END) as phishing_links,
+            SUM(CASE WHEN threat_type = 'code_leak' THEN 1 ELSE 0 END) as code_leaks,
+            SUM(CASE WHEN threat_type = 'impersonation' THEN 1 ELSE 0 END) as impersonations,
+            SUM(CASE WHEN threat_type = 'threat_actor_chatter' THEN 1 ELSE 0 END) as threat_chatter,
+            GROUP_CONCAT(DISTINCT platform) as platforms_seen
+          FROM social_mentions
+          WHERE brand_id = ? AND status != 'false_positive'
+          AND created_at >= datetime('now', '-30 days')
+        `).bind(bid).first<{
+          total_mentions: number;
+          high_severity: number;
+          credential_leaks: number;
+          phishing_links: number;
+          code_leaks: number;
+          impersonations: number;
+          threat_chatter: number;
+          platforms_seen: string | null;
+        }>();
+
+        if (mentionStats && mentionStats.total_mentions > 0) {
+          const brand = await getBrandById(env, bid);
+          const brandName = brand?.name ?? bid;
+          const platforms = mentionStats.platforms_seen ?? 'unknown';
+
+          // Escalate if credential leaks + active phishing detected
+          if (mentionStats.credential_leaks > 0 && mentionStats.phishing_links > 0) {
+            outputs.push({
+              type: 'classification',
+              summary: `**Social Threat Convergence** — ${brandName} has ${mentionStats.credential_leaks} credential leaks AND ${mentionStats.phishing_links} phishing links shared on social platforms (${platforms}). Active exploitation likely.`,
+              severity: 'critical',
+              details: {
+                brand_id: bid,
+                total_mentions: mentionStats.total_mentions,
+                credential_leaks: mentionStats.credential_leaks,
+                phishing_links: mentionStats.phishing_links,
+                code_leaks: mentionStats.code_leaks,
+                impersonations: mentionStats.impersonations,
+                threat_chatter: mentionStats.threat_chatter,
+                platforms: platforms,
+              },
+              relatedBrandIds: [bid],
+            });
+          } else if (mentionStats.high_severity > 3) {
+            outputs.push({
+              type: 'classification',
+              summary: `**Elevated Social Chatter** — ${brandName}: ${mentionStats.total_mentions} social mentions across ${platforms} (${mentionStats.high_severity} high-severity). ${mentionStats.credential_leaks} credential leaks, ${mentionStats.code_leaks} code leaks.`,
+              severity: 'high',
+              details: {
+                brand_id: bid,
+                total_mentions: mentionStats.total_mentions,
+                high_severity: mentionStats.high_severity,
+                platforms: platforms,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+        }
+      } catch (mentionErr) {
+        console.error(`[analyst] social mentions check failed for brand ${bid}:`, mentionErr);
+      }
+    }
+
     // Always generate an output so agent_outputs gets populated
     outputs.push({
       type: "classification",

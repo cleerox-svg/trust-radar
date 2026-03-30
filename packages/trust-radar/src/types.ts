@@ -35,6 +35,7 @@ export interface Env {
   REDDIT_CLIENT_ID?: string;
   REDDIT_CLIENT_SECRET?: string;
   GITHUB_FEED_TOKEN?: string;
+  TELEGRAM_BOT_TOKEN?: string;
   // Google Safe Browsing
   GOOGLE_SAFE_BROWSING_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
