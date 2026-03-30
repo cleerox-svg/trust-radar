@@ -21,7 +21,8 @@ export type AgentName =
   | "trustbot"
   | "seed_strategist"
   | "flight_control"
-  | "curator";
+  | "curator"
+  | "watchdog";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

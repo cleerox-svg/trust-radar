@@ -22,6 +22,10 @@ import { malwarebazaar } from "./malwarebazaar";
 // ─── Ingest Feed Modules (continued) ────────────────────────────
 import { blocklist_de } from "./blocklistde";
 
+// ─── Social Feed Modules ────────────────────────────────────────
+import { reddit } from "./reddit";
+import { github } from "./github";
+
 // ─── Enrichment Feed Modules ────────────────────────────────────
 import { surbl } from "./surbl";
 import { virustotal } from "./virustotal";
@@ -60,6 +64,17 @@ export const feedModules: Record<string, FeedModule> = {
  * These query existing threats and add metadata/scores, rather than creating new threats.
  * Keys match feed_configs.feed_name where feed_type = 'enrichment'.
  */
+/**
+ * Social feeds — monitor social platforms for brand mentions.
+ * These insert into social_mentions table (not threats directly).
+ * Watchdog agent handles classification and escalation.
+ * Keys match feed_configs.feed_name where feed_type = 'social'.
+ */
+export const socialModules: Record<string, FeedModule> = {
+  reddit,
+  github,
+};
+
 export const enrichmentModules: Record<string, FeedModule> = {
   surbl,
   virustotal,

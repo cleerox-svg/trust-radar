@@ -1,5 +1,5 @@
 import { logger } from '../lib/logger';
-import { feedModules, enrichmentModules } from '../feeds/index';
+import { feedModules, enrichmentModules, socialModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
 import type { Env } from '../types';
 
@@ -220,6 +220,42 @@ async function runThreatFeedScan(env: Env): Promise<void> {
   } catch (err) {
     console.error('[cron] ENRICHMENT FEEDS FAILED:', err instanceof Error ? err.message : String(err));
     logger.error('enrichment_feeds_error', { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Social intelligence feeds (Reddit, GitHub) — insert into social_mentions
+  try {
+    const { runAllSocialFeeds } = await import('../lib/feedRunner');
+    const socialResult = await runAllSocialFeeds(env, socialModules);
+    console.log(`[cron] Social feeds complete: run=${socialResult.feedsRun} new=${socialResult.totalNew} failed=${socialResult.feedsFailed} skipped=${socialResult.feedsSkipped}`);
+    logger.info('threat_feed_scan_social_feeds', {
+      feedsRun: socialResult.feedsRun,
+      totalNew: socialResult.totalNew,
+      feedsFailed: socialResult.feedsFailed,
+      feedsSkipped: socialResult.feedsSkipped,
+    });
+
+    // Trigger Watchdog if there are unclassified social mentions
+    if (socialResult.totalNew > 0) {
+      try {
+        const socialBacklog = await env.DB.prepare(
+          "SELECT COUNT(*) as count FROM social_mentions WHERE status = 'new'"
+        ).first<{ count: number }>();
+        if ((socialBacklog?.count ?? 0) > 0) {
+          const { agentModules: socialAgents } = await import('../agents/index');
+          const watchdogMod = socialAgents["watchdog"];
+          if (watchdogMod) {
+            const { executeAgent: runAgent } = await import('../lib/agentRunner');
+            await runAgent(env, watchdogMod, { trigger: 'social_feeds', backlog: socialBacklog?.count ?? 0 }, 'cron', 'event');
+            logger.info('social_feeds_triggered_watchdog', { backlog: socialBacklog?.count ?? 0 });
+          }
+        }
+      } catch (watchdogErr) {
+        logger.error('social_feeds_watchdog_trigger_error', { error: watchdogErr instanceof Error ? watchdogErr.message : String(watchdogErr) });
+      }
+    }
+  } catch (err) {
+    console.error('[cron] SOCIAL FEEDS FAILED:', err instanceof Error ? err.message : String(err));
+    logger.error('social_feeds_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
   // Enrichment pipeline
