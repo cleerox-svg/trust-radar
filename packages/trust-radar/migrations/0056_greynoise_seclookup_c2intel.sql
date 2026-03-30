@@ -30,14 +30,6 @@ VALUES ('c2_intel_feeds', 'C2 Intel Feeds',
 ON CONFLICT(feed_name) DO NOTHING;
 
 -- Feed status rows
-INSERT INTO feed_status (feed_name, health_status, last_success, last_failure, consecutive_failures)
-VALUES ('greynoise', 'healthy', NULL, NULL, 0)
-ON CONFLICT(feed_name) DO NOTHING;
-
-INSERT INTO feed_status (feed_name, health_status, last_success, last_failure, consecutive_failures)
-VALUES ('seclookup', 'healthy', NULL, NULL, 0)
-ON CONFLICT(feed_name) DO NOTHING;
-
-INSERT INTO feed_status (feed_name, health_status, last_success, last_failure, consecutive_failures)
-VALUES ('c2_intel_feeds', 'healthy', NULL, NULL, 0)
-ON CONFLICT(feed_name) DO NOTHING;
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('greynoise', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('seclookup', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('c2_intel_feeds', 'healthy');
