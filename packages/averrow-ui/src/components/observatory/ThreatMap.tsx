@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer, PathLayer } from '@deck.gl/layers';
@@ -6,6 +6,60 @@ import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import type { ThreatPoint, ArcData, HeatmapPoint } from '@/hooks/useObservatory';
 import type { Operation } from '@/hooks/useOperations';
 import { cn } from '@/lib/cn';
+
+// ─── WebGL availability check ──────────────────────────────
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+// ─── Local error boundary for map component ────────────────
+interface MapErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class MapErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  MapErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): MapErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+// ─── WebGL unavailable fallback ────────────────────────────
+function WebGLFallback({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full bg-cockpit">
+      <div className="font-mono text-xs text-contrail/70 uppercase tracking-wider mb-3">
+        Map Unavailable
+      </div>
+      <div className="text-contrail/50 text-sm mb-4 max-w-md text-center">
+        {message}
+      </div>
+      <div className="text-contrail/30 text-xs">
+        Threat data is still available in other views.
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────
 export type MapMode = 'global' | 'operations' | 'heatmap';
@@ -168,7 +222,21 @@ interface ThreatMapProps {
   onClusterClick?: (cluster: Operation, x: number, y: number) => void;
 }
 
-export function ThreatMap({
+export function ThreatMap(props: ThreatMapProps) {
+  if (!isWebGLAvailable()) {
+    return <WebGLFallback message="WebGL is not supported in this browser. The threat map requires WebGL to render." />;
+  }
+
+  return (
+    <MapErrorBoundary
+      fallback={<WebGLFallback message="The map failed to initialize. This may be due to a WebGL or graphics driver issue." />}
+    >
+      <ThreatMapInner {...props} />
+    </MapErrorBoundary>
+  );
+}
+
+function ThreatMapInner({
   threats, arcs, showBeams, showParticles, showNodes, colorBy,
   mapMode, operations = [], heatmapData = [],
   onArcClick, onClusterClick,
@@ -181,33 +249,43 @@ export function ThreatMap({
   const animFrameRef = useRef<number | null>(null);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
+  const [mapError, setMapError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const isMobileViewport = window.innerWidth < 768;
+    try {
+      const isMobileViewport = window.innerWidth < 768;
 
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: MAP_STYLE,
-      center: isMobileViewport ? [-30, 30] : [10, 25],
-      zoom: isMobileViewport ? 0.6 : 2.2,
-      pitch: isMobileViewport ? 0 : 20,
-      bearing: 0,
-      minZoom: isMobileViewport ? 0.5 : undefined,
-      maxZoom: 12,
-      antialias: true,
-      attributionControl: false,
-    });
+      const map = new maplibregl.Map({
+        container: mapContainerRef.current,
+        style: MAP_STYLE,
+        center: isMobileViewport ? [-30, 30] : [10, 25],
+        zoom: isMobileViewport ? 0.6 : 2.2,
+        pitch: isMobileViewport ? 0 : 20,
+        bearing: 0,
+        minZoom: isMobileViewport ? 0.5 : undefined,
+        maxZoom: 12,
+        antialias: true,
+        attributionControl: false,
+      });
 
-    if (!isMobileViewport) {
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.on('error', (e) => {
+        setMapError(e.error?.message || 'Map rendering error');
+      });
+
+      if (!isMobileViewport) {
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      }
+      mapRef.current = map;
+
+      return () => {
+        map.remove();
+        mapRef.current = null;
+      };
+    } catch (err) {
+      setMapError(err instanceof Error ? err.message : 'Failed to initialize map');
     }
-    mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
   }, []);
 
   const buildBaseLayers = useCallback(() => {
@@ -540,6 +618,10 @@ export function ThreatMap({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [arcs, showParticles, colorBy, mapMode]);
+
+  if (mapError) {
+    return <WebGLFallback message={`Map initialization failed: ${mapError}`} />;
+  }
 
   return (
     <div className="relative w-full h-full">

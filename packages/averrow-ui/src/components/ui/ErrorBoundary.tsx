@@ -26,10 +26,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
           <div className="font-mono text-xs text-accent uppercase tracking-wider mb-3">System Error</div>
           <div className="text-parchment/60 text-sm mb-6 max-w-md text-center">
-            Something went wrong loading this view.
-          </div>
-          <div className="font-mono text-[10px] text-contrail/30 mb-6 max-w-lg text-center break-all">
-            {this.state.error?.message}
+            Something went wrong loading this view. Please try again.
           </div>
           <Button variant="secondary" onClick={() => this.setState({ hasError: false, error: null })}>
             Try Again
