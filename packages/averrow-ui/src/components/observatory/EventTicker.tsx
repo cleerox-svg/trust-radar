@@ -106,7 +106,7 @@ export function EventTicker() {
   const doubled = [...events, ...events];
 
   return (
-    <div className="event-ticker fixed bottom-9 left-0 w-full z-30 bg-black/80 backdrop-blur-sm md:bottom-[52px] md:left-[200px] md:w-[calc(100%-200px)]">
+    <div className="event-ticker fixed bottom-9 left-0 w-full z-30 bg-black/80 backdrop-blur-sm md:bottom-[52px] md:left-[200px] md:w-[calc(100%_-_200px)]">
       {/* Left label */}
       <div className="ticker-label">
         <span className="dot-pulse dot-pulse-teal" style={{ width: 5, height: 5 }} />
