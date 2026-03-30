@@ -27,6 +27,7 @@ import { registerExportRoutes } from "./routes/export";
 import { registerSparrowRoutes } from "./routes/sparrow";
 
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
+export { CertStreamMonitor } from "./durableObjects/CertStreamMonitor";
 export { CartographerBackfillWorkflow } from "./workflows/cartographerBackfill";
 export { NexusWorkflow } from "./workflows/nexusRun";
 
@@ -231,6 +232,19 @@ export default {
         const instance = await env.NEXUS_RUN.get(instanceId);
         const status = await instance.status();
         return Response.json(status);
+      }
+
+      // ─── CertStream Durable Object endpoints ────────────────────
+      if (url.pathname === '/api/certstream/stats' && request.method === 'GET') {
+        const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
+        const csStub = env.CERTSTREAM_MONITOR.get(csId);
+        return csStub.fetch(new Request('https://internal/stats'));
+      }
+
+      if (url.pathname === '/api/certstream/reload-brands' && request.method === 'POST') {
+        const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
+        const csStub = env.CERTSTREAM_MONITOR.get(csId);
+        return csStub.fetch(new Request('https://internal/reload-brands'));
       }
 
       // Flight Control health snapshot endpoint

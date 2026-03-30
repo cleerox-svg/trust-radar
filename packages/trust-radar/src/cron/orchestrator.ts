@@ -20,6 +20,16 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     logger.error('flight_control_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
+  // ─── CertStream: ensure persistent DO connection is alive ───
+  try {
+    const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
+    const csStub = env.CERTSTREAM_MONITOR.get(csId);
+    await csStub.fetch(new Request('https://internal/start'));
+    console.log('[cron] CertStream monitor pinged');
+  } catch (err) {
+    console.error('[cron] CertStream ping failed:', err);
+  }
+
   // ─── Flight Control v1: consume pending agent_events before cron jobs ───
   await processAgentEvents(env, ctx);
 

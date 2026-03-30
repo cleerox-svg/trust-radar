@@ -229,6 +229,28 @@ export const flightControlAgent: AgentModule = {
       }
     } catch { /* non-fatal — c2_tracker may not have data yet */ }
 
+    // ── CertStream health check ──────────────────────────────────
+    try {
+      const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
+      const csStub = env.CERTSTREAM_MONITOR.get(csId);
+      const statsResp = await csStub.fetch(new Request('https://internal/stats'));
+      const csStats = await statsResp.json() as {
+        status: string;
+        stats?: { certsProcessed?: number; certsMatched?: number; certsWritten?: number };
+      };
+
+      if (!csStats.status || csStats.status !== 'connected') {
+        console.log('[flight-control] CertStream disconnected — attempting restart');
+        await csStub.fetch(new Request('https://internal/start'));
+        await logActivity(db, 'flight_control', 'warning', 'certstream_reconnect',
+          'CertStream disconnected — triggered restart', { csStats });
+      }
+
+      console.log(`[flight-control] CertStream: ${csStats.stats?.certsProcessed || 0} processed, ${csStats.stats?.certsMatched || 0} matched, ${csStats.stats?.certsWritten || 0} written`);
+    } catch (err) {
+      console.error('[flight-control] CertStream health check failed:', err);
+    }
+
     // Fire-and-forget scaling (no await — don't block on spawning agents)
     const scalingActions = await scaleAgents(db, env, ctx, backlogs, budgetStatus, agentLimits);
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
