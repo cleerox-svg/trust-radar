@@ -21,6 +21,8 @@ export const otx_alienvault: FeedModule = {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const baseUrl = ctx.feedUrl || "https://otx.alienvault.com/api/v1/pulses/subscribed";
     const feedUrl = `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}modified_since=${encodeURIComponent(since)}`;
+    console.log(`[otx_alienvault] feedUrl from config: "${ctx.feedUrl}"`);
+    console.log(`[otx_alienvault] Fetching: ${feedUrl}`);
     const headers: Record<string, string> = {
       "User-Agent": "Averrow-ThreatIntel/1.0",
       Accept: "application/json",
