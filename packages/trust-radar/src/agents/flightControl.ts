@@ -200,6 +200,21 @@ export const flightControlAgent: AgentModule = {
       }
     }
 
+    // ── C2 infrastructure overlap detection ────────────────────────
+    try {
+      const c2Overlap = await db.prepare(`
+        SELECT COUNT(*) as cnt FROM threats
+        WHERE source_feed = 'c2_tracker'
+        AND ip_address IN (SELECT DISTINCT ip_address FROM threats WHERE source_feed != 'c2_tracker' AND ip_address IS NOT NULL)
+      `).first<{ cnt: number }>();
+      if (c2Overlap && c2Overlap.cnt > 0) {
+        await logActivity(db, 'flight_control', 'warning', 'c2_overlap',
+          `[flight-control] ${c2Overlap.cnt} C2 server IPs also appear in other threat feeds — infrastructure overlap detected`,
+          { c2_overlap_count: c2Overlap.cnt }
+        );
+      }
+    } catch { /* non-fatal — c2_tracker may not have data yet */ }
+
     // Fire-and-forget scaling (no await — don't block on spawning agents)
     const scalingActions = await scaleAgents(db, env, ctx, backlogs, budgetStatus, agentLimits);
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
