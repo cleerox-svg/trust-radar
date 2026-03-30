@@ -44,17 +44,8 @@ VALUES ('disposable_email', 'Disposable Email Domains',
 
 -- ─── Feed Status Rows ───────────────────────────────────────────
 
-INSERT OR IGNORE INTO feed_status (feed_name, health_status, total_items_fetched, total_items_new, consecutive_failures)
-VALUES ('c2_tracker', 'unknown', 0, 0, 0);
-
-INSERT OR IGNORE INTO feed_status (feed_name, health_status, total_items_fetched, total_items_new, consecutive_failures)
-VALUES ('spamhaus_drop', 'unknown', 0, 0, 0);
-
-INSERT OR IGNORE INTO feed_status (feed_name, health_status, total_items_fetched, total_items_new, consecutive_failures)
-VALUES ('tor_exit_nodes', 'unknown', 0, 0, 0);
-
-INSERT OR IGNORE INTO feed_status (feed_name, health_status, total_items_fetched, total_items_new, consecutive_failures)
-VALUES ('emerging_threats', 'unknown', 0, 0, 0);
-
-INSERT OR IGNORE INTO feed_status (feed_name, health_status, total_items_fetched, total_items_new, consecutive_failures)
-VALUES ('disposable_email', 'unknown', 0, 0, 0);
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('c2_tracker', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('spamhaus_drop', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('tor_exit_nodes', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('emerging_threats', 'healthy');
+INSERT OR IGNORE INTO feed_status (feed_name, health_status) VALUES ('disposable_email', 'healthy');
