@@ -66,8 +66,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.TRUST_RADAR_IMPRSN8 }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          pnpm run db:migrate:prod
-          pnpm run db:migrate:audit:prod
+          for i in 1 2 3 4; do
+            pnpm run db:migrate:prod && break
+            echo "Migration attempt $i failed (D1 CPU limit), retrying in $((i * 4))s..."
+            sleep $((i * 4))
+          done
+          for i in 1 2 3 4; do
+            pnpm run db:migrate:audit:prod && break
+            echo "Audit migration attempt $i failed, retrying in $((i * 4))s..."
+            sleep $((i * 4))
+          done
 
       - name: Deploy Worker + Assets
         working-directory: packages/trust-radar
