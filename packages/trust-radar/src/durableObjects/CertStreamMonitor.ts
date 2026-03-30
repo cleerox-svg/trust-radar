@@ -202,7 +202,7 @@ export class CertStreamMonitor {
       if (domain === brandDomain || domain.endsWith('.' + brandDomain)) continue;
 
       // Check if the brand domain name appears in this domain
-      const brandBase = brandDomain.split('.')[0];
+      const brandBase = brandDomain.split('.')[0] ?? '';
       if (brandBase.length >= 4 && domain.includes(brandBase)) {
         return brandDomain;
       }
@@ -220,7 +220,7 @@ export class CertStreamMonitor {
 
   private scorePhishingPatterns(domain: string): number {
     let score = 0;
-    const baseDomain = domain.split('.')[0];
+    const baseDomain = domain.split('.')[0] ?? '';
 
     // High-entropy domain (DGA-like)
     const entropy = this.calculateEntropy(baseDomain);
@@ -264,7 +264,7 @@ export class CertStreamMonitor {
     const len = str.length;
     let entropy = 0;
     for (const c in freq) {
-      const p = freq[c] / len;
+      const p = (freq[c] ?? 0) / len;
       entropy -= p * Math.log2(p);
     }
     return entropy;
