@@ -100,13 +100,27 @@ export class CertStreamMonitor {
   }
 
   private async ensureConnected() {
-    if (this.ws) return;
+    // Always ensure alarm chain is running (survives DO hibernation)
+    const existingAlarm = await this.ctx.storage.getAlarm();
+    if (!existingAlarm) {
+      await this.ctx.storage.setAlarm(Date.now() + 30_000);
+      console.log('[certstream] Alarm chain (re)started');
+    }
+
+    // If WS is already connected and receiving data, nothing to do
+    if (this.ws && this.stats.connected) {
+      // Check staleness — reconnect if no data for 90s
+      if (this.stats.lastCertAt > 0 && Date.now() - this.stats.lastCertAt > 90_000) {
+        console.log('[certstream] Connection stale (no data for 90s) — forcing reconnect');
+        this.disconnect();
+      } else {
+        return;
+      }
+    }
 
     await this.loadBrandKeywords();
     await this.connect();
-
-    // Set alarm to flush batch and check health every 30 seconds
-    await this.ctx.storage.setAlarm(Date.now() + 30_000);
+    console.log(`[certstream] ensureConnected complete — ws=${!!this.ws}, brands=${this.brandKeywords.length}`);
   }
 
   private async connect() {
@@ -364,11 +378,12 @@ export class CertStreamMonitor {
     try {
       const db = this.env.DB;
 
-      // Load monitored brand names and domains
+      // Load monitored brand names and domains (use monitored_brands join for consistency)
       const brands = await db.prepare(`
         SELECT b.name, b.canonical_domain
         FROM brands b
-        WHERE b.monitoring_status = 'active'
+        LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
+        WHERE b.monitoring_status = 'active' OR mb.status = 'active'
       `).all<{ name: string; canonical_domain: string | null }>();
 
       this.brandDomains = [];
