@@ -24,6 +24,8 @@ export const nrd_hagezi: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     // Use config source_url if available, otherwise default to raw GitHub
     const url = ctx.feedUrl || NRD_DEFAULT_URL;
+    console.log(`[nrd_hagezi] feedUrl from config: "${ctx.feedUrl}"`);
+    console.log(`[nrd_hagezi] Fetching: ${url}`);
     const res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", url);
     if (!res.ok) throw new Error(`NRD Hagezi HTTP ${res.status}`);
 
