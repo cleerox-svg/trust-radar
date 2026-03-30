@@ -147,6 +147,45 @@ export default {
         }
       }
 
+      // ─── Debug: manual enrichment/social runner trigger ────────────
+      if (url.pathname === '/api/debug/run-enrichment' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+
+        const { runAllEnrichmentFeeds, runAllSocialFeeds } = await import('./lib/feedRunner');
+        const { enrichmentModules: eMods, socialModules: sMods } = await import('./feeds/index');
+
+        // Check feed_configs state for diagnostics
+        let feedConfigRows: { feed_name: string; feed_type: string; enabled: number }[] = [];
+        try {
+          const fc = await env.DB.prepare(
+            "SELECT feed_name, feed_type, enabled FROM feed_configs WHERE feed_type IN ('enrichment', 'social')"
+          ).all<{ feed_name: string; feed_type: string; enabled: number }>();
+          feedConfigRows = fc.results;
+        } catch (err) {
+          feedConfigRows = [];
+        }
+
+        const enrichResult = await runAllEnrichmentFeeds(env, eMods);
+        const socialResult = await runAllSocialFeeds(env, sMods);
+        return Response.json({
+          enrichment: enrichResult,
+          social: socialResult,
+          diagnostics: {
+            enrichmentModulesRegistered: Object.keys(eMods),
+            socialModulesRegistered: Object.keys(sMods),
+            feedConfigRows,
+            apiKeys: {
+              GREYNOISE_API_KEY: !!env.GREYNOISE_API_KEY,
+              SECLOOKUP_API_KEY: !!env.SECLOOKUP_API_KEY,
+            },
+          },
+        });
+      }
+
       // ─── Internal agent trigger endpoints ─────────────────────────
       if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;

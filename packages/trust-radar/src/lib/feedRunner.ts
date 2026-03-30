@@ -364,8 +364,10 @@ export async function runAllEnrichmentFeeds(
     configs = await env.DB.prepare(
       "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'enrichment'"
     ).all<FeedConfigRow>();
-  } catch {
+    console.log(`[enrichment] feed_configs query returned ${configs.results.length} enrichment rows: ${configs.results.map(c => c.feed_name).join(', ')}`);
+  } catch (err) {
     // feed_type column likely doesn't exist — fall through to direct execution
+    console.warn(`[enrichment] feed_configs query failed (falling back to direct mode): ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (configs.results.length > 0) {
@@ -376,11 +378,14 @@ export async function runAllEnrichmentFeeds(
     const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
 
     const now = new Date();
+    const configuredFeedNames = new Set<string>();
     const toRun: Array<{ config: FeedConfigRow; mod: FeedModule }> = [];
 
     for (const config of configs.results) {
+      configuredFeedNames.add(config.feed_name);
       const mod = enrichmentModules[config.feed_name];
       if (!mod) {
+        console.log(`[enrichment] ${config.feed_name}: in feed_configs but no module registered — skipping`);
         feedsSkipped++;
         continue;
       }
@@ -388,6 +393,7 @@ export async function runAllEnrichmentFeeds(
       const status = statusMap.get(config.feed_name);
       const shouldRun = shouldRunNow(config, status, now);
       if (!shouldRun) {
+        console.log(`[enrichment] ${config.feed_name}: not due yet (last_pull=${status?.last_successful_pull ?? 'never'}, cron=${config.schedule_cron}) — skipping`);
         feedsSkipped++;
         continue;
       }
@@ -395,14 +401,42 @@ export async function runAllEnrichmentFeeds(
       toRun.push({ config, mod });
     }
 
+    // FIX: Also run any enrichment modules that are NOT in feed_configs.
+    // This prevents silent omission when feed_configs has partial entries.
+    for (const [name, mod] of Object.entries(enrichmentModules)) {
+      if (configuredFeedNames.has(name)) continue;
+      console.log(`[enrichment] ${name}: not in feed_configs — running with synthetic config`);
+      const syntheticConfig: FeedConfigRow = {
+        feed_name: name,
+        display_name: name,
+        source_url: null,
+        schedule_cron: '*/30 * * * *',
+        rate_limit: 0,
+        batch_size: 0,
+        retry_count: 0,
+        enabled: 1,
+      };
+      // Check feed_status for synthetic too — avoid running too frequently
+      const status = statusMap.get(name);
+      if (status && !shouldRunNow(syntheticConfig, status, now)) {
+        console.log(`[enrichment] ${name}: not due yet (synthetic, last_pull=${status.last_successful_pull ?? 'never'}) — skipping`);
+        feedsSkipped++;
+        continue;
+      }
+      toRun.push({ config: syntheticConfig, mod });
+    }
+
     // Run enrichment feeds sequentially to respect rate limits
     for (const { config, mod } of toRun) {
       feedsRun++;
+      console.log(`[enrichment] Running feed: ${config.feed_name}`);
       try {
         const result = await runFeed(env, config, mod);
         totalEnriched += result.itemsNew;
-      } catch {
+        console.log(`[enrichment] ${config.feed_name}: fetched=${result.itemsFetched} enriched=${result.itemsNew} errors=${result.itemsError}`);
+      } catch (err) {
         feedsFailed++;
+        console.error(`[enrichment] ${config.feed_name} FAILED:`, err instanceof Error ? err.message : String(err));
       }
     }
   } else {
@@ -422,6 +456,7 @@ export async function runAllEnrichmentFeeds(
         enabled: 1,
       };
       try {
+        console.log(`[enrichment] Running feed (direct mode): ${name}`);
         const result = await runFeed(env, syntheticConfig, mod);
         totalEnriched += result.itemsNew;
         console.log(`[enrichment] ${name}: fetched=${result.itemsFetched} enriched=${result.itemsNew} errors=${result.itemsError}`);
@@ -462,8 +497,10 @@ export async function runAllSocialFeeds(
     configs = await env.DB.prepare(
       "SELECT * FROM feed_configs WHERE enabled = 1 AND feed_type = 'social'"
     ).all<FeedConfigRow>();
-  } catch {
+    console.log(`[social] feed_configs query returned ${configs.results.length} social rows: ${configs.results.map(c => c.feed_name).join(', ')}`);
+  } catch (err) {
     // feed_type column may not exist — fall through to direct execution
+    console.warn(`[social] feed_configs query failed (falling back to direct mode): ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (configs.results.length > 0) {
@@ -472,11 +509,17 @@ export async function runAllSocialFeeds(
     ).all<{ feed_name: string; last_successful_pull: string | null; health_status: string }>();
     const statusMap = new Map(statuses.results.map(s => [s.feed_name, s]));
     const now = new Date();
+    const configuredFeedNames = new Set<string>();
 
     // Run social feeds sequentially (rate limit sensitive)
     for (const config of configs.results) {
+      configuredFeedNames.add(config.feed_name);
       const mod = socialModules[config.feed_name];
-      if (!mod) { feedsSkipped++; continue; }
+      if (!mod) {
+        console.log(`[social] ${config.feed_name}: in feed_configs but no module registered — skipping`);
+        feedsSkipped++;
+        continue;
+      }
 
       const status = statusMap.get(config.feed_name);
       // Simple interval check — reuse logic from shouldRunNow
@@ -485,18 +528,47 @@ export async function runAllSocialFeeds(
         const lastPull = status.last_successful_pull;
         const lastRun = new Date(lastPull.includes('Z') || lastPull.includes('+') ? lastPull : lastPull + 'Z').getTime();
         if (now.getTime() - lastRun < intervalMs - 60_000) {
+          console.log(`[social] ${config.feed_name}: not due yet (last_pull=${lastPull}, interval=${intervalMs}ms) — skipping`);
           feedsSkipped++;
           continue;
         }
       }
 
       feedsRun++;
+      console.log(`[social] Running feed: ${config.feed_name}`);
       try {
         const result = await runFeed(env, config, mod);
         totalNew += result.itemsNew;
         console.log(`[social] ${config.feed_name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
-      } catch {
+      } catch (err) {
         feedsFailed++;
+        console.error(`[social] ${config.feed_name} FAILED:`, err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    // FIX: Also run any social modules that are NOT in feed_configs.
+    // This prevents silent omission when feed_configs has partial entries.
+    for (const [name, mod] of Object.entries(socialModules)) {
+      if (configuredFeedNames.has(name)) continue;
+      console.log(`[social] ${name}: not in feed_configs — running with synthetic config`);
+      feedsRun++;
+      const syntheticConfig: FeedConfigRow = {
+        feed_name: name,
+        display_name: name,
+        source_url: null,
+        schedule_cron: '0 */2 * * *',
+        rate_limit: 0,
+        batch_size: 0,
+        retry_count: 0,
+        enabled: 1,
+      };
+      try {
+        const result = await runFeed(env, syntheticConfig, mod);
+        totalNew += result.itemsNew;
+        console.log(`[social] ${name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
+      } catch (err) {
+        feedsFailed++;
+        console.error(`[social] ${name} FAILED:`, err instanceof Error ? err.message : String(err));
       }
     }
   } else {
@@ -515,6 +587,7 @@ export async function runAllSocialFeeds(
         enabled: 1,
       };
       try {
+        console.log(`[social] Running feed (direct mode): ${name}`);
         const result = await runFeed(env, syntheticConfig, mod);
         totalNew += result.itemsNew;
         console.log(`[social] ${name}: fetched=${result.itemsFetched} new=${result.itemsNew} errors=${result.itemsError}`);
