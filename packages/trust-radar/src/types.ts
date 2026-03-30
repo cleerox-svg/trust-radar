@@ -38,6 +38,10 @@ export interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   // Google Safe Browsing
   GOOGLE_SAFE_BROWSING_KEY?: string;
+  // GreyNoise IP context
+  GREYNOISE_API_KEY?: string;
+  // SecLookup domain + IP intelligence
+  SECLOOKUP_API_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
   ANTHROPIC_ADMIN_KEY?: string;
 }

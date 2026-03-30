@@ -35,6 +35,8 @@ interface Backlog {
   dblUnchecked: number;
   abuseipdbUnchecked: number;
   pdnsUnchecked: number;
+  greynoiseUnchecked: number;
+  seclookupUnchecked: number;
   watchdog: number;
 }
 
@@ -166,6 +168,18 @@ export const flightControlAgent: AgentModule = {
         { backlog: 'circl_pdns', count: backlogs.pdnsUnchecked }
       );
     }
+    if (backlogs.greynoiseUnchecked > 100) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `GreyNoise enrichment backlog: ${backlogs.greynoiseUnchecked} high-severity IPs unchecked`,
+        { backlog: 'greynoise', count: backlogs.greynoiseUnchecked }
+      );
+    }
+    if (backlogs.seclookupUnchecked > 1000) {
+      await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
+        `SecLookup enrichment backlog: ${backlogs.seclookupUnchecked} threats unchecked`,
+        { backlog: 'seclookup', count: backlogs.seclookupUnchecked }
+      );
+    }
 
     // ── Watchdog social mention backlog ─────────────────────────────
     if (backlogs.watchdog > 100) {
@@ -258,7 +272,7 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -294,7 +308,7 @@ export const flightControlAgent: AgentModule = {
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
   // Run all backlog queries in parallel
-  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult, abuseipdbResult, pdnsResult, watchdogResult] = await Promise.all([
+  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult, abuseipdbResult, pdnsResult, greynoiseResult, seclookupResult, watchdogResult] = await Promise.all([
     // Cartographer backlog: unenriched threats with IPs or domains
     db.prepare(`
       SELECT COUNT(*) as count FROM threats
@@ -375,6 +389,23 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
         AND first_seen >= datetime('now', '-7 days')
     `).first<{ count: number }>(),
 
+    // GreyNoise enrichment backlog: unchecked high-severity IPs from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE greynoise_checked = 0
+        AND ip_address IS NOT NULL
+        AND severity IN ('critical', 'high')
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>().catch(() => ({ count: 0 })),
+
+    // SecLookup enrichment backlog: unchecked threats from last 7 days
+    db.prepare(`
+      SELECT COUNT(*) as count FROM threats
+      WHERE seclookup_checked = 0
+        AND (malicious_domain IS NOT NULL OR ip_address IS NOT NULL)
+        AND first_seen >= datetime('now', '-7 days')
+    `).first<{ count: number }>().catch(() => ({ count: 0 })),
+
     // Watchdog backlog: unclassified social mentions
     db.prepare(`
       SELECT COUNT(*) as count FROM social_mentions WHERE status = 'new'
@@ -392,6 +423,8 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     dblUnchecked: dblResult?.count ?? 0,
     abuseipdbUnchecked: abuseipdbResult?.count ?? 0,
     pdnsUnchecked: pdnsResult?.count ?? 0,
+    greynoiseUnchecked: greynoiseResult?.count ?? 0,
+    seclookupUnchecked: seclookupResult?.count ?? 0,
     watchdog: watchdogResult?.count ?? 0,
   };
 }

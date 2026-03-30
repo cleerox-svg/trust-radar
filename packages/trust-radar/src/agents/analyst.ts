@@ -212,11 +212,14 @@ export const analystAgent: AgentModule = {
         SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged,
         ROUND(AVG(CASE WHEN vt_malicious > 0 THEN vt_malicious ELSE NULL END), 1) as vt_avg_malicious,
         SUM(CASE WHEN gsb_flagged = 1 THEN 1 ELSE 0 END) as gsb_confirmed,
-        SUM(CASE WHEN dbl_listed = 1 THEN 1 ELSE 0 END) as dbl_confirmed
+        SUM(CASE WHEN dbl_listed = 1 THEN 1 ELSE 0 END) as dbl_confirmed,
+        SUM(CASE WHEN greynoise_noise = 1 AND greynoise_classification = 'benign' THEN 1 ELSE 0 END) as noise_scanners,
+        SUM(CASE WHEN greynoise_noise = 0 AND greynoise_checked = 1 THEN 1 ELSE 0 END) as potentially_targeted,
+        SUM(CASE WHEN seclookup_risk_score >= 80 THEN 1 ELSE 0 END) as seclookup_high_risk
       FROM threats
       WHERE target_brand_id IS NOT NULL
         AND status = 'active'
-        AND (surbl_listed = 1 OR vt_malicious > 0 OR gsb_flagged = 1 OR dbl_listed = 1)
+        AND (surbl_listed = 1 OR vt_malicious > 0 OR gsb_flagged = 1 OR dbl_listed = 1 OR greynoise_checked = 1 OR seclookup_checked = 1)
       GROUP BY target_brand_id
     `).all<{
       target_brand_id: string;
@@ -225,6 +228,9 @@ export const analystAgent: AgentModule = {
       vt_avg_malicious: number | null;
       gsb_confirmed: number;
       dbl_confirmed: number;
+      noise_scanners: number;
+      potentially_targeted: number;
+      seclookup_high_risk: number;
     }>();
 
     const enrichmentByBrand = new Map(
@@ -308,7 +314,7 @@ export const analystAgent: AgentModule = {
     // ─── Phase 3.5: Enrichment validation summaries per brand ──────
     for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
       const enrichment = enrichmentByBrand.get(bid);
-      if (enrichment && (enrichment.surbl_confirmed > 0 || enrichment.vt_flagged > 0 || enrichment.gsb_confirmed > 0 || enrichment.dbl_confirmed > 0)) {
+      if (enrichment && (enrichment.surbl_confirmed > 0 || enrichment.vt_flagged > 0 || enrichment.gsb_confirmed > 0 || enrichment.dbl_confirmed > 0 || enrichment.noise_scanners > 0 || enrichment.potentially_targeted > 0 || enrichment.seclookup_high_risk > 0)) {
         const brand = await getBrandById(env, bid);
         const brandName = brand?.name ?? bid;
         const parts: string[] = [];
@@ -316,10 +322,21 @@ export const analystAgent: AgentModule = {
         if (enrichment.vt_flagged > 0) parts.push(`${enrichment.vt_flagged} flagged by VirusTotal (avg ${enrichment.vt_avg_malicious ?? 0} engines)`);
         if (enrichment.gsb_confirmed > 0) parts.push(`${enrichment.gsb_confirmed} confirmed by Google Safe Browsing`);
         if (enrichment.dbl_confirmed > 0) parts.push(`${enrichment.dbl_confirmed} confirmed by Spamhaus DBL`);
+        if (enrichment.seclookup_high_risk > 0) parts.push(`${enrichment.seclookup_high_risk} rated high-risk by SecLookup`);
+
+        // GreyNoise context — separates background noise from targeted attacks
+        let greynoiseContext = '';
+        if (enrichment.noise_scanners > 0 || enrichment.potentially_targeted > 0) {
+          greynoiseContext = ` GreyNoise context: ${enrichment.noise_scanners} threats from known internet scanners (background noise), ${enrichment.potentially_targeted} threats NOT seen mass-scanning (potential targeted attacks).`;
+        }
+        if (enrichment.seclookup_high_risk > 0) {
+          greynoiseContext += ` SecLookup: ${enrichment.seclookup_high_risk} threats rated high-risk.`;
+        }
+
         outputs.push({
           type: 'classification',
-          summary: `**External Validation** — ${brandName}: ${parts.join('. ')}.`,
-          severity: enrichment.vt_flagged > 5 || enrichment.surbl_confirmed > 10 || enrichment.gsb_confirmed > 5 || enrichment.dbl_confirmed > 5 ? 'high' : 'medium',
+          summary: `**External Validation** — ${brandName}: ${parts.join('. ')}.${greynoiseContext}`,
+          severity: enrichment.vt_flagged > 5 || enrichment.surbl_confirmed > 10 || enrichment.gsb_confirmed > 5 || enrichment.dbl_confirmed > 5 || enrichment.seclookup_high_risk > 5 ? 'high' : 'medium',
           details: {
             brand_id: bid,
             surbl_confirmed: enrichment.surbl_confirmed,
@@ -327,6 +344,9 @@ export const analystAgent: AgentModule = {
             vt_avg_malicious: enrichment.vt_avg_malicious,
             gsb_confirmed: enrichment.gsb_confirmed,
             dbl_confirmed: enrichment.dbl_confirmed,
+            noise_scanners: enrichment.noise_scanners,
+            potentially_targeted: enrichment.potentially_targeted,
+            seclookup_high_risk: enrichment.seclookup_high_risk,
           },
           relatedBrandIds: [bid],
         });
