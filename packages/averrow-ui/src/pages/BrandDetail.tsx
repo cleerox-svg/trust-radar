@@ -980,13 +980,13 @@ export function BrandDetail() {
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] text-contrail/50">Impersonation Score</span>
                     <span className="font-mono text-xs font-bold" style={{
-                      color: profile.impersonation_score >= 70 ? '#C83C3C' : profile.impersonation_score >= 40 ? '#E8923C' : '#28A050'
-                    }}>{profile.impersonation_score}%</span>
+                      color: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050'
+                    }}>{Math.round(profile.impersonation_score * 100)}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-white/5 rounded overflow-hidden">
                     <div className="h-full rounded transition-all duration-500" style={{
-                      width: `${Math.min(profile.impersonation_score, 100)}%`,
-                      background: profile.impersonation_score >= 70 ? '#C83C3C' : profile.impersonation_score >= 40 ? '#E8923C' : '#28A050',
+                      width: `${Math.min(Math.round(profile.impersonation_score * 100), 100)}%`,
+                      background: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050',
                     }} />
                   </div>
                 </div>
