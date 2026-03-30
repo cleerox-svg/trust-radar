@@ -19,7 +19,8 @@ export const otx_alienvault: FeedModule = {
 
     // OTX requires modified_since param — without it, subscribed endpoint returns 403
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const feedUrl = `https://otx.alienvault.com/api/v1/pulses/subscribed?modified_since=${encodeURIComponent(since)}`;
+    const baseUrl = ctx.feedUrl || "https://otx.alienvault.com/api/v1/pulses/subscribed";
+    const feedUrl = `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}modified_since=${encodeURIComponent(since)}`;
     const headers: Record<string, string> = {
       "User-Agent": "Averrow-ThreatIntel/1.0",
       Accept: "application/json",
