@@ -41,6 +41,11 @@ import { google_safe_browsing } from "./googleSafeBrowsing";
 import { spamhaus_dbl } from "./spamhausDbl";
 import { abuseipdb } from "./abuseipdb";
 import { circl_pdns } from "./circlPassiveDns";
+import { greynoise } from "./greynoise";
+import { seclookup } from "./seclookup";
+
+// ─── Additional Ingest Feed Modules ────────────────────────────
+import { c2_intel_feeds } from "./c2intelfeeds";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -69,6 +74,7 @@ export const feedModules: Record<string, FeedModule> = {
   tor_exit_nodes,
   emerging_threats,
   disposable_email,
+  c2_intel_feeds,
 };
 
 /**
@@ -97,4 +103,6 @@ export const enrichmentModules: Record<string, FeedModule> = {
   spamhaus_dbl,
   abuseipdb,
   circl_pdns,
+  greynoise,
+  seclookup,
 };
