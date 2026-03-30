@@ -143,11 +143,10 @@ The Worker serves the frontend SPA using Cloudflare Workers Static Assets:
 [assets]
 directory = "./public"
 binding = "ASSETS"
-serve_directly = false
-not_found_handling = "single-page-application"
+not_found_handling = "404-page"
 ```
 
-The `serve_directly = false` setting means all requests pass through the Worker first, enabling API routing. The `not_found_handling = "single-page-application"` setting returns `index.html` for any path not matching an API route or static file, supporting client-side routing.
+All requests pass through the Worker first, enabling API routing. The `not_found_handling = "404-page"` setting returns a 404 for any path not matching an API route or static file.
 
 ## Durable Objects
 
