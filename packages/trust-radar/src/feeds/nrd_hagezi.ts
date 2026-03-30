@@ -3,8 +3,7 @@ import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
 
-const NRD_CDN_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/nrd-3.txt";
-const NRD_RAW_URL = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nrd-3.txt";
+const NRD_DEFAULT_URL = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nrd-3.txt";
 
 /** Common homoglyph substitutions for brand matching */
 const HOMOGLYPHS: Record<string, string[]> = {
@@ -23,13 +22,9 @@ const HOMOGLYPHS: Record<string, string[]> = {
  */
 export const nrd_hagezi: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    // Try CDN first, fall back to raw GitHub if 403 (file too large for jsDelivr)
-    const primaryUrl = ctx.feedUrl || NRD_CDN_URL;
-    let res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", primaryUrl);
-    if (res.status === 403) {
-      console.warn(`[nrd_hagezi] CDN returned 403, falling back to raw GitHub URL`);
-      res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", NRD_RAW_URL);
-    }
+    // Use config source_url if available, otherwise default to raw GitHub
+    const url = ctx.feedUrl || NRD_DEFAULT_URL;
+    const res = await diagnosticFetch(ctx.env.DB, "nrd_hagezi", url);
     if (!res.ok) throw new Error(`NRD Hagezi HTTP ${res.status}`);
 
     const text = await res.text();
