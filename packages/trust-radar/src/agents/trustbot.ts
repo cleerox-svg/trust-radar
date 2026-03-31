@@ -47,7 +47,7 @@ export const trustbotAgent: AgentModule = {
       const domainMatch = query.match(/\b([a-z0-9.-]+\.[a-z]{2,})\b/i);
       if (domainMatch) {
         const threats = await ctx.env.DB.prepare(
-          "SELECT id, type, title, severity, source, created_at FROM threats WHERE domain = ? ORDER BY created_at DESC LIMIT 10"
+          "SELECT id, threat_type AS type, title, severity, source, created_at FROM threats WHERE domain = ? ORDER BY created_at DESC LIMIT 10"
         ).bind(domainMatch[1]).all();
         context.domainThreats = { domain: domainMatch[1], threats: threats.results };
       }
@@ -58,7 +58,7 @@ export const trustbotAgent: AgentModule = {
       const ipMatch = query.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
       if (ipMatch) {
         const threats = await ctx.env.DB.prepare(
-          "SELECT id, type, title, severity, source, created_at FROM threats WHERE ip_address = ? ORDER BY created_at DESC LIMIT 10"
+          "SELECT id, threat_type AS type, title, severity, source, created_at FROM threats WHERE ip_address = ? ORDER BY created_at DESC LIMIT 10"
         ).bind(ipMatch[1]).all();
         context.ipThreats = { ip: ipMatch[1], threats: threats.results };
       }
@@ -67,7 +67,7 @@ export const trustbotAgent: AgentModule = {
     // Recent critical
     if (lowerQuery.includes("critical") || lowerQuery.includes("urgent") || lowerQuery.includes("alert")) {
       const critical = await ctx.env.DB.prepare(
-        "SELECT id, title, type, domain, ip_address, source, created_at FROM threats WHERE severity = 'critical' ORDER BY created_at DESC LIMIT 10"
+        "SELECT id, title, threat_type AS type, domain, ip_address, source, created_at FROM threats WHERE severity = 'critical' ORDER BY created_at DESC LIMIT 10"
       ).all();
       context.criticalThreats = critical.results;
     }

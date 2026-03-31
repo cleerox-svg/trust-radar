@@ -91,7 +91,7 @@ async function fetchBriefingData(env: Env, hoursBack: number): Promise<BriefingD
   const [threats, threatNews, attackMetrics, socialIocs, atoEvents, breachChecks, torExitNodes, erasureActions, ingestionJobs] = await Promise.all([
     // 1. Threats (150 recent)
     env.DB.prepare(`
-      SELECT type, title, severity, confidence, status, source, domain, ip_address, country_code, ioc_type, ioc_value, tags, created_at
+      SELECT threat_type AS type, title, severity, confidence, status, source, domain, ip_address, country_code, ioc_type, ioc_value, tags, created_at
       FROM threats WHERE created_at >= ${timeFilter}
       ORDER BY created_at DESC LIMIT 150
     `).all().then(r => r.results),
