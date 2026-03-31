@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats } from '@/hooks/useAgents';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput } from '@/hooks/useAgents';
 import { StatCard } from '@/components/ui/StatCard';
@@ -12,7 +11,6 @@ import { AgentIcon } from '@/components/brand/AgentIcon';
 import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
 import { HistoryView } from '@/components/agents/HistoryView';
 import { ConfigView } from '@/components/agents/ConfigView';
-import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import {
@@ -259,7 +257,7 @@ function FlightControlCard({
   return (
     <div
       className={cn(
-        'col-span-1 lg:col-span-3 glass-card card-accent-top rounded-xl p-6 transition-all duration-200 cursor-pointer',
+        'col-span-1 sm:col-span-2 lg:col-span-3 glass-card card-accent-top rounded-xl p-6 transition-all duration-200 cursor-pointer',
         isSelected && 'border-white/25',
       )}
       onClick={onSelect}
@@ -382,7 +380,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
   }, [typedHealth]);
 
   return (
-    <div className="col-span-1 lg:col-span-3 glass-card rounded-xl p-6 animate-fade-in">
+    <div className="col-span-1 sm:col-span-2 lg:col-span-3 glass-card rounded-xl p-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left: Agent info */}
         <div className="lg:w-72 shrink-0 space-y-4">
@@ -632,7 +630,7 @@ function MonitorView() {
         <SectionLabel className="mb-3">Squadron Status</SectionLabel>
 
         {agents && agents.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Flight Control — full width supervisor card */}
             {flightControl && (
               <FlightControlCard
@@ -680,235 +678,29 @@ function MonitorView() {
   );
 }
 
-// ─── Mobile Agent Row ───────────────────────────────────────────────
-function MobileAgentRow({ agent }: { agent: Agent }) {
-  const meta = AGENT_REGISTRY[agent.name];
-  const agentColor = meta?.color ?? agent.color;
-
-  const successRate = useMemo(() => {
-    const total = agent.jobs_24h;
-    if (total === 0) return 100;
-    const errors = agent.error_count_24h;
-    return Math.round(((total - errors) / total) * 100);
-  }, [agent.jobs_24h, agent.error_count_24h]);
-
-  const healthBarColor =
-    successRate > 95 ? '#4ADE80' : successRate > 80 ? '#FB923C' : '#C83C3C';
-
-  return (
-    <div className="flex flex-col gap-2 border-b border-bulkhead/20 px-4 py-3.5">
-      <div className="flex items-start gap-3">
-        {/* Status dot + icon */}
-        <div className="relative mt-1 shrink-0">
-          <AgentIcon agent={agent.name} size={24} />
-          <span
-            className={cn(
-              'absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-cockpit',
-              statusDotClass(agent),
-            )}
-            style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
-          />
-        </div>
-
-        {/* Name + description */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-bold text-parchment">
-              {meta?.displayName ?? agent.display_name}
-            </span>
-            <Badge variant={statusVariant[agent.status] || 'default'} className="text-[8px]">
-              {agent.status.toUpperCase()}
-            </Badge>
-          </div>
-          <div className="font-mono text-[10px] text-white/40 mt-0.5 line-clamp-1">
-            {meta?.description ?? agent.description}
-          </div>
-        </div>
-
-        {/* Job count */}
-        <div className="shrink-0 text-right">
-          <div className="font-display text-lg font-bold text-parchment leading-none">
-            {agent.jobs_24h}
-          </div>
-          <div className="font-mono text-[8px] text-white/30 uppercase">jobs</div>
-        </div>
-      </div>
-
-      {/* Health bar */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${successRate}%`, backgroundColor: healthBarColor }}
-          />
-        </div>
-        <span className="font-mono text-[9px] text-white/40 shrink-0 w-8 text-right">
-          {successRate}%
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Mobile Agents Layout ───────────────────────────────────────────
-type MobileTab = 'Status' | 'Operations' | 'Config';
-
-function MobileAgentsLayout({
-  agents,
-  activeTab,
-  setActiveTab,
-}: {
-  agents: Agent[];
-  activeTab: MobileTab;
-  setActiveTab: (v: MobileTab) => void;
-}) {
-  const navigate = useNavigate();
-
-  const operational = agents.filter(a => a.status !== 'error').length;
-  const total = agents.length;
-  const totalJobs = agents.reduce((sum, a) => sum + a.jobs_24h, 0);
-  const hasErrors = agents.some(a => a.status === 'error');
-
-  const sortedAgents = useMemo(() => {
-    return AGENT_ORDER
-      .map(name => agents.find(a => a.name === name))
-      .filter((a): a is Agent => !!a)
-      .concat(agents.filter(a => !AGENT_ORDER.includes(a.name) && a.name !== 'flight_control'));
-  }, [agents]);
-
-  const allAgents = useMemo(() => {
-    const fc = agents.find(a => a.name === 'flight_control');
-    return fc ? [fc, ...sortedAgents] : sortedAgents;
-  }, [agents, sortedAgents]);
-
-  const filterChips = useMemo(() => [
-    { label: 'Status', active: activeTab === 'Status', onClick: () => setActiveTab('Status') },
-    { label: 'Operations', active: activeTab === 'Operations', onClick: () => setActiveTab('Operations') },
-    { label: 'Config', active: activeTab === 'Config', onClick: () => setActiveTab('Config') },
-  ], [activeTab, setActiveTab]);
-
-  return (
-    <div className="fixed inset-0 bg-cockpit flex flex-col">
-      {/* DrillHeader */}
-      <DrillHeader title="AGENTS" onBack={() => navigate('/v2/')} />
-
-      {/* Scrollable hero area */}
-      <div className="flex-1 overflow-y-auto pt-[52px] pb-[120px]">
-        <div className="p-4 space-y-3">
-          {/* System health banner */}
-          <div
-            className={cn(
-              'rounded-xl border px-4 py-3 flex items-center gap-3',
-              hasErrors
-                ? 'border-[#C83C3C]/30 bg-[#C83C3C]/[0.06]'
-                : 'border-[#4ADE80]/30 bg-[#4ADE80]/[0.06]',
-            )}
-          >
-            <span
-              className={cn(
-                'w-2.5 h-2.5 rounded-full shrink-0',
-                hasErrors ? 'dot-pulse-red' : 'dot-pulse-green',
-              )}
-            />
-            <div className="flex-1">
-              <div className={cn(
-                'font-mono text-[11px] font-bold tracking-wider',
-                hasErrors ? 'text-[#C83C3C]' : 'text-[#4ADE80]',
-              )}>
-                {hasErrors ? 'SYSTEM DEGRADED' : 'ALL SYSTEMS NOMINAL'}
-              </div>
-              <div className="font-mono text-[10px] text-white/40 mt-0.5">
-                {total} agents · {totalJobs.toLocaleString()} jobs processed today
-              </div>
-            </div>
-          </div>
-
-          {/* Hero stats */}
-          <HeroStatGrid stats={[
-            { label: 'OPERATIONAL', value: `${operational}/${total}`, color: '#4ADE80' },
-            { label: 'JOBS 24H', value: totalJobs.toLocaleString(), color: '#00d4ff' },
-            { label: 'OUTPUTS 24H', value: agents.reduce((s, a) => s + a.outputs_24h, 0).toLocaleString(), color: '#FB923C' },
-            { label: 'ERRORS 24H', value: String(agents.reduce((s, a) => s + a.error_count_24h, 0)), color: agents.reduce((s, a) => s + a.error_count_24h, 0) > 0 ? '#C83C3C' : '#4ADE80' },
-          ]} />
-        </div>
-      </div>
-
-      {/* Bottom sheet */}
-      <MobileBottomSheet
-        peekHeight={110}
-        halfHeight={380}
-        fullHeight={550}
-        defaultState="half"
-        headerLeft={
-          <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">AGENT STATUS</span>
-            <span className="text-[9px] font-mono text-contrail/40">{allAgents.length}</span>
-          </div>
-        }
-        headerRight={<MobileFilterChips filters={filterChips} />}
-      >
-        {activeTab === 'Status' && (
-          <div className="flex flex-col">
-            {allAgents.map(agent => (
-              <MobileAgentRow key={agent.agent_id} agent={agent} />
-            ))}
-            {allAgents.length === 0 && (
-              <div className="text-center py-12 font-mono text-sm text-contrail/30">
-                No agents found
-              </div>
-            )}
-          </div>
-        )}
-        {activeTab === 'Operations' && (
-          <div className="p-4">
-            <HistoryView />
-          </div>
-        )}
-        {activeTab === 'Config' && (
-          <div className="p-4">
-            <ConfigView />
-          </div>
-        )}
-      </MobileBottomSheet>
-    </div>
-  );
-}
-
 // ─── Main Page ──────────────────────────────────────────────────────
 export function Agents() {
   const { data: agents = [], isLoading } = useAgents();
-  const isMobile = useMobile();
   const [activeTab, setActiveTab] = useState<AgentTab>('MONITOR');
-  const [mobileTab, setMobileTab] = useState<MobileTab>('Status');
 
   if (isLoading) return <CardGridLoader count={6} />;
-
-  if (isMobile) {
-    return (
-      <MobileAgentsLayout
-        agents={agents}
-        activeTab={mobileTab}
-        setActiveTab={setMobileTab}
-      />
-    );
-  }
 
   return (
     <div className="animate-fade-in space-y-6">
       {/* Page header with LIVE badge */}
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold text-parchment">AI Agent Operations</h1>
-        <span className="live-indicator">LIVE</span>
+        <h1 className="font-display text-xl font-bold text-parchment truncate">AI Agent Operations</h1>
+        <span className="live-indicator shrink-0">LIVE</span>
       </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-1">
+      {/* Tab switcher — horizontal scroll on mobile */}
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
         {(['MONITOR', 'HISTORY', 'CONFIG'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              'flex-1 sm:flex-none rounded-lg px-4 py-2 text-[11px] font-mono font-semibold tracking-wider uppercase',
+              'flex-1 sm:flex-none rounded-lg px-4 min-h-[44px] text-[11px] font-mono font-semibold tracking-wider uppercase whitespace-nowrap',
               activeTab === tab ? 'glass-btn-active' : 'glass-btn',
             )}
           >
