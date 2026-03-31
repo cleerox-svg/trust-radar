@@ -91,7 +91,7 @@ async function fetchBriefingData(env: Env, hoursBack: number): Promise<BriefingD
   const [threats, threatNews, attackMetrics, socialIocs, atoEvents, breachChecks, torExitNodes, erasureActions, ingestionJobs] = await Promise.all([
     // 1. Threats (150 recent)
     env.DB.prepare(`
-      SELECT threat_type AS type, title, severity, confidence, status, source, domain, ip_address, country_code, ioc_type, ioc_value, tags, created_at
+      SELECT threat_type AS type, malicious_domain AS title, severity, confidence_score AS confidence, status, source_feed AS source, malicious_domain AS domain, ip_address, country_code, threat_type AS ioc_type, ioc_value, created_at
       FROM threats WHERE created_at >= ${timeFilter}
       ORDER BY created_at DESC LIMIT 150
     `).all().then(r => r.results),
@@ -133,7 +133,7 @@ async function fetchBriefingData(env: Env, hoursBack: number): Promise<BriefingD
 
     // 7. Tor Exit Nodes (50 active)
     env.DB.prepare(`
-      SELECT ip_address, first_seen, last_seen
+      SELECT ip_address, last_seen, last_seen AS first_seen
       FROM tor_exit_nodes WHERE last_seen >= ${timeFilter}
       ORDER BY last_seen DESC LIMIT 50
     `).all().then(r => r.results).catch(() => []),
@@ -145,10 +145,10 @@ async function fetchBriefingData(env: Env, hoursBack: number): Promise<BriefingD
       ORDER BY created_at DESC LIMIT 15
     `).all().then(r => r.results).catch(() => []),
 
-    // 9. Ingestion Jobs / Feed Health (30 recent)
+    // 9. Feed Health (30 recent) — uses feed_pull_history table
     env.DB.prepare(`
-      SELECT feed_name, status, items_fetched, items_new, items_error, duration_ms, started_at
-      FROM feed_ingestions ORDER BY started_at DESC LIMIT 30
+      SELECT feed_name, status, records_ingested AS items_fetched, records_ingested AS items_new, records_rejected AS items_error, duration_ms, started_at
+      FROM feed_pull_history ORDER BY started_at DESC LIMIT 30
     `).all().then(r => r.results).catch(() => []),
   ]);
 
@@ -373,9 +373,10 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
     // Check for cached briefing (12h TTL)
     if (cached) {
       const existing = await env.DB.prepare(`
-        SELECT * FROM threat_briefings
-        WHERE created_at >= datetime('now', '-12 hours')
-        ORDER BY created_at DESC LIMIT 1
+        SELECT id, type, report_date, report_data, generated_at, trigger, emailed
+        FROM threat_briefings
+        WHERE generated_at >= datetime('now', '-12 hours')
+        ORDER BY generated_at DESC LIMIT 1
       `).first();
       if (existing) {
         return json({ success: true, data: existing, cached: true }, 200, origin);
@@ -386,21 +387,18 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
     const data = await fetchBriefingData(env, hoursBack);
     const briefing = buildBriefing(data, hoursBack);
 
-    // Determine severity
-    const severity = briefing.riskLevel === "ELEVATED" ? "critical" : briefing.riskLevel === "GUARDED" ? "high" : "low";
     const title = `Threat Intelligence Briefing — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
     // Persist to threat_briefings
     const briefingId = `brief-${Date.now().toString(36)}`;
+    const reportDate = new Date().toISOString().slice(0, 10);
     await env.DB.prepare(`
-      INSERT INTO threat_briefings (id, title, summary, body, severity, category, status, generated_by, published_at, created_at)
-      VALUES (?, ?, ?, ?, ?, 'daily', 'published', ?, datetime('now'), datetime('now'))
+      INSERT INTO threat_briefings (id, type, report_date, report_data, generated_at, trigger, emailed)
+      VALUES (?, 'daily', ?, ?, datetime('now'), ?, 0)
     `).bind(
       briefingId,
-      title,
-      `${briefing.summary.totalThreats} threats analyzed across ${briefing.summary.activeSources} sources. Risk level: ${briefing.riskLevel}. ${briefing.summary.bySeverity.critical} critical, ${briefing.summary.bySeverity.high} high severity.`,
+      reportDate,
       JSON.stringify(briefing),
-      severity,
       `user:${userId}`,
     ).run();
 
@@ -412,10 +410,15 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
         sent: false,
         error: String(err),
       }));
+
+      // Mark as emailed if successful
+      if (emailResult.sent) {
+        await env.DB.prepare("UPDATE threat_briefings SET emailed = 1 WHERE id = ?").bind(briefingId).run();
+      }
     }
 
     // Return the full briefing
-    const stored = await env.DB.prepare("SELECT * FROM threat_briefings WHERE id = ?").bind(briefingId).first();
+    const stored = await env.DB.prepare("SELECT id, type, report_date, report_data, generated_at, trigger, emailed FROM threat_briefings WHERE id = ?").bind(briefingId).first();
     return json({ success: true, data: stored, cached: false, email: emailResult }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
@@ -428,8 +431,8 @@ export async function handleLatestBriefing(request: Request, env: Env): Promise<
   const origin = request.headers.get("Origin");
   try {
     const row = await env.DB.prepare(`
-      SELECT id, title, summary, body, severity, category, status, generated_by, published_at, created_at
-      FROM threat_briefings ORDER BY created_at DESC LIMIT 1
+      SELECT id, type, report_date, report_data, generated_at, trigger, emailed
+      FROM threat_briefings ORDER BY generated_at DESC LIMIT 1
     `).first();
 
     if (!row) {
@@ -451,8 +454,8 @@ export async function handleListBriefingHistory(request: Request, env: Env): Pro
     const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
     const rows = await env.DB.prepare(`
-      SELECT id, title, summary, body, severity, category, status, generated_by, published_at, created_at
-      FROM threat_briefings ORDER BY created_at DESC LIMIT ?
+      SELECT id, type, report_date, report_data, generated_at, trigger, emailed
+      FROM threat_briefings ORDER BY generated_at DESC LIMIT ?
     `).bind(limit).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
@@ -468,26 +471,28 @@ export async function generateAndEmailBriefing(env: Env): Promise<{ briefingId: 
   const data = await fetchBriefingData(env, hoursBack);
   const briefing = buildBriefing(data, hoursBack);
 
-  const severity = briefing.riskLevel === "ELEVATED" ? "critical" : briefing.riskLevel === "GUARDED" ? "high" : "low";
   const title = `Threat Intelligence Briefing — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
   const briefingId = `brief-${Date.now().toString(36)}`;
+  const reportDate = new Date().toISOString().slice(0, 10);
   await env.DB.prepare(`
-    INSERT INTO threat_briefings (id, title, summary, body, severity, category, status, generated_by, published_at, created_at)
-    VALUES (?, ?, ?, ?, ?, 'daily', 'published', ?, datetime('now'), datetime('now'))
+    INSERT INTO threat_briefings (id, type, report_date, report_data, generated_at, trigger, emailed)
+    VALUES (?, 'daily', ?, ?, datetime('now'), 'cron:briefing_email', 0)
   `).bind(
     briefingId,
-    title,
-    `${briefing.summary.totalThreats} threats analyzed across ${briefing.summary.activeSources} sources. Risk level: ${briefing.riskLevel}. ${briefing.summary.bySeverity.critical} critical, ${briefing.summary.bySeverity.high} high severity.`,
+    reportDate,
     JSON.stringify(briefing),
-    severity,
-    'cron:briefing_email',
   ).run();
 
   const emailResult = await sendBriefingEmail(env, briefing, title).catch(err => ({
     sent: false as const,
     error: String(err),
   }));
+
+  // Mark as emailed if successful
+  if (emailResult.sent) {
+    await env.DB.prepare("UPDATE threat_briefings SET emailed = 1 WHERE id = ?").bind(briefingId).run();
+  }
 
   return { briefingId, emailSent: emailResult.sent, error: emailResult.error };
 }
