@@ -9,7 +9,7 @@ import {
   handleRecentThreats,
 } from "../handlers/threats";
 import { handleCorrelations } from "../handlers/correlations";
-import { handleGenerateBriefing, handleListBriefingHistory } from "../handlers/briefing";
+import { handleGenerateBriefing, handleLatestBriefing, handleListBriefingHistory } from "../handlers/briefing";
 import {
   handleListCampaignsV2, handleCampaignStats, handleGetCampaign,
   handleCampaignThreats, handleCampaignInfrastructure, handleCampaignBrands,
@@ -106,6 +106,11 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGenerateBriefing(request, env, ctx.userId);
+  });
+  router.get("/api/briefings/latest", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleLatestBriefing(request, env);
   });
   router.get("/api/briefings/history", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);

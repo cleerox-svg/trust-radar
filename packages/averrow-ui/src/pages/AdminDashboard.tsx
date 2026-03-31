@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { DailyBriefingWidget } from '@/components/DailyBriefingWidget';
 import { Mail, Rss, Download, Brain, Zap, ChevronDown, ChevronUp, AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -569,6 +570,9 @@ export function AdminDashboard() {
           <span className="font-mono text-[9px] text-contrail/30 ml-2">Updated just now</span>
         </div>
       </div>
+
+      {/* ── DAILY BRIEFING WIDGET ─────────────────── */}
+      <DailyBriefingWidget />
 
       {/* ── TOP STAT ROW ────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
