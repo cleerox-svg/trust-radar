@@ -205,6 +205,53 @@ export function useScanCapture() {
   });
 }
 
+/* ── Seeding Sources + Honeypot Visits ──────── */
+
+export interface SeedingSource {
+  location: string;
+  seeds: number;
+  catches: number;
+}
+
+export interface HoneypotPageVisits {
+  page: string;
+  visits: number;
+  bots: number;
+}
+
+export interface RecentCrawler {
+  page: string;
+  visitor_ip: string | null;
+  bot_name: string | null;
+  user_agent: string | null;
+  country: string | null;
+  asn: string | null;
+  visited_at: string;
+}
+
+export interface SeedingSourcesResponse {
+  sources: SeedingSource[];
+  honeypot_visits: {
+    total: number;
+    bots: number;
+    last_24h: number;
+    unique_bots: number;
+    by_page: HoneypotPageVisits[];
+    recent_crawlers: RecentCrawler[];
+  };
+}
+
+export function useSeedingSources() {
+  return useQuery({
+    queryKey: ['spam-trap-seeding-sources'],
+    queryFn: async () => {
+      const res = await api.get<SeedingSourcesResponse>('/api/spam-trap/seeding-sources');
+      return res.data ?? null;
+    },
+    refetchInterval: 60_000,
+  });
+}
+
 export function useRunStrategist() {
   return useMutation({
     mutationFn: async () => {

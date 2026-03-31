@@ -6,6 +6,8 @@ import type { EmailMessage } from "./dmarc-receiver";
 import { handleSpamTrapEmail } from "./spam-trap";
 import { serveHoneypotPage } from "./honeypot";
 import { serveLrxRadarPage } from "./templates/honeypot-lrx";
+import { renderAdminPortalPage, renderInternalStaffPage } from "./templates/honeypot-pages";
+import { logHoneypotVisit } from "./lib/honeypot-visit-logger";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
 
@@ -135,15 +137,29 @@ export default {
 
       // lrxradar.com serves as a full honeypot site
       if (url.hostname === "lrxradar.com") {
+        ctx.waitUntil(logHoneypotVisit(env, request, `lrxradar:${url.pathname}`));
         return applySecurityHeaders(serveLrxRadarPage(url.pathname));
       }
 
-      // Honeypot pages on averrow.com — only /team and /careers
+      // Honeypot pages on averrow.com — /team, /careers, /admin-portal, /internal-staff
       if (["averrow.com", "www.averrow.com"].includes(url.hostname)) {
         const honeypotPages = ["/team", "/careers"];
         if (honeypotPages.includes(url.pathname)) {
           const serveDomain = url.hostname.replace(/^www\./, "");
+          ctx.waitUntil(logHoneypotVisit(env, request, url.pathname));
           return applySecurityHeaders(serveHoneypotPage(url.pathname.slice(1), serveDomain));
+        }
+        if (url.pathname === "/admin-portal") {
+          ctx.waitUntil(logHoneypotVisit(env, request, "/admin-portal"));
+          return applySecurityHeaders(new Response(renderAdminPortalPage(), {
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+          }));
+        }
+        if (url.pathname === "/internal-staff") {
+          ctx.waitUntil(logHoneypotVisit(env, request, "/internal-staff"));
+          return applySecurityHeaders(new Response(renderInternalStaffPage(), {
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+          }));
         }
       }
 
