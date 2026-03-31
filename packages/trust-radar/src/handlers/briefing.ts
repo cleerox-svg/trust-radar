@@ -1,5 +1,6 @@
 // TODO: Refactor to use handler-utils (Phase 6 continuation)
 import { json } from "../lib/cors";
+import { sendBriefingEmail } from "../lib/briefing-email";
 import type { Env } from "../types";
 
 /**
@@ -403,9 +404,19 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
       `user:${userId}`,
     ).run();
 
+    // Send briefing email (non-blocking — don't fail the API if email fails)
+    const sendEmail = url.searchParams.get("sendEmail") !== "false";
+    let emailResult: { sent: boolean; id?: string; error?: string } | undefined;
+    if (sendEmail) {
+      emailResult = await sendBriefingEmail(env, briefing, title).catch(err => ({
+        sent: false,
+        error: String(err),
+      }));
+    }
+
     // Return the full briefing
     const stored = await env.DB.prepare("SELECT * FROM threat_briefings WHERE id = ?").bind(briefingId).first();
-    return json({ success: true, data: stored, cached: false }, 201, origin);
+    return json({ success: true, data: stored, cached: false, email: emailResult }, 201, origin);
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
@@ -428,4 +439,35 @@ export async function handleListBriefingHistory(request: Request, env: Env): Pro
   } catch (err) {
     return json({ success: false, error: String(err) }, 500, origin);
   }
+}
+
+// ─── Cron / standalone: generate briefing + send email ─────────
+
+export async function generateAndEmailBriefing(env: Env): Promise<{ briefingId: string; emailSent: boolean; error?: string }> {
+  const hoursBack = 24;
+  const data = await fetchBriefingData(env, hoursBack);
+  const briefing = buildBriefing(data, hoursBack);
+
+  const severity = briefing.riskLevel === "ELEVATED" ? "critical" : briefing.riskLevel === "GUARDED" ? "high" : "low";
+  const title = `Threat Intelligence Briefing — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
+  const briefingId = `brief-${Date.now().toString(36)}`;
+  await env.DB.prepare(`
+    INSERT INTO threat_briefings (id, title, summary, body, severity, category, status, generated_by, published_at, created_at)
+    VALUES (?, ?, ?, ?, ?, 'daily', 'published', ?, datetime('now'), datetime('now'))
+  `).bind(
+    briefingId,
+    title,
+    `${briefing.summary.totalThreats} threats analyzed across ${briefing.summary.activeSources} sources. Risk level: ${briefing.riskLevel}. ${briefing.summary.bySeverity.critical} critical, ${briefing.summary.bySeverity.high} high severity.`,
+    JSON.stringify(briefing),
+    severity,
+    'cron:briefing_email',
+  ).run();
+
+  const emailResult = await sendBriefingEmail(env, briefing, title).catch(err => ({
+    sent: false as const,
+    error: String(err),
+  }));
+
+  return { briefingId, emailSent: emailResult.sent, error: emailResult.error };
 }

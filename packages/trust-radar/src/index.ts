@@ -261,6 +261,18 @@ export default {
         }
       }
 
+      // Manual briefing email trigger
+      if (url.pathname === '/api/internal/briefing/send' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const { generateAndEmailBriefing } = await import('./handlers/briefing');
+        const result = await generateAndEmailBriefing(env);
+        return Response.json(result);
+      }
+
       // Get workflow status (GET, still requires auth)
       if (url.pathname.startsWith('/api/internal/agents/cartographer/backfill-workflow/')
           && request.method === 'GET') {

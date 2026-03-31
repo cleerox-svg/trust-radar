@@ -82,6 +82,20 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(narrativeResult);
   }
 
+  // Daily at 12:00 UTC (8 AM ET): Generate + email daily briefing
+  if (minute === 0 && hour === 12) {
+    const emailResult = await runJob('briefing_email', async () => {
+      const { generateAndEmailBriefing } = await import('../handlers/briefing');
+      const result = await generateAndEmailBriefing(env);
+      if (!result.emailSent) {
+        logger.warn('briefing_email_not_sent', { briefingId: result.briefingId, error: result.error });
+      } else {
+        logger.info('briefing_email_delivered', { briefingId: result.briefingId });
+      }
+    });
+    results.push(emailResult);
+  }
+
   // Every 5 minutes: CT certificate monitoring (lightweight — polls crt.sh)
   if (minute % 5 === 0) {
     const result = await runJob('ct_monitor', () => runCTMonitor(env));
