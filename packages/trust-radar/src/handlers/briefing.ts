@@ -580,7 +580,7 @@ export async function handleGenerateBriefing(
     let emailResult: { sent: boolean; id?: string; error?: string } | undefined;
     if (sendEmail) {
       emailResult = await sendBriefingEmail(env, briefing, title).catch(
-        (err) => ({ sent: false, error: String(err) }),
+        (err) => ({ sent: false, error: "An internal error occurred" }),
       );
       if (emailResult.sent) {
         await env.DB.prepare(
@@ -602,7 +602,7 @@ export async function handleGenerateBriefing(
       origin,
     );
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -625,7 +625,7 @@ export async function handleLatestBriefing(
 
     return json({ success: true, data: row }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -652,7 +652,7 @@ export async function handleListBriefingHistory(
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -675,7 +675,7 @@ export async function generateAndEmailBriefing(
   const briefingId = insertResult.meta.last_row_id;
 
   const emailResult = await sendBriefingEmail(env, briefing, title).catch(
-    (err) => ({ sent: false as const, error: String(err) }),
+    (err) => ({ sent: false as const, error: "An internal error occurred" }),
   );
 
   if (emailResult.sent) {

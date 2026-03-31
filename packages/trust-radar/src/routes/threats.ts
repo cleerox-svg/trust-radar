@@ -2,6 +2,7 @@ import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
 import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { rateLimitCustom } from "../middleware/rateLimit";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
@@ -105,6 +106,8 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
   router.post("/api/briefings/generate", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
+    const rl = await rateLimitCustom(request, env, { key: "briefing", maxRequests: 5, windowSeconds: 60 }, ctx.userId);
+    if (rl) return rl;
     return handleGenerateBriefing(request, env, ctx.userId);
   });
   router.get("/api/briefings/latest", async (request: Request, env: Env) => {

@@ -106,7 +106,7 @@ export class ThreatPushHub {
 
       return Response.json({ ok: true, sent, total: this.sessions.size });
     } catch (err) {
-      return Response.json({ ok: false, error: String(err) }, { status: 400 });
+      return Response.json({ ok: false, error: "An internal error occurred" }, { status: 400 });
     }
   }
 

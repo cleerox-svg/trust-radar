@@ -123,7 +123,7 @@ export async function handleTenantDashboard(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -196,7 +196,7 @@ export async function handleTenantAlerts(
       severity_breakdown: severityBreakdown.results || [],
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -291,7 +291,7 @@ export async function handleTenantUpdateAlert(
 
     return json({ success: true, message: `Alert ${body.status}` }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -364,7 +364,7 @@ export async function handleTenantBrandDetail(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -422,7 +422,7 @@ export async function handleTenantBrandThreats(
       total: countResult?.total ?? 0,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -465,7 +465,7 @@ export async function handleTenantBrandSocialProfiles(
       data: profiles.results || [],
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -511,7 +511,7 @@ export async function handleGetMonitoringConfig(
 
     return json({ success: true, data: config }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -578,6 +578,6 @@ export async function handleUpdateMonitoringConfig(
 
     return json({ success: true, data: updated, message: "Monitoring config saved" }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -342,6 +342,6 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
 
     return json({ success: true, data: report }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

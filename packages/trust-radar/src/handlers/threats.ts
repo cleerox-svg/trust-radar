@@ -46,7 +46,7 @@ export async function handleListThreats(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -166,7 +166,7 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -178,7 +178,7 @@ export async function handleGetThreat(request: Request, env: Env, id: string): P
     if (!threat) return json({ success: false, error: "Threat not found" }, 404, origin);
     return json({ success: true, data: threat }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -202,7 +202,7 @@ export async function handleUpdateThreat(request: Request, env: Env, id: string)
     await env.DB.prepare(`UPDATE threats SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -262,7 +262,7 @@ export async function handleEnrichGeo(request: Request, env: Env): Promise<Respo
     const result = await enrichThreatsGeo(env.DB);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -274,7 +274,7 @@ export async function handleEnrichAll(request: Request, env: Env): Promise<Respo
     const result = await runEnrichmentPipeline(env);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -318,7 +318,7 @@ export async function handleGeoClusters(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: enriched }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -428,7 +428,7 @@ export async function handleAttackFlows(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: flows }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -450,7 +450,7 @@ export async function handleRecentThreats(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -462,6 +462,6 @@ export async function handleDailySnapshots(request: Request, env: Env): Promise<
     const result = await generateDailySnapshots(env.DB);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

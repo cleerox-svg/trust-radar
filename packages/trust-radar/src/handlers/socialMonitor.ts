@@ -87,7 +87,7 @@ export async function handleSocialOverview(request: Request, env: Env, userId: s
       total: total?.n ?? 0,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -176,7 +176,7 @@ export async function handleBrandSocialMonitor(request: Request, env: Env, brand
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -230,7 +230,7 @@ export async function handleSocialAlerts(request: Request, env: Env, userId: str
       total: countRow?.n ?? 0,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -382,6 +382,6 @@ export async function handleTriggerSocialScan(request: Request, env: Env, brandI
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -36,7 +36,7 @@ export async function handleProviderStats(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: { providers: stats.results, summary, period } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -79,7 +79,7 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -108,7 +108,7 @@ export async function handleWorstProviders(request: Request, env: Env): Promise<
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -140,7 +140,7 @@ export async function handleImprovingProviders(request: Request, env: Env): Prom
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -194,7 +194,7 @@ export async function handleGetProvider(request: Request, env: Env, providerId: 
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -217,7 +217,7 @@ export async function handleProviderDrilldown(request: Request, env: Env, provid
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -234,7 +234,7 @@ export async function handleProviderBrands(request: Request, env: Env, providerI
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -261,7 +261,7 @@ export async function handleProviderTimeline(request: Request, env: Env, provide
 
     return json({ success: true, data: { labels, values } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -297,7 +297,7 @@ export async function handleProviderIntelligence(request: Request, env: Env): Pr
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -386,7 +386,7 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
 
     return json({ success: true, data: rows.results, meta: { total, limit, offset } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -407,7 +407,7 @@ export async function handleListClusters(request: Request, env: Env): Promise<Re
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -434,7 +434,7 @@ export async function handleProviderClusters(request: Request, env: Env, provide
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -452,6 +452,6 @@ export async function handleProviderLocations(request: Request, env: Env, provid
     const mappable = rows.results.filter((r: Record<string, unknown>) => r.lat != null && r.lng != null);
     return json({ success: true, data: mappable, totalCountries: rows.results.length }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

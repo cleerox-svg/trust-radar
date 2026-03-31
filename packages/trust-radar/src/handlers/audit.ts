@@ -56,7 +56,7 @@ export async function handleListAuditLog(request: Request, env: Env): Promise<Re
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -87,6 +87,6 @@ export async function handleExportAuditLog(request: Request, env: Env): Promise<
       },
     });
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, request.headers.get("Origin"));
+    return json({ success: false, error: "An internal error occurred" }, 500, request.headers.get("Origin"));
   }
 }

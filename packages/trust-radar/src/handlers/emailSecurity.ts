@@ -42,7 +42,7 @@ export async function handleGetEmailSecurity(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -80,7 +80,7 @@ export async function handleScanBrandEmailSecurity(
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -129,7 +129,7 @@ export async function handleScanAllEmailSecurity(
       data: { scanned, errors, total: brandsToScan.results.length },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -184,7 +184,7 @@ export async function handlePublicEmailSecurity(
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -259,7 +259,7 @@ export async function handleEmailSecurityStats(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 

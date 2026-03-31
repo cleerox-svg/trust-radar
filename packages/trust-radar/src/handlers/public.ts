@@ -58,7 +58,7 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -80,7 +80,7 @@ export async function handlePublicGeo(request: Request, env: Env): Promise<Respo
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -103,7 +103,7 @@ export async function handlePublicFeeds(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -275,7 +275,7 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -330,7 +330,7 @@ export async function handlePublicLeadCapture(request: Request, env: Env): Promi
 
     return json({ success: true, data: { lead_id: leadId } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -416,6 +416,6 @@ export async function handlePublicMonitor(request: Request, env: Env): Promise<R
       },
     }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

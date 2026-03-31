@@ -194,10 +194,6 @@ export default {
             enrichmentModulesRegistered: Object.keys(eMods),
             socialModulesRegistered: Object.keys(sMods),
             feedConfigRows,
-            apiKeys: {
-              GREYNOISE_API_KEY: !!env.GREYNOISE_API_KEY,
-              SECLOOKUP_API_KEY: !!env.SECLOOKUP_API_KEY,
-            },
           },
         });
       }
@@ -303,12 +299,22 @@ export default {
 
       // ─── CertStream Durable Object endpoints ────────────────────
       if (url.pathname === '/api/certstream/stats' && request.method === 'GET') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
         const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
         const csStub = env.CERTSTREAM_MONITOR.get(csId);
         return csStub.fetch(new Request('https://internal/stats'));
       }
 
       if (url.pathname === '/api/certstream/reload-brands' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
         const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
         const csStub = env.CERTSTREAM_MONITOR.get(csId);
         return csStub.fetch(new Request('https://internal/reload-brands'));
@@ -316,6 +322,10 @@ export default {
 
       // Flight Control health snapshot endpoint
       if (url.pathname === '/api/v1/agents/health' && request.method === 'GET') {
+        const { requireAuth: reqAuth, isAuthContext: isAuth } = await import('./middleware/auth');
+        const authResult = await reqAuth(request, env);
+        if (!isAuth(authResult)) return authResult;
+
         const snapshot = await env.DB.prepare(`
           SELECT details, created_at
           FROM agent_outputs
@@ -339,6 +349,9 @@ export default {
 
       // Agent outputs endpoint (ticker feed)
       if (url.pathname === '/api/v1/agents/outputs' && request.method === 'GET') {
+        const { requireAuth: reqAuth2, isAuthContext: isAuth2 } = await import('./middleware/auth');
+        const authResult2 = await reqAuth2(request, env);
+        if (!isAuth2(authResult2)) return authResult2;
         const limit = Math.min(50, parseInt(url.searchParams.get('limit') ?? '10'));
         const severityParam = url.searchParams.get('severity');
         const allowed = ['critical', 'high', 'medium', 'low', 'info'];
@@ -363,6 +376,9 @@ export default {
 
       // Agent activity log endpoint
       if (url.pathname === '/api/v1/agents/activity' && request.method === 'GET') {
+        const { requireAuth: reqAuth3, isAuthContext: isAuth3 } = await import('./middleware/auth');
+        const authResult3 = await reqAuth3(request, env);
+        if (!isAuth3(authResult3)) return authResult3;
         const limit = parseInt(url.searchParams.get('limit') ?? '50');
         const agentId = url.searchParams.get('agent_id');
 
@@ -381,7 +397,7 @@ export default {
       return applySecurityHeaders(response);
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e));
-      console.error("Unhandled worker error:", err);
+      // Log internally but never expose details to client
       try {
         await env.DB.prepare(
           "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"

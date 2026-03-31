@@ -32,7 +32,7 @@ export async function handleListCampaignsV2(request: Request, env: Env): Promise
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -52,7 +52,7 @@ export async function handleCampaignStats(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: stats }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -108,7 +108,7 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -132,7 +132,7 @@ export async function handleCampaignThreats(request: Request, env: Env, campaign
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -167,7 +167,7 @@ export async function handleCampaignInfrastructure(request: Request, env: Env, c
       data: { domains: domains.results, ips: ips.results, providers: providers.results },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -185,7 +185,7 @@ export async function handleCampaignBrands(request: Request, env: Env, campaignI
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -215,6 +215,6 @@ export async function handleCampaignTimeline(request: Request, env: Env, campaig
 
     return json({ success: true, data: { labels, values } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

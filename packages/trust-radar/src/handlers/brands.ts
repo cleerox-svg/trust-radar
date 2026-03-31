@@ -46,7 +46,7 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -151,7 +151,7 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -188,7 +188,7 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -217,7 +217,7 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -401,7 +401,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: currentBrandId, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
     return json({ success: true, data: { brand_id: currentBrandId, domain, name: brandName, threats_linked: threatsLinked, message: threatsLinked > 0 ? `Found ${threatsLinked} existing threats matching this brand` : "No existing threats matched" } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -413,7 +413,7 @@ export async function handleRemoveMonitoredBrand(request: Request, env: Env, bra
     await audit(env, { action: "brand_monitor_remove", userId, resourceType: "brand", resourceId: brandId, request });
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -445,7 +445,7 @@ export async function handleGetBrand(request: Request, env: Env, brandId: string
 
     return json({ success: true, data: { ...brand, stats, top_providers: providers.results } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -474,7 +474,7 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -497,7 +497,7 @@ export async function handleBrandThreatLocations(request: Request, env: Env, bra
 
     return json({ success: true, data: mappable, totalCountries }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -541,7 +541,7 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -562,7 +562,7 @@ export async function handleBrandProviders(request: Request, env: Env, brandId: 
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -580,7 +580,7 @@ export async function handleBrandCampaigns(request: Request, env: Env, brandId: 
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -605,7 +605,7 @@ export async function handleGetBrandAnalysis(request: Request, env: Env, brandId
       data: brand.threat_analysis ? { ...JSON.parse(brand.threat_analysis), cached: true, stale: true, updated_at: brand.analysis_updated_at } : null,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -675,7 +675,7 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
 
     return json({ success: false, error: result.error || "Analysis generation failed" }, 500, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -737,7 +737,7 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
 
     return json({ success: true, data: { scanned: threats.length, newly_linked: newlyLinked, message: newlyLinked > 0 ? `Found ${newlyLinked} additional threats` : "No new matches found" } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -765,7 +765,7 @@ export async function handleCleanFalsePositives(request: Request, env: Env, bran
 
     return json({ success: true, data: { cleaned, checked: threats.results.length } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -893,7 +893,7 @@ export async function handleUpdateBrandSocialConfig(
 
     return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -933,7 +933,7 @@ export async function handleGetBrandSocialConfig(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -999,7 +999,7 @@ export async function handleGetBrandSocialProfiles(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1085,7 +1085,7 @@ export async function handleClassifySocialProfile(
 
     return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1199,7 +1199,7 @@ export async function handleDiscoverSocialLinks(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1361,7 +1361,7 @@ export async function handleReassessSocialProfile(
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1387,6 +1387,6 @@ export async function handleComputeBrandScore(request: Request, env: Env, brandI
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -32,7 +32,7 @@ export async function handleListBreaches(request: Request, env: Env): Promise<Re
 
     return json({ success: true, data: { breaches: rows.results, stats } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -67,7 +67,7 @@ export async function handleListATOEvents(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: { events: rows.results, stats } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -85,7 +85,7 @@ export async function handleUpdateATOEvent(request: Request, env: Env, id: strin
     await env.DB.prepare(`UPDATE ato_events SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -123,7 +123,7 @@ export async function handleListEmailAuth(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: { reports: rows.results, stats, byType: byType.results } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -164,7 +164,7 @@ export async function handleListCloudIncidents(request: Request, env: Env): Prom
 
     return json({ success: true, data: { incidents: rows.results, stats, byProvider: byProvider.results } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -186,6 +186,6 @@ export async function handleTrustScoreHistory(request: Request, env: Env): Promi
     const rows = await env.DB.prepare(query).bind(...params).all();
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -60,7 +60,7 @@ export async function handleListNarratives(
 
     return json({ success: true, data: narratives, total }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -89,7 +89,7 @@ export async function handleGetNarrative(
 
     return json({ success: true, data: narrative }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -138,7 +138,7 @@ export async function handleGenerateNarrative(
       message: `Insufficient signals to generate narrative for ${brand.name}. Need at least 2 different signal types.`,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -175,6 +175,6 @@ export async function handleUpdateNarrative(
 
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

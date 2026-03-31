@@ -49,7 +49,7 @@ export async function handleListSafeDomains(
       .all();
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -83,7 +83,7 @@ export async function handleAddSafeDomain(
 
     return json({ success: true, data: { id, domain, source: "manual" } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -134,7 +134,7 @@ export async function handleBulkAddSafeDomains(
       origin,
     );
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -154,6 +154,6 @@ export async function handleDeleteSafeDomain(
       .run();
     return json({ success: true, data: { deleted: true } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

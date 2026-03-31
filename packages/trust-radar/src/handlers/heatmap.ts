@@ -87,7 +87,7 @@ export async function handleHeatmap(request: Request, env: Env): Promise<Respons
 
     return json({ success: true, data: response }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
