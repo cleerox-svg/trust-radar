@@ -46,6 +46,7 @@ import { seclookup } from "./seclookup";
 
 // ─── Additional Ingest Feed Modules ────────────────────────────
 import { c2_intel_feeds } from "./c2intelfeeds";
+import { typosquat_scanner } from "./typosquat_scanner";
 
 /**
  * Registry mapping feed_name → FeedModule.
@@ -75,6 +76,7 @@ export const feedModules: Record<string, FeedModule> = {
   emerging_threats,
   disposable_email,
   c2_intel_feeds,
+  typosquat_scanner,
 };
 
 /**

@@ -216,15 +216,21 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     logger.error('threat_feed_scan_geo_error', { error: e instanceof Error ? e.message : String(e) });
   }
 
-  // Feed ingestion
+  // Feed ingestion — wrapped in try/catch so enrichment/social still run on failure
   const { runAllFeeds, runAllEnrichmentFeeds } = await import('../lib/feedRunner');
-  const feedResult = await runAllFeeds(env, feedModules);
-  logger.info('threat_feed_scan_feeds', {
-    feedsRun: feedResult.feedsRun,
-    totalNew: feedResult.totalNew,
-    feedsFailed: feedResult.feedsFailed,
-    feedsSkipped: feedResult.feedsSkipped,
-  });
+  let feedResult = { feedsRun: 0, totalNew: 0, feedsFailed: 0, feedsSkipped: 0 };
+  try {
+    feedResult = await runAllFeeds(env, feedModules);
+    logger.info('threat_feed_scan_feeds', {
+      feedsRun: feedResult.feedsRun,
+      totalNew: feedResult.totalNew,
+      feedsFailed: feedResult.feedsFailed,
+      feedsSkipped: feedResult.feedsSkipped,
+    });
+  } catch (err) {
+    console.error('[cron] INGEST FEEDS FAILED:', err instanceof Error ? err.message : String(err));
+    logger.error('ingest_feeds_error', { error: err instanceof Error ? err.message : String(err) });
+  }
 
   // ─── API Key Health Check: log presence of enrichment API keys ───
   {
