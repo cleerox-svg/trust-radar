@@ -133,11 +133,11 @@ export async function executeAgent(
             `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, related_brand_ids, related_campaign_id, related_provider_ids, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
           ).bind(
-            outputId, agentModule.name, output.type, output.summary,
-            output.severity ?? null,
+            outputId, agentModule.name, output.type, String(output.summary),
+            output.severity ? String(output.severity) : null,
             output.details ? JSON.stringify(output.details) : null,
             output.relatedBrandIds ? JSON.stringify(output.relatedBrandIds) : null,
-            output.relatedCampaignId ?? null,
+            output.relatedCampaignId ? String(output.relatedCampaignId) : null,
             output.relatedProviderIds ? JSON.stringify(output.relatedProviderIds) : null,
           ).run();
           outputsGenerated++;

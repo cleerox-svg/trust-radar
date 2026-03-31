@@ -472,10 +472,10 @@ export const observerAgent: AgentModule = {
         };
 
         if (item.related_brand_id) {
-          output.relatedBrandIds = [item.related_brand_id];
+          output.relatedBrandIds = [String(item.related_brand_id)];
         }
         if (item.related_campaign_id) {
-          output.relatedCampaignId = item.related_campaign_id;
+          output.relatedCampaignId = String(item.related_campaign_id);
         }
 
         outputs.push(output);
@@ -746,7 +746,7 @@ export const observerAgent: AgentModule = {
             // Also save directly as type='weekly_intel' for easy querying
             await env.DB.prepare(
               `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, created_at)
-               VALUES (?, 'observer', 'weekly_intel', ?, ?, ?, datetime('now'))`
+               VALUES (?, 'observer', 'trend_report', ?, ?, ?, datetime('now'))`
             ).bind(
               crypto.randomUUID(),
               `Weekly Intel: ${weeklyThreats?.total ?? 0} threats, ${newCampaigns?.n ?? 0} new campaigns, top target: ${weeklyTopBrands.results[0]?.name ?? 'none'}`,
