@@ -45,6 +45,8 @@ export interface Env {
   SECLOOKUP_API_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
   ANTHROPIC_ADMIN_KEY?: string;
+  // Resend email API (briefing delivery)
+  RESEND_API_KEY?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────
