@@ -39,7 +39,7 @@ export async function handleListTickets(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: { tickets: rows.results, stats } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -59,7 +59,7 @@ export async function handleGetTicket(request: Request, env: Env, id: string): P
 
     return json({ success: true, data: { ticket, evidence: evidence.results, erasures: erasures.results } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -87,7 +87,7 @@ export async function handleCreateTicket(request: Request, env: Env, userId: str
 
     return json({ success: true, data: { id, ticketId } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -115,7 +115,7 @@ export async function handleUpdateTicket(request: Request, env: Env, id: string)
     await env.DB.prepare(`UPDATE investigation_tickets SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -146,7 +146,7 @@ export async function handleAddEvidence(request: Request, env: Env, ticketId: st
 
     return json({ success: true, data: { id } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -182,7 +182,7 @@ export async function handleListErasures(request: Request, env: Env): Promise<Re
 
     return json({ success: true, data: { erasures: rows.results, stats } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -203,7 +203,7 @@ export async function handleCreateErasure(request: Request, env: Env, userId: st
 
     return json({ success: true, data: { id } }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -229,7 +229,7 @@ export async function handleUpdateErasure(request: Request, env: Env, id: string
     await env.DB.prepare(`UPDATE erasure_actions SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 

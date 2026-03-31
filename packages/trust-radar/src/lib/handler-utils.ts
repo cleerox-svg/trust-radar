@@ -3,8 +3,20 @@
 // org access checks, and pagination from every handler.
 
 import { json } from "./cors";
+import { logger } from "./logger";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
+
+/**
+ * Sanitize error for client response — never expose stack traces,
+ * SQL details, file paths, or env variable names.
+ */
+export function safeErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    logger.error("handler_error", { message: err.message, stack: err.stack?.substring(0, 500) });
+  }
+  return "An internal error occurred";
+}
 
 // ─── Handler Context Types ──────────────────────────────────────
 
@@ -28,7 +40,7 @@ export function handler(
     try {
       return await fn(request, env, { origin });
     } catch (err) {
-      return json({ success: false, error: String(err) }, 500, origin);
+      return json({ success: false, error: safeErrorMessage(err) }, 500, origin);
     }
   };
 }
@@ -76,7 +88,7 @@ export function orgHandler(
       }
       return await fn(request, env, orgId, { ...ctx, origin });
     } catch (err) {
-      return json({ success: false, error: String(err) }, 500, origin);
+      return json({ success: false, error: safeErrorMessage(err) }, 500, origin);
     }
   };
 }

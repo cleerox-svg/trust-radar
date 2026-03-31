@@ -45,7 +45,7 @@ export async function handleListOperations(request: Request, env: Env): Promise<
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -83,7 +83,7 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -129,7 +129,7 @@ export async function handleOperationTimeline(request: Request, env: Env, cluste
       data: { labels: results.map(r => r.period), values: results.map(r => r.count) },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -175,6 +175,6 @@ export async function handleOperationThreats(request: Request, env: Env, cluster
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

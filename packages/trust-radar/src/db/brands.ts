@@ -27,11 +27,19 @@ export async function getBrandByDomain(env: Env, domain: string): Promise<Brand 
 
 // ─── List queries ─────────────────────────────────────────────────
 
+const ALLOWED_ORDER_COLUMNS = new Set([
+  'threat_count', 'name', 'created_at', 'last_threat_seen', 'sector',
+  'monitoring_status', 'canonical_domain', 'id',
+]);
+const ALLOWED_DIRECTIONS = new Set(['ASC', 'DESC']);
+
 export async function listBrands(
   env: Env,
   options: BrandListOptions = {},
 ): Promise<{ results: Brand[]; total: number }> {
-  const { limit = 50, offset = 0, orderBy = 'threat_count', direction = 'DESC', sector, monitoringStatus } = options;
+  const { limit = 50, offset = 0, sector, monitoringStatus } = options;
+  const orderBy = ALLOWED_ORDER_COLUMNS.has(options.orderBy ?? '') ? options.orderBy! : 'threat_count';
+  const direction = ALLOWED_DIRECTIONS.has((options.direction ?? '').toUpperCase()) ? options.direction!.toUpperCase() : 'DESC';
 
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -68,9 +76,15 @@ export async function getBrandThreatCount(
 
 // ─── Mutations ────────────────────────────────────────────────────
 
+const ALLOWED_UPDATE_FIELDS = new Set([
+  'name', 'canonical_domain', 'sector', 'monitoring_status', 'threat_count',
+  'last_threat_seen', 'risk_score', 'logo_url', 'description', 'aliases',
+  'brand_score', 'brand_score_updated_at', 'social_config',
+]);
+
 /**
  * Update a single column on a brand row.
- * Only use with trusted, internal column names — never pass user input as `field`.
+ * Field name is validated against an allowlist to prevent SQL injection.
  */
 export async function updateBrandField(
   env: Env,
@@ -78,6 +92,9 @@ export async function updateBrandField(
   field: string,
   value: unknown,
 ): Promise<void> {
+  if (!ALLOWED_UPDATE_FIELDS.has(field)) {
+    throw new Error(`updateBrandField: disallowed field "${field}"`);
+  }
   await env.DB.prepare(`UPDATE brands SET ${field} = ? WHERE id = ?`)
     .bind(value, brandId)
     .run();

@@ -410,7 +410,7 @@ export async function handleBackfillClassifications(request: Request, env: Env):
       data: { total, classified, haikuFailures: failed, batches: batchNum },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -484,7 +484,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
     }, 200, origin);
   } catch (err) {
     console.error(`[backfill-geo] Fatal error:`, err);
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -569,7 +569,7 @@ export async function handleBackfillBrandMatch(request: Request, env: Env): Prom
       data: { matched: totalMatched, checked: totalChecked, pending: lastPending, rounds },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -795,7 +795,7 @@ export async function handleBackfillAiAttribution(request: Request, env: Env): P
     const result = await runAiAttribution(env, 50);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -839,7 +839,7 @@ export async function handleBackfillSafeDomains(request: Request, env: Env): Pro
       data: { brands_processed: brands.results.length, domains_added: domainsAdded },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -956,7 +956,7 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1059,7 +1059,7 @@ export async function handleAdminListBrands(request: Request, env: Env): Promise
       sources: sources.results,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1090,7 +1090,7 @@ export async function handleBulkMonitor(request: Request, env: Env, userId: stri
 
     return json({ success: true, data: { requested: ids.length, added } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1122,7 +1122,7 @@ export async function handleBulkDeleteBrands(request: Request, env: Env, userId:
     await audit(env, { action: "brands_bulk_delete", userId, resourceType: "brand", resourceId: ids.join(","), details: { count: deleted }, request });
     return json({ success: true, data: { deleted } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -1272,6 +1272,6 @@ export async function handleBackfillSocialConfig(request: Request, env: Env): Pr
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

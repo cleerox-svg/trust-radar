@@ -72,7 +72,7 @@ export async function handleTrendVolume(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: { labels, values, high_sev, active } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -95,7 +95,7 @@ export async function handleTrendBrands(request: Request, env: Env): Promise<Res
     const result = pivotToSeries(rows.results, limit);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -120,7 +120,7 @@ export async function handleTrendProviders(request: Request, env: Env): Promise<
     const result = pivotToSeries(rows.results, limit);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -156,7 +156,7 @@ export async function handleTrendTLDs(request: Request, env: Env): Promise<Respo
     const result = pivotToSeries(rows.results, 15);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -175,7 +175,7 @@ export async function handleTrendTypes(request: Request, env: Env): Promise<Resp
     const result = pivotToSeries(rows.results, 10);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -194,7 +194,7 @@ export async function handleTrendIntelligence(request: Request, env: Env): Promi
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -215,7 +215,7 @@ export async function handleTrendThreatVolume(request: Request, env: Env): Promi
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -241,7 +241,7 @@ export async function handleTrendBrandMomentum(request: Request, env: Env): Prom
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -258,7 +258,7 @@ export async function handleTrendProviderMomentum(request: Request, env: Env): P
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -275,7 +275,7 @@ export async function handleTrendNexusActive(request: Request, env: Env): Promis
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -314,6 +314,6 @@ export async function handleTrendCompare(request: Request, env: Env): Promise<Re
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

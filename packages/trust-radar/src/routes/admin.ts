@@ -282,7 +282,7 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
       const result = await runSocialDiscoveryBatch(env, limit);
       return json({ success: true, data: result });
     } catch (err) {
-      return json({ success: false, error: err instanceof Error ? err.message : String(err) }, 500);
+      return json({ success: false, error: "An internal error occurred" }, 500);
     }
   });
 
@@ -409,7 +409,7 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
       });
     } catch (err) {
       console.error("[honeypot-generate] error:", err);
-      return Response.json({ success: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+      return Response.json({ success: false, error: "An internal error occurred" }, { status: 500 });
     }
   });
 }

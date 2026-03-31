@@ -99,7 +99,7 @@ export async function handleOAuthCallback(request: Request, env: Env): Promise<R
     const tokens = await exchangeCodeForTokens(code, env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, redirectUri);
     googleUser = await fetchGoogleUserInfo(tokens.access_token);
   } catch (err) {
-    await audit(env, { action: "oauth_token_exchange_failed", details: { error: String(err) }, outcome: "failure", request });
+    await audit(env, { action: "oauth_token_exchange_failed", details: { error: "An internal error occurred" }, outcome: "failure", request });
     return redirectWithError(CANONICAL_ORIGIN, "Failed to authenticate with Google");
   }
 

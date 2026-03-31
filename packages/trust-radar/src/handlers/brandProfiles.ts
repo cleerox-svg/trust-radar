@@ -126,7 +126,7 @@ export async function handleCreateBrand(request: Request, env: Env, userId: stri
 
     return json({ success: true, data: profile }, 201, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -153,7 +153,7 @@ export async function handleListBrands(request: Request, env: Env, userId: strin
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -192,7 +192,7 @@ export async function handleGetBrand(request: Request, env: Env, brandId: string
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -289,7 +289,7 @@ export async function handleUpdateBrand(request: Request, env: Env, brandId: str
 
     return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -327,7 +327,7 @@ export async function handleDeleteBrand(request: Request, env: Env, brandId: str
 
     return json({ success: true, message: "Brand profile archived" }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -397,7 +397,7 @@ export async function handleUpdateHandles(request: Request, env: Env, brandId: s
 
     return json({ success: true, data: { official_handles: mergedHandles } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -453,6 +453,6 @@ export async function handleGetHandles(request: Request, env: Env, brandId: stri
 
     return json({ success: true, data: platformStatus }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

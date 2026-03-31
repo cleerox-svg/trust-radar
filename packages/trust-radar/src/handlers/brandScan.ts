@@ -368,7 +368,7 @@ export async function handleBrandScan(request: Request, env: Env, userId?: strin
 
     return json({ success: true, data: scanResult }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -402,7 +402,7 @@ export async function handleBrandScanHistory(request: Request, env: Env): Promis
       data: { scans: rows.results, domains: domains.results },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -454,7 +454,7 @@ export async function handlePublicBrandScan(request: Request, env: Env): Promise
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -482,7 +482,7 @@ export async function handlePublicBrandScanResult(request: Request, env: Env, sc
       data: { ...row, risk_level: riskLevel },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -511,7 +511,7 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
 
     return json({ success: true, data: { id, message: "Thank you! Our team will contact you shortly." } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -547,7 +547,7 @@ export async function handleListLeads(request: Request, env: Env): Promise<Respo
 
     return json({ success: true, data: { leads: rows.results, stats } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -569,6 +569,6 @@ export async function handleUpdateLead(request: Request, env: Env, id: string): 
     await env.DB.prepare(`UPDATE scan_leads SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -23,7 +23,7 @@ export async function handleLatestInsights(request: Request, env: Env): Promise<
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -53,7 +53,7 @@ export async function handleListNotifications(request: Request, env: Env, userId
 
     return json({ success: true, data }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -75,7 +75,7 @@ export async function handleMarkNotificationRead(request: Request, env: Env, not
 
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -99,6 +99,6 @@ export async function handleMarkAllNotificationsRead(request: Request, env: Env,
 
     return json({ success: true, data: { marked: rows.results.length } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

@@ -128,7 +128,7 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
 
     return json(body, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 

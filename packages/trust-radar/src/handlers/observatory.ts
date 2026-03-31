@@ -170,12 +170,17 @@ function periodToInterval(period: string): string {
   return "-7 days"; // default 7d
 }
 
-function buildSourceFilter(sourceFeed: string | null, alias?: string): string {
-  if (!sourceFeed) return "";
+interface SourceFilter {
+  sql: string;
+  params: unknown[];
+}
+
+function buildSourceFilter(sourceFeed: string | null, alias?: string): SourceFilter {
+  if (!sourceFeed) return { sql: "", params: [] };
   const col = alias ? `${alias}.source_feed` : "source_feed";
-  if (sourceFeed === "feeds") return ` AND ${col} != 'spam_trap'`;
-  if (sourceFeed === "spam_trap") return ` AND ${col} = 'spam_trap'`;
-  return ` AND ${col} = '${sourceFeed.replace(/'/g, "")}'`;
+  if (sourceFeed === "feeds") return { sql: ` AND ${col} != 'spam_trap'`, params: [] };
+  if (sourceFeed === "spam_trap") return { sql: ` AND ${col} = 'spam_trap'`, params: [] };
+  return { sql: ` AND ${col} = ?`, params: [sourceFeed] };
 }
 
 // ── GET /api/observatory/nodes ─────────────────────────────────────────────────
@@ -203,11 +208,11 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
       FROM threats
       WHERE lat IS NOT NULL AND lng IS NOT NULL
         AND status = 'active'
-        AND created_at > datetime('now', '${interval}')${sourceFilter}
+        AND created_at > datetime('now', ?)${sourceFilter.sql}
       GROUP BY ROUND(lat, 1), ROUND(lng, 1)
       ORDER BY threat_count DESC
       LIMIT 200
-    `).all<{
+    `).bind(interval, ...sourceFilter.params).all<{
       lat: number; lng: number; threat_count: number; top_severity: string | null;
       critical: number; high: number; medium: number; low: number;
       country_code: string | null; top_threat_type: string | null;
@@ -215,7 +220,7 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
 
     return json({ success: true, data: rows.results ?? [] }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -246,11 +251,11 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
         AND t.target_brand_id IS NOT NULL
         AND t.status = 'active'
-        AND t.created_at > datetime('now', '${interval}')${sourceFilter}
+        AND t.created_at > datetime('now', ?)${sourceFilter.sql}
       GROUP BY t.country_code, t.target_brand_id, t.threat_type
       ORDER BY volume DESC
-      LIMIT ${limit}
-    `).all<{
+      LIMIT ?
+    `).bind(interval, ...sourceFilter.params, limit).all<{
       source_lat: number; source_lng: number; threat_type: string;
       severity: string | null; source_country: string | null;
       target_brand: string | null; target_domain: string | null;
@@ -275,11 +280,11 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         JOIN brands b ON b.id = t.target_brand_id
         WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
           AND t.target_brand_id IS NOT NULL
-          AND t.status = 'active'${sourceFilter}
+          AND t.status = 'active'${sourceFilter.sql}
         GROUP BY t.country_code, t.target_brand_id, t.threat_type
         ORDER BY volume DESC
         LIMIT 50
-      `).all<{
+      `).bind(...sourceFilter.params).all<{
         source_lat: number; source_lng: number; threat_type: string;
         severity: string | null; source_country: string | null;
         target_brand: string | null; target_domain: string | null;
@@ -310,7 +315,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 
     return json({ success: true, data: arcs }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -339,10 +344,10 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       FROM threats t
       LEFT JOIN brands b ON b.id = t.target_brand_id
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
-        AND t.status = 'active'${sourceFilter}
+        AND t.status = 'active'${sourceFilter.sql}
       ORDER BY t.created_at DESC
       LIMIT ?
-    `).bind(limit).all<{
+    `).bind(...sourceFilter.params, limit).all<{
       id: string; malicious_domain: string | null; malicious_url: string | null;
       ioc_value: string | null; threat_type: string; severity: string | null;
       lat: number; lng: number; country_code: string | null;
@@ -351,7 +356,7 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
 
     return json({ success: true, data: rows.results ?? [] }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -388,11 +393,11 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
         AND t.target_brand_id = ?
         AND t.status = 'active'
-        AND t.created_at > datetime('now', '${interval}')
+        AND t.created_at > datetime('now', ?)
       GROUP BY ROUND(t.lat, 1), ROUND(t.lng, 1), t.threat_type
       ORDER BY volume DESC
       LIMIT 40
-    `).bind(brandId).all<{
+    `).bind(brandId, interval).all<{
       source_lat: number; source_lng: number; threat_type: string;
       severity: string | null; source_country: string | null; volume: number;
     }>();
@@ -416,7 +421,7 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       brand: brand ? { id: brand.id, name: brand.name } : null,
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -438,17 +443,17 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
 
     const [threats, countries, campaigns, brands] = await Promise.all([
       env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
-      ).first<{ n: number }>(),
+        `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
+      ).bind(interval, ...sf.params).first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT COUNT(DISTINCT country_code) AS n FROM threats WHERE lat IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
-      ).first<{ n: number }>(),
+        `SELECT COUNT(DISTINCT country_code) AS n FROM threats WHERE lat IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
+      ).bind(interval, ...sf.params).first<{ n: number }>(),
       env.DB.prepare(
         `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
       ).first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', '${interval}')${sf}`
-      ).first<{ n: number }>(),
+        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
+      ).bind(interval, ...sf.params).first<{ n: number }>(),
     ]);
 
     const data = {
@@ -465,7 +470,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
     return json(data, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -507,6 +512,6 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
 
     return json({ success: true, data: rows.results ?? [] }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

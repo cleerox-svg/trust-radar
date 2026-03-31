@@ -75,7 +75,7 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
 
     return json({ success: true, data: rows.results, total }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -96,7 +96,7 @@ export async function handleGetAlert(request: Request, env: Env, alertId: string
 
     return json({ success: true, data: row }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -122,7 +122,7 @@ export async function handleUpdateAlert(request: Request, env: Env, alertId: str
 
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -171,7 +171,7 @@ export async function handleAlertStats(request: Request, env: Env, userId: strin
       },
     }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -203,7 +203,7 @@ export async function handleBulkAcknowledge(request: Request, env: Env, userId: 
 
     return json({ success: true, data: { updated: result.meta.changes ?? 0 } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -273,6 +273,6 @@ export async function handleBulkTakedown(request: Request, env: Env, userId: str
 
     return json({ success: true, data: { takedowns_created: created, alerts_acknowledged: alertIds.length } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

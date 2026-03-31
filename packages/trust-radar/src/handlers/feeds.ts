@@ -49,7 +49,7 @@ export async function handleListFeeds(request: Request, env: Env): Promise<Respo
     }));
     return json({ success: true, data: masked }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -77,7 +77,7 @@ export async function handleGetFeed(request: Request, env: Env, feedName: string
 
     return json({ success: true, data: { feed: result, pulls: pulls.results } }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -132,7 +132,7 @@ export async function handleUpdateFeed(request: Request, env: Env, feedName: str
     const updated = await env.DB.prepare("SELECT * FROM feed_configs WHERE feed_name = ?").bind(feedName).first();
     return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -154,7 +154,7 @@ export async function handleTriggerFeed(request: Request, env: Env, feedName: st
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     console.error(`[triggerFeed] "${feedName}" threw:`, err);
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -165,7 +165,7 @@ export async function handleTriggerAll(request: Request, env: Env): Promise<Resp
     const result = await runAllFeeds(env, feedModules);
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -213,7 +213,7 @@ export async function handleFeedStats(request: Request, env: Env): Promise<Respo
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
     return json(data, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -228,7 +228,7 @@ export async function handleIngestionJobs(request: Request, env: Env): Promise<R
     ).bind(limit).all();
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -241,7 +241,7 @@ export async function handleResetCircuit(request: Request, env: Env, feedName: s
     ).bind(feedName).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -283,7 +283,7 @@ export async function handleFeedsOverview(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -305,7 +305,7 @@ export async function handleFeedPullHistory(request: Request, env: Env, feedName
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -325,6 +325,6 @@ export async function handleFeedsAggregateStats(request: Request, env: Env): Pro
 
     return json({ success: true, data: stats }, 200, origin);
   } catch (err) {
-    return json({ success: false, error: String(err) }, 500, origin);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }

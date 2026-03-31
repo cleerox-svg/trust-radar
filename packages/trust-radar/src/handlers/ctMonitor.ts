@@ -58,8 +58,8 @@ export async function handleListCertificates(
 
     return json({ success: true, data: rows.results, total }, 200, origin);
   } catch (err) {
-    logger.error("ct_handler_list_error", { error: String(err) });
-    return json({ success: false, error: String(err) }, 500, origin);
+    logger.error("ct_handler_list_error", { error: "An internal error occurred" });
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -134,8 +134,8 @@ export async function handleCertStats(
       },
     }, 200, origin);
   } catch (err) {
-    logger.error("ct_handler_stats_error", { error: String(err) });
-    return json({ success: false, error: String(err) }, 500, origin);
+    logger.error("ct_handler_stats_error", { error: "An internal error occurred" });
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -206,8 +206,8 @@ export async function handleUpdateCertificate(
 
     return json({ success: true, data: updated }, 200, origin);
   } catch (err) {
-    logger.error("ct_handler_update_error", { error: String(err) });
-    return json({ success: false, error: String(err) }, 500, origin);
+    logger.error("ct_handler_update_error", { error: "An internal error occurred" });
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
 
@@ -264,7 +264,7 @@ export async function handleTriggerCTScan(
       },
     }, 200, origin);
   } catch (err) {
-    logger.error("ct_handler_scan_error", { error: String(err) });
-    return json({ success: false, error: String(err) }, 500, origin);
+    logger.error("ct_handler_scan_error", { error: "An internal error occurred" });
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
