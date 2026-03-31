@@ -371,6 +371,59 @@ export const handleSpamTrapReparseAuth = handler(async (_request, env, ctx) => {
   return json({ success: true, updated }, 200, ctx.origin);
 });
 
+// ── GET /api/spam-trap/seeding-sources ────────────────────────────
+
+export const handleSpamTrapSeedingSources = handler(async (_request, env, ctx) => {
+  // Seeding source breakdown by seeded_location
+  const sources = await env.DB.prepare(`
+    SELECT seeded_location as location, COUNT(*) as seeds, COALESCE(SUM(total_catches), 0) as catches
+    FROM seed_addresses
+    WHERE seeded_location IS NOT NULL
+    GROUP BY seeded_location
+    ORDER BY seeds DESC
+  `).all();
+
+  // Honeypot visit stats
+  const visitTotal = await env.DB.prepare(
+    "SELECT COUNT(*) as total, SUM(is_bot) as bots FROM honeypot_visits"
+  ).first<{ total: number; bots: number }>();
+
+  const visitLast24h = await env.DB.prepare(
+    "SELECT COUNT(*) as c FROM honeypot_visits WHERE visited_at > datetime('now', '-24 hours')"
+  ).first<{ c: number }>();
+
+  const byPage = await env.DB.prepare(`
+    SELECT page, COUNT(*) as visits, SUM(is_bot) as bots
+    FROM honeypot_visits
+    GROUP BY page
+    ORDER BY visits DESC
+  `).all();
+
+  const recentCrawlers = await env.DB.prepare(`
+    SELECT page, visitor_ip, bot_name, user_agent, country, asn, visited_at
+    FROM honeypot_visits
+    WHERE is_bot = 1
+    ORDER BY visited_at DESC
+    LIMIT 20
+  `).all();
+
+  const uniqueBots = await env.DB.prepare(
+    "SELECT COUNT(DISTINCT COALESCE(bot_name, visitor_ip)) as c FROM honeypot_visits WHERE is_bot = 1"
+  ).first<{ c: number }>();
+
+  return success({
+    sources: sources.results,
+    honeypot_visits: {
+      total: visitTotal?.total ?? 0,
+      bots: visitTotal?.bots ?? 0,
+      last_24h: visitLast24h?.c ?? 0,
+      unique_bots: uniqueBots?.c ?? 0,
+      by_page: byPage.results,
+      recent_crawlers: recentCrawlers.results,
+    },
+  }, ctx.origin);
+});
+
 // ── POST /api/spam-trap/strategist/run ────────────────────────────
 
 export const handleRunStrategist = handler(async (_request, env, ctx) => {

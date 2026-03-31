@@ -7,7 +7,7 @@ import {
   handleSpamTrapCaptureDetail, handleSpamTrapSources, handleSpamTrapCampaigns,
   handleCreateSpamTrapCampaign, handleExecuteSpamTrapCampaign,
   handleUpdateSpamTrapCampaign, handleSpamTrapAddresses, handleInitialSeed,
-  handleRunStrategist, handleSpamTrapReparseAuth,
+  handleRunStrategist, handleSpamTrapReparseAuth, handleSpamTrapSeedingSources,
 } from "../handlers/spamTrap";
 
 export function registerSpamTrapRoutes(router: RouterType<IRequest>): void {
@@ -55,6 +55,11 @@ export function registerSpamTrapRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdateSpamTrapCampaign(request, env, request.params["id"] ?? "");
+  });
+  router.get("/api/spam-trap/seeding-sources", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSpamTrapSeedingSources(request, env);
   });
   router.get("/api/spam-trap/addresses", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
