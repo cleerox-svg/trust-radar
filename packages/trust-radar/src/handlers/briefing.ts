@@ -422,6 +422,26 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
   }
 }
 
+// ─── Latest Briefing Handler ─────────────────────────────────────
+
+export async function handleLatestBriefing(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const row = await env.DB.prepare(`
+      SELECT id, title, summary, body, severity, category, status, generated_by, published_at, created_at
+      FROM threat_briefings ORDER BY created_at DESC LIMIT 1
+    `).first();
+
+    if (!row) {
+      return json({ success: true, data: null }, 200, origin);
+    }
+
+    return json({ success: true, data: row }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: String(err) }, 500, origin);
+  }
+}
+
 // ─── Briefing History Handler ─────────────────────────────────────
 
 export async function handleListBriefingHistory(request: Request, env: Env): Promise<Response> {
