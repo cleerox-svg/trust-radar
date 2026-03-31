@@ -47,9 +47,9 @@ async function computeTypeCorrelation(
 ): Promise<{ labels: string[]; matrix: number[][] }> {
   // Get all threat types active in window
   const typeRows = await env.DB.prepare(
-    `SELECT DISTINCT type FROM threats
-     WHERE created_at >= datetime('now', ? || ' days') AND type IS NOT NULL
-     ORDER BY type`
+    `SELECT DISTINCT threat_type AS type FROM threats
+     WHERE created_at >= datetime('now', ? || ' days') AND threat_type IS NOT NULL
+     ORDER BY threat_type`
   )
     .bind(-days)
     .all<{ type: string }>();
@@ -59,10 +59,10 @@ async function computeTypeCorrelation(
 
   // Count each type
   const countRows = await env.DB.prepare(
-    `SELECT type, COUNT(*) as cnt
+    `SELECT threat_type AS type, COUNT(*) as cnt
      FROM threats
-     WHERE created_at >= datetime('now', ? || ' days') AND type IS NOT NULL
-     GROUP BY type`
+     WHERE created_at >= datetime('now', ? || ' days') AND threat_type IS NOT NULL
+     GROUP BY threat_type`
   )
     .bind(-days)
     .all<{ type: string; cnt: number }>();
@@ -71,14 +71,14 @@ async function computeTypeCorrelation(
 
   // Co-occurrence: two threat types from same source within same day
   const coRows = await env.DB.prepare(
-    `SELECT a.type as t1, b.type as t2, COUNT(*) as co
+    `SELECT a.threat_type as t1, b.threat_type as t2, COUNT(*) as co
      FROM threats a
      JOIN threats b ON a.source = b.source
        AND date(a.created_at) = date(b.created_at)
-       AND a.type < b.type
+       AND a.threat_type < b.threat_type
      WHERE a.created_at >= datetime('now', ? || ' days')
        AND b.created_at >= datetime('now', ? || ' days')
-     GROUP BY a.type, b.type`
+     GROUP BY a.threat_type, b.threat_type`
   )
     .bind(-days, -days)
     .all<{ t1: string; t2: string; co: number }>();
@@ -162,9 +162,9 @@ async function computeCountryCorrelation(
 
   // Threat types
   const typeRows = await env.DB.prepare(
-    `SELECT DISTINCT type FROM threats
-     WHERE created_at >= datetime('now', ? || ' days') AND type IS NOT NULL
-     ORDER BY type`
+    `SELECT DISTINCT threat_type AS type FROM threats
+     WHERE created_at >= datetime('now', ? || ' days') AND threat_type IS NOT NULL
+     ORDER BY threat_type`
   )
     .bind(-days)
     .all<{ type: string }>();
@@ -180,11 +180,11 @@ async function computeCountryCorrelation(
 
   // Count each country × type combination
   const cellRows = await env.DB.prepare(
-    `SELECT country_code, type, COUNT(*) as cnt
+    `SELECT country_code, threat_type AS type, COUNT(*) as cnt
      FROM threats
      WHERE created_at >= datetime('now', ? || ' days')
-       AND country_code IS NOT NULL AND type IS NOT NULL
-     GROUP BY country_code, type`
+       AND country_code IS NOT NULL AND threat_type IS NOT NULL
+     GROUP BY country_code, threat_type`
   )
     .bind(-days)
     .all<{ country_code: string; type: string; cnt: number }>();
