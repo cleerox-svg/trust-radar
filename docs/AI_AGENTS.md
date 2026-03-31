@@ -1,14 +1,14 @@
 # AI Agents
 
-Trust Radar uses a system of 14 AI agents powered by Claude Haiku via the Anthropic API. Agents are defined in `packages/trust-radar/src/agents/` and orchestrated by Flight Control with the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`.
+Trust Radar uses a mesh of 14 autonomous AI agents powered by Claude Haiku via the Anthropic API. Agents are defined as modules in `packages/trust-radar/src/agents/` and orchestrated by the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`.
 
-> **Last verified:** March 2026 — documented from source code
+---
 
 ## Agent Infrastructure
 
 ### Agent Runner
 
-The agent runner (`packages/trust-radar/src/lib/agentRunner.ts`) provides the execution framework:
+The agent runner (`packages/trust-radar/src/lib/agentRunner.ts`) provides the execution framework. Each agent implements the `AgentModule` interface:
 
 ```typescript
 interface AgentModule {
@@ -22,438 +22,535 @@ interface AgentModule {
 }
 ```
 
+Every agent execution follows this lifecycle:
+
+1. A row is logged to `agent_runs` at start (`status = 'success'`, `completed_at = NULL`)
+2. The agent performs its work, writing to its target tables
+3. On completion, `agent_runs` is updated with `completed_at` and `records_processed`
+4. An event is emitted to `agent_events` so downstream agents can react
+5. On error, the exception is caught and logged to `agent_runs.error_message`
+
 ### AI Client
 
-All agents use Claude Haiku via the Anthropic API. The AI client (`packages/trust-radar/src/lib/haiku.ts`) provides:
+All agents use Claude Haiku via the direct Anthropic API. The AI client is in `packages/trust-radar/src/lib/haiku.ts` and provides specialized functions:
 
-- `inferBrand()` — Brand identification from domain/URL patterns
-- `classifyThreat()` — Threat classification and severity scoring
-- `generateInsight()` — Intelligence narrative generation
-- `generateCampaignName()` — Campaign naming from infrastructure patterns
-- `scoreProvider()` — Hosting provider reputation scoring
-- `classifyWithHaiku()` — Social mention classification
-- `checkCostGuard()` — API cost control for non-critical agents
-
-### Budget Management
-
-Flight Control enforces 4 budget levels:
-
-| Level | Behavior |
-|-------|----------|
-| **Emergency** | All AI paused |
-| **Hard** | Minimal AI (analyst/observer batches reduced) |
-| **Soft** | Reduced batch sizes |
-| **Normal** | Full operation |
-
-Non-critical agents (Observer, Strategist, Seed Strategist, Prospector) check a cost guard before making API calls.
+- `inferBrand()` -- Brand identification from domain/URL patterns
+- `classifyThreat()` -- Threat classification and severity scoring
+- `generateInsight()` -- Intelligence narrative generation
+- `generateCampaignName()` -- Campaign naming from infrastructure patterns
+- `scoreProvider()` -- Hosting provider reputation scoring
+- `classifyWithHaiku()` -- Social mention classification
+- `assembleEvidence()` -- Takedown evidence assembly
+- `checkCostGuard()` -- API cost control for non-critical agents
 
 ### Agent Registry
 
-Agents are registered in `packages/trust-radar/src/agents/index.ts`:
+Agents are registered in `packages/trust-radar/src/agents/index.ts`. The registry maps agent names to modules for the scheduler and API. There are 11 agents in the main registry plus 3 additional agents (Trustbot, Narrator, and Seed Strategist) registered separately.
 
-sentinel, analyst, cartographer, strategist, observer, prospector, sparrow, nexus, flight_control, curator, watchdog + trustbot (via separate export)
+### Cost Guard
+
+Non-critical agents (Observer, Strategist, Seed Strategist, Prospector) check a cost guard before making API calls. This prevents runaway Anthropic API costs by tracking daily token usage. Budget levels control system-wide AI access:
+
+| Budget Level | Behavior |
+|-------------|----------|
+| **emergency** | All AI calls paused across every agent |
+| **hard** | Minimal AI usage -- only critical classification |
+| **soft** | Reduced batch sizes for all AI-using agents |
+| **normal** | Full operation, all agents at standard throughput |
+
+### Agent Trigger Chain
+
+Agents communicate via the `agent_events` table. The canonical trigger chain is:
+
+```
+Sentinel --> [feed_pulled] --> Cartographer
+Cartographer --> [threats_enriched] --> Nexus
+Nexus --> [cluster_detected] --> Analyst + Observer (if high severity)
+Nexus --> [pivot_detected] --> Observer (immediate)
+Analyst --> [scores_updated] --> Pathfinder (if new high-value leads)
+```
 
 ---
 
 ## Agent Reference
 
-### 1. Flight Control — Autonomous Supervisor
+### 1. Flight Control -- Autonomous Supervisor
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/flightControl.ts` |
+| **File** | `packages/trust-radar/src/agents/flightControl.ts` |
 | **Color** | `#00d4ff` |
-| **Trigger** | Runs FIRST every cron tick |
+| **Trigger** | Runs FIRST on every cron tick |
 | **AI Model** | None (pure orchestration) |
+| **Cost Guard** | No |
 
-Flight Control is the meta-agent that supervises all other agents. It runs before any other agent on every cron cycle.
+Flight Control is the command layer of the agent mesh. It runs before any other agent on every cron tick and makes autonomous decisions about what needs to run, how many parallel instances to allow, and whether any agents are stalled.
 
-**Responsibilities:**
-- **Backlog measurement** — Monitors 13 enrichment/processing backlogs
-- **Agent health** — Detects stalled agents, tracks durations
-- **Budget enforcement** — Throttles AI usage at emergency/hard/soft/normal levels
-- **Parallel scaling** — Spawns additional agent instances based on backlog size
-- **Stall recovery** — Auto-restarts hung agents
-- **Curator trigger** — Kicks off weekly hygiene runs
-- **CertStream health** — Monitors and restarts DO if needed
+**Backlog monitoring** -- Measures 13 independent backlogs to determine system pressure:
 
-**Scaling Thresholds:**
+| Backlog | Description |
+|---------|-------------|
+| `cartographer` | Threats missing geo/ASN enrichment |
+| `analyst` | Threats missing brand attribution |
+| `totalUnlinked` | Threats with no cluster assignment |
+| `totalNoGeo` | Threats with no geolocation data |
+| `surblUnchecked` | Threats not yet checked against SURBL |
+| `vtUnchecked` | Threats not yet checked against VirusTotal |
+| `gsbUnchecked` | Threats not yet checked against Google Safe Browsing |
+| `dblUnchecked` | Threats not yet checked against Spamhaus DBL |
+| `abuseipdbUnchecked` | Threats not yet checked against AbuseIPDB |
+| `pdnsUnchecked` | Threats not yet checked against passive DNS |
+| `greynoiseUnchecked` | Threats not yet checked against GreyNoise |
+| `seclookupUnchecked` | Threats not yet checked against SecurityTrails |
+| `watchdog` | Unclassified social mentions |
 
-| Agent | Low | Medium | High | Max Parallel |
-|-------|-----|--------|------|-------------|
-| Cartographer | 500 | 2,000 | 5,000 | 3 |
-| Analyst | 50 | 200 | 500 | 3 |
+**Parallel scaling** -- Dynamically adjusts agent concurrency based on backlog size:
 
-**Stall Thresholds (minutes before restart):**
+| Agent | Max Parallel | Low Threshold | Medium Threshold | High Threshold |
+|-------|-------------|---------------|-----------------|----------------|
+| Cartographer | 3 | 500 | 2,000 | 5,000 |
+| Analyst | 3 | 50 | 200 | 500 |
 
-| Agent | Threshold |
-|-------|-----------|
-| Sentinel | 35 min |
-| Cartographer | 75 min |
-| Analyst | 35 min |
-| Sparrow | 120 min |
-| Nexus | 260 min |
-| Observer | 1,500 min |
+**Stall recovery** -- Detects agents that have been running too long and triggers recovery:
 
-**Backlogs Tracked:** cartographer, analyst, totalUnlinked, totalNoGeo, surblUnchecked, vtUnchecked, gsbUnchecked, dblUnchecked, abuseipdbUnchecked, pdnsUnchecked, greynoiseUnchecked, seclookupUnchecked, watchdog
+| Agent | Stall Threshold |
+|-------|----------------|
+| Sentinel | 35 minutes |
+| Cartographer | 75 minutes |
+| Nexus | 260 minutes |
+| Analyst | 35 minutes |
+| Observer | 1,500 minutes |
+| Sparrow | 120 minutes |
 
-**Inputs:** threats, agent_runs, agent_outputs, brands, feed_status, Anthropic usage report (hourly via KV)
-**Outputs:** agent_activity_log entries, agent_outputs (type: diagnostic), triggers other agents
+**Additional responsibilities:**
+- CertStream health check (ensures certificate transparency monitoring is active)
+- Curator weekly trigger (schedules data hygiene runs)
+- Budget enforcement (applies cost guard levels across the system)
+
+**Inputs:** `agent_runs` (execution history), all backlog source tables
+**Outputs:** Agent scheduling decisions, stall recovery actions, scaling adjustments
 
 ---
 
-### 2. Sentinel — Threat Classification
+### 2. Sentinel -- Threat Classification
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/sentinel.ts` |
+| **File** | `packages/trust-radar/src/agents/sentinel.ts` |
 | **Color** | `#C83C3C` |
 | **Trigger** | Event-driven (on feed ingestion) |
 | **AI Model** | Claude Haiku |
+| **Cost Guard** | No |
 
-Classifies new threats, assigns confidence scores and severity levels.
+The Sentinel is the first agent to process newly ingested threats. It classifies each threat, assigns confidence scores and severity levels, and detects advanced persistent threat (APT) patterns.
 
-- **AI classification** — Haiku-based threat type and severity assignment
-- **Homoglyph detection** — Unicode/visual lookalike characters (Cyrillic 'a', '0' for 'o')
-- **Brand squatting** — Domains containing brand keywords
-- **APT pattern detection** — Advanced persistent threat indicators
-- **Social assessment** — AI scoring of HIGH/CRITICAL social monitoring results
-- **Fallback** — Rule-based classification when Haiku unavailable
+**Core functions:**
 
-**Inputs:** Unclassified threats, monitored_brands, social_profiles, social_monitor_results
-**Outputs:** Updated threats (severity, confidence_score, threat_type), agent_outputs, agent_events
+- `classifyThreat()` -- AI-powered threat classification using Claude Haiku. Determines threat type, severity, and confidence score from domain/URL patterns and contextual signals.
+- `detectHomoglyphs()` -- Identifies Unicode/visual lookalike characters in domains (Cyrillic 'a' for Latin 'a', '0' for 'o', etc.) that indicate impersonation attempts.
+- `detectBrandSquatting()` -- Detects domains containing brand keywords with suspicious prefixes/suffixes (e.g., `paypal-verify.com`, `amazon-login.net`).
+- `ruleBasedClassify()` -- Fallback classification engine when Haiku is unavailable or for clear-cut cases that do not require AI.
+
+**Social monitoring integration:** Sentinel also performs AI assessment of HIGH and CRITICAL social monitoring results from the `social_monitor_results` table, escalating confirmed threats.
+
+**Reads:** `threats` (unclassified), `monitored_brands`, `social_profiles`, `social_monitor_results`
+**Writes:** `threats` (confidence_score, severity, threat_type), `agent_outputs`, `agent_events`
 
 ---
 
-### 3. Analyst — Brand Attribution & Correlation
+### 3. Analyst -- Brand Attribution & Correlation
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/analyst.ts` |
+| **File** | `packages/trust-radar/src/agents/analyst.ts` |
 | **Color** | `#E8923C` |
-| **Trigger** | Scheduled — every 15 minutes |
-| **AI Model** | Claude Haiku (`inferBrand()`) |
-| **Batch Size** | Up to 30 threats/run (scalable by Flight Control) |
+| **Trigger** | Scheduled -- every 15 minutes |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | No |
+| **Dependencies** | Cartographer, Sentinel |
 
-Five-phase pipeline for brand attribution and threat correlation:
+The Analyst handles brand attribution for threats that rule-based detection missed, runs correlation escalation, and integrates social intelligence signals.
 
-1. **Brand matching** — Haiku inference of target brand from domain/URL (top 100 brands context)
-2. **Correlation escalation** — Phishing + no DMARC, AI-generated phishing patterns
-3. **Enrichment validation** — Cross-check SURBL/VT/GSB/DBL/GreyNoise/SecLookup hits
-4. **Social intelligence** — Social platform signal correlation
-5. **Social mentions** — Reddit, Telegram, GitHub, Mastodon mention intelligence
+**5-phase pipeline:**
 
-**Inputs:** Threats (unmatched), brands (top 100), safe_domains, brand_threat_assessments, social_mentions
-**Outputs:** Updated threats (target_brand_id, severity), new brands, agent_outputs, brand_exposure_score
+1. **Brand matching** -- Uses Claude Haiku via `inferBrand()` to determine which brand is being targeted from domain/URL patterns. Loads the top 100 known brands for context and filters against the `safe_domains` allowlist.
+2. **Correlation escalation** -- Cross-references threats with existing clusters and campaigns to escalate severity when coordinated targeting is detected.
+3. **Enrichment validation** -- Validates that enrichment data from Cartographer is consistent and flags anomalies.
+4. **Social intelligence** -- Integrates social profile data and social monitoring results into brand risk assessments.
+5. **Social mentions** -- Processes social mention signals from the `social_mentions` table to augment brand threat scoring.
+
+**Batch processing:** Up to 30 threats per run by default, scalable by Flight Control up to 500 under high backlog pressure.
+
+**Reads:** `threats` (unmatched), `brands` (top 100), `safe_domains`, `brand_threat_assessments`, `social_mentions`
+**Writes:** `threats` (target_brand_id, severity), `brands` (new entries), `agent_outputs`
 
 ---
 
-### 4. Cartographer — Infrastructure Mapping
+### 4. Cartographer -- Infrastructure Mapping
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/cartographer.ts` |
+| **File** | `packages/trust-radar/src/agents/cartographer.ts` |
 | **Color** | `#5A80A8` |
-| **Trigger** | Scheduled — every 15 minutes |
-| **AI Model** | Claude Haiku (`scoreProvider()`) |
-| **Parallel** | Up to 3 instances via Flight Control |
+| **Trigger** | Scheduled -- every 15 minutes |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | No |
 
-Seven-stage enrichment pipeline:
+The Cartographer enriches raw threat data with geographic, network, and hosting infrastructure information. It is the primary enrichment agent and runs a multi-stage pipeline on every execution.
 
-1. **ip-api.com batch** — Up to 5 batches of 500 IPs for geolocation
-2. **RDAP registrar lookup** — Up to 10 per run
-3. **ipinfo.io fallback** — Secondary geo enrichment
-4. **Haiku provider scoring** — AI reputation assessment with risk factors
-5. **Email security scans** — 50 brands per run (oldest first)
-6. **DMARC source IP geo** — Up to 10 per run
-7. **Provider threat stats** — Today/7d/30d/all-time aggregation
+**Enrichment pipeline:**
 
-**Inputs:** Unenriched threats, hosting_providers, brands, dmarc_report_records
-**Outputs:** Enriched threats (lat, lng, country_code, asn, hosting_provider_id, registrar, enriched_at), hosting_providers, email_security_scans, provider_threat_stats
+| Stage | Description | Volume |
+|-------|-------------|--------|
+| IP geolocation | Batch lookups via ip-api.com | 5 batches of 500 IPs |
+| RDAP registrar | Domain registrar lookups | 10 domains per run |
+| ipinfo.io fallback | Secondary geo source when ip-api fails | As needed |
+| Haiku scoring | AI-powered hosting provider reputation via `scoreProvider()` | Top providers |
+| Email security | DMARC/SPF/DKIM scanning for monitored brands | 50 brands per run |
+| DMARC geo | Geographic distribution of email authentication | Per-brand analysis |
+| Provider stats | Aggregate provider threat statistics | All active providers |
+
+**Parallel execution:** Flight Control can run up to 3 Cartographer instances simultaneously when the enrichment backlog exceeds 2,000 threats.
+
+**Reads:** `threats` (unenriched), `hosting_providers`, `brands`
+**Writes:** `threats` (lat, lng, country_code, asn, hosting_provider_id, registrar, enriched_at), `hosting_providers`, `email_security_scans`, `provider_threat_stats`
 
 ---
 
-### 5. NEXUS — Infrastructure Correlation Engine
+### 5. Nexus -- Infrastructure Correlation
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/nexus.ts` |
+| **File** | `packages/trust-radar/src/agents/nexus.ts` |
 | **Color** | `#00d4ff` |
-| **Trigger** | Scheduled — every 4 hours |
-| **AI Model** | None (pure SQL correlation) |
+| **Trigger** | Scheduled -- every 4 hours |
+| **AI Model** | None (pure SQL) |
+| **Cost Guard** | No |
+| **Dependencies** | Analyst, Cartographer |
 
-SQL-only threat clustering by infrastructure patterns. No AI tokens consumed.
+Nexus is the correlation brain of Trust Radar. It uses SQL-only clustering (no AI) to identify infrastructure relationships between threats, following the platform rule: "SQL does correlation. AI does narrative."
 
-- **ASN correlation** — Groups threats by ASN and threat_type
-- **Pivot detection** — Activity dropped >80% in 7 days
-- **Acceleration detection** — Activity increased >50% vs prior week
-- **Confidence scoring** — Based on campaigns x brands x threat counts
+**Clustering method:** Groups threats by shared ASN and threat type, identifying coordinated infrastructure usage patterns.
 
-**Inputs:** threats, hosting_providers
-**Outputs:** infrastructure_clusters, hosting_providers (trend_7d, trend_30d), threats (cluster_id), agent_events (pivot alerts → Observer)
+**Detection capabilities:**
+
+- **Pivot detection** -- Identifies threat actors migrating infrastructure when a provider's threat volume drops by more than 80%, indicating a takedown or voluntary move. Emits `pivot_detected` events to trigger Observer for immediate narrative generation.
+- **Acceleration detection** -- Flags providers experiencing more than 50% increase in threat volume, indicating a new campaign ramping up.
+
+**Reads:** `threats` (enriched), `hosting_providers`, `infrastructure_clusters`
+**Writes:** `infrastructure_clusters`, `hosting_providers` (trend data), `threats` (cluster_id), `agent_events` (pivot and cluster events)
 
 ---
 
-### 6. Observer — Daily Intelligence Synthesis
+### 6. Observer -- Daily Intelligence
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/observer.ts` |
+| **File** | `packages/trust-radar/src/agents/observer.ts` |
 | **Color** | `#78A0C8` |
 | **Trigger** | Daily |
-| **AI Model** | Claude Haiku (`generateInsight()`) |
-| **Cost Guard** | Yes (non-critical) |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | Yes |
 
-Synthesizes 15+ data sources into 3-5 professional intelligence briefing items:
+The Observer synthesizes the entire platform's data from the last 24 hours into human-readable intelligence briefings. It has the broadest read scope of any agent, gathering context from virtually every table.
 
-- Threat landscape (24h trends vs previous day)
-- Enrichment validation confirmations (SURBL/VT/GSB/DBL/GreyNoise/SecLookup)
-- Top targeted brands and providers
-- Threat type distribution and campaign activity
-- Email security posture (grades, at-risk brands)
-- Social impersonation findings
-- Lookalike domain and CT certificate activity
-- Spam trap network metrics
-- Threat feed signals and brand threat assessments
-- Social media mentions intelligence
+**Data sources consumed:**
 
-**Inputs:** All tables (aggregated 24h data)
-**Outputs:** agent_outputs (type: insight), notifications for critical findings
+- 24-hour threat summary (volume, severity distribution, new threat types)
+- Brand targeting patterns and brand threat assessments
+- Hosting provider trends and reputation changes
+- Campaign activity and infrastructure clusters
+- Agent outputs from all other agents
+- Email security scan results
+- Social profiles and social monitoring results
+- Lookalike domain detections
+- Certificate Transparency (CT) certificate findings
+- Spam trap captures
+- Threat signals
+- Social mentions
+
+**Output:** Uses Claude Haiku via `generateInsight()` to produce 3-5 professional intelligence briefing items. Briefings are stored as `agent_outputs` (type: `insight`) and surfaced in the HUD and insights panel. Creates user notifications for critical findings.
+
+**Reads:** ALL major tables (broadest read scope in the system)
+**Writes:** `agent_outputs` (type: insight), `notifications`
 
 ---
 
-### 7. Strategist — Campaign Correlation
+### 7. Strategist -- Campaign Correlation
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/strategist.ts` |
+| **File** | `packages/trust-radar/src/agents/strategist.ts` |
 | **Color** | `#8A8F9C` |
-| **Trigger** | Every 6 hours |
-| **AI Model** | Claude Haiku (`generateCampaignName()`, coordination detection) |
-| **Cost Guard** | Yes (non-critical) |
+| **Trigger** | Scheduled -- every 6 hours |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | Yes |
 
-Identifies coordinated threat campaigns via infrastructure and timing:
+The Strategist identifies coordinated threat campaigns by correlating shared infrastructure across multiple dimensions.
 
-- **IP clustering** — 3+ threats on same IP
-- **Registrar clustering** — 5+ threats via same registrar (7d window)
-- **Coordination detection** — Haiku analysis of 5+ campaigns for linked activity
-- **Campaign lifecycle** — Created → active → dormant (30+ days inactive)
+**Correlation methods:**
 
-**Inputs:** Threats (IP, registrar), campaigns, brands, hosting_providers
-**Outputs:** campaigns (new/updated), threats (campaign_id), infrastructure_clusters, agent_outputs, notifications
+- **IP clustering** -- Groups threats sharing the same IP address (3+ threats threshold)
+- **ASN clustering** -- Groups threats hosted on the same autonomous system
+- **Registrar clustering** -- Identifies bulk domain registrations from the same registrar in temporal proximity
+- **Coordination detection** -- AI-powered analysis to identify operational coordination patterns across clusters
+
+**Campaign naming:** When clusters are found, Claude Haiku via `generateCampaignName()` generates descriptive campaign names based on the infrastructure fingerprint (e.g., "Cloudflare-hosted PayPal credential harvest").
+
+**Reads:** Uncampaigned active threats with shared infrastructure indicators
+**Writes:** `campaigns`, `threats` (campaign_id), `infrastructure_clusters`, `agent_outputs`, `notifications`
 
 ---
 
-### 8. Prospector — Sales Intelligence
+### 8. Prospector -- Sales Intelligence
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/prospector.ts` |
+| **File** | `packages/trust-radar/src/agents/prospector.ts` |
 | **Color** | `#28A050` |
 | **Trigger** | Weekly (lead creation), every run (enrichment) |
-| **AI Model** | Claude Haiku (3 calls per lead enrichment) |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | Yes |
 
-Two-phase pipeline:
+The Prospector identifies high-value sales prospects from platform data and generates personalized outreach materials.
 
-**Phase 1 — Identify & Create** (no AI, rule-based scoring):
+**Lead scoring formula** -- Brands are scored across multiple weighted dimensions:
 
-| Signal | Points |
-|--------|--------|
-| Email security grade F/D | +30 |
-| Active phishing URLs | +25 |
-| DMARC none/missing | +20 |
-| Spam trap catches | +20 |
-| High risk score | +15 |
-| Multiple campaigns | +15 |
-| Social impersonation | +15 |
-| Tranco top 10k | +10 |
-| AI-generated phishing | +10 |
-| Recent risk spike | +10 |
+| Signal | Description |
+|--------|-------------|
+| Email grade | DMARC/SPF/DKIM posture score |
+| DMARC status | Specific DMARC policy analysis |
+| Phishing volume | Active phishing URLs targeting the brand |
+| Spam trap catches | Brand-specific spam trap capture count |
+| Risk score | Composite brand risk assessment |
+| AI phishing detection | AI-classified phishing threat count |
+| Tranco rank | Website popularity (higher rank = higher value target) |
+| Campaign count | Number of active campaigns targeting the brand |
+| Social signals | Social media impersonation/abuse indicators |
 
-**Phase 2 — Enrich** (one lead per run, 3 Haiku calls):
-1. Detailed findings summary (256 tokens)
-2. Outreach email variants (1,024 tokens)
-3. Company research via web search (1,024 tokens)
+**AI enrichment pipeline** -- 3 Haiku calls per lead:
 
-**Inputs:** Brands, email_security_scans, threats, threat_signals, spam_trap_captures, brand_threat_assessments, social intelligence
-**Outputs:** sales_leads, agent_outputs
+1. **Summary** -- Company overview, security posture assessment, and key risk factors
+2. **Outreach** -- Personalized email drafts with two subject/body variants
+3. **Research** -- Identification of security leadership contacts and decision makers
+
+**Reads:** `brands`, `email_security_scans`, `threats`, `spam_trap_captures`, `campaigns`, `social_mentions`
+**Writes:** `sales_leads`, `agent_outputs`
 
 ---
 
-### 9. Sparrow — Takedown Agent
+### 9. Sparrow -- Takedown Agent
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/sparrow.ts` |
+| **File** | `packages/trust-radar/src/agents/sparrow.ts` |
 | **Color** | `#28A050` |
-| **Trigger** | Every 6 hours |
-| **AI Model** | Claude Haiku (via `assembleEvidence()`) |
+| **Trigger** | Scheduled -- every 6 hours |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | No |
 
-Five execution phases:
+Sparrow is the action agent -- it executes takedown workflows against confirmed threats. It operates in 5 phases per run.
 
-| Phase | Action | Per Run |
-|-------|--------|---------|
-| A | Scan unprocessed spam trap captures | 20 |
-| B | Create takedowns from malicious URLs | 10 |
-| C | Create takedowns from impersonation profiles | 10 |
-| D | Evidence assembly for unenriched takedowns | 3 |
-| E | Resolve providers & generate submission drafts | Variable |
+**Execution phases:**
 
-Also: Phase D2 attaches social evidence to existing drafts.
+| Phase | Description | Volume |
+|-------|-------------|--------|
+| **A -- Scan captures** | Takes URL screenshots/captures for evidence preservation | 20 per run |
+| **B -- Takedowns from URLs** | Initiates takedown requests for confirmed malicious URLs | 10 per run |
+| **C -- Takedowns from impersonations** | Initiates takedowns for social media impersonation profiles | 10 per run |
+| **D -- Evidence assembly** | Uses Haiku via `assembleEvidence()` to compile takedown evidence packages | 3 per run |
+| **E -- Provider resolution** | Resolves hosting/registrar contacts and generates takedown notice drafts | As needed |
 
-**Inputs:** spam_trap_captures, url_scan_results, social_profiles, social_mentions, takedown_requests, takedown_providers
-**Outputs:** takedown_requests, takedown_evidence, url_scan_results (takedown_id), social_profiles (evidence)
+**Reads:** `threats` (confirmed), `takedown_requests`, `social_profiles`
+**Writes:** `takedown_requests`, `takedown_evidence`, `url_scan_results`, `social_profiles`
 
 ---
 
-### 10. Watchdog — Social Mention Classifier
+### 10. Watchdog -- Social Mention Classifier
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/watchdog.ts` |
+| **File** | `packages/trust-radar/src/agents/watchdog.ts` |
 | **Color** | `#FF4500` |
-| **Trigger** | Event-driven (Flight Control, when backlog > 200) |
-| **AI Model** | Claude Haiku (`classifyWithHaiku()`) |
-| **Batch Size** | 50 unclassified mentions per run |
+| **Trigger** | Event-driven (Flight Control triggers when backlog exceeds 200) |
+| **AI Model** | Claude Haiku |
+| **Cost Guard** | No |
 
-Classifies social mentions into threat types:
+The Watchdog classifies social media mentions in real time, separating genuine threats from benign brand mentions.
 
-`impersonation` | `credential_leak` | `phishing_link` | `brand_abuse` | `code_leak` | `threat_actor_chatter` | `vulnerability_disclosure` | `benign`
+**Batch size:** 50 unclassified mentions per run.
 
-- HIGH/CRITICAL mentions escalated to `threats` table
-- Benign with 90%+ confidence marked as false positives
-- Fallback heuristic patterns when no API key
+**Classification taxonomy:**
 
-**Inputs:** social_mentions (status='new'), brands (aliases, keywords, executives)
-**Outputs:** Updated social_mentions, new threats (for escalated), agent_outputs
+| Threat Type | Description |
+|-------------|-------------|
+| `impersonation` | Fake accounts posing as the brand |
+| `credential_leak` | Exposed credentials mentioning the brand |
+| `phishing_link` | Social posts containing phishing URLs |
+| `brand_abuse` | Unauthorized brand usage |
+| `code_leak` | Source code or API key exposure |
+| `threat_actor_chatter` | Underground discussion about targeting the brand |
+| `vulnerability_disclosure` | Public vulnerability information |
+| `benign` | Legitimate brand mention, no threat |
+
+**Escalation:** HIGH and CRITICAL classifications are automatically escalated to the `threats` table for processing by the main agent pipeline.
+
+**Fallback:** Uses heuristic pattern matching via `classifyWithHaiku()` fallback when AI is unavailable.
+
+**Reads:** `social_mentions` (unclassified)
+**Writes:** `social_mentions` (classification), `threats` (escalated items)
 
 ---
 
-### 11. Narrator — Threat Narrative Generation
+### 11. Narrator -- Threat Narrative Generation
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/narrator.ts` |
+| **File** | `packages/trust-radar/src/agents/narrator.ts` |
+| **Color** | N/A |
 | **Trigger** | On-demand (called by other agents) |
 | **AI Model** | Claude Haiku (up to 2,048 tokens) |
+| **Cost Guard** | No |
 
-Generates multi-signal threat narratives. Requires 2+ signal types:
+The Narrator generates rich threat narratives that connect multiple signal types into a coherent story. It is not a scheduled agent -- other agents invoke it when they detect multi-signal threats that warrant a narrative explanation.
+
+**Signal type requirements:** Requires 2 or more distinct signal types to generate a narrative:
 
 | Signal Type | Source |
 |-------------|--------|
-| threats | Active threats (7d) |
-| email_degradation | D/F security grades |
-| social_impersonation | Impersonation profiles |
-| lookalike_domains | Registered lookalikes |
-| ct_certificates | Suspicious certificates |
+| `threats` | Core threat intelligence data |
+| `email_degradation` | Email security posture changes |
+| `social_impersonation` | Social media impersonation detections |
+| `lookalike_domains` | Visually similar domain registrations |
+| `ct_certificates` | Certificate Transparency log matches |
 
-**Confidence scoring:** 4 signals = 85%, 3 = 70%, 2 = 55%
+**Confidence scoring:**
 
-**Output structure:** Title, multi-paragraph narrative, executive summary, attack stage, 3-5 recommendations. Creates alerts for HIGH/CRITICAL severity.
+| Signal Count | Confidence |
+|-------------|------------|
+| 4+ signals | 85% |
+| 3 signals | 70% |
+| 2 signals | 55% |
 
-**Inputs:** threats, brands, social_monitor_results, lookalike_domains, ct_certificates
-**Outputs:** threat_narratives, alerts (HIGH/CRITICAL)
+**Alert creation:** Automatically creates alerts for narratives classified as HIGH or CRITICAL severity.
+
+**Reads:** Multiple signal tables depending on the narrative context
+**Writes:** `agent_outputs` (threat narratives), alerts
 
 ---
 
-### 12. Seed Strategist — Trap Strategy
+### 12. Seed Strategist -- Trap Strategy
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/seed-strategist.ts` |
+| **File** | `packages/trust-radar/src/agents/seed-strategist.ts` |
 | **Color** | `#F59E0B` |
 | **Trigger** | Daily at 6am UTC |
 | **AI Model** | Claude Haiku |
-| **Cost Guard** | Yes (non-critical) |
+| **Cost Guard** | Yes |
 
-Analyzes spam trap performance and identifies coverage gaps:
+The Seed Strategist optimizes spam trap coverage by analyzing performance data and recommending new seeding strategies.
 
-- 7-day capture metrics by channel (generic, brand, spider, paste, honeypot)
-- Identifies brands with high threat counts but no trap catches
-- Haiku generates seeding recommendations (3-5 actions)
-- Auto-creates campaigns and seed addresses
-- Auto-retires inactive addresses
+**Analysis scope:**
+- 7-day trap capture metrics segmented by channel (generic, brand, spider, paste, honeypot)
+- Brands with high threat counts but zero trap catches (coverage gaps)
+- Existing campaign performance and seed address activity
 
-**Inputs:** spam_trap_captures, brands, seed_campaigns, seed_addresses
-**Outputs:** seed_campaigns, seed_addresses, agent_outputs
+**Automated actions:**
+- Creates new seeding campaigns based on AI recommendations
+- Generates seed email addresses for identified coverage gaps
+- Auto-retires inactive seed addresses that have not captured anything
+
+**Reads:** `spam_trap_captures`, `brands`, `campaigns`, seed address tables
+**Writes:** `campaigns`, seed addresses, `agent_outputs`
 
 ---
 
-### 13. Curator — Data Quality
+### 13. Curator -- Data Quality
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/curator.ts` |
+| **File** | `packages/trust-radar/src/agents/curator.ts` |
 | **Color** | `#4ADE80` |
-| **Trigger** | Weekly (Flight Control triggers) |
+| **Trigger** | Weekly (triggered by Flight Control) |
 | **AI Model** | None (algorithmic) |
+| **Cost Guard** | No |
 
-Three maintenance tasks:
+The Curator maintains data quality across the platform through three automated hygiene tasks.
 
-1. **Email security scanning** — 500 brands without grades
-2. **False-positive cleanup** — Remove threats targeting known-safe infrastructure (apple.com, googleapis.com, amazon.com, microsoft.com, cloudflare.com, etc.)
-3. **Social profile discovery** — 50 high-threat brands with stale profile data
+**Tasks:**
 
-**Inputs:** brands, threats, social_profiles
-**Outputs:** Updated brands (email grades), threats (false_positive), social_profiles (new), agent_outputs (hygiene_report)
+| Task | Description | Volume |
+|------|-------------|--------|
+| **Email security scanning** | Refreshes email security posture data for monitored brands | 500 brands per run |
+| **False-positive cleanup** | Identifies and removes threats flagged as false positives based on resolution patterns and safe domain lists | All flagged threats |
+| **Social profile discovery** | Discovers new social media profiles for monitored brands to expand monitoring coverage | 50 brands per run |
+
+**Reads:** `brands`, `threats`, `email_security_scans`, `social_profiles`, `safe_domains`
+**Writes:** `email_security_scans`, `threats` (false-positive removals), `social_profiles`
 
 ---
 
-### 14. Trustbot — Interactive Copilot
+### 14. Trustbot -- Interactive Copilot
 
 | Property | Value |
 |----------|-------|
-| **File** | `agents/trustbot.ts` |
+| **File** | `packages/trust-radar/src/agents/trustbot.ts` |
 | **Color** | `#60A5FA` |
-| **Trigger** | Manual — via `/api/trustbot/chat` |
-| **AI Model** | None (context gathering + formatting) |
+| **Trigger** | Manual -- via `/api/trustbot/chat` |
+| **AI Model** | None (response formatting, context gathering) |
+| **Cost Guard** | No |
 
-Interactive Q&A for threat intelligence. Auto-gathers context based on query keywords:
+Trustbot is the interactive intelligence copilot for Trust Radar users. It is not a scheduled agent -- it runs on demand via the chat API endpoint and provides conversational access to platform data.
 
-| Keywords | Context Gathered |
-|----------|-----------------|
-| "threat", "overview", "status" | 24h threat stats |
-| Domain pattern | IOC lookup |
-| IP address | IP lookup |
-| "brand" | Brand information |
-| "feed" | Feed health status |
-| "agent" | Recent agent runs |
+**Context-aware querying:** Based on query keywords, Trustbot automatically gathers relevant context before responding:
 
-**Inputs:** User query + auto-gathered DB context
-**Outputs:** Formatted response (not persisted)
+| Query Pattern | Context Gathered |
+|--------------|-----------------|
+| "threat", "overview", "status" | Threat statistics, severity distribution, recent activity |
+| Domain pattern (e.g., `example.com`) | Domain-specific threat lookup, enrichment data, campaign links |
+| IP address pattern | IP geolocation, hosting provider, associated threats |
+| "brand" | Brand registry data, threat assessments, monitoring status |
+| "feed", "source" | Feed schedule health, ingestion statistics |
+| "agent", "run" | Agent execution history and status from `agent_runs` |
+
+**Reads:** `threats`, `feed_schedules`, `agent_runs`
+**Writes:** None (read-only agent)
 
 ---
 
 ## Agent Scheduling Summary
 
-| Agent | Frequency | AI Model | Cost Guard | Parallel |
-|-------|-----------|----------|------------|----------|
-| Flight Control | Every cron tick (first) | None | No | No |
-| Sentinel | Event-driven | Haiku | No | No |
-| Analyst | Every 15 min | Haiku | No | Up to 3 |
-| Cartographer | Every 15 min | Haiku | No | Up to 3 |
-| Nexus | Every 4 hours | None | No | No |
-| Strategist | Every 6 hours | Haiku | Yes | No |
-| Sparrow | Every 6 hours | Haiku | No | No |
-| Observer | Daily | Haiku | Yes | No |
-| Seed Strategist | Daily 6am | Haiku | Yes | No |
-| Curator | Weekly | None | No | No |
-| Watchdog | Event-driven | Haiku | No | No |
-| Prospector | Weekly | Haiku | No | No |
-| Narrator | On-demand | Haiku | No | No |
-| Trustbot | On-demand | None | No | No |
+| Agent | Frequency | AI Model | Cost Guard |
+|-------|-----------|----------|------------|
+| Flight Control | Every cron tick (runs first) | None | No |
+| Sentinel | Event-driven (feed ingestion) | Haiku | No |
+| Analyst | Every 15 min | Haiku | No |
+| Cartographer | Every 15 min | Haiku | No |
+| Nexus | Every 4 hours | None | No |
+| Strategist | Every 6 hours | Haiku | Yes |
+| Sparrow | Every 6 hours | Haiku | No |
+| Observer | Daily | Haiku | Yes |
+| Seed Strategist | Daily at 6am UTC | Haiku | Yes |
+| Curator | Weekly | None | No |
+| Watchdog | Event-driven (backlog > 200) | Haiku | No |
+| Prospector | Weekly | Haiku | Yes |
+| Narrator | On-demand | Haiku | No |
+| Trustbot | On-demand | None | No |
 
-## Agent Trigger Chain
+---
+
+## Cron Schedule Reference
+
+Defined in `packages/trust-radar/wrangler.toml`:
 
 ```
-Feed Ingestion → Sentinel (classification)
-Sentinel → Analyst (brand matching)
-Analyst → Cartographer (enrichment)
-Cartographer → Nexus (correlation)
-Nexus → Observer (pivot alerts)
-Nexus → Strategist (campaign patterns)
-Sparrow ← url_scan_results, social_profiles (takedowns)
-Watchdog ← social_mentions (classification)
-Narrator ← multiple signal types (narratives)
-Flight Control → all agents (supervision, scaling, recovery)
+Sentinel:       */30 * * * *     (every 30 min)
+Cartographer:   */15 * * * *     (every 15 min, also triggered by Sentinel)
+Nexus:          0 */4 * * *      (every 4 hours, also triggered by Cartographer)
+Analyst:        */30 * * * *     (every 30 min, also triggered by Nexus)
+Observer:       0 0 * * *        (daily at midnight, also triggered by Nexus pivots)
+Seed Strategist: 0 6 * * *      (daily at 6am UTC)
 ```
+
+Flight Control runs first on every cron tick. Strategist, Sparrow, Curator, Watchdog, Narrator, Prospector, and Trustbot are triggered by Flight Control decisions or external events rather than fixed cron entries.
