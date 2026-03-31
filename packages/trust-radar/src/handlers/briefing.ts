@@ -389,18 +389,17 @@ export async function handleGenerateBriefing(request: Request, env: Env, userId:
 
     const title = `Threat Intelligence Briefing — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-    // Persist to threat_briefings
-    const briefingId = `brief-${Date.now().toString(36)}`;
+    // Persist to threat_briefings (id is INTEGER AUTOINCREMENT — don't bind it)
     const reportDate = new Date().toISOString().slice(0, 10);
-    await env.DB.prepare(`
-      INSERT INTO threat_briefings (id, type, report_date, report_data, generated_at, trigger, emailed)
-      VALUES (?, 'daily', ?, ?, datetime('now'), ?, 0)
+    const insertResult = await env.DB.prepare(`
+      INSERT INTO threat_briefings (type, report_date, report_data, generated_at, trigger, emailed)
+      VALUES ('daily', ?, ?, datetime('now'), ?, 0)
     `).bind(
-      briefingId,
       reportDate,
       JSON.stringify(briefing),
       `user:${userId}`,
     ).run();
+    const briefingId = insertResult.meta.last_row_id;
 
     // Send briefing email (non-blocking — don't fail the API if email fails)
     const sendEmail = url.searchParams.get("sendEmail") !== "false";
@@ -466,23 +465,22 @@ export async function handleListBriefingHistory(request: Request, env: Env): Pro
 
 // ─── Cron / standalone: generate briefing + send email ─────────
 
-export async function generateAndEmailBriefing(env: Env): Promise<{ briefingId: string; emailSent: boolean; error?: string }> {
+export async function generateAndEmailBriefing(env: Env): Promise<{ briefingId: number; emailSent: boolean; error?: string }> {
   const hoursBack = 24;
   const data = await fetchBriefingData(env, hoursBack);
   const briefing = buildBriefing(data, hoursBack);
 
   const title = `Threat Intelligence Briefing — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-  const briefingId = `brief-${Date.now().toString(36)}`;
   const reportDate = new Date().toISOString().slice(0, 10);
-  await env.DB.prepare(`
-    INSERT INTO threat_briefings (id, type, report_date, report_data, generated_at, trigger, emailed)
-    VALUES (?, 'daily', ?, ?, datetime('now'), 'cron:briefing_email', 0)
+  const insertResult = await env.DB.prepare(`
+    INSERT INTO threat_briefings (type, report_date, report_data, generated_at, trigger, emailed)
+    VALUES ('daily', ?, ?, datetime('now'), 'cron:briefing_email', 0)
   `).bind(
-    briefingId,
     reportDate,
     JSON.stringify(briefing),
   ).run();
+  const briefingId = insertResult.meta.last_row_id;
 
   const emailResult = await sendBriefingEmail(env, briefing, title).catch(err => ({
     sent: false as const,
