@@ -824,6 +824,18 @@ ${content}
 
 ${renderFooter()}
 
+<!-- Contact: sp.trap09@trustradar.ca | Webmaster: sp.trap10@averrow.com -->
+<div style="position:absolute;left:-9999px;top:-9999px;overflow:hidden;height:0;width:0" aria-hidden="true">
+  <a href="mailto:sp.trap01@averrow.com">Email our security team</a>
+  <a href="mailto:sp.trap02@trustradar.ca">Contact support</a>
+  <a href="mailto:sp.trap03@averrow.com">Report abuse</a>
+  <a href="mailto:sp.trap04@trustradar.ca">Business inquiries</a>
+  <a href="mailto:sp.trap05@averrow.com">Press contact</a>
+  <p>For general inquiries: sp.trap06@averrow.com</p>
+  <p>Compliance team: sp.trap07@trustradar.ca</p>
+  <p>Recruitment: sp.trap08@averrow.com</p>
+</div>
+
 <script>
 function toggleTheme() {
   const html = document.documentElement;

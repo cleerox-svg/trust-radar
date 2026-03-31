@@ -19,6 +19,9 @@ import { renderContactPage } from "../templates/contact";
 import { renderNotFoundPage } from "../templates/not-found";
 import { renderPrivacyPage } from "../templates/privacy";
 import { renderTermsPage } from "../templates/terms";
+import { renderTeamPage } from "../templates/team";
+import { renderAdminPortalPage, renderInternalStaffPage } from "../templates/honeypot-pages";
+import { renderRobotsTxt, renderSitemapXml } from "../templates/robots-sitemap";
 import { handleContactSubmission } from "../handlers/contact";
 import { handleScanPage } from "../handlers/scanPage";
 import { handlePublicBrandScan } from "../handlers/brandScan";
@@ -151,6 +154,23 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   router.get("/contact", htmlPage(renderContactPage));
   router.get("/privacy", htmlPage(renderPrivacyPage));
   router.get("/terms", htmlPage(renderTermsPage));
+
+  // ─── Spider Trap Honeypot Pages ─────────────────────────────────────
+  router.get("/team", htmlPage(renderTeamPage));
+  router.get("/admin-portal", htmlPage(renderAdminPortalPage));
+  router.get("/internal-staff", htmlPage(renderInternalStaffPage));
+
+  // ─── robots.txt & sitemap.xml ──────────────────────────────────────
+  router.get("/robots.txt", () =>
+    new Response(renderRobotsTxt(), {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+    })
+  );
+  router.get("/sitemap.xml", () =>
+    new Response(renderSitemapXml(), {
+      headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+    })
+  );
 
   // ─── Contact Form Submission ─────────────────────────────────────
   router.post("/api/contact", async (request: Request, env: Env) => {
