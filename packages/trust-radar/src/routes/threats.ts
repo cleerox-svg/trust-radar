@@ -21,6 +21,12 @@ import {
   handleOperationTimeline, handleOperationThreats,
 } from "../handlers/operations";
 import {
+  handleListGeopoliticalCampaigns, handleGetGeopoliticalCampaign,
+  handleGeoCampaignThreats, handleGeoCampaignTimeline,
+  handleGeoCampaignBrands, handleGeoCampaignAsns,
+  handleGeoCampaignAttackTypes, handleGeoCampaignStats,
+} from "../handlers/geopolitical";
+import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
   handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
 } from "../handlers/intel";
@@ -158,6 +164,48 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleOperationThreats(request, env, request.params["id"] ?? "");
+  });
+
+  // ─── Geopolitical Campaigns ───────────────────────────────────────
+  router.get("/api/campaigns/geo", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListGeopoliticalCampaigns(request, env);
+  });
+  router.get("/api/campaigns/geo/:slug", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetGeopoliticalCampaign(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/stats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignStats(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/threats", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignThreats(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/timeline", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignTimeline(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/brands", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignBrands(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/asns", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignAsns(request, env, request.params["slug"] ?? "");
+  });
+  router.get("/api/campaigns/geo/:slug/attack-types", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignAttackTypes(request, env, request.params["slug"] ?? "");
   });
 
   // ─── Campaign Clusters ────────────────────────────────────────────
