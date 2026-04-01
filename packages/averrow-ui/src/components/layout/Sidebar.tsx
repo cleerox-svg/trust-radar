@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Globe, Shield, Server, Activity, TrendingUp,
+  Globe, Shield, Server, Activity, TrendingUp, Crosshair,
   Gavel, Bell, Inbox,
   Cpu, Rss, LayoutDashboard, Users, ClipboardList,
 } from 'lucide-react';
@@ -50,6 +50,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Brands',       path: '/brands',       icon: Shield },
         { label: 'Providers',    path: '/providers',     icon: Server },
         { label: 'Operations',   path: '/campaigns',     icon: Activity },
+        { label: 'Threat Actors', path: '/threat-actors', icon: Crosshair },
         { label: 'Intelligence', path: '/trends',        icon: TrendingUp },
       ],
     },

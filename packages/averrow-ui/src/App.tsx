@@ -19,6 +19,8 @@ import { ProviderDetail } from '@/pages/ProviderDetail';
 import { Campaigns } from '@/pages/Campaigns';
 import { CampaignDetail } from '@/pages/CampaignDetail';
 import { Trends } from '@/pages/Trends';
+import { ThreatActors } from '@/pages/ThreatActors';
+import { ThreatActorDetail } from '@/pages/ThreatActorDetail';
 import { NotFound } from '@/pages/NotFound';
 import { Home } from '@/pages/Home';
 import { Profile } from '@/pages/Profile';
@@ -73,6 +75,8 @@ export default function App() {
         <Route path="providers/:providerId" element={<ErrorBoundary><ProviderDetail /></ErrorBoundary>} />
         <Route path="campaigns" element={<ErrorBoundary><Campaigns /></ErrorBoundary>} />
         <Route path="campaigns/:campaignId" element={<ErrorBoundary><CampaignDetail /></ErrorBoundary>} />
+        <Route path="threat-actors" element={<ErrorBoundary><ThreatActors /></ErrorBoundary>} />
+        <Route path="threat-actors/:actorId" element={<ErrorBoundary><ThreatActorDetail /></ErrorBoundary>} />
         <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
         <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
         <Route path="alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
