@@ -153,11 +153,11 @@ INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, secto
 ('tat_cs_snap', 'ta_cotton_sandstorm', 'brand_snapchat', 'tech', 'brand', 'MOIS influence ops — social media platform targeting');
 
 -- ─── Activate Monitoring for All 18 IRGC Targets ──────────────────
--- Uses a system user placeholder since monitored_brands requires added_by
+-- Uses the admin user from migration 0062 since monitored_brands requires added_by (FK → users)
 -- These will be activated with status='active' for immediate monitoring
 INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, status, notes)
 SELECT id, '__internal__',
-  COALESCE((SELECT id FROM users LIMIT 1), 'system'),
+  (SELECT id FROM users LIMIT 1),
   'active',
   'IRGC targeting list — Tasnim News Agency April 2, 2026 deadline. Priority monitoring activated.'
 FROM brands
@@ -166,4 +166,5 @@ WHERE id IN (
   'brand_apple', 'brand_google', 'brand_meta', 'brand_nvidia',
   'brand_tesla', 'brand_hp', 'brand_intel', 'brand_boeing',
   'brand_dell', 'brand_cisco', 'brand_ibm', 'brand_snapchat'
-);
+)
+AND EXISTS (SELECT 1 FROM users LIMIT 1);
