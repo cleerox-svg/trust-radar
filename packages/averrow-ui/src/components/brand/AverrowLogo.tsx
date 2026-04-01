@@ -6,8 +6,8 @@ export function AverrowLogo({ size = 'default' }: { size?: 'small' | 'default' |
       <svg className={h} viewBox="0 0 36 36" fill="none">
         <defs>
           <linearGradient id="logo-grad" x1="18" y1="2" x2="18" y2="34" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#C83C3C" />
-            <stop offset="1" stopColor="#78A0C8" />
+            <stop stopColor="#6B1010" />
+            <stop offset="1" stopColor="#C83C3C" />
           </linearGradient>
         </defs>
         <path d="M18 2L32 34H4L18 2Z" fill="url(#logo-grad)" opacity="0.9" />

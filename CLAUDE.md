@@ -98,15 +98,18 @@ React /v2 is at `/v2` — do not make it the default until explicitly instructed
 
 ### Colors
 ```
-Signal Red:    #C83C3C   Critical threats, CTAs, danger states
-Contrail Blue: #78A0C8   Labels, info, low severity, muted text
-Cockpit:       #080E18   Primary background
-Polar:         #F8F7F5   Primary text on dark
+Afterburner:       #E5A832   Primary accent — CTAs, active states, nav highlights
+Wing Blue:         #0A8AB5   Secondary accent, info states
+Signal Red:        #C83C3C   Alerts, critical, logo
+Signal Red Deep:   #6B1010   Logo gradient start (Deep Arrow: #6B1010 → #C83C3C)
+Deep Space:        #080C14   Primary dark background
+Instrument Panel:  #111827   Card/panel backgrounds
+Instrument White:  #E8ECF1   Primary text on dark
+Gauge Gray:        #8896AB   Secondary text
 
-Orbital Teal:  #00d4ff   Active/selected states, CTAs ONLY — not general accent
-Wing Blue:     #0a8ab5   Secondary accents, hover states
-Thrust:        #7aeaff   Highlights, selected states
-Ring Glow:     #00b8d9   Border accents
+Orbital Teal:      #00d4ff   RESERVED — Observatory map beams + logo glow ONLY
+Thrust:            #7aeaff   RESERVED — Observatory highlights only
+Ring Glow:         #00b8d9   RESERVED — Observatory border accents only
 
 Severity palette:
   Critical: #f87171    High: #fb923c    Medium: #fbbf24
@@ -124,13 +127,15 @@ Title:  font-mono text-[9px] uppercase tracking-widest text-contrail/70
 
 ### Tailwind Custom Tokens (tailwind.config.ts)
 ```
-bg-cockpit, text-cockpit
-bg-orbital-teal, text-orbital-teal, border-orbital-teal
-bg-wing-blue, text-wing-blue
-bg-thrust, text-thrust
-bg-ring-glow, border-ring-glow
-text-contrail, bg-contrail
-text-polar
+New primary:    bg-afterburner, text-afterburner, border-afterburner-border
+New secondary:  bg-wing-blue, text-wing-blue, border-wing-blue-border
+New alert:      bg-signal-red, text-signal-red, border-signal-red-border
+New neutrals:   bg-deep-space, bg-instrument-panel, bg-panel-highlight
+New text:       text-instrument-white, text-gauge-gray
+New glass:      .glass-card, .glass-sidebar, .glass-elevated, .glass-stat, .glass-input
+Light theme:    bg-cloud, bg-warm-cream, text-ink, text-slate
+
+Legacy (still available): bg-cockpit, text-contrail, bg-orbital-teal, etc.
 ```
 
 ---

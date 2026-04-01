@@ -518,18 +518,21 @@ infrastructure_clusters → Providers UI (operations per provider)
 
 ### Design System Tokens
 ```
-Signal Red:     #C83C3C  — Critical, CTAs, danger
-Contrail Blue:  #78A0C8  — Labels, info, low severity
-Cockpit:        #080E18  — Primary background
-Polar:          #F8F7F5  — Primary text
+Afterburner:    #E5A832  — Primary accent, CTAs, active states, nav highlights
+Wing Blue:      #0A8AB5  — Secondary accent, info states
+Signal Red:     #C83C3C  — Alerts, critical, logo (Deep Arrow gradient: #6B1010 → #C83C3C)
+Deep Space:     #080C14  — Primary dark background
+Instrument:     #111827  — Card/panel backgrounds
+Gauge Gray:     #8896AB  — Secondary text
 
-Orbital Teal:   #00d4ff  — Active states, selected, CTAs only (not general accent)
-Wing Blue:      #0a8ab5  — Secondary accents, hover states
-Thrust:         #7aeaff  — Highlights, selected states
-Ring Glow:      #00b8d9  — Border accents
+Orbital Teal:   #00d4ff  — RESERVED: Observatory map beams + logo glow ONLY
+Thrust:         #7aeaff  — RESERVED: Observatory highlights only
+Ring Glow:      #00b8d9  — RESERVED: Observatory border accents only
 
 Severity:
   Critical: #f87171   High: #fb923c   Medium: #fbbf24   Low: #78A0C8   Clean: #4ade80
+
+See AVERROW_DESIGN_SYSTEM_BRIEF.md for the complete token reference.
 ```
 
 ### Stat Card Pattern (All Detail Views)

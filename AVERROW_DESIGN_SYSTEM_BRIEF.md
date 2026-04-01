@@ -54,30 +54,34 @@ Doppler, Bolster, Netcraft — they present as dashboards with alert tables. Gen
 
 ---
 
-## 3. LOGO — ORBITAL LOCK
+## 3. LOGO — DEEP ARROW
 
 ### Concept
-The logo is a **delta wing** (the Arrow's most iconic shape) surrounded by **three animated orbital rings** — satellites constantly tracking, scanning, intercepting. The delta doubles as the letter "A" through a negative-space cutout.
+The logo is a **delta wing "A"** — the Avro Arrow's most iconic shape. The delta doubles as the letter "A" through a negative-space fin cutout. Clean, bold, no orbital rings.
+
+### Deep Arrow Gradient
+- **Top vertex:** #6B1010 (Signal Red Deep)
+- **Base:** #C83C3C (Signal Red)
+- Direction: vertical, top-to-bottom
+- Gradient ID in SVGs: `deep-arrow`
 
 ### Construction
 - Core shape: Equilateral triangle pointing upward (the delta wing silhouette)
-- Gradient fill: Signal Red (#C83C3C) at top vertex → Contrail Blue (#78A0C8) at base
-- Negative space "A" crossbar cut from the lower third of the delta
-- Three elliptical orbital rings rotate at different angles (0°, 60°, 120°) around a shared center
-- Ring 1 (primary): Signal Red, heaviest stroke weight
-- Ring 2 (secondary): Contrail Blue, lighter
-- Ring 3 (tertiary): Signal Red, lightest
-- Four orbital dots at 0°, 90°, 180°, 270° travel along the middle ring
-- Vertex glow: Signal Red with gaussian blur filter at the top of the delta (the "engine igniting")
-- Concentric targeting rings behind the delta at larger sizes
-
-### Animation
-- Orbital rings rotate continuously at ~0.4° per frame (smooth, not fast)
-- Orbital dots travel with the rings
-- Vertex glow pulses subtly (optional, context-dependent)
+- Gradient fill: Deep Arrow (#6B1010 → #C83C3C), top to bottom
+- Negative space "A" crossbar/fin cut from the lower third of the delta
+- Background: always rendered on a dark container (#080E18 or #040810)
 
 ### Size Behavior
-At small sizes (≤32px): orbital ring stroke width and opacity increase significantly to remain visible. Dots enlarge. Fewer concentric rings shown. At favicon size (16px): rings become thick and high-contrast, dots are prominent.
+| Size | Treatment |
+|------|-----------|
+| 512px (PWA) | Full delta on #040810 circle, fin cutout visible |
+| 192px (PWA) | Same as 512px |
+| 32px (favicon) | Delta on #080E18 rounded rect (rx=6), fin cutout |
+| 16px | Simplified — no fine details, bold strokes |
+
+### Minimum Sizes
+- Mark alone: 16px minimum
+- Mark + wordmark lockup: 120px minimum width
 
 ### Logo + Wordmark Lockup
 Horizontal layout: Logo mark → gap → stacked wordmark
@@ -85,88 +89,86 @@ Horizontal layout: Logo mark → gap → stacked wordmark
 - **THREAT INTERCEPTOR** in IBM Plex Mono, weight 400, ~40% smaller than name, letter-spacing 0.2em+, uppercase
 
 ### Background Adaptations
-- On dark (#080E18): Red-to-blue gradient delta, red rings, white "A" cutout
-- On light (#F8F7F5): Same gradient, darker rings, light background cutout
-- On Signal Red (#C83C3C): White delta, white rings, red cutout
-- On gradient dark: Same as dark treatment
+- On dark (#080E18): Deep Arrow gradient delta, dark background cutout — **primary treatment**
+- On light (#F8F7F5): Logo always sits inside a dark container (#080E18 pill/circle) — never directly on light
+- On Signal Red (#C83C3C): White delta, red cutout
+- Never render the logo directly on a light background without a dark container
 
 ---
 
 ## 4. COLOR SYSTEM
 
-All colors are derived from the Orbital Lock logo gradient (Signal Red → Contrail Blue) anchored by aerospace-grade neutrals.
+All colors serve the Dark App (platform) and Light Public (landing/login) themes. The primary accent is **Afterburner Amber (#E5A832)** — warm, confident, aerospace-grade. Signal Red is reserved for alerts and the logo. Orbital Teal (#00d4ff) is **reserved exclusively** for Observatory map beams and logo glow — never for UI chrome.
 
-### Primary — Signal Red
-| Token | Hex | Usage |
-|-------|-----|-------|
-| red-50 | #FDEAEA | Light background tint |
-| red-100 | #F5B3B3 | Light hover states |
-| red-200 | #E87070 | Light mode accent |
-| red-500 | #C83C3C | **Primary — logo, CTAs, critical alerts, active accent** |
-| red-600 | #A82E2E | Hover / pressed states |
-| red-800 | #8B1A1A | Dark accent, destructive buttons |
-| red-950 | #5C0F0F | Deep background tint |
+### Dark Theme Token Table (Platform App)
 
-### Secondary — Contrail Blue
-| Token | Hex | Usage |
-|-------|-----|-------|
-| blue-50 | #EDF2F8 | Light background tint |
-| blue-100 | #B8CDE0 | Light secondary |
-| blue-500 | #78A0C8 | **Info, links, secondary accent, dark mode secondary text** |
-| blue-600 | #5A80A8 | Hover states, Navigator agent |
-| blue-700 | #3D6088 | Dark mode links |
-| blue-900 | #1E3A5C | Deep accent |
+| Token | Tailwind Class | Hex | Usage |
+|-------|---------------|-----|-------|
+| Deep Space | `bg-deep-space` | #080C14 | Base background |
+| Instrument Panel | `bg-instrument-panel` | #111827 | Card backgrounds, panels |
+| Panel Highlight | `bg-panel-highlight` | #1A2234 | Elevated cards, hover states |
+| Instrument Edge | `border-instrument-edge` | #2A3548 | Borders, dividers |
+| Instrument White | `text-instrument-white` | #E8ECF1 | Primary text |
+| Gauge Gray | `text-gauge-gray` | #8896AB | Secondary text, labels |
+| Afterburner | `text-afterburner` | #E5A832 | **Primary accent — CTAs, active states, nav highlights** |
+| Afterburner Hover | `hover:bg-afterburner-hover` | #D49A28 | Hover/pressed states |
+| Afterburner Muted | `bg-afterburner-muted` | rgba(229,168,50,0.12) | Subtle accent backgrounds |
+| Afterburner Border | `border-afterburner-border` | rgba(229,168,50,0.3) | Accent borders |
+| Wing Blue | `text-wing-blue` | #0A8AB5 | Secondary accent, info states |
+| Wing Blue Muted | `bg-wing-blue-muted` | rgba(10,138,181,0.12) | Subtle info backgrounds |
+| Wing Blue Border | `border-wing-blue-border` | rgba(10,138,181,0.3) | Info borders |
+| Signal Red | `text-signal-red` | #C83C3C | Alerts, critical, logo |
+| Signal Red Deep | `bg-signal-red-deep` | #6B1010 | Deep red tint, logo gradient start |
 
-### Warning — Amber
-| Token | Hex | Usage |
-|-------|-----|-------|
-| amber-50 | #FEF3E6 | Light warning background |
-| amber-200 | #F5C878 | Warning light |
-| amber-500 | #E8923C | **High severity, warnings, ASTRA agent** |
-| amber-700 | #C47428 | Dark warning |
-| amber-900 | #7A4210 | Deep warning tint |
+### Light Theme Token Table (Public Site)
 
-### Success — All Clear
-| Token | Hex | Usage |
-|-------|-----|-------|
-| green-50 | #E8F5ED | Light success background |
-| green-200 | #7CCDA0 | Success light |
-| green-500 | #28A050 | **Clear status, success, Pathfinder agent** |
-| green-700 | #1E7A3C | Dark success |
-| green-900 | #0F4A22 | Deep success tint |
+| Token | Tailwind Class | Hex | Usage |
+|-------|---------------|-----|-------|
+| Cloud | `bg-cloud` | #F8F7F5 | Base background |
+| Warm Cream | `bg-warm-cream` | #F0EDE8 | Card backgrounds |
+| Warm Border | `border-warm-border` | #E2DDD5 | Borders, dividers |
+| Ink | `text-ink` | #1A1F2E | Primary text |
+| Slate | `text-slate` | #5A6170 | Secondary text |
+| Amber Deep | `text-amber-deep` | #C88B1E | Primary accent (light mode equivalent of Afterburner) |
+| Blue Deep | `text-blue-deep` | #0878A0 | Secondary accent (light mode equivalent of Wing Blue) |
+| Red Deep | `text-red-deep` | #B53030 | Alert accent (light mode equivalent of Signal Red) |
+| Clearance | `text-clearance` | #34D399 | Success, positive states |
+| Caution | `text-caution` | #FBBF24 | Warning states |
 
-### Dark Neutrals — Cockpit
-| Token | Hex | Usage |
-|-------|-----|-------|
-| void | #040810 | Deepest black |
-| cockpit | #080E18 | **Dark mode base background** |
-| avionics | #0C1420 | Elevated panels |
-| instrument | #0E1A2B | **Cards, sidebars, modal backgrounds** |
-| console | #142236 | Hover states, stat cards |
-| bulkhead | #1A2E48 | Active states, borders |
-| fuselage | #243A54 | Dividers, strong borders |
+### Status Colors
 
-### Light Neutrals — Airframe
-| Token | Hex | Usage |
-|-------|-----|-------|
-| white | #FFFFFF | Light mode cards |
-| linen | #FAFAF8 | Table headers |
-| polar | #F8F7F5 | **Light mode base background** |
-| parchment | #F0EDE8 | **Dark mode primary text** |
-| haze | #E0DCD6 | Borders, dividers (light mode) |
-| tundra | #C8C2BA | Disabled text |
-| slate | #8A8F9C | **Light mode secondary text, Blackbox agent** |
+| Token | Tailwind Class | Hex | Usage |
+|-------|---------------|-----|-------|
+| Clearance | `text-clearance` | #34D399 | Success, resolved, clean |
+| Caution | `text-caution` | #FBBF24 | Warning, medium severity |
+| Signal Red | `text-signal-red` | #C83C3C | Critical, danger, alert |
 
-### Text Colors
-| Context | Color | Hex |
-|---------|-------|-----|
-| Light mode primary | Tarmac | #1A1F2E |
-| Dark mode primary | Parchment | #F0EDE8 |
-| Light mode secondary | Slate | #8A8F9C |
-| Dark mode secondary | Contrail | #78A0C8 |
-| Accent text / links | Signal | #C83C3C |
+### Reserved Colors
+
+| Token | Hex | Rule |
+|-------|-----|------|
+| Orbital Teal | #00d4ff | **ONLY** for Observatory map beams and logo glow — NEVER for UI chrome, nav highlights, buttons, or general accents |
+| Thrust | #7aeaff | Reserved for Observatory highlights only |
+| Ring Glow | #00b8d9 | Reserved for Observatory border accents only |
+
+**Tailwind tokens for reserved colors:** `orbital-teal`, `thrust`, `ring-glow` — these exist in config but should only be used in Observatory map components.
+
+### Legacy Tokens (Preserved for Compatibility)
+
+These tokens remain in `tailwind.config.ts` to avoid breaking existing components. New code should use the new tokens above.
+
+| Token | Hex | Migrating To |
+|-------|-----|-------------|
+| cockpit | #080E18 | deep-space |
+| instrument | #0C1525 | instrument-panel |
+| console | #142236 | panel-highlight |
+| bulkhead | #1A2E48 | instrument-edge |
+| parchment | #F0EDE8 | instrument-white |
+| contrail | #78A0C8 | gauge-gray / wing-blue |
+| accent | #C83C3C | signal-red |
 
 ### Severity Scale
+
 | Level | Hex | Usage |
 |-------|-----|-------|
 | CRITICAL | #C83C3C | Immediate action required |
@@ -176,6 +178,7 @@ All colors are derived from the Orbital Lock logo gradient (Signal Red → Contr
 | CLEAR | #28A050 | No threat detected |
 
 ### Defense Grade Scale
+
 | Grade | Color |
 |-------|-------|
 | A+ / A | #28A050 (green-500) |
@@ -183,28 +186,6 @@ All colors are derived from the Orbital Lock logo gradient (Signal Red → Contr
 | C+ / C | #DCAA32 (medium severity gold) |
 | D | #E8923C (amber-500) |
 | F | #C83C3C (red-500) |
-
-### Logo-Extracted Colors (Orbital Lock palette)
-
-Colors extracted directly from the Orbital Lock logo SVGs (`icon-192.svg`, `icon-512.svg`, `favicon.svg`).
-
-| Token | Hex | Source | Usage |
-|-------|-----|--------|-------|
-| Orbital Teal | #00d4ff | Orbital ring strokes, center dot, crosshair lines | Accents, active indicators, chart series 1 |
-| Wing Blue | #0a8ab5 | Derived mid-tone (teal → cockpit blend) | Hover states, secondary accents, chart series 2 |
-| Thrust | #7aeaff | Lightened orbital teal highlight | Highlights, selected states, glow accents |
-| Ring Glow | #00b8d9 | Shifted orbital teal for border distinction | Border accents, animated ring strokes |
-
-**Tailwind tokens:** `orbital-teal`, `wing-blue`, `thrust`, `ring-glow` — available as `bg-orbital-teal`, `text-wing-blue`, `border-ring-glow`, etc.
-
-### Core Brand Colors (Quick Reference)
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| Signal Red | #C83C3C | Critical threats, CTAs, danger states |
-| Contrail Blue | #78A0C8 | Labels, info states, low severity, links |
-| Cockpit | #080E18 | Primary background |
-| Polar | #F8F7F5 | Primary text on dark |
 
 ### Severity Palette (UI)
 
@@ -218,10 +199,95 @@ Colors extracted directly from the Orbital Lock logo SVGs (`icon-192.svg`, `icon
 
 ### Color Rules
 
+- **Primary accent is Afterburner Amber** — use for CTAs, active nav, selected states, focus rings
+- **Signal Red is for alerts and the logo only** — not a general-purpose accent
+- **Orbital Teal is reserved** — Observatory map beams and logo glow ONLY
+- Never use generic blue/purple gradients or neon glow effects
 - Never use only red — always use the full severity palette
-- Muted states: append `/50` or `/30` opacity (e.g. `text-contrail/50`)
+- Muted states: append `/50` or `/30` opacity (e.g. `text-gauge-gray/50`)
 - Zero counts always render in `white/30` — never colored
 - Background badges: `color-900/40` bg + `color-400` text + `color-500/30` border
+
+---
+
+## 4B. GLASS SYSTEM
+
+All cards, panels, and inputs use glassmorphism utilities defined in `@layer utilities` in `index.css`. These classes use the new design system tokens.
+
+### Glass Utility Classes
+
+| Class | Usage | Key Properties |
+|-------|-------|---------------|
+| `.glass-card` | Standard card container | `bg-instrument-panel/60`, `backdrop-blur-xl`, `border-instrument-edge/50`, `rounded-xl` |
+| `.glass-sidebar` | Sidebar/nav panels | `bg-deep-space/85`, `backdrop-blur-2xl`, `border-r border-instrument-edge/40` |
+| `.glass-elevated` | Elevated/modal cards | `bg-panel-highlight/80`, `backdrop-blur-xl`, `border-instrument-edge/60`, `rounded-xl` |
+| `.glass-stat` | Stat/metric cards | `bg-instrument-panel/50`, `backdrop-blur-md`, `border-afterburner-border`, `rounded-xl` |
+| `.glass-input` | Form inputs | `bg-deep-space/50`, `backdrop-blur-sm`, `border-instrument-edge/60`, `rounded-lg` |
+
+### CSS Details
+
+```css
+/* Standard card */
+.glass-card {
+  @apply bg-instrument-panel/60 backdrop-blur-xl
+         border border-instrument-edge/50 rounded-xl shadow-lg;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2),
+              inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Sidebar */
+.glass-sidebar {
+  @apply bg-deep-space/85 backdrop-blur-2xl
+         border-r border-instrument-edge/40;
+}
+
+/* Elevated / modal */
+.glass-elevated {
+  @apply bg-panel-highlight/80 backdrop-blur-xl
+         border border-instrument-edge/60 rounded-xl;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Stat card (amber-bordered) */
+.glass-stat {
+  @apply bg-instrument-panel/50 backdrop-blur-md
+         border border-afterburner-border rounded-xl;
+  box-shadow: 0 0 20px rgba(229,168,50,0.05),
+              inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Input field */
+.glass-input {
+  @apply bg-deep-space/50 backdrop-blur-sm
+         border border-instrument-edge/60 rounded-lg text-instrument-white;
+}
+.glass-input:focus {
+  @apply border-afterburner/50 ring-2 ring-afterburner/10;
+}
+```
+
+### Mobile Fallback
+On devices that don't support `backdrop-filter`, the glass classes gracefully degrade to their solid `bg-` color at the specified opacity. No special fallback code is needed — the background color provides sufficient contrast on its own.
+
+### Usage Examples
+
+```tsx
+{/* Standard card */}
+<div className="glass-card p-6">
+  <h3 className="text-instrument-white">Card Title</h3>
+  <p className="text-gauge-gray">Card content</p>
+</div>
+
+{/* Stat metric card */}
+<div className="glass-stat p-4">
+  <span className="text-afterburner text-3xl font-bold">2,847</span>
+  <span className="text-gauge-gray text-xs">ACTIVE CONTACTS</span>
+</div>
+
+{/* Input */}
+<input className="glass-input px-3 py-2 w-full" placeholder="Search..." />
+```
 
 ---
 
@@ -415,28 +481,47 @@ All buttons: IBM Plex Mono, 10px, weight 600, letter-spacing 0.06em, uppercase, 
 
 ---
 
-## 10. DARK MODE / LIGHT MODE
+## 10. DUAL THEME SYSTEM
 
-### Dark Mode (Default for platform)
-- Base: cockpit (#080E18)
-- Cards/panels: instrument (#0E1A2B)
-- Hover: console (#142236)
-- Primary text: parchment (#F0EDE8)
-- Secondary text: contrail blue (#78A0C8) at various opacities
-- Borders: contrail blue at 4-8% opacity
-- Signal Red pops strongest against dark — this is the intended hero environment
+The platform uses two distinct themes for two distinct contexts. These are NOT a toggle — they are applied by route/context.
 
-### Light Mode
-- Base: polar (#F8F7F5)
-- Cards: white (#FFFFFF)
-- Hover: linen (#FAFAF8)
-- Primary text: tarmac (#1A1F2E)
-- Secondary text: slate (#8A8F9C)
-- Borders: tarmac at 4-8% opacity
-- Shadow: 0 1px 3px rgba(0,0,0,0.04)
+### Dark Theme — Platform App (Observatory, Brands, Agents, etc.)
+- Base: deep-space (#080C14)
+- Cards/panels: instrument-panel (#111827) — use `.glass-card` utility
+- Elevated: panel-highlight (#1A2234) — use `.glass-elevated` utility
+- Primary text: instrument-white (#E8ECF1)
+- Secondary text: gauge-gray (#8896AB)
+- Borders: instrument-edge (#2A3548) at various opacities
+- Primary accent: afterburner (#E5A832) — CTAs, active states, nav highlights
+- Secondary accent: wing-blue (#0A8AB5) — info, links, secondary actions
+- Alert: signal-red (#C83C3C) — critical threats, danger states
 
-### Toggle
-Users should be able to switch between modes. Dark mode is the default. The corporate/public site may default to light mode.
+### Light Theme — Public Site (landing, pricing, about, login)
+- Base: cloud (#F8F7F5)
+- Cards: warm-cream (#F0EDE8)
+- Borders: warm-border (#E2DDD5)
+- Primary text: ink (#1A1F2E)
+- Secondary text: slate (#5A6170)
+- Primary accent: amber-deep (#C88B1E)
+- Secondary accent: blue-deep (#0878A0)
+- Alert: red-deep (#B53030)
+
+### Token Mapping Between Themes
+
+| Role | Dark Token | Light Token |
+|------|-----------|-------------|
+| Background | deep-space (#080C14) | cloud (#F8F7F5) |
+| Card bg | instrument-panel (#111827) | warm-cream (#F0EDE8) |
+| Border | instrument-edge (#2A3548) | warm-border (#E2DDD5) |
+| Primary text | instrument-white (#E8ECF1) | ink (#1A1F2E) |
+| Secondary text | gauge-gray (#8896AB) | slate (#5A6170) |
+| Primary accent | afterburner (#E5A832) | amber-deep (#C88B1E) |
+| Secondary accent | wing-blue (#0A8AB5) | blue-deep (#0878A0) |
+| Alert | signal-red (#C83C3C) | red-deep (#B53030) |
+
+### Logo Treatment
+- **Dark theme:** Deep Arrow gradient on dark background — standard treatment
+- **Light theme:** Logo always enclosed in a dark container (dark pill or circle on light background) — never render the gradient delta directly on light
 
 ---
 
@@ -578,8 +663,10 @@ Card wrapper: `rounded-xl border border-white/10 bg-cockpit p-4 hover:border-whi
 
 ### Design Notes
 
-- **orbital-teal (#00d4ff)** is used for: selected pill states, active borders, interactive CTAs, and stat card highlight metrics
+- **Afterburner Amber (#E5A832)** is the primary accent for: selected pill states, active borders, interactive CTAs, and stat card highlight metrics
+- **orbital-teal (#00d4ff)** is **reserved** for Observatory map beams and logo glow only — not for general UI chrome
 - All components exported from `components/brands/index.ts` for reuse across views
+- All color decisions reference `AVERROW_DESIGN_SYSTEM_BRIEF.md` as the single source of truth
 
 ### Brands Hub — Three-View System
 
