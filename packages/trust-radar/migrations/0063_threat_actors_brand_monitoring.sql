@@ -62,19 +62,27 @@ CREATE TABLE IF NOT EXISTS threat_actor_targets (
 CREATE INDEX IF NOT EXISTS idx_tat_actor ON threat_actor_targets(threat_actor_id);
 CREATE INDEX IF NOT EXISTS idx_tat_brand ON threat_actor_targets(brand_id);
 
--- ─── Seed Missing IRGC-Targeted Brands ────────────────────────────
--- Amazon, Microsoft, Apple, Google, Meta, Snapchat already exist
-INSERT OR IGNORE INTO brands (id, name, canonical_domain, sector, source, threat_count) VALUES
-('brand_palantir', 'Palantir', 'palantir.com', 'tech', 'manual', 0),
-('brand_oracle', 'Oracle', 'oracle.com', 'tech', 'manual', 0),
-('brand_nvidia', 'NVIDIA', 'nvidia.com', 'tech', 'manual', 0),
-('brand_tesla', 'Tesla', 'tesla.com', 'tech', 'manual', 0),
-('brand_hp', 'HP', 'hp.com', 'tech', 'manual', 0),
-('brand_intel', 'Intel', 'intel.com', 'tech', 'manual', 0),
-('brand_boeing', 'Boeing', 'boeing.com', 'tech', 'manual', 0),
-('brand_dell', 'Dell', 'dell.com', 'tech', 'manual', 0),
-('brand_cisco', 'Cisco', 'cisco.com', 'tech', 'manual', 0),
-('brand_ibm', 'IBM', 'ibm.com', 'tech', 'manual', 0);
+-- ─── Ensure ALL Referenced Brands Exist ────────────────────────────
+-- INSERT OR IGNORE does NOT suppress FK violations in SQLite, so we must
+-- guarantee every brand_id referenced by threat_actor_targets exists first.
+-- These may already exist from migration 0024 but we re-assert to be safe.
+INSERT OR IGNORE INTO brands (id, name, canonical_domain, sector, threat_count) VALUES
+('brand_amazon', 'Amazon', 'amazon.com', 'tech', 0),
+('brand_microsoft', 'Microsoft', 'microsoft.com', 'tech', 0),
+('brand_apple', 'Apple', 'apple.com', 'tech', 0),
+('brand_google', 'Google', 'google.com', 'tech', 0),
+('brand_meta', 'Meta', 'meta.com', 'tech', 0),
+('brand_snapchat', 'Snapchat', 'snapchat.com', 'tech', 0),
+('brand_palantir', 'Palantir', 'palantir.com', 'tech', 0),
+('brand_oracle', 'Oracle', 'oracle.com', 'tech', 0),
+('brand_nvidia', 'NVIDIA', 'nvidia.com', 'tech', 0),
+('brand_tesla', 'Tesla', 'tesla.com', 'tech', 0),
+('brand_hp', 'HP', 'hp.com', 'tech', 0),
+('brand_intel', 'Intel', 'intel.com', 'tech', 0),
+('brand_boeing', 'Boeing', 'boeing.com', 'tech', 0),
+('brand_dell', 'Dell', 'dell.com', 'tech', 0),
+('brand_cisco', 'Cisco', 'cisco.com', 'tech', 0),
+('brand_ibm', 'IBM', 'ibm.com', 'tech', 0);
 
 -- ─── Seed Iranian Threat Actors ────────────────────────────────────
 INSERT OR IGNORE INTO threat_actors (id, name, aliases, affiliation, country_code, capability, primary_ttps, description, first_seen, status, attribution_confidence) VALUES
