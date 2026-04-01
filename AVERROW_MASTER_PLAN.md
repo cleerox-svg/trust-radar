@@ -367,6 +367,35 @@ CREATE TABLE social_mentions (
 -- Indexed: brand_id, platform+created_at, status, severity
 ```
 
+#### threat_actors (Migration 0062)
+```sql
+CREATE TABLE threat_actors (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  aliases TEXT,            -- JSON array of known aliases
+  affiliation TEXT,        -- e.g. 'IRGC', 'MOIS', 'GRU'
+  country_code TEXT,       -- ISO 3166-1 alpha-2
+  capability TEXT,         -- destructive, espionage, infrastructure, influence_ops
+  primary_ttps TEXT,       -- JSON array of TTPs
+  description TEXT,
+  first_seen TEXT, last_seen TEXT,
+  status TEXT DEFAULT 'active',
+  attribution_confidence TEXT DEFAULT 'medium',
+  source TEXT DEFAULT 'manual',
+  created_at TEXT, updated_at TEXT
+);
+```
+
+#### threat_actor_infrastructure (Migration 0062)
+Links known ASNs, IPs, and domains to threat actors for automated escalation.
+
+#### threat_actor_targets (Migration 0062)
+Maps threat actors to targeted brands/sectors. Seeded with IRGC April 2026 targeting list (18 US tech companies).
+
+**Seeded Iranian threat actors:** Handala (MOIS), Hydro Kitten (IRGC), CyberAv3ngers (IRGC), Agrius (MOIS), MuddyWater (MOIS), Charming Kitten (IRGC), Cotton Sandstorm (MOIS).
+
+**Sentinel auto-escalation:** Threats from known Iranian APT ASNs (AS43754, AS208137, AS205585, AS44244, AS58224, AS12880, AS48159) are automatically escalated in severity.
+
 ### Key Data Relationships
 ```
 threat_signals → [Sentinel] → threats

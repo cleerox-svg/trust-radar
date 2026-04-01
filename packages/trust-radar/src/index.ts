@@ -27,6 +27,7 @@ import { registerEmailSecurityRoutes } from "./routes/email-security";
 import { registerFeedRoutes } from "./routes/feeds";
 import { registerExportRoutes } from "./routes/export";
 import { registerSparrowRoutes } from "./routes/sparrow";
+import { registerThreatActorRoutes } from "./routes/threatActors";
 
 export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 export { CertStreamMonitor } from "./durableObjects/CertStreamMonitor";
@@ -81,6 +82,7 @@ registerExportRoutes(router);
 registerAgentRoutes(router);
 registerSpamTrapRoutes(router);
 registerSparrowRoutes(router);
+registerThreatActorRoutes(router);
 registerEmailSecurityRoutes(router);
 registerTenantRoutes(router);
 registerAdminRoutes(router);

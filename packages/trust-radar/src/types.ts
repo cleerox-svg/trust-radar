@@ -646,6 +646,56 @@ export interface TakedownProvider {
   notes: string | null;
 }
 
+// ─── Threat Actors ─────────────────────────────────────────────
+export type ThreatActorStatus = "active" | "dormant" | "disrupted" | "unknown";
+export type AttributionConfidence = "confirmed" | "high" | "medium" | "low" | "suspected";
+export type ThreatActorCapability = "destructive" | "espionage" | "infrastructure" | "influence_ops";
+
+export interface ThreatActor {
+  id: string;
+  name: string;
+  aliases: string | null;
+  affiliation: string | null;
+  country_code: string | null;
+  capability: string | null;
+  primary_ttps: string | null;
+  description: string | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  status: ThreatActorStatus;
+  attribution_confidence: AttributionConfidence;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreatActorInfrastructure {
+  id: string;
+  threat_actor_id: string;
+  asn: string | null;
+  ip_range: string | null;
+  domain: string | null;
+  hosting_provider: string | null;
+  country_code: string | null;
+  confidence: string;
+  first_observed: string;
+  last_observed: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ThreatActorTarget {
+  id: string;
+  threat_actor_id: string;
+  brand_id: string | null;
+  sector: string | null;
+  target_type: string;
+  context: string | null;
+  first_targeted: string;
+  last_targeted: string;
+  created_at: string;
+}
+
 // ─── v1 Legacy Types (used by existing handlers — remove during v2 migration) ──
 export type RiskLevel = "safe" | "low" | "medium" | "high" | "critical";
 export type UserPlan = "free" | "pro" | "enterprise";

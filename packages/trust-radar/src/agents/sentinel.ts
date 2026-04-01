@@ -22,6 +22,17 @@ const FALLBACK_BRAND_KEYWORDS = [
   "github", "cloudflare", "stripe", "shopify", "coinbase", "binance",
 ];
 
+// Known Iranian APT infrastructure ASNs — auto-escalate threats from these
+const IRANIAN_APT_ASNS = new Set([
+  "AS43754",   // Asiatech Data Transmission — commonly used by Iranian APTs
+  "AS208137",  // Iranian hosting linked to MOIS operations
+  "AS205585",  // Noyan Abr Arvan — Iranian cloud provider used for C2
+  "AS44244",   // Irancell
+  "AS58224",   // TIC (Telecommunication Infrastructure Company)
+  "AS12880",   // Information Technology Company (ITC)
+  "AS48159",   // Telecommunication Infrastructure Company
+]);
+
 const HOMOGLYPHS: Record<string, string[]> = {
   a: ["а", "ą", "ä", "å", "α"],
   e: ["е", "ë", "ę", "ε"],
@@ -80,13 +91,14 @@ export const sentinelAgent: AgentModule = {
 
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
-      `SELECT id, malicious_url, malicious_domain, ip_address, source_feed, ioc_value, threat_type
+      `SELECT id, malicious_url, malicious_domain, ip_address, asn, country_code, source_feed, ioc_value, threat_type
        FROM threats
        WHERE confidence_score IS NULL
        ORDER BY created_at DESC LIMIT 50`
     ).all<{
       id: string; malicious_url: string | null; malicious_domain: string | null;
-      ip_address: string | null; source_feed: string; ioc_value: string | null;
+      ip_address: string | null; asn: string | null; country_code: string | null;
+      source_feed: string; ioc_value: string | null;
       threat_type: string;
     }>();
 
@@ -145,6 +157,28 @@ export const sentinelAgent: AgentModule = {
           if (threatType === "unknown") threatType = "impersonation";
           confidence = Math.min(95, confidence + 10);
         }
+      }
+
+      // Iranian APT infrastructure detection — auto-escalate threats from known IRGC/MOIS ASNs
+      if (threat.asn && IRANIAN_APT_ASNS.has(threat.asn)) {
+        if (severity === "low" || severity === "medium") severity = "high";
+        if (severity === "high" && (threatType === "credential_harvesting" || threatType === "malware_distribution")) {
+          severity = "critical";
+        }
+        confidence = Math.min(98, confidence + 15);
+        outputs.push({
+          type: "classification",
+          summary: `**Iranian APT Infrastructure** — Threat ${threat.id} (${domain ?? threat.ip_address ?? "unknown"}) originates from known Iranian APT ASN ${threat.asn}. Auto-escalated to ${severity}.`,
+          severity: severity as "critical" | "high" | "medium" | "low" | "info",
+          details: {
+            threat_id: threat.id,
+            asn: threat.asn,
+            country_code: threat.country_code,
+            domain,
+            escalated_severity: severity,
+            iranian_apt_asn: true,
+          },
+        });
       }
 
       // Cross-reference with social profiles for coordinated attack detection
