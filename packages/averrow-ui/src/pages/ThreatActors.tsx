@@ -71,7 +71,7 @@ function CapabilityBadge({ capability }: { capability: string | null }) {
 
 function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
   const aliases = parseJsonArray(actor.aliases);
-  const ttps = parseJsonArray(actor.primary_ttps);
+  const ttps = parseJsonArray(actor.ttps);
 
   return (
     <button
@@ -83,7 +83,6 @@ function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void 
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-mono text-instrument-white font-semibold">{actor.name}</span>
             <StatusBadge status={actor.status} />
-            <CapabilityBadge capability={actor.capability} />
           </div>
           {aliases.length > 0 && (
             <div className="text-[10px] text-gauge-gray font-mono mb-1">
@@ -108,10 +107,10 @@ function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void 
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">{countryFlag(actor.country_code)}</span>
-            <span className="font-mono text-[10px] text-gauge-gray">{actor.affiliation ?? 'Unknown'}</span>
+            <span className="text-sm">{countryFlag(actor.country)}</span>
+            <span className="font-mono text-[10px] text-gauge-gray">{actor.attribution ?? 'Unknown'}</span>
           </div>
-          <ConfidenceBadge confidence={actor.attribution_confidence} />
+          <ConfidenceBadge confidence={actor.attribution ?? 'unknown'} />
           <div className="flex gap-3 mt-1">
             <span className="font-mono text-[10px] text-white/40">{actor.infra_count ?? 0} infra</span>
             <span className="font-mono text-[10px] text-white/40">{actor.target_count ?? 0} targets</span>
@@ -178,15 +177,15 @@ export function ThreatActors() {
           </div>
         </StatCard>
         <StatCard
-          title="BY AFFILIATION"
-          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{stats?.by_affiliation?.length ?? 0}</span>}
+          title="BY ATTRIBUTION"
+          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{stats?.by_attribution?.length ?? 0}</span>}
           metricLabel="groups"
         >
           <div className="space-y-1">
-            {(stats?.by_affiliation ?? []).slice(0, 3).map(a => (
-              <div key={a.affiliation} className="flex items-center gap-2">
+            {(stats?.by_attribution ?? []).slice(0, 3).map(a => (
+              <div key={a.attribution} className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-wing-blue" />
-                <span className="text-[11px] text-white/60">{a.affiliation || 'Unknown'}</span>
+                <span className="text-[11px] text-white/60">{a.attribution || 'Unknown'}</span>
                 <span className="text-[11px] font-mono text-instrument-white">{a.count}</span>
               </div>
             ))}
