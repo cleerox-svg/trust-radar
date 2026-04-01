@@ -51,7 +51,7 @@ export function renderSecurityPage(): string {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-section, var(--accent));
   letter-spacing: 0.12em;
   text-transform: uppercase;
   margin-bottom: 0.75rem;
@@ -392,6 +392,23 @@ export function renderSecurityPage(): string {
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   .sec-infra-list { grid-template-columns: 1fr; }
+}
+
+/* ── Light theme glass effects ── */
+[data-theme="light"] .sec-card,
+[data-theme="light"] .sec-infra-item,
+[data-theme="light"] .sec-disclosure,
+[data-theme="light"] .sec-data-bg {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .sec-card:hover,
+[data-theme="light"] .sec-infra-item:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-color: rgba(226,221,213,0.7);
 }
 
 @media (max-width: 640px) {

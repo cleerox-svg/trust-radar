@@ -201,6 +201,19 @@ export function renderChangelogPage(): string {
     gap: 0.5rem;
   }
 }
+
+/* ── Light theme glass effects ── */
+[data-theme="light"] .timeline-card {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .timeline-card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-color: rgba(226,221,213,0.7);
+}
 </style>
 
 <!-- ── HERO ── -->

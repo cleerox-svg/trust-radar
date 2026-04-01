@@ -39,7 +39,7 @@ export function renderHomepage(): string {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3em;
-  color: var(--accent);
+  color: var(--accent-section, var(--accent));
   margin-bottom: 16px;
   text-transform: uppercase;
 }
@@ -373,7 +373,7 @@ export function renderHomepage(): string {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.2em;
-  color: var(--accent);
+  color: var(--accent-section, var(--accent));
   text-transform: uppercase;
   margin-bottom: 10px;
 }
@@ -674,6 +674,33 @@ export function renderHomepage(): string {
 .cta-btn-secondary:hover {
   border-color: var(--accent);
   background: rgba(200, 60, 60, 0.06);
+}
+
+/* ── LIGHT THEME GLASS EFFECTS ── */
+[data-theme="light"] .result-card,
+[data-theme="light"] .agent-card,
+[data-theme="light"] .cap-card {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .result-card:hover,
+[data-theme="light"] .agent-card:hover,
+[data-theme="light"] .cap-card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-color: rgba(226,221,213,0.7);
+}
+[data-theme="light"] .scan-box {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(226,221,213,0.5);
+}
+[data-theme="light"] .cta-btn-secondary:hover {
+  border-color: #B53030;
+  background: rgba(181,48,48,0.06);
 }
 
 /* ══════════════════════════════════════════════════════════
