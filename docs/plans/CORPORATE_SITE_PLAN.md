@@ -931,7 +931,7 @@ pnpm add satori                # HTML/CSS → SVG (Vercel's OG image library, wo
 ```
 - Circular gauge (270° arc, not full circle)
 - Animated fill from 0 to actual score on page load
-- Color gradient: green (90+) → teal (70-89) → amber (50-69) → red (<50)
+- Color gradient: green (90+) → wing-blue (70-89) → afterburner amber (50-69) → red (<50)
 - Center: large score number with count-up animation
 - Below: grade letter (A+ through F)
 - Subtle glow effect matching the score color
@@ -965,7 +965,7 @@ pnpm add satori                # HTML/CSS → SVG (Vercel's OG image library, wo
   ● Lookalike domain scan... (scanning)
   ● Social handle check... (queued)
   ● AI assessment... (queued)
-- Each stage transitions from gray → pulsing teal → green check
+- Each stage transitions from gray → pulsing afterburner amber → green check
 - Smooth, not janky — use requestAnimationFrame or Lottie
 ```
 
