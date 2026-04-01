@@ -18,6 +18,7 @@ import { cloudflare_email } from "./cloudflare_email";
 import { otx_alienvault } from "./otx_alienvault";
 import { cisa_kev } from "./cisa_kev";
 import { malwarebazaar } from "./malwarebazaar";
+import { cisa_iran_iocs } from "./cisa_iran_iocs";
 
 // ─── Ingest Feed Modules (continued) ────────────────────────────
 import { blocklist_de } from "./blocklistde";
@@ -77,6 +78,7 @@ export const feedModules: Record<string, FeedModule> = {
   disposable_email,
   c2_intel_feeds,
   typosquat_scanner,
+  cisa_iran_iocs,
 };
 
 /**
