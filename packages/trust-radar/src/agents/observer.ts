@@ -143,6 +143,48 @@ export const observerAgent: AgentModule = {
        ORDER BY threat_count DESC LIMIT 10`
     ).all<{ id: string; name: string; threat_count: number }>();
 
+    // ─── Active geopolitical campaigns ─────────────────────────────
+    let geopoliticalContext = "";
+    interface GeoCampaignBriefing {
+      name: string; status: string; conflict: string;
+      total_threats: number; new_24h: number; brands_hit: number;
+      threat_actors: string; briefing_priority: string;
+      start_date: string; notes: string | null;
+    }
+    let geoCampaignData: GeoCampaignBriefing[] = [];
+    try {
+      const geoCampaigns = await env.DB.prepare(`
+        SELECT gc.name, gc.status, gc.conflict, gc.threat_actors,
+          gc.briefing_priority, gc.start_date, gc.notes,
+          (SELECT COUNT(*) FROM threats t
+           JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+           WHERE gcl.geopolitical_campaign_id = gc.id) as total_threats,
+          (SELECT COUNT(*) FROM threats t
+           JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+           WHERE gcl.geopolitical_campaign_id = gc.id
+             AND t.first_seen >= datetime('now', '-24 hours')) as new_24h,
+          (SELECT COUNT(DISTINCT t.target_brand_id) FROM threats t
+           JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+           WHERE gcl.geopolitical_campaign_id = gc.id
+             AND t.target_brand_id IS NOT NULL) as brands_hit
+        FROM geopolitical_campaigns gc
+        WHERE gc.status = 'active'
+        ORDER BY gc.briefing_priority DESC
+      `).all<GeoCampaignBriefing>();
+
+      geoCampaignData = geoCampaigns.results;
+
+      if (geoCampaigns.results.length > 0) {
+        const parts = geoCampaigns.results.map(gc => {
+          const actors: string[] = JSON.parse(gc.threat_actors || '[]');
+          return `${gc.name} (${gc.status.toUpperCase()}, since ${gc.start_date}, priority: ${gc.briefing_priority}): ${gc.total_threats} total threats, ${gc.new_24h} new in 24h, ${gc.brands_hit} brands targeted. Actors: ${actors.join(', ')}.${gc.notes ? ' Notes: ' + gc.notes : ''}`;
+        });
+        geopoliticalContext = `Geopolitical Campaigns: ${parts.join(' | ')}`;
+      }
+    } catch (err) {
+      console.warn("[observer] geopolitical campaigns query error:", String(err));
+    }
+
     // ─── Recent agent outputs for context ────────────────────────
     const recentOutputs = await env.DB.prepare(`
       SELECT agent_id as agent, summary
@@ -453,6 +495,7 @@ export const observerAgent: AgentModule = {
       ct_certificate_summary: ctCertContext,
       enrichment_validation_summary: enrichmentContext,
       social_mentions_summary: socialMentionsContext,
+      geopolitical_campaign_summary: geopoliticalContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
@@ -615,6 +658,25 @@ export const observerAgent: AgentModule = {
         });
       }
 
+      // Item: Geopolitical campaigns (rendered at top for CRITICAL priority)
+      for (const gc of geoCampaignData) {
+        const actors: string[] = JSON.parse(gc.threat_actors || '[]');
+        outputs.unshift({
+          type: 'insight',
+          summary: `**GEOPOLITICAL ALERT: ${gc.name.toUpperCase()}** — Status: ${gc.status.toUpperCase()} | Since: ${gc.start_date} | Priority: ${gc.briefing_priority.toUpperCase()}. Total threats: ${gc.total_threats} | New (24h): ${gc.new_24h}. Brands targeted: ${gc.brands_hit}. Actors: ${actors.join(', ')}.${gc.notes ? ' ' + gc.notes : ''}`,
+          severity: gc.briefing_priority === 'critical' ? 'critical' : 'high',
+          details: {
+            title: `Geopolitical Alert: ${gc.name}`,
+            category: 'geopolitical_campaign',
+            conflict: gc.conflict,
+            total_threats: gc.total_threats,
+            new_24h: gc.new_24h,
+            brands_hit: gc.brands_hit,
+            actors: actors,
+          },
+        });
+      }
+
       // Item: Email security posture
       if (totalEmailScanned > 0) {
         const atRisk = emailAtRiskBrands.results;
@@ -716,6 +778,7 @@ export const observerAgent: AgentModule = {
             ct_certificate_summary: ctCertContext,
             enrichment_validation_summary: enrichmentContext,
             social_mentions_summary: socialMentionsContext,
+            geopolitical_campaign_summary: geopoliticalContext,
           });
 
           if (weeklyResult.success && weeklyResult.data?.items?.length) {

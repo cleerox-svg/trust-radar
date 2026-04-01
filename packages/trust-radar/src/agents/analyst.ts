@@ -14,6 +14,37 @@ import { getBrandSocialIntel } from "../lib/social-intel";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
 import { getBrandById, incrementBrandThreatCount } from "../db/brands";
 
+// ─── Domain parsing utilities ─────────────────────────────────────
+
+/** Extract apex/registrable domain (eTLD+1). */
+function getApexDomain(domain: string): string {
+  const parts = domain.split(".");
+  if (parts.length <= 2) return domain;
+  const sld = parts[parts.length - 2] ?? "";
+  const knownSlds = new Set(["co", "com", "org", "net", "gov", "edu", "ac", "ltd", "plc"]);
+  if (sld.length > 0 && sld.length <= 3 && knownSlds.has(sld)) {
+    return parts.slice(-3).join(".");
+  }
+  return parts.slice(-2).join(".");
+}
+
+/** Extract subdomain portion (everything before the apex domain). */
+function getSubdomain(domain: string): string {
+  const apex = getApexDomain(domain);
+  if (domain === apex) return "";
+  return domain.slice(0, domain.length - apex.length - 1);
+}
+
+/** Check if a domain contains a numeric segment that can be varied. */
+function extractNumberedPattern(domain: string): { prefix: string; num: number; suffix: string } | null {
+  // Match patterns like "domain123.com" or "site-42-login.com"
+  const match = domain.match(/^(.*?)(\d+)(.*?)$/);
+  if (!match || !match[2]) return null;
+  const num = parseInt(match[2], 10);
+  if (isNaN(num)) return null;
+  return { prefix: match[1] ?? '', num, suffix: match[3] ?? '' };
+}
+
 export const analystAgent: AgentModule = {
   name: "analyst",
   displayName: "ASTRA",
@@ -492,6 +523,201 @@ export const analystAgent: AgentModule = {
       }
     }
 
+    // ─── Phase 5: Subdomain brand spoofing detection ─────────────
+    let subdomainSpoofCount = 0;
+    try {
+      // Get monitored brand names and domains for matching
+      const monitoredBrands = await env.DB.prepare(`
+        SELECT b.id, LOWER(b.name) as name, LOWER(b.canonical_domain) as domain
+        FROM brands b
+        JOIN monitored_brands mb ON mb.brand_id = b.id
+        WHERE mb.status = 'active' AND b.canonical_domain IS NOT NULL
+      `).all<{ id: string; name: string; domain: string }>();
+
+      // Find recent threats not yet checked for subdomain spoofing
+      const uncheckedThreats = await env.DB.prepare(`
+        SELECT id, malicious_domain, country_code
+        FROM threats
+        WHERE malicious_domain IS NOT NULL
+          AND threat_type != 'subdomain_brand_spoofing'
+          AND created_at >= datetime('now', '-24 hours')
+        ORDER BY created_at DESC
+        LIMIT 100
+      `).all<{ id: string; malicious_domain: string; country_code: string | null }>();
+
+      for (const threat of uncheckedThreats.results) {
+        const domain = threat.malicious_domain.toLowerCase();
+        const apex = getApexDomain(domain);
+        const subdomain = getSubdomain(domain);
+        if (!subdomain) continue;
+
+        for (const brand of monitoredBrands.results) {
+          const brandApex = getApexDomain(brand.domain);
+          // Skip if the registrable domain IS the brand's own domain
+          if (apex === brandApex) continue;
+
+          // Check if brand name or key brand term appears in subdomain
+          const brandKeyword = brand.name.replace(/[^a-z0-9]/g, '');
+          const subdomainFlat = subdomain.replace(/[^a-z0-9]/g, '');
+
+          if (subdomainFlat.includes(brandKeyword) && brandKeyword.length >= 3) {
+            // This is subdomain brand spoofing
+            subdomainSpoofCount++;
+
+            // Check if threat is from adversary country for campaign tagging
+            let campaignLink: string | null = null;
+            if (threat.country_code) {
+              const geoCampaign = await env.DB.prepare(`
+                SELECT gc.id, gcl.campaign_id FROM geopolitical_campaigns gc
+                JOIN geopolitical_campaign_links gcl ON gcl.geopolitical_campaign_id = gc.id
+                WHERE gc.status = 'active' AND gc.adversary_countries LIKE '%' || ? || '%'
+                LIMIT 1
+              `).bind(threat.country_code).first<{ id: string; campaign_id: string }>();
+              if (geoCampaign) campaignLink = geoCampaign.campaign_id;
+            }
+
+            await env.DB.prepare(`
+              UPDATE threats SET
+                threat_type = 'subdomain_brand_spoofing',
+                severity = CASE WHEN severity IN ('low', 'medium') THEN 'high' ELSE severity END,
+                target_brand_id = COALESCE(target_brand_id, ?),
+                campaign_id = COALESCE(campaign_id, ?)
+              WHERE id = ?
+            `).bind(brand.id, campaignLink, threat.id).run();
+
+            outputs.push({
+              type: 'classification',
+              summary: `**Subdomain Brand Spoofing** — ${brand.name} impersonated in subdomain of ${apex}: ${domain}`,
+              severity: 'high',
+              details: {
+                brand: brand.name,
+                malicious_domain: domain,
+                apex_domain: apex,
+                subdomain,
+                country_code: threat.country_code,
+                campaign_linked: !!campaignLink,
+              },
+              relatedBrandIds: [brand.id],
+            });
+
+            break; // One brand match per threat is sufficient
+          }
+        }
+      }
+
+      if (subdomainSpoofCount > 0) {
+        outputs.push({
+          type: 'diagnostic',
+          summary: `Subdomain spoofing scan: ${subdomainSpoofCount} brand spoofing attempts detected in ${uncheckedThreats.results.length} threats checked`,
+          severity: subdomainSpoofCount > 5 ? 'high' : 'medium',
+          details: { subdomain_spoof_count: subdomainSpoofCount, threats_checked: uncheckedThreats.results.length },
+        });
+      }
+    } catch (spoofErr) {
+      console.error("[analyst] subdomain spoofing detection error:", spoofErr);
+    }
+
+    // ─── Phase 6: Numbered domain variant scanning ─────────────
+    let numberedVariantsFound = 0;
+    try {
+      // Find recent malicious domains containing numbers
+      const numberedThreats = await env.DB.prepare(`
+        SELECT id, malicious_domain, threat_type, campaign_id, target_brand_id, severity
+        FROM threats
+        WHERE malicious_domain IS NOT NULL
+          AND malicious_domain GLOB '*[0-9]*'
+          AND severity IN ('high', 'critical')
+          AND created_at >= datetime('now', '-24 hours')
+        ORDER BY created_at DESC
+        LIMIT 20
+      `).all<{
+        id: string; malicious_domain: string; threat_type: string;
+        campaign_id: string | null; target_brand_id: string | null; severity: string;
+      }>();
+
+      for (const threat of numberedThreats.results) {
+        const pattern = extractNumberedPattern(threat.malicious_domain);
+        if (!pattern) continue;
+
+        // Generate ±10 variants
+        const variants: string[] = [];
+        for (let delta = -10; delta <= 10; delta++) {
+          if (delta === 0) continue; // skip the original
+          const variantNum = pattern.num + delta;
+          if (variantNum < 0) continue;
+          const variantDomain = `${pattern.prefix}${variantNum}${pattern.suffix}`;
+          // Skip if we already have this domain
+          variants.push(variantDomain);
+        }
+
+        if (variants.length === 0) continue;
+
+        // Check which variants resolve via DNS
+        const resolvedVariants: string[] = [];
+        for (const variant of variants) {
+          try {
+            const dnsRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(variant)}&type=A`, {
+              headers: { 'Accept': 'application/dns-json' },
+              signal: AbortSignal.timeout(3000),
+            });
+            if (dnsRes.ok) {
+              const dnsData = await dnsRes.json() as { Answer?: Array<{ type: number; data: string }> };
+              if (dnsData.Answer && dnsData.Answer.length > 0) {
+                resolvedVariants.push(variant);
+              }
+            }
+          } catch {
+            // DNS lookup failed, skip this variant
+          }
+        }
+
+        // Create threats for resolved variants (that don't already exist)
+        for (const resolvedDomain of resolvedVariants) {
+          const existing = await env.DB.prepare(
+            "SELECT id FROM threats WHERE malicious_domain = ? LIMIT 1"
+          ).bind(resolvedDomain).first<{ id: string }>();
+
+          if (!existing) {
+            const newId = crypto.randomUUID();
+            await env.DB.prepare(`
+              INSERT INTO threats (id, malicious_domain, threat_type, severity, source_feed, campaign_id, target_brand_id, first_seen, status, created_at)
+              VALUES (?, ?, ?, ?, 'numbered_variant_scan', ?, ?, datetime('now'), 'active', datetime('now'))
+            `).bind(
+              newId, resolvedDomain, threat.threat_type, threat.severity,
+              threat.campaign_id, threat.target_brand_id,
+            ).run();
+            numberedVariantsFound++;
+          }
+        }
+
+        if (resolvedVariants.length > 0) {
+          outputs.push({
+            type: 'classification',
+            summary: `**Numbered Domain Variants** — ${resolvedVariants.length} active variants found from pattern ${threat.malicious_domain}: ${resolvedVariants.slice(0, 5).join(', ')}${resolvedVariants.length > 5 ? '...' : ''}`,
+            severity: 'high',
+            details: {
+              source_domain: threat.malicious_domain,
+              pattern: `${pattern.prefix}[N]${pattern.suffix}`,
+              variants_checked: variants.length,
+              variants_resolved: resolvedVariants.length,
+              resolved_domains: resolvedVariants,
+            },
+          });
+        }
+      }
+
+      if (numberedVariantsFound > 0) {
+        outputs.push({
+          type: 'diagnostic',
+          summary: `Numbered domain scan: ${numberedVariantsFound} new variant threats created from ${numberedThreats.results.length} source domains`,
+          severity: 'high',
+          details: { new_variants: numberedVariantsFound, source_domains_checked: numberedThreats.results.length },
+        });
+      }
+    } catch (numErr) {
+      console.error("[analyst] numbered domain variant scanning error:", numErr);
+    }
+
     // Always generate an output so agent_outputs gets populated
     outputs.push({
       type: "classification",
@@ -513,12 +739,14 @@ export const analystAgent: AgentModule = {
         anthropicApiConfigured: !!apiKey,
         model,
         enhanced_fields: ['attack_vector', 'target_audience', 'sophistication'],
+        subdomain_spoofing_detected: subdomainSpoofCount,
+        numbered_variants_created: numberedVariantsFound,
       },
     });
 
     return {
       itemsProcessed,
-      itemsCreated: 0,
+      itemsCreated: numberedVariantsFound,
       itemsUpdated,
       output: { brandMatches: itemsUpdated },
       model,
