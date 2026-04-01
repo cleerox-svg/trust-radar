@@ -112,7 +112,7 @@ The watermark should contain these actual dashboard elements:
 │   - X axis: Mon Tue Wed Thu Fri Sat Sun                  │
 │   - Y axis: Threat count                                 │
 │   - Actual data shape (not flat): peaks mid-week         │
-│   - Teal gradient fill, teal stroke line                 │
+│   - Afterburner amber gradient fill, amber stroke line   │
 │                                                          │
 │ SIDE PANEL: Quick stats                                  │
 │   - Score gauge (circular, 72/100)                       │
@@ -386,10 +386,10 @@ Every box, card, border, and line in Trust Radar should feel engineered and inte
 }
 
 /* Color-specific tags with gradient backgrounds */
-.tr-tag-teal {
-  background: linear-gradient(135deg, rgba(8, 145, 178, 0.08), rgba(6, 182, 212, 0.12));
+.tr-tag-amber {
+  background: linear-gradient(135deg, rgba(229, 168, 50, 0.08), rgba(229, 168, 50, 0.12));
   color: var(--accent);
-  border: 1px solid rgba(8, 145, 178, 0.2);
+  border: 1px solid rgba(229, 168, 50, 0.2);
 }
 
 .tr-tag-coral {
@@ -623,7 +623,7 @@ import { Shield, Mail, Users, Brain } from 'lucide-react';
 <Shield size={20} strokeWidth={2} color="var(--accent)" />
 
 // With icon container
-<div className="tr-icon-container tr-icon-teal">
+<div className="tr-icon-container tr-icon-amber">
   <Shield size={20} strokeWidth={2} />
 </div>
 ```
@@ -671,12 +671,11 @@ function renderIcon(name: string, size = 24, color = 'currentColor'): string {
   justify-content: center;
 }
 
-.tr-icon-teal { background: var(--accent-bg); color: var(--accent); }
+.tr-icon-amber { background: rgba(229, 168, 50, 0.08); color: #E5A832; }
 .tr-icon-coral { background: var(--coral-bg); color: var(--coral); }
 .tr-icon-green { background: var(--green-bg); color: var(--green); }
 .tr-icon-purple { background: rgba(124, 58, 237, 0.08); color: #7c3aed; }
 .tr-icon-red { background: var(--red-bg); color: var(--red); }
-.tr-icon-amber { background: rgba(245, 158, 11, 0.08); color: var(--amber); }
 
 /* Smaller variant for inline use */
 .tr-icon-sm {

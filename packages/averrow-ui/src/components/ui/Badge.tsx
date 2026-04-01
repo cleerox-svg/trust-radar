@@ -3,8 +3,8 @@ import { cn } from '@/lib/cn';
 const variants = {
   critical: 'badge-glass badge-critical',
   high: 'badge-glass badge-high',
-  medium: 'badge-glass badge-dormant',
-  low: 'badge-glass badge-dormant',
+  medium: 'badge-glass badge-medium',
+  low: 'badge-glass badge-low',
   success: 'badge-glass badge-active',
   info: 'badge-glass badge-pivot',
   default: 'badge-glass badge-dormant',

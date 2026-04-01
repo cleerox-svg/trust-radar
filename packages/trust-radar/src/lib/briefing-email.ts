@@ -70,7 +70,7 @@ function statusBadge(status: string): string {
 
 function sectionHeader(text: string): string {
   return `<tr><td style="padding:20px 24px 8px;background:#0a0f1a;">
-    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#00d4ff;text-transform:uppercase;font-family:monospace;">${text}</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#E5A832;text-transform:uppercase;font-family:monospace;">${text}</div>
   </td></tr>`;
 }
 
@@ -215,8 +215,8 @@ function buildBriefingHtml(
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#050a12;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#050a12;">
+<body style="margin:0;padding:0;background:#080C14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080C14;">
 <tr><td align="center" style="padding:24px 16px;">
 <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#0a0f1a;">
 
@@ -224,7 +224,7 @@ function buildBriefingHtml(
 <tr><td style="padding:28px 24px 16px;background:#0a0f1a;border-radius:12px 12px 0 0;border-bottom:1px solid #1e293b;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td>
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#00d4ff;text-transform:uppercase;font-family:monospace;">AVERROW INTELLIGENCE</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#E5A832;text-transform:uppercase;font-family:monospace;">AVERROW INTELLIGENCE</div>
       <div style="font-size:18px;font-weight:700;color:#e2e8f0;margin-top:6px;">${title}</div>
       <div style="font-size:12px;color:#78A0C8;margin-top:4px;">${dateStr}</div>
     </td>
@@ -238,15 +238,15 @@ ${sectionHeader("Platform Overview")}
   ${cardStart()}
   <tr>
     <td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1e293b;">
-      <div style="font-size:26px;font-weight:700;color:#00d4ff;font-family:monospace;">${fmt(p.totalThreats)}</div>
+      <div style="font-size:26px;font-weight:700;color:#E5A832;font-family:monospace;">${fmt(p.totalThreats)}</div>
       <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Total</div>
     </td>
     <td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1e293b;">
-      <div style="font-size:26px;font-weight:700;color:#00d4ff;font-family:monospace;">${fmt(p.last24h)}</div>
+      <div style="font-size:26px;font-weight:700;color:#E5A832;font-family:monospace;">${fmt(p.last24h)}</div>
       <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">New 24h</div>
     </td>
     <td style="padding:16px;text-align:center;width:25%;border-right:1px solid #1e293b;">
-      <div style="font-size:26px;font-weight:700;color:#00d4ff;font-family:monospace;">${fmt(p.avgPerHour)}/hr</div>
+      <div style="font-size:26px;font-weight:700;color:#E5A832;font-family:monospace;">${fmt(p.avgPerHour)}/hr</div>
       <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Per Hour</div>
     </td>
     <td style="padding:16px;text-align:center;width:25%;">
@@ -263,7 +263,7 @@ ${sectionHeader("Platform Overview")}
 <!-- ═══ SECTION 2: NEW THREATS (12H) ═══ -->
 ${sectionHeader("New Threats (12h)")}
 <tr><td style="padding:0 24px 4px;background:#0a0f1a;">
-  <div style="font-size:14px;color:#e2e8f0;font-weight:600;margin-bottom:8px;">Total new: <span style="color:#00d4ff;">${fmt(total12h)}</span></div>
+  <div style="font-size:14px;color:#e2e8f0;font-weight:600;margin-bottom:8px;">Total new: <span style="color:#E5A832;">${fmt(total12h)}</span></div>
   <div style="font-size:12px;color:#78A0C8;font-family:monospace;margin-bottom:12px;">
     ${b.newThreats.bySeverity.map((s) => `<span style="color:${severityColor(s.severity)};">${s.severity}: ${fmt(s.count)}</span>`).join(" &middot; ")}
   </div>
@@ -272,7 +272,7 @@ ${b.newThreats.bySource.length > 0 ? `<tr><td style="padding:0 24px 4px;backgrou
   <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-family:monospace;margin-bottom:4px;">By Source</div>
   ${cardStart()}
   ${headerRow([{ text: "Feed" }, { text: "Count", align: "right" }])}
-  ${b.newThreats.bySource.map((s) => tableRow([{ text: s.source_feed, mono: true }, { text: fmt(s.count), align: "right", mono: true, color: "#00d4ff" }])).join("")}
+  ${b.newThreats.bySource.map((s) => tableRow([{ text: s.source_feed, mono: true }, { text: fmt(s.count), align: "right", mono: true, color: "#E5A832" }])).join("")}
   ${cardEnd()}
 </td></tr>` : ""}
 ${b.newThreats.notable.length > 0 ? `<tr><td style="padding:8px 24px 4px;background:#0a0f1a;">
@@ -291,7 +291,7 @@ ${sectionHeader("Feed Production (12h)")}
 <tr><td style="padding:0 24px 4px;background:#0a0f1a;">
   ${cardStart()}
   ${headerRow([{ text: "Feed" }, { text: "Runs", align: "right", width: "60px" }, { text: "Ingested", align: "right", width: "80px" }])}
-  ${b.feedProduction.map((f) => tableRow([{ text: f.feed_name, mono: true }, { text: fmt(f.runs), align: "right", mono: true }, { text: fmt(f.ingested), align: "right", mono: true, color: "#00d4ff" }])).join("")}
+  ${b.feedProduction.map((f) => tableRow([{ text: f.feed_name, mono: true }, { text: fmt(f.runs), align: "right", mono: true }, { text: fmt(f.ingested), align: "right", mono: true, color: "#E5A832" }])).join("")}
   ${cardEnd()}
   <div style="font-size:11px;color:#78A0C8;margin-top:8px;font-family:monospace;">
     ${b.feedProduction.length} feeds active &middot; ${fmt(totalFeedRuns)} total runs &middot; ${fmt(totalIngested)} records ingested
@@ -330,7 +330,7 @@ ${sectionHeader("Enrichment Pipeline")}
   ].map((e) => tableRow([
     { text: e.name, mono: true },
     { text: fmt(e.checked), align: "right", mono: true },
-    { text: fmt(e.hits), align: "right", mono: true, color: e.hits > 0 ? "#00d4ff" : "#64748b" },
+    { text: fmt(e.hits), align: "right", mono: true, color: e.hits > 0 ? "#E5A832" : "#64748b" },
     { text: pct(e.hits, e.checked), align: "right", mono: true },
     { text: enrichmentStatus(e.checked), align: "center" },
   ])).join("")}
@@ -347,7 +347,7 @@ ${sectionHeader("Flight Controller")}
     }
     return `${cardStart()}
     ${headerRow([{ text: "Queue" }, { text: "Backlog", align: "right" }])}
-    ${fcRows.map((r) => tableRow([{ text: r.queue, mono: true }, { text: r.backlog, align: "right", mono: true, color: "#00d4ff" }])).join("")}
+    ${fcRows.map((r) => tableRow([{ text: r.queue, mono: true }, { text: r.backlog, align: "right", mono: true, color: "#E5A832" }])).join("")}
     ${cardEnd()}`;
   })() : `<div style="font-size:12px;color:#64748b;font-family:monospace;">No Flight Controller diagnostic available</div>`}
 </td></tr>
@@ -374,18 +374,18 @@ ${sectionHeader("Agent Status (12h)")}
 ${sectionHeader("Spam Trap Intelligence")}
 <tr><td style="padding:0 24px 4px;background:#0a0f1a;">
   <div style="font-size:12px;color:#e2e8f0;font-family:monospace;margin-bottom:8px;">
-    Seeds deployed: <span style="color:#00d4ff;">${fmt(b.spamTrap.totalSeeds)}</span>
+    Seeds deployed: <span style="color:#E5A832;">${fmt(b.spamTrap.totalSeeds)}</span>
     ${b.spamTrap.seedingSources.length > 0 ? ` (${b.spamTrap.seedingSources.slice(0, 3).map((s) => `${s.seeded_location}: ${s.seeds}`).join(" &middot; ")})` : ""}
   </div>
   <div style="font-size:12px;color:#e2e8f0;font-family:monospace;margin-bottom:8px;">
-    Total captures: <span style="color:#00d4ff;">${fmt(b.spamTrap.totalCaptures)}</span>
-    &middot; New (12h): <span style="color:#00d4ff;">${fmt(b.spamTrap.captures12h)}</span>
+    Total captures: <span style="color:#E5A832;">${fmt(b.spamTrap.totalCaptures)}</span>
+    &middot; New (12h): <span style="color:#E5A832;">${fmt(b.spamTrap.captures12h)}</span>
   </div>
   ${b.spamTrap.seedingSources.length > 0 ? `
   <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-family:monospace;margin:8px 0 4px;">Seeding Sources</div>
   ${cardStart()}
   ${headerRow([{ text: "Source" }, { text: "Seeds", align: "right" }, { text: "Catches", align: "right" }])}
-  ${b.spamTrap.seedingSources.map((s) => tableRow([{ text: s.seeded_location, mono: true }, { text: fmt(s.seeds), align: "right", mono: true }, { text: fmt(s.catches), align: "right", mono: true, color: Number(s.catches) > 0 ? "#00d4ff" : "#64748b" }])).join("")}
+  ${b.spamTrap.seedingSources.map((s) => tableRow([{ text: s.seeded_location, mono: true }, { text: fmt(s.seeds), align: "right", mono: true }, { text: fmt(s.catches), align: "right", mono: true, color: Number(s.catches) > 0 ? "#E5A832" : "#64748b" }])).join("")}
   ${cardEnd()}` : ""}
   ${b.spamTrap.latestCaptures.length > 0 ? `
   <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-family:monospace;margin:12px 0 4px;">Latest Captures</div>
@@ -402,10 +402,10 @@ ${sectionHeader("Spam Trap Intelligence")}
 ${sectionHeader("Honeypot Activity")}
 <tr><td style="padding:0 24px 4px;background:#0a0f1a;">
   <div style="font-size:12px;color:#e2e8f0;font-family:monospace;margin-bottom:8px;">
-    Total visits: <span style="color:#00d4ff;">${fmt(b.honeypot.totalVisits)}</span>
+    Total visits: <span style="color:#E5A832;">${fmt(b.honeypot.totalVisits)}</span>
     (<span style="color:#78A0C8;">${fmt(b.honeypot.botVisits)} bots</span> &middot;
     <span style="color:#78A0C8;">${fmt(b.honeypot.humanVisits)} humans</span>)
-    &middot; Last 12h: <span style="color:#00d4ff;">${fmt(b.honeypot.visits12h)}</span>
+    &middot; Last 12h: <span style="color:#E5A832;">${fmt(b.honeypot.visits12h)}</span>
   </div>
   ${b.honeypot.pageBreakdown.length > 0 ? `
   <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;font-family:monospace;margin:8px 0 4px;">Page Breakdown</div>
@@ -433,7 +433,7 @@ ${sectionHeader("Top Targeted Brands (24h)")}
   ${b.topTargetedBrands.map((brand, i) => tableRow([
     { text: `${i + 1}.`, align: "right", color: "#64748b", width: "30px", mono: true },
     { text: brand.name },
-    { text: fmt(brand.threats_24h), align: "right", mono: true, color: "#00d4ff" },
+    { text: fmt(brand.threats_24h), align: "right", mono: true, color: "#E5A832" },
   ])).join("")}
   ${cardEnd()}` : `<div style="font-size:12px;color:#64748b;font-family:monospace;">No brand-attributed threats in last 24h</div>`}
 </td></tr>
@@ -497,7 +497,7 @@ ${sectionHeader("Brand Coverage")}
       <span style="color:#4a5568;">Generated at ${timeStr} UTC &middot; Next briefing at 8:00 AM ET</span>
     </td>
     <td style="text-align:right;">
-      <a href="https://averrow.com/v2/briefings" style="color:#00d4ff;font-size:11px;text-decoration:none;font-family:monospace;">View in Dashboard &#8594;</a>
+      <a href="https://averrow.com/v2/briefings" style="color:#E5A832;font-size:11px;text-decoration:none;font-family:monospace;">View in Dashboard &#8594;</a>
     </td>
   </tr></table>
 </td></tr>
