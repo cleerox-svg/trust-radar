@@ -45,6 +45,10 @@ const DEFAULT_CHANNELS = [
   'daborat',
   'phlocker',
   'cyberthreatintel',
+  // Iran-focused threat actor channels
+  'tasaborat',       // Tasnim News Agency — IRGC mouthpiece, publishes target lists
+  'HandalaHack',     // Handala Hack — claims responsibility for attacks
+  'cyberav3ngers',   // CyberAv3ngers — ICS/infrastructure attacks
 ];
 
 // Threat indicator keywords (scanned alongside brand names)
