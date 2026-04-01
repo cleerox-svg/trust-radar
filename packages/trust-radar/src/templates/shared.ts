@@ -11,45 +11,16 @@ export function renderNav(): string {
 <nav class="nav">
   <div class="nav-inner">
     <a href="/" class="nav-brand">
-      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+      <svg width="28" height="28" viewBox="0 0 32 32" style="flex-shrink:0" class="averrow-mark">
         <defs>
-          <linearGradient id="deltaGrad" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#C83C3C"/>
-            <stop offset="100%" stop-color="#78A0C8"/>
+          <linearGradient id="deep-arrow-nav" x1="16" y1="5" x2="16" y2="26" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6B1010"/>
+            <stop offset="100%" stop-color="#C83C3C"/>
           </linearGradient>
-          <filter id="vertexGlow"><feGaussianBlur stdDeviation="3" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        <!-- Delta wing -->
-        <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGrad)"/>
-        <!-- Negative-space A crossbar -->
-        <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
-        <!-- Orbital ring 1 (red, heavy) -->
-        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="1.8" fill="none" opacity="0.7">
-          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/>
-        </ellipse>
-        <!-- Orbital ring 2 (blue, medium) -->
-        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#78A0C8" stroke-width="1.2" fill="none" opacity="0.5" transform="rotate(60 50 50)">
-          <animateTransform attributeName="transform" type="rotate" from="60 50 50" to="420 50 50" dur="16s" repeatCount="indefinite"/>
-        </ellipse>
-        <!-- Orbital ring 3 (red, light) -->
-        <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="0.8" fill="none" opacity="0.35" transform="rotate(120 50 50)">
-          <animateTransform attributeName="transform" type="rotate" from="120 50 50" to="480 50 50" dur="20s" repeatCount="indefinite"/>
-        </ellipse>
-        <!-- Orbital dots -->
-        <circle cx="94" cy="50" r="2.5" fill="#C83C3C">
-          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="16s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="50" cy="34" r="2" fill="#78A0C8">
-          <animateTransform attributeName="transform" type="rotate" from="90 50 50" to="450 50 50" dur="16s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="6" cy="50" r="2.5" fill="#C83C3C">
-          <animateTransform attributeName="transform" type="rotate" from="180 50 50" to="540 50 50" dur="16s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="50" cy="66" r="2" fill="#78A0C8">
-          <animateTransform attributeName="transform" type="rotate" from="270 50 50" to="630 50 50" dur="16s" repeatCount="indefinite"/>
-        </circle>
-        <!-- Vertex glow -->
-        <circle cx="50" cy="12" r="3" fill="#C83C3C" filter="url(#vertexGlow)" opacity="0.8"/>
+        <rect width="32" height="32" rx="6" fill="#080E18"/>
+        <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="url(#deep-arrow-nav)"/>
+        <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
       </svg>
       <div>
         <span class="nav-brand-text">AVERROW</span>
@@ -98,15 +69,16 @@ export function renderFooter(): string {
     <div class="footer-grid">
       <div class="footer-brand-block">
         <a href="/" class="nav-brand" style="margin-bottom:0.5rem">
-          <svg width="32" height="32" viewBox="0 0 100 100" fill="none" class="averrow-mark">
+          <svg width="24" height="24" viewBox="0 0 32 32" style="flex-shrink:0" class="averrow-mark">
             <defs>
-              <linearGradient id="deltaGradFoot" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#C83C3C"/>
-                <stop offset="100%" stop-color="#78A0C8"/>
+              <linearGradient id="deep-arrow-foot" x1="16" y1="5" x2="16" y2="26" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#6B1010"/>
+                <stop offset="100%" stop-color="#C83C3C"/>
               </linearGradient>
             </defs>
-            <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGradFoot)"/>
-            <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
+            <rect width="32" height="32" rx="6" fill="#080E18"/>
+            <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="url(#deep-arrow-foot)"/>
+            <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
           </svg>
           <div>
             <span class="nav-brand-text" style="font-size:18px">AVERROW</span>
@@ -116,18 +88,16 @@ export function renderFooter(): string {
         <p style="margin-top:1rem;font-size:0.82rem;color:var(--text-tertiary)">
           <a href="mailto:hello@averrow.com" style="color:var(--text-tertiary);transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">hello@averrow.com</a>
         </p>
-        <svg width="36" height="36" viewBox="0 0 100 100" fill="none" class="footer-orbital-mark" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 32 32" class="footer-orbital-mark" aria-hidden="true">
           <defs>
-            <linearGradient id="deltaGradFootMark" x1="50" y1="10" x2="50" y2="90" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#C83C3C"/>
-              <stop offset="100%" stop-color="#78A0C8"/>
+            <linearGradient id="deep-arrow-foot-mark" x1="16" y1="5" x2="16" y2="26" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#6B1010"/>
+              <stop offset="100%" stop-color="#C83C3C"/>
             </linearGradient>
           </defs>
-          <path d="M50 10 L85 85 H15 Z" fill="url(#deltaGradFootMark)"/>
-          <path d="M35 65 L50 38 L65 65 Z" fill="var(--bg-primary, #080E18)"/>
-          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="1.5" fill="none" opacity="0.7"/>
-          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#78A0C8" stroke-width="1" fill="none" opacity="0.5" transform="rotate(60 50 50)"/>
-          <ellipse cx="50" cy="50" rx="44" ry="16" stroke="#C83C3C" stroke-width="0.7" fill="none" opacity="0.3" transform="rotate(120 50 50)"/>
+          <rect width="32" height="32" rx="6" fill="#080E18"/>
+          <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="url(#deep-arrow-foot-mark)"/>
+          <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
         </svg>
       </div>
       <div class="footer-col">
@@ -336,8 +306,8 @@ img { max-width: 100%; }
   gap: 0.6rem;
 }
 
-.nav-brand svg { transition: transform 0.3s; }
-.nav-brand:hover svg { transform: rotate(15deg); }
+.nav-brand svg { transition: opacity 0.3s; }
+.nav-brand:hover svg { opacity: 0.85; }
 
 .nav-brand-text {
   font-family: var(--font-mono);
@@ -749,13 +719,7 @@ section {
 }
 
 /* ── LOGO DARK CONTAINER (LIGHT THEME) ── */
-[data-theme="light"] .nav-brand .averrow-mark,
-[data-theme="light"] .footer-brand-block .averrow-mark,
-[data-theme="light"] .footer-orbital-mark {
-  background: #080E18;
-  border-radius: 6px;
-  padding: 3px;
-}
+/* Deep Arrow SVG has built-in dark rect — no CSS background needed */
 
 /* ── SCROLL ANIMATIONS ── */
 .reveal {
