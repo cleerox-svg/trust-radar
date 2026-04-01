@@ -56,7 +56,7 @@ export function PortfolioHealthCard({ brands }: PortfolioHealthCardProps) {
   });
 
   return (
-    <div className="rounded-xl glass-card glass-card-teal p-4">
+    <div className="rounded-xl glass-card glass-card-amber p-4">
       <div className="mb-3 font-mono text-[9px] uppercase tracking-widest text-contrail/70">
         Portfolio Health
       </div>

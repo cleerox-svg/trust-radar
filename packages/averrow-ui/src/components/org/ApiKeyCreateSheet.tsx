@@ -130,7 +130,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
                     type="checkbox"
                     checked={scopes.includes(s.key)}
                     onChange={() => toggleScope(s.key)}
-                    className="w-3.5 h-3.5 rounded border-white/20 bg-cockpit text-orbital-teal accent-orbital-teal"
+                    className="w-3.5 h-3.5 rounded border-white/20 bg-cockpit text-afterburner accent-afterburner"
                   />
                   <span className="text-[11px] text-parchment/80">
                     <span className="font-mono text-contrail/60">{s.key}</span> — {s.label}

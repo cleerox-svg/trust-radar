@@ -222,7 +222,7 @@ function StatMiniCard({ label, value, pct }: { label: string; value: string; pct
       {pct !== undefined && (
         <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
           <div
-            className="h-full rounded-full bg-orbital-teal transition-all"
+            className="h-full rounded-full bg-afterburner transition-all"
             style={{ width: `${Math.min(pct * 100, 100)}%` }}
           />
         </div>

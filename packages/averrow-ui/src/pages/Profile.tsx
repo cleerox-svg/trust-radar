@@ -65,7 +65,7 @@ export function Profile() {
         </h1>
       </div>
 
-      <div className="glass-card glass-card-teal rounded-xl p-6 mb-4">
+      <div className="glass-card glass-card-amber rounded-xl p-6 mb-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-[#C83C3C] flex items-center justify-center text-lg font-bold text-white ring-2 ring-white/20 flex-shrink-0">
             {initials}
@@ -81,7 +81,7 @@ export function Profile() {
 
       <div className="glass-card rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-4">
-          <Monitor size={14} className="text-orbital-teal" />
+          <Monitor size={14} className="text-afterburner" />
           <span className="section-label">Account</span>
         </div>
 
@@ -99,7 +99,7 @@ export function Profile() {
               />
               <button
                 onClick={handleSaveName}
-                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider text-orbital-teal hover:text-thrust transition-colors"
+                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider text-afterburner hover:text-afterburner-hover transition-colors"
               >
                 {saved ? 'Saved' : 'Save'}
               </button>
@@ -128,7 +128,7 @@ export function Profile() {
 
       <div className="glass-card rounded-xl p-5 mb-4">
         <div className="flex items-center gap-2 mb-4">
-          <Shield size={14} className="text-orbital-teal" />
+          <Shield size={14} className="text-afterburner" />
           <span className="section-label">Security</span>
         </div>
 
@@ -168,7 +168,7 @@ export function Profile() {
 
       <div className="glass-card rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Clock size={14} className="text-orbital-teal" />
+          <Clock size={14} className="text-afterburner" />
           <span className="section-label">Preferences</span>
         </div>
 

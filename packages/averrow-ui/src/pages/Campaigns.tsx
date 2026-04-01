@@ -115,7 +115,7 @@ function OperationCard({
       onClick={() => onSelect(operation.id)}
       className={`w-full text-left rounded-xl p-4 transition-all glass-card glass-card-purple ${
         isSelected
-          ? 'ring-1 ring-orbital-teal/20 border-orbital-teal/40'
+          ? 'ring-1 ring-afterburner/20 border-afterburner-border'
           : 'hover:-translate-y-0.5'
       }`}
     >
@@ -174,7 +174,7 @@ function OperationCard({
         </div>
       )}
       {operation.status === 'pivot' && (
-        <div className="mt-2 font-mono text-[10px] text-[#00D4FF] glow-teal">
+        <div className="mt-2 font-mono text-[10px] text-afterburner glow-afterburner">
           {'\u2192'} PIVOT DETECTED: infrastructure migration observed
         </div>
       )}
@@ -571,14 +571,14 @@ export function Campaigns() {
         <StatCard
           title="Threat Types"
           metric={
-            <span className="text-[32px] font-bold leading-none text-orbital-teal">
+            <span className="text-[32px] font-bold leading-none text-afterburner">
               {opsStatsLoading ? '—' : (opsStats?.threat_types ?? 0).toLocaleString()}
             </span>
           }
           metricLabel="Categories"
         >
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-orbital-teal" />
+            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
             <span className="font-mono text-[11px] text-white/60">Active attack types</span>
           </div>
         </StatCard>

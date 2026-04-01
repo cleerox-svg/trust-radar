@@ -167,7 +167,7 @@ export function Observatory() {
                   className={cn(
                     'flex-shrink-0 font-mono text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition-all',
                     mapMode === m.id
-                      ? 'bg-orbital-teal/20 text-orbital-teal border border-orbital-teal/60'
+                      ? 'bg-afterburner-muted text-afterburner border border-afterburner-border'
                       : 'bg-cockpit/80 text-white/60 border border-white/10 backdrop-blur-sm'
                   )}
                 >
@@ -184,15 +184,15 @@ export function Observatory() {
               className="w-full bg-cockpit/80 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center justify-between"
             >
               <span className="text-xs font-mono">
-                <span className="text-orbital-teal">{PERIODS.find(p => p.id === period)?.label}</span>
+                <span className="text-afterburner">{PERIODS.find(p => p.id === period)?.label}</span>
                 {mapMode === 'global' && (
                   <>
                     <span className="text-contrail/40"> · </span>
-                    <span className="text-orbital-teal capitalize">{colorBy}</span>
+                    <span className="text-afterburner capitalize">{colorBy}</span>
                   </>
                 )}
                 <span className="text-contrail/40"> · </span>
-                <span className="text-orbital-teal">{SOURCES.find(s => s.id === source)?.label}</span>
+                <span className="text-afterburner">{SOURCES.find(s => s.id === source)?.label}</span>
               </span>
               <ChevronDown className={cn(
                 'w-3.5 h-3.5 text-contrail/40 transition-transform duration-300',
@@ -219,7 +219,7 @@ export function Observatory() {
                         className={cn(
                           'text-xs px-3 py-1 rounded-full border transition-all font-mono',
                           period === p.id
-                            ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                            ? 'bg-afterburner-muted text-afterburner border-afterburner'
                             : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
                         )}
                       >
@@ -241,7 +241,7 @@ export function Observatory() {
                           className={cn(
                             'text-xs px-3 py-1 rounded-full border transition-all font-mono capitalize',
                             colorBy === c
-                              ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                              ? 'bg-afterburner-muted text-afterburner border-afterburner'
                               : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
                           )}
                         >
@@ -263,7 +263,7 @@ export function Observatory() {
                         className={cn(
                           'text-xs px-3 py-1 rounded-full border transition-all font-mono',
                           source === s.id
-                            ? 'bg-orbital-teal/20 text-orbital-teal border-orbital-teal'
+                            ? 'bg-afterburner-muted text-afterburner border-afterburner'
                             : 'text-contrail/50 border-cyan-800/30 hover:text-contrail/80'
                         )}
                       >
@@ -467,11 +467,11 @@ export function Observatory() {
               <>
                 {isMobile ? (
                   <>
-                    <span className="font-mono text-[10px] text-orbital-teal font-bold tabular-nums">
+                    <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
                       {(stats.threats_mapped ?? 0).toLocaleString()}
                     </span>
                     <span className="font-mono text-[10px] text-contrail/40">THREATS</span>
-                    <span className="font-mono text-[10px] text-thrust font-bold tabular-nums">
+                    <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
                       {(stats.countries ?? 0).toLocaleString()}
                     </span>
                     <span className="font-mono text-[10px] text-contrail/40">COUNTRIES</span>
@@ -614,7 +614,7 @@ export function Observatory() {
                   className={cn(
                     'font-mono text-xs uppercase tracking-wider px-3 py-2 transition-all',
                     mobileActiveTab === tab.key
-                      ? 'text-orbital-teal border-b-2 border-orbital-teal'
+                      ? 'text-afterburner border-b-2 border-afterburner'
                       : 'text-contrail/50'
                   )}
                 >
@@ -736,7 +736,7 @@ function OperationsClusterList({ operations, onSelect }: { operations: Operation
           <button
             key={op.id}
             onClick={() => onSelect(op)}
-            className="w-full text-left rounded-lg p-2.5 transition-all glass-card hover:border-orbital-teal/30"
+            className="w-full text-left rounded-lg p-2.5 transition-all glass-card hover:border-afterburner-border"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-[11px] text-parchment truncate">

@@ -368,17 +368,17 @@ export function DailyBriefingWidget() {
 
       {/* ── SECTION 1: PLATFORM OVERVIEW ─────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <OverviewCard title="Total Threats" metric={fmt(p.totalThreats)} metricLabel="total" metricColor="text-orbital-teal">
+        <OverviewCard title="Total Threats" metric={fmt(p.totalThreats)} metricLabel="total" metricColor="text-afterburner">
           <DotRow color="bg-red-400" label="New 24h" count={p.last24h ?? 0} />
-          <DotRow color="bg-orbital-teal" label="New 12h" count={p.last12h ?? 0} />
+          <DotRow color="bg-afterburner" label="New 12h" count={p.last12h ?? 0} />
         </OverviewCard>
 
-        <OverviewCard title="24H Ingest" metric={fmt(p.last24h)} metricLabel="new" metricColor="text-orbital-teal">
+        <OverviewCard title="24H Ingest" metric={fmt(p.last24h)} metricLabel="new" metricColor="text-afterburner">
           <DotRow color="bg-green-400" label="Brands" count={p.brandsMonitored ?? 0} />
           <DotRow color="bg-contrail" label="Classified" count={p.brandsClassified ?? 0} />
         </OverviewCard>
 
-        <OverviewCard title="Hourly Rate" metric={`${fmt(p.avgPerHour)}`} metricLabel="/hr" metricColor="text-orbital-teal">
+        <OverviewCard title="Hourly Rate" metric={`${fmt(p.avgPerHour)}`} metricLabel="/hr" metricColor="text-afterburner">
           <div className="text-[11px] text-white/50">Last 24h average</div>
         </OverviewCard>
 
@@ -399,7 +399,7 @@ export function DailyBriefingWidget() {
         <div className="rounded-xl border border-white/10 bg-cockpit p-4 space-y-3">
           <div className="flex items-center justify-between">
             <SectionTitle>New Threats (12h)</SectionTitle>
-            <span className="font-mono text-[14px] font-bold text-orbital-teal">{fmt(total12h)}</span>
+            <span className="font-mono text-[14px] font-bold text-afterburner">{fmt(total12h)}</span>
           </div>
           <div className="flex flex-wrap gap-3 font-mono text-[11px]">
             {briefing.newThreats.bySeverity.map((s) => (
@@ -455,7 +455,7 @@ export function DailyBriefingWidget() {
                 <tr key={f.feed_name} className="border-b border-white/5">
                   <td className="py-1 text-parchment/80 pr-4 truncate max-w-[140px]">{f.feed_name}</td>
                   <td className="py-1 text-right text-contrail/60 pr-4">{fmt(f.runs)}</td>
-                  <td className="py-1 text-right text-orbital-teal">{fmt(f.ingested)}</td>
+                  <td className="py-1 text-right text-afterburner">{fmt(f.ingested)}</td>
                 </tr>
               ))}
             </DataTable>
@@ -517,7 +517,7 @@ export function DailyBriefingWidget() {
               <tr key={e.name} className="border-b border-white/5">
                 <td className="py-1 text-parchment/80 pr-4">{e.name}</td>
                 <td className="py-1 text-right text-contrail/60 pr-4">{fmt(e.checked)}</td>
-                <td className="py-1 text-right text-orbital-teal pr-4">{fmt(e.hits)}</td>
+                <td className="py-1 text-right text-afterburner pr-4">{fmt(e.hits)}</td>
                 <td className="py-1 text-right text-contrail/60 pr-4">{pct(e.hits, e.checked)}</td>
                 <td className="py-1 text-right">{e.checked > 0 ? '\u2705' : '\u26A0\uFE0F'}</td>
               </tr>
@@ -566,9 +566,9 @@ export function DailyBriefingWidget() {
         <div className="rounded-xl border border-white/10 bg-cockpit p-4 space-y-3">
           <SectionTitle>Spam Trap Intelligence</SectionTitle>
           <div className="flex flex-wrap gap-4 font-mono text-[11px]">
-            <span className="text-white/60">Seeds: <span className="text-orbital-teal">{fmt(briefing.spamTrap.totalSeeds)}</span></span>
-            <span className="text-white/60">Captures: <span className="text-orbital-teal">{fmt(briefing.spamTrap.totalCaptures)}</span></span>
-            <span className="text-white/60">New (12h): <span className="text-orbital-teal">{fmt(briefing.spamTrap.captures12h)}</span></span>
+            <span className="text-white/60">Seeds: <span className="text-afterburner">{fmt(briefing.spamTrap.totalSeeds)}</span></span>
+            <span className="text-white/60">Captures: <span className="text-afterburner">{fmt(briefing.spamTrap.totalCaptures)}</span></span>
+            <span className="text-white/60">New (12h): <span className="text-afterburner">{fmt(briefing.spamTrap.captures12h)}</span></span>
           </div>
           {briefing.spamTrap.seedingSources.length > 0 && (
             <>
@@ -579,7 +579,7 @@ export function DailyBriefingWidget() {
                   <tr key={s.seeded_location} className="border-b border-white/5">
                     <td className="py-1 text-parchment/80 pr-4 truncate max-w-[160px]">{s.seeded_location}</td>
                     <td className="py-1 text-right text-contrail/60 pr-4">{fmt(s.seeds)}</td>
-                    <td className="py-1 text-right text-orbital-teal">{fmt(s.catches)}</td>
+                    <td className="py-1 text-right text-afterburner">{fmt(s.catches)}</td>
                   </tr>
                 ))}
               </DataTable>
@@ -610,10 +610,10 @@ export function DailyBriefingWidget() {
         <div className="rounded-xl border border-white/10 bg-cockpit p-4 space-y-3">
           <SectionTitle>Honeypot Activity</SectionTitle>
           <div className="flex flex-wrap gap-4 font-mono text-[11px]">
-            <span className="text-white/60">Total: <span className="text-orbital-teal">{fmt(briefing.honeypot.totalVisits)}</span></span>
+            <span className="text-white/60">Total: <span className="text-afterburner">{fmt(briefing.honeypot.totalVisits)}</span></span>
             <span className="text-white/60">Bots: <span className="text-contrail/60">{fmt(briefing.honeypot.botVisits)}</span></span>
             <span className="text-white/60">Humans: <span className="text-contrail/60">{fmt(briefing.honeypot.humanVisits)}</span></span>
-            <span className="text-white/60">Last 12h: <span className="text-orbital-teal">{fmt(briefing.honeypot.visits12h)}</span></span>
+            <span className="text-white/60">Last 12h: <span className="text-afterburner">{fmt(briefing.honeypot.visits12h)}</span></span>
           </div>
           {briefing.honeypot.pageBreakdown.length > 0 && (
             <>
@@ -664,7 +664,7 @@ export function DailyBriefingWidget() {
                   <span className="text-contrail/40 w-5 text-right">{i + 1}.</span>
                   <span className="text-parchment/80 truncate">{b.name}</span>
                 </div>
-                <span className="text-orbital-teal ml-2">{fmt(b.threats_24h)}</span>
+                <span className="text-afterburner ml-2">{fmt(b.threats_24h)}</span>
               </div>
             ))}
           </div>

@@ -13,7 +13,7 @@ export function StatCard({ title, children, metric, metricLabel, className }: St
   return (
     <div
       className={cn(
-        'glass-card glass-card-teal relative rounded-xl p-4 flex flex-col',
+        'glass-stat relative p-4 flex flex-col',
         className,
       )}
     >

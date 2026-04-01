@@ -129,7 +129,7 @@ function RowDetail({ entry }: { entry: AuditEntry }) {
                 {entry.ip_address}
                 <button
                   onClick={copyIp}
-                  className="ml-2 text-[10px] text-contrail/50 hover:text-orbital-teal transition-colors"
+                  className="ml-2 text-[10px] text-contrail/50 hover:text-afterburner transition-colors"
                 >
                   {copied ? 'copied' : 'copy'}
                 </button>
@@ -260,8 +260,8 @@ export function AdminAudit() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Events" value={total} glowClass="glow-teal" />
-        <StatCard title="Today" value={todayCount} glowClass="glow-teal" />
+        <StatCard title="Total Events" value={total} glowClass="glow-afterburner" />
+        <StatCard title="Today" value={todayCount} glowClass="glow-afterburner" />
         <StatCard title="Failures / Denied" value={failureDeniedCount} glowClass="glow-amber" />
         <StatCard title="Unique Actions" value={uniqueActions} />
       </div>
@@ -393,7 +393,7 @@ export function AdminAudit() {
                     onClick={() => setPage(p)}
                     className={`font-mono text-[11px] px-2.5 py-1 rounded border transition-colors ${
                       page === p
-                        ? 'border-orbital-teal text-orbital-teal'
+                        ? 'border-afterburner text-afterburner'
                         : 'border-white/10 text-white/40 hover:text-parchment'
                     }`}
                   >

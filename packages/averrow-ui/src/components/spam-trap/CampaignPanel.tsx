@@ -59,7 +59,7 @@ function CampaignCard({ campaign }: { campaign: SeedCampaign }) {
                 <td className="py-1.5 font-mono text-[11px] text-white/60">{ch}</td>
                 <td className="py-1.5 font-mono text-[11px] text-white/50 text-right">{seedCount}</td>
                 <td className="py-1.5 font-mono text-[11px] text-white/50 text-right">{catches}</td>
-                <td className="py-1.5 font-mono text-[11px] text-orbital-teal text-right">{catchRate}%</td>
+                <td className="py-1.5 font-mono text-[11px] text-afterburner text-right">{catchRate}%</td>
               </tr>
             ))}
           </tbody>
@@ -96,7 +96,7 @@ function SeedStrategist() {
       <button
         onClick={run}
         disabled={running}
-        className="px-3 py-2 rounded-lg bg-orbital-teal/10 border border-orbital-teal/30 text-orbital-teal text-[11px] font-mono hover:bg-orbital-teal/20 disabled:opacity-40 transition-colors"
+        className="px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-afterburner text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
       >
         {running ? 'Running…' : 'Run Seed Strategist'}
       </button>
@@ -161,9 +161,9 @@ function CaptureTimeline() {
                 fontFamily: 'JetBrains Mono, monospace',
               }}
               labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-              itemStyle={{ color: '#00d4ff' }}
+              itemStyle={{ color: '#E5A832' }}
             />
-            <Bar dataKey="total" fill="#00d4ff" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="total" fill="#E5A832" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

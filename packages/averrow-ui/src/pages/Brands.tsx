@@ -50,7 +50,7 @@ const THREAT_TYPE_STYLES: Record<string, string> = {
   malware: 'text-amber-400 border-amber-400/30',
   c2: 'text-red-400 border-red-400/30',
   credential: 'text-orange-400 border-orange-400/30',
-  social: 'text-orbital-teal border-orbital-teal/30',
+  social: 'text-afterburner border-afterburner-border',
 };
 
 const PAGE_SIZE = 50;
@@ -290,7 +290,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
           <button
             onClick={handleSubmit}
             disabled={addBrand.isPending}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-orbital-teal/50 text-orbital-teal hover:bg-orbital-teal/10 transition-colors disabled:opacity-50"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-colors disabled:opacity-50"
           >
             {addBrand.isPending ? 'Adding...' : 'Monitor Brand'}
           </button>
@@ -322,7 +322,7 @@ function StatsRow() {
       <StatCard
         title="Total Brands"
         metric={
-          <span className="text-[32px] font-bold leading-none text-orbital-teal">
+          <span className="text-[32px] font-bold leading-none text-afterburner">
             {stats?.total_tracked ?? 0}
           </span>
         }
@@ -331,7 +331,7 @@ function StatsRow() {
         <div className="space-y-1.5">
           {sectors.map(s => (
             <div key={s.sector} className="flex items-center gap-2">
-              <span className="block h-1.5 w-1.5 rounded-full bg-orbital-teal/60 flex-shrink-0" />
+              <span className="block h-1.5 w-1.5 rounded-full bg-afterburner/60 flex-shrink-0" />
               <span className="font-mono text-[10px] text-white/50 truncate flex-1">{s.sector}</span>
               <span className="font-mono text-[10px] text-white/30">{s.count}</span>
             </div>
@@ -710,7 +710,7 @@ function MobileBrandsLayout({
     {
       label: 'TOTAL TRACKED',
       value: String(stats?.total_tracked ?? 0),
-      color: '#00d4ff',
+      color: '#E5A832',
     },
     {
       label: 'NEW THIS WEEK',
@@ -903,7 +903,7 @@ export function Brands() {
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-orbital-teal/50 text-orbital-teal hover:bg-orbital-teal/10 transition-colors whitespace-nowrap"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-colors whitespace-nowrap"
           >
             <span className="hidden sm:inline">Monitor Brand</span>
             <span className="sm:hidden">+ Brand</span>
@@ -946,7 +946,7 @@ export function Brands() {
                       className={cn(
                         'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors whitespace-nowrap',
                         activeTab === tab
-                          ? 'text-orbital-teal border-orbital-teal/40 bg-orbital-teal/10'
+                          ? 'text-afterburner border-afterburner-border bg-afterburner-muted'
                           : 'text-white/30 border-white/10 hover:text-white/50'
                       )}
                     >
@@ -993,7 +993,7 @@ export function Brands() {
                         className={cn(
                           'font-mono text-[11px] px-2.5 py-1 rounded border transition-colors',
                           page === p
-                            ? 'border-orbital-teal text-orbital-teal'
+                            ? 'border-afterburner text-afterburner'
                             : 'border-white/10 text-white/40 hover:text-parchment',
                         )}
                       >

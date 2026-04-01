@@ -214,7 +214,7 @@ function ConfigCard({
                   key={output}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] font-mono text-[10px] text-white/60"
                 >
-                  <span className="text-orbital-teal">&rarr;</span> {output}
+                  <span className="text-afterburner">&rarr;</span> {output}
                 </span>
               ))}
             </div>

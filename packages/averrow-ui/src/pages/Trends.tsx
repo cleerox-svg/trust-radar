@@ -96,7 +96,7 @@ function BriefingCard({ briefing }: { briefing: IntelligenceBriefing }) {
           {hasMore && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="mt-1 text-[11px] font-mono text-orbital-teal hover:text-thrust transition-colors"
+              className="mt-1 text-[11px] font-mono text-afterburner hover:text-afterburner-hover transition-colors"
             >
               {expanded ? 'Show less' : 'Show more'}
             </button>
@@ -196,7 +196,7 @@ function BrandRiskMomentum() {
   function changeGlow(pct: number): string {
     if (pct > 100) return 'glow-red';
     if (pct > 50) return 'glow-amber';
-    return 'glow-teal';
+    return 'glow-afterburner';
   }
 
   return (
@@ -260,7 +260,7 @@ function ProviderMomentumPanel() {
     const c = count ?? 0;
     if (c > 500) return '#C83C3C';
     if (c > 100) return '#E8923C';
-    return '#00d4ff';
+    return '#E5A832';
   }
 
   return (

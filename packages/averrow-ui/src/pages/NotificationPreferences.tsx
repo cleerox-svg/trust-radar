@@ -87,7 +87,7 @@ export function NotificationPreferences() {
         </h1>
       </div>
 
-      <div className="glass-card glass-card-teal rounded-xl p-5 mb-4">
+      <div className="glass-card glass-card-amber rounded-xl p-5 mb-4">
         <span className="section-label">Alert Types</span>
         <div className="mt-3 space-y-1">
           {(['brand_threat', 'campaign_escalation', 'feed_health', 'intelligence_digest', 'agent_milestone'] as const).map(key => (
@@ -101,11 +101,11 @@ export function NotificationPreferences() {
                 <p className="text-[11px] text-white/30 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
-                currentPrefs?.[key] ? 'bg-orbital-teal/30' : 'bg-white/10'
+                currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
               }`}>
                 <div className={`w-4 h-4 rounded-full transition-transform ${
                   currentPrefs?.[key]
-                    ? 'translate-x-[18px] bg-orbital-teal'
+                    ? 'translate-x-[18px] bg-afterburner'
                     : 'translate-x-[2px] bg-white/30'
                 }`} />
               </div>
@@ -128,11 +128,11 @@ export function NotificationPreferences() {
                 <p className="text-[11px] text-white/30 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
-                currentPrefs?.[key] ? 'bg-orbital-teal/30' : 'bg-white/10'
+                currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
               }`}>
                 <div className={`w-4 h-4 rounded-full transition-transform ${
                   currentPrefs?.[key]
-                    ? 'translate-x-[18px] bg-orbital-teal'
+                    ? 'translate-x-[18px] bg-afterburner'
                     : 'translate-x-[2px] bg-white/30'
                 }`} />
               </div>

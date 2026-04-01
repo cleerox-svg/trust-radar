@@ -37,7 +37,7 @@ export function Dropdown({ open, onClose, children, width = 380, className = '' 
   return (
     <div
       ref={ref}
-      className={`absolute top-full right-0 mt-2 glass-card glass-card-teal rounded-xl overflow-hidden animate-fade-in ${className}`}
+      className={`absolute top-full right-0 mt-2 glass-card glass-card-amber rounded-xl overflow-hidden animate-fade-in ${className}`}
       style={{ width, zIndex: 'var(--z-dropdown)' }}
     >
       {children}

@@ -16,7 +16,7 @@ interface TileConfig {
 }
 
 const TILES: TileConfig[] = [
-  { label: 'BRANDS',    icon: '\u2B21', accent: '#00d4ff', route: '/brands' },
+  { label: 'BRANDS',    icon: '\u2B21', accent: '#E5A832', route: '/brands' },
   { label: 'THREATS',   icon: '\u25C8', accent: '#C83C3C', route: '/observatory' },
   { label: 'ALERTS',    icon: '\u25C9', accent: '#f59e0b', route: '/alerts' },
   { label: 'TAKEDOWNS', icon: '\u2298', accent: '#3CB878', route: '/admin/takedowns' },
@@ -210,7 +210,7 @@ export function MobileCommandCenter() {
 
         <button
           onClick={() => navigate('/alerts')}
-          className="mt-3 block text-[11px] font-medium text-orbital-teal"
+          className="mt-3 block text-[11px] font-medium text-afterburner"
         >
           View all alerts &rarr;
         </button>

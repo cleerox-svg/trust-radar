@@ -139,7 +139,7 @@ export function WebhookConfig() {
                 type="checkbox"
                 checked={events.includes(evt.key)}
                 onChange={() => toggleEvent(evt.key)}
-                className="w-3.5 h-3.5 mt-0.5 rounded border-white/20 bg-cockpit accent-orbital-teal"
+                className="w-3.5 h-3.5 mt-0.5 rounded border-white/20 bg-cockpit accent-afterburner"
               />
               <div>
                 <span className="text-[11px] font-mono text-parchment/80">{evt.key}</span>

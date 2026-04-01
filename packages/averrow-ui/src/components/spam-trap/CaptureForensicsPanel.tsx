@@ -242,7 +242,7 @@ function ExpandedDetail({
         {urls.length > 5 && (
           <button
             onClick={() => setShowAllUrls(!showAllUrls)}
-            className="text-[10px] font-mono text-orbital-teal hover:text-thrust transition-colors"
+            className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors"
           >
             {showAllUrls ? '[Show less]' : `[Show all ${urls.length}]`}
           </button>
@@ -257,7 +257,7 @@ function ExpandedDetail({
         <button
           onClick={onRunAi}
           disabled={aiLoading}
-          className="w-full px-3 py-2 rounded-lg bg-orbital-teal/10 border border-orbital-teal/30 text-orbital-teal text-[11px] font-mono hover:bg-orbital-teal/20 disabled:opacity-40 transition-colors"
+          className="w-full px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-afterburner text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
         >
           {aiLoading ? 'Analyzing…' : 'Run AI Analysis'}
         </button>
