@@ -47,16 +47,20 @@ export function renderScanPage(): string {
   --bg-code: #FAFAF8;
   --bg-elevated: #ffffff;
   --text-primary: #1A1F2E;
-  --text-secondary: #8A8F9C;
-  --text-tertiary: #C8C2BA;
+  --text-secondary: #5A6170;
+  --text-tertiary: #8A8F9C;
   --text-inverse: #ffffff;
-  --border: #E0DCD6;
-  --border-strong: rgba(26, 31, 46, 0.15);
+  --border: #E2DDD5;
+  --border-strong: rgba(226,221,213,0.6);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
-  --shadow-glow: 0 0 40px rgba(200,60,60,0.12);
-  --nav-bg: rgba(248,247,245,0.9);
+  --shadow-glow: 0 0 40px rgba(181,48,48,0.12);
+  --accent: #B53030;
+  --accent-hover: #9A2828;
+  --accent-bg: rgba(181,48,48,0.06);
+  --accent-bg-strong: rgba(181,48,48,0.12);
+  --nav-bg: rgba(248,247,245,0.8);
 }
 
 [data-theme="dark"] {
@@ -590,6 +594,26 @@ body {
 }
 .footer a { color: var(--accent); text-decoration: none; }
 .footer a:hover { text-decoration: underline; }
+
+/* ── Light theme glass effects ── */
+[data-theme="light"] .scan-form,
+[data-theme="light"] .report-header,
+[data-theme="light"] .report-section {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .nav {
+  background: rgba(248,247,245,0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(226,221,213,0.5);
+}
+[data-theme="light"] .hero h1 span {
+  color: #C88B1E;
+}
 
 /* ── Responsive ── */
 @media (max-width: 600px) {

@@ -21,7 +21,7 @@ export function renderPricingPage(): string {
 .value-prop-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; transition: all 0.3s; }
 .value-prop-item:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
 .value-prop-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
-.value-prop-title { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.value-prop-title { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent-section, var(--accent)); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
 .value-prop-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
 
 .pricing-section { padding: 3rem 0; }

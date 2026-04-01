@@ -72,6 +72,16 @@ export function renderContactPage(): string {
 .sidebar-info-text { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
 .sidebar-info-text strong { display: block; color: var(--text-primary); font-weight: 600; margin-bottom: 0.1rem; }
 
+/* ── Light theme glass effects ── */
+[data-theme="light"] .contact-form-card,
+[data-theme="light"] .sidebar-card {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
 @media (max-width: 1024px) { .contact-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .contact-hero { padding-top: 5rem; padding-bottom: 2rem; } .contact-form-card { padding: 1.5rem; } .sidebar-card { padding: 1.5rem; } }
 </style>

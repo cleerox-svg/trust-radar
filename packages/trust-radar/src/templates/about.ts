@@ -38,7 +38,7 @@ export function renderAboutPage(): string {
 .principle-card:nth-child(2)::before { background: var(--coral); }
 .principle-card:nth-child(3)::before { background: var(--green); }
 .principle-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-glow); transition: all 0.3s; }
-.principle-num { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; color: var(--accent); margin-bottom: 0.75rem; }
+.principle-num { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; color: var(--accent-section, var(--accent)); margin-bottom: 0.75rem; }
 .principle-card h3 { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
 .principle-card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.65; }
 
@@ -51,13 +51,30 @@ export function renderAboutPage(): string {
 .tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; max-width: 1400px; margin: 2rem auto 0; padding: 0 2rem; }
 .tech-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; transition: all 0.3s; }
 .tech-item:hover { border-color: var(--accent); box-shadow: var(--shadow-glow); transform: translateY(-2px); }
-.tech-name { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent); margin-bottom: 0.35rem; }
+.tech-name { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent-section, var(--accent)); margin-bottom: 0.35rem; }
 .tech-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 
 .cta-block { padding: 3rem 0; text-align: center; }
 .cta-block h2 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 36px); font-weight: 700; margin-bottom: 1rem; }
 .cta-block p { color: var(--text-secondary); max-width: 480px; margin: 0 auto 2rem; }
 .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+/* ── Light theme glass effects ── */
+[data-theme="light"] .principle-card,
+[data-theme="light"] .fact-card,
+[data-theme="light"] .tech-item {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(226,221,213,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .principle-card:hover,
+[data-theme="light"] .fact-card:hover,
+[data-theme="light"] .tech-item:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-color: rgba(226,221,213,0.7);
+}
 
 @media (max-width: 768px) {
   .principles-grid, .facts-grid { grid-template-columns: 1fr; }

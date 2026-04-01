@@ -221,19 +221,30 @@ export function renderHead(title: string, description: string): string {
   --bg-code: #F0EDE8;
   --bg-elevated: #FFFFFF;
   --text-primary: #1A1F2E;
-  --text-secondary: #8A8F9C;
-  --text-tertiary: #C8C2BA;
+  --text-secondary: #5A6170;
+  --text-tertiary: #8A8F9C;
   --text-inverse: #F0EDE8;
-  --border: #E0DCD6;
-  --border-strong: #C8C2BA;
+  --border: #E2DDD5;
+  --border-strong: rgba(226,221,213,0.6);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
-  --shadow-glow: 0 0 40px rgba(200,60,60,0.12);
+  --shadow-glow: 0 0 40px rgba(181,48,48,0.12);
   --gradient-hero: linear-gradient(135deg, #F8F7F5 0%, #FAFAF8 50%, #F8F7F5 100%);
   --illustration-fill: #1A1F2E;
-  --illustration-stroke: #C83C3C;
-  --nav-bg: rgba(248,247,245,0.85);
+  --illustration-stroke: #B53030;
+  --accent: #B53030;
+  --accent-hover: #9A2828;
+  --accent-bg: rgba(181,48,48,0.06);
+  --accent-bg-strong: rgba(181,48,48,0.12);
+  --accent-section: #C88B1E;
+  --nav-bg: rgba(248,247,245,0.8);
+
+  /* Glass card tokens */
+  --glass-card-bg: rgba(255,255,255,0.6);
+  --glass-card-border: rgba(226,221,213,0.5);
+  --glass-card-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+  --glass-card-hover-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
 [data-theme="dark"] {
@@ -303,6 +314,10 @@ img { max-width: 100%; }
 .nav-scrolled {
   backdrop-filter: blur(40px) saturate(220%);
   background: var(--nav-bg);
+}
+[data-theme="light"] .nav-scrolled {
+  background: rgba(248,247,245,0.85);
+  border-bottom-color: rgba(226,221,213,0.5);
 }
 
 .nav-inner {
@@ -471,7 +486,7 @@ section {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-section, var(--accent));
   letter-spacing: 0.2em;
   text-transform: uppercase;
   margin-bottom: 0.5rem;
@@ -689,6 +704,57 @@ section {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+}
+
+/* ── LIGHT THEME GLASS EFFECTS ── */
+[data-theme="light"] .platform-card,
+[data-theme="light"] .value-prop-item,
+[data-theme="light"] .card {
+  background: var(--glass-card-bg, rgba(255,255,255,0.6));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: var(--glass-card-border, rgba(226,221,213,0.5));
+  box-shadow: var(--glass-card-shadow);
+}
+[data-theme="light"] .platform-card:hover,
+[data-theme="light"] .value-prop-item:hover,
+[data-theme="light"] .card:hover {
+  box-shadow: var(--glass-card-hover-shadow);
+  border-color: rgba(226,221,213,0.7);
+}
+
+[data-theme="light"] .price-card {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226,221,213,0.5);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .price-card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .price-card.popular {
+  border: 2px solid rgba(200,139,30,0.3);
+  box-shadow: 0 4px 24px rgba(200,139,30,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+[data-theme="light"] .price-card.popular::before {
+  background: #C88B1E;
+}
+
+[data-theme="light"] .compare-table {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── LOGO DARK CONTAINER (LIGHT THEME) ── */
+[data-theme="light"] .nav-brand .averrow-mark,
+[data-theme="light"] .footer-brand-block .averrow-mark,
+[data-theme="light"] .footer-orbital-mark {
+  background: #080E18;
+  border-radius: 6px;
+  padding: 3px;
 }
 
 /* ── SCROLL ANIMATIONS ── */
