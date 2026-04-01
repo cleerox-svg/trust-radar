@@ -4,7 +4,7 @@ import type { SeedAddress } from '@/hooks/useSpamTrap';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const CHANNEL_COLORS: Record<string, string> = {
-  employee: '#00D4FF',
+  employee: '#E5A832',
   contact_page: '#A78BFA',
   whois: '#fb923c',
   forum: '#4ADE80',
@@ -12,7 +12,7 @@ const CHANNEL_COLORS: Record<string, string> = {
 };
 
 const SOURCE_COLORS: Record<string, string> = {
-  spider: '#00D4FF',
+  spider: '#E5A832',
   broker: '#A78BFA',
   paste: '#fb923c',
   honeypot: '#f87171',
