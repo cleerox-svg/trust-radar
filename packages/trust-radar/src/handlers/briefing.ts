@@ -675,7 +675,7 @@ export async function generateAndEmailBriefing(
 
   const insertResult = await env.DB.prepare(
     `INSERT INTO threat_briefings (type, report_date, report_data, generated_at, trigger, emailed)
-    VALUES ('daily', ?, ?, datetime('now'), 'cron:briefing_email', 0)`,
+    VALUES ('daily', ?, ?, datetime('now'), 'cron:daily', 0)`,
   )
     .bind(reportDate, JSON.stringify(briefing))
     .run();
