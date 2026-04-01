@@ -34,38 +34,52 @@
   .page-enter {
     animation: fadeIn 0.2s ease, slideUp 0.2s ease;
   }
+
+  .glass-card {
+    @apply bg-instrument-panel/60 backdrop-blur-xl
+           border border-instrument-edge/50 rounded-xl
+           shadow-lg;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .glass-sidebar {
+    @apply bg-deep-space/85 backdrop-blur-2xl
+           border-r border-instrument-edge/40;
+  }
+
+  .glass-elevated {
+    @apply bg-panel-highlight/80 backdrop-blur-xl
+           border border-instrument-edge/60 rounded-xl;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .glass-stat {
+    @apply bg-instrument-panel/50 backdrop-blur-md
+           border border-afterburner-border rounded-xl;
+    box-shadow: 0 0 20px rgba(229,168,50,0.05),
+                inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .glass-input {
+    @apply bg-deep-space/50 backdrop-blur-sm
+           border border-instrument-edge/60 rounded-lg
+           text-instrument-white;
+  }
+  .glass-input:focus {
+    @apply border-afterburner/50 ring-2 ring-afterburner/10;
+  }
 }
 
 /* ═══════════════════════════════════════════════
    AVERROW GLASS HUD SYSTEM
 ═══════════════════════════════════════════════ */
 
-/* ── GLASS CARDS ─────────────────────────────── */
-.glass-card {
-  background: linear-gradient(
-    135deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(0,212,255,0.02) 100%
-  );
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0,212,255,0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    inset 0 -1px 0 rgba(0,0,0,0.2),
-    0 4px 24px rgba(0,0,0,0.5),
-    0 0 40px rgba(0,212,255,0.03);
-  position: relative;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.glass-card:hover {
-  border-color: rgba(0,212,255,0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -1px 0 rgba(0,0,0,0.2),
-    0 4px 32px rgba(0,0,0,0.6),
-    0 0 60px rgba(0,212,255,0.06);
-}
+/* Note: .glass-card, .glass-sidebar, .glass-elevated, .glass-stat,
+   and .glass-input are now defined in @layer utilities above using
+   the new design system tokens. The legacy variants below are kept
+   for backwards compatibility. */
 
 /* Top edge glow — add class alongside glass-card */
 .glass-card-teal::before {
@@ -338,18 +352,8 @@
 }
 
 /* ── GLASSMORPHIC INPUT ──────────────────────── */
-.glass-input {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: white;
-  backdrop-filter: blur(4px);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.glass-input:focus {
-  border-color: rgba(0,212,255,0.4);
-  box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
-  outline: none;
-}
+/* .glass-input is now defined in @layer utilities with new tokens.
+   Placeholder styling kept here as it can't be expressed in @apply. */
 .glass-input::placeholder {
   color: rgba(255,255,255,0.3);
 }
