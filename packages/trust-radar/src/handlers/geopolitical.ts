@@ -446,9 +446,9 @@ export async function handleGeoCampaignAssessment(request: Request, env: Env, sl
       return json({ success: false, error: "Campaign not found" }, 404, origin);
     }
 
-    // Check cost guard
+    // User-initiated assessment — bypass daily cost guard (critical=true)
     setHaikuCategory("on_demand");
-    const guardMsg = await checkCostGuard(env, false);
+    const guardMsg = await checkCostGuard(env, true);
     if (guardMsg) {
       return json({ success: false, error: guardMsg }, 429, origin);
     }
@@ -564,7 +564,8 @@ Keep it concise — 4 short paragraphs maximum.`;
     });
 
     if (!res.ok) {
-      return json({ success: false, error: `Anthropic API error: HTTP ${res.status}` }, 502, origin);
+      const errBody = await res.text().catch(() => "");
+      return json({ success: false, error: `Anthropic API error: HTTP ${res.status}: ${errBody.slice(0, 200)}` }, 502, origin);
     }
 
     const apiResponse = await res.json() as {

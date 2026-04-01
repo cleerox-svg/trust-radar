@@ -76,7 +76,7 @@ export class BudgetManager {
       `SELECT monthly_limit_usd, soft_pct, hard_pct, emergency_pct FROM budget_config WHERE id = 1`
     ).first<BudgetConfig>();
 
-    return row ?? { monthly_limit_usd: 21.33, soft_pct: 80, hard_pct: 95, emergency_pct: 99 };
+    return row ?? { monthly_limit_usd: 50, soft_pct: 80, hard_pct: 95, emergency_pct: 99 };
   }
 
   /** Update budget config. Only updates provided fields. */
