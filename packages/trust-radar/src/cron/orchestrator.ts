@@ -45,7 +45,10 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // ─── Flight Control v1: consume pending agent_events before cron jobs ───
   await processAgentEvents(env, ctx);
 
-  const now = new Date();
+  // Use scheduledTime (the intended cron fire time) — NOT new Date().
+  // Pre-work (Flight Control, CertStream, event processing) can push
+  // wall-clock past :00, making minute !== 0 and skipping every job.
+  const now = new Date(event.scheduledTime);
   const minute = now.getUTCMinutes();
   const hour = now.getUTCHours();
   const results: CronJobResult[] = [];
@@ -85,6 +88,17 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // Daily at 12:00 UTC (8 AM ET): Generate + email daily briefing
   if (minute === 0 && hour === 12) {
     const emailResult = await runJob('briefing_email', async () => {
+      // Dedup: only skip if a cron briefing already exists for today (manual ones don't count)
+      const existing = await env.DB.prepare(
+        `SELECT COUNT(*) as count FROM threat_briefings
+         WHERE report_date = date('now') AND trigger LIKE 'cron%'`
+      ).first<{ count: number }>();
+
+      if (existing && existing.count > 0) {
+        logger.info('briefing_email_skipped_duplicate', { date: now.toISOString().slice(0, 10) });
+        return;
+      }
+
       const { generateAndEmailBriefing } = await import('../handlers/briefing');
       const result = await generateAndEmailBriefing(env);
       if (!result.emailSent) {
