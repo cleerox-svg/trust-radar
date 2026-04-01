@@ -1,6 +1,7 @@
 // Averrow — Geopolitical Campaign API Endpoints
 
 import { json } from "../lib/cors";
+import { setHaikuCategory, checkCostGuard } from "../lib/haiku";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -430,5 +431,161 @@ export async function handleGeoCampaignStats(request: Request, env: Env, slug: s
     return json({ success: true, data: stats }, 200, origin);
   } catch {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// POST /api/campaigns/geo/:slug/assessment — AI intelligence assessment
+export async function handleGeoCampaignAssessment(request: Request, env: Env, slug: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const campaign = await env.DB.prepare(
+      "SELECT * FROM geopolitical_campaigns WHERE id = ? OR conflict = ?"
+    ).bind(slug, slug).first<GeopoliticalCampaign & { notes?: string }>();
+
+    if (!campaign) {
+      return json({ success: false, error: "Campaign not found" }, 404, origin);
+    }
+
+    // Check cost guard
+    setHaikuCategory("on_demand");
+    const guardMsg = await checkCostGuard(env, false);
+    if (guardMsg) {
+      return json({ success: false, error: guardMsg }, 429, origin);
+    }
+
+    const countries = parseJson<string[]>(campaign.adversary_countries, []);
+    const asns = parseJson<string[]>(campaign.adversary_asns, []);
+    const threatActors = parseJson<string[]>(campaign.threat_actors, []);
+    const ttps = parseJson<string[]>(campaign.ttps, []);
+    const targetBrands = parseJson<string[]>(campaign.target_brands, []);
+
+    // Fetch threat stats from adversary infrastructure
+    let threatStats = { total: 0, week: 0, critical: 0 };
+    if (countries.length > 0 || asns.length > 0) {
+      const filters: string[] = [];
+      const params: unknown[] = [campaign.start_date];
+      if (countries.length > 0) {
+        filters.push(`t.country_code IN (${countries.map(() => "?").join(",")})`);
+        params.push(...countries);
+      }
+      if (asns.length > 0) {
+        filters.push(`t.asn IN (${asns.map(() => "?").join(",")})`);
+        params.push(...asns);
+      }
+      const adversaryFilter = filters.length > 1 ? `(${filters.join(" OR ")})` : filters[0];
+
+      const stats = await env.DB.prepare(`
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS week,
+               SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) AS critical
+        FROM threats t
+        WHERE t.created_at >= ? AND ${adversaryFilter}
+      `).bind(...params).first<{ total: number; week: number; critical: number }>();
+
+      if (stats) {
+        threatStats = { total: stats.total ?? 0, week: stats.week ?? 0, critical: stats.critical ?? 0 };
+      }
+    }
+
+    // Fetch attack type breakdown
+    let attackTypes: string[] = [];
+    if (countries.length > 0 || asns.length > 0) {
+      const filters: string[] = [];
+      const params: unknown[] = [campaign.start_date];
+      if (countries.length > 0) {
+        filters.push(`t.country_code IN (${countries.map(() => "?").join(",")})`);
+        params.push(...countries);
+      }
+      if (asns.length > 0) {
+        filters.push(`t.asn IN (${asns.map(() => "?").join(",")})`);
+        params.push(...asns);
+      }
+      const adversaryFilter = filters.length > 1 ? `(${filters.join(" OR ")})` : filters[0];
+
+      const rows = await env.DB.prepare(`
+        SELECT t.threat_type, COUNT(*) AS count
+        FROM threats t
+        WHERE t.created_at >= ? AND ${adversaryFilter}
+        GROUP BY t.threat_type ORDER BY count DESC LIMIT 5
+      `).bind(...params).all();
+
+      attackTypes = (rows.results as Array<{ threat_type: string; count: number }>)
+        .map(r => `${r.threat_type.replace(/_/g, " ")} (${r.count})`);
+    }
+
+    const daysActive = Math.floor((Date.now() - new Date(campaign.start_date).getTime()) / (1000 * 60 * 60 * 24));
+
+    // Call Haiku for assessment
+    const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+    if (!apiKey || apiKey.startsWith("lrx_")) {
+      return json({ success: false, error: "No valid Anthropic API key configured" }, 500, origin);
+    }
+
+    const systemPrompt = `You are a threat intelligence analyst at Averrow, a brand protection and threat intelligence platform. Generate a concise executive intelligence assessment (4 short paragraphs maximum) for the following active geopolitical cyber campaign. Be specific, cite the data, and write for a CISO audience.`;
+
+    const userMessage = `Campaign: ${campaign.name}
+Status: ${campaign.status} since ${campaign.start_date} (${daysActive} days)
+Adversary: ${countries.join(", ") || "Unknown"}
+Known threat actors: ${threatActors.join(", ") || "None identified"}
+Observed TTPs: ${ttps.join(", ") || "None catalogued"}
+
+Current platform data:
+- Total threats from adversary infrastructure: ${threatStats.total}
+- Threats in last 7 days: ${threatStats.week}
+- Critical severity: ${threatStats.critical}
+- Brands targeted: ${targetBrands.join(", ") || "None specified"}
+- Attack types observed: ${attackTypes.join(", ") || "None detected"}
+- Known adversary ASNs: ${asns.join(", ") || "None tracked"}
+
+Additional context: ${(campaign as unknown as Record<string, unknown>).notes ?? "None"}
+
+Provide:
+1. SITUATION: Current threat posture and campaign activity level
+2. ASSESSMENT: What this means for the targeted organizations
+3. OUTLOOK: Expected evolution of the campaign
+4. RECOMMENDATION: Key defensive actions
+
+Keep it concise — 4 short paragraphs maximum.`;
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) {
+      return json({ success: false, error: `Anthropic API error: HTTP ${res.status}` }, 502, origin);
+    }
+
+    const apiResponse = await res.json() as {
+      content: Array<{ type: string; text: string }>;
+      usage: { input_tokens: number; output_tokens: number };
+    };
+
+    const textBlock = apiResponse.content.find((b) => b.type === "text");
+    if (!textBlock) {
+      return json({ success: false, error: "No text content in AI response" }, 502, origin);
+    }
+
+    return json({
+      success: true,
+      data: {
+        assessment: textBlock.text,
+        tokens_used: (apiResponse.usage?.input_tokens ?? 0) + (apiResponse.usage?.output_tokens ?? 0),
+        generated_at: new Date().toISOString(),
+      },
+    }, 200, origin);
+  } catch {
+    return json({ success: false, error: "Assessment generation failed" }, 500, origin);
   }
 }

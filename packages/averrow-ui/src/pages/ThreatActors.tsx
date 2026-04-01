@@ -110,7 +110,8 @@ function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void 
             <span className="text-sm">{countryFlag(actor.country)}</span>
             <span className="font-mono text-[10px] text-gauge-gray">{actor.attribution ?? 'Unknown'}</span>
           </div>
-          <ConfidenceBadge confidence={actor.attribution ?? 'unknown'} />
+          <ConfidenceBadge confidence={actor.attribution_confidence ?? 'unknown'} />
+          <CapabilityBadge capability={actor.capability ?? null} />
           <div className="flex gap-3 mt-1">
             <span className="font-mono text-[10px] text-white/40">{actor.infra_count ?? 0} infra</span>
             <span className="font-mono text-[10px] text-white/40">{actor.target_count ?? 0} targets</span>

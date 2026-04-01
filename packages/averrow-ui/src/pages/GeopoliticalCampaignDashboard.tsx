@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { StatCard } from '@/components/brands/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -10,6 +11,7 @@ import {
   useGeoCampaignAsns,
   useGeoCampaignAttackTypes,
   useGeoCampaignThreats,
+  useGeoCampaignAssessment,
 } from '@/hooks/useGeopoliticalCampaign';
 import type { GeoCampaignThreat } from '@/hooks/useGeopoliticalCampaign';
 
@@ -398,6 +400,9 @@ export function GeopoliticalCampaignDashboard() {
   const { data: asns } = useGeoCampaignAsns(slug ?? '');
   const { data: attackTypes } = useGeoCampaignAttackTypes(slug ?? '');
   const { data: threatsData } = useGeoCampaignThreats(slug ?? '', { limit: 20 });
+  const assessmentMutation = useGeoCampaignAssessment(slug ?? '');
+  const [assessment, setAssessment] = useState<string | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   if (campaignLoading) {
     return (
@@ -511,6 +516,37 @@ export function GeopoliticalCampaignDashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* AI Intelligence Assessment */}
+      <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
+        <div className="flex justify-between items-center mb-3">
+          <SectionTitle>AI Intelligence Assessment</SectionTitle>
+          <button
+            onClick={() => {
+              setAssessmentError(null);
+              assessmentMutation.mutate(undefined, {
+                onSuccess: (data) => setAssessment(data.assessment),
+                onError: (err) => setAssessmentError(err instanceof Error ? err.message : 'Assessment failed'),
+              });
+            }}
+            disabled={assessmentMutation.isPending}
+            className="rounded-lg border border-afterburner/30 bg-afterburner/10 px-3 py-1.5 font-mono text-[10px] font-bold text-afterburner uppercase tracking-wider hover:bg-afterburner/20 transition-colors disabled:opacity-40"
+          >
+            {assessmentMutation.isPending ? 'Analyzing...' : 'Run Assessment'}
+          </button>
+        </div>
+        {assessment ? (
+          <div className="text-[12px] text-instrument-white/90 leading-relaxed font-mono whitespace-pre-line">
+            {assessment}
+          </div>
+        ) : assessmentError ? (
+          <p className="text-[11px] text-red-400 font-mono">{assessmentError}</p>
+        ) : (
+          <p className="text-[11px] text-gauge-gray font-mono">
+            Generate an AI-powered intelligence assessment of this campaign using current platform threat data.
+          </p>
+        )}
       </div>
 
       {/* Live Stats Row */}

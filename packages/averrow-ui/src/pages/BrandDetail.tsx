@@ -407,8 +407,8 @@ function SocialRiskCard({
         ] as const).map(row => (
           <div key={row.label} className="flex items-center gap-2 py-1">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${row.dot}`} />
-            <span className="flex-1 text-[11px] font-mono text-white/60">{row.label}</span>
-            <span className={`text-[11px] font-mono ${row.count > 0 ? row.text : 'text-white/25'}`}>
+            <span className="flex-1 text-[11px] font-mono text-white/60 truncate">{row.label}</span>
+            <span className={`text-[11px] font-mono flex-shrink-0 ${row.count > 0 ? row.text : 'text-white/25'}`}>
               {row.count}
             </span>
           </div>
@@ -534,7 +534,7 @@ export function BrandDetail() {
     return (
       <div className="animate-fade-in">
         <button onClick={() => navigate('/brands')} className="font-mono text-xs text-contrail/50 hover:text-accent transition-colors mb-4">
-          \u2190 Back to Brands
+          &larr; Back to Brands
         </button>
         <Card hover={false}><p className="text-sm text-contrail/60">Brand not found</p></Card>
       </div>
@@ -546,7 +546,7 @@ export function BrandDetail() {
     <div className="animate-fade-in space-y-6">
       {/* ── Nav ── */}
       <button onClick={() => navigate('/brands')} className="font-mono text-xs text-contrail/50 hover:text-accent transition-colors">
-        \u2190 Back to Brands
+        &larr; Back to Brands
       </button>
 
       {/* ── Brand Header ── */}
@@ -582,7 +582,7 @@ export function BrandDetail() {
       {/* ════════════════════════════════════════════════════════════════
            ROW 1 — Unified Stat Cards
            ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {/* ── Card 1: Exposure Index ── */}
         <ExposureIndexCard brand={brand} threats={threats} />
 

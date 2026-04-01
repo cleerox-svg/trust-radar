@@ -25,6 +25,7 @@ import {
   handleGeoCampaignThreats, handleGeoCampaignTimeline,
   handleGeoCampaignBrands, handleGeoCampaignAsns,
   handleGeoCampaignAttackTypes, handleGeoCampaignStats,
+  handleGeoCampaignAssessment,
 } from "../handlers/geopolitical";
 import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
@@ -206,6 +207,11 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGeoCampaignAttackTypes(request, env, request.params["slug"] ?? "");
+  });
+  router.post("/api/campaigns/geo/:slug/assessment", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGeoCampaignAssessment(request, env, request.params["slug"] ?? "");
   });
 
   // ─── Campaign Clusters ────────────────────────────────────────────
