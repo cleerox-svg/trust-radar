@@ -13,6 +13,8 @@ import {
   useOperationThreats,
 } from '@/hooks/useOperations';
 import type { Operation } from '@/hooks/useOperations';
+import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
+import type { GeopoliticalCampaign } from '@/hooks/useGeopoliticalCampaign';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -445,6 +447,81 @@ function CampaignCard({
   );
 }
 
+// ─── Geopolitical Campaign Card ──────────────────────────────
+
+function GeoCampaignCard({
+  campaign,
+  onClick,
+}: {
+  campaign: GeopoliticalCampaign;
+  onClick: () => void;
+}) {
+  const adversaryCountries = parseJsonArray(campaign.adversary_countries);
+  const targetCountries = parseJsonArray(campaign.target_countries);
+  const threatActors = parseJsonArray(campaign.threat_actors);
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all glass-card border-signal-red/20"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold uppercase ${
+          campaign.status === 'active'
+            ? 'bg-signal-red/20 text-red-400 border-signal-red/30 animate-pulse'
+            : campaign.status === 'dormant'
+              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+              : 'bg-white/5 text-gauge-gray border-white/10'
+        }`}>
+          {campaign.status}
+        </span>
+        <span className="font-mono text-[9px] text-gauge-gray uppercase tracking-widest">
+          Geopolitical
+        </span>
+      </div>
+
+      {/* Name */}
+      <div className="font-display text-sm font-semibold text-parchment truncate mb-1">
+        {campaign.name}
+      </div>
+      {campaign.description && (
+        <div className="font-mono text-[10px] text-contrail/40 mb-3 line-clamp-2">
+          {campaign.description}
+        </div>
+      )}
+
+      {/* Country flags */}
+      <div className="flex items-center gap-4 py-2 border-t border-white/[0.06]">
+        <div>
+          <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Adversary</div>
+          <div className="flex gap-1">
+            {adversaryCountries.map(c => (
+              <span key={c} className="text-sm" title={c}>{countryFlag(c)}</span>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Targets</div>
+          <div className="flex gap-1">
+            {targetCountries.map(c => (
+              <span key={c} className="text-sm" title={c}>{countryFlag(c)}</span>
+            ))}
+          </div>
+        </div>
+        {threatActors.length > 0 && (
+          <div className="ml-auto">
+            <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Actors</div>
+            <div className="font-mono text-[10px] text-red-400">
+              {threatActors.length} linked
+            </div>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
 // ─── Filter Constants ─────────────────────────────────────────
 
 const ATTACK_FILTERS = [
@@ -474,6 +551,7 @@ export function Campaigns() {
   const { data: operations, isLoading: opsLoading } = useOperations({ limit: 12 });
   const { data: campaignsRes, isLoading: campaignsLoading } = useCampaigns({ status: 'active', limit: 50 });
   const { data: campStats } = useCampaignStats();
+  const { data: geoCampaigns, isLoading: geoLoading } = useGeopoliticalCampaigns();
 
   const allOperations = operations ?? [];
   const allCampaigns = (campaignsRes ?? []) as Campaign[];
@@ -635,6 +713,38 @@ export function Campaigns() {
           </div>
         )}
       </section>
+
+      {/* ─── Section: Geopolitical Campaigns ─────────────────────── */}
+      {(geoLoading || (geoCampaigns && geoCampaigns.length > 0)) && (
+        <section>
+          <div className="mb-4">
+            <div className="section-label font-mono font-bold mb-1">
+              Geopolitical Campaigns
+            </div>
+            <div className="font-mono text-[11px] text-contrail/50">
+              State-linked threat campaigns tracked by adversary country and ASN
+            </div>
+          </div>
+
+          {geoLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-44 rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(geoCampaigns ?? []).map(gc => (
+                <GeoCampaignCard
+                  key={gc.id}
+                  campaign={gc}
+                  onClick={() => navigate(`/campaigns/geo/${gc.slug}`)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ─── Section B: Active Campaigns ───────────────────────── */}
       <section>
