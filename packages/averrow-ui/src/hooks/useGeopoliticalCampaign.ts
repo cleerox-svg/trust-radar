@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -189,5 +189,23 @@ export function useGeoCampaignAttackTypes(slug: string) {
       return res.data ?? [];
     },
     enabled: !!slug,
+  });
+}
+
+export interface GeoCampaignAssessment {
+  assessment: string;
+  tokens_used: number;
+  generated_at: string;
+}
+
+export function useGeoCampaignAssessment(slug: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post<GeoCampaignAssessment>(`/api/campaigns/geo/${slug}/assessment`);
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? 'Assessment generation failed');
+      }
+      return res.data;
+    },
   });
 }

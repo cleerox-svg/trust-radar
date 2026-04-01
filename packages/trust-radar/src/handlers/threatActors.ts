@@ -37,7 +37,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     const params: unknown[] = [];
 
     if (country) {
-      conditions.push("ta.country = ?");
+      conditions.push("ta.country_code = ?");
       params.push(country.toUpperCase());
     }
     if (status) {
@@ -45,7 +45,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       params.push(status);
     }
     if (affiliation) {
-      conditions.push("ta.attribution = ?");
+      conditions.push("ta.affiliation = ?");
       params.push(affiliation);
     }
     if (search) {
@@ -60,33 +60,43 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
     ).bind(...params).first<{ total: number }>();
 
+    // Column aliases to match frontend field names
+    const selectCols = `ta.id, ta.name, ta.aliases,
+          ta.affiliation AS attribution,
+          ta.country_code AS country,
+          ta.capability,
+          ta.primary_ttps AS ttps,
+          ta.description,
+          ta.first_seen, ta.last_seen,
+          ta.status,
+          ta.attribution_confidence,
+          ta.source, ta.created_at, ta.updated_at`;
+
+    const orderBy = `ORDER BY
+          CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
+          CASE ta.attribution_confidence
+            WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
+          ta.name`;
+
     // Try query with join table counts first; fall back to basic query if tables missing
     let rows: D1Result;
     try {
       rows = await env.DB.prepare(`
-        SELECT ta.*,
+        SELECT ${selectCols},
           (SELECT COUNT(*) FROM threat_actor_infrastructure tai WHERE tai.threat_actor_id = ta.id) AS infra_count,
           (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count
         FROM threat_actors ta
         ${where}
-        ORDER BY
-          CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
-          CASE ta.attribution
-            WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
-          ta.name
+        ${orderBy}
         LIMIT ? OFFSET ?
       `).bind(...params, limit, offset).all();
     } catch {
       // Join tables don't exist — query threat_actors alone
       rows = await env.DB.prepare(`
-        SELECT ta.*, 0 AS infra_count, 0 AS target_count
+        SELECT ${selectCols}, 0 AS infra_count, 0 AS target_count
         FROM threat_actors ta
         ${where}
-        ORDER BY
-          CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
-          CASE ta.attribution
-            WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
-          ta.name
+        ${orderBy}
         LIMIT ? OFFSET ?
       `).bind(...params, limit, offset).all();
     }
@@ -108,17 +118,17 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
     const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>();
     const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>();
     const byCountry = await env.DB.prepare(`
-      SELECT country, COUNT(*) AS count
+      SELECT country_code AS country, COUNT(*) AS count
       FROM threat_actors
-      GROUP BY country
+      GROUP BY country_code
       ORDER BY count DESC
       LIMIT 10
     `).all();
     const byAttribution = await env.DB.prepare(`
-      SELECT attribution, COUNT(*) AS count
+      SELECT affiliation AS attribution, COUNT(*) AS count
       FROM threat_actors
-      WHERE attribution IS NOT NULL
-      GROUP BY attribution
+      WHERE affiliation IS NOT NULL
+      GROUP BY affiliation
       ORDER BY count DESC
     `).all();
 
@@ -152,7 +162,16 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
 export async function handleGetThreatActor(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const actor = await env.DB.prepare("SELECT * FROM threat_actors WHERE id = ?").bind(id).first();
+    const actor = await env.DB.prepare(`
+      SELECT id, name, aliases,
+             affiliation AS attribution,
+             country_code AS country,
+             capability,
+             primary_ttps AS ttps,
+             description, first_seen, last_seen, status,
+             attribution_confidence, source, created_at, updated_at
+      FROM threat_actors WHERE id = ?
+    `).bind(id).first();
     if (!actor) {
       return json({ success: false, error: "Threat actor not found" }, 404, origin);
     }
@@ -208,12 +227,19 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
   try {
     const rows = await safeQueryAll(env.DB,
       env.DB.prepare(`
-        SELECT ta.*, tat.context, tat.first_targeted, tat.last_targeted
+        SELECT ta.id, ta.name, ta.aliases,
+               ta.affiliation AS attribution,
+               ta.country_code AS country,
+               ta.capability,
+               ta.primary_ttps AS ttps,
+               ta.description, ta.first_seen, ta.last_seen, ta.status,
+               ta.attribution_confidence, ta.source, ta.created_at, ta.updated_at,
+               tat.context, tat.first_targeted, tat.last_targeted
         FROM threat_actors ta
         JOIN threat_actor_targets tat ON tat.threat_actor_id = ta.id
         WHERE tat.brand_id = ?
         ORDER BY
-          CASE ta.attribution
+          CASE ta.attribution_confidence
             WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
           ta.name
       `).bind(brandId)
