@@ -738,7 +738,7 @@ export function Campaigns() {
                 <GeoCampaignCard
                   key={gc.id}
                   campaign={gc}
-                  onClick={() => navigate(`/campaigns/geo/${gc.slug}`)}
+                  onClick={() => navigate(`/campaigns/geo/${gc.id}`)}
                 />
               ))}
             </div>
