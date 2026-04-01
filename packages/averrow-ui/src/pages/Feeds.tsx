@@ -120,7 +120,7 @@ function TriggerAllButton() {
   }
   if (action.state === 'loading') {
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[10px] text-orbital-teal">
+      <span className="flex items-center gap-1.5 font-mono text-[10px] text-afterburner">
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Triggering...
       </span>
     );
@@ -176,7 +176,7 @@ function RetryButton({ feedName }: { feedName: string }) {
   }
   if (action.state === 'loading') {
     return (
-      <span className="flex items-center gap-1 font-mono text-[9px] text-orbital-teal" onClick={(e) => e.stopPropagation()}>
+      <span className="flex items-center gap-1 font-mono text-[9px] text-afterburner" onClick={(e) => e.stopPropagation()}>
         <Loader2 className="w-3 h-3 animate-spin" />
       </span>
     );
@@ -209,9 +209,9 @@ function HeaderStats({ feeds }: { feeds: FeedOverview[] }) {
         <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Active Feeds</div>
         <div className="text-[28px] font-bold leading-none text-green-400 font-display">{active}</div>
       </div>
-      <div className="glass-card glass-card-teal relative rounded-xl p-4">
+      <div className="glass-card glass-card-amber relative rounded-xl p-4">
         <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Total Ingested</div>
-        <div className="text-[28px] font-bold leading-none text-orbital-teal font-display">
+        <div className="text-[28px] font-bold leading-none text-afterburner font-display">
           {totalIngested.toLocaleString()}
         </div>
       </div>
@@ -506,9 +506,9 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
                         fontSize: 11,
                       }}
                       labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                      itemStyle={{ color: '#00d4ff' }}
+                      itemStyle={{ color: '#E5A832' }}
                     />
-                    <Bar dataKey="ingested" fill="#00d4ff" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="ingested" fill="#E5A832" radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

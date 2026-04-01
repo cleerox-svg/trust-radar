@@ -18,7 +18,7 @@ export function Notifications() {
         </h1>
       </div>
 
-      <div className="glass-card glass-card-teal rounded-xl p-12 text-center">
+      <div className="glass-card glass-card-amber rounded-xl p-12 text-center">
         <p className="text-[13px] text-white/40 font-mono">
           Full notification history coming soon.
         </p>

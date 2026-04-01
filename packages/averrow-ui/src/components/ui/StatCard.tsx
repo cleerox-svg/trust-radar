@@ -14,7 +14,7 @@ export function StatCard({ label, value, sublabel, trend, trendDirection, accent
   return (
     <div
       className={cn(
-        'glass-card glass-card-teal relative rounded-xl p-5 transition-all',
+        'glass-stat relative p-5 transition-all',
         accentColor && 'border-l-[3px]',
         className,
       )}
@@ -25,7 +25,7 @@ export function StatCard({ label, value, sublabel, trend, trendDirection, accent
         accentColor === '#C83C3C' && 'glow-red',
         accentColor === '#FB923C' && 'glow-amber',
         accentColor === '#4ADE80' && 'glow-green',
-        !accentColor && 'glow-teal',
+        !accentColor && 'glow-afterburner',
       )}>{value}</div>
       <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-contrail/60 mt-1">{label}</div>
       {sublabel && <div className="font-mono text-[9px] text-parchment/30 mt-0.5">{sublabel}</div>}

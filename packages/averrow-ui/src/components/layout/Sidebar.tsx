@@ -74,7 +74,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   ];
 
   return (
-    <aside className="w-56 h-full bg-instrument border-r border-[rgba(0,212,255,0.08)] flex flex-col">
+    <aside className="w-56 h-full glass-sidebar flex flex-col">
       <div className="p-4 border-b border-white/5">
         <AverrowLogo />
       </div>
@@ -91,7 +91,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 className={({ isActive }) => cn(
                   'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
                   isActive
-                    ? 'nav-item-active text-[#00D4FF] font-medium'
+                    ? 'nav-item-active text-afterburner font-medium'
                     : 'text-parchment/70 hover:bg-white/5 hover:text-parchment'
                 )}
               >

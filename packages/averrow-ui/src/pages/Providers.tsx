@@ -124,7 +124,7 @@ function ClusterPanel({
       {selectedClusterId && (
         <button
           onClick={() => onSelect(null)}
-          className="w-full text-left font-mono text-[10px] text-orbital-teal hover:text-thrust px-2 py-1 mb-1"
+          className="w-full text-left font-mono text-[10px] text-afterburner hover:text-afterburner-hover px-2 py-1 mb-1"
         >
           Clear filter
         </button>
@@ -141,7 +141,7 @@ function ClusterPanel({
             onClick={() => onSelect(isSelected ? null : cluster.id)}
             className={`w-full text-left rounded-lg p-2.5 transition-all glass-card ${
               isSelected
-                ? 'border-orbital-teal/40 bg-orbital-teal/5'
+                ? 'border-afterburner-border bg-afterburner-muted'
                 : ''
             }`}
           >
@@ -196,7 +196,7 @@ function ProviderCard({
       onClick={() => onSelect(provider.id)}
       className={`w-full text-left rounded-xl p-4 transition-all glass-card ${
         isSelected
-          ? 'ring-1 ring-orbital-teal/20 border-orbital-teal/40'
+          ? 'ring-1 ring-afterburner/20 border-afterburner-border'
           : 'hover:-translate-y-0.5'
       }`}
     >
@@ -596,14 +596,14 @@ export function Providers() {
         <StatCard
           title="Pivots Detected"
           metric={
-            <span className="text-[32px] font-bold leading-none text-orbital-teal">
+            <span className="text-[32px] font-bold leading-none text-afterburner">
               {intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
             </span>
           }
           metricLabel="Infra moved"
         >
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-orbital-teal" />
+            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
             <span className="font-mono text-[11px] text-white/60">Silent after &gt;50 threats/30d</span>
           </div>
         </StatCard>

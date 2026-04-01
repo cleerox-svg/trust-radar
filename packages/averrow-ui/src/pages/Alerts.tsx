@@ -82,7 +82,7 @@ function PillGroup({ label, options, selected, onChange }: PillGroupProps) {
           className={cn(
             'font-mono text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border transition-all',
             selected === o.value
-              ? 'bg-orbital-teal/15 text-[#00d4ff] border-orbital-teal/40'
+              ? 'bg-afterburner-muted text-afterburner border-afterburner-border'
               : 'bg-white/[0.03] text-contrail/50 border-white/[0.06] hover:border-white/15 hover:text-contrail/70',
           )}
         >
@@ -181,7 +181,7 @@ function BrandGroupCard({
                   className={cn(
                     'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all border-l-2',
                     isSelected
-                      ? 'bg-orbital-teal/[0.06] border-l-orbital-teal'
+                      ? 'bg-afterburner-muted border-l-afterburner'
                       : 'border-l-transparent hover:bg-white/[0.02] hover:border-l-white/10',
                   )}
                 >
@@ -223,7 +223,7 @@ function BrandGroupCard({
                   <span className={cn(
                     'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
                     alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
-                    alert.status === 'acknowledged' && 'bg-orbital-teal/15 text-[#00d4ff]',
+                    alert.status === 'acknowledged' && 'bg-afterburner-muted text-afterburner',
                     alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
                     alert.status === 'false_positive' && 'bg-white/5 text-white/40',
                   )}>
@@ -245,7 +245,7 @@ function BrandGroupCard({
               {remaining > 0 && !showAll && (
                 <button
                   onClick={() => setShowAll(true)}
-                  className="font-mono text-[10px] font-semibold text-orbital-teal hover:text-thrust transition-colors"
+                  className="font-mono text-[10px] font-semibold text-afterburner hover:text-afterburner-hover transition-colors"
                 >
                   + {remaining} more
                 </button>
@@ -264,7 +264,7 @@ function BrandGroupCard({
                 <button
                   onClick={onAcknowledgeAll}
                   disabled={isAcknowledging}
-                  className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md border border-orbital-teal/30 text-[#00d4ff] hover:bg-orbital-teal/10 transition-all disabled:opacity-50"
+                  className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-all disabled:opacity-50"
                 >
                   {isAcknowledging ? 'Acknowledging...' : 'Acknowledge All'}
                 </button>
@@ -300,7 +300,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
   const platform = extractPlatform(alert.title);
 
   return (
-    <div className="glass-card glass-card-teal rounded-xl p-5 mt-1">
+    <div className="glass-card glass-card-amber rounded-xl p-5 mt-1">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
           <span className={cn(
             'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
             alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
-            alert.status === 'acknowledged' && 'bg-orbital-teal/15 text-[#00d4ff]',
+            alert.status === 'acknowledged' && 'bg-afterburner-muted text-afterburner',
             alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
             alert.status === 'false_positive' && 'bg-white/5 text-white/40',
           )}>
@@ -432,7 +432,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
                 <button
                   onClick={() => onUpdate('acknowledged')}
                   disabled={isUpdating}
-                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-orbital-teal/30 text-[#00d4ff] hover:bg-orbital-teal/10 transition-all disabled:opacity-50"
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-all disabled:opacity-50"
                 >
                   Acknowledge
                 </button>
@@ -491,13 +491,13 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               onChange={e => setNotes(e.target.value)}
               placeholder="Add notes..."
               rows={3}
-              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-orbital-teal/30 resize-none font-mono"
+              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-afterburner-border resize-none font-mono"
             />
             {notes !== (alert.resolution_notes ?? '') && (
               <button
                 onClick={() => onUpdate(alert.status, notes)}
                 disabled={isUpdating}
-                className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-orbital-teal/15 text-[#00d4ff] border border-orbital-teal/30 hover:bg-orbital-teal/25 transition-all disabled:opacity-50"
+                className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-afterburner-muted text-afterburner border border-afterburner-border hover:bg-afterburner-muted transition-all disabled:opacity-50"
               >
                 Save Notes
               </button>
@@ -803,7 +803,7 @@ export function Alerts() {
         <StatCard
           label="Acknowledged"
           value={statsLoading ? '...' : (stats?.acknowledged ?? 0)}
-          accentColor="#00d4ff"
+          accentColor="#E5A832"
         />
         <StatCard
           label="Resolved"
@@ -866,7 +866,7 @@ export function Alerts() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search alerts..."
-            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-orbital-teal/30 font-mono"
+            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-afterburner-border font-mono"
           />
         </div>
       </div>
@@ -874,7 +874,7 @@ export function Alerts() {
       {/* Loading */}
       {alertsLoading && (
         <div className="flex items-center justify-center py-12">
-          <div className="w-6 h-6 border-2 border-orbital-teal/30 border-t-orbital-teal rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-afterburner-border border-t-afterburner rounded-full animate-spin" />
         </div>
       )}
 

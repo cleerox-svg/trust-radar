@@ -68,7 +68,7 @@ function BudgetPanel() {
     : 'progress-bar-fill-teal';
 
   return (
-    <div className="glass-card glass-card-teal rounded-xl p-4 space-y-4">
+    <div className="glass-card glass-card-amber rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="section-label">AI Budget</div>
         <span className={`badge-glass ${throttleBadge(budget.throttle_level)}`}>
@@ -147,7 +147,7 @@ function BudgetPanel() {
         <button
           type="button"
           onClick={() => { setEditing(true); setLimitInput(String(budget.config.monthly_limit_usd)); }}
-          className="font-mono text-[10px] text-orbital-teal hover:text-thrust transition-colors"
+          className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
         >
           Edit monthly limit &rarr;
         </button>
@@ -160,7 +160,7 @@ function BudgetPanel() {
             min="0"
             value={limitInput}
             onChange={(e) => setLimitInput(e.target.value)}
-            className="w-20 rounded border border-white/10 bg-cockpit px-2 py-1 font-mono text-[11px] text-parchment outline-none focus:border-orbital-teal"
+            className="w-20 rounded border border-white/10 bg-cockpit px-2 py-1 font-mono text-[11px] text-parchment outline-none focus:border-afterburner"
           />
           <button
             type="button"
@@ -171,7 +171,7 @@ function BudgetPanel() {
               }
               setEditing(false);
             }}
-            className="font-mono text-[10px] text-positive hover:text-thrust transition-colors"
+            className="font-mono text-[10px] text-positive hover:text-afterburner-hover transition-colors"
           >
             Save
           </button>
@@ -262,7 +262,7 @@ function EmailSecuritySection() {
             </div>
           )}
           {scanAction.state === 'loading' && (
-            <span className="flex items-center gap-1.5 font-mono text-[10px] text-orbital-teal">
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-afterburner">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...
             </span>
           )}
@@ -432,7 +432,7 @@ function OperationCard({ op }: { op: OperationConfig }) {
         </div>
       )}
       {action.state === 'loading' && (
-        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-orbital-teal">
+        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-afterburner">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Running...
         </div>
       )}
@@ -576,9 +576,9 @@ export function AdminDashboard() {
 
       {/* ── TOP STAT ROW ────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card glass-card-teal rounded-xl p-4">
+        <div className="glass-card glass-card-amber rounded-xl p-4">
           <div className="section-label mb-2">Threats Today</div>
-          <div className="metric-xl glow-teal">{fmt(threats.today)}</div>
+          <div className="metric-xl glow-afterburner">{fmt(threats.today)}</div>
           <div className="font-mono text-[9px] text-contrail/40 mt-1">{fmt(threats.total)} total</div>
         </div>
         <div className="glass-card glass-card-green rounded-xl p-4">
@@ -593,9 +593,9 @@ export function AdminDashboard() {
             {fmt(agents.successes)} success / {agents.errors} errors
           </div>
         </div>
-        <div className="glass-card glass-card-teal rounded-xl p-4">
+        <div className="glass-card glass-card-amber rounded-xl p-4">
           <div className="section-label mb-2">Active Sessions</div>
-          <div className="metric-xl glow-teal">{fmt(sessions.count)}</div>
+          <div className="metric-xl glow-afterburner">{fmt(sessions.count)}</div>
           <div className="font-mono text-[9px] text-contrail/40 mt-1">authenticated</div>
         </div>
       </div>
@@ -607,7 +607,7 @@ export function AdminDashboard() {
           <SectionLabel>Infrastructure</SectionLabel>
 
           {/* Database */}
-          <div className="glass-card glass-card-teal rounded-xl p-4 space-y-4">
+          <div className="glass-card glass-card-amber rounded-xl p-4 space-y-4">
             <div className="section-label">Database</div>
 
             {/* Main DB */}
@@ -648,7 +648,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Worker */}
-          <div className="glass-card glass-card-teal rounded-xl p-4">
+          <div className="glass-card glass-card-amber rounded-xl p-4">
             <div className="section-label mb-3">Worker</div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -687,7 +687,7 @@ export function AdminDashboard() {
           <SectionLabel>Activity</SectionLabel>
 
           {/* Threat Ingestion Chart */}
-          <div className="glass-card glass-card-teal rounded-xl p-4">
+          <div className="glass-card glass-card-amber rounded-xl p-4">
             <div className="section-label mb-3">Threat Ingestion (14D)</div>
             <div className="h-[180px]">
               {chartData.length > 0 ? (
@@ -776,13 +776,13 @@ export function AdminDashboard() {
           <BudgetPanel />
 
           {/* Sessions */}
-          <div className="glass-card glass-card-teal rounded-xl p-4">
+          <div className="glass-card glass-card-amber rounded-xl p-4">
             <div className="section-label mb-3">Sessions</div>
             <div className="font-display text-2xl font-bold text-parchment mb-1">{fmt(sessions.count)}</div>
             <div className="font-mono text-[10px] text-contrail/40 mb-3">active sessions &middot; 1 total user</div>
             <Link
               to="/profile"
-              className="font-mono text-[10px] text-orbital-teal hover:text-thrust transition-colors"
+              className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
             >
               Revoke all sessions &rarr;
             </Link>
@@ -819,7 +819,7 @@ export function AdminDashboard() {
             <div className="mt-3">
               <Link
                 to="/admin/audit"
-                className="font-mono text-[10px] text-orbital-teal hover:text-thrust transition-colors"
+                className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
               >
                 View Audit Log &rarr;
               </Link>

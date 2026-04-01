@@ -241,7 +241,7 @@ export function HoneypotNetworkPanel() {
                   <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider mt-0.5">Bot Visits</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 text-center">
-                  <div className="font-mono text-xl font-bold text-orbital-teal">{seedingData.honeypot_visits.last_24h}</div>
+                  <div className="font-mono text-xl font-bold text-afterburner">{seedingData.honeypot_visits.last_24h}</div>
                   <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider mt-0.5">Last 24h</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 text-center">

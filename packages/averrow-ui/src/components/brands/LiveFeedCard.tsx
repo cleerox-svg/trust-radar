@@ -43,10 +43,10 @@ export function LiveFeedCard() {
   const items = threats ?? [];
 
   return (
-    <div className="rounded-xl glass-card glass-card-teal p-4">
+    <div className="rounded-xl glass-card glass-card-amber p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="font-mono text-[9px] tracking-widest text-orbital-teal">LIVE FEED</span>
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-orbital-teal" />
+        <span className="font-mono text-[9px] tracking-widest text-afterburner">LIVE FEED</span>
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-afterburner" />
       </div>
 
       {items.length === 0 ? (
@@ -83,7 +83,7 @@ export function LiveFeedCard() {
 
       <a
         href="/contacts"
-        className="mt-3 block text-[10px] text-orbital-teal transition-colors hover:text-white"
+        className="mt-3 block text-[10px] text-afterburner transition-colors hover:text-white"
       >
         View all in Observatory →
       </a>

@@ -31,7 +31,7 @@ function severityDotClass(severity: string): string {
     case 'critical': return 'dot-pulse-red';
     case 'high': return 'dot-pulse-amber';
     case 'medium': return 'dot-pulse-amber';
-    default: return 'dot-pulse-teal';
+    default: return 'dot-pulse-afterburner';
   }
 }
 
@@ -108,7 +108,7 @@ function NotificationList({
           </span>
           <button
             onClick={() => markAllRead.mutate()}
-            className="text-[10px] font-mono text-orbital-teal hover:text-thrust transition-colors touch-target"
+            className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors touch-target"
           >
             Mark all read
           </button>
@@ -151,7 +151,7 @@ function NotificationList({
       <div className="border-t border-white/5 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <button
           onClick={() => { navigate('/notifications'); onClose(); }}
-          className="text-[10px] font-mono text-orbital-teal hover:text-thrust transition-colors touch-target"
+          className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors touch-target"
         >
           View all notifications &rarr;
         </button>

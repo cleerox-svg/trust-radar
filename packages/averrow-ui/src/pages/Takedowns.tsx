@@ -170,7 +170,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
             </DetailRow>
             {takedown.target_url && (
               <DetailRow label="Full URL">
-                <span className="text-orbital-teal font-mono text-[11px] break-all select-all">
+                <span className="text-afterburner font-mono text-[11px] break-all select-all">
                   {takedown.target_url}
                 </span>
               </DetailRow>
@@ -216,7 +216,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               href={takedown.provider_abuse_contact}
               target="_blank"
               rel="noopener noreferrer"
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-orbital-teal"
+              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-afterburner"
             >
               Submit Form &rarr;
             </a>
@@ -224,7 +224,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           {takedown.provider_abuse_contact && takedown.provider_method === 'email' && (
             <a
               href={`mailto:${takedown.provider_abuse_contact}`}
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-orbital-teal"
+              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-afterburner"
             >
               Draft Email &rarr;
             </a>
@@ -440,7 +440,7 @@ function sortieId(index: number): string {
 const MOBILE_STATUS_COLOR: Record<string, string> = {
   draft: 'bg-white/10 text-white/60',
   requested: 'bg-amber-500/15 text-amber-400',
-  submitted: 'bg-orbital-teal/15 text-orbital-teal',
+  submitted: 'bg-afterburner-muted text-afterburner',
   pending_response: 'bg-amber-500/15 text-amber-400',
   taken_down: 'bg-green-500/15 text-green-400',
   failed: 'bg-red-500/15 text-red-400',
@@ -686,7 +686,7 @@ function TakedownsDesktop() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title="Total Takedowns" value={stats.total} />
         <StatCard title="Pending Review" value={stats.draft} glowClass="glow-amber" />
-        <StatCard title="Submitted" value={stats.submitted} glowClass="glow-teal" />
+        <StatCard title="Submitted" value={stats.submitted} glowClass="glow-afterburner" />
         <StatCard title="Resolved" value={stats.resolved} glowClass="glow-green" />
       </div>
 
