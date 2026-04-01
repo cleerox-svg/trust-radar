@@ -61,8 +61,8 @@ export async function handleGetGeopoliticalCampaign(request: Request, env: Env, 
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT * FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<GeopoliticalCampaign>();
+      "SELECT * FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<GeopoliticalCampaign>();
 
     if (!campaign) {
       return json({ success: false, error: "Geopolitical campaign not found" }, 404, origin);
@@ -79,8 +79,8 @@ export async function handleGeoCampaignThreats(request: Request, env: Env, slug:
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -145,8 +145,8 @@ export async function handleGeoCampaignTimeline(request: Request, env: Env, slug
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -216,8 +216,8 @@ export async function handleGeoCampaignBrands(request: Request, env: Env, slug: 
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -269,8 +269,8 @@ export async function handleGeoCampaignAsns(request: Request, env: Env, slug: st
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -331,8 +331,8 @@ export async function handleGeoCampaignAttackTypes(request: Request, env: Env, s
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
@@ -381,8 +381,8 @@ export async function handleGeoCampaignStats(request: Request, env: Env, slug: s
   const origin = request.headers.get("Origin");
   try {
     const campaign = await env.DB.prepare(
-      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ?"
-    ).bind(slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
+      "SELECT adversary_countries, adversary_asns, start_date FROM geopolitical_campaigns WHERE slug = ? OR id = ? OR conflict = ?"
+    ).bind(slug, slug, slug).first<Pick<GeopoliticalCampaign, "adversary_countries" | "adversary_asns" | "start_date">>();
 
     if (!campaign) {
       return json({ success: false, error: "Campaign not found" }, 404, origin);
