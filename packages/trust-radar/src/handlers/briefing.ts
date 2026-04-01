@@ -103,6 +103,12 @@ export interface ComprehensiveBriefing {
   };
   topTargetedBrands: Array<{ name: string; threats_24h: number }>;
   brandCoverage: Array<{ sector: string; brands: number }>;
+  geopoliticalCampaigns: Array<{
+    name: string; status: string; conflict: string;
+    start_date: string; briefing_priority: string;
+    total_threats: number; new_24h: number; brands_hit: number;
+    threat_actors: string; notes: string | null;
+  }>;
   generatedAt: string;
   statusBadge: "OPERATIONAL" | "DEGRADED";
 }
@@ -184,6 +190,8 @@ async function fetchComprehensiveBriefing(
     degradedFeeds,
     // M) Brand Coverage
     brandCoverage,
+    // N) Geopolitical Campaigns
+    geopoliticalCampaigns,
   ] = await Promise.all([
     // A) Platform Overview
     safeFirst(
@@ -458,6 +466,34 @@ async function fetchComprehensiveBriefing(
        WHERE sector IS NOT NULL GROUP BY sector ORDER BY brands DESC LIMIT 10`,
       [],
     ),
+
+    // N) Geopolitical Campaigns
+    safeQuery<Array<{
+      name: string; status: string; conflict: string;
+      start_date: string; briefing_priority: string;
+      total_threats: number; new_24h: number; brands_hit: number;
+      threat_actors: string; notes: string | null;
+    }>>(
+      db,
+      `SELECT gc.name, gc.status, gc.conflict, gc.threat_actors,
+        COALESCE(gc.briefing_priority, 'high') as briefing_priority,
+        gc.start_date, gc.notes,
+        (SELECT COUNT(*) FROM threats t
+         JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+         WHERE gcl.geopolitical_campaign_id = gc.id) as total_threats,
+        (SELECT COUNT(*) FROM threats t
+         JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+         WHERE gcl.geopolitical_campaign_id = gc.id
+           AND t.first_seen >= datetime('now', '-24 hours')) as new_24h,
+        (SELECT COUNT(DISTINCT t.target_brand_id) FROM threats t
+         JOIN geopolitical_campaign_links gcl ON t.campaign_id = gcl.campaign_id
+         WHERE gcl.geopolitical_campaign_id = gc.id
+           AND t.target_brand_id IS NOT NULL) as brands_hit
+      FROM geopolitical_campaigns gc
+      WHERE gc.status = 'active'
+      ORDER BY gc.briefing_priority DESC`,
+      [],
+    ),
   ]);
 
   // Determine status badge — only DEGRADED when >50% of feeds are unhealthy
@@ -539,6 +575,7 @@ async function fetchComprehensiveBriefing(
     },
     topTargetedBrands,
     brandCoverage,
+    geopoliticalCampaigns,
     generatedAt: now,
     statusBadge: hasDegraded ? "DEGRADED" : "OPERATIONAL",
   };

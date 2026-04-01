@@ -223,6 +223,18 @@ export const cartographerAgent: AgentModule = {
             ).run();
             batchEnriched++;
             itemsUpdated++;
+
+            // ─── Geopolitical campaign escalation ───
+            // Check if enriched country/ASN matches active geopolitical campaigns
+            const threatCountryCode = geo?.countryCode ?? null;
+            const threatAsn = geo?.as?.split(' ')[0] ?? null;
+            if (threatCountryCode || threatAsn) {
+              try {
+                await escalateGeopoliticalThreat(env.DB, threat.id, threatCountryCode, threatAsn);
+              } catch (escErr) {
+                console.error(`[cartographer] geopolitical escalation error for ${threat.id}:`, escErr);
+              }
+            }
           } catch (err) {
             console.error(`[cartographer] threat update error for ${threat.id}:`, err);
           }
@@ -552,6 +564,68 @@ function computeHeuristicScore(
 
 function gradeOrder(g: string): number {
   return ({ 'A+': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'F': 5 } as Record<string, number>)[g] ?? 6;
+}
+
+// ─── Geopolitical campaign escalation ─────────────────────────────
+
+interface GeoCampaign {
+  id: string;
+  name: string;
+  conflict: string;
+  adversary_countries: string;
+  adversary_asns: string;
+}
+
+// Cache active campaigns for the duration of a single run
+let _geoCampaignCache: GeoCampaign[] | null = null;
+
+async function getActiveGeoCampaigns(db: D1Database): Promise<GeoCampaign[]> {
+  if (_geoCampaignCache) return _geoCampaignCache;
+  const result = await db.prepare(
+    "SELECT id, name, conflict, adversary_countries, adversary_asns FROM geopolitical_campaigns WHERE status = 'active'"
+  ).all<GeoCampaign>();
+  _geoCampaignCache = result.results;
+  return _geoCampaignCache;
+}
+
+async function escalateGeopoliticalThreat(
+  db: D1Database,
+  threatId: string,
+  countryCode: string | null,
+  asn: string | null,
+): Promise<void> {
+  const campaigns = await getActiveGeoCampaigns(db);
+
+  for (const campaign of campaigns) {
+    const adversaryCountries: string[] = JSON.parse(campaign.adversary_countries || '[]');
+    const adversaryASNs: string[] = JSON.parse(campaign.adversary_asns || '[]');
+
+    const countryMatch = countryCode && adversaryCountries.includes(countryCode);
+    const asnMatch = asn && adversaryASNs.some(a => asn.includes(a));
+
+    if (countryMatch || asnMatch) {
+      // Auto-escalate severity and link to campaign
+      await db.prepare(
+        `UPDATE threats SET severity = 'critical',
+           campaign_id = COALESCE(campaign_id, (SELECT campaign_id FROM geopolitical_campaign_links WHERE geopolitical_campaign_id = ? LIMIT 1)),
+           confidence_score = MAX(COALESCE(confidence_score, 0), 90)
+         WHERE id = ?`
+      ).bind(campaign.id, threatId).run();
+
+      // Create geopolitical alert
+      await db.prepare(
+        `INSERT INTO alerts (id, brand_id, user_id, alert_type, severity, title, summary, source_type, source_id, created_at, updated_at)
+         VALUES (?, '__system__', '__system__', 'geopolitical_threat', 'CRITICAL', ?, ?, 'geopolitical_campaign', ?, datetime('now'), datetime('now'))`
+      ).bind(
+        crypto.randomUUID(),
+        `Nation-state threat: ${campaign.name}`,
+        `Threat from ${countryCode ?? 'unknown'} infrastructure (ASN: ${asn ?? 'unknown'}) detected. Campaign: ${campaign.conflict}`,
+        campaign.id,
+      ).run();
+
+      break; // One escalation per threat is sufficient
+    }
+  }
 }
 
 /**

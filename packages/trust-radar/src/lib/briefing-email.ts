@@ -232,6 +232,37 @@ function buildBriefingHtml(
   </tr></table>
 </td></tr>
 
+${b.geopoliticalCampaigns.length > 0 ? b.geopoliticalCampaigns.map(gc => {
+  const actors: string[] = JSON.parse(gc.threat_actors || '[]');
+  const priorityColor = gc.briefing_priority === 'critical' ? '#C83C3C' : '#fb923c';
+  return `<!-- ═══ GEOPOLITICAL ALERT ═══ -->
+<tr><td style="padding:12px 24px;background:#0a0f1a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="border:2px solid #C83C3C;border-radius:8px;overflow:hidden;background:#1a0f0f;">
+    <tr><td style="padding:14px 16px;border-bottom:1px solid #3d1515;">
+      <div style="font-size:13px;font-weight:700;color:#f87171;font-family:monospace;letter-spacing:1px;">&#128308; GEOPOLITICAL ALERT: ${gc.name.toUpperCase()}</div>
+    </td></tr>
+    <tr><td style="padding:12px 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:4px 0;font-size:12px;color:#e2e8f0;font-family:monospace;">Status: <span style="color:${priorityColor};font-weight:700;">${gc.status.toUpperCase()}</span></td>
+          <td style="padding:4px 0;font-size:12px;color:#e2e8f0;font-family:monospace;">Since: <span style="color:#E5A832;">${gc.start_date}</span></td>
+          <td style="padding:4px 0;font-size:12px;color:#e2e8f0;font-family:monospace;">Priority: <span style="color:${priorityColor};font-weight:700;">${gc.briefing_priority.toUpperCase()}</span></td>
+        </tr>
+      </table>
+      <div style="margin-top:8px;font-size:12px;color:#e2e8f0;font-family:monospace;">
+        Total threats: <span style="color:#E5A832;font-weight:700;">${fmt(gc.total_threats)}</span>
+        &middot; New (24h): <span style="color:#E5A832;font-weight:700;">${fmt(gc.new_24h)}</span>
+        &middot; Brands targeted: <span style="color:#E5A832;font-weight:700;">${fmt(gc.brands_hit)}</span>
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:#fb923c;font-family:monospace;">
+        Actors: ${actors.join(', ')}
+      </div>
+      ${gc.notes ? `<div style="margin-top:6px;font-size:11px;color:#78A0C8;font-family:monospace;">${gc.notes}</div>` : ''}
+    </td></tr>
+  </table>
+</td></tr>`;
+}).join('') : ''}
+
 <!-- ═══ SECTION 1: PLATFORM OVERVIEW ═══ -->
 ${sectionHeader("Platform Overview")}
 <tr><td style="padding:0 24px 12px;background:#0a0f1a;">
