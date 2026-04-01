@@ -1,13 +1,10 @@
 -- Migration 0062: Add missing brands, Iran IRGC campaign, and tag existing threats
 -- Priority 1 items: brands (Meta, Palantir), campaign creation, threat tagging
+--
+-- NOTE: brands.source and campaigns.description columns already exist in production
+-- (added via prior manual migration or ad-hoc DDL). No ALTER TABLE needed.
 
--- ─── A) Add source column to brands if missing ─────────────────────
-ALTER TABLE brands ADD COLUMN source TEXT DEFAULT 'curated';
-
--- ─── B) Add description column to campaigns if missing ─────────────
-ALTER TABLE campaigns ADD COLUMN description TEXT;
-
--- ─── C) Add Meta to monitored_brands ────────────────────────────────
+-- ─── A) Add Meta to monitored_brands ────────────────────────────────
 INSERT OR IGNORE INTO monitored_brands (brand_id, tenant_id, added_by, status)
 SELECT id, '__internal__', 'aae5bfa2-e702-4d48-99f9-4adef43a8330', 'active'
 FROM brands WHERE canonical_domain = 'meta.com';
