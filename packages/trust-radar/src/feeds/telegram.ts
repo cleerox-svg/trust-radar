@@ -49,6 +49,10 @@ const DEFAULT_CHANNELS = [
   'tasaborat',       // Tasnim News Agency — IRGC mouthpiece, publishes target lists
   'HandalaHack',     // Handala Hack — claims responsibility for attacks
   'cyberav3ngers',   // CyberAv3ngers — ICS/infrastructure attacks
+  // Additional IRGC / Iran state media
+  'Tasnim_News',     // Tasnim News Agency — official English channel
+  'iikiorg',         // IRGC-linked operations claims
+  'ShadowCommittee', // Shadow Committee — targets Israeli infrastructure
 ];
 
 // Threat indicator keywords (scanned alongside brand names)
@@ -59,6 +63,15 @@ const THREAT_KEYWORDS = [
   'carding', 'card dump', 'fullz',
   'credential leak', 'cred dump', 'leaked credentials',
   'ransomware', 'ransom leak',
+  // IRGC / Iranian threat actor keywords
+  'handala', 'cyberav3ngers', 'hydro kitten', 'charming kitten',
+  'irgc', 'iran hack', 'operation epic fury',
+  'stryker', 'wiper', 'microsoft hack',
+  'amazon data center', 'aws drone',
+  'apt35', 'apt42', 'phosphorus', 'mint sandstorm',
+  'peach sandstorm', 'cotton sandstorm',
+  'muddywater', 'oilrig', 'crambus',
+  'dark scepter', 'cyber toufan',
 ];
 
 const DELAY_BETWEEN_CHANNELS_MS = 2000;

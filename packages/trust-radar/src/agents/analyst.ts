@@ -524,6 +524,8 @@ export const analystAgent: AgentModule = {
     }
 
     // ─── Phase 5: Subdomain brand spoofing detection ─────────────
+    // Checks BOTH subdomain and full domain for brand name impersonation.
+    // Runs against all unclassified threats (no time window) to catch backlog.
     let subdomainSpoofCount = 0;
     try {
       // Get monitored brand names and domains for matching
@@ -534,34 +536,42 @@ export const analystAgent: AgentModule = {
         WHERE mb.status = 'active' AND b.canonical_domain IS NOT NULL
       `).all<{ id: string; name: string; domain: string }>();
 
-      // Find recent threats not yet checked for subdomain spoofing
+      // Find threats not yet checked for subdomain spoofing — no time window
+      // to ensure backfill of older threats. Batch in 500 at a time.
       const uncheckedThreats = await env.DB.prepare(`
         SELECT id, malicious_domain, country_code
         FROM threats
         WHERE malicious_domain IS NOT NULL
           AND threat_type != 'subdomain_brand_spoofing'
-          AND created_at >= datetime('now', '-24 hours')
+          AND (threat_type IS NULL OR threat_type NOT IN ('subdomain_brand_spoofing'))
+          AND malicious_domain LIKE '%.%.%'
         ORDER BY created_at DESC
-        LIMIT 100
+        LIMIT 500
       `).all<{ id: string; malicious_domain: string; country_code: string | null }>();
 
       for (const threat of uncheckedThreats.results) {
         const domain = threat.malicious_domain.toLowerCase();
         const apex = getApexDomain(domain);
         const subdomain = getSubdomain(domain);
-        if (!subdomain) continue;
+
+        // Flatten the full domain for matching (catches brand in apex too)
+        const domainFlat = domain.replace(/[^a-z0-9]/g, '');
 
         for (const brand of monitoredBrands.results) {
           const brandApex = getApexDomain(brand.domain);
           // Skip if the registrable domain IS the brand's own domain
           if (apex === brandApex) continue;
 
-          // Check if brand name or key brand term appears in subdomain
           const brandKeyword = brand.name.replace(/[^a-z0-9]/g, '');
-          const subdomainFlat = subdomain.replace(/[^a-z0-9]/g, '');
+          if (brandKeyword.length < 3) continue;
 
-          if (subdomainFlat.includes(brandKeyword) && brandKeyword.length >= 3) {
-            // This is subdomain brand spoofing
+          // Check brand name in subdomain OR in full domain (catches email-microsoft.com etc)
+          const subdomainFlat = subdomain ? subdomain.replace(/[^a-z0-9]/g, '') : '';
+          const brandInSubdomain = subdomainFlat.length > 0 && subdomainFlat.includes(brandKeyword);
+          const brandInDomain = domainFlat.includes(brandKeyword);
+
+          if (brandInSubdomain || brandInDomain) {
+            // This is subdomain/domain brand spoofing
             subdomainSpoofCount++;
 
             // Check if threat is from adversary country for campaign tagging
@@ -587,13 +597,14 @@ export const analystAgent: AgentModule = {
 
             outputs.push({
               type: 'classification',
-              summary: `**Subdomain Brand Spoofing** — ${brand.name} impersonated in subdomain of ${apex}: ${domain}`,
+              summary: `**Subdomain Brand Spoofing** — ${brand.name} impersonated in ${brandInSubdomain ? 'subdomain' : 'domain'} of ${apex}: ${domain}`,
               severity: 'high',
               details: {
                 brand: brand.name,
                 malicious_domain: domain,
                 apex_domain: apex,
-                subdomain,
+                subdomain: subdomain || null,
+                match_location: brandInSubdomain ? 'subdomain' : 'domain',
                 country_code: threat.country_code,
                 campaign_linked: !!campaignLink,
               },
