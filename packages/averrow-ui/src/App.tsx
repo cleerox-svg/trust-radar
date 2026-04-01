@@ -18,6 +18,7 @@ import { Providers } from '@/pages/Providers';
 import { ProviderDetail } from '@/pages/ProviderDetail';
 import { Campaigns } from '@/pages/Campaigns';
 import { CampaignDetail } from '@/pages/CampaignDetail';
+import { GeopoliticalCampaignDashboard } from '@/pages/GeopoliticalCampaignDashboard';
 import { Trends } from '@/pages/Trends';
 import { ThreatActors } from '@/pages/ThreatActors';
 import { ThreatActorDetail } from '@/pages/ThreatActorDetail';
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="providers" element={<ErrorBoundary><Providers /></ErrorBoundary>} />
         <Route path="providers/:providerId" element={<ErrorBoundary><ProviderDetail /></ErrorBoundary>} />
         <Route path="campaigns" element={<ErrorBoundary><Campaigns /></ErrorBoundary>} />
+        <Route path="campaigns/geo/:slug" element={<ErrorBoundary><GeopoliticalCampaignDashboard /></ErrorBoundary>} />
         <Route path="campaigns/:campaignId" element={<ErrorBoundary><CampaignDetail /></ErrorBoundary>} />
         <Route path="threat-actors" element={<ErrorBoundary><ThreatActors /></ErrorBoundary>} />
         <Route path="threat-actors/:actorId" element={<ErrorBoundary><ThreatActorDetail /></ErrorBoundary>} />

@@ -180,6 +180,19 @@ Complete reference for the Trust Radar API. All authenticated endpoints require 
 | GET | `/api/campaigns/:id/brands` | User | Brands targeted by campaign |
 | GET | `/api/campaigns/:id/timeline` | User | Campaign timeline |
 
+## Geopolitical Campaigns
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/campaigns/geo` | User | List geopolitical campaigns (optional `?status=active`) |
+| GET | `/api/campaigns/geo/:slug` | User | Get geopolitical campaign by slug |
+| GET | `/api/campaigns/geo/:slug/stats` | User | Live aggregate stats (total threats, 24h, 7d, brands, IPs, domains) |
+| GET | `/api/campaigns/geo/:slug/threats` | User | Threats from adversary countries/ASNs (paginated) |
+| GET | `/api/campaigns/geo/:slug/timeline` | User | Daily attack timeline with type breakdown |
+| GET | `/api/campaigns/geo/:slug/brands` | User | Targeted brands heat map data |
+| GET | `/api/campaigns/geo/:slug/asns` | User | ASN cluster analysis (marks known adversary ASNs) |
+| GET | `/api/campaigns/geo/:slug/attack-types` | User | Attack type breakdown with severity counts |
+
 ## Providers
 
 | Method | Path | Auth | Description |
