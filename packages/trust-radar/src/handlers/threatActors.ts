@@ -37,7 +37,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     const params: unknown[] = [];
 
     if (country) {
-      conditions.push("ta.country_code = ?");
+      conditions.push("ta.country = ?");
       params.push(country.toUpperCase());
     }
     if (status) {
@@ -45,7 +45,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       params.push(status);
     }
     if (affiliation) {
-      conditions.push("ta.affiliation = ?");
+      conditions.push("ta.attribution = ?");
       params.push(affiliation);
     }
     if (search) {
@@ -71,7 +71,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
         ${where}
         ORDER BY
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
-          CASE ta.attribution_confidence
+          CASE ta.attribution
             WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
           ta.name
         LIMIT ? OFFSET ?
@@ -84,7 +84,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
         ${where}
         ORDER BY
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
-          CASE ta.attribution_confidence
+          CASE ta.attribution
             WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
           ta.name
         LIMIT ? OFFSET ?
@@ -108,17 +108,17 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
     const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>();
     const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>();
     const byCountry = await env.DB.prepare(`
-      SELECT country_code, COUNT(*) AS count
+      SELECT country, COUNT(*) AS count
       FROM threat_actors
-      GROUP BY country_code
+      GROUP BY country
       ORDER BY count DESC
       LIMIT 10
     `).all();
-    const byAffiliation = await env.DB.prepare(`
-      SELECT affiliation, COUNT(*) AS count
+    const byAttribution = await env.DB.prepare(`
+      SELECT attribution, COUNT(*) AS count
       FROM threat_actors
-      WHERE affiliation IS NOT NULL
-      GROUP BY affiliation
+      WHERE attribution IS NOT NULL
+      GROUP BY attribution
       ORDER BY count DESC
     `).all();
 
@@ -138,7 +138,7 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
         total: total?.n ?? 0,
         active: active?.n ?? 0,
         by_country: byCountry.results,
-        by_affiliation: byAffiliation.results,
+        by_attribution: byAttribution.results,
         tracked_infrastructure: totalInfra.n ?? 0,
         targeted_brands: totalTargets.n ?? 0,
       },
@@ -213,7 +213,7 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
         JOIN threat_actor_targets tat ON tat.threat_actor_id = ta.id
         WHERE tat.brand_id = ?
         ORDER BY
-          CASE ta.attribution_confidence
+          CASE ta.attribution
             WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
           ta.name
       `).bind(brandId)

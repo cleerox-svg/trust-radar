@@ -5,15 +5,15 @@ export interface ThreatActor {
   id: string;
   name: string;
   aliases: string | null;
-  affiliation: string | null;
-  country_code: string | null;
-  capability: string | null;
-  primary_ttps: string | null;
+  attribution: string | null;
+  country: string | null;
   description: string | null;
+  ttps: string | null;
+  target_sectors: string | null;
+  active_campaigns: string | null;
   first_seen: string | null;
   last_seen: string | null;
   status: string;
-  attribution_confidence: string;
   infra_count?: number;
   target_count?: number;
   created_at: string;
@@ -22,8 +22,8 @@ export interface ThreatActor {
 interface ThreatActorStats {
   total: number;
   active: number;
-  by_country: Array<{ country_code: string; count: number }>;
-  by_affiliation: Array<{ affiliation: string; count: number }>;
+  by_country: Array<{ country: string; count: number }>;
+  by_attribution: Array<{ attribution: string; count: number }>;
   tracked_infrastructure: number;
   targeted_brands: number;
 }

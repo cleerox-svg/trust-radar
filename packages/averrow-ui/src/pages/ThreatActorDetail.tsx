@@ -44,7 +44,7 @@ export function ThreatActorDetail() {
   }
 
   const aliases = parseJsonArray(actor.aliases);
-  const ttps = parseJsonArray(actor.primary_ttps);
+  const ttps = parseJsonArray(actor.ttps);
 
   return (
     <div className="p-6 space-y-6">
@@ -60,7 +60,7 @@ export function ThreatActorDetail() {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-mono font-bold text-instrument-white">{actor.name}</h1>
-          <span className="text-lg">{countryFlag(actor.country_code)}</span>
+          <span className="text-lg">{countryFlag(actor.country)}</span>
           <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${
             actor.status === 'active' ? 'bg-signal-red/20 text-red-400 border-signal-red/30' : 'bg-white/5 text-gauge-gray border-white/10'
           }`}>
@@ -80,32 +80,31 @@ export function ThreatActorDetail() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
-          title="AFFILIATION"
-          metric={<span className="text-[28px] font-bold leading-none text-signal-red">{actor.affiliation ?? '?'}</span>}
+          title="ATTRIBUTION"
+          metric={<span className="text-[28px] font-bold leading-none text-signal-red">{actor.attribution ?? '?'}</span>}
           metricLabel="state sponsor"
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-signal-red" />
-              <span className="text-[11px] text-white/60">Group</span>
-              <span className="text-[11px] font-mono text-instrument-white">{actor.affiliation ?? 'Unknown'}</span>
+              <span className="text-[11px] text-white/60">Attribution</span>
+              <span className="text-[11px] font-mono text-instrument-white">{actor.attribution ?? 'Unknown'}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-              <span className="text-[11px] text-white/60">Confidence</span>
-              <span className="text-[11px] font-mono text-instrument-white">{actor.attribution_confidence}</span>
+              <span className="text-[11px] text-white/60">Country</span>
+              <span className="text-[11px] font-mono text-instrument-white">{actor.country ?? 'Unknown'}</span>
             </div>
           </div>
         </StatCard>
         <StatCard
-          title="CAPABILITY"
-          metric={<span className="text-[24px] font-bold leading-none text-afterburner">{(actor.capability ?? '?').replace(/_/g, ' ')}</span>}
-          metricLabel="type"
+          title="TARGET SECTORS"
+          metric={<span className="text-[24px] font-bold leading-none text-afterburner">{parseJsonArray(actor.target_sectors).length || '?'}</span>}
+          metricLabel="sectors"
         >
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-            <span className="text-[11px] text-white/60">Primary</span>
-            <span className="text-[11px] font-mono text-instrument-white">{(actor.capability ?? 'unknown').replace(/_/g, ' ')}</span>
+            <span className="text-[11px] text-white/60">{parseJsonArray(actor.target_sectors).slice(0, 3).join(', ') || 'Unknown'}</span>
           </div>
         </StatCard>
         <StatCard

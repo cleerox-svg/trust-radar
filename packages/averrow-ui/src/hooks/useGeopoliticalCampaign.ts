@@ -6,7 +6,6 @@ import { api } from '@/lib/api';
 export interface GeopoliticalCampaign {
   id: string;
   name: string;
-  slug: string;
   conflict: string;
   status: string;
   threat_actors: string;
