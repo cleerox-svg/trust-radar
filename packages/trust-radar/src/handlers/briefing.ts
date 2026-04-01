@@ -460,10 +460,17 @@ async function fetchComprehensiveBriefing(
     ),
   ]);
 
-  // Determine status badge
-  const hasDegraded = feedHealthFeeds.some(
+  // Determine status badge — only DEGRADED when >50% of feeds are unhealthy
+  // or any feed has outright failed (not just degraded)
+  const failedCount = feedHealthFeeds.filter(
+    (f) => f.health_status === "failed",
+  ).length;
+  const unhealthyCount = feedHealthFeeds.filter(
     (f) => f.health_status === "degraded" || f.health_status === "failed",
-  );
+  ).length;
+  const totalFeeds = feedHealthFeeds.length || 1;
+  const hasDegraded =
+    failedCount > 0 || unhealthyCount / totalFeeds > 0.5;
 
   return {
     platformOverview: {

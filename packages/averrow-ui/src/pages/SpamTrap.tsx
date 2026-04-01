@@ -42,8 +42,8 @@ export function SpamTrap() {
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="SEEDS DEPLOYED" value={seedCount} accentColor="#00D4FF" />
-        <StatCard label="DOMAINS" value={domainCount} accentColor="#00D4FF" />
+        <StatCard label="SEEDS DEPLOYED" value={seedCount} accentColor="#E5A832" />
+        <StatCard label="DOMAINS" value={domainCount} accentColor="#E5A832" />
         <StatCard label="CAPTURES" value={captureCount} accentColor="#fb923c" />
         <StatCard label="CATCH RATE" value={catchRate} accentColor="#4ADE80" />
       </div>

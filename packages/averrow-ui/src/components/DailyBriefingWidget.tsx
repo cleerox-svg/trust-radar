@@ -144,9 +144,14 @@ function OverviewCard({ title, metric, metricLabel, metricColor, children }: {
   return (
     <div className="rounded-xl border border-white/10 bg-cockpit p-4">
       <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">{title}</div>
-      <div className="flex items-center gap-3">
+      {/* Mobile: stacked layout, Desktop: side-by-side */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="text-center sm:text-left sm:hidden">
+          <div className={`text-[28px] font-bold leading-none ${metricColor ?? 'text-parchment'}`}>{metric}</div>
+          <div className="text-[9px] text-white/50 uppercase mt-1">{metricLabel}</div>
+        </div>
         <div className="flex-1 min-w-0">{children}</div>
-        <div className="border-l border-white/10 pl-3 flex flex-col items-center gap-1">
+        <div className="hidden sm:flex border-l border-white/10 pl-3 flex-col items-center gap-1">
           <div className={`text-[28px] font-bold leading-none ${metricColor ?? 'text-parchment'}`}>{metric}</div>
           <div className="text-[9px] text-white/50 uppercase">{metricLabel}</div>
         </div>
