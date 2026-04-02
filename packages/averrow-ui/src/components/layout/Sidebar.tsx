@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Globe, Shield, Server, Activity, TrendingUp, Crosshair,
   Gavel, Bell, Inbox, Target,
-  Cpu, Rss, LayoutDashboard, Users, ClipboardList,
+  Cpu, Rss, LayoutDashboard, Users, ClipboardList, Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -27,7 +27,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
@@ -70,6 +70,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Feeds',        path: '/feeds',             icon: Rss },
         { label: 'Dashboard',    path: '/admin',             icon: LayoutDashboard },
         { label: 'Organization', path: '/admin/users',       icon: Users },
+        ...(isSuperAdmin ? [{ label: 'Organizations', path: '/admin/organizations', icon: Building2 }] : []),
         { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
       ],
     },
