@@ -7,7 +7,6 @@ export interface ThreatActor {
   aliases: string | null;
   attribution: string | null;
   country: string | null;
-  capability: string | null;
   description: string | null;
   ttps: string | null;
   target_sectors: string | null;
@@ -15,10 +14,10 @@ export interface ThreatActor {
   first_seen: string | null;
   last_seen: string | null;
   status: string;
-  attribution_confidence: string | null;
   infra_count?: number;
   target_count?: number;
   created_at: string;
+  updated_at: string;
 }
 
 interface ThreatActorStats {
