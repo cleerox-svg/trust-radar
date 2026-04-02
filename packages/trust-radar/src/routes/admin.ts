@@ -14,6 +14,7 @@ import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
 import {
   handleCreateOrg, handleListOrgs, handleGetOrg, handleUpdateOrg,
+  handleSearchBrands,
 } from "../handlers/organizations";
 import {
   handleAdminListTakedowns, handleAdminUpdateTakedown,
@@ -108,6 +109,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdateOrg(request, env, request.params["orgId"] ?? "");
+  });
+  router.get("/api/admin/brands/search", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSearchBrands(request, env);
   });
 
   // ─── Takedown Queue (superadmin) ─────────────────────────────────

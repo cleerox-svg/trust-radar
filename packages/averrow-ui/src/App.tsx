@@ -13,6 +13,7 @@ import { Alerts } from '@/pages/Alerts';
 import { Feeds } from '@/pages/Feeds';
 import { AdminDashboard } from '@/pages/AdminDashboard';
 import { Organization } from '@/pages/Organization';
+import { SuperAdminOrgs } from '@/pages/SuperAdminOrgs';
 import { AdminAudit } from '@/pages/AdminAudit';
 import { Providers } from '@/pages/Providers';
 import { ProviderDetail } from '@/pages/ProviderDetail';
@@ -89,6 +90,7 @@ export default function App() {
         <Route path="admin/takedowns" element={<ErrorBoundary><Takedowns /></ErrorBoundary>} />
         <Route path="admin/spam-trap" element={<ErrorBoundary><SpamTrap /></ErrorBoundary>} />
         <Route path="admin/users" element={<ErrorBoundary><Organization /></ErrorBoundary>} />
+        <Route path="admin/organizations" element={<ErrorBoundary><SuperAdminOrgs /></ErrorBoundary>} />
         <Route path="admin/audit" element={<ErrorBoundary><AdminAudit /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         <Route path="notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />

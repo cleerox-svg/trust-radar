@@ -56,17 +56,22 @@ export async function handleCreateOrg(
   const origin = request.headers.get("Origin");
   const body = await request.json().catch(() => null) as {
     name?: string;
+    slug?: string;
     plan?: string;
     max_brands?: number;
     max_members?: number;
+    brands?: { brand_id: string; is_primary?: boolean }[];
+    services?: string[];
+    admin_email?: string;
+    admin_name?: string;
   } | null;
 
   if (!body?.name) {
     return json({ success: false, error: "Organization name is required" }, 400, origin);
   }
 
-  // Generate unique slug
-  let slug = generateSlug(body.name);
+  // Generate unique slug (use provided slug or auto-generate)
+  let slug = body.slug ? generateSlug(body.slug) : generateSlug(body.name);
   const existing = await env.DB.prepare("SELECT id FROM organizations WHERE slug = ?")
     .bind(slug).first();
   if (existing) {
@@ -90,16 +95,134 @@ export async function handleCreateOrg(
   const org = await env.DB.prepare("SELECT * FROM organizations WHERE slug = ?")
     .bind(slug).first();
 
+  if (!org) {
+    return json({ success: false, error: "Failed to create organization" }, 500, origin);
+  }
+
+  const orgId = String(org.id);
+
+  // ─── Assign brands ───────────────────────────────────────
+  if (body.brands && body.brands.length > 0) {
+    for (const brand of body.brands) {
+      try {
+        await env.DB.prepare(
+          "INSERT INTO org_brands (org_id, brand_id, is_primary) VALUES (?, ?, ?)",
+        ).bind(orgId, brand.brand_id, brand.is_primary ? 1 : 0).run();
+      } catch { /* skip duplicates */ }
+    }
+  }
+
+  // ─── Create integration records for selected services ────
+  const SERVICE_MAP: Record<string, { type: string; category: string; name: string }> = {
+    sso: { type: "sso", category: "auth", name: "SSO (SAML/OIDC)" },
+    siem_splunk: { type: "splunk", category: "siem", name: "Splunk" },
+    siem_elastic: { type: "elastic", category: "siem", name: "Elastic SIEM" },
+    siem_sentinel: { type: "sentinel", category: "siem", name: "Microsoft Sentinel" },
+    siem_qradar: { type: "qradar", category: "siem", name: "IBM QRadar" },
+    webhook: { type: "webhook", category: "notification", name: "Webhook Notifications" },
+    api_access: { type: "api", category: "access", name: "API Access" },
+    email_notifications: { type: "email", category: "notification", name: "Email Notifications" },
+    takedown_service: { type: "takedown", category: "service", name: "Takedown Service" },
+    custom_threat_feeds: { type: "threat_feeds", category: "inbound", name: "Custom Threat Feeds" },
+  };
+
+  if (body.services && body.services.length > 0) {
+    for (const svc of body.services) {
+      const def = SERVICE_MAP[svc];
+      if (def) {
+        try {
+          await env.DB.prepare(`
+            INSERT INTO org_integrations (org_id, type, category, name, status)
+            VALUES (?, ?, ?, ?, 'pending_setup')
+          `).bind(orgId, def.type, def.category, def.name).run();
+        } catch { /* skip if duplicate */ }
+      }
+    }
+  }
+
+  // ─── Invite first admin ──────────────────────────────────
+  let inviteData: Record<string, unknown> | null = null;
+  if (body.admin_email) {
+    const rawToken = generateInviteToken();
+    const tokenHash = await hashToken(rawToken);
+    const inviteId = crypto.randomUUID();
+
+    await env.DB.prepare(
+      `INSERT INTO invitations (id, email, role, token_hash, invited_by, expires_at, org_id, org_role)
+       VALUES (?, ?, 'client', ?, ?, datetime('now', '+${INVITE_EXPIRY_HOURS} hours'), ?, 'admin')`,
+    ).bind(inviteId, body.admin_email.toLowerCase(), tokenHash, adminUserId, orgId).run();
+
+    const inviteUrl = `${new URL(request.url).origin}/invite?token=${rawToken}`;
+
+    let emailSent = false;
+    if (env.RESEND_API_KEY) {
+      const emailResult = await sendInviteEmail(env.RESEND_API_KEY, {
+        recipientEmail: body.admin_email.toLowerCase(),
+        orgName: body.name,
+        role: "admin",
+        invitedByName: body.admin_name ?? "Averrow Super Admin",
+        acceptUrl: inviteUrl,
+        expiresAt: new Date(Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000).toISOString(),
+      });
+      emailSent = emailResult.ok;
+    }
+
+    inviteData = {
+      invite_id: inviteId,
+      email: body.admin_email,
+      org_role: "admin",
+      invite_url: inviteUrl,
+      email_sent: emailSent,
+    };
+  }
+
   await audit(env, {
     action: "org_created",
     userId: adminUserId,
     resourceType: "organization",
-    resourceId: String(org?.id),
-    details: { name: body.name, slug, plan: body.plan ?? "starter" },
+    resourceId: orgId,
+    details: {
+      name: body.name, slug, plan: body.plan ?? "starter",
+      brands_assigned: body.brands?.length ?? 0,
+      services_enabled: body.services?.length ?? 0,
+      admin_invited: !!body.admin_email,
+    },
     request,
   });
 
-  return json({ success: true, data: org }, 201, origin);
+  return json({
+    success: true,
+    data: { ...org, invite: inviteData },
+  }, 201, origin);
+}
+
+// ─── Admin: Search Brands for Assignment (super_admin) ──────
+
+export async function handleSearchBrands(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const url = new URL(request.url);
+  const query = url.searchParams.get("q") ?? "";
+  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "10", 10), 50);
+
+  if (query.length < 1) {
+    return json({ success: true, data: [] }, 200, origin);
+  }
+
+  const { results } = await env.DB.prepare(`
+    SELECT b.id, b.name, b.canonical_domain, b.sector,
+           COUNT(t.id) AS threat_count
+    FROM brands b
+    LEFT JOIN threats t ON t.target_brand_id = b.id
+    WHERE b.name LIKE ? OR b.canonical_domain LIKE ?
+    GROUP BY b.id
+    ORDER BY threat_count DESC
+    LIMIT ?
+  `).bind(`%${query}%`, `%${query}%`, limit).all();
+
+  return json({ success: true, data: results }, 200, origin);
 }
 
 // ─── Admin: List Organizations (super_admin) ─────────────────
