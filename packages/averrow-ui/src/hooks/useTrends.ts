@@ -58,8 +58,31 @@ export function useThreatVolume(window = '30d') {
   return useQuery({
     queryKey: ['threat-volume', window],
     queryFn: async () => {
-      const res = await api.get<VolumePoint[]>(`/api/trends/volume?window=${window}`);
-      return res.data ?? [];
+      const res = await api.get<Array<{ day: string; threat_type: string; count: number }>>(
+        `/api/trends/threat-volume?window=${window}`
+      );
+      const flat = res.data ?? [];
+      // Pivot flat rows into VolumePoint[] keyed by date
+      const byDate = new Map<string, VolumePoint>();
+      for (const row of flat) {
+        if (!byDate.has(row.day)) {
+          byDate.set(row.day, {
+            date: row.day,
+            phishing: 0,
+            malware_distribution: 0,
+            malicious_ip: 0,
+            c2: 0,
+            typosquatting: 0,
+            credential_harvesting: 0,
+          });
+        }
+        const point = byDate.get(row.day)!;
+        const key = row.threat_type as keyof Omit<VolumePoint, 'date'>;
+        if (key in point) {
+          (point as Record<string, number>)[key] = row.count;
+        }
+      }
+      return Array.from(byDate.values());
     },
   });
 }

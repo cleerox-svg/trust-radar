@@ -95,7 +95,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Agents',       path: '/agents',           icon: Cpu },
         { label: 'Feeds',        path: '/feeds',             icon: Rss },
         { label: 'Dashboard',    path: '/admin',             icon: LayoutDashboard },
-        { label: 'Organization', path: '/admin/users',       icon: Users },
+        { label: 'Team', path: '/admin/users',       icon: Users },
         ...(isSuperAdmin ? [{ label: 'Organizations', path: '/admin/organizations', icon: Building2 }] : []),
         { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
       ],

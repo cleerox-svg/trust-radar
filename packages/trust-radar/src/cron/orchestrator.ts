@@ -87,24 +87,35 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
 
   // Daily at 12:00 UTC (8 AM ET): Generate + email daily briefing
   if (minute === 0 && hour === 12) {
+    console.log('[CRON] 12:00 UTC — starting daily briefing generation');
     const emailResult = await runJob('briefing_email', async () => {
       // Dedup: only skip if a cron briefing already exists for today (manual ones don't count)
-      const existing = await env.DB.prepare(
-        `SELECT COUNT(*) as count FROM threat_briefings
-         WHERE report_date = date('now') AND trigger LIKE 'cron%'`
-      ).first<{ count: number }>();
+      const today = now.toISOString().slice(0, 10);
+      let existing: { count: number } | null = null;
+      try {
+        existing = await env.DB.prepare(
+          `SELECT COUNT(*) as count FROM threat_briefings
+           WHERE report_date = ? AND trigger LIKE 'cron%'`
+        ).bind(today).first<{ count: number }>();
+      } catch (err) {
+        console.error('[CRON] Briefing dedup check failed:', err instanceof Error ? err.message : String(err));
+      }
 
       if (existing && existing.count > 0) {
-        logger.info('briefing_email_skipped_duplicate', { date: now.toISOString().slice(0, 10) });
+        logger.info('briefing_email_skipped_duplicate', { date: today });
+        console.log('[CRON] Briefing already generated for today, skipping');
         return;
       }
 
+      console.log('[CRON] No existing cron briefing for today, generating...');
       const { generateAndEmailBriefing } = await import('../handlers/briefing');
       const result = await generateAndEmailBriefing(env);
       if (!result.emailSent) {
         logger.warn('briefing_email_not_sent', { briefingId: result.briefingId, error: result.error });
+        console.error('[CRON] Briefing email not sent:', result.error);
       } else {
         logger.info('briefing_email_delivered', { briefingId: result.briefingId });
+        console.log('[CRON] Briefing generated and emailed, id:', result.briefingId);
       }
     });
     results.push(emailResult);

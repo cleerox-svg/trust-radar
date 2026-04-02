@@ -512,33 +512,39 @@ function ThreatMapInner({
     return layers;
   }, [threats, arcs, showBeams, showNodes, colorBy, mapMode, operations, heatmapData, onArcClick, onClusterClick]);
 
-  // Update overlay when data/settings change
+  // Track map loaded state to avoid race conditions
+  const [mapLoaded, setMapLoaded] = useState(false);
+
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
-      const onLoad = () => applyLayers();
-      map?.on('load', onLoad);
-      return () => { map?.off('load', onLoad); };
+    if (!map) return;
+    if (map.loaded()) {
+      setMapLoaded(true);
+    } else {
+      const onLoad = () => setMapLoaded(true);
+      map.on('load', onLoad);
+      return () => { map.off('load', onLoad); };
     }
-    applyLayers();
+  }, []);
 
-    function applyLayers() {
-      if (!mapRef.current) return;
-      if (deckRef.current) {
-        mapRef.current.removeControl(deckRef.current);
-        deckRef.current = null;
-      }
+  // Update overlay when data/settings change — only after map is loaded
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return;
 
-      const layers = buildBaseLayers();
-      baseLayersRef.current = layers;
-
-      if (layers.length > 0) {
-        const overlay = new MapboxOverlay({ interleaved: true, layers });
-        mapRef.current.addControl(overlay as any);
-        deckRef.current = overlay;
-      }
+    if (deckRef.current) {
+      mapRef.current.removeControl(deckRef.current);
+      deckRef.current = null;
     }
-  }, [threats, arcs, showBeams, showNodes, showParticles, colorBy, mapMode, operations, heatmapData, buildBaseLayers]);
+
+    const layers = buildBaseLayers();
+    baseLayersRef.current = layers;
+
+    if (layers.length > 0) {
+      const overlay = new MapboxOverlay({ interleaved: true, layers });
+      mapRef.current.addControl(overlay as any);
+      deckRef.current = overlay;
+    }
+  }, [mapLoaded, threats, arcs, showBeams, showNodes, showParticles, colorBy, mapMode, operations, heatmapData, buildBaseLayers]);
 
   // Particle animation (only in global mode)
   useEffect(() => {

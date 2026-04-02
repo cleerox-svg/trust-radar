@@ -250,11 +250,16 @@ export async function handleTrendProviderMomentum(request: Request, env: Env): P
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT name, asn, active_threat_count, trend_7d, trend_30d
-      FROM hosting_providers
-      WHERE trend_7d > 0
-      ORDER BY trend_7d DESC LIMIT 8
-    `).all<{ name: string; asn: string; active_threat_count: number; trend_7d: number; trend_30d: number }>();
+      SELECT COALESCE(hp.name, t.hosting_provider_id) AS provider,
+        COUNT(CASE WHEN t.first_seen >= datetime('now', '-7 days') THEN 1 END) AS count
+      FROM threats t
+      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE t.hosting_provider_id IS NOT NULL
+        AND t.first_seen >= datetime('now', '-7 days')
+      GROUP BY t.hosting_provider_id
+      HAVING count > 0
+      ORDER BY count DESC LIMIT 8
+    `).all<{ provider: string; count: number }>();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
@@ -267,11 +272,17 @@ export async function handleTrendNexusActive(request: Request, env: Env): Promis
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(`
-      SELECT cluster_name, threat_count, status, agent_notes
+      SELECT id, cluster_name AS label, threat_count,
+        CASE
+          WHEN agent_notes LIKE '%ACCELERATING%' THEN 'high'
+          WHEN agent_notes LIKE '%PIVOT%' THEN 'critical'
+          ELSE 'medium'
+        END AS severity,
+        created_at
       FROM infrastructure_clusters
-      WHERE status = 'active' AND agent_notes LIKE '%ACCELERATING%'
+      WHERE status = 'active'
       ORDER BY threat_count DESC LIMIT 5
-    `).all<{ cluster_name: string; threat_count: number; status: string; agent_notes: string }>();
+    `).all<{ id: string; label: string; threat_count: number; severity: string; created_at: string }>();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
