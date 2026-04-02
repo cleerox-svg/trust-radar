@@ -26,6 +26,8 @@ import { ThreatActorDetail } from '@/pages/ThreatActorDetail';
 import { Leads } from '@/pages/Leads';
 import { NotFound } from '@/pages/NotFound';
 import { Home } from '@/pages/Home';
+import { BrandAdminDashboard } from '@/pages/BrandAdminDashboard';
+import { Threats } from '@/pages/Threats';
 import { Profile } from '@/pages/Profile';
 import { Notifications } from '@/pages/Notifications';
 import { NotificationPreferences } from '@/pages/NotificationPreferences';
@@ -57,6 +59,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Role-aware home route.
+ * Brand admins land on their scoped dashboard.
+ * Super admins land on Observatory (desktop) or Mobile Command Center (mobile).
+ */
+function RoleAwareHome() {
+  const { isBrandAdmin } = useAuth();
+  if (isBrandAdmin) {
+    return <BrandAdminDashboard />;
+  }
+  return <Home />;
+}
+
 export default function App() {
   const { isAuthenticated } = useAuth();
 
@@ -70,10 +85,11 @@ export default function App() {
           <Shell />
         </ProtectedRoute>
       }>
-        <Route index element={<ErrorBoundary><Home /></ErrorBoundary>} />
+        <Route index element={<ErrorBoundary><RoleAwareHome /></ErrorBoundary>} />
         <Route path="observatory" element={<ErrorBoundary><Suspense fallback={<ObservatoryLoader />}><Observatory /></Suspense></ErrorBoundary>} />
         <Route path="brands" element={<ErrorBoundary><Brands /></ErrorBoundary>} />
         <Route path="brands/:brandId" element={<ErrorBoundary><BrandDetail /></ErrorBoundary>} />
+        <Route path="threats" element={<ErrorBoundary><Threats /></ErrorBoundary>} />
         <Route path="providers" element={<ErrorBoundary><Providers /></ErrorBoundary>} />
         <Route path="providers/:providerId" element={<ErrorBoundary><ProviderDetail /></ErrorBoundary>} />
         <Route path="campaigns" element={<ErrorBoundary><Campaigns /></ErrorBoundary>} />

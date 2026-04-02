@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
 import { rateLimitCustom } from "../middleware/rateLimit";
 import {
   handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
@@ -89,7 +89,8 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
   router.get("/api/threats", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleListThreats(request, env);
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleListThreats(request, env, scope);
   });
   router.get("/api/threats/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);

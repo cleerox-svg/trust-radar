@@ -2,9 +2,10 @@
 import { json } from "../lib/cors";
 import { enrichThreatsGeo } from "../lib/geoip";
 import type { Env, UpdateThreatBody } from "../types";
+import type { OrgScope } from "../middleware/auth";
 
 // ─── List threats with filtering ────────────────────────────────
-export async function handleListThreats(request: Request, env: Env): Promise<Response> {
+export async function handleListThreats(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
@@ -18,6 +19,16 @@ export async function handleListThreats(request: Request, env: Env): Promise<Res
 
     const conditions: string[] = [];
     const params: unknown[] = [];
+
+    // Org scope filtering
+    if (scope) {
+      if (scope.brand_ids.length === 0) {
+        return json({ success: true, data: { threats: [], total: 0 } }, 200, origin);
+      }
+      const placeholders = scope.brand_ids.map(() => "?").join(", ");
+      conditions.push(`target_brand_id IN (${placeholders})`);
+      params.push(...scope.brand_ids);
+    }
 
     if (severity) { conditions.push("severity = ?"); params.push(severity); }
     if (type) { conditions.push("threat_type = ?"); params.push(type); }

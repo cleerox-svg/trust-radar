@@ -14,9 +14,10 @@ import { json } from "../lib/cors";
 import { getAlerts, updateAlertStatus } from "../lib/alerts";
 import type { AlertStatus, Severity } from "../lib/alerts";
 import type { Env } from "../types";
+import type { OrgScope } from "../middleware/auth";
 
 // GET /api/alerts
-export async function handleListAlerts(request: Request, env: Env, userId: string): Promise<Response> {
+export async function handleListAlerts(request: Request, env: Env, userId: string, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
@@ -32,6 +33,16 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
     // Build WHERE clause
     let where = `WHERE a.user_id = ?`;
     const params: unknown[] = [userId];
+
+    // Org scope filtering — only show alerts for org brands
+    if (scope) {
+      if (scope.brand_ids.length === 0) {
+        return json({ success: true, data: [], total: 0 }, 200, origin);
+      }
+      const placeholders = scope.brand_ids.map(() => "?").join(", ");
+      where += ` AND a.brand_id IN (${placeholders})`;
+      params.push(...scope.brand_ids);
+    }
 
     if (status) {
       where += ` AND a.status = ?`;

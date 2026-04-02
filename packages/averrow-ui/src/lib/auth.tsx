@@ -1,12 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from './api';
 
+interface UserOrganization {
+  id: number;
+  name: string;
+  slug: string;
+  plan: string;
+  role: string;
+}
+
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
   avatar_url?: string;
+  organization?: UserOrganization | null;
 }
 
 interface AuthState {
@@ -14,6 +23,7 @@ interface AuthState {
   loading: boolean;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
+  isBrandAdmin: boolean;
   login: () => void;
   logout: () => void;
 }
@@ -107,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isAuthenticated: !!user,
       isSuperAdmin: user?.role === 'super_admin',
+      isBrandAdmin: !!user && user.role !== 'super_admin' && !!user.organization,
       login,
       logout,
     }}>

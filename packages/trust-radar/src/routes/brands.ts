@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
 import {
   handleListBrands, handleTopTargetedBrands, handleMonitoredBrands,
   handleAddMonitoredBrand, handleRemoveMonitoredBrand, handleGetBrand,
@@ -53,7 +53,8 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   router.get("/api/brands", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleListBrands(request, env);
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleListBrands(request, env, scope);
   });
   router.get("/api/brands/top-targeted", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);

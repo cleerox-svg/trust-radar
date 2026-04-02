@@ -11,6 +11,7 @@ import { computeBrandExposureScore } from "../lib/brand-scoring";
 import { generateBrandKeywords } from "../lib/brand-utils";
 import { getBrandById, getBrandByDomain, getBrandThreatCount } from "../db/brands";
 import type { Env } from "../types";
+import type { OrgScope } from "../middleware/auth";
 
 // GET /api/brands/stats
 export async function handleBrandStats(request: Request, env: Env): Promise<Response> {
@@ -51,7 +52,7 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
 }
 
 // GET /api/brands?tab=under_attack|watchlist|all&q=search&sort=threats|name|recent&limit=50&offset=0
-export async function handleListBrands(request: Request, env: Env): Promise<Response> {
+export async function handleListBrands(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
@@ -64,6 +65,16 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
 
     const conditions: string[] = [];
     const params: unknown[] = [];
+
+    // Org scope filtering — only show brands assigned to the user's org
+    if (scope) {
+      if (scope.brand_ids.length === 0) {
+        return json({ success: true, data: [], total: 0, tabs: { under_attack: 0, watchlist: 0, all: 0 } }, 200, origin);
+      }
+      const placeholders = scope.brand_ids.map(() => "?").join(", ");
+      conditions.push(`b.id IN (${placeholders})`);
+      params.push(...scope.brand_ids);
+    }
 
     // Tab filtering
     if (tab === "under_attack") {
@@ -127,17 +138,27 @@ export async function handleListBrands(request: Request, env: Env): Promise<Resp
     const total = await env.DB.prepare(totalQuery)
       .bind(...params.slice(0, -2)).first<{ n: number }>();
 
-    // Tab counts for the UI badges
+    // Tab counts for the UI badges (scoped when applicable)
+    const scopeFilter = scope && scope.brand_ids.length > 0
+      ? { clause: `AND target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+    const brandScopeFilter = scope && scope.brand_ids.length > 0
+      ? { clause: `WHERE id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+    const mbScopeFilter = scope && scope.brand_ids.length > 0
+      ? { clause: `WHERE brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+
     const [underAttackCount, watchlistCount, allCount] = await Promise.all([
       env.DB.prepare(
-        "SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE status = 'active' AND target_brand_id IS NOT NULL"
-      ).first<{ n: number }>(),
+        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE status = 'active' AND target_brand_id IS NOT NULL ${scopeFilter.clause}`
+      ).bind(...scopeFilter.params).first<{ n: number }>(),
       env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM monitored_brands"
-      ).first<{ n: number }>(),
+        `SELECT COUNT(*) AS n FROM monitored_brands ${mbScopeFilter.clause}`
+      ).bind(...mbScopeFilter.params).first<{ n: number }>(),
       env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM brands"
-      ).first<{ n: number }>(),
+        `SELECT COUNT(*) AS n FROM brands ${brandScopeFilter.clause}`
+      ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
 
     return json({
