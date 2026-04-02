@@ -11,10 +11,11 @@ interface ApiKeyCreateSheetProps {
 const ALL_SCOPES = [
   { key: 'threats:read', label: 'Read threat intelligence' },
   { key: 'threats:write', label: 'Create/update threats' },
+  { key: 'brands:read', label: 'Read brand data' },
+  { key: 'brands:write', label: 'Create/update brands' },
   { key: 'takedowns:read', label: 'Read takedown requests' },
   { key: 'takedowns:write', label: 'Submit takedowns' },
-  { key: 'alerts:read', label: 'Read alerts' },
-  { key: 'webhooks:manage', label: 'Manage webhook config' },
+  { key: 'reports:read', label: 'Read reports and briefings' },
 ];
 
 const EXPIRY_OPTIONS = [
@@ -26,7 +27,7 @@ const EXPIRY_OPTIONS = [
 
 export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
   const [name, setName] = useState('');
-  const [scopes, setScopes] = useState<string[]>(['threats:read', 'takedowns:read', 'alerts:read']);
+  const [scopes, setScopes] = useState<string[]>(['threats:read', 'brands:read', 'takedowns:read', 'reports:read']);
   const [expiry, setExpiry] = useState('');
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -64,7 +65,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
 
   const handleDone = () => {
     setName('');
-    setScopes(['threats:read', 'takedowns:read', 'alerts:read']);
+    setScopes(['threats:read', 'brands:read', 'takedowns:read', 'reports:read']);
     setExpiry('');
     setRevealedKey(null);
     setCopied(false);

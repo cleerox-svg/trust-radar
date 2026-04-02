@@ -79,6 +79,27 @@ export interface WebhookConfig {
   webhook_last_failure: string | null;
 }
 
+export interface WebhookDelivery {
+  id: string;
+  event: string;
+  status_code: number;
+  success: boolean;
+  response_time_ms: number;
+  delivered_at: string;
+  error: string | null;
+}
+
+export interface SsoConfig {
+  protocol: 'none' | 'saml' | 'oidc' | null;
+  status: 'active' | 'configured' | 'disabled' | null;
+  saml_metadata_url: string | null;
+  saml_certificate: boolean;
+  oidc_provider: string | null;
+  oidc_client_id: string | null;
+  oidc_client_secret: boolean;
+  oidc_discovery_url: string | null;
+}
+
 // ─── Org ID — hardcoded to 1 for now (single-tenant demo) ──
 
 const ORG_ID = '1';
@@ -331,6 +352,58 @@ export function useUpdateOrg() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['org'] });
+    },
+  });
+}
+
+// ─── SSO ───────────────────────────────────────────────────
+
+export function useSsoConfig() {
+  return useQuery({
+    queryKey: ['org-sso', ORG_ID],
+    queryFn: async () => {
+      const res = await api.get<SsoConfig>(`/api/orgs/${ORG_ID}/sso`);
+      return res.data ?? null;
+    },
+  });
+}
+
+export function useUpdateSsoConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      protocol: string;
+      saml_metadata_url?: string;
+      saml_certificate?: string;
+      oidc_provider?: string;
+      oidc_client_id?: string;
+      oidc_client_secret?: string;
+      oidc_discovery_url?: string;
+    }) => {
+      return api.put(`/api/orgs/${ORG_ID}/sso`, payload);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['org-sso'] });
+    },
+  });
+}
+
+export function useTestSsoConnection() {
+  return useMutation({
+    mutationFn: async () => {
+      return api.post<{ success: boolean; error?: string }>(`/api/orgs/${ORG_ID}/sso/test`);
+    },
+  });
+}
+
+// ─── Webhook Deliveries ────────────────────────────────────
+
+export function useWebhookDeliveries() {
+  return useQuery({
+    queryKey: ['org-webhook-deliveries', ORG_ID],
+    queryFn: async () => {
+      const res = await api.get<WebhookDelivery[]>(`/api/orgs/${ORG_ID}/webhook/deliveries`);
+      return res.data ?? [];
     },
   });
 }

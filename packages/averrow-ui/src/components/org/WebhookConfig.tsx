@@ -3,16 +3,24 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
+import { Badge } from '@/components/ui/Badge';
 import {
   useWebhookConfig, useUpdateWebhook, useRegenerateWebhookSecret, useTestWebhook,
+  useWebhookDeliveries,
 } from '@/hooks/useOrganization';
 
 const WEBHOOK_EVENTS = [
+  { key: 'threat.detected', label: 'New threat detected' },
   { key: 'threat.critical', label: 'New CRITICAL severity threat detected' },
   { key: 'threat.high', label: 'New HIGH severity threat detected' },
   { key: 'threat.any', label: 'Any new threat' },
+  { key: 'severity.escalation', label: 'Severity escalation' },
+  { key: 'takedown.requested', label: 'Takedown requested' },
   { key: 'takedown.submitted', label: 'Takedown request submitted' },
+  { key: 'takedown.completed', label: 'Takedown completed' },
   { key: 'takedown.resolved', label: 'Takedown resolved' },
+  { key: 'email.grade_change', label: 'Email security grade change' },
+  { key: 'briefing.daily', label: 'Daily briefing' },
   { key: 'alert.new', label: 'New alert generated' },
   { key: 'alert.acknowledged', label: 'Alert acknowledged' },
   { key: 'feed.degraded', label: 'Feed ingestion degraded' },
@@ -21,6 +29,7 @@ const WEBHOOK_EVENTS = [
 
 export function WebhookConfig() {
   const { data: webhook, isLoading } = useWebhookConfig();
+  const { data: deliveries } = useWebhookDeliveries();
   const updateWebhook = useUpdateWebhook();
   const regenSecret = useRegenerateWebhookSecret();
   const testWebhook = useTestWebhook();
@@ -179,7 +188,29 @@ export function WebhookConfig() {
 
         <div className="mt-4">
           <SectionLabel className="mb-2">Recent Deliveries</SectionLabel>
-          <p className="text-[11px] text-contrail/40">No deliveries yet.</p>
+          {!deliveries || deliveries.length === 0 ? (
+            <p className="text-[11px] text-contrail/40">No deliveries yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {deliveries.slice(0, 10).map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between py-2 px-3 bg-cockpit border border-white/[0.06] rounded-lg text-[11px] font-mono"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Badge variant={d.success ? 'success' : 'critical'}>
+                      {d.status_code}
+                    </Badge>
+                    <span className="text-contrail/60 truncate">{d.event}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 text-contrail/40">
+                    <span>{d.response_time_ms}ms</span>
+                    <span>{new Date(d.delivered_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 
