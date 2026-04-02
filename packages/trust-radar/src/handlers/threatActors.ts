@@ -21,7 +21,7 @@ async function safeQueryAll(_db: D1Database, stmt: D1PreparedStatement): Promise
   }
 }
 
-// GET /api/threat-actors?country=IR&status=active&affiliation=IRGC&limit=50&offset=0
+// GET /api/threat-actors?country=IR&status=active&attribution=IRGC&limit=50&offset=0
 export async function handleListThreatActors(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -30,23 +30,23 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
     const country = url.searchParams.get("country");
     const status = url.searchParams.get("status");
-    const affiliation = url.searchParams.get("affiliation");
+    const attribution = url.searchParams.get("affiliation") ?? url.searchParams.get("attribution");
     const search = url.searchParams.get("q");
 
     const conditions: string[] = [];
     const params: unknown[] = [];
 
     if (country) {
-      conditions.push("ta.country_code = ?");
+      conditions.push("ta.country = ?");
       params.push(country.toUpperCase());
     }
     if (status) {
       conditions.push("ta.status = ?");
       params.push(status);
     }
-    if (affiliation) {
-      conditions.push("ta.affiliation = ?");
-      params.push(affiliation);
+    if (attribution) {
+      conditions.push("ta.attribution = ?");
+      params.push(attribution);
     }
     if (search) {
       conditions.push("(ta.name LIKE ? OR ta.aliases LIKE ? OR ta.description LIKE ?)");
@@ -60,22 +60,20 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
     ).bind(...params).first<{ total: number }>();
 
-    // Column aliases to match frontend field names
+    // Column names match actual DB schema
     const selectCols = `ta.id, ta.name, ta.aliases,
-          ta.affiliation AS attribution,
-          ta.country_code AS country,
-          ta.capability,
-          ta.primary_ttps AS ttps,
+          ta.attribution,
+          ta.country,
+          ta.ttps,
           ta.description,
+          ta.target_sectors,
+          ta.active_campaigns,
           ta.first_seen, ta.last_seen,
           ta.status,
-          ta.attribution_confidence,
-          ta.source, ta.created_at, ta.updated_at`;
+          ta.created_at, ta.updated_at`;
 
     const orderBy = `ORDER BY
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
-          CASE ta.attribution_confidence
-            WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
           ta.name`;
 
     // Try query with join table counts first; fall back to basic query if tables missing
@@ -118,17 +116,17 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
     const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>();
     const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>();
     const byCountry = await env.DB.prepare(`
-      SELECT country_code AS country, COUNT(*) AS count
+      SELECT country, COUNT(*) AS count
       FROM threat_actors
-      GROUP BY country_code
+      GROUP BY country
       ORDER BY count DESC
       LIMIT 10
     `).all();
     const byAttribution = await env.DB.prepare(`
-      SELECT affiliation AS attribution, COUNT(*) AS count
+      SELECT attribution, COUNT(*) AS count
       FROM threat_actors
-      WHERE affiliation IS NOT NULL
-      GROUP BY affiliation
+      WHERE attribution IS NOT NULL
+      GROUP BY attribution
       ORDER BY count DESC
     `).all();
 
@@ -164,12 +162,14 @@ export async function handleGetThreatActor(request: Request, env: Env, id: strin
   try {
     const actor = await env.DB.prepare(`
       SELECT id, name, aliases,
-             affiliation AS attribution,
-             country_code AS country,
-             capability,
-             primary_ttps AS ttps,
-             description, first_seen, last_seen, status,
-             attribution_confidence, source, created_at, updated_at
+             attribution,
+             country,
+             ttps,
+             description,
+             target_sectors,
+             active_campaigns,
+             first_seen, last_seen, status,
+             created_at, updated_at
       FROM threat_actors WHERE id = ?
     `).bind(id).first();
     if (!actor) {
@@ -228,20 +228,19 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
     const rows = await safeQueryAll(env.DB,
       env.DB.prepare(`
         SELECT ta.id, ta.name, ta.aliases,
-               ta.affiliation AS attribution,
-               ta.country_code AS country,
-               ta.capability,
-               ta.primary_ttps AS ttps,
-               ta.description, ta.first_seen, ta.last_seen, ta.status,
-               ta.attribution_confidence, ta.source, ta.created_at, ta.updated_at,
+               ta.attribution,
+               ta.country,
+               ta.ttps,
+               ta.description,
+               ta.target_sectors,
+               ta.active_campaigns,
+               ta.first_seen, ta.last_seen, ta.status,
+               ta.created_at, ta.updated_at,
                tat.context, tat.first_targeted, tat.last_targeted
         FROM threat_actors ta
         JOIN threat_actor_targets tat ON tat.threat_actor_id = ta.id
         WHERE tat.brand_id = ?
-        ORDER BY
-          CASE ta.attribution_confidence
-            WHEN 'confirmed' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-          ta.name
+        ORDER BY ta.name
       `).bind(brandId)
     );
 

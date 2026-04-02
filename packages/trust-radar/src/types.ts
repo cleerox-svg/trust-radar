@@ -655,16 +655,15 @@ export interface ThreatActor {
   id: string;
   name: string;
   aliases: string | null;
-  affiliation: string | null;
-  country_code: string | null;
-  capability: string | null;
-  primary_ttps: string | null;
+  attribution: string | null;
+  country: string | null;
   description: string | null;
+  ttps: string | null;
+  target_sectors: string | null;
+  active_campaigns: string | null;
   first_seen: string | null;
   last_seen: string | null;
   status: ThreatActorStatus;
-  attribution_confidence: AttributionConfidence;
-  source: string | null;
   created_at: string;
   updated_at: string;
 }

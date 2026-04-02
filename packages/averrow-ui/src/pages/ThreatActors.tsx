@@ -36,36 +36,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function ConfidenceBadge({ confidence }: { confidence: string }) {
-  const colors: Record<string, string> = {
-    confirmed: 'text-green-400',
-    high: 'text-afterburner',
-    medium: 'text-yellow-400',
-    low: 'text-gauge-gray',
-    suspected: 'text-gauge-gray',
-  };
-  return (
-    <span className={`font-mono text-[10px] uppercase ${colors[confidence] ?? 'text-gauge-gray'}`}>
-      {confidence}
-    </span>
-  );
-}
-
-function CapabilityBadge({ capability }: { capability: string | null }) {
-  if (!capability) return null;
-  const colors: Record<string, string> = {
-    destructive: 'bg-red-500/15 text-red-400 border-red-500/25',
-    espionage: 'bg-wing-blue/15 text-wing-blue border-wing-blue/25',
-    infrastructure: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
-    influence_ops: 'bg-purple-500/15 text-purple-400 border-purple-500/25',
-  };
-  const label = capability.replace(/_/g, ' ');
-  return (
-    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase ${colors[capability] ?? 'bg-white/5 text-gauge-gray border-white/10'}`}>
-      {label}
-    </span>
-  );
-}
 
 // ─── Actor Row ────────────────────────────────────────────────
 
@@ -110,8 +80,6 @@ function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void 
             <span className="text-sm">{countryFlag(actor.country)}</span>
             <span className="font-mono text-[10px] text-gauge-gray">{actor.attribution ?? 'Unknown'}</span>
           </div>
-          <ConfidenceBadge confidence={actor.attribution_confidence ?? 'unknown'} />
-          <CapabilityBadge capability={actor.capability ?? null} />
           <div className="flex gap-3 mt-1">
             <span className="font-mono text-[10px] text-white/40">{actor.infra_count ?? 0} infra</span>
             <span className="font-mono text-[10px] text-white/40">{actor.target_count ?? 0} targets</span>
