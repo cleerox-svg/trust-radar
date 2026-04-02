@@ -3,6 +3,7 @@
 
 import { json } from "../lib/cors";
 import { generateInviteToken, hashToken } from "../lib/hash";
+import { sendInviteEmail } from "../lib/invite-email";
 import { audit } from "../lib/audit";
 import type { Env, UserRole } from "../types";
 
@@ -64,6 +65,25 @@ export async function handleCreateInvite(
   // Return the raw token once — it will never be retrievable again
   const inviteUrl = `${new URL(request.url).origin}/invite?token=${rawToken}`;
 
+  // Send invitation email via Resend
+  let emailSent = false;
+  if (env.RESEND_API_KEY) {
+    const inviterRow = await env.DB.prepare("SELECT name, email FROM users WHERE id = ?")
+      .bind(adminUserId).first<{ name: string; email: string }>();
+
+    const expiresAt = new Date(Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+
+    const emailResult = await sendInviteEmail(env.RESEND_API_KEY, {
+      recipientEmail: body.email.toLowerCase(),
+      orgName: "Averrow",
+      role,
+      invitedByName: inviterRow?.name ?? inviterRow?.email ?? "An administrator",
+      acceptUrl: inviteUrl,
+      expiresAt,
+    });
+    emailSent = emailResult.ok;
+  }
+
   return json({
     success: true,
     data: {
@@ -71,6 +91,7 @@ export async function handleCreateInvite(
       email: body.email,
       role,
       invite_url: inviteUrl,
+      email_sent: emailSent,
       expires_in_hours: INVITE_EXPIRY_HOURS,
     },
   }, 201, origin);
