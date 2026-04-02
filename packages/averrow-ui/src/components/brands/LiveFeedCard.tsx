@@ -4,11 +4,12 @@ import { severityColor } from '@/lib/severityColor';
 
 interface RecentThreat {
   id: string;
-  type: string;
+  threat_type: string;
   severity: string;
-  brand_name: string;
-  url?: string;
-  domain?: string;
+  source_feed: string;
+  malicious_domain?: string;
+  ip_address?: string;
+  country_code?: string;
   created_at: string;
 }
 
@@ -34,7 +35,7 @@ export function LiveFeedCard() {
   const { data: threats } = useQuery({
     queryKey: ['threats', 'recent'],
     queryFn: async () => {
-      const res = await api.get<RecentThreat[]>('/api/v1/threats/recent?limit=8');
+      const res = await api.get<RecentThreat[]>('/api/threats/recent?limit=8');
       return res.data ?? [];
     },
     refetchInterval: 30000,
@@ -56,6 +57,8 @@ export function LiveFeedCard() {
           {items.map((t) => {
             const score = SEVERITY_SCORE[t.severity?.toLowerCase()] ?? 50;
             const dotColor = severityColor(score);
+            const identifier = t.malicious_domain || t.ip_address || '';
+            const displayType = (t.threat_type ?? '').replace(/_/g, ' ');
             return (
               <div
                 key={t.id}
@@ -66,12 +69,16 @@ export function LiveFeedCard() {
                   style={{ backgroundColor: dotColor }}
                 />
                 <span className="flex-shrink-0 font-mono text-[9px]" style={{ color: dotColor }}>
-                  {t.type}
+                  {displayType}
                 </span>
-                <span className="flex-shrink-0 text-[11px] text-white/80">{t.brand_name}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-white/40">
-                  {t.url || t.domain}
+                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-white/60">
+                  {identifier.length > 25 ? identifier.slice(0, 25) + '…' : identifier}
                 </span>
+                {t.country_code && (
+                  <span className="flex-shrink-0 font-mono text-[9px] text-white/40">
+                    {t.country_code}
+                  </span>
+                )}
                 <span className="flex-shrink-0 font-mono text-[9px] text-white/30">
                   {timeAgo(t.created_at)}
                 </span>
