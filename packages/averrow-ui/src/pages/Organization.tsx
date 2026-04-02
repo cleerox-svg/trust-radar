@@ -11,6 +11,7 @@ import type { IntegrationDef } from '@/components/org/IntegrationCard';
 import { ConnectIntegrationSheet } from '@/components/org/ConnectIntegrationSheet';
 import { ApiKeyCreateSheet } from '@/components/org/ApiKeyCreateSheet';
 import { WebhookConfig } from '@/components/org/WebhookConfig';
+import { SsoConfig } from '@/components/org/SsoConfig';
 import {
   useOrg, useOrgMembers, useOrgBrands, useOrgInvites,
   useOrgApiKeys, useOrgIntegrations,
@@ -52,6 +53,7 @@ const TABS = [
   { id: 'integrations', label: 'Integrations' },
   { id: 'api-keys', label: 'API Keys' },
   { id: 'webhooks', label: 'Webhooks' },
+  { id: 'sso', label: 'SSO' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -136,6 +138,8 @@ export function Organization() {
       )}
 
       {activeTab === 'webhooks' && <WebhookConfig />}
+
+      {activeTab === 'sso' && <SsoConfig slug={org?.slug ?? 'lrx-enterprises'} />}
 
       {activeTab === 'settings' && <SettingsTab orgName={org?.name ?? ''} slug={org?.slug ?? ''} />}
 
@@ -581,22 +585,12 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
         </div>
       </Card>
 
-      {/* SSO Configuration */}
+      {/* SSO Configuration — now has its own tab */}
       <Card hover={false}>
         <SectionLabel className="mb-3">SSO Configuration</SectionLabel>
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-contrail/60 font-mono">Provider</span>
-            <span className="text-parchment/60">None configured</span>
-          </div>
-          <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-contrail/60 font-mono">Status</span>
-            <span className="text-contrail/40">Not configured</span>
-          </div>
-          <Button variant="secondary" size="sm" className="mt-2" disabled>
-            Configure SSO — Coming Soon
-          </Button>
-        </div>
+        <p className="text-[11px] text-contrail/50 mb-3">
+          Configure Single Sign-On for your organization in the dedicated SSO tab.
+        </p>
       </Card>
 
       {/* SCIM Provisioning */}
