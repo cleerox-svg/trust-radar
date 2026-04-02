@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
 import { handleStats, handleSourceMix, handleQualityTrend } from "../handlers/stats";
 import { handleHeatmap } from "../handlers/heatmap";
 import {
@@ -9,6 +9,7 @@ import {
   handleObservatoryBrandArcs, handleObservatoryStats, handleObservatoryOperations,
 } from "../handlers/observatory";
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "../handlers/dashboard";
+import { handleBrandAdminDashboard } from "../handlers/brandAdminDashboard";
 import { handleSignals, handleIngestSignal } from "../handlers/signals";
 import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats, handleBulkAcknowledge, handleBulkTakedown } from "../handlers/alerts";
 import {
@@ -33,17 +34,31 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
   router.get("/api/dashboard/overview", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleDashboardOverview(request, env);
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleDashboardOverview(request, env, scope);
   });
   router.get("/api/dashboard/top-brands", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleDashboardTopBrands(request, env);
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleDashboardTopBrands(request, env, scope);
   });
   router.get("/api/dashboard/providers", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleDashboardProviders(request, env);
+  });
+
+  // ─── Brand Admin Dashboard (scoped) ───────────────────────────────
+  router.get("/api/dashboard/brand-admin", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const scope = await getOrgScope(ctx, env.DB);
+    if (!scope) {
+      // Super admins should use the full dashboard
+      return handleDashboardOverview(request, env);
+    }
+    return handleBrandAdminDashboard(request, env, scope);
   });
 
   // ─── Public Heatmap ───────────────────────────────────────────────
@@ -84,7 +99,8 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
   router.get("/api/alerts", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleListAlerts(request, env, ctx.userId);
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleListAlerts(request, env, ctx.userId, scope);
   });
   router.post("/api/alerts/bulk-acknowledge", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);

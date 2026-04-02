@@ -109,6 +109,54 @@ export function isAuthContext(val: AuthContext | Response): val is AuthContext {
   return !(val instanceof Response);
 }
 
+// ─── Org Scope ─────────────────────────────────────────────────
+
+export interface OrgScope {
+  org_id: number;
+  brand_ids: string[];
+}
+
+/**
+ * Resolve the org scope for the authenticated user.
+ * Super admins get null (no filter). Brand admins get their org's brand_ids.
+ */
+export async function getOrgScope(
+  ctx: AuthContext,
+  db: D1Database,
+): Promise<OrgScope | null> {
+  if (ctx.role === "super_admin") return null;
+
+  // Look up org membership
+  const membership = await db.prepare(
+    "SELECT org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1"
+  ).bind(ctx.userId).first<{ org_id: number }>();
+
+  if (!membership) return { org_id: 0, brand_ids: [] };
+
+  const brands = await db.prepare(
+    "SELECT brand_id FROM org_brands WHERE org_id = ?"
+  ).bind(membership.org_id).all<{ brand_id: string }>();
+
+  return {
+    org_id: membership.org_id,
+    brand_ids: brands.results.map((b) => b.brand_id),
+  };
+}
+
+/**
+ * Build a SQL IN clause placeholder for brand_ids filtering.
+ * Returns { clause, params } for use in prepared statements.
+ */
+export function buildBrandFilter(
+  scope: OrgScope | null,
+  column: string,
+): { clause: string; params: string[] } {
+  if (!scope) return { clause: "", params: [] };
+  if (scope.brand_ids.length === 0) return { clause: `AND ${column} = '__none__'`, params: [] };
+  const placeholders = scope.brand_ids.map(() => "?").join(", ");
+  return { clause: `AND ${column} IN (${placeholders})`, params: scope.brand_ids };
+}
+
 /**
  * Verify authenticated user belongs to a specific org.
  * Superadmins bypass the check.

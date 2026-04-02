@@ -3,24 +3,41 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import type { OrgScope } from "../middleware/auth";
 
 // GET /api/dashboard/overview
-export async function handleDashboardOverview(request: Request, env: Env): Promise<Response> {
+export async function handleDashboardOverview(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // Build scope-aware threat filter
+    const threatScope = scope && scope.brand_ids.length > 0
+      ? { clause: `WHERE target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+    const threatScopeAnd = scope && scope.brand_ids.length > 0
+      ? { clause: `AND target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+    const brandScope = scope && scope.brand_ids.length > 0
+      ? { clause: `WHERE id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
+      : { clause: "", params: [] as string[] };
+
+    // If scoped with no brands, return empty
+    if (scope && scope.brand_ids.length === 0) {
+      return json({ success: true, data: { active_threats: 0, threats_24h: 0, brands_tracked: 0, brands_new: 0, providers_tracked: 0, active_campaigns: 0, campaigns_new: 0, feed_health: { active: 0, total: 0, degraded: 0, down: 0 } } }, 200, origin);
+    }
+
     const [threatCount, threatActive, threat24h, brands, providers, campaigns, feeds] = await Promise.all([
-      env.DB.prepare("SELECT COUNT(*) AS n FROM threats").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(*) AS n FROM threats WHERE status = 'active'").first<{ n: number }>().catch(() => ({ n: 0 })),
-      env.DB.prepare("SELECT COUNT(*) AS n FROM threats WHERE created_at >= datetime('now', '-1 day')").first<{ n: number }>().catch(() => ({ n: 0 })),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats ${threatScope.clause}`).bind(...threatScope.params).first<{ n: number }>(),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats WHERE status = 'active' ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats WHERE created_at >= datetime('now', '-1 day') ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
       env.DB.prepare(`
         SELECT COUNT(*) AS tracked,
                SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
-        FROM brands
-      `).first<{ tracked: number; new_7d: number }>().catch(() => ({ tracked: 0, new_7d: 0 })),
+        FROM brands ${brandScope.clause}
+      `).bind(...brandScope.params).first<{ tracked: number; new_7d: number }>().catch(() => ({ tracked: 0, new_7d: 0 })),
       env.DB.prepare(`
         SELECT COUNT(DISTINCT hosting_provider_id) AS tracked
-        FROM threats WHERE hosting_provider_id IS NOT NULL
-      `).first<{ tracked: number }>().catch(() => ({ tracked: 0 })),
+        FROM threats WHERE hosting_provider_id IS NOT NULL ${threatScopeAnd.clause}
+      `).bind(...threatScopeAnd.params).first<{ tracked: number }>().catch(() => ({ tracked: 0 })),
       env.DB.prepare(`
         SELECT COUNT(*) AS active,
                SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
@@ -60,11 +77,19 @@ export async function handleDashboardOverview(request: Request, env: Env): Promi
 }
 
 // GET /api/dashboard/top-brands
-export async function handleDashboardTopBrands(request: Request, env: Env): Promise<Response> {
+export async function handleDashboardTopBrands(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "10", 10));
+
+    const brandFilter = scope && scope.brand_ids.length > 0
+      ? { clause: `WHERE b.id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: [...scope.brand_ids, limit] }
+      : { clause: "", params: [limit] };
+
+    if (scope && scope.brand_ids.length === 0) {
+      return json({ success: true, data: [] }, 200, origin);
+    }
 
     const rows = await env.DB.prepare(`
       SELECT b.id AS brand_id, b.name, b.sector,
@@ -75,10 +100,11 @@ export async function handleDashboardTopBrands(request: Request, env: Env): Prom
              , 1) AS trend_pct
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
+      ${brandFilter.clause}
       GROUP BY b.id
       ORDER BY threat_count DESC
       LIMIT ?
-    `).bind(limit).all();
+    `).bind(...brandFilter.params).all();
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {

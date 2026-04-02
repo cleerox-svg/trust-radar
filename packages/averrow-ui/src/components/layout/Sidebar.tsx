@@ -27,7 +27,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isSuperAdmin, isBrandAdmin } = useAuth();
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
@@ -42,7 +42,33 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const NAV_SECTIONS: NavSection[] = [
+  // Brand admins see a reduced sidebar scoped to their org
+  const BRAND_ADMIN_SECTIONS: NavSection[] = [
+    {
+      label: 'INTELLIGENCE',
+      items: [
+        { label: 'Dashboard',   path: '/',              icon: LayoutDashboard },
+        { label: 'Brands',      path: '/brands',        icon: Shield },
+        { label: 'Threats',     path: '/threats',        icon: Crosshair },
+      ],
+    },
+    {
+      label: 'RESPONSE',
+      items: [
+        { label: 'Takedowns',   path: '/admin/takedowns',  icon: Gavel },
+        { label: 'Alerts',      path: '/alerts',           icon: Bell, badge: alertCount },
+      ],
+    },
+    {
+      label: 'SETTINGS',
+      items: [
+        { label: 'Organization', path: '/admin/users',  icon: Users },
+      ],
+    },
+  ];
+
+  // Super admins see the full platform sidebar
+  const SUPER_ADMIN_SECTIONS: NavSection[] = [
     {
       label: 'INTELLIGENCE',
       items: [
@@ -76,6 +102,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     },
   ];
 
+  const NAV_SECTIONS = isBrandAdmin ? BRAND_ADMIN_SECTIONS : SUPER_ADMIN_SECTIONS;
+
   return (
     <aside className="w-56 h-full glass-sidebar flex flex-col">
       <div className="p-4 border-b border-white/5">
@@ -90,7 +118,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 key={item.path}
                 to={item.path}
                 onClick={onNavigate}
-                end={item.path === '/observatory'}
+                end={item.path === '/observatory' || item.path === '/'}
                 className={({ isActive }) => cn(
                   'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
                   isActive
@@ -111,6 +139,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         ))}
       </nav>
       <div className="p-4 border-t border-white/5">
+        {isBrandAdmin && user?.organization && (
+          <div className="text-[10px] font-mono text-afterburner/70 uppercase tracking-wider mb-1">
+            {user.organization.name}
+          </div>
+        )}
         <div className="text-xs text-parchment/50 truncate">{user?.email}</div>
         <button
           onClick={logout}
