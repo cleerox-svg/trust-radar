@@ -22,6 +22,7 @@ import { GeopoliticalCampaignDashboard } from '@/pages/GeopoliticalCampaignDashb
 import { Trends } from '@/pages/Trends';
 import { ThreatActors } from '@/pages/ThreatActors';
 import { ThreatActorDetail } from '@/pages/ThreatActorDetail';
+import { Leads } from '@/pages/Leads';
 import { NotFound } from '@/pages/NotFound';
 import { Home } from '@/pages/Home';
 import { Profile } from '@/pages/Profile';
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
         <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
         <Route path="alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
+        <Route path="leads" element={<ErrorBoundary><Leads /></ErrorBoundary>} />
         <Route path="feeds" element={<ErrorBoundary><Feeds /></ErrorBoundary>} />
         <Route path="admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
         <Route path="admin/takedowns" element={<ErrorBoundary><Takedowns /></ErrorBoundary>} />

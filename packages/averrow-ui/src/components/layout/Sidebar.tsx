@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Globe, Shield, Server, Activity, TrendingUp, Crosshair,
-  Gavel, Bell, Inbox,
+  Gavel, Bell, Inbox, Target,
   Cpu, Rss, LayoutDashboard, Users, ClipboardList,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -60,6 +60,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Takedowns',    path: '/admin/takedowns',  icon: Gavel },
         { label: 'Alerts',       path: '/alerts',           icon: Bell, badge: alertCount },
         { label: 'Spam Trap',    path: '/admin/spam-trap',  icon: Inbox },
+        { label: 'Leads',       path: '/leads',            icon: Target },
       ],
     },
     {
