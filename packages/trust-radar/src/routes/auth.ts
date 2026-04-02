@@ -5,8 +5,14 @@ import { requireAuth, isAuthContext } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
 import { handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback, handleRefreshToken, handleLogout, handleMe } from "../handlers/auth";
 import { handleValidateInvite } from "../handlers/invites";
+import { handleInviteLanding } from "../handlers/invite-landing";
 
 export function registerAuthRoutes(router: RouterType<IRequest>): void {
+  // Invite landing page (public — renders accept UI before OAuth redirect)
+  router.get("/invite", async (request: Request, env: Env) => {
+    return handleInviteLanding(request, env);
+  });
+
   router.get("/api/auth/login", async (request: Request, env: Env) => {
     const limited = await rateLimit(request, env, "auth");
     if (limited) return limited;

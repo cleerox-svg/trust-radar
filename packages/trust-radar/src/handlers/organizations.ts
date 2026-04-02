@@ -4,6 +4,7 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import { generateInviteToken, hashToken } from "../lib/hash";
+import { sendInviteEmail } from "../lib/invite-email";
 import { sendTestWebhook } from "../lib/webhooks";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
@@ -315,6 +316,28 @@ export async function handleOrgInvite(
 
   const inviteUrl = `${new URL(request.url).origin}/invite?token=${rawToken}`;
 
+  // Send invitation email via Resend
+  let emailSent = false;
+  if (env.RESEND_API_KEY) {
+    // Look up org name and inviter name for the email
+    const orgRow = await env.DB.prepare("SELECT name FROM organizations WHERE id = ?")
+      .bind(orgId).first<{ name: string }>();
+    const inviterRow = await env.DB.prepare("SELECT name, email FROM users WHERE id = ?")
+      .bind(ctx.userId).first<{ name: string; email: string }>();
+
+    const expiresAt = new Date(Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+
+    const emailResult = await sendInviteEmail(env.RESEND_API_KEY, {
+      recipientEmail: body.email.toLowerCase(),
+      orgName: orgRow?.name ?? "your organization",
+      role: orgRole,
+      invitedByName: inviterRow?.name ?? inviterRow?.email ?? "A team member",
+      acceptUrl: inviteUrl,
+      expiresAt,
+    });
+    emailSent = emailResult.ok;
+  }
+
   return json({
     success: true,
     data: {
@@ -322,6 +345,7 @@ export async function handleOrgInvite(
       email: body.email,
       org_role: orgRole,
       invite_url: inviteUrl,
+      email_sent: emailSent,
       expires_in_hours: INVITE_EXPIRY_HOURS,
     },
   }, 201, origin);
