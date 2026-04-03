@@ -20,14 +20,14 @@ export function StatCard({ title, children, metric, metricLabel, className }: St
       <div className="mb-3 section-label">
         {title}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Left side — breakdown content */}
         <div className="flex-1 min-w-0">
           {children}
         </div>
 
         {/* Right side — primary metric */}
-        <div className="flex flex-col items-center gap-1 border-l border-white/10 pl-3 flex-shrink-0">
+        <div className="flex flex-col items-start sm:items-center gap-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-3 flex-shrink-0">
           {metric}
           <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/40">
             {metricLabel}
