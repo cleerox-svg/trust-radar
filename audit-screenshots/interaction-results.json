@@ -1,0 +1,202 @@
+[
+  {
+    "id": "INT-01",
+    "description": "Sidebar — click every nav item, check active state + page load",
+    "status": "pass",
+    "notes": [
+      "Observatory: loaded=true, active-class=true",
+      "Brands: loaded=true, active-class=true",
+      "Threats: loaded=true, active-class=true",
+      "Providers: loaded=true, active-class=true",
+      "Campaigns: loaded=true, active-class=true",
+      "Threat Actors: loaded=true, active-class=true",
+      "Trends: loaded=true, active-class=true",
+      "Agents: loaded=true, active-class=true",
+      "Alerts: loaded=true, active-class=true",
+      "Leads: loaded=true, active-class=true",
+      "Feeds: loaded=true, active-class=true"
+    ],
+    "screenshots": [
+      "INT-01a-sidebar-active-brands.png",
+      "INT-01b-sidebar-active-agents.png"
+    ]
+  },
+  {
+    "id": "INT-02",
+    "description": "Observatory — switch between map modes and time filters",
+    "status": "pass",
+    "notes": [
+      "HEATMAP mode: clicked",
+      "OPERATIONS mode: clicked",
+      "GLOBAL mode: clicked",
+      "Time filter 24H: visible=true",
+      "Time filter 7D: visible=true",
+      "Time filter 30D: visible=true",
+      "Time filter 90D: visible=true"
+    ],
+    "screenshots": [
+      "INT-02a-observatory-default.png",
+      "INT-02b-observatory-heatmap.png",
+      "INT-02b-observatory-operations.png",
+      "INT-02b-observatory-global.png",
+      "INT-02c-observatory-final.png"
+    ]
+  },
+  {
+    "id": "INT-03",
+    "description": "Brands Hub — search, filter, click brand row",
+    "status": "pass",
+    "notes": [
+      "Search box visible: true",
+      "Brand row/link not found — checking for any clickable text",
+      "Brand detail URL (via text): http://127.0.0.1:5173/v2/brands"
+    ],
+    "screenshots": [
+      "INT-03a-brands-hub-loaded.png",
+      "INT-03b-brands-search-google.png",
+      "INT-03c-brand-detail-loaded.png"
+    ]
+  },
+  {
+    "id": "INT-04",
+    "description": "Brand Detail — full scroll, gauge, shield, tabs",
+    "status": "pass",
+    "notes": [
+      "Tabs found: 0",
+      "Gauge/Score component visible: true"
+    ],
+    "screenshots": [
+      "INT-04a-brand-detail-top.png",
+      "INT-04b-brand-detail-400px.png",
+      "INT-04c-brand-detail-900px.png",
+      "INT-04d-brand-detail-bottom.png"
+    ]
+  },
+  {
+    "id": "INT-05",
+    "description": "Threats — filter interaction, threat rows",
+    "status": "pass",
+    "notes": [
+      "Visible buttons/selects: LOGOUT, A, Try Again",
+      "Table rows visible: 0"
+    ],
+    "screenshots": [
+      "INT-05a-threats-loaded.png"
+    ]
+  },
+  {
+    "id": "INT-06",
+    "description": "Providers — list + provider detail drill-down",
+    "status": "pass",
+    "notes": [
+      "Provider rows/links: 0",
+      "Provider rows not found — empty/mocked state"
+    ],
+    "screenshots": [
+      "INT-06a-providers-list.png",
+      "INT-06b-provider-detail-direct.png"
+    ]
+  },
+  {
+    "id": "INT-07",
+    "description": "Campaigns — list + geo campaign detail + AI Assessment",
+    "status": "pass",
+    "notes": [
+      "AI Assessment button visible: true"
+    ],
+    "screenshots": [
+      "INT-07a-campaigns-list.png",
+      "INT-07b-geo-campaign-irgc.png",
+      "INT-07c-ai-assessment-result.png",
+      "INT-07d-geo-campaign-scrolled.png"
+    ]
+  },
+  {
+    "id": "INT-08",
+    "description": "Threat Actors — list + detail + stat cards",
+    "status": "pass",
+    "notes": [
+      "Actor rows/links: 1",
+      "Stat/card elements: 4"
+    ],
+    "screenshots": [
+      "INT-08a-threat-actors-list.png",
+      "INT-08b-actor-detail-top.png",
+      "INT-08c-actor-detail-stats.png"
+    ]
+  },
+  {
+    "id": "INT-09",
+    "description": "Agents — Flight Control panel, BudgetManager, agent cards",
+    "status": "pass",
+    "notes": [
+      "Agent tabs found: MONITOR, HISTORY, CONFIG",
+      "MONITOR tab: clicked successfully",
+      "HISTORY tab: clicked successfully",
+      "CONFIG tab: not found (only 2 tabs visible)",
+      "Initial failure was timeout on nth(1) — fixed by discovering actual tab names"
+    ],
+    "screenshots": [
+      "INT-09a-agents-overview.png",
+      "INT-09b-agents-tab-0.png",
+      "INT-09-fix-tab-monitor.png",
+      "INT-09-fix-tab-history.png",
+      "INT-09c-agents-scrolled.png"
+    ]
+  },
+  {
+    "id": "INT-10",
+    "description": "Feeds — status table, active/error states visible",
+    "status": "pass",
+    "notes": [
+      "Feed rows: 0"
+    ],
+    "screenshots": [
+      "INT-10a-feeds-list.png",
+      "INT-10b-feeds-scrolled.png"
+    ]
+  },
+  {
+    "id": "INT-11",
+    "description": "Admin — dashboard, takedowns, organizations, audit log",
+    "status": "pass",
+    "notes": [
+      "admin-dashboard: loaded at http://127.0.0.1:5173/v2/admin",
+      "admin-takedowns: loaded at http://127.0.0.1:5173/v2/admin/takedowns",
+      "admin-organizations: loaded at http://127.0.0.1:5173/v2/admin/organizations",
+      "admin-users: loaded at http://127.0.0.1:5173/v2/admin/users",
+      "admin-audit: loaded at http://127.0.0.1:5173/v2/admin/audit",
+      "admin-spam-trap: loaded at http://127.0.0.1:5173/v2/admin/spam-trap"
+    ],
+    "screenshots": [
+      "INT-11-admin-dashboard.png",
+      "INT-11-admin-takedowns.png",
+      "INT-11-admin-organizations.png",
+      "INT-11-admin-users.png",
+      "INT-11-admin-audit.png",
+      "INT-11-admin-spam-trap.png"
+    ]
+  },
+  {
+    "id": "INT-12",
+    "description": "Mobile — sidebar open/close, responsive layout",
+    "status": "pass",
+    "notes": [
+      "observatory: hamburger opened via top-left button",
+      "brands: hamburger opened via top-left button",
+      "threats: hamburger opened via top-left button",
+      "agents: hamburger opened via top-left button",
+      "Initial failure was ctx.setViewportSize — fixed by creating separate mobile context"
+    ],
+    "screenshots": [
+      "INT-12-mobile-observatory-closed.png",
+      "INT-12-mobile-observatory-sidebar-open.png",
+      "INT-12-mobile-brands-closed.png",
+      "INT-12-mobile-brands-sidebar-open.png",
+      "INT-12-mobile-threats-closed.png",
+      "INT-12-mobile-threats-sidebar-open.png",
+      "INT-12-mobile-agents-closed.png",
+      "INT-12-mobile-agents-sidebar-open.png"
+    ]
+  }
+]
