@@ -124,8 +124,8 @@ export function BrandAdminDashboard() {
       {data?.recent_threats && data.recent_threats.length > 0 && (
         <section>
           <SectionLabel>Recent Threats (24h)</SectionLabel>
-          <div className="glass-card rounded-xl border border-white/10 overflow-hidden mt-3">
-            <table className="w-full text-left">
+          <div className="glass-card rounded-xl border border-white/10 overflow-hidden mt-3 overflow-x-auto">
+            <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="border-b border-white/5">
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Type</th>

@@ -81,7 +81,7 @@ export function ThreatActorDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           title="ATTRIBUTION"
-          metric={<span className="text-[28px] font-bold leading-none text-signal-red">{actor.attribution ?? '?'}</span>}
+          metric={<span className="text-lg sm:text-[28px] font-bold leading-none text-signal-red">{actor.attribution ?? '?'}</span>}
           metricLabel="state sponsor"
         >
           <div className="space-y-1">
@@ -99,7 +99,7 @@ export function ThreatActorDetail() {
         </StatCard>
         <StatCard
           title="TARGET SECTORS"
-          metric={<span className="text-[24px] font-bold leading-none text-afterburner">{parseJsonArray(actor.target_sectors).length || '?'}</span>}
+          metric={<span className="text-lg sm:text-[24px] font-bold leading-none text-afterburner">{parseJsonArray(actor.target_sectors).length || '?'}</span>}
           metricLabel="sectors"
         >
           <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export function ThreatActorDetail() {
         </StatCard>
         <StatCard
           title="INFRASTRUCTURE"
-          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{actor.infrastructure?.length ?? 0}</span>}
+          metric={<span className="text-xl sm:text-[32px] font-bold leading-none text-wing-blue">{actor.infrastructure?.length ?? 0}</span>}
           metricLabel="tracked"
         >
           <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export function ThreatActorDetail() {
         </StatCard>
         <StatCard
           title="LINKED THREATS"
-          metric={<span className="text-[32px] font-bold leading-none text-[#f87171]">{actor.linked_threat_count}</span>}
+          metric={<span className="text-xl sm:text-[32px] font-bold leading-none text-[#f87171]">{actor.linked_threat_count}</span>}
           metricLabel="threats"
         >
           <div className="flex items-center gap-2">
