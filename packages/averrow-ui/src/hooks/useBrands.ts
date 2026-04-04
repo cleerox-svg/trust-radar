@@ -22,6 +22,12 @@ interface Brand {
   threat_trend: number | null;
   top_threat_type: string | null;
   threat_history: number[] | null;
+  bimi_grade: string | null;
+  bimi_record: string | null;
+  bimi_svg_url: string | null;
+  bimi_vmc_url: string | null;
+  bimi_vmc_valid: boolean | null;
+  bimi_vmc_expiry: string | null;
   monitored: boolean | null;
   monitored_since: string | null;
   monitored_by: string | null;
