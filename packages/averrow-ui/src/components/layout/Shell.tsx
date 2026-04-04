@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { DeepBackground } from '@/components/ui/DeepBackground';
+import { PageTransition } from '@/components/ui/PageTransition';
 import { cn } from '@/lib/cn';
 
 export function Shell() {
@@ -40,7 +41,9 @@ export function Shell() {
         <main className={cn(
           isFullScreen ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto p-4 lg:p-6'
         )}>
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </main>
       </div>
     </div>
