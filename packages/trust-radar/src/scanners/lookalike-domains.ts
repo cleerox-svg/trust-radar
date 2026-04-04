@@ -9,6 +9,7 @@
 import { generatePermutations } from '../lib/dnstwist';
 import { createAlert } from '../lib/alerts';
 import { analyzeWithHaiku } from '../lib/haiku';
+import { checkBIMIExists } from '../email-security';
 import { logger } from '../lib/logger';
 import type { Env } from '../types';
 
@@ -188,6 +189,17 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
           threatLevel = 'HIGH';
         }
 
+        // BIMI on a lookalike domain is extremely suspicious
+        let hasBIMI = false;
+        try {
+          hasBIMI = await checkBIMIExists(row.domain);
+          if (hasBIMI && (threatLevel === 'LOW' || threatLevel === 'MEDIUM')) {
+            threatLevel = 'HIGH';
+          }
+        } catch {
+          // BIMI check failed — non-blocking
+        }
+
         // Update threat level and AI assessment
         await env.DB.prepare(
           `UPDATE lookalike_domains
@@ -234,6 +246,27 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
         await env.DB.prepare(
           `UPDATE lookalike_domains SET alert_id = ? WHERE id = ?`,
         ).bind(alertId, row.id).run();
+
+        // Additional alert if lookalike has BIMI
+        if (hasBIMI) {
+          await createAlert(env.DB, {
+            brandId: row.brand_id,
+            userId: brand.user_id,
+            alertType: 'typosquat_bimi',
+            severity: 'HIGH',
+            title: `Lookalike domain has BIMI record: ${row.domain}`,
+            summary: `The lookalike domain ${row.domain} has published a BIMI ` +
+              `record, suggesting it is attempting to display a trusted logo in email clients. ` +
+              `This indicates a sophisticated phishing operation.`,
+            details: {
+              domain: row.domain,
+              brand_domain: brand.domain,
+              permutation_type: row.permutation_type,
+            },
+            sourceType: 'lookalike_scanner',
+            sourceId: row.id,
+          });
+        }
       }
     });
 
