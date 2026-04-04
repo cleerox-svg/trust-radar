@@ -193,7 +193,7 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
         let hasBIMI = false;
         try {
           hasBIMI = await checkBIMIExists(row.domain);
-          if (hasBIMI && (threatLevel === 'LOW' || threatLevel === 'MEDIUM')) {
+          if (hasBIMI && threatLevel === 'MEDIUM') {
             threatLevel = 'HIGH';
           }
         } catch {
