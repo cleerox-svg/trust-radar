@@ -16,6 +16,8 @@ import { cn } from '@/lib/cn';
 import { severityColor, severityOpacity, threatTypeColor } from '@/lib/severityColor';
 import { useIsMobile } from '@/hooks/useWindowWidth';
 import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Search, Shield } from 'lucide-react';
 
 /* ─── Types ─── */
 
@@ -792,9 +794,14 @@ function MobileBrandsLayout({
             <MobileBrandRow key={brand.id} brand={brand} rank={i + 1} />
           ))}
           {sortedBrands.length === 0 && (
-            <div className="text-center py-12 font-mono text-sm text-contrail/30">
-              No brands found
-            </div>
+            <EmptyState
+              icon={<Search />}
+              title="No brands match your search"
+              subtitle={`Try a different name or domain — you're monitoring ${(brands ?? []).length} brands`}
+              action={{ label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
+              variant="clean"
+              compact
+            />
           )}
         </div>
       </MobileBottomSheet>
@@ -966,9 +973,18 @@ export function Brands() {
                 <BrandRow key={brand.id} brand={brand} onToggleMonitor={handleToggleMonitor} />
               ))}
               {pagedBrands.length === 0 && (
-                <div className="text-center py-12 font-mono text-sm text-white/30">
-                  No brands found
-                </div>
+                <EmptyState
+                  icon={(brands ?? []).length === 0 ? <Shield /> : <Search />}
+                  title={(brands ?? []).length === 0 ? 'No brands monitored yet' : 'No brands match your search'}
+                  subtitle={(brands ?? []).length === 0
+                    ? 'Add your first brand to start tracking threats, typosquats, and email security posture'
+                    : `Try a different name or domain — you're monitoring ${(brands ?? []).length} brands`}
+                  action={(brands ?? []).length === 0
+                    ? { label: 'Monitor new brand', onClick: () => setModalOpen(true) }
+                    : { label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
+                  variant={(brands ?? []).length === 0 ? 'scanning' : 'clean'}
+                  compact
+                />
               )}
             </div>
 
@@ -1210,9 +1226,13 @@ export function Brands() {
               })}
 
               {Object.keys(grouped).length === 0 && (
-                <div className="flex items-center justify-center py-16 text-white/30 text-sm">
-                  No brands match current filters
-                </div>
+                <EmptyState
+                  icon={<Search />}
+                  title="No brands match current filters"
+                  subtitle={`Try a different filter — you're monitoring ${(brands ?? []).length} brands`}
+                  action={{ label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
+                  variant="clean"
+                />
               )}
             </div>
           );

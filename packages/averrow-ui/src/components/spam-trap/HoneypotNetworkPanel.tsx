@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useSpamTrapAddresses, useSeedingSources } from '@/hooks/useSpamTrap';
 import type { SeedAddress } from '@/hooks/useSpamTrap';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Target, Search } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 const CHANNEL_COLORS: Record<string, string> = {
   employee: '#E5A832',
@@ -218,9 +220,13 @@ export function HoneypotNetworkPanel() {
           )}
 
           {seedingGroups.length === 0 && (
-            <div className="text-center py-6">
-              <span className="text-white/20 text-xs font-mono">No seeding source data available</span>
-            </div>
+            <EmptyState
+              icon={<Target />}
+              title="No seeding source data"
+              subtitle="Source data will populate as honeypot addresses are discovered"
+              variant="scanning"
+              compact
+            />
           )}
         </div>
       )}
@@ -391,11 +397,15 @@ export function HoneypotNetworkPanel() {
 
           {/* Empty state */}
           {!isLoading && filtered.length === 0 && (
-            <div className="text-center py-6">
-              <span className="text-white/20 text-xs font-mono">
-                {search ? 'No matching addresses' : 'No seed addresses deployed'}
-              </span>
-            </div>
+            <EmptyState
+              icon={search ? <Search /> : <Target />}
+              title={search ? 'No matching addresses' : 'No seed addresses deployed'}
+              subtitle={search
+                ? 'Try a different search term'
+                : 'Deploy honeypot email addresses to start capturing threat actor reconnaissance'}
+              variant={search ? 'clean' : 'scanning'}
+              compact
+            />
           )}
 
           {/* Pagination */}

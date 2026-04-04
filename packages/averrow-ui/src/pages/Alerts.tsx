@@ -9,6 +9,8 @@ import {
   type Alert, type AlertFilters,
 } from '@/hooks/useAlerts';
 import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
+import { Bell } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -730,9 +732,13 @@ function MobileAlertsLayout({
             <MobileAlertRow key={alert.id} alert={alert} />
           ))}
           {filteredAlerts.length === 0 && (
-            <div className="text-center py-12 font-mono text-sm text-contrail/30">
-              No alerts found
-            </div>
+            <EmptyState
+              icon={<Bell />}
+              title="No pending alerts"
+              subtitle="All alerts have been acknowledged. You're up to date."
+              variant="clean"
+              compact
+            />
           )}
         </div>
       </MobileBottomSheet>
@@ -882,9 +888,12 @@ export function Alerts() {
       {!alertsLoading && (
         <div className="space-y-3">
           {groups.length === 0 && (
-            <div className="glass-card rounded-xl p-8 text-center">
-              <div className="font-mono text-[11px] text-contrail/40">No alerts match your filters</div>
-            </div>
+            <EmptyState
+              icon={<Bell />}
+              title="No alerts match your filters"
+              subtitle="All alerts have been acknowledged. You're up to date."
+              variant="clean"
+            />
           )}
 
           {groups.map(group => (
