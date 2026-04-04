@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { DeepBackground } from '@/components/ui/DeepBackground';
 import { cn } from '@/lib/cn';
 
 export function Shell() {
@@ -11,6 +12,7 @@ export function Shell() {
 
   return (
     <div className="flex h-screen bg-cockpit">
+      <DeepBackground />
       {/* Desktop sidebar — always visible on lg+ */}
       <div className="hidden lg:block">
         <Sidebar />
