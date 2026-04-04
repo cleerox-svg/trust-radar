@@ -20,39 +20,63 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
     const conditions: string[] = [];
     const params: unknown[] = [];
 
-    // Org scope filtering
+    // Org scope filtering — use t. prefix for aliased query
     if (scope) {
       if (scope.brand_ids.length === 0) {
         return json({ success: true, data: { threats: [], total: 0 } }, 200, origin);
       }
       const placeholders = scope.brand_ids.map(() => "?").join(", ");
-      conditions.push(`target_brand_id IN (${placeholders})`);
+      conditions.push(`t.target_brand_id IN (${placeholders})`);
       params.push(...scope.brand_ids);
     }
 
-    if (severity) { conditions.push("severity = ?"); params.push(severity); }
-    if (type) { conditions.push("threat_type = ?"); params.push(type); }
-    if (status) { conditions.push("status = ?"); params.push(status); }
-    if (source) { conditions.push("source_feed = ?"); params.push(source); }
+    if (severity) { conditions.push("t.severity = ?"); params.push(severity); }
+    if (type) { conditions.push("t.threat_type = ?"); params.push(type); }
+    if (status) { conditions.push("t.status = ?"); params.push(status); }
+    if (source) { conditions.push("t.source_feed = ?"); params.push(source); }
     if (search) {
-      conditions.push("(malicious_domain LIKE ? OR malicious_url LIKE ? OR ip_address LIKE ? OR ioc_value LIKE ?)");
+      conditions.push("(t.malicious_domain LIKE ? OR t.malicious_url LIKE ? OR t.ip_address LIKE ? OR t.ioc_value LIKE ?)");
       params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit, offset);
 
-    const rows = await env.DB.prepare(
-      `SELECT id, threat_type, severity, confidence_score, status, source_feed,
-              ioc_value, malicious_domain, malicious_url, ip_address, asn,
-              country_code, target_brand_id, hosting_provider_id, campaign_id,
-              first_seen, last_seen, created_at, lat, lng
-       FROM threats ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
-    ).bind(...params).all();
+    let rows: D1Result;
+    try {
+      rows = await env.DB.prepare(
+        `SELECT t.id, t.threat_type, t.severity, t.confidence_score, t.status, t.source_feed,
+                t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
+                t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
+                t.first_seen, t.last_seen, t.created_at, t.lat, t.lng,
+                b.name AS brand_name,
+                (SELECT tai2.threat_actor_id FROM threat_actor_infrastructure tai2 WHERE tai2.asn = t.asn LIMIT 1) AS actor_id,
+                (SELECT ta2.name FROM threat_actors ta2 JOIN threat_actor_infrastructure tai3 ON tai3.threat_actor_id = ta2.id WHERE tai3.asn = t.asn LIMIT 1) AS actor_name
+         FROM threats t
+         LEFT JOIN brands b ON b.id = t.target_brand_id
+         ${where}
+         ORDER BY t.created_at DESC LIMIT ? OFFSET ?`
+      ).bind(...params).all();
+    } catch {
+      // Fallback if threat_actor_infrastructure table doesn't exist
+      rows = await env.DB.prepare(
+        `SELECT t.id, t.threat_type, t.severity, t.confidence_score, t.status, t.source_feed,
+                t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
+                t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
+                t.first_seen, t.last_seen, t.created_at, t.lat, t.lng,
+                b.name AS brand_name,
+                NULL AS actor_id,
+                NULL AS actor_name
+         FROM threats t
+         LEFT JOIN brands b ON b.id = t.target_brand_id
+         ${where}
+         ORDER BY t.created_at DESC LIMIT ? OFFSET ?`
+      ).bind(...params).all();
+    }
 
     const countParams = params.slice(0, -2);
     const total = await env.DB.prepare(
-      `SELECT COUNT(*) as cnt FROM threats ${where}`
+      `SELECT COUNT(*) as cnt FROM threats t ${where}`
     ).bind(...countParams).first<{ cnt: number }>();
 
     return json({ success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } }, 200, origin);

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { StatCard } from '@/components/brands/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useThreatActorDetail } from '@/hooks/useThreatActors';
@@ -12,8 +12,14 @@ function countryFlag(code: string | null): string {
 
 function parseJsonArray(val: string | null): string[] {
   if (!val) return [];
-  try { return JSON.parse(val) as string[]; }
-  catch { return []; }
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed as string[];
+    return [];
+  } catch {
+    // Fallback: treat as comma-separated string
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+  }
 }
 
 export function ThreatActorDetail() {
@@ -45,6 +51,29 @@ export function ThreatActorDetail() {
 
   const aliases = parseJsonArray(actor.aliases);
   const ttps = parseJsonArray(actor.ttps);
+  const sectors = parseJsonArray(actor.target_sectors);
+
+  // Parse active_campaigns — may be JSON array of strings, objects with id/name, or comma-separated
+  const campaigns = (() => {
+    const raw = actor.active_campaigns;
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: unknown) => {
+          if (typeof item === 'string') return { id: null, name: item };
+          if (item && typeof item === 'object') {
+            const obj = item as Record<string, unknown>;
+            return { id: (obj.id as string) ?? null, name: (obj.name as string) ?? String(obj.id ?? 'Unknown') };
+          }
+          return { id: null, name: String(item) };
+        });
+      }
+      return [];
+    } catch {
+      return raw.split(',').map(s => s.trim()).filter(Boolean).map(name => ({ id: null, name }));
+    }
+  })();
 
   return (
     <div className="p-6 space-y-6">
@@ -99,13 +128,23 @@ export function ThreatActorDetail() {
         </StatCard>
         <StatCard
           title="TARGET SECTORS"
-          metric={<span className="text-lg sm:text-[24px] font-bold leading-none text-afterburner">{parseJsonArray(actor.target_sectors).length || '?'}</span>}
+          metric={<span className="text-lg sm:text-[24px] font-bold leading-none text-afterburner">{sectors.length || 0}</span>}
           metricLabel="sectors"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-            <span className="text-[11px] text-white/60">{parseJsonArray(actor.target_sectors).slice(0, 3).join(', ') || 'Unknown'}</span>
-          </div>
+          {sectors.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {sectors.slice(0, 3).map(sector => (
+                <span key={sector} className="text-[10px] px-1.5 py-0.5 rounded-full bg-wing-blue/10 border border-wing-blue/20 text-wing-blue">
+                  {sector}
+                </span>
+              ))}
+              {sectors.length > 3 && (
+                <span className="text-[10px] text-white/40">+{sectors.length - 3}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-[11px] text-white/30">No sector data</span>
+          )}
         </StatCard>
         <StatCard
           title="INFRASTRUCTURE"
@@ -128,6 +167,39 @@ export function ThreatActorDetail() {
           </div>
         </StatCard>
       </div>
+
+      {/* Campaigns */}
+      {campaigns.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
+          <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3 flex items-center gap-2">
+            Active Campaigns
+            <span className="flex-1 h-px bg-white/[0.06]" />
+          </h2>
+          <div className="space-y-2">
+            {campaigns.map((campaign, idx) => (
+              campaign.id ? (
+                <Link
+                  key={campaign.id}
+                  to={`/campaigns/${campaign.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.10] transition-all group"
+                >
+                  <p className="text-instrument-white text-sm font-medium group-hover:text-afterburner transition-colors">
+                    {campaign.name}
+                  </p>
+                  <span className="text-white/20 group-hover:text-afterburner transition-colors">&rarr;</span>
+                </Link>
+              ) : (
+                <div
+                  key={`${campaign.name}-${idx}`}
+                  className="flex items-center p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                >
+                  <p className="text-instrument-white text-sm">{campaign.name}</p>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* TTPs */}
       {ttps.length > 0 && (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatCard } from '@/components/brands/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -100,6 +100,18 @@ export function ThreatActors() {
   const { data: actors, isLoading } = useThreatActors({ country, status: 'active' });
   const { data: stats } = useThreatActorStats();
 
+  // Fallback: compute attribution groups from actors list if stats.by_attribution is empty
+  const attributionGroups = useMemo(() => {
+    if (stats?.by_attribution && stats.by_attribution.length > 0) return stats.by_attribution;
+    if (!actors?.length) return [];
+    const grouped = new Map<string, number>();
+    for (const a of actors) {
+      const key = a.attribution || 'Unknown';
+      grouped.set(key, (grouped.get(key) ?? 0) + 1);
+    }
+    return Array.from(grouped.entries()).map(([attribution, count]) => ({ attribution, count }));
+  }, [stats?.by_attribution, actors]);
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -147,11 +159,11 @@ export function ThreatActors() {
         </StatCard>
         <StatCard
           title="BY ATTRIBUTION"
-          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{stats?.by_attribution?.length ?? 0}</span>}
+          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{attributionGroups.length}</span>}
           metricLabel="groups"
         >
           <div className="space-y-1">
-            {(stats?.by_attribution ?? []).slice(0, 3).map(a => (
+            {attributionGroups.slice(0, 3).map(a => (
               <div key={a.attribution} className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-wing-blue" />
                 <span className="text-[11px] text-white/60">{a.attribution || 'Unknown'}</span>

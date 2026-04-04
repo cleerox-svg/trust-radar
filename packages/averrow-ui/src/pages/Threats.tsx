@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -15,6 +16,9 @@ interface Threat {
   malicious_url: string | null;
   ip_address: string | null;
   target_brand_id: string | null;
+  brand_name: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
   country_code: string | null;
   created_at: string;
 }
@@ -92,7 +96,8 @@ export function Threats() {
                 <tr className="border-b border-white/5">
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Type</th>
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Domain</th>
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">IP</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Brand</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Actor</th>
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Severity</th>
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Status</th>
                   <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Detected</th>
@@ -103,7 +108,30 @@ export function Threats() {
                   <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.02]">
                     <td className="px-4 py-2 font-mono text-[11px] text-parchment/80">{t.threat_type}</td>
                     <td className="px-4 py-2 font-mono text-[11px] text-contrail truncate max-w-[200px]">{t.malicious_domain ?? '-'}</td>
-                    <td className="px-4 py-2 font-mono text-[11px] text-contrail/70">{t.ip_address ?? '-'}</td>
+                    <td className="px-4 py-2 font-mono text-[11px]">
+                      {t.target_brand_id ? (
+                        <Link
+                          to={`/brands/${t.target_brand_id}`}
+                          className="text-instrument-white hover:text-afterburner transition-colors hover:underline underline-offset-2"
+                        >
+                          {t.brand_name ?? t.target_brand_id}
+                        </Link>
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-[11px]">
+                      {t.actor_id ? (
+                        <Link
+                          to={`/threat-actors/${t.actor_id}`}
+                          className="text-afterburner/80 hover:text-afterburner transition-colors text-[10px] hover:underline underline-offset-2"
+                        >
+                          {t.actor_name ?? 'Unknown Actor'}
+                        </Link>
+                      ) : (
+                        <span className="text-white/20 text-[10px]">Unattributed</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">
                       <span
                         className="font-mono text-[10px] font-bold uppercase"
@@ -118,7 +146,7 @@ export function Threats() {
                 ))}
                 {(data?.threats ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center font-mono text-[11px] text-contrail/40">
+                    <td colSpan={7} className="px-4 py-8 text-center font-mono text-[11px] text-contrail/40">
                       No threats found
                     </td>
                   </tr>
