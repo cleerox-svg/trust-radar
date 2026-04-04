@@ -138,7 +138,7 @@ function NotificationList({
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="py-12 text-center text-[12px] text-white/30 font-mono">
+          <div className="py-12 text-center text-[12px] text-white/40 font-mono">
             No notifications
           </div>
         ) : (
