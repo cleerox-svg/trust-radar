@@ -157,7 +157,7 @@ export function ProviderDetail() {
               >
                 &larr; Previous
               </button>
-              <span className="font-mono text-xs text-contrail/40">
+              <span className="font-mono text-xs text-white/55">
                 Page {page + 1} of {totalPages}
               </span>
               <button

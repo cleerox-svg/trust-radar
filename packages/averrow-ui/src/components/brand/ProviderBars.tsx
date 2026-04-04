@@ -1,6 +1,6 @@
 export function ProviderBars({ providers }: { providers: any[] }) {
   if (!providers.length) return (
-    <div className="text-contrail/30 text-xs py-4">No provider data yet</div>
+    <div className="text-white/40 text-xs py-4">No provider data yet</div>
   );
 
   const maxCount = Math.max(...providers.map(p => p.count || p.threat_count || 0), 1);

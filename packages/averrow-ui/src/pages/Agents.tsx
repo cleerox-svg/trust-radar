@@ -225,7 +225,7 @@ function AgentCard({
 
       {/* Last output + status blocks */}
       <div className="flex items-center justify-between">
-        <div className="font-mono text-[9px] text-white/30">
+        <div className="font-mono text-[9px] text-white/50">
           Last output: {relativeTime(agent.last_output_at)}
         </div>
         <RunStatusBlocks activity={agent.activity} />
@@ -334,17 +334,17 @@ function FlightControlCard({
               <div className="font-display text-sm font-bold text-parchment">
                 {dashStats?.agent_backlogs?.cartographer?.toLocaleString() ?? '—'}
               </div>
-              <div className="font-mono text-[8px] text-white/30 uppercase">Cart backlog</div>
+              <div className="font-mono text-[8px] text-white/50 uppercase">Cart backlog</div>
             </div>
             <div>
               <div className="font-display text-sm font-bold text-parchment">
                 {dashStats?.agent_backlogs?.analyst?.toLocaleString() ?? '—'}
               </div>
-              <div className="font-mono text-[8px] text-white/30 uppercase">Analyst backlog</div>
+              <div className="font-mono text-[8px] text-white/50 uppercase">Analyst backlog</div>
             </div>
             <div>
               <div className="font-display text-sm font-bold text-parchment">{agent.jobs_24h}</div>
-              <div className="font-mono text-[8px] text-white/30 uppercase">FC Jobs 24h</div>
+              <div className="font-mono text-[8px] text-white/50 uppercase">FC Jobs 24h</div>
             </div>
           </div>
         </div>
@@ -467,7 +467,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-44 flex items-center justify-center text-white/20 font-mono text-xs">
+            <div className="h-44 flex items-center justify-center text-white/40 font-mono text-xs">
               No health data available
             </div>
           )}
@@ -497,14 +497,14 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
                     {output.summary}
                   </div>
                 </div>
-                <div className="font-mono text-[9px] text-white/30 shrink-0">
+                <div className="font-mono text-[9px] text-white/50 shrink-0">
                   {relativeTime(output.created_at)}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-white/20 font-mono text-[11px]">No recent outputs</div>
+          <div className="text-white/40 font-mono text-[11px]">No recent outputs</div>
         )}
       </div>
     </div>
@@ -572,10 +572,10 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
           <div key={p.label} className="space-y-1">
             <div className="font-mono text-[10px] text-white/50">{p.label}</div>
             <div className="font-display text-sm font-bold text-parchment">
-              {p.count.toLocaleString()} <span className="font-mono text-[9px] text-white/30 font-normal">{p.suffix}</span>
+              {p.count.toLocaleString()} <span className="font-mono text-[9px] text-white/50 font-normal">{p.suffix}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[8px] text-white/30 uppercase">{p.schedule}</span>
+              <span className="font-mono text-[8px] text-white/50 uppercase">{p.schedule}</span>
               <span
                 className={cn('w-1.5 h-1.5 rounded-full', pipelineDotClass(p.status))}
                 style={!pipelineDotClass(p.status) ? {

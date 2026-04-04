@@ -61,12 +61,12 @@ function NotificationItem({ notification, onRead }: { notification: Notification
             <span className="text-[10px] font-mono text-contrail/50 uppercase">
               {notification.type.replace('_', ' ')}
             </span>
-            <span className="text-[10px] text-white/20">·</span>
-            <span className="text-[10px] font-mono text-white/30 uppercase">
+            <span className="text-[10px] text-white/40">·</span>
+            <span className="text-[10px] font-mono text-white/50 uppercase">
               {notification.severity}
             </span>
-            <span className="text-[10px] text-white/20">·</span>
-            <span className="text-[10px] font-mono text-white/30">
+            <span className="text-[10px] text-white/40">·</span>
+            <span className="text-[10px] font-mono text-white/50">
               {relativeTime(notification.created_at)}
             </span>
           </div>
@@ -138,7 +138,7 @@ function NotificationList({
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="py-12 text-center text-[12px] text-white/30 font-mono">
+          <div className="py-12 text-center text-[12px] text-white/40 font-mono">
             No notifications
           </div>
         ) : (

@@ -125,7 +125,7 @@ export function MobileCommandCenter() {
             ALL SYSTEMS OPERATIONAL
           </span>
         </div>
-        <span className="text-[10px] text-contrail/45">
+        <span className="text-[10px] text-white/55">
           {lastRunAt ? `Last scan: ${timeAgo(lastRunAt)}` : 'Scanning...'}
         </span>
       </div>
@@ -157,7 +157,7 @@ export function MobileCommandCenter() {
                 {tv?.value ?? '—'}
               </div>
               {/* Label */}
-              <span className="mt-1.5 block text-[8px] font-mono uppercase tracking-widest text-contrail/45">
+              <span className="mt-1.5 block text-[8px] font-mono uppercase tracking-widest text-white/55">
                 {tile.label}
               </span>
               {/* Subtitle */}
@@ -184,7 +184,7 @@ export function MobileCommandCenter() {
         </h2>
 
         {latestIntel.length === 0 ? (
-          <p className="mt-3 text-[12px] text-contrail/40">No recent alerts</p>
+          <p className="mt-3 text-[12px] text-white/40">No recent alerts</p>
         ) : (
           <div className="mt-3 space-y-3">
             {latestIntel.map((n) => (
@@ -201,7 +201,7 @@ export function MobileCommandCenter() {
                     {n.message}
                   </p>
                 </div>
-                <span className="flex-shrink-0 text-[10px] text-contrail/35">
+                <span className="flex-shrink-0 text-[10px] text-white/50">
                   {timeAgo(n.created_at)}
                 </span>
               </div>

@@ -85,10 +85,10 @@ function CaptureCard({ capture }: { capture: SpamTrapCapture }) {
             <span className="font-mono text-[10px] font-semibold uppercase" style={{ color: severityColor }}>
               {category}
             </span>
-            <span className="text-white/20 text-[10px]">·</span>
+            <span className="text-white/40 text-[10px]">·</span>
             <span className="font-mono text-[10px] text-white/50 uppercase">{severity}</span>
           </div>
-          <span className="font-mono text-[10px] text-white/30">{captureDate}</span>
+          <span className="font-mono text-[10px] text-white/50">{captureDate}</span>
         </div>
         <p className="text-[11px] text-white/70 truncate mb-1">
           &ldquo;{capture.subject ?? '(no subject)'}&rdquo;
@@ -102,9 +102,9 @@ function CaptureCard({ capture }: { capture: SpamTrapCapture }) {
           <AuthBadge label="SPF" result={capture.spf_result} />
           <AuthBadge label="DKIM" result={capture.dkim_result} />
           <AuthBadge label="DMARC" result={capture.dmarc_result} />
-          <span className="text-white/20 text-[10px]">·</span>
+          <span className="text-white/40 text-[10px]">·</span>
           <span className="font-mono text-[10px] text-white/40">{capture.url_count ?? 0} URLs</span>
-          <span className="ml-auto font-mono text-[10px] text-white/30">
+          <span className="ml-auto font-mono text-[10px] text-white/50">
             {expanded ? '[Collapse ▲]' : '[Expand ▼]'}
           </span>
         </div>
@@ -225,7 +225,7 @@ function ExpandedDetail({
             {urlsByDomain.map(([domain, count]) => (
               <div key={domain} className="flex items-center justify-between text-[10px] font-mono">
                 <span className="text-white/60 truncate max-w-[160px]">{domain}</span>
-                <span className="text-white/30">{count}</span>
+                <span className="text-white/50">{count}</span>
               </div>
             ))}
           </div>
@@ -233,7 +233,7 @@ function ExpandedDetail({
         {visibleUrls.length > 0 && (
           <div className="space-y-0.5">
             {visibleUrls.map((u, i) => (
-              <div key={i} className="text-[9px] font-mono text-white/30 truncate" title={u}>
+              <div key={i} className="text-[9px] font-mono text-white/50 truncate" title={u}>
                 {u.length > 50 ? u.slice(0, 50) + '…' : u}
               </div>
             ))}
@@ -276,7 +276,7 @@ function ExpandedDetail({
           {showHeaders ? 'Hide Raw Headers' : 'View Raw Headers'}
         </button>
         {showHeaders && (
-          <pre className="text-[9px] font-mono text-white/30 bg-black/30 rounded-lg p-3 max-h-[200px] overflow-auto whitespace-pre-wrap">
+          <pre className="text-[9px] font-mono text-white/50 bg-black/30 rounded-lg p-3 max-h-[200px] overflow-auto whitespace-pre-wrap">
             {detail.raw_headers ?? 'No headers available'}
           </pre>
         )}
@@ -287,7 +287,7 @@ function ExpandedDetail({
           {showBody ? 'Hide Body' : 'View Body'}
         </button>
         {showBody && (
-          <pre className="text-[9px] font-mono text-white/30 bg-black/30 rounded-lg p-3 max-h-[200px] overflow-auto whitespace-pre-wrap">
+          <pre className="text-[9px] font-mono text-white/50 bg-black/30 rounded-lg p-3 max-h-[200px] overflow-auto whitespace-pre-wrap">
             {detail.body_preview ?? 'No body available'}
           </pre>
         )}
@@ -336,7 +336,7 @@ export function CaptureForensicsPanel() {
         </div>
       ) : (captures ?? []).length === 0 ? (
         <div className="flex items-center justify-center h-[300px]">
-          <span className="text-white/20 text-sm font-mono">
+          <span className="text-white/40 text-sm font-mono">
             No captures yet — honeypots are listening
           </span>
         </div>

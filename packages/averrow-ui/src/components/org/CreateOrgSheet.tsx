@@ -181,7 +181,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
           <div className="font-mono text-xs font-bold text-afterburner uppercase tracking-wider">
             Create Organization — Step {step}/{totalSteps}
           </div>
-          <button onClick={onClose} className="text-contrail/40 hover:text-parchment text-lg">&times;</button>
+          <button onClick={onClose} className="text-white/55 hover:text-parchment text-lg">&times;</button>
         </div>
 
         {/* Progress bar */}
@@ -219,7 +219,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                   placeholder="acme-corporation"
                   className="flex-1"
                 />
-                <span className="text-[10px] text-contrail/40 font-mono shrink-0">.averrow.com</span>
+                <span className="text-[10px] text-white/55 font-mono shrink-0">.averrow.com</span>
               </div>
             </div>
             <div>
@@ -249,7 +249,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
         {step === 2 && (
           <div className="space-y-4">
             <SectionLabel>Brand Assignment</SectionLabel>
-            <p className="text-[11px] text-contrail/40">
+            <p className="text-[11px] text-white/55">
               Search and assign brands to this organization. The first brand added is automatically set as primary.
             </p>
             <div>
@@ -271,9 +271,9 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                     >
                       <div>
                         <span className="text-sm text-parchment">{r.name}</span>
-                        <span className="text-[11px] text-contrail/40 font-mono ml-2">{r.canonical_domain}</span>
+                        <span className="text-[11px] text-white/55 font-mono ml-2">{r.canonical_domain}</span>
                       </div>
-                      <span className="text-[10px] text-contrail/40">{r.threat_count} threats</span>
+                      <span className="text-[10px] text-white/55">{r.threat_count} threats</span>
                     </button>
                   ))}
                 </div>
@@ -288,7 +288,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                   <div key={b.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-white/[0.03] border border-white/[0.06]">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-parchment">{b.name}</span>
-                      <span className="text-[11px] text-contrail/40 font-mono">{b.canonical_domain}</span>
+                      <span className="text-[11px] text-white/55 font-mono">{b.canonical_domain}</span>
                       {b.is_primary && <Badge variant="info">Primary</Badge>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -296,7 +296,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                         <button
                           type="button"
                           onClick={() => setPrimaryBrand(b.id)}
-                          className="text-[10px] font-mono text-contrail/40 hover:text-afterburner transition-colors"
+                          className="text-[10px] font-mono text-white/55 hover:text-afterburner transition-colors"
                         >
                           Set Primary
                         </button>
@@ -320,7 +320,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
         {step === 3 && (
           <div className="space-y-4">
             <SectionLabel>Services & Integrations</SectionLabel>
-            <p className="text-[11px] text-contrail/40">
+            <p className="text-[11px] text-white/55">
               Select services to enable. They will be created with "pending setup" status for the org admin to configure.
             </p>
 
@@ -359,7 +359,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
         {step === 4 && (
           <div className="space-y-4">
             <SectionLabel>First Admin</SectionLabel>
-            <p className="text-[11px] text-contrail/40">
+            <p className="text-[11px] text-white/55">
               This person will be invited as the organization's Brand Admin. They can then invite other members and configure integrations.
             </p>
             <div>

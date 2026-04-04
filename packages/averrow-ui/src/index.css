@@ -1,5 +1,13 @@
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
+/* Averrow Text Hierarchy — DO NOT use below these minimums on readable content:
+   Primary:   text-white/90+    (headings, metrics, brand names)
+   Secondary: text-white/60+    (sub-labels, domains, descriptions)
+   Tertiary:  text-white/50+    (metadata, captions, timestamps)
+   Section:   text-white/50+    (uppercase tracking headers)
+   Empty/Disabled ONLY: text-white/30 acceptable
+*/
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

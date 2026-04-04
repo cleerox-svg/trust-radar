@@ -41,8 +41,8 @@ function ProfileCard({ profile }: { profile: ActorProfile }) {
     <div className="glass-card rounded-xl p-4 space-y-2">
       <div className="flex items-center gap-2">
         <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">Profile</span>
-        <span className="text-white/20 text-[9px]">·</span>
-        <span className="font-mono text-[9px] text-white/30">
+        <span className="text-white/40 text-[9px]">·</span>
+        <span className="font-mono text-[9px] text-white/50">
           {profile.captures.length} signal{profile.captures.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -51,18 +51,18 @@ function ProfileCard({ profile }: { profile: ActorProfile }) {
 
       <div className="space-y-1 text-[10px] font-mono text-white/40">
         <div>
-          <span className="text-white/30">from_domain:</span>{' '}
+          <span className="text-white/50">from_domain:</span>{' '}
           <span className="text-white/60">{profile.domain}</span>
         </div>
         <div>
           Captures: {profile.captures.length}
-          <span className="text-white/20 mx-1.5">·</span>
+          <span className="text-white/40 mx-1.5">·</span>
           URLs: {profile.totalUrls}
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono text-white/30">Risk:</span>
+        <span className="text-[10px] font-mono text-white/50">Risk:</span>
         <span
           className="text-[10px] font-mono font-semibold uppercase"
           style={{ color: severityColor }}
@@ -129,7 +129,7 @@ export function ThreatActorPanel() {
         </div>
       ) : profiles.length === 0 ? (
         <div className="flex items-center justify-center h-[200px]">
-          <span className="text-white/20 text-sm font-mono">
+          <span className="text-white/30 text-sm font-mono">
             No captures to profile yet
           </span>
         </div>
@@ -155,7 +155,7 @@ export function ThreatActorPanel() {
       <div className="border-t border-white/[0.06] pt-3">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-afterburner animate-pulse" />
-          <span className="text-[10px] font-mono text-white/30">
+          <span className="text-[10px] font-mono text-white/50">
             Checking for infrastructure overlap with known NEXUS clusters…
           </span>
         </div>

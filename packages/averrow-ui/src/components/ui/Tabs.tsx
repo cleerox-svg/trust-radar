@@ -30,7 +30,7 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
           {tab.count !== undefined && (
             <span className={cn(
               'ml-1.5 text-[10px]',
-              activeTab === tab.id ? 'text-accent/70' : 'text-contrail/30'
+              activeTab === tab.id ? 'text-accent/70' : 'text-white/50'
             )}>
               {tab.count}
             </span>

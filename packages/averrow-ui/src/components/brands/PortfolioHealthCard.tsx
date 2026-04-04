@@ -114,11 +114,11 @@ export function PortfolioHealthCard({ brands }: PortfolioHealthCardProps) {
               />
               <span className="flex-1 font-mono text-[10px] text-white/60">{seg.label}</span>
               <span
-                className={`font-mono text-[10px] ${seg.count > 0 ? 'text-white/80' : 'text-white/25'}`}
+                className={`font-mono text-[10px] ${seg.count > 0 ? 'text-white/80' : 'text-white/40'}`}
               >
                 {seg.count}
               </span>
-              <span className="w-10 text-right font-mono text-[9px] text-white/30">({pct}%)</span>
+              <span className="w-10 text-right font-mono text-[9px] text-white/50">({pct}%)</span>
             </div>
           );
         })}

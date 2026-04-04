@@ -62,7 +62,7 @@ export function MemberInviteSheet({ open, onClose }: MemberInviteSheetProps) {
               onChange={(e) => setRole(e.target.value)}
               className="w-full"
             />
-            <div className="mt-2 text-[10px] text-contrail/40 space-y-0.5">
+            <div className="mt-2 text-[10px] text-white/55 space-y-0.5">
               <div><span className="text-parchment/60">Owner</span> — Full access, billing, delete org</div>
               <div><span className="text-parchment/60">Admin</span> — Manage members, configure integrations</div>
               <div><span className="text-parchment/60">Analyst</span> — View all data, manage takedowns/alerts</div>

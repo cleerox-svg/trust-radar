@@ -97,7 +97,7 @@ function AgentRow({ agent }: { agent: Agent }) {
           <AgentIcon agent={agent.name} size={24} className="shrink-0" />
           <div>
             <div className="font-mono text-[12px] font-bold text-parchment">{agent.display_name}</div>
-            <div className="font-mono text-[9px] text-contrail/40 uppercase">{agent.description}</div>
+            <div className="font-mono text-[9px] text-white/55 uppercase">{agent.description}</div>
           </div>
         </div>
       </td>
@@ -139,17 +139,17 @@ function ApiUsagePanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-5">
         <div>
           <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_24h ?? 0).toLocaleString()}</div>
-          <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 24h</div>
+          <div className="font-mono text-[9px] text-white/55 uppercase">Tokens 24h</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_24h}</div>
         </div>
         <div>
           <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_7d ?? 0).toLocaleString()}</div>
-          <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 7d</div>
+          <div className="font-mono text-[9px] text-white/55 uppercase">Tokens 7d</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_7d}</div>
         </div>
         <div>
           <div className="font-display text-lg font-bold text-parchment">{(usage.tokens_30d ?? 0).toLocaleString()}</div>
-          <div className="font-mono text-[9px] text-contrail/40 uppercase">Tokens 30d</div>
+          <div className="font-mono text-[9px] text-white/55 uppercase">Tokens 30d</div>
           <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{usage.estimated_cost_30d}</div>
         </div>
       </div>
@@ -198,7 +198,7 @@ export function AgentConfig() {
                 <thead>
                   <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                     {['Agent', 'Status', 'Schedule', 'Last Run', 'Avg Duration', 'Success Rate', 'Outputs 24h', 'Actions'].map((h) => (
-                      <th key={h} className="py-2.5 px-4 text-left font-mono text-[9px] font-semibold text-contrail/40 uppercase tracking-wider">
+                      <th key={h} className="py-2.5 px-4 text-left font-mono text-[9px] font-semibold text-white/55 uppercase tracking-wider">
                         {h}
                       </th>
                     ))}

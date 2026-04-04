@@ -53,7 +53,7 @@ function KanbanCard({ lead, onClick }: { lead: SalesLead; onClick: () => void })
       <div className="font-display font-semibold text-sm text-parchment truncate">
         {lead.company_name ?? 'Unnamed Lead'}
       </div>
-      <div className="font-mono text-[11px] text-contrail/40 truncate">{lead.company_domain ?? '—'}</div>
+      <div className="font-mono text-[11px] text-white/55 truncate">{lead.company_domain ?? '—'}</div>
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-afterburner/10 border border-afterburner/20 font-display text-lg font-bold text-afterburner">
           {lead.prospect_score}
@@ -74,7 +74,7 @@ function KanbanCard({ lead, onClick }: { lead: SalesLead; onClick: () => void })
           </>
         )}
         {lead.threat_count_30d != null && (
-          <span className="text-contrail/40">· {lead.threat_count_30d} threats/30d</span>
+          <span className="text-white/55">· {lead.threat_count_30d} threats/30d</span>
         )}
       </div>
       {lead.ai_enriched === 1 && (
@@ -282,7 +282,7 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
                     {lead.ai_enriched === 1 ? (
                       <span className="text-positive font-mono text-xs">✓</span>
                     ) : (
-                      <span className="text-contrail/30 font-mono text-xs">—</span>
+                      <span className="text-white/40 font-mono text-xs">—</span>
                     )}
                   </Td>
                 </tr>
@@ -290,7 +290,7 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
             </tbody>
           </Table>
           {filtered.length === 0 && (
-            <p className="text-sm text-contrail/40 text-center py-8">No leads match the current filters.</p>
+            <p className="text-sm text-white/40 text-center py-8">No leads match the current filters.</p>
           )}
         </Card>
       </div>
@@ -367,7 +367,7 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
               {lead.findings_summary}
             </p>
           ) : (
-            <p className="text-sm text-contrail/30 italic">No AI findings yet. Enrich this lead to generate analysis.</p>
+            <p className="text-sm text-white/40 italic">No AI findings yet. Enrich this lead to generate analysis.</p>
           )}
         </Card>
 
@@ -399,12 +399,12 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
               <div className="space-y-3">
                 {outreach1.subject && (
                   <div>
-                    <span className="font-mono text-[10px] text-contrail/40 uppercase">Subject</span>
+                    <span className="font-mono text-[10px] text-white/55 uppercase">Subject</span>
                     <p className="text-sm text-parchment font-semibold mt-1">{outreach1.subject}</p>
                   </div>
                 )}
                 <div>
-                  <span className="font-mono text-[10px] text-contrail/40 uppercase">Body</span>
+                  <span className="font-mono text-[10px] text-white/55 uppercase">Body</span>
                   <p className="text-sm text-parchment/70 mt-1 whitespace-pre-line leading-relaxed">{outreach1.body}</p>
                 </div>
                 <Button
@@ -420,12 +420,12 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
               <div className="space-y-3">
                 {outreach2.subject && (
                   <div>
-                    <span className="font-mono text-[10px] text-contrail/40 uppercase">Subject</span>
+                    <span className="font-mono text-[10px] text-white/55 uppercase">Subject</span>
                     <p className="text-sm text-parchment font-semibold mt-1">{outreach2.subject}</p>
                   </div>
                 )}
                 <div>
-                  <span className="font-mono text-[10px] text-contrail/40 uppercase">Body</span>
+                  <span className="font-mono text-[10px] text-white/55 uppercase">Body</span>
                   <p className="text-sm text-parchment/70 mt-1 whitespace-pre-line leading-relaxed">{outreach2.body}</p>
                 </div>
                 <Button
@@ -469,7 +469,7 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
               )}
             </div>
           ) : (
-            <p className="text-sm text-contrail/30 italic">Not yet researched</p>
+            <p className="text-sm text-white/40 italic">Not yet researched</p>
           )}
         </Card>
 
@@ -513,7 +513,7 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
               </Button>
             )}
           </div>
-          <div className="mt-2 font-mono text-[10px] text-contrail/30">
+          <div className="mt-2 font-mono text-[10px] text-white/50">
             Created {relativeTime(lead.created_at)} · Updated {relativeTime(lead.updated_at)}
           </div>
         </Card>
@@ -562,7 +562,7 @@ function EnrichView({ leads }: { leads: SalesLead[] }) {
                   <span className="font-display font-semibold text-sm text-parchment">
                     {lead.company_name ?? 'Unnamed'}
                   </span>
-                  <span className="font-mono text-[11px] text-contrail/40">
+                  <span className="font-mono text-[11px] text-white/55">
                     {lead.company_domain ?? ''}
                   </span>
                 </div>

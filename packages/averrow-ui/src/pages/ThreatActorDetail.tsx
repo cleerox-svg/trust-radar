@@ -143,7 +143,7 @@ export function ThreatActorDetail() {
               )}
             </div>
           ) : (
-            <span className="text-[11px] text-white/30">No sector data</span>
+            <span className="text-[11px] text-white/40">No sector data</span>
           )}
         </StatCard>
         <StatCard
@@ -186,7 +186,7 @@ export function ThreatActorDetail() {
                   <p className="text-instrument-white text-sm font-medium group-hover:text-afterburner transition-colors">
                     {campaign.name}
                   </p>
-                  <span className="text-white/20 group-hover:text-afterburner transition-colors">&rarr;</span>
+                  <span className="text-white/40 group-hover:text-afterburner transition-colors">&rarr;</span>
                 </Link>
               ) : (
                 <div

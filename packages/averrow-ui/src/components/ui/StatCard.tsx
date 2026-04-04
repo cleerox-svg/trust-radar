@@ -32,7 +32,7 @@ export function StatCard({ label, value, sublabel, trend, trendDirection, accent
       {trend && (
         <div className={cn(
           'font-mono text-[10px] mt-1',
-          trendDirection === 'up' ? 'text-positive' : trendDirection === 'down' ? 'text-accent' : 'text-contrail/40',
+          trendDirection === 'up' ? 'text-positive' : trendDirection === 'down' ? 'text-accent' : 'text-white/55',
         )}>
           {trend}
         </div>

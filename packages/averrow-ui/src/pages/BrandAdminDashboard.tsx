@@ -175,11 +175,11 @@ export function BrandAdminDashboard() {
                     <div className="font-mono text-[11px] text-parchment/90 truncate">{a.title}</div>
                     <div className="font-mono text-[9px] text-contrail/50">{a.brand_name} &middot; {relativeTime(a.created_at)}</div>
                   </div>
-                  <span className="font-mono text-[9px] uppercase text-contrail/40">{a.status}</span>
+                  <span className="font-mono text-[9px] uppercase text-white/55">{a.status}</span>
                 </div>
               ))
             ) : (
-              <div className="font-mono text-[11px] text-contrail/40 py-4 text-center">No recent alerts</div>
+              <div className="font-mono text-[11px] text-white/40 py-4 text-center">No recent alerts</div>
             )}
           </div>
         </section>

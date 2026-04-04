@@ -99,7 +99,7 @@ function OrgListView({ onSelect, onCreate }: {
 
       {/* List */}
       {isLoading ? (
-        <div className="text-sm text-contrail/40 font-mono py-16 text-center">Loading organizations...</div>
+        <div className="text-sm text-white/55 font-mono py-16 text-center">Loading organizations...</div>
       ) : !orgs || orgs.length === 0 ? (
         <EmptyState
           message="No organizations yet"
@@ -174,7 +174,7 @@ function OrgDetailView({ orgId, onBack }: { orgId: string; onBack: () => void })
   const { data: org, isLoading } = useAdminOrgDetail(orgId);
 
   if (isLoading) {
-    return <div className="text-sm text-contrail/40 font-mono py-16 text-center">Loading organization...</div>;
+    return <div className="text-sm text-white/55 font-mono py-16 text-center">Loading organization...</div>;
   }
 
   if (!org) {
@@ -284,7 +284,7 @@ function DetailMembersTab({ orgId, members }: {
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="text-left text-contrail/40 font-mono uppercase tracking-wider border-b border-white/5">
+              <tr className="text-left text-white/55 font-mono uppercase tracking-wider border-b border-white/5">
                 <th className="pb-2 pr-4">Name</th>
                 <th className="pb-2 pr-4">Email</th>
                 <th className="pb-2 pr-4">Org Role</th>
@@ -300,7 +300,7 @@ function DetailMembersTab({ orgId, members }: {
                   <td className="py-3 pr-4">
                     <Badge variant={m.role === 'admin' || m.role === 'owner' ? 'info' : 'default'}>{m.role}</Badge>
                   </td>
-                  <td className="py-3 pr-4 text-contrail/40 hidden sm:table-cell">
+                  <td className="py-3 pr-4 text-white/55 hidden sm:table-cell">
                     {m.last_active_at ? new Date(m.last_active_at).toLocaleDateString() : 'Never'}
                   </td>
                   <td className="py-3 text-right">
@@ -372,15 +372,15 @@ function DetailBrandsTab({ orgId, brands, maxBrands }: {
                   >
                     <div>
                       <span className="text-sm text-parchment">{r.name}</span>
-                      <span className="text-[11px] text-contrail/40 font-mono ml-2">{r.canonical_domain}</span>
+                      <span className="text-[11px] text-white/55 font-mono ml-2">{r.canonical_domain}</span>
                     </div>
-                    <span className="text-[10px] text-contrail/40">{r.threat_count} threats</span>
+                    <span className="text-[10px] text-white/55">{r.threat_count} threats</span>
                   </button>
                 ))}
               </div>
             )}
             {searchQuery.length >= 1 && searchResults && searchResults.filter(r => !assignedIds.has(String(r.id))).length === 0 && (
-              <p className="text-[11px] text-contrail/40 py-2">No matching brands found</p>
+              <p className="text-[11px] text-white/55 py-2">No matching brands found</p>
             )}
           </div>
         </Card>
@@ -424,7 +424,7 @@ function DetailIntegrationsTab({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-4">
       <SectionLabel>Integrations</SectionLabel>
-      <p className="text-[11px] text-contrail/40">
+      <p className="text-[11px] text-white/55">
         Integration configuration is managed from the organization's own dashboard.
         Assigned integrations are created during org setup and can be configured by the org admin.
       </p>
@@ -441,7 +441,7 @@ function DetailApiKeysTab({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-4">
       <SectionLabel>API Keys</SectionLabel>
-      <p className="text-[11px] text-contrail/40">
+      <p className="text-[11px] text-white/55">
         API keys are managed from the organization's own dashboard by org admins.
       </p>
     </div>
@@ -529,7 +529,7 @@ function DetailSettingsTab({ orgId, org }: { orgId: string; org: AdminOrg }) {
         <Button variant="danger" size="sm" onClick={handleDeactivate} disabled={org.status === 'suspended'}>
           {org.status === 'suspended' ? 'Organization Suspended' : 'Deactivate Organization'}
         </Button>
-        <p className="text-[10px] text-contrail/30 mt-2">
+        <p className="text-[10px] text-white/50 mt-2">
           This will suspend all access for organization members.
         </p>
       </Card>

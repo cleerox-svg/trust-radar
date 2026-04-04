@@ -7,7 +7,7 @@ export function Input({ className, ...props }: InputProps) {
     <input
       className={cn(
         'glass-input rounded-md px-3 py-2 text-sm',
-        'placeholder:text-contrail/30',
+        'placeholder:text-white/40',
         className
       )}
       {...props}

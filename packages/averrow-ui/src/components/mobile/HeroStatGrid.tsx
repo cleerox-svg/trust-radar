@@ -20,7 +20,7 @@ export function HeroStatGrid({ stats, cols = 2 }: HeroStatGridProps) {
           key={stat.label}
           className="rounded-[10px] border border-bulkhead/40 bg-instrument p-3"
         >
-          <span className="text-[8px] font-mono uppercase tracking-widest text-contrail/45">
+          <span className="text-[8px] font-mono uppercase tracking-widest text-white/55">
             {stat.label}
           </span>
           <div
@@ -30,7 +30,7 @@ export function HeroStatGrid({ stats, cols = 2 }: HeroStatGridProps) {
             {stat.value}
           </div>
           {stat.subtitle && (
-            <span className="mt-0.5 block text-[10px] text-contrail/45">
+            <span className="mt-0.5 block text-[10px] text-white/55">
               {stat.subtitle}
             </span>
           )}

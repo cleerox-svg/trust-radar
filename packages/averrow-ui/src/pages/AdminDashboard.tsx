@@ -89,7 +89,7 @@ function BudgetPanel() {
         <div className="progress-bar-track h-2 mb-1">
           <div className={barColor} style={{ width: `${barPct}%` }} />
         </div>
-        <div className="font-mono text-[10px] text-contrail/40">{budget.pct_used.toFixed(1)}% used</div>
+        <div className="font-mono text-[10px] text-white/55">{budget.pct_used.toFixed(1)}% used</div>
       </div>
 
       <hr className="hud-divider" />
@@ -119,7 +119,7 @@ function BudgetPanel() {
       {budget.anthropic_reported > 0 && (
         <>
           <hr className="hud-divider" />
-          <div className="font-mono text-[10px] text-contrail/40">
+          <div className="font-mono text-[10px] text-white/55">
             Anthropic reported: ${budget.anthropic_reported.toFixed(2)}
           </div>
         </>
@@ -178,7 +178,7 @@ function BudgetPanel() {
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="font-mono text-[10px] text-contrail/40 hover:text-accent transition-colors"
+            className="font-mono text-[10px] text-white/55 hover:text-accent transition-colors"
           >
             Cancel
           </button>
@@ -493,9 +493,9 @@ function MaintenanceSection() {
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-contrail/40" />
+          <ChevronUp className="w-4 h-4 text-white/50" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-contrail/40" />
+          <ChevronDown className="w-4 h-4 text-white/50" />
         )}
       </button>
 
@@ -560,14 +560,14 @@ export function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-bold text-parchment">System Health</h1>
-          <p className="font-mono text-[11px] text-contrail/40 mt-1">All systems running normally</p>
+          <p className="font-mono text-[11px] text-white/55 mt-1">All systems running normally</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={isHealthy ? 'dot-pulse-green' : 'dot-pulse-amber'} />
           <span className={`badge-glass ${isHealthy ? 'badge-active' : 'badge-accelerating'}`}>
             {isHealthy ? 'OPERATIONAL' : 'DEGRADED'}
           </span>
-          <span className="font-mono text-[9px] text-contrail/30 ml-2">Updated just now</span>
+          <span className="font-mono text-[9px] text-white/50 ml-2">Updated just now</span>
         </div>
       </div>
 
@@ -579,24 +579,24 @@ export function AdminDashboard() {
         <div className="glass-card glass-card-amber rounded-xl p-4">
           <div className="section-label mb-2">Threats Today</div>
           <div className="metric-xl glow-afterburner">{fmt(threats.today)}</div>
-          <div className="font-mono text-[9px] text-contrail/40 mt-1">{fmt(threats.total)} total</div>
+          <div className="font-mono text-[9px] text-white/55 mt-1">{fmt(threats.total)} total</div>
         </div>
         <div className="glass-card glass-card-green rounded-xl p-4">
           <div className="section-label mb-2">Feed Ingestion</div>
           <div className="metric-xl glow-green">{fmt(feeds.ingested)}</div>
-          <div className="font-mono text-[9px] text-contrail/40 mt-1">records (24h)</div>
+          <div className="font-mono text-[9px] text-white/55 mt-1">records (24h)</div>
         </div>
         <div className="glass-card glass-card-green rounded-xl p-4">
           <div className="section-label mb-2">Agent Runs</div>
           <div className="metric-xl glow-green">{fmt(agents.total)}</div>
-          <div className="font-mono text-[9px] text-contrail/40 mt-1">
+          <div className="font-mono text-[9px] text-white/55 mt-1">
             {fmt(agents.successes)} success / {agents.errors} errors
           </div>
         </div>
         <div className="glass-card glass-card-amber rounded-xl p-4">
           <div className="section-label mb-2">Active Sessions</div>
           <div className="metric-xl glow-afterburner">{fmt(sessions.count)}</div>
-          <div className="font-mono text-[9px] text-contrail/40 mt-1">authenticated</div>
+          <div className="font-mono text-[9px] text-white/55 mt-1">authenticated</div>
         </div>
       </div>
 
@@ -620,14 +620,14 @@ export function AdminDashboard() {
                 <div className="progress-bar-fill-teal" style={{ width: `${dbSizePercent}%` }} />
               </div>
               <div className="font-mono text-[10px] text-contrail/50">{infra.mainDb.sizeMb} MB</div>
-              <div className="font-mono text-[10px] text-contrail/40 mt-0.5">
+              <div className="font-mono text-[10px] text-white/55 mt-0.5">
                 {infra.mainDb.tables} tables &middot; {migrations.total} migrations
               </div>
-              <div className="font-mono text-[10px] text-contrail/40">
+              <div className="font-mono text-[10px] text-white/55">
                 Region: {infra.mainDb.region} &middot; Created Mar 13
               </div>
               {migrations.last_run && (
-                <div className="font-mono text-[10px] text-contrail/40">
+                <div className="font-mono text-[10px] text-white/55">
                   Last migration: {shortDate(migrations.last_run)}
                 </div>
               )}
@@ -641,7 +641,7 @@ export function AdminDashboard() {
                 <span className="font-mono text-[11px] font-semibold text-parchment">{infra.auditDb.name}</span>
                 <span className="badge-glass badge-dormant">AUDIT</span>
               </div>
-              <div className="font-mono text-[10px] text-contrail/40">
+              <div className="font-mono text-[10px] text-white/55">
                 {infra.auditDb.sizeKb} KB &middot; {infra.auditDb.tables} tables &middot; {infra.auditDb.region}
               </div>
             </div>
@@ -657,9 +657,9 @@ export function AdminDashboard() {
               </div>
               <span className="badge-glass badge-active">ACTIVE</span>
             </div>
-            <div className="font-mono text-[10px] text-contrail/40 mt-1.5">{infra.worker.platform}</div>
-            <div className="font-mono text-[10px] text-contrail/30 mt-0.5">ID: 5a136591...</div>
-            <div className="font-mono text-[10px] text-contrail/40 mt-0.5">Region: ENAM</div>
+            <div className="font-mono text-[10px] text-white/55 mt-1.5">{infra.worker.platform}</div>
+            <div className="font-mono text-[10px] text-white/50 mt-0.5">ID: 5a136591...</div>
+            <div className="font-mono text-[10px] text-white/55 mt-0.5">Region: ENAM</div>
           </div>
 
           {/* KV Namespaces */}
@@ -675,7 +675,7 @@ export function AdminDashboard() {
                   <span className="badge-glass badge-active">ACTIVE</span>
                 </div>
               ))}
-              <div className="font-mono text-[10px] text-contrail/40 mt-1 ml-5">
+              <div className="font-mono text-[10px] text-white/55 mt-1 ml-5">
                 {fmt(sessions.count)} active sessions
               </div>
             </div>
@@ -723,7 +723,7 @@ export function AdminDashboard() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <span className="font-mono text-[11px] text-contrail/30">No trend data</span>
+                  <span className="font-mono text-[11px] text-white/40">No trend data</span>
                 </div>
               )}
             </div>
@@ -741,17 +741,17 @@ export function AdminDashboard() {
             <div className="flex gap-4 mb-3">
               <div>
                 <div className="font-display text-lg font-bold text-parchment">{fmt(agents.total)}</div>
-                <div className="font-mono text-[9px] text-contrail/40 uppercase">Runs</div>
+                <div className="font-mono text-[9px] text-white/55 uppercase">Runs</div>
               </div>
               <div>
                 <div className="font-display text-lg font-bold text-parchment">{fmt(agents.successes)}</div>
-                <div className="font-mono text-[9px] text-contrail/40 uppercase">Success</div>
+                <div className="font-mono text-[9px] text-white/55 uppercase">Success</div>
               </div>
               <div>
                 <div className={`font-display text-lg font-bold ${agents.errors > 0 ? 'text-accent' : 'text-parchment'}`}>
                   {agents.errors}
                 </div>
-                <div className="font-mono text-[9px] text-contrail/40 uppercase">Errors</div>
+                <div className="font-mono text-[9px] text-white/55 uppercase">Errors</div>
               </div>
             </div>
             <div className="progress-bar-track h-2 mb-1.5">
@@ -779,7 +779,7 @@ export function AdminDashboard() {
           <div className="glass-card glass-card-amber rounded-xl p-4">
             <div className="section-label mb-3">Sessions</div>
             <div className="font-display text-2xl font-bold text-parchment mb-1">{fmt(sessions.count)}</div>
-            <div className="font-mono text-[10px] text-contrail/40 mb-3">active sessions &middot; 1 total user</div>
+            <div className="font-mono text-[10px] text-white/55 mb-3">active sessions &middot; 1 total user</div>
             <Link
               to="/profile"
               className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
@@ -800,7 +800,7 @@ export function AdminDashboard() {
                 <span className="text-positive">&#10003;</span>
                 <span className="text-parchment/80">Audit logging: Active</span>
               </div>
-              <div className="font-mono text-[10px] text-contrail/40 ml-5">
+              <div className="font-mono text-[10px] text-white/55 ml-5">
                 {fmt(audit.count)} events recorded
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px]">
@@ -830,14 +830,14 @@ export function AdminDashboard() {
           <div className="glass-card rounded-xl p-4">
             <div className="section-label mb-3">Migrations</div>
             <div className="font-display text-lg font-bold text-parchment">{migrations.total}</div>
-            <div className="font-mono text-[10px] text-contrail/40 mt-0.5">migrations run</div>
+            <div className="font-mono text-[10px] text-white/55 mt-0.5">migrations run</div>
             {migrations.last_run && (
-              <div className="font-mono text-[10px] text-contrail/40 mt-1.5">
+              <div className="font-mono text-[10px] text-white/55 mt-1.5">
                 Last: {shortDate(migrations.last_run)}
               </div>
             )}
             {migrations.last_name && (
-              <div className="font-mono text-[10px] text-contrail/30 mt-0.5 truncate">
+              <div className="font-mono text-[10px] text-white/50 mt-0.5 truncate">
                 {migrations.last_name}
               </div>
             )}

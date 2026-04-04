@@ -131,7 +131,7 @@ export function Threats() {
                           {t.actor_name ?? 'Unknown Actor'}
                         </Link>
                       ) : (
-                        <span className="text-white/20 text-[10px]">Unattributed</span>
+                        <span className="text-white/40 text-[10px]">Unattributed</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -178,7 +178,7 @@ export function Threats() {
               >
                 Prev
               </button>
-              <span className="font-mono text-[10px] text-contrail/40">
+              <span className="font-mono text-[10px] text-white/55">
                 Page {page + 1} of {Math.ceil(data.total / limit)}
               </span>
               <button

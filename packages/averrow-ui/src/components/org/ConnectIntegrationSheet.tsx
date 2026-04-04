@@ -152,7 +152,7 @@ export function ConnectIntegrationSheet({ open, onClose, integration }: ConnectI
           Connect {integration.name}
         </div>
         {isSiem && (
-          <p className="text-[10px] text-contrail/40">
+          <p className="text-[10px] text-white/55">
             Events sent: new threats, severity changes, takedown completions.
           </p>
         )}

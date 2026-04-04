@@ -139,7 +139,7 @@ function OperationCard({
       <div className="font-display text-sm font-semibold text-parchment truncate mb-0.5">
         {operation.cluster_name || `Cluster ${operation.id.slice(0, 8)}`}
       </div>
-      <div className="font-mono text-[10px] text-contrail/40 mb-3">
+      <div className="font-mono text-[10px] text-white/50 mb-3">
         {primaryAsn} {primaryCountry ? `\u00B7 ${countryFlag(primaryCountry)} ${primaryCountry}` : ''}
         {operation.first_detected ? ` \u00B7 Since ${formatDate(operation.first_detected)}` : ''}
       </div>
@@ -183,7 +183,7 @@ function OperationCard({
         </div>
       )}
       {operation.agent_notes && (
-        <div className="mt-1 font-mono text-[10px] text-white/30 truncate">
+        <div className="mt-1 font-mono text-[10px] text-white/50 truncate">
           {operation.agent_notes}
         </div>
       )}
@@ -303,7 +303,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-40 flex items-center justify-center font-mono text-[11px] text-white/30">
+            <div className="h-40 flex items-center justify-center font-mono text-[11px] text-white/40">
               No timeline data
             </div>
           )}
@@ -321,7 +321,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               </div>
             </div>
           ) : (
-            <div className="font-mono text-[11px] text-white/30 py-4 text-center">
+            <div className="font-mono text-[11px] text-white/40 py-4 text-center">
               No intelligence notes
             </div>
           )}
@@ -359,7 +359,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
                         {String(threat.severity ?? '—')}
                       </span>
                     </td>
-                    <td className="font-mono text-[10px] text-white/30 py-1.5 px-2">
+                    <td className="font-mono text-[10px] text-white/50 py-1.5 px-2">
                       {threat.first_seen ? new Date(String(threat.first_seen)).toLocaleDateString() : '—'}
                     </td>
                   </tr>
@@ -426,7 +426,7 @@ function CampaignCard({
       <div className="font-display text-sm font-semibold text-parchment truncate mb-0.5">
         {campaign.name}
       </div>
-      <div className="font-mono text-[10px] text-contrail/40 mb-3">
+      <div className="font-mono text-[10px] text-white/50 mb-3">
         First seen {formatDate(campaign.first_seen)} {'\u00B7'} Last seen {formatDate(campaign.last_seen)}
       </div>
 
@@ -494,7 +494,7 @@ function GeoCampaignCard({
         {campaign.name}
       </div>
       {campaign.description && (
-        <div className="font-mono text-[10px] text-contrail/40 mb-3 line-clamp-2">
+        <div className="font-mono text-[10px] text-white/55 mb-3 line-clamp-2">
           {campaign.description}
         </div>
       )}
@@ -502,7 +502,7 @@ function GeoCampaignCard({
       {/* Country flags */}
       <div className="flex items-center gap-4 py-2 border-t border-white/[0.06]">
         <div>
-          <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Adversary</div>
+          <div className="font-mono text-[8px] text-white/55 uppercase mb-0.5">Adversary</div>
           <div className="flex gap-1">
             {adversaryCountries.map(c => (
               <span key={c} className="text-sm" title={c}>{countryFlag(c)}</span>
@@ -510,7 +510,7 @@ function GeoCampaignCard({
           </div>
         </div>
         <div>
-          <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Targets</div>
+          <div className="font-mono text-[8px] text-white/55 uppercase mb-0.5">Targets</div>
           <div className="flex gap-1">
             {targetCountries.map(c => (
               <span key={c} className="text-sm" title={c}>{countryFlag(c)}</span>
@@ -519,7 +519,7 @@ function GeoCampaignCard({
         </div>
         {threatActors.length > 0 && (
           <div className="ml-auto">
-            <div className="font-mono text-[8px] text-contrail/40 uppercase mb-0.5">Actors</div>
+            <div className="font-mono text-[8px] text-white/55 uppercase mb-0.5">Actors</div>
             <div className="font-mono text-[10px] text-red-400">
               {threatActors.length} linked
             </div>
@@ -619,7 +619,7 @@ export function Campaigns() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-contrail/40" />
-              <span className="font-mono text-[11px] text-white/40">{opsStats?.total_clusters ?? 0} total clusters</span>
+              <span className="font-mono text-[11px] text-white/50">{opsStats?.total_clusters ?? 0} total clusters</span>
             </div>
           </div>
         </StatCard>
@@ -717,7 +717,7 @@ export function Campaigns() {
 
             {(opsStats?.total_clusters ?? 0) > 12 && (
               <div className="mt-3 text-center">
-                <span className="font-mono text-[11px] text-contrail/40">
+                <span className="font-mono text-[11px] text-white/55">
                   Showing 12 of {opsStats?.total_clusters ?? 0} operations
                 </span>
               </div>
@@ -803,7 +803,7 @@ export function Campaigns() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:ml-auto">
-            <span className="font-mono text-[9px] text-contrail/40 uppercase">Sort:</span>
+            <span className="font-mono text-[9px] text-white/55 uppercase">Sort:</span>
             {SORT_OPTIONS.map(s => (
               <button
                 key={s.id}
@@ -811,7 +811,7 @@ export function Campaigns() {
                 className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all ${
                   sortBy === s.id
                     ? 'bg-white/10 text-parchment'
-                    : 'text-contrail/40 hover:text-parchment'
+                    : 'text-white/55 hover:text-parchment'
                 }`}
               >
                 {s.label}

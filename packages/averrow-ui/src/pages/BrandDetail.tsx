@@ -187,7 +187,7 @@ function ExposureIndexCard({ brand, threats }: { brand: any; threats: any[] }) {
     >
       <div className="space-y-2">
         {topTypes.length === 0 && (
-          <div className="font-mono text-[10px] text-contrail/30">No threats detected</div>
+          <div className="font-mono text-[10px] text-white/40">No threats detected</div>
         )}
         {topTypes.map(([type, count]) => {
           const tc = THREAT_TYPE_COLORS[type] || { bar: 'bg-[#78A0C8]', text: 'text-[#78A0C8]' };
@@ -254,7 +254,7 @@ function ActiveThreatsCard({ threats }: { threats: any[] }) {
           );
         })}
         <div className="border-t border-contrail/[0.08] pt-1.5 mt-1">
-          <span className="font-mono text-[9px] text-contrail/30">7-day window</span>
+          <span className="font-mono text-[9px] text-white/50">7-day window</span>
         </div>
       </div>
     </StatCard>
@@ -385,7 +385,7 @@ function SocialRiskCard({
       ? 'text-[#fb923c]'
       : total > 0
         ? 'text-[#4ade80]'
-        : 'text-white/30';
+        : 'text-white/40';
 
   const scanDaysAgo = lastScan
     ? Math.max(0, Math.round((Date.now() - new Date(lastScan).getTime()) / 86400000))
@@ -410,13 +410,13 @@ function SocialRiskCard({
           <div key={row.label} className="flex items-center gap-2 py-1">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${row.dot}`} />
             <span className="flex-1 text-[11px] font-mono text-white/60 truncate">{row.label}</span>
-            <span className={`text-[11px] font-mono flex-shrink-0 ${row.count > 0 ? row.text : 'text-white/25'}`}>
+            <span className={`text-[11px] font-mono flex-shrink-0 ${row.count > 0 ? row.text : 'text-white/40'}`}>
               {row.count}
             </span>
           </div>
         ))}
         <div className="border-t border-contrail/[0.08] pt-1.5 mt-1 space-y-1">
-          <span className="font-mono text-[9px] text-contrail/30 block">
+          <span className="font-mono text-[9px] text-white/50 block">
             {total} profiles tracked{scanDaysAgo !== null ? ` \u00b7 scanned ${scanDaysAgo}d ago` : ''}
           </span>
           <div className="flex gap-3">
@@ -575,7 +575,7 @@ export function BrandDetail() {
           <div className="font-mono text-sm text-contrail/50">
             {brand.canonical_domain}
             {timeAgo(brand.first_seen) && (
-              <span className="text-contrail/30 ml-2">&middot; tracked {timeAgo(brand.first_seen)}</span>
+              <span className="text-white/50 ml-2">&middot; tracked {timeAgo(brand.first_seen)}</span>
             )}
           </div>
         </div>
@@ -706,7 +706,7 @@ export function BrandDetail() {
             <Card hover={false} className="border border-dashed border-white/10 flex items-center justify-between">
               <div>
                 <div className="text-sm text-parchment/60">No ASTRA analysis available</div>
-                <div className="font-mono text-[10px] text-contrail/30 mt-1">Run an AI deep scan to generate threat intelligence</div>
+                <div className="font-mono text-[10px] text-white/40 mt-1">Run an AI deep scan to generate threat intelligence</div>
               </div>
               <Button variant="primary" size="sm"
                 onClick={() => triggerAnalysis.mutate(id)}
@@ -736,7 +736,7 @@ export function BrandDetail() {
                 className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
                   timelinePeriod === p
                     ? 'bg-accent/10 text-accent border border-accent/25'
-                    : 'text-contrail/40 hover:bg-white/5 hover:text-parchment border border-transparent'
+                    : 'text-white/55 hover:bg-white/5 hover:text-parchment border border-transparent'
                 }`}>
                 {p.toUpperCase()}
               </button>
@@ -772,7 +772,7 @@ export function BrandDetail() {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-60 flex items-center justify-center text-contrail/30 font-mono text-xs">
+          <div className="h-60 flex items-center justify-center text-white/40 font-mono text-xs">
             No timeline data available
           </div>
         )}
@@ -853,7 +853,7 @@ export function BrandDetail() {
                       {t.vector ? (
                         <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
                       ) : (
-                        <span className="text-white/20 text-[10px]">\u2014</span>
+                        <span className="text-white/40 text-[10px]">\u2014</span>
                       )}
 
                       {/* Age + Score */}
@@ -862,7 +862,7 @@ export function BrandDetail() {
                           {relativeTime(t.detected_at || t.created_at)}
                         </span>
                         {t.score != null && (
-                          <span className="font-mono text-[9px] text-white/30">{t.score}</span>
+                          <span className="font-mono text-[9px] text-white/50">{t.score}</span>
                         )}
                       </div>
                     </div>
@@ -886,13 +886,13 @@ export function BrandDetail() {
           <SectionLabel className="mb-4">Safe Domains</SectionLabel>
           <div className="space-y-2 mb-4">
             {safeDomains.length === 0 ? (
-              <div className="text-contrail/30 font-mono text-xs py-2">No safe domains configured</div>
+              <div className="text-white/40 font-mono text-xs py-2">No safe domains configured</div>
             ) : (
               safeDomains.map((d: any) => (
                 <div key={d.id || d.domain} className="flex items-center justify-between py-1.5 border-b border-white/[0.03]">
                   <span className="font-mono text-xs text-parchment/80">{d.domain}</span>
                   <button onClick={() => deleteSafeDomain.mutate({ brandId: id, domainId: d.id })}
-                    className="font-mono text-[9px] text-contrail/30 hover:text-accent transition-colors">
+                    className="font-mono text-[9px] text-white/50 hover:text-accent transition-colors">
                     REMOVE
                   </button>
                 </div>
@@ -905,7 +905,7 @@ export function BrandDetail() {
               onChange={e => setSafeDomainInput(e.target.value)}
               placeholder="Add domain..."
               className="flex-1 bg-cockpit border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs text-parchment
-                placeholder:text-contrail/20 focus:border-accent/30 focus:outline-none transition-colors"
+                placeholder:text-white/30 focus:border-accent/30 focus:outline-none transition-colors"
               onKeyDown={e => {
                 if (e.key === 'Enter' && safeDomainInput.trim()) {
                   addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() });
@@ -944,7 +944,7 @@ export function BrandDetail() {
 
         {filteredProfiles.length === 0 ? (
           <Card hover={false}>
-            <div className="py-6 text-center text-contrail/30 font-mono text-xs">No profiles match this filter</div>
+            <div className="py-6 text-center text-white/40 font-mono text-xs">No profiles match this filter</div>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -960,7 +960,7 @@ export function BrandDetail() {
                     <div>
                       <div className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</div>
                       {profile.display_name && (
-                        <div className="text-[10px] text-contrail/40">{profile.display_name}</div>
+                        <div className="text-[10px] text-white/55">{profile.display_name}</div>
                       )}
                     </div>
                   </div>
@@ -970,7 +970,7 @@ export function BrandDetail() {
                 </div>
 
                 {/* Stats row */}
-                <div className="flex items-center gap-4 font-mono text-[10px] text-contrail/40">
+                <div className="flex items-center gap-4 font-mono text-[10px] text-white/55">
                   {profile.followers_count != null && (
                     <span>{Number(profile.followers_count).toLocaleString()} followers</span>
                   )}
