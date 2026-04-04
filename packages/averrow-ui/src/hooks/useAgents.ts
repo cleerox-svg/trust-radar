@@ -257,7 +257,11 @@ export function useAgentRuns(params: AgentRunsParams) {
     queryKey: ['agent-runs', queryString],
     queryFn: async () => {
       const res = await api.get<AgentRun[]>(`/api/agents/runs?${queryString}`);
-      return { data: res.data || [], total: (res as unknown as { total?: number }).total ?? 0 };
+      const rawData = res.data;
+      return {
+        data: Array.isArray(rawData) ? rawData : [],
+        total: (res as unknown as { total?: number }).total ?? 0,
+      };
     },
     refetchInterval: 30_000,
   });
