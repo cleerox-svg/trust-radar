@@ -47,10 +47,10 @@ function CampaignCard({ campaign }: { campaign: SeedCampaign }) {
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-white/[0.06]">
-              <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-1.5">Channel</th>
-              <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-1.5 text-right">Seeds</th>
-              <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-1.5 text-right">Catches</th>
-              <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-1.5 text-right">Rate</th>
+              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5">Channel</th>
+              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 text-right">Seeds</th>
+              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 text-right">Catches</th>
+              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 text-right">Rate</th>
             </tr>
           </thead>
           <tbody>
@@ -202,7 +202,7 @@ export function CampaignPanel() {
         </div>
       ) : (campaigns ?? []).length === 0 ? (
         <div className="flex items-center justify-center h-[200px]">
-          <span className="text-white/20 text-sm font-mono">
+          <span className="text-white/40 text-sm font-mono">
             No campaigns configured
           </span>
         </div>

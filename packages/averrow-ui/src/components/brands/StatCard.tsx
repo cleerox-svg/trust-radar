@@ -29,7 +29,7 @@ export function StatCard({ title, children, metric, metricLabel, className }: St
         {/* Right side — primary metric */}
         <div className="flex flex-col items-start sm:items-center gap-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-3 flex-shrink-0">
           {metric}
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/40">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-white/55">
             {metricLabel}
           </div>
         </div>

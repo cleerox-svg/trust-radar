@@ -19,7 +19,7 @@ export function MobileFilterChips({ filters }: MobileFilterChipsProps) {
           className={`cursor-pointer rounded-[10px] border px-2 py-1 text-[8px] font-mono ${
             filter.active
               ? 'border-accent/35 bg-accent/10 text-accent'
-              : 'border-bulkhead/35 text-contrail/45'
+              : 'border-bulkhead/35 text-white/55'
           }`}
         >
           {filter.label}

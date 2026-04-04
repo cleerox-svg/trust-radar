@@ -187,15 +187,15 @@ export function Observatory() {
                 <span className="text-afterburner">{PERIODS.find(p => p.id === period)?.label}</span>
                 {mapMode === 'global' && (
                   <>
-                    <span className="text-contrail/40"> · </span>
+                    <span className="text-white/50"> · </span>
                     <span className="text-afterburner capitalize">{colorBy}</span>
                   </>
                 )}
-                <span className="text-contrail/40"> · </span>
+                <span className="text-white/50"> · </span>
                 <span className="text-afterburner">{SOURCES.find(s => s.id === source)?.label}</span>
               </span>
               <ChevronDown className={cn(
-                'w-3.5 h-3.5 text-contrail/40 transition-transform duration-300',
+                'w-3.5 h-3.5 text-white/50 transition-transform duration-300',
                 filtersExpanded && 'rotate-180'
               )} />
             </button>
@@ -210,7 +210,7 @@ export function Observatory() {
               <div className="bg-cockpit/80 backdrop-blur-sm rounded-lg mt-1 px-4 py-2">
                 {/* TIME group */}
                 <div className="py-2">
-                  <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Time</div>
+                  <div className="text-[10px] font-mono uppercase text-white/50 tracking-wider mb-1">Time</div>
                   <div className="flex gap-2">
                     {PERIODS.map(p => (
                       <button
@@ -232,7 +232,7 @@ export function Observatory() {
                 {/* COLOR group (global mode only) */}
                 {mapMode === 'global' && (
                   <div className="py-2 border-t border-cyan-800/10">
-                    <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Color</div>
+                    <div className="text-[10px] font-mono uppercase text-white/50 tracking-wider mb-1">Color</div>
                     <div className="flex gap-2">
                       {(['severity', 'type'] as const).map(c => (
                         <button
@@ -254,7 +254,7 @@ export function Observatory() {
 
                 {/* SOURCE group */}
                 <div className="py-2 border-t border-cyan-800/10">
-                  <div className="text-[10px] font-mono uppercase text-contrail/40 tracking-wider mb-1">Source</div>
+                  <div className="text-[10px] font-mono uppercase text-white/50 tracking-wider mb-1">Source</div>
                   <div className="flex gap-2">
                     {SOURCES.map(s => (
                       <button
@@ -384,7 +384,7 @@ export function Observatory() {
           /* Desktop: vertical legend bottom-left */
           <div className="absolute left-4 bottom-[100px] z-10">
             <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg p-3">
-              <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mb-2">
+              <div className="font-mono text-[9px] text-white/50 uppercase tracking-wider mb-2">
                 {colorBy === 'severity' ? 'Severity' : 'Threat Type'}
               </div>
               <div className="space-y-1">
@@ -433,7 +433,7 @@ export function Observatory() {
       <div className={cn('absolute right-4 z-10', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
           <span className="live-indicator">LIVE</span>
-          <span className="font-mono text-[10px] text-contrail/40 tabular-nums">
+          <span className="font-mono text-[10px] text-white/55 tabular-nums">
             {threats.length.toLocaleString()} threats
           </span>
         </div>
@@ -470,11 +470,11 @@ export function Observatory() {
                     <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
                       {(stats.threats_mapped ?? 0).toLocaleString()}
                     </span>
-                    <span className="font-mono text-[10px] text-contrail/40">THREATS</span>
+                    <span className="font-mono text-[10px] text-white/55">THREATS</span>
                     <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
                       {(stats.countries ?? 0).toLocaleString()}
                     </span>
-                    <span className="font-mono text-[10px] text-contrail/40">COUNTRIES</span>
+                    <span className="font-mono text-[10px] text-white/55">COUNTRIES</span>
                   </>
                 ) : (
                   <>
@@ -560,7 +560,7 @@ export function Observatory() {
           <div className="font-mono text-[11px] text-parchment font-bold mb-1">
             {clickedCluster.cluster.cluster_name || `Cluster ${clickedCluster.cluster.id.slice(0, 8)}`}
           </div>
-          <div className="font-mono text-[10px] text-contrail/40 mb-2">
+          <div className="font-mono text-[10px] text-white/55 mb-2">
             {parseJsonArray(clickedCluster.cluster.asns).join(', ')} {'\u00B7'} {parseJsonArray(clickedCluster.cluster.countries).map(countryFlag).join(' ')}
           </div>
           <div className="hud-divider" />
@@ -689,7 +689,7 @@ export function Observatory() {
       {!isMobile && mapMode !== 'heatmap' && (
         <button
           onClick={() => setShowPanel(!showPanel)}
-          className="absolute top-1/2 z-30 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-contrail/40 hover:text-parchment"
+          className="absolute top-1/2 z-30 transform -translate-y-1/2 bg-cockpit/90 border border-white/10 rounded-l-lg px-1 py-3 text-white/50 hover:text-parchment"
           style={showPanel ? { right: '320px' } : { right: 0 }}
         >
           {showPanel ? '\u203A' : '\u2039'}
@@ -706,7 +706,7 @@ function StatChip({ value, label, color }: { value: number; label: string; color
     <div className="flex items-center gap-2">
       <div>
         <div className={cn('font-display text-lg font-extrabold tabular-nums', color)}>{(value ?? 0).toLocaleString()}</div>
-        <div className="font-mono text-[9px] text-contrail/40 uppercase">{label}</div>
+        <div className="font-mono text-[9px] text-white/55 uppercase">{label}</div>
       </div>
     </div>
   );
@@ -723,7 +723,7 @@ function LegendItem({ color, label, compact }: { color: string; label: string; c
 
 function OperationsClusterList({ operations, onSelect }: { operations: Operation[]; onSelect: (op: Operation) => void }) {
   if (operations.length === 0) {
-    return <div className="text-[10px] text-contrail/30 font-mono">No active operations</div>;
+    return <div className="text-[10px] text-white/40 font-mono">No active operations</div>;
   }
 
   return (
@@ -750,7 +750,7 @@ function OperationsClusterList({ operations, onSelect }: { operations: Operation
                 {op.threat_count.toLocaleString()} threats
               </span>
               {countries.length > 0 && (
-                <span className="font-mono text-[10px] text-white/30">
+                <span className="font-mono text-[10px] text-white/50">
                   {countries.map(countryFlag).join(' ')}
                 </span>
               )}
@@ -769,7 +769,7 @@ function TopBrandsList({ period }: { period: string }) {
     <div className="space-y-2">
       {brands.map((brand, i) => (
         <div key={brand.id} className="flex items-center gap-3 py-1">
-          <span className="font-mono text-[10px] text-contrail/30 w-4">{i + 1}</span>
+          <span className="font-mono text-[10px] text-white/50 w-4">{i + 1}</span>
           <img
             src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`}
             alt=""
@@ -793,14 +793,14 @@ function MobileTopBrandsList({ period }: { period: string }) {
   const { data: brands = [] } = useBrands({ view: 'top', limit: 8, timeRange: period });
 
   if (brands.length === 0) {
-    return <div className="text-[10px] text-contrail/30 font-mono py-2">Loading brands...</div>;
+    return <div className="text-[10px] text-white/40 font-mono py-2">Loading brands...</div>;
   }
 
   return (
     <div className="space-y-1">
       {brands.map((brand, i) => (
         <div key={brand.id} className="flex items-center gap-2 py-1">
-          <span className="font-mono text-[10px] text-contrail/40 w-4 flex-shrink-0">{i + 1}</span>
+          <span className="font-mono text-[10px] text-white/50 w-4 flex-shrink-0">{i + 1}</span>
           <img
             src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`}
             alt=""
@@ -832,7 +832,7 @@ function TopProvidersList({ period }: { period: string }) {
             <span className="text-xs text-parchment/80 truncate">{provider.name}</span>
             <span className="font-mono text-xs font-bold text-accent tabular-nums">{provider.active_threat_count}</span>
           </div>
-          <div className="font-mono text-[9px] text-contrail/30">{provider.asn}</div>
+          <div className="font-mono text-[9px] text-white/50">{provider.asn}</div>
           {provider.trend_7d != null && provider.trend_7d !== 0 && (
             <span className={cn(
               'font-mono text-[9px]',
@@ -886,7 +886,7 @@ function ActiveOperationsPanel() {
   });
 
   if (operations.length === 0) {
-    return <div className="text-[10px] text-contrail/30 font-mono">No active operations</div>;
+    return <div className="text-[10px] text-white/40 font-mono">No active operations</div>;
   }
 
   return (
@@ -911,7 +911,7 @@ function ActiveOperationsPanel() {
               </span>
             )}
             {op.countries && (
-              <span className="font-mono text-[9px] text-contrail/30 truncate">
+              <span className="font-mono text-[9px] text-white/50 truncate">
                 {(() => { try { return (JSON.parse(op.countries) as string[]).slice(0, 3).join(', '); } catch { return ''; } })()}
               </span>
             )}
@@ -949,7 +949,7 @@ function LiveThreatFeed() {
   });
 
   if (entries.length === 0) {
-    return <div className="text-[10px] text-contrail/30 font-mono">Waiting for threats...</div>;
+    return <div className="text-[10px] text-white/40 font-mono">Waiting for threats...</div>;
   }
 
   return (
@@ -964,9 +964,9 @@ function LiveThreatFeed() {
             {entry.threat_type?.replace(/_/g, ' ')}
           </span>
           {entry.country_code && (
-            <span className="font-mono text-[9px] text-contrail/40">{entry.country_code}</span>
+            <span className="font-mono text-[9px] text-white/55">{entry.country_code}</span>
           )}
-          <span className="font-mono text-[9px] text-contrail/30 flex-shrink-0">
+          <span className="font-mono text-[9px] text-white/50 flex-shrink-0">
             {relativeTime(entry.created_at)}
           </span>
         </div>

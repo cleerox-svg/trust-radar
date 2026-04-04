@@ -332,7 +332,7 @@ function RecentThreatsTable({ threats }: { threats: GeoCampaignThreat[] }) {
               </td>
               <td className="py-2 pr-4 text-white/60">{threat.brand_name ?? '—'}</td>
               <td className="py-2 pr-4 text-white/60">{countryFlag(threat.country_code)} {threat.country_code ?? '—'}</td>
-              <td className="py-2 text-white/40">{formatDate(threat.created_at)}</td>
+              <td className="py-2 text-white/50">{formatDate(threat.created_at)}</td>
             </tr>
           ))}
         </tbody>

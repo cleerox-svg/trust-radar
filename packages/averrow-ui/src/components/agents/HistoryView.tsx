@@ -304,7 +304,7 @@ export function HistoryView() {
                 ))
               ) : filteredRuns.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center font-mono text-[11px] text-white/30">
+                  <td colSpan={7} className="px-4 py-12 text-center font-mono text-[11px] text-white/40">
                     No runs found
                   </td>
                 </tr>

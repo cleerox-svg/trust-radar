@@ -144,10 +144,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             {user.organization.name}
           </div>
         )}
-        <div className="text-xs text-parchment/50 truncate">{user?.email}</div>
+        <div className="text-xs text-parchment/70 truncate">{user?.email}</div>
         <button
           onClick={logout}
-          className="mt-2 text-xs text-contrail/50 hover:text-accent transition-colors font-mono"
+          className="mt-2 text-xs text-white/60 hover:text-accent transition-colors font-mono"
         >
           LOGOUT
         </button>

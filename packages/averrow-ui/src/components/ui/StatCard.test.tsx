@@ -40,7 +40,7 @@ describe('StatCard', () => {
   it('renders trend with neutral direction', () => {
     render(<StatCard label="Score" value={85} trend="0%" trendDirection="neutral" />);
     const trendEl = screen.getByText('0%');
-    expect(trendEl).toHaveClass('text-contrail/40');
+    expect(trendEl).toHaveClass('text-white/55');
   });
 
   it('applies accent color border', () => {

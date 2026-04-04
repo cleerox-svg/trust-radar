@@ -54,7 +54,7 @@ function WebGLFallback({ message }: { message: string }) {
       <div className="text-contrail/50 text-sm mb-4 max-w-md text-center">
         {message}
       </div>
-      <div className="text-contrail/30 text-xs">
+      <div className="text-white/40 text-xs">
         Threat data is still available in other views.
       </div>
     </div>
@@ -655,9 +655,9 @@ function ThreatMapInner({
                 )}
               </div>
               {tooltip.threat.country_code && (
-                <div className="text-contrail/40 mt-0.5">{tooltip.threat.country_code}</div>
+                <div className="text-white/55 mt-0.5">{tooltip.threat.country_code}</div>
               )}
-              <div className="text-contrail/30 mt-1 text-[9px]">
+              <div className="text-white/50 mt-1 text-[9px]">
                 C:{tooltip.threat.critical} H:{tooltip.threat.high} M:{tooltip.threat.medium} L:{tooltip.threat.low}
               </div>
             </>
@@ -672,7 +672,7 @@ function ThreatMapInner({
                 <div className="text-accent mt-1">Target: {tooltip.arc.brand_name}</div>
               )}
               {tooltip.arc.source_region && (
-                <div className="text-contrail/40 mt-0.5">From: {tooltip.arc.source_region}</div>
+                <div className="text-white/55 mt-0.5">From: {tooltip.arc.source_region}</div>
               )}
             </>
           )}

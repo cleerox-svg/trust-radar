@@ -76,7 +76,7 @@ export function WebhookConfig() {
   };
 
   if (isLoading) {
-    return <div className="text-sm text-contrail/40 font-mono py-8 text-center">Loading webhook config...</div>;
+    return <div className="text-sm text-white/55 font-mono py-8 text-center">Loading webhook config...</div>;
   }
 
   return (
@@ -152,7 +152,7 @@ export function WebhookConfig() {
               />
               <div>
                 <span className="text-[11px] font-mono text-parchment/80">{evt.key}</span>
-                <span className="text-[10px] text-contrail/40 ml-2">{evt.label}</span>
+                <span className="text-[10px] text-white/55 ml-2">{evt.label}</span>
               </div>
             </label>
           ))}
@@ -189,7 +189,7 @@ export function WebhookConfig() {
         <div className="mt-4">
           <SectionLabel className="mb-2">Recent Deliveries</SectionLabel>
           {!deliveries || deliveries.length === 0 ? (
-            <p className="text-[11px] text-contrail/40">No deliveries yet.</p>
+            <p className="text-[11px] text-white/55">No deliveries yet.</p>
           ) : (
             <div className="space-y-1.5">
               {deliveries.slice(0, 10).map((d) => (
@@ -203,7 +203,7 @@ export function WebhookConfig() {
                     </Badge>
                     <span className="text-contrail/60 truncate">{d.event}</span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 text-contrail/40">
+                  <div className="flex items-center gap-3 shrink-0 text-white/55">
                     <span>{d.response_time_ms}ms</span>
                     <span>{new Date(d.delivered_at).toLocaleString()}</span>
                   </div>

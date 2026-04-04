@@ -365,7 +365,7 @@ export function AdminAudit() {
       {/* Empty state */}
       {!isLoading && entries.length === 0 && (
         <div className="glass-card rounded-xl p-12 text-center">
-          <p className="font-mono text-[11px] text-white/30">No audit entries match the current filters</p>
+          <p className="font-mono text-[11px] text-white/40">No audit entries match the current filters</p>
         </div>
       )}
 
@@ -453,7 +453,7 @@ function AuditRow({ entry, expanded, onToggle }: {
 
         {/* User */}
         <td className="px-3 py-2.5 font-mono text-[11px] text-parchment/80">
-          {entry.user_id ? truncateMiddle(entry.user_id, 20) : <span className="text-white/20">System</span>}
+          {entry.user_id ? truncateMiddle(entry.user_id, 20) : <span className="text-white/40">System</span>}
         </td>
 
         {/* IP */}
@@ -471,7 +471,7 @@ function AuditRow({ entry, expanded, onToggle }: {
         {/* Chevron */}
         <td className="px-3 py-2.5 text-center">
           <svg
-            className={`w-4 h-4 text-white/20 group-hover:text-white/50 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-white/40 group-hover:text-white/50 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

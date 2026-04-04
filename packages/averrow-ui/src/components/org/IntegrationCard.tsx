@@ -61,7 +61,7 @@ export function IntegrationCard({
       </div>
 
       {isConnected && !isError && (
-        <div className="text-[10px] text-contrail/40 font-mono space-y-0.5">
+        <div className="text-[10px] text-white/55 font-mono space-y-0.5">
           {lastSync && <div>Last sync: {new Date(lastSync).toLocaleDateString()}</div>}
           <div>{eventsSent ?? 0} events sent</div>
         </div>

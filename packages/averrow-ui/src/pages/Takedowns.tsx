@@ -367,7 +367,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
             )}
             {takedown.target_platform && (
               <>
-                <span className="text-white/20">&middot;</span>
+                <span className="text-white/40">&middot;</span>
                 <span className="text-white/40 font-mono">{takedown.target_platform}</span>
               </>
             )}
@@ -389,7 +389,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
             <span className="text-white/40 font-mono">
               Method: {takedown.provider_method ?? 'unknown'}
             </span>
-            <span className="text-white/30 font-mono">{relativeTime(takedown.created_at)}</span>
+            <span className="text-white/50 font-mono">{relativeTime(takedown.created_at)}</span>
           </div>
         </div>
 
@@ -478,13 +478,13 @@ function MobileTakedownRow({
         </div>
         <div className="mt-1 flex items-center gap-1 text-[11px]">
           <span className="text-parchment truncate">{takedown.brand_name ?? 'Unknown'}</span>
-          <span className="text-contrail/30">&rarr;</span>
+          <span className="text-white/50">&rarr;</span>
           <span className="font-mono text-contrail/60 truncate">{takedown.target_value}</span>
         </div>
       </div>
 
       {/* Right: time filed */}
-      <span className="shrink-0 font-mono text-[9px] text-contrail/40">
+      <span className="shrink-0 font-mono text-[9px] text-white/55">
         {relativeTime(takedown.created_at)}
       </span>
     </button>
@@ -563,7 +563,7 @@ function TakedownsMobileView() {
         headerLeft={
           <div className="flex items-baseline gap-2">
             <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">SPARROW DRAFTS</span>
-            <span className="text-[9px] font-mono text-contrail/40">{filtered.length} items</span>
+            <span className="text-[9px] font-mono text-white/55">{filtered.length} items</span>
           </div>
         }
         headerRight={<MobileFilterChips filters={filterChips} />}
@@ -578,7 +578,7 @@ function TakedownsMobileView() {
           )}
           {!isLoading && filtered.length === 0 && (
             <div className="p-8 text-center">
-              <span className="font-mono text-[10px] text-contrail/40 uppercase tracking-wider">
+              <span className="font-mono text-[10px] text-white/55 uppercase tracking-wider">
                 No takedowns match filter
               </span>
             </div>
@@ -679,7 +679,7 @@ function TakedownsDesktop() {
       {/* Page title */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold text-parchment">Takedowns</h1>
-        <span className="font-mono text-[10px] text-white/30 uppercase tracking-wider">Sparrow Queue</span>
+        <span className="font-mono text-[10px] text-white/50 uppercase tracking-wider">Sparrow Queue</span>
       </div>
 
       {/* ─── STAT CARDS ──────────────────────────────── */}
@@ -703,7 +703,7 @@ function TakedownsDesktop() {
               >
                 {pill.label}
                 {pillCounts[pill.key as keyof typeof pillCounts] != null && (
-                  <span className="ml-1.5 text-white/30">{pillCounts[pill.key as keyof typeof pillCounts]}</span>
+                  <span className="ml-1.5 text-white/50">{pillCounts[pill.key as keyof typeof pillCounts]}</span>
                 )}
               </button>
             ))}
@@ -769,7 +769,7 @@ function TakedownsDesktop() {
       {/* ─── EMPTY STATE ─────────────────────────────── */}
       {!isLoading && takedowns.length === 0 && (
         <div className="glass-card rounded-xl p-12 text-center">
-          <p className="font-mono text-[11px] text-white/30 uppercase tracking-wider">
+          <p className="font-mono text-[11px] text-white/50 uppercase tracking-wider">
             No takedowns match the current filters
           </p>
         </div>

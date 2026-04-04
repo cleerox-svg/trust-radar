@@ -130,7 +130,7 @@ function ClusterPanel({
         </button>
       )}
       {clusters.length === 0 && (
-        <div className="font-mono text-[11px] text-white/30 py-4 text-center">No clusters detected</div>
+        <div className="font-mono text-[11px] text-white/40 py-4 text-center">No clusters detected</div>
       )}
       {clusters.map(cluster => {
         const status = getClusterStatus(cluster);
@@ -156,7 +156,7 @@ function ClusterPanel({
                 {cluster.threat_count.toLocaleString()} threats
               </span>
               {cluster.countries && (
-                <span className="font-mono text-[10px] text-white/30">
+                <span className="font-mono text-[10px] text-white/50">
                   {(() => {
                     try {
                       return (JSON.parse(cluster.countries) as string[]).map(countryFlag).join(' ');
@@ -209,7 +209,7 @@ function ProviderCard({
               {provider.name}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[10px] text-contrail/40">
+              <span className="font-mono text-[10px] text-white/55">
                 {provider.asn || 'No ASN'} {provider.country ? `\u00B7 ${provider.country}` : ''}
               </span>
             </div>
@@ -406,7 +406,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-40 flex items-center justify-center font-mono text-[11px] text-white/30">
+            <div className="h-40 flex items-center justify-center font-mono text-[11px] text-white/40">
               No timeline data
             </div>
           )}
@@ -436,17 +436,17 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
                     </span>
                     <StatusBadge status={getClusterStatus(cluster)} />
                   </div>
-                  <div className="font-mono text-[10px] text-contrail/40 mt-1">
+                  <div className="font-mono text-[10px] text-white/55 mt-1">
                     {cluster.threat_count} threats
                     {cluster.agent_notes && (
-                      <span className="block mt-0.5 text-white/30 truncate">{cluster.agent_notes}</span>
+                      <span className="block mt-0.5 text-white/50 truncate">{cluster.agent_notes}</span>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="font-mono text-[11px] text-white/30 py-4 text-center">
+            <div className="font-mono text-[11px] text-white/40 py-4 text-center">
               No cluster linkage
             </div>
           )}
@@ -484,7 +484,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
                         {threat.severity}
                       </span>
                     </td>
-                    <td className="font-mono text-[10px] text-white/30 py-1.5 px-2">
+                    <td className="font-mono text-[10px] text-white/50 py-1.5 px-2">
                       {threat.first_seen ? new Date(threat.first_seen).toLocaleDateString() : '—'}
                     </td>
                   </tr>
@@ -493,7 +493,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
             </table>
           </div>
         ) : (
-          <div className="font-mono text-[11px] text-white/30 py-4 text-center">No threats found</div>
+          <div className="font-mono text-[11px] text-white/40 py-4 text-center">No threats found</div>
         )}
       </div>
     </div>
@@ -558,7 +558,7 @@ export function Providers() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-contrail/40" />
-              <span className="font-mono text-[11px] text-white/40">{intelligence?.total_clusters ?? 0} clusters</span>
+              <span className="font-mono text-[11px] text-white/50">{intelligence?.total_clusters ?? 0} clusters</span>
             </div>
           </div>
         </StatCard>
@@ -659,7 +659,7 @@ export function Providers() {
 
             {/* Sort */}
             <div className="flex items-center gap-1.5 sm:ml-auto">
-              <span className="font-mono text-[9px] text-contrail/40 uppercase">Sort:</span>
+              <span className="font-mono text-[9px] text-white/55 uppercase">Sort:</span>
               {SORT_OPTIONS.map(s => (
                 <button
                   key={s.id}
@@ -667,7 +667,7 @@ export function Providers() {
                   className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all ${
                     sortBy === s.id
                       ? 'bg-white/10 text-parchment'
-                      : 'text-contrail/40 hover:text-parchment'
+                      : 'text-white/55 hover:text-parchment'
                   }`}
                 >
                   {s.label}
@@ -706,7 +706,7 @@ export function Providers() {
             </>
           ) : (
             <div className="rounded-xl p-12 text-center glass-card">
-              <div className="font-mono text-[11px] text-white/30">
+              <div className="font-mono text-[11px] text-white/40">
                 No providers match current filters
               </div>
             </div>

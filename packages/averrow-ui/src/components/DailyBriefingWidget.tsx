@@ -541,7 +541,7 @@ export function DailyBriefingWidget() {
               {briefing.flightController.summary}
             </div>
           ) : (
-            <div className="font-mono text-[10px] text-contrail/30">No diagnostic available</div>
+            <div className="font-mono text-[10px] text-white/40">No diagnostic available</div>
           )}
         </div>
 
@@ -561,7 +561,7 @@ export function DailyBriefingWidget() {
               ))}
             </DataTable>
           ) : (
-            <div className="font-mono text-[10px] text-contrail/30">No agent activity</div>
+            <div className="font-mono text-[10px] text-white/40">No agent activity</div>
           )}
         </div>
       </div>
@@ -601,7 +601,7 @@ export function DailyBriefingWidget() {
                       From: <span className="text-contrail/60">{c.from_address}</span> &rarr; <span className="text-contrail/60">{c.trap_address}</span>
                     </div>
                     <div className="font-mono text-[11px] text-parchment/70 mt-0.5">Subject: &ldquo;{c.subject}&rdquo;</div>
-                    <div className="font-mono text-[10px] text-contrail/40 mt-0.5">{c.category} &middot; {c.severity} &middot; {c.captured_at}</div>
+                    <div className="font-mono text-[10px] text-white/55 mt-0.5">{c.category} &middot; {c.severity} &middot; {c.captured_at}</div>
                   </div>
                 ))}
               </div>
@@ -666,7 +666,7 @@ export function DailyBriefingWidget() {
             {briefing.topTargetedBrands.map((b, i) => (
               <div key={b.name} className="flex items-center justify-between font-mono text-[11px]">
                 <div className="flex items-center gap-2 truncate">
-                  <span className="text-contrail/40 w-5 text-right">{i + 1}.</span>
+                  <span className="text-white/50 w-5 text-right">{i + 1}.</span>
                   <span className="text-parchment/80 truncate">{b.name}</span>
                 </div>
                 <span className="text-afterburner ml-2">{fmt(b.threats_24h)}</span>

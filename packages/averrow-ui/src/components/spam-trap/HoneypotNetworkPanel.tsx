@@ -104,7 +104,7 @@ export function HoneypotNetworkPanel() {
               className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider transition-colors ${
                 activeTab === tab
                   ? 'bg-white/10 text-white/80'
-                  : 'text-white/30 hover:text-white/50'
+                  : 'text-white/50 hover:text-white/70'
               }`}
             >
               {tab}
@@ -125,7 +125,7 @@ export function HoneypotNetworkPanel() {
             </div>
           ) : (
             <div className="space-y-1.5 mb-4">
-              <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-1">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-1">
                 Seeds by Channel
               </div>
               {channelCounts.map(([channel, count]) => (
@@ -166,7 +166,7 @@ export function HoneypotNetworkPanel() {
         <div className="space-y-4">
           {/* Source type breakdown */}
           <div className="space-y-1.5">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-1">
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-1">
               Seeds by Source Type
             </div>
             {seedingGroups.map(([type, data]) => (
@@ -198,7 +198,7 @@ export function HoneypotNetworkPanel() {
           {/* Detailed location breakdown */}
           {seedingData?.sources && seedingData.sources.length > 0 && (
             <div>
-              <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-2">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-2">
                 Seeding Locations
               </div>
               <div className="space-y-1">
@@ -219,7 +219,7 @@ export function HoneypotNetworkPanel() {
 
           {seedingGroups.length === 0 && (
             <div className="text-center py-6">
-              <span className="text-white/20 text-xs font-mono">No seeding source data available</span>
+              <span className="text-white/40 text-xs font-mono">No seeding source data available</span>
             </div>
           )}
         </div>
@@ -259,7 +259,7 @@ export function HoneypotNetworkPanel() {
               {/* Visits by page */}
               {seedingData.honeypot_visits.by_page.length > 0 && (
                 <div>
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-2">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-2">
                     Visits by Page
                   </div>
                   {seedingData.honeypot_visits.by_page.map((p) => (
@@ -277,7 +277,7 @@ export function HoneypotNetworkPanel() {
               {/* Recent crawlers */}
               {seedingData.honeypot_visits.recent_crawlers.length > 0 && (
                 <div>
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-2">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-2">
                     Recent Crawlers
                   </div>
                   <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
@@ -287,17 +287,17 @@ export function HoneypotNetworkPanel() {
                           <span className="font-mono text-[10px] text-red-400 font-semibold">
                             {c.bot_name || 'unknown'}
                           </span>
-                          <span className="font-mono text-[9px] text-white/30">
+                          <span className="font-mono text-[9px] text-white/50">
                             {c.visited_at ? new Date(c.visited_at + 'Z').toLocaleString() : '—'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="font-mono text-[10px] text-white/50">{c.page}</span>
                           {c.visitor_ip && (
-                            <span className="font-mono text-[10px] text-white/30">{c.visitor_ip}</span>
+                            <span className="font-mono text-[10px] text-white/50">{c.visitor_ip}</span>
                           )}
                           {c.country && (
-                            <span className="font-mono text-[10px] text-white/30">{c.country}</span>
+                            <span className="font-mono text-[10px] text-white/50">{c.country}</span>
                           )}
                         </div>
                       </div>
@@ -310,7 +310,7 @@ export function HoneypotNetworkPanel() {
 
           {!seedingData?.honeypot_visits && (
             <div className="text-center py-6">
-              <span className="text-white/20 text-xs font-mono">No honeypot visit data yet</span>
+              <span className="text-white/40 text-xs font-mono">No honeypot visit data yet</span>
             </div>
           )}
         </div>
@@ -323,11 +323,11 @@ export function HoneypotNetworkPanel() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-2 pr-2">Address</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-2 pr-2">Channel</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-2 pr-2">Location</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-2 pr-2">Catches</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/30 pb-2">Status</th>
+                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Address</th>
+                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Channel</th>
+                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Location</th>
+                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Catches</th>
+                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -375,7 +375,7 @@ export function HoneypotNetworkPanel() {
                           {addr.total_catches > 0 ? (
                             <span className="font-mono text-[11px] text-red-400 font-semibold">{addr.total_catches}</span>
                           ) : (
-                            <span className="font-mono text-[11px] text-white/20">—</span>
+                            <span className="font-mono text-[11px] text-white/40">—</span>
                           )}
                         </td>
                         <td className="py-2">
@@ -392,7 +392,7 @@ export function HoneypotNetworkPanel() {
           {/* Empty state */}
           {!isLoading && filtered.length === 0 && (
             <div className="text-center py-6">
-              <span className="text-white/20 text-xs font-mono">
+              <span className="text-white/40 text-xs font-mono">
                 {search ? 'No matching addresses' : 'No seed addresses deployed'}
               </span>
             </div>
@@ -408,7 +408,7 @@ export function HoneypotNetworkPanel() {
               >
                 Prev
               </button>
-              <span className="font-mono text-[10px] text-white/30">
+              <span className="font-mono text-[10px] text-white/50">
                 {page + 1} / {totalPages}
               </span>
               <button

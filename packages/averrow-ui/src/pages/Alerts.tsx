@@ -74,7 +74,7 @@ interface PillGroupProps {
 function PillGroup({ label, options, selected, onChange }: PillGroupProps) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/40 mr-1">{label}</span>
+      <span className="font-mono text-[9px] uppercase tracking-widest text-white/55 mr-1">{label}</span>
       {options.map(o => (
         <button
           key={o.value}
@@ -157,7 +157,7 @@ function BrandGroupCard({
           <div className="font-mono text-[10px] text-white/40">{group.brand_domain ?? ''}</div>
         </div>
         <svg
-          className={cn('w-4 h-4 text-contrail/40 transition-transform', expanded && 'rotate-180')}
+          className={cn('w-4 h-4 text-white/50 transition-transform', expanded && 'rotate-180')}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -231,7 +231,7 @@ function BrandGroupCard({
                   </span>
 
                   {/* Time */}
-                  <span className="font-mono text-[10px] text-white/30 tabular-nums w-14 text-right flex-shrink-0">
+                  <span className="font-mono text-[10px] text-white/50 tabular-nums w-14 text-right flex-shrink-0">
                     {timeAgo(alert.created_at)}
                   </span>
                 </button>
@@ -318,7 +318,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
             Social Impersonation
           </span>
         </div>
-        <button onClick={onClose} className="text-contrail/40 hover:text-parchment transition-colors p-1">
+        <button onClick={onClose} className="text-white/50 hover:text-parchment transition-colors p-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -417,7 +417,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
                 )}
               </div>
             ) : (
-              <div className="text-[11px] text-contrail/40 italic">No AI assessment yet</div>
+              <div className="text-[11px] text-white/50 italic">No AI assessment yet</div>
             )}
           </div>
         </div>
@@ -491,7 +491,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               onChange={e => setNotes(e.target.value)}
               placeholder="Add notes..."
               rows={3}
-              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-afterburner-border resize-none font-mono"
+              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/30 focus:outline-none focus:border-afterburner-border resize-none font-mono"
             />
             {notes !== (alert.resolution_notes ?? '') && (
               <button
@@ -566,7 +566,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
         </span>
 
         {/* Time ago */}
-        <span className="font-mono text-[9px] text-contrail/40 tabular-nums flex-shrink-0">
+        <span className="font-mono text-[9px] text-white/50 tabular-nums flex-shrink-0">
           {timeAgo(alert.created_at)}
         </span>
       </div>
@@ -579,11 +579,11 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
       {/* Expanded detail */}
       {expanded && (
         <div className="mt-2 ml-5 space-y-1.5 border-l-2 border-bulkhead/40 pl-3">
-          <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wide">Handle</div>
+          <div className="font-mono text-[9px] text-white/55 uppercase tracking-wide">Handle</div>
           <div className="font-mono text-[11px] text-parchment">{handle}</div>
           {alert.ai_assessment && (
             <>
-              <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wide mt-1.5">AI Assessment</div>
+              <div className="font-mono text-[9px] text-white/55 uppercase tracking-wide mt-1.5">AI Assessment</div>
               <div className="font-mono text-[10px] text-contrail/60 leading-relaxed">{alert.ai_assessment}</div>
             </>
           )}
@@ -687,7 +687,7 @@ function MobileAlertsLayout({
 
           {/* 24h trend card */}
           <div className="rounded-[10px] border border-bulkhead/40 bg-instrument p-3">
-            <span className="text-[8px] font-mono uppercase tracking-widest text-contrail/45">
+            <span className="text-[8px] font-mono uppercase tracking-widest text-white/55">
               LAST 24 HOURS
             </span>
             <div className="mt-1.5 flex items-center justify-between">
@@ -706,7 +706,7 @@ function MobileAlertsLayout({
               </div>
               <Sparkline data={sparklineData} width={80} height={24} color="#fb923c" />
             </div>
-            <span className="mt-0.5 block text-[9px] text-contrail/40">vs yesterday</span>
+            <span className="mt-0.5 block text-[9px] text-white/55">vs yesterday</span>
           </div>
         </div>
       </div>
@@ -720,7 +720,7 @@ function MobileAlertsLayout({
         headerLeft={
           <div className="flex items-baseline gap-2">
             <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">ALL ALERTS</span>
-            <span className="text-[9px] font-mono text-contrail/40">{filteredAlerts.length}</span>
+            <span className="text-[9px] font-mono text-white/55">{filteredAlerts.length}</span>
           </div>
         }
         headerRight={<MobileFilterChips filters={filterChips} />}
@@ -730,7 +730,7 @@ function MobileAlertsLayout({
             <MobileAlertRow key={alert.id} alert={alert} />
           ))}
           {filteredAlerts.length === 0 && (
-            <div className="text-center py-12 font-mono text-sm text-contrail/30">
+            <div className="text-center py-12 font-mono text-sm text-white/40">
               No alerts found
             </div>
           )}
@@ -866,7 +866,7 @@ export function Alerts() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search alerts..."
-            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/20 focus:outline-none focus:border-afterburner-border font-mono"
+            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/30 focus:outline-none focus:border-afterburner-border font-mono"
           />
         </div>
       </div>
@@ -883,7 +883,7 @@ export function Alerts() {
         <div className="space-y-3">
           {groups.length === 0 && (
             <div className="glass-card rounded-xl p-8 text-center">
-              <div className="font-mono text-[11px] text-contrail/40">No alerts match your filters</div>
+              <div className="font-mono text-[11px] text-white/40">No alerts match your filters</div>
             </div>
           )}
 
@@ -920,7 +920,7 @@ export function Alerts() {
 
       {/* Total count */}
       {!alertsLoading && alertsData && (
-        <div className="text-center font-mono text-[10px] text-white/20 pb-4">
+        <div className="text-center font-mono text-[10px] text-white/40 pb-4">
           Showing {alerts.length} of {alertsData.total} alerts
         </div>
       )}

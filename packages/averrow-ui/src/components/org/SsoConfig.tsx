@@ -97,7 +97,7 @@ export function SsoConfig({ slug }: { slug: string }) {
   };
 
   if (isLoading) {
-    return <div className="text-sm text-contrail/40 font-mono py-4 text-center">Loading SSO config...</div>;
+    return <div className="text-sm text-white/55 font-mono py-4 text-center">Loading SSO config...</div>;
   }
 
   return (

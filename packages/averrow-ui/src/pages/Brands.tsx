@@ -93,7 +93,7 @@ function gradeBadge(grade: string | null) {
 }
 
 function rankBadge(rank: number) {
-  let style = 'border-white/10 text-white/20';
+  let style = 'border-white/10 text-white/40';
   if (rank === 1) style = 'border-yellow-400 text-yellow-400';
   else if (rank === 2) style = 'border-slate-300 text-slate-300';
   else if (rank === 3) style = 'border-amber-600 text-amber-600';
@@ -333,11 +333,11 @@ function StatsRow() {
             <div key={s.sector} className="flex items-center gap-2">
               <span className="block h-1.5 w-1.5 rounded-full bg-afterburner/60 flex-shrink-0" />
               <span className="font-mono text-[10px] text-white/50 truncate flex-1">{s.sector}</span>
-              <span className="font-mono text-[10px] text-white/30">{s.count}</span>
+              <span className="font-mono text-[10px] text-white/50">{s.count}</span>
             </div>
           ))}
           {sectors.length === 0 && (
-            <span className="font-mono text-[10px] text-white/30">No sector data</span>
+            <span className="font-mono text-[10px] text-white/40">No sector data</span>
           )}
         </div>
       </StatCard>
@@ -356,10 +356,10 @@ function StatsRow() {
             <span className="block font-mono text-[10px] text-white/50 truncate">{stats.newest_brand_name}</span>
           )}
           {stats?.newest_brand_sector && (
-            <span className="block font-mono text-[10px] text-white/30">{stats.newest_brand_sector}</span>
+            <span className="block font-mono text-[10px] text-white/50">{stats.newest_brand_sector}</span>
           )}
           {stats?.newest_brand_added_by && (
-            <span className="block font-mono text-[10px] text-white/20">added by {stats.newest_brand_added_by}</span>
+            <span className="block font-mono text-[10px] text-white/40">added by {stats.newest_brand_added_by}</span>
           )}
         </div>
       </StatCard>
@@ -378,7 +378,7 @@ function StatsRow() {
             <span className="block font-mono text-[10px] text-white/50 truncate">{stats.fastest_rising}</span>
           )}
           {stats?.fastest_rising_domain && (
-            <span className="block font-mono text-[10px] text-white/30 truncate">{stats.fastest_rising_domain}</span>
+            <span className="block font-mono text-[10px] text-white/50 truncate">{stats.fastest_rising_domain}</span>
           )}
         </div>
       </StatCard>
@@ -391,7 +391,7 @@ function StatsRow() {
               {threatTypePill(stats.top_threat_type)}
             </span>
           ) : (
-            <span className="text-[32px] font-bold leading-none text-white/30">&mdash;</span>
+            <span className="text-[32px] font-bold leading-none text-white/40">&mdash;</span>
           )
         }
         metricLabel="most common"
@@ -406,7 +406,7 @@ function StatsRow() {
           {stats?.third_threat_type && (
             <div className="flex items-center gap-2">
               <span className="block h-1.5 w-1.5 rounded-full bg-contrail/20 flex-shrink-0" />
-              <span className="font-mono text-[10px] text-white/30">{stats.third_threat_type.replace(/_/g, ' ')}</span>
+              <span className="font-mono text-[10px] text-white/50">{stats.third_threat_type.replace(/_/g, ' ')}</span>
             </div>
           )}
         </div>
@@ -458,7 +458,7 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
       {/* 2. Name + domain */}
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm font-medium text-white/90 truncate">{brand.name}</span>
-        <span className="text-[11px] text-white/35 font-mono truncate">{brand.canonical_domain}</span>
+        <span className="text-[11px] text-white/60 font-mono truncate">{brand.canonical_domain}</span>
       </div>
 
       {/* 3. Social dots — hidden on mobile */}
@@ -580,7 +580,7 @@ function MobilePortfolioHealth({ brands }: { brands: Brand[] }) {
 
   return (
     <div className="rounded-[10px] border border-bulkhead/40 bg-instrument p-3">
-      <div className="mb-2 font-mono text-[8px] uppercase tracking-widest text-contrail/45">
+      <div className="mb-2 font-mono text-[8px] uppercase tracking-widest text-white/55">
         Portfolio Health
       </div>
       <div className="flex items-center gap-4">
@@ -638,7 +638,7 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
       className="flex items-center gap-2.5 px-4 py-3 border-b border-bulkhead/20 active:bg-white/[0.03] cursor-pointer"
     >
       {/* Rank */}
-      <span className="w-5 text-right font-mono text-[10px] text-contrail/35 flex-shrink-0">
+      <span className="w-5 text-right font-mono text-[10px] text-white/50 flex-shrink-0">
         {rank}
       </span>
 
@@ -660,7 +660,7 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-contrail/35 font-mono truncate">{brand.canonical_domain}</span>
+          <span className="text-[10px] text-white/55 font-mono truncate">{brand.canonical_domain}</span>
           <Sparkline data={brand.threat_history ?? []} width={40} height={12} />
         </div>
       </div>
@@ -682,7 +682,7 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
       </div>
 
       {/* Chevron */}
-      <span className="text-contrail/25 text-sm flex-shrink-0">›</span>
+      <span className="text-white/40 text-sm flex-shrink-0">›</span>
     </div>
   );
 }
@@ -759,7 +759,7 @@ function MobileBrandsLayout({
 
           {/* Search bar */}
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-contrail/35" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <circle cx={11} cy={11} r={8} />
               <path d="M21 21l-4.35-4.35" />
             </svg>
@@ -767,7 +767,7 @@ function MobileBrandsLayout({
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search brands or domains..."
-              className="w-full bg-instrument rounded-lg border border-bulkhead/30 p-2.5 pl-9 text-sm text-parchment placeholder:text-contrail/30 font-mono outline-none focus:border-contrail/40"
+              className="w-full bg-instrument rounded-lg border border-bulkhead/30 p-2.5 pl-9 text-sm text-parchment placeholder:text-white/40 font-mono outline-none focus:border-contrail/40"
             />
           </div>
         </div>
@@ -782,7 +782,7 @@ function MobileBrandsLayout({
         headerLeft={
           <div className="flex items-baseline gap-2">
             <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">TOP THREATENED</span>
-            <span className="text-[9px] font-mono text-contrail/40">{filteredBrands.length} brands</span>
+            <span className="text-[9px] font-mono text-white/55">{filteredBrands.length} brands</span>
           </div>
         }
         headerRight={<MobileFilterChips filters={filterChips} />}
@@ -792,7 +792,7 @@ function MobileBrandsLayout({
             <MobileBrandRow key={brand.id} brand={brand} rank={i + 1} />
           ))}
           {sortedBrands.length === 0 && (
-            <div className="text-center py-12 font-mono text-sm text-contrail/30">
+            <div className="text-center py-12 font-mono text-sm text-white/40">
               No brands found
             </div>
           )}
@@ -950,7 +950,7 @@ export function Brands() {
                         'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors whitespace-nowrap',
                         activeTab === tab
                           ? 'text-afterburner border-afterburner-border bg-afterburner-muted'
-                          : 'text-white/30 border-white/10 hover:text-white/50'
+                          : 'text-white/50 border-white/10 hover:text-white/70'
                       )}
                     >
                       {tab === 'targeted' ? 'Top Threatened' : tab}
@@ -966,7 +966,7 @@ export function Brands() {
                 <BrandRow key={brand.id} brand={brand} onToggleMonitor={handleToggleMonitor} />
               ))}
               {pagedBrands.length === 0 && (
-                <div className="text-center py-12 font-mono text-sm text-white/30">
+                <div className="text-center py-12 font-mono text-sm text-white/40">
                   No brands found
                 </div>
               )}
@@ -1040,7 +1040,7 @@ export function Brands() {
               {/* Header bar */}
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-4">
-                  <span className="text-[9px] font-mono text-white/35 tracking-widest">EXPOSURE</span>
+                  <span className="text-[9px] font-mono text-white/55 tracking-widest">EXPOSURE</span>
                   {[
                     { label: 'Critical', color: '#f87171' },
                     { label: 'High',     color: '#fb923c' },
@@ -1092,7 +1092,7 @@ export function Brands() {
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center py-16 text-white/30 text-sm">
+                <div className="flex items-center justify-center py-16 text-white/40 text-sm">
                   No brands match current filters
                 </div>
               )}
@@ -1101,19 +1101,19 @@ export function Brands() {
               <div className="flex gap-6 mt-4 text-[10px] font-mono">
                 <span>
                   <span className="text-red-400 font-bold">{criticalCount}</span>
-                  <span className="text-white/30 ml-1">critical brands</span>
+                  <span className="text-white/50 ml-1">critical brands</span>
                 </span>
                 <span>
                   <span className="text-green-400 font-bold">{cleanCount}</span>
-                  <span className="text-white/30 ml-1">clean</span>
+                  <span className="text-white/50 ml-1">clean</span>
                 </span>
                 <span>
                   <span className="text-white/60 font-bold">{totalThreats.toLocaleString()}</span>
-                  <span className="text-white/30 ml-1">total threats</span>
+                  <span className="text-white/50 ml-1">total threats</span>
                 </span>
                 <span>
                   <span className="text-white/60 font-bold">{filteredBrands.length}</span>
-                  <span className="text-white/30 ml-1">brands shown</span>
+                  <span className="text-white/50 ml-1">brands shown</span>
                 </span>
               </div>
             </div>
@@ -1148,10 +1148,10 @@ export function Brands() {
                 return (
                   <div key={sectorName}>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[9px] font-mono text-white/35 tracking-widest uppercase flex-shrink-0">
+                      <span className="text-[9px] font-mono text-white/55 tracking-widest uppercase flex-shrink-0">
                         {sectorName}
                       </span>
-                      <span className="text-[9px] font-mono text-white/20 border border-white/10 rounded px-1.5 py-0.5 flex-shrink-0">
+                      <span className="text-[9px] font-mono text-white/40 border border-white/10 rounded px-1.5 py-0.5 flex-shrink-0">
                         {sectorBrands.length}
                       </span>
                       <div className="flex-1 h-px bg-white/[0.06]" />
@@ -1200,7 +1200,7 @@ export function Brands() {
                       })}
 
                       {overflow > 0 && (
-                        <div className="h-8 rounded border border-white/10 flex items-center px-3 text-[9px] font-mono text-white/30 flex-shrink-0">
+                        <div className="h-8 rounded border border-white/10 flex items-center px-3 text-[9px] font-mono text-white/40 flex-shrink-0">
                           +{overflow} more
                         </div>
                       )}
@@ -1210,7 +1210,7 @@ export function Brands() {
               })}
 
               {Object.keys(grouped).length === 0 && (
-                <div className="flex items-center justify-center py-16 text-white/30 text-sm">
+                <div className="flex items-center justify-center py-16 text-white/40 text-sm">
                   No brands match current filters
                 </div>
               )}

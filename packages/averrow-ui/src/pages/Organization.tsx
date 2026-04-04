@@ -73,7 +73,7 @@ export function Organization() {
   const { data: integrations } = useOrgIntegrations();
 
   if (orgLoading) {
-    return <div className="text-sm text-contrail/40 font-mono py-16 text-center">Loading organization...</div>;
+    return <div className="text-sm text-white/55 font-mono py-16 text-center">Loading organization...</div>;
   }
 
   const brandCount = brands?.length ?? 0;
@@ -175,7 +175,7 @@ function OrgHeader({ name, slug, plan, status, brandCount, memberCount }: {
         <p className="text-[11px] text-contrail/50 font-mono mt-0.5">
           {slug}.averrow.com · <span className="capitalize">{status}</span>
         </p>
-        <p className="text-[11px] text-contrail/40 font-mono">
+        <p className="text-[11px] text-white/55 font-mono">
           {brandCount} brand{brandCount !== 1 ? 's' : ''} · {memberCount} member{memberCount !== 1 ? 's' : ''} · <span className="capitalize">{plan}</span> plan
         </p>
       </div>
@@ -267,7 +267,7 @@ function BrandsTab({ brands, maxBrands }: {
                     {b.is_primary === 1 && <Badge variant="info">Primary</Badge>}
                   </div>
                   <div className="text-[11px] text-contrail/50 font-mono mt-0.5">{b.canonical_domain}</div>
-                  <div className="text-[10px] text-contrail/40 mt-1">{b.threat_count} threats</div>
+                  <div className="text-[10px] text-white/55 mt-1">{b.threat_count} threats</div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <Button variant="ghost" size="sm" onClick={() => window.location.href = `/v2/brands/${b.brand_id}`}>
@@ -318,7 +318,7 @@ function MembersTab({ members, invites, onInvite }: {
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="text-left text-contrail/40 font-mono uppercase tracking-wider border-b border-white/5">
+              <tr className="text-left text-white/55 font-mono uppercase tracking-wider border-b border-white/5">
                 <th className="pb-2 pr-4">Name</th>
                 <th className="pb-2 pr-4">Email</th>
                 <th className="pb-2 pr-4">Role</th>
@@ -343,7 +343,7 @@ function MembersTab({ members, invites, onInvite }: {
                       <option value="viewer">Viewer</option>
                     </select>
                   </td>
-                  <td className="py-3 pr-4 text-contrail/40 hidden sm:table-cell">
+                  <td className="py-3 pr-4 text-white/55 hidden sm:table-cell">
                     {m.last_active_at ? new Date(m.last_active_at).toLocaleDateString() : 'never'}
                   </td>
                   <td className="py-3 text-right">
@@ -368,14 +368,14 @@ function MembersTab({ members, invites, onInvite }: {
       <div>
         <SectionLabel className="mb-2">Pending Invitations</SectionLabel>
         {invites.length === 0 ? (
-          <p className="text-[11px] text-contrail/40">No pending invitations</p>
+          <p className="text-[11px] text-white/55">No pending invitations</p>
         ) : (
           <div className="space-y-2">
             {invites.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between py-2 border-b border-white/[0.03]">
                 <div>
                   <span className="text-[11px] text-parchment/80 font-mono">{inv.email}</span>
-                  <span className="text-[10px] text-contrail/40 ml-2 capitalize">{inv.org_role}</span>
+                  <span className="text-[10px] text-white/55 ml-2 capitalize">{inv.org_role}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -455,7 +455,7 @@ function ApiKeysTab({ apiKeys, onCreate }: {
       <div className="flex items-center justify-between">
         <div>
           <SectionLabel>API Keys</SectionLabel>
-          <p className="text-[11px] text-contrail/40 mt-1">
+          <p className="text-[11px] text-white/55 mt-1">
             API keys allow programmatic access to your org's threat data.
           </p>
         </div>
@@ -472,7 +472,7 @@ function ApiKeysTab({ apiKeys, onCreate }: {
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="text-left text-contrail/40 font-mono uppercase tracking-wider border-b border-white/5">
+              <tr className="text-left text-white/55 font-mono uppercase tracking-wider border-b border-white/5">
                 <th className="pb-2 pr-4">Name</th>
                 <th className="pb-2 pr-4">Prefix</th>
                 <th className="pb-2 pr-4">Scopes</th>
@@ -498,10 +498,10 @@ function ApiKeysTab({ apiKeys, onCreate }: {
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 pr-4 text-contrail/40">
+                    <td className="py-3 pr-4 text-white/55">
                       {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'never'}
                     </td>
-                    <td className="py-3 pr-4 text-contrail/40 hidden sm:table-cell">
+                    <td className="py-3 pr-4 text-white/55 hidden sm:table-cell">
                       {new Date(k.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3 text-right">
@@ -599,7 +599,7 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
         <div className="space-y-2">
           <div className="flex items-center gap-3 text-[11px]">
             <span className="text-contrail/60 font-mono">Status</span>
-            <span className="text-contrail/40">Not configured</span>
+            <span className="text-white/55">Not configured</span>
           </div>
           <Button variant="secondary" size="sm" className="mt-2" disabled>
             Enable SCIM — Coming Soon
@@ -613,7 +613,7 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
         <Button variant="danger" size="sm" disabled title="Contact support to delete your organization">
           Delete Organization
         </Button>
-        <p className="text-[10px] text-contrail/30 mt-2">Contact support to delete your organization.</p>
+        <p className="text-[10px] text-white/50 mt-2">Contact support to delete your organization.</p>
       </Card>
     </div>
   );

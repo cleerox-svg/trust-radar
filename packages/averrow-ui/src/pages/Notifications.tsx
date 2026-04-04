@@ -22,7 +22,7 @@ export function Notifications() {
         <p className="text-[13px] text-white/40 font-mono">
           Full notification history coming soon.
         </p>
-        <p className="text-[11px] text-white/25 font-mono mt-2">
+        <p className="text-[11px] text-white/40 font-mono mt-2">
           Use the bell icon for recent notifications.
         </p>
       </div>

@@ -27,7 +27,7 @@ export function AttackVectorsCard({ brands }: AttackVectorsCardProps) {
       </div>
 
       {sorted.length === 0 ? (
-        <p className="text-[11px] text-white/30">No threat data</p>
+        <p className="text-[11px] text-white/40">No threat data</p>
       ) : (
         <div className="flex flex-col gap-2">
           {sorted.map(([type, count]) => {

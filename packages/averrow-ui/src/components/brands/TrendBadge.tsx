@@ -7,7 +7,7 @@ interface TrendBadgeProps {
 
 export function TrendBadge({ trend, className }: TrendBadgeProps) {
   if (trend == null || !isFinite(trend) || trend === 0) {
-    return <span className={cn('font-mono text-xs text-white/30', className)}>&mdash;</span>;
+    return <span className={cn('font-mono text-xs text-white/40', className)}>&mdash;</span>;
   }
 
   const isPositive = trend > 0;

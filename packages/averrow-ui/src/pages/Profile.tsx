@@ -156,7 +156,7 @@ export function Profile() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] text-white/50 truncate">{s.ip_address ?? 'Unknown IP'}</p>
                   </div>
-                  <span className="text-[10px] font-mono text-white/30 flex-shrink-0 ml-2">
+                  <span className="text-[10px] font-mono text-white/50 flex-shrink-0 ml-2">
                     {relativeTime(s.issued_at)}
                   </span>
                 </div>

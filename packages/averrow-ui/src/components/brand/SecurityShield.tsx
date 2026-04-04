@@ -51,7 +51,7 @@ export function SecurityShield({ spf, dkim, dmarc, grade }: SecurityShieldProps)
       {/* Grade display */}
       <div className="flex flex-col items-center">
         <div className="font-display text-4xl font-extrabold" style={{ color: gradeColor }}>{grade || '\u2014'}</div>
-        <div className="font-mono text-[9px] text-contrail/40 uppercase tracking-wider mt-1">Email Grade</div>
+        <div className="font-mono text-[9px] text-white/55 uppercase tracking-wider mt-1">Email Grade</div>
       </div>
     </div>
   );

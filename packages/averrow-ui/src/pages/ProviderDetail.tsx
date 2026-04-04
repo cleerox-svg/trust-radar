@@ -132,7 +132,7 @@ export function ProviderDetail() {
               ))}
               {threats.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-sm text-center text-contrail/40 border-b border-white/[0.03]">
+                  <td colSpan={5} className="px-3 py-8 text-sm text-center text-white/40 border-b border-white/[0.03]">
                     No threats found
                   </td>
                 </tr>
@@ -149,7 +149,7 @@ export function ProviderDetail() {
               >
                 &larr; Previous
               </button>
-              <span className="font-mono text-xs text-contrail/40">
+              <span className="font-mono text-xs text-white/55">
                 Page {page + 1} of {totalPages}
               </span>
               <button

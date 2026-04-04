@@ -359,7 +359,7 @@ function FeedCard({
           <div>
             {category === 'disabled' ? (
               <>
-                <div className="text-[16px] font-bold font-mono text-white/30">&mdash;</div>
+                <div className="text-[16px] font-bold font-mono text-white/40">&mdash;</div>
                 <div className="text-[9px] font-mono uppercase tracking-wider text-white/40">Last Run</div>
               </>
             ) : (
@@ -405,7 +405,7 @@ function FeedCard({
         )}
 
         {category === 'disabled' && (
-          <div className="text-[10px] text-white/30 font-mono">Disabled</div>
+          <div className="text-[10px] text-white/40 font-mono">Disabled</div>
         )}
       </div>
 
@@ -516,7 +516,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
 
             {/* Table */}
             <div className="space-y-1 max-h-64 overflow-y-auto">
-              <div className="grid grid-cols-4 gap-2 text-[9px] font-mono uppercase tracking-wider text-white/30 px-1">
+              <div className="grid grid-cols-4 gap-2 text-[9px] font-mono uppercase tracking-wider text-white/50 px-1">
                 <span>Started</span>
                 <span>Duration</span>
                 <span>Ingested</span>
@@ -552,7 +552,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
             </div>
           </>
         ) : (
-          <div className="text-[11px] text-white/30 font-mono">No pull history available</div>
+          <div className="text-[11px] text-white/40 font-mono">No pull history available</div>
         )}
       </div>
     </div>
@@ -589,7 +589,7 @@ function FeedSection({
     <div>
       <div className={cn('font-mono text-[10px] font-bold uppercase tracking-widest mb-3', cardClass)}>
         {title}
-        <span className="text-white/30 ml-2 font-normal">{feeds.length}</span>
+        <span className="text-white/50 ml-2 font-normal">{feeds.length}</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {feeds.map(feed => (

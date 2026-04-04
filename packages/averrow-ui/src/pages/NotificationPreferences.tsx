@@ -98,7 +98,7 @@ export function NotificationPreferences() {
             >
               <div>
                 <p className="text-[13px] text-parchment/80 text-left">{PREF_LABELS[key]}</p>
-                <p className="text-[11px] text-white/30 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
+                <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
                 currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
@@ -125,7 +125,7 @@ export function NotificationPreferences() {
             >
               <div>
                 <p className="text-[13px] text-parchment/80 text-left">{PREF_LABELS[key]}</p>
-                <p className="text-[11px] text-white/30 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
+                <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
                 currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
