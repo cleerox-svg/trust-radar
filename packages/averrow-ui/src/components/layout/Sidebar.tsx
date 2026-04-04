@@ -105,14 +105,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const NAV_SECTIONS = isBrandAdmin ? BRAND_ADMIN_SECTIONS : SUPER_ADMIN_SECTIONS;
 
   return (
-    <aside className="w-56 h-full glass-sidebar flex flex-col">
+    <aside className="w-56 h-full flex flex-col bg-slate-950/80 backdrop-blur-2xl border-r border-white/[0.06] shadow-[4px_0_40px_rgba(0,0,0,0.5),inset_-1px_0_0_rgba(255,255,255,0.04)]">
       <div className="p-4 border-b border-white/5">
         <AverrowLogo />
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {NAV_SECTIONS.map((section, idx) => (
           <div key={section.label} className={idx > 0 ? 'mt-2' : ''}>
-            <div className="section-label px-3 pt-3 pb-1">{section.label}</div>
+            <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+              <span className="text-[9px] font-mono tracking-[0.2em] text-white/45 uppercase">{section.label}</span>
+              <span className="flex-1 h-px bg-white/[0.06]" />
+            </div>
             {section.items.map(item => (
               <NavLink
                 key={item.path}
@@ -120,10 +123,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 onClick={onNavigate}
                 end={item.path === '/observatory' || item.path === '/'}
                 className={({ isActive }) => cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-2.5 px-3 py-2 rounded-lg mx-2 text-sm transition-colors relative',
                   isActive
-                    ? 'nav-item-active text-afterburner font-medium'
-                    : 'text-parchment/70 hover:bg-white/5 hover:text-parchment'
+                    ? 'bg-amber-500/10 text-amber-400 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-0.5 before:rounded-r-full before:bg-amber-500'
+                    : 'text-white/60 hover:bg-white/5 hover:text-parchment'
                 )}
               >
                 <item.icon size={16} className="shrink-0 opacity-70" />

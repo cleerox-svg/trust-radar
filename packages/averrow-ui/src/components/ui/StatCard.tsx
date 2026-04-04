@@ -1,3 +1,5 @@
+import Tilt from 'react-parallax-tilt';
+import CountUp from 'react-countup';
 import { cn } from '@/lib/cn';
 
 interface StatCardProps {
@@ -12,31 +14,52 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sublabel, trend, trendDirection, accentColor, className }: StatCardProps) {
   return (
-    <div
-      className={cn(
-        'glass-stat relative p-5 transition-all',
-        accentColor && 'border-l-[3px]',
-        className,
-      )}
-      style={accentColor ? { borderLeftColor: accentColor } : undefined}
+    <Tilt
+      tiltMaxAngleX={5}
+      tiltMaxAngleY={5}
+      perspective={1200}
+      scale={1.015}
+      transitionSpeed={500}
+      glareEnable={true}
+      glareMaxOpacity={0.06}
+      glareColor="#E5A832"
+      glarePosition="top"
     >
-      <div className={cn(
-        'font-display text-2xl font-extrabold text-parchment tabular-nums',
-        accentColor === '#C83C3C' && 'glow-red',
-        accentColor === '#FB923C' && 'glow-amber',
-        accentColor === '#4ADE80' && 'glow-green',
-        !accentColor && 'glow-afterburner',
-      )}>{value}</div>
-      <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-contrail/60 mt-1">{label}</div>
-      {sublabel && <div className="font-mono text-[9px] text-parchment/30 mt-0.5">{sublabel}</div>}
-      {trend && (
+      <div
+        className={cn(
+          'glass-stat relative p-5 transition-all',
+          accentColor && 'border-l-[3px]',
+          className,
+        )}
+        style={accentColor ? { borderLeftColor: accentColor } : undefined}
+      >
+        {/* Top inner highlight */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent rounded-t-[inherit] pointer-events-none" />
+
         <div className={cn(
-          'font-mono text-[10px] mt-1',
-          trendDirection === 'up' ? 'text-positive' : trendDirection === 'down' ? 'text-accent' : 'text-white/55',
+          'font-display text-2xl font-extrabold text-parchment tabular-nums',
+          accentColor === '#C83C3C' && 'glow-red',
+          accentColor === '#FB923C' && 'glow-amber',
+          accentColor === '#4ADE80' && 'glow-green',
+          !accentColor && 'glow-afterburner',
         )}>
-          {trend}
+          {typeof value === 'number' ? (
+            <CountUp end={value} duration={1.0} separator="," preserveValue />
+          ) : (
+            <span>{value}</span>
+          )}
         </div>
-      )}
-    </div>
+        <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-contrail/60 mt-1">{label}</div>
+        {sublabel && <div className="font-mono text-[9px] text-parchment/30 mt-0.5">{sublabel}</div>}
+        {trend && (
+          <div className={cn(
+            'font-mono text-[10px] mt-1',
+            trendDirection === 'up' ? 'text-positive' : trendDirection === 'down' ? 'text-accent' : 'text-white/55',
+          )}>
+            {trend}
+          </div>
+        )}
+      </div>
+    </Tilt>
   );
 }
