@@ -59,22 +59,23 @@ export function MobileCommandCenter() {
   const { data: unreadCount } = useUnreadCount();
   const { data: notifData } = useNotifications(true);
 
-  // Resolve tile values
+  // Resolve tile values — guard every nested access
+  const safeAgents = Array.isArray(agents) ? agents : [];
   const tileValues: Record<string, { value: string; sub?: string }> = {
     BRANDS:    { value: String(brandStats?.total_tracked ?? '—'), sub: `${brandStats?.new_this_week ?? 0} new this week` },
     THREATS:   { value: String(obsStats?.threats_mapped ?? '—'), sub: `${obsStats?.countries ?? 0} countries` },
     ALERTS:    { value: String(alertStats?.total ?? '—'), sub: `${alertStats?.critical ?? 0} critical` },
     TAKEDOWNS: { value: String(takedownData?.total ?? '—'), sub: 'active requests' },
-    AGENTS:    { value: String(agents?.length ?? '—'), sub: `${agents?.filter(a => a.status === 'healthy').length ?? 0} healthy` },
+    AGENTS:    { value: String(safeAgents.length || '—'), sub: `${safeAgents.filter(a => a.status === 'healthy').length} healthy` },
     FEEDS:     { value: String(feedStats?.active ?? '—'), sub: `${feedStats?.total_ingested?.toLocaleString() ?? 0} ingested` },
   };
 
   // Latest intel from notifications
-  const latestIntel = (notifData?.notifications ?? []).slice(0, 3);
+  const latestIntel = (Array.isArray(notifData?.notifications) ? notifData.notifications : []).slice(0, 3);
 
   // Last scan time — use most recent agent run
-  const lastRunAt = agents
-    ?.filter(a => a.last_run_at)
+  const lastRunAt = safeAgents
+    .filter(a => a.last_run_at)
     .sort((a, b) => new Date(b.last_run_at!).getTime() - new Date(a.last_run_at!).getTime())[0]
     ?.last_run_at;
 

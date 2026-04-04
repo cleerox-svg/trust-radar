@@ -523,7 +523,7 @@ function MaintenanceSection() {
 }
 
 export function AdminDashboard() {
-  const { data, isLoading } = useSystemHealth();
+  const { data, isLoading, isError } = useSystemHealth();
 
   if (isLoading) return <PageLoader />;
 
@@ -533,7 +533,7 @@ export function AdminDashboard() {
   const sessions = data?.sessions ?? { count: 0 };
   const migrations = data?.migrations ?? { total: 0, last_run: null, last_name: null };
   const audit = data?.audit ?? { count: 0 };
-  const trend = data?.trend ?? [];
+  const trend = Array.isArray(data?.trend) ? data.trend : [];
   const infra = data?.infrastructure ?? {
     mainDb: { name: 'trust-radar-v2', sizeMb: 79.5, tables: 57, region: 'ENAM' },
     auditDb: { name: 'trust-radar-v2-audit', sizeKb: 180, tables: 2, region: 'ENAM' },

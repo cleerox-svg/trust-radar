@@ -39,9 +39,10 @@ export function useAuditLog(filters?: AuditFilters) {
         `/api/admin/audit${qs ? `?${qs}` : ''}`
       );
       const body = res as unknown as { data: AuditEntry[]; total: number };
+      const rawEntries = body.data;
       return {
-        entries: body.data ?? [],
-        total: body.total ?? 0,
+        entries: Array.isArray(rawEntries) ? rawEntries : [],
+        total: typeof body.total === 'number' ? body.total : 0,
       };
     },
     refetchInterval: 60_000,

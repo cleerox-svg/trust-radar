@@ -650,7 +650,15 @@ export function Campaigns() {
           title="Threat Types"
           metric={
             <span className="text-[32px] font-bold leading-none text-afterburner">
-              {opsStatsLoading ? '—' : (opsStats?.threat_types ?? 0).toLocaleString()}
+              {opsStatsLoading ? '—' : (() => {
+                const raw = opsStats?.threat_types;
+                if (raw == null) return '0';
+                if (typeof raw === 'number') return raw.toLocaleString();
+                if (typeof raw === 'string') return raw;
+                if (Array.isArray(raw)) return raw.join(', ');
+                if (typeof raw === 'object') return Object.keys(raw).join(', ');
+                return String(raw);
+              })()}
             </span>
           }
           metricLabel="Categories"

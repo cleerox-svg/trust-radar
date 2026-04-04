@@ -99,7 +99,7 @@ export function Threats() {
                 </tr>
               </thead>
               <tbody>
-                {data?.threats.map((t) => (
+                {(data?.threats ?? []).map((t) => (
                   <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.02]">
                     <td className="px-4 py-2 font-mono text-[11px] text-parchment/80">{t.threat_type}</td>
                     <td className="px-4 py-2 font-mono text-[11px] text-contrail truncate max-w-[200px]">{t.malicious_domain ?? '-'}</td>
@@ -116,7 +116,7 @@ export function Threats() {
                     <td className="px-4 py-2 font-mono text-[10px] text-contrail/50">{relativeTime(t.created_at)}</td>
                   </tr>
                 ))}
-                {(!data?.threats || data.threats.length === 0) && (
+                {(data?.threats ?? []).length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center font-mono text-[11px] text-contrail/40">
                       No threats found

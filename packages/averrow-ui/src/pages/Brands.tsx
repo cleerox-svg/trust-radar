@@ -424,12 +424,15 @@ interface BrandRowProps {
 
 function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
   const navigate = useNavigate();
-  const countColor = severityColor(brand.exposure_score ?? null, brand.threat_count);
+  const countColor = severityColor(brand.exposure_score ?? null, brand.threat_count ?? 0);
   const typeColor = threatTypeColor(brand.top_threat_type ?? '');
 
   return (
     <div
-      onClick={() => navigate(`/brands/${brand.id}`)}
+      role="button"
+      tabIndex={0}
+      onClick={() => { if (brand.id) navigate(`/brands/${brand.id}`); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' && brand.id) navigate(`/brands/${brand.id}`); }}
       className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] hover:bg-white/[0.03] cursor-pointer transition-colors group min-w-0"
     >
       {/* 1. Favicon */}
@@ -473,12 +476,12 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
         className="w-14 text-right font-bold font-mono text-sm flex-shrink-0"
         style={{ color: countColor }}
       >
-        {brand.threat_count.toLocaleString()}
+        {(brand.threat_count ?? 0).toLocaleString()}
       </span>
 
       {/* 6. Trend badge */}
       <div className="w-14 flex-shrink-0">
-        <TrendBadge trend={brand.threat_trend ?? 0} />
+        <TrendBadge trend={brand.threat_trend} />
       </div>
 
       {/* 7. Type pill — hidden on mobile */}
@@ -665,15 +668,15 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
       {/* Threat count + trend */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <span className="font-mono text-sm font-bold" style={{ color: countColor }}>
-          {brand.threat_count.toLocaleString()}
+          {(brand.threat_count ?? 0).toLocaleString()}
         </span>
-        {(brand.threat_trend ?? 0) !== 0 && (
+        {brand.threat_trend != null && isFinite(brand.threat_trend) && brand.threat_trend !== 0 && (
           <span className={cn(
             'text-[9px] font-mono',
-            (brand.threat_trend ?? 0) > 0 ? 'text-[#f87171]' : 'text-[#4ade80]',
+            brand.threat_trend > 0 ? 'text-[#f87171]' : 'text-[#4ade80]',
           )}>
-            {(brand.threat_trend ?? 0) > 0 ? '▲' : '▼'}
-            {Math.abs(brand.threat_trend ?? 0)}%
+            {brand.threat_trend > 0 ? '▲' : '▼'}
+            {Math.abs(brand.threat_trend).toFixed(1)}%
           </span>
         )}
       </div>
