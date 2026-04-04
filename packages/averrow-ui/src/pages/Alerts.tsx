@@ -860,6 +860,10 @@ export function Alerts() {
             { value: 'social_impersonation', label: 'Social' },
             { value: 'phishing_detected', label: 'Phishing' },
             { value: 'lookalike_domain_active', label: 'Lookalike' },
+            { value: 'bimi_removed', label: 'BIMI Removed' },
+            { value: 'dmarc_downgraded', label: 'DMARC Downgraded' },
+            { value: 'vmc_expiring', label: 'VMC Expiring' },
+            { value: 'typosquat_bimi', label: 'BIMI Spoofing' },
           ]}
           selected={filters.alert_type ?? 'all'}
           onChange={v => setFilter('alert_type', v)}

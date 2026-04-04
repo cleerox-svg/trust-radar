@@ -30,6 +30,12 @@ export function createMockBrand(overrides = {}) {
     social_risk_score: null,
     last_social_scan: null,
     logo_url: null,
+    bimi_grade: 'B',
+    bimi_record: null,
+    bimi_svg_url: null,
+    bimi_vmc_url: null,
+    bimi_vmc_valid: null,
+    bimi_vmc_expiry: null,
     ...overrides,
   };
 }

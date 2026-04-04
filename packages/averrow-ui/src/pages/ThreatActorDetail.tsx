@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { StatCard } from '@/components/brands/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useThreatActorDetail } from '@/hooks/useThreatActors';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 
 function countryFlag(code: string | null): string {
   if (!code || code.length !== 2) return '';
@@ -278,11 +279,14 @@ export function ThreatActorDetail() {
                     <div className="text-[10px] text-gauge-gray">{target.canonical_domain}</div>
                   )}
                 </div>
-                {target.sector && (
-                  <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-gauge-gray border border-white/5">
-                    {target.sector}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <BIMIGradeBadge grade={(target as any).bimi_grade ?? null} size="sm" tooltip />
+                  {target.sector && (
+                    <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-gauge-gray border border-white/5">
+                      {target.sector}
+                    </span>
+                  )}
+                </div>
               </button>
             ))}
           </div>

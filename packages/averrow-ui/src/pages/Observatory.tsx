@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 
 const PERIODS = [
   { id: '24h', label: '24H' },
@@ -793,13 +794,16 @@ function TopBrandsList({ period }: { period: string }) {
             className="w-4 h-4"
           />
           <span className="text-xs text-parchment/80 flex-1 truncate">{brand.name}</span>
-          <span className={cn(
-            'font-mono text-xs font-bold tabular-nums',
-            brand.threat_count >= 100 ? 'text-red-400 glow-red' :
-            brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment'
-          )}>
-            {brand.threat_count}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <BIMIGradeBadge grade={brand.bimi_grade} size="sm" />
+            <span className={cn(
+              'font-mono text-xs font-bold tabular-nums',
+              brand.threat_count >= 100 ? 'text-red-400 glow-red' :
+              brand.threat_count >= 20 ? 'text-amber-400' : 'text-parchment'
+            )}>
+              {brand.threat_count}
+            </span>
+          </div>
         </div>
       ))}
     </div>

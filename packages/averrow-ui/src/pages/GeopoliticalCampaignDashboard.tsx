@@ -14,6 +14,7 @@ import {
   useGeoCampaignAssessment,
 } from '@/hooks/useGeopoliticalCampaign';
 import type { GeoCampaignThreat } from '@/hooks/useGeopoliticalCampaign';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -128,45 +129,71 @@ function TimelineChart({ labels, values }: { labels: string[]; values: number[] 
 
 // ─── Brands Heat Map ────────────────────────────────────────────
 
-function BrandsHeatMap({ brands }: { brands: Array<{ name: string; threat_count: number; critical_count: number; high_count: number; sector: string | null }> }) {
+function BrandsHeatMap({ brands }: { brands: Array<{ name: string; threat_count: number; critical_count: number; high_count: number; sector: string | null; bimi_grade?: string | null; domain?: string | null }> }) {
   if (brands.length === 0) {
     return <p className="text-[11px] text-gauge-gray font-mono">No brand targeting data.</p>;
   }
 
   const maxCount = Math.max(...brands.map(b => b.threat_count), 1);
+  const vulnerable = brands.filter(b =>
+    b.bimi_grade && ['C', 'D', 'F'].includes(b.bimi_grade)
+  );
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-      {brands.map(brand => {
-        const opacity = severityOpacity(brand.threat_count, maxCount);
-        const color = severityColor(null, brand.threat_count);
-        return (
-          <div
-            key={brand.name}
-            className="rounded-lg border border-white/10 p-3 transition-all hover:border-white/20"
-            style={{ backgroundColor: `rgba(255,255,255,${opacity * 0.06})` }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-mono font-semibold text-instrument-white truncate">
-                {brand.name}
-              </span>
-              <span className="text-[13px] font-mono font-bold" style={{ color }}>
-                {brand.threat_count}
-              </span>
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {brands.map(brand => {
+          const opacity = severityOpacity(brand.threat_count, maxCount);
+          const color = severityColor(null, brand.threat_count);
+          return (
+            <div
+              key={brand.name}
+              className="rounded-lg border border-white/10 p-3 transition-all hover:border-white/20"
+              style={{ backgroundColor: `rgba(255,255,255,${opacity * 0.06})` }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-mono font-semibold text-instrument-white truncate">
+                  {brand.name}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <BIMIGradeBadge grade={(brand.bimi_grade as any) ?? null} size="sm" />
+                  <span className="text-[13px] font-mono font-bold" style={{ color }}>
+                    {brand.threat_count}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[9px] font-mono text-gauge-gray">
+                {brand.sector && <span>{brand.sector}</span>}
+                {brand.critical_count > 0 && (
+                  <span className="text-[#f87171]">{brand.critical_count} crit</span>
+                )}
+                {brand.high_count > 0 && (
+                  <span className="text-[#fb923c]">{brand.high_count} high</span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-[9px] font-mono text-gauge-gray">
-              {brand.sector && <span>{brand.sector}</span>}
-              {brand.critical_count > 0 && (
-                <span className="text-[#f87171]">{brand.critical_count} crit</span>
-              )}
-              {brand.high_count > 0 && (
-                <span className="text-[#fb923c]">{brand.high_count} high</span>
-              )}
-            </div>
+          );
+        })}
+      </div>
+      {vulnerable.length > 0 && (
+        <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+          <p className="text-red-400 text-xs font-semibold mb-1">
+            Email Vulnerability
+          </p>
+          <p className="text-white/50 text-xs">
+            {vulnerable.length} of {brands.length} targeted brands lack
+            DMARC enforcement — email spoofing attacks will reach inboxes.
+          </p>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {vulnerable.map(b => (
+              <span key={b.name} className="text-[10px] text-red-300 font-mono">
+                {b.domain ?? b.name}
+              </span>
+            ))}
           </div>
-        );
-      })}
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

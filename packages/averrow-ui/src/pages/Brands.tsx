@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/useWindowWidth';
 import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Search, Shield } from 'lucide-react';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 
 /* ─── Types ─── */
 
@@ -502,7 +503,7 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
 
       {/* 8. Grade badge — hidden on mobile */}
       <div className="w-9 text-center flex-shrink-0 hidden md:block">
-        {gradeBadge(brand.email_security_grade)}
+        <BIMIGradeBadge grade={brand.bimi_grade} size="sm" tooltip />
       </div>
 
       {/* 9. Star toggle */}

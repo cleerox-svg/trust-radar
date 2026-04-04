@@ -23,6 +23,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
 import { StatCard } from '@/components/brands/StatCard';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
+import { BIMIStatusRow } from '@/components/ui/BIMIStatusRow';
 import { relativeTime, timeAgo } from '@/lib/time';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -325,8 +327,10 @@ function getGradeClass(grade: string | null): string {
   return 'text-[#f87171]';
 }
 
-function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | null }) {
+function EmailPostureCard({ emailSec, grade, brand }: { emailSec: any; grade: string | null; brand: any }) {
   const gradeClass = getGradeClass(grade);
+  const bimiGrade = brand?.bimi_grade ?? null;
+
   return (
     <StatCard
       title="Email Posture"
@@ -353,6 +357,63 @@ function EmailPostureCard({ emailSec, grade }: { emailSec: any; grade: string | 
             </div>
           );
         })}
+
+        {/* BIMI / VMC rows */}
+        <div className="border-t border-white/[0.06] mt-2 pt-2">
+          <BIMIStatusRow
+            label="BIMI"
+            status={brand?.bimi_record ? 'pass' : 'missing'}
+            detail={brand?.bimi_svg_url
+              ? (() => { try { return new URL(brand.bimi_svg_url).hostname; } catch { return undefined; } })()
+              : undefined}
+          />
+          <BIMIStatusRow
+            label="VMC"
+            status={brand?.bimi_vmc_valid ? 'verified' : brand?.bimi_vmc_url ? 'fail' : 'none'}
+            detail={brand?.bimi_vmc_expiry
+              ? `Expires ${new Date(brand.bimi_vmc_expiry).toLocaleDateString()}`
+              : undefined}
+          />
+        </div>
+
+        {/* BIMI Grade */}
+        <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+          <span className="text-white/40 text-[10px] font-mono uppercase tracking-wider">
+            Email Grade
+          </span>
+          <BIMIGradeBadge grade={bimiGrade} size="lg" tooltip />
+        </div>
+
+        {/* BIMI SVG preview */}
+        {brand?.bimi_svg_url && (
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <p className="text-white/30 text-[10px] font-mono mb-2">BIMI LOGO</p>
+            <div className="flex items-center gap-3">
+              <img
+                src={brand.bimi_svg_url}
+                alt="BIMI Logo"
+                className="w-8 h-8 rounded"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <p className="text-white/30 text-[10px] font-mono truncate">
+                {brand.bimi_svg_url}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Grade improvement hint */}
+        {bimiGrade && ['B', 'C', 'D', 'F'].includes(bimiGrade) && (
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <p className="text-white/40 text-[10px]">
+              {bimiGrade === 'B'
+                ? '\u2192 Publish a BIMI record to reach grade A'
+                : bimiGrade === 'C'
+                ? '\u2192 Upgrade DMARC to enforce to reach grade B'
+                : '\u2192 Implement DMARC enforcement to protect email'}
+            </p>
+          </div>
+        )}
       </div>
     </StatCard>
   );
@@ -592,7 +653,7 @@ export function BrandDetail() {
         <ActiveThreatsCard threats={threats} />
 
         {/* ── Card 3: Email Posture ── */}
-        <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} />
+        <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} brand={brand} />
 
         {/* ── Card 4: Social Risk ── */}
         <SocialRiskCard

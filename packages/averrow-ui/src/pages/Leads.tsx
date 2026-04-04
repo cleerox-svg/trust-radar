@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 import { Target } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 
 const PIPELINE_STATUSES = ['new', 'researched', 'drafted', 'approved', 'sent', 'responded', 'meeting', 'converted'] as const;
 
@@ -66,15 +67,10 @@ function KanbanCard({ lead, onClick }: { lead: SalesLead; onClick: () => void })
       </div>
       <div className="flex items-center gap-2 text-[10px] font-mono text-contrail/60">
         {lead.email_security_grade && (
-          <>
-            <span>Grade:</span>
-            <Badge variant={gradeVariant(lead.email_security_grade)} className="text-[8px] py-0 px-1.5">
-              {lead.email_security_grade}
-            </Badge>
-          </>
+          <BIMIGradeBadge grade={lead.email_security_grade} size="sm" showLabel tooltip />
         )}
         {lead.threat_count_30d != null && (
-          <span className="text-white/55">· {lead.threat_count_30d} threats/30d</span>
+          <span className="text-white/55">{lead.email_security_grade ? '· ' : ''}{lead.threat_count_30d} threats/30d</span>
         )}
       </div>
       {lead.ai_enriched === 1 && (
