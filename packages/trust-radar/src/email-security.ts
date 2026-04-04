@@ -330,6 +330,7 @@ export interface EmailSecurityResult {
     exists: boolean;
     providers: string[];
   };
+  bimi: BIMIResult;
   recommendations: string[];
   scanned_at: string;
   scan_duration_ms: number;
@@ -346,6 +347,9 @@ export async function runEmailSecurityScan(domain: string): Promise<EmailSecurit
   ]);
 
   const { score, grade } = calculateEmailSecurityScore({ dmarc, spf, dkim, mx });
+
+  // BIMI scan runs after DMARC since it depends on the DMARC policy
+  const bimi = await scanBIMI(domain, dmarc.policy);
 
   return {
     domain,
@@ -374,10 +378,130 @@ export async function runEmailSecurityScan(domain: string): Promise<EmailSecurit
       exists: mx.exists,
       providers: mx.providers,
     },
+    bimi,
     recommendations: generateRecommendations({ dmarc, spf, dkim, mx }),
     scanned_at: new Date().toISOString(),
     scan_duration_ms: Date.now() - startTime,
   };
+}
+
+// ─── BIMI Scanner ─────────────────────────────────────────────────────────
+
+export type BIMIGrade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+
+export interface BIMIResult {
+  record: string | null;
+  svg_url: string | null;
+  vmc_url: string | null;
+  vmc_valid: boolean;
+  vmc_expiry: string | null;
+  grade: BIMIGrade;
+}
+
+/**
+ * Scan a domain for BIMI (Brand Indicators for Message Identification).
+ *
+ * BIMI requires DMARC at enforcement level (quarantine or reject).
+ * Grades:
+ *   A+ = DMARC enforce + BIMI record + VMC verified
+ *   A  = DMARC enforce + BIMI record (no VMC)
+ *   B  = DMARC enforce, no BIMI
+ *   C  = DMARC quarantine, no BIMI
+ *   D  = DMARC none/reporting only
+ *   F  = No DMARC at all
+ */
+export async function scanBIMI(domain: string, dmarcPolicy: string | null): Promise<BIMIResult> {
+  const result: BIMIResult = {
+    record: null,
+    svg_url: null,
+    vmc_url: null,
+    vmc_valid: false,
+    vmc_expiry: null,
+    grade: 'F',
+  };
+
+  // Step 1: Determine base DMARC grade
+  if (!dmarcPolicy) {
+    result.grade = 'F';
+    return result;
+  }
+  if (dmarcPolicy === 'none') { result.grade = 'D'; return result; }
+  if (dmarcPolicy === 'quarantine') result.grade = 'C';
+  else if (dmarcPolicy === 'reject') result.grade = 'B';
+  else { result.grade = 'D'; return result; }
+
+  // Step 2: Look up BIMI DNS record
+  try {
+    const bimiRecords = await dnsLookup(`default._bimi.${domain}`, 'TXT');
+    const bimiTxt = bimiRecords.find(r => r.includes('v=BIMI1'));
+
+    if (!bimiTxt) {
+      // DMARC enforce but no BIMI — grade stays B or C
+      return result;
+    }
+
+    result.record = bimiTxt;
+
+    // Extract l= (logo URL) and a= (VMC URL)
+    const logoMatch = bimiTxt.match(/l=([^;\s]+)/);
+    const vmcMatch = bimiTxt.match(/a=([^;\s]+)/);
+
+    if (logoMatch) result.svg_url = logoMatch[1]!.trim();
+    if (vmcMatch) result.vmc_url = vmcMatch[1]!.trim();
+
+    // Step 3: Validate SVG is reachable
+    if (result.svg_url) {
+      try {
+        const svgRes = await fetch(result.svg_url, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (svgRes.ok) {
+          // BIMI record + reachable SVG = grade A
+          result.grade = 'A';
+        }
+      } catch {
+        // SVG unreachable — keep grade B/C
+      }
+    }
+
+    // Step 4: Check VMC if present
+    if (result.vmc_url && result.grade === 'A') {
+      try {
+        const vmcRes = await fetch(result.vmc_url, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (vmcRes.ok) {
+          result.vmc_valid = true;
+          result.grade = 'A+';
+
+          // Try to get expiry from response headers
+          const expires = vmcRes.headers.get('expires');
+          if (expires) result.vmc_expiry = expires;
+        }
+      } catch {
+        // VMC unreachable — stay at A
+      }
+    }
+  } catch {
+    // DNS lookup failed — return current grade based on DMARC only
+  }
+
+  return result;
+}
+
+/**
+ * Quick BIMI DNS check — returns true if a BIMI TXT record exists.
+ * Used by the typosquat scanner to flag suspicious domains.
+ */
+export async function checkBIMIExists(domain: string): Promise<boolean> {
+  try {
+    const records = await dnsLookup(`default._bimi.${domain}`, 'TXT');
+    return records.some(r => r.includes('v=BIMI1'));
+  } catch {
+    return false;
+  }
 }
 
 // ─── DB Save ───────────────────────────────────────────────────────────────
