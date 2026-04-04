@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/Button';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Tabs } from '@/components/ui/Tabs';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { CheckCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
 import { StatCard } from '@/components/brands/StatCard';
@@ -789,9 +791,14 @@ export function BrandDetail() {
             </div>
 
             {threats.length === 0 ? (
-              <div className="py-8 text-center text-contrail/30 font-mono text-xs">
-                No active threats detected — airspace clear
-              </div>
+              <EmptyState
+                icon={<CheckCircle />}
+                title="No active threats for this brand"
+                subtitle="Run AI Deep Scan for the latest analysis"
+                action={{ label: 'Run AI Deep Scan', onClick: () => triggerAnalysis.mutate(id) }}
+                variant="clean"
+                compact
+              />
             ) : (
               <>
                 {/* Table header */}
