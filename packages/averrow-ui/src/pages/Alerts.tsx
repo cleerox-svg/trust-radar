@@ -758,8 +758,8 @@ export function Alerts() {
   const bulkAck = useBulkAcknowledge();
   const bulkTakedown = useBulkTakedown();
 
-  const alerts = alertsData?.alerts ?? [];
-  const stats = statsData;
+  const alerts = Array.isArray(alertsData?.alerts) ? alertsData.alerts : [];
+  const stats = statsData && typeof statsData.total === 'number' ? statsData : undefined;
 
   const groups = useMemo(() => groupByBrand(alerts), [alerts]);
 
