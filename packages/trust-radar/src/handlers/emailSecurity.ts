@@ -11,6 +11,8 @@
 
 import { json } from '../lib/cors';
 import { runEmailSecurityScan, saveEmailSecurityScan } from '../email-security';
+import type { BIMIResult } from '../email-security';
+import { createAlert } from '../lib/alerts';
 import type { EmailSecurityScan, Env } from '../types';
 
 // ─── GET /api/email-security/:brandId ─────────────────────────────────────
@@ -72,11 +74,46 @@ export async function handleScanBrandEmailSecurity(
     const result = await runEmailSecurityScan(domain);
     await saveEmailSecurityScan(env.DB, brand.id, result);
 
+    // Fetch previous BIMI/DMARC state for change detection
+    const prev = await env.DB.prepare(
+      `SELECT bimi_record, bimi_grade, email_security_grade
+       FROM brands WHERE id = ?`
+    ).bind(brand.id).first<{
+      bimi_record: string | null;
+      bimi_grade: string | null;
+      email_security_grade: string | null;
+    }>();
+
+    const previousBimiRecord = prev?.bimi_record ?? null;
+    const previousGrade = prev?.email_security_grade ?? null;
+
+    // Persist BIMI fields + email security score
     await env.DB.prepare(`
       UPDATE brands
-      SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now')
+      SET email_security_score = ?,
+          email_security_grade = ?,
+          email_security_scanned_at = datetime('now'),
+          bimi_record = ?,
+          bimi_svg_url = ?,
+          bimi_vmc_url = ?,
+          bimi_vmc_valid = ?,
+          bimi_vmc_expiry = ?,
+          bimi_grade = ?,
+          bimi_last_checked = datetime('now')
       WHERE id = ?
-    `).bind(result.score, result.grade, brand.id).run();
+    `).bind(
+      result.score, result.grade,
+      result.bimi.record,
+      result.bimi.svg_url,
+      result.bimi.vmc_url,
+      result.bimi.vmc_valid ? 1 : 0,
+      result.bimi.vmc_expiry,
+      result.bimi.grade,
+      brand.id,
+    ).run();
+
+    // Generate BIMI-related alerts
+    await emitBIMIAlerts(env.DB, String(brand.id), domain, result.bimi, previousBimiRecord, previousGrade, result.dmarc.policy);
 
     return json({ success: true, data: result }, 200, origin);
   } catch (err) {
@@ -112,11 +149,40 @@ export async function handleScanAllEmailSecurity(
       try {
         const result = await runEmailSecurityScan(brand.domain);
         await saveEmailSecurityScan(env.DB, brand.id, result);
+
+        // Fetch previous state for change detection
+        const prev = await env.DB.prepare(
+          `SELECT bimi_record, email_security_grade FROM brands WHERE id = ?`
+        ).bind(brand.id).first<{
+          bimi_record: string | null;
+          email_security_grade: string | null;
+        }>();
+
         await env.DB.prepare(`
           UPDATE brands
-          SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now')
+          SET email_security_score = ?,
+              email_security_grade = ?,
+              email_security_scanned_at = datetime('now'),
+              bimi_record = ?,
+              bimi_svg_url = ?,
+              bimi_vmc_url = ?,
+              bimi_vmc_valid = ?,
+              bimi_vmc_expiry = ?,
+              bimi_grade = ?,
+              bimi_last_checked = datetime('now')
           WHERE id = ?
-        `).bind(result.score, result.grade, brand.id).run();
+        `).bind(
+          result.score, result.grade,
+          result.bimi.record,
+          result.bimi.svg_url,
+          result.bimi.vmc_url,
+          result.bimi.vmc_valid ? 1 : 0,
+          result.bimi.vmc_expiry,
+          result.bimi.grade,
+          brand.id,
+        ).run();
+
+        await emitBIMIAlerts(env.DB, String(brand.id), brand.domain, result.bimi, prev?.bimi_record ?? null, prev?.email_security_grade ?? null, result.dmarc.policy);
         scanned++;
       } catch (e) {
         console.error(`[email-security] scan failed for ${brand.domain}:`, e);
@@ -175,11 +241,39 @@ export async function handlePublicEmailSecurity(
 
     if (brand) {
       await saveEmailSecurityScan(env.DB, brand.id, result);
+
+      const prev = await env.DB.prepare(
+        `SELECT bimi_record, email_security_grade FROM brands WHERE id = ?`
+      ).bind(brand.id).first<{
+        bimi_record: string | null;
+        email_security_grade: string | null;
+      }>();
+
       await env.DB.prepare(`
         UPDATE brands
-        SET email_security_score = ?, email_security_grade = ?, email_security_scanned_at = datetime('now')
+        SET email_security_score = ?,
+            email_security_grade = ?,
+            email_security_scanned_at = datetime('now'),
+            bimi_record = ?,
+            bimi_svg_url = ?,
+            bimi_vmc_url = ?,
+            bimi_vmc_valid = ?,
+            bimi_vmc_expiry = ?,
+            bimi_grade = ?,
+            bimi_last_checked = datetime('now')
         WHERE id = ?
-      `).bind(result.score, result.grade, brand.id).run();
+      `).bind(
+        result.score, result.grade,
+        result.bimi.record,
+        result.bimi.svg_url,
+        result.bimi.vmc_url,
+        result.bimi.vmc_valid ? 1 : 0,
+        result.bimi.vmc_expiry,
+        result.bimi.grade,
+        brand.id,
+      ).run();
+
+      await emitBIMIAlerts(env.DB, String(brand.id), domain, result.bimi, prev?.bimi_record ?? null, prev?.email_security_grade ?? null, result.dmarc.policy);
     }
 
     return json({ success: true, data: result }, 200, origin);
@@ -260,6 +354,81 @@ export async function handleEmailSecurityStats(
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── BIMI Alert Emitter ───────────────────────────────────────────────────
+
+/**
+ * Emit alerts when BIMI/DMARC state changes between scans.
+ * Uses a system userId since these are automated alerts.
+ */
+async function emitBIMIAlerts(
+  db: D1Database,
+  brandId: string,
+  domain: string,
+  bimi: BIMIResult,
+  previousBimiRecord: string | null,
+  previousGrade: string | null,
+  currentDmarcPolicy: string | null,
+): Promise<void> {
+  const systemUserId = 'system';
+
+  // 1. BIMI record removed
+  if (previousBimiRecord && !bimi.record) {
+    await createAlert(db, {
+      brandId,
+      userId: systemUserId,
+      alertType: 'bimi_removed',
+      severity: 'HIGH',
+      title: `BIMI record removed for ${domain}`,
+      summary: `The BIMI DNS record for ${domain} has been removed. ` +
+        `Email logo display in Gmail and Apple Mail will stop.`,
+      details: { domain, previous_record: previousBimiRecord },
+      sourceType: 'email_security_scan',
+    });
+  }
+
+  // 2. DMARC policy downgraded (was reject, now something weaker)
+  if (previousGrade && currentDmarcPolicy) {
+    // A+ / A / B grades all imply DMARC reject was in place
+    const previousWasReject = ['A+', 'A', 'B'].includes(previousGrade);
+    if (previousWasReject && currentDmarcPolicy !== 'reject') {
+      await createAlert(db, {
+        brandId,
+        userId: systemUserId,
+        alertType: 'dmarc_downgraded',
+        severity: 'CRITICAL',
+        title: `DMARC policy downgraded for ${domain}`,
+        summary: `DMARC policy changed to '${currentDmarcPolicy}'. ` +
+          `Email spoofing protection is now reduced.`,
+        details: { domain, new_policy: currentDmarcPolicy, previous_grade: previousGrade },
+        sourceType: 'email_security_scan',
+      });
+    }
+  }
+
+  // 3. VMC certificate expiring soon
+  if (bimi.vmc_expiry) {
+    const expiryDate = new Date(bimi.vmc_expiry);
+    if (!isNaN(expiryDate.getTime())) {
+      const daysUntilExpiry = Math.ceil(
+        (expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
+        await createAlert(db, {
+          brandId,
+          userId: systemUserId,
+          alertType: 'vmc_expiring',
+          severity: daysUntilExpiry <= 7 ? 'CRITICAL' : 'HIGH',
+          title: `VMC certificate expiring in ${daysUntilExpiry} days for ${domain}`,
+          summary: `The Verified Mark Certificate for ${domain} expires on ` +
+            `${expiryDate.toDateString()}. Renew to maintain Gmail BIMI display.`,
+          details: { domain, expiry_date: bimi.vmc_expiry, days_remaining: daysUntilExpiry },
+          sourceType: 'email_security_scan',
+        });
+      }
+    }
   }
 }
 
