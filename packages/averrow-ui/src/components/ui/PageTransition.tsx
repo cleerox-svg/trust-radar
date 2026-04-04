@@ -1,7 +1,7 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 
-const variants = {
+const variants: Variants = {
   initial: { opacity: 0, y: 6, filter: 'blur(3px)' },
   enter: {
     opacity: 1,
