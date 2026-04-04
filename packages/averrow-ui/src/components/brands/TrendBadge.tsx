@@ -6,11 +6,7 @@ interface TrendBadgeProps {
 }
 
 export function TrendBadge({ trend, className }: TrendBadgeProps) {
-  if (trend === null || trend === undefined) {
-    return <span className={cn('font-mono text-xs text-white/30', className)}>&mdash;</span>;
-  }
-
-  if (trend === 0) {
+  if (trend == null || !isFinite(trend) || trend === 0) {
     return <span className={cn('font-mono text-xs text-white/30', className)}>&mdash;</span>;
   }
 
