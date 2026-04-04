@@ -1,6 +1,8 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
+import { checkBIMIExists } from "../email-security";
+import { createAlert } from "../lib/alerts";
 
 /**
  * Typosquat Scanner — generates domain variants for monitored brands
@@ -161,6 +163,11 @@ export const typosquat_scanner: FeedModule = {
           const isRegistered = await checkDomainRegistered(variant);
           if (!isRegistered) continue;
 
+          // Check if the typosquat has a BIMI record — highly suspicious
+          const hasBIMI = await checkBIMIExists(variant);
+          const severity = hasBIMI ? "high" : "medium";
+          const confidence = hasBIMI ? 90 : 70;
+
           // Registered typosquat found — insert as threat
           await insertThreat(env.DB, {
             id: threatId("typosquat_scanner", "domain", variant),
@@ -170,9 +177,26 @@ export const typosquat_scanner: FeedModule = {
             malicious_url: `http://${variant}`,
             ioc_value: variant,
             target_brand_id: String(brand.id),
-            severity: "medium",
-            confidence_score: 70,
+            severity,
+            confidence_score: confidence,
           });
+
+          // Fire alert for BIMI-enabled typosquats
+          if (hasBIMI) {
+            await createAlert(env.DB, {
+              brandId: String(brand.id),
+              userId: "system",
+              alertType: "typosquat_bimi",
+              severity: "HIGH",
+              title: `Typosquat domain has BIMI record: ${variant}`,
+              summary: `The lookalike domain ${variant} has published a BIMI ` +
+                `record, suggesting it is attempting to display a trusted logo in email clients. ` +
+                `This indicates a sophisticated phishing operation.`,
+              details: { domain: variant, brand_domain: brand.canonical_domain },
+              sourceType: "typosquat_scanner",
+            });
+          }
+
           await markSeen(ctx.env, "domain", dedupKey);
           itemsNew++;
         } catch {

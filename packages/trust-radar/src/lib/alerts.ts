@@ -12,7 +12,11 @@ export type AlertType =
   | 'email_grade_change'
   | 'lookalike_domain_active'
   | 'ct_certificate_issued'
-  | 'threat_feed_match';
+  | 'threat_feed_match'
+  | 'bimi_removed'
+  | 'dmarc_downgraded'
+  | 'vmc_expiring'
+  | 'typosquat_bimi';
 
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
