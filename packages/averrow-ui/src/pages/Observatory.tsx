@@ -12,7 +12,9 @@ import { Badge } from '@/components/ui/Badge';
 import { EventTicker } from '@/components/observatory/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, Activity } from 'lucide-react';
+import { ObservatoryOverlay } from '@/components/ui/ObservatoryOverlay';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -152,6 +154,13 @@ export function Observatory() {
           onArcClick={handleArcClick}
           onClusterClick={handleClusterClick}
         />
+        {threats.length === 0 && (
+          <ObservatoryOverlay
+            historicalThreats={stats?.threats_mapped ?? 0}
+            historicalCountries={stats?.countries ?? 0}
+            timeWindow={PERIODS.find(p => p.id === period)?.label ?? period}
+          />
+        )}
       </div>
 
       {/* Top-left: Mode switcher + Period selector + Color mode */}
@@ -723,7 +732,15 @@ function LegendItem({ color, label, compact }: { color: string; label: string; c
 
 function OperationsClusterList({ operations, onSelect }: { operations: Operation[]; onSelect: (op: Operation) => void }) {
   if (operations.length === 0) {
-    return <div className="text-[10px] text-white/40 font-mono">No active operations</div>;
+    return (
+      <EmptyState
+        icon={<Activity />}
+        title="No active operations"
+        subtitle="Nexus will surface correlated attack clusters as threat data accumulates"
+        variant="scanning"
+        compact
+      />
+    );
   }
 
   return (
@@ -886,7 +903,15 @@ function ActiveOperationsPanel() {
   });
 
   if (operations.length === 0) {
-    return <div className="text-[10px] text-white/40 font-mono">No active operations</div>;
+    return (
+      <EmptyState
+        icon={<Activity />}
+        title="No active operations"
+        subtitle="Operations will appear as the pipeline processes new threats"
+        variant="scanning"
+        compact
+      />
+    );
   }
 
   return (

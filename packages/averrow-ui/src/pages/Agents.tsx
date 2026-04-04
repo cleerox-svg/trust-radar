@@ -5,6 +5,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Bot } from 'lucide-react';
 import { CardGridLoader } from '@/components/ui/PageLoader';
 import { Badge } from '@/components/ui/Badge';
 import { AgentIcon } from '@/components/brand/AgentIcon';
@@ -666,7 +667,12 @@ function MonitorView() {
             )}
           </div>
         ) : (
-          <EmptyState message="No agents available" />
+          <EmptyState
+            icon={<Bot />}
+            title="Squadron offline"
+            subtitle="No AI agents are currently registered. Check your worker deployment and agent configuration."
+            variant="error"
+          />
         )}
       </div>
 

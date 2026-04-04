@@ -4,6 +4,8 @@ import { StatCard } from '@/components/brands/StatCard';
 import { Sparkline } from '@/components/brands/Sparkline';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Globe } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   useProviderIntelligence,
   useProviders,
@@ -130,7 +132,13 @@ function ClusterPanel({
         </button>
       )}
       {clusters.length === 0 && (
-        <div className="font-mono text-[11px] text-white/40 py-4 text-center">No clusters detected</div>
+        <EmptyState
+          icon={<Globe />}
+          title="No clusters detected"
+          subtitle="Infrastructure clusters will appear as threat correlations are identified"
+          variant="scanning"
+          compact
+        />
       )}
       {clusters.map(cluster => {
         const status = getClusterStatus(cluster);
@@ -493,7 +501,13 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
             </table>
           </div>
         ) : (
-          <div className="font-mono text-[11px] text-white/40 py-4 text-center">No threats found</div>
+          <EmptyState
+            icon={<Globe />}
+            title="No infrastructure detected"
+            subtitle="Provider intelligence populates as threats are analyzed and ASNs are identified"
+            variant="scanning"
+            compact
+          />
         )}
       </div>
     </div>

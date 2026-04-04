@@ -13,6 +13,8 @@ import { TableLoader } from '@/components/ui/PageLoader';
 import { DrillHeader } from '@/components/mobile/DrillHeader';
 import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
+import { Target } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 const PIPELINE_STATUSES = ['new', 'researched', 'drafted', 'approved', 'sent', 'responded', 'meeting', 'converted'] as const;
 
@@ -104,9 +106,15 @@ function KanbanView({ leads, onSelect }: { leads: SalesLead[]; onSelect: (lead: 
               <KanbanCard key={lead.id} lead={lead} onClick={() => onSelect(lead)} />
             ))}
             {(grouped[col] || []).length === 0 && (
-              <div className="text-center text-white/40 font-mono text-[10px] py-6 border border-dashed border-white/[0.06] rounded-lg">
-                No leads
-              </div>
+              <EmptyState
+                icon={<Target />}
+                title="No leads"
+                subtitle={col === 'new'
+                  ? 'Run Pathfinder to discover brands that need Averrow'
+                  : `No leads in ${columnLabel(col).toLowerCase()} stage`}
+                variant="scanning"
+                compact
+              />
             )}
           </div>
         </div>

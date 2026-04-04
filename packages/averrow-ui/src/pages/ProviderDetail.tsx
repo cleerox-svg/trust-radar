@@ -8,6 +8,8 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Tabs } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { Globe } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, Th, Td } from '@/components/ui/Table';
 import { relativeTime } from '@/lib/time';
 
@@ -132,8 +134,14 @@ export function ProviderDetail() {
               ))}
               {threats.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-sm text-center text-white/40 border-b border-white/[0.03]">
-                    No threats found
+                  <td colSpan={5} className="px-3 py-2">
+                    <EmptyState
+                      icon={<Globe />}
+                      title="No threats found"
+                      subtitle="No threats have been linked to this provider yet"
+                      variant="clean"
+                      compact
+                    />
                   </td>
                 </tr>
               )}

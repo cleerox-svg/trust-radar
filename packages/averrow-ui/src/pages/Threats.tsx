@@ -6,6 +6,8 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { severityColor } from '@/lib/severityColor';
 import { relativeTime } from '@/lib/time';
+import { CheckCircle, Search } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Threat {
   id: string;
@@ -146,8 +148,19 @@ export function Threats() {
                 ))}
                 {(data?.threats ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center font-mono text-[11px] text-white/40">
-                      No threats found
+                    <td colSpan={7} className="px-4 py-2">
+                      <EmptyState
+                        icon={(status || severity) ? <Search /> : <CheckCircle />}
+                        title={(status || severity) ? 'No threats match filters' : 'No active threats'}
+                        subtitle={(status || severity)
+                          ? 'Try a different severity filter or time window'
+                          : 'All monitored brands are clean for this time window'}
+                        action={(status || severity)
+                          ? { label: 'Clear filters', onClick: () => { setStatus(''); setSeverity(''); setPage(0); } }
+                          : undefined}
+                        variant="clean"
+                        compact
+                      />
                     </td>
                   </tr>
                 )}

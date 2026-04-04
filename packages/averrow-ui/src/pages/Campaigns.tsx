@@ -15,6 +15,8 @@ import {
 import type { Operation } from '@/hooks/useOperations';
 import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
 import type { GeopoliticalCampaign } from '@/hooks/useGeopoliticalCampaign';
+import { Activity, Search } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -366,7 +368,13 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
             </table>
           </div>
         ) : (
-          <div className="font-mono text-[11px] text-white/40 py-4 text-center">No threats found</div>
+          <EmptyState
+            icon={<Activity />}
+            title="No threats linked"
+            subtitle="Threats will appear as they are correlated to this operation"
+            variant="clean"
+            compact
+          />
         )}
       </div>
     </div>
@@ -716,9 +724,12 @@ export function Campaigns() {
             )}
           </>
         ) : (
-          <div className="rounded-xl p-12 text-center glass-card">
-            <div className="font-mono text-[11px] text-white/40">No NEXUS operations detected</div>
-          </div>
+          <EmptyState
+            icon={<Activity />}
+            title="No active threat operations"
+            subtitle="Nexus will surface correlated attack clusters as threat data accumulates"
+            variant="scanning"
+          />
         )}
       </section>
 
@@ -827,11 +838,12 @@ export function Campaigns() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl p-12 text-center glass-card">
-            <div className="font-mono text-[11px] text-white/40">
-              No campaigns match current filters
-            </div>
-          </div>
+          <EmptyState
+            icon={<Search />}
+            title="No campaigns match current filters"
+            subtitle="Try adjusting your filters to see more results"
+            variant="clean"
+          />
         )}
       </section>
     </div>

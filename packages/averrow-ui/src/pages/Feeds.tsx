@@ -5,7 +5,8 @@ import { useAdminAction } from '@/hooks/useAdminAction';
 import type { FeedOverview, FeedPullRecord } from '@/hooks/useFeeds';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/cn';
-import { RotateCw, Loader2, Check, X } from 'lucide-react';
+import { RotateCw, Loader2, Check, X, Zap } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useQueryClient } from '@tanstack/react-query';
 
 /* ─── Helpers ─── */
@@ -675,6 +676,14 @@ export function Feeds() {
       <FeedHealthStrip feeds={allFeeds} />
 
       {/* 4. Feed sections */}
+      {allFeeds.length === 0 ? (
+        <EmptyState
+          icon={<Zap />}
+          title="No feeds configured"
+          subtitle="Configure your first threat intelligence feed to start ingesting data"
+          variant="scanning"
+        />
+      ) : (
       <div className="space-y-6">
         <FeedSection
           title="Healthy Feeds"
@@ -701,6 +710,7 @@ export function Feeds() {
           cardClass="text-white/40"
         />
       </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import type { Takedown, TakedownEvidence } from '@/hooks/useTakedowns';
 import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
+import { Shield } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Status mapping (DB → display) ────────────────────────────
 
@@ -577,11 +579,13 @@ function TakedownsMobileView() {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="p-8 text-center">
-              <span className="font-mono text-[10px] text-white/55 uppercase tracking-wider">
-                No takedowns match filter
-              </span>
-            </div>
+            <EmptyState
+              icon={<Shield />}
+              title="No takedown requests"
+              subtitle="Create a takedown request from any identified threat to begin the removal process"
+              variant="clean"
+              compact
+            />
           )}
           {!isLoading &&
             filtered.map((td, i) => (
@@ -768,11 +772,12 @@ function TakedownsDesktop() {
 
       {/* ─── EMPTY STATE ─────────────────────────────── */}
       {!isLoading && takedowns.length === 0 && (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <p className="font-mono text-[11px] text-white/50 uppercase tracking-wider">
-            No takedowns match the current filters
-          </p>
-        </div>
+        <EmptyState
+          icon={<Shield />}
+          title="No takedown requests"
+          subtitle="Create a takedown request from any identified threat to begin the removal process"
+          variant="clean"
+        />
       )}
     </div>
   );

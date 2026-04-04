@@ -4,6 +4,8 @@ import { StatCard } from '@/components/brands/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';
+import { Search } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -210,9 +212,13 @@ export function ThreatActors() {
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-white/10 bg-instrument-panel p-12 text-center">
-          <p className="text-gauge-gray font-mono text-sm">No threat actors found for this filter.</p>
-        </div>
+        <EmptyState
+          icon={<Search />}
+          title={`No ${filter !== 'all' ? filter + ' ' : ''}threat actors found`}
+          subtitle="Try a different country filter or check back as attribution data updates"
+          action={filter !== 'all' ? { label: 'Show all actors', onClick: () => setFilter('all') } : undefined}
+          variant="clean"
+        />
       )}
     </div>
   );
