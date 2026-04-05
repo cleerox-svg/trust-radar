@@ -339,13 +339,33 @@ function getGradeClass(grade: string | null): string {
   return 'text-[#f87171]';
 }
 
-function EmailPostureCard({ emailSec, grade, brand }: { emailSec: any; grade: string | null; brand: any }) {
+function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec: any; grade: string | null; brand: any; onViewDetails?: () => void }) {
   const gradeClass = getGradeClass(grade);
   const bimiGrade = brand?.bimi_grade ?? null;
 
+  // Count passing protocols for progress bar
+  const protocolResults = EMAIL_PROTOCOLS.map(proto => getEmailStatus(proto, emailSec));
+  const bimiPass = brand?.bimi_record ? 1 : 0;
+  const vmcPass = brand?.bimi_vmc_valid ? 1 : 0;
+  const totalChecks = 6; // SPF, DKIM, DMARC, MX, BIMI, VMC
+  const passing = protocolResults.filter(r => r.status === 'PASS' || r.status === 'FOUND').length + bimiPass + vmcPass;
+
+  const gradeBarColor =
+    grade === 'A+' || grade === 'A' ? 'bg-green-500' :
+    grade === 'B' ? 'bg-blue-400' :
+    grade === 'C' ? 'bg-amber-400' :
+    'bg-red-400';
+
   return (
     <StatCard
-      title="Email Posture"
+      title={
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <span>Email Security</span>
+        </div>
+      }
       metricLabel="GRADE"
       metric={
         <span className={`font-display text-[32px] font-extrabold leading-none ${gradeClass}`}>
@@ -354,6 +374,20 @@ function EmailPostureCard({ emailSec, grade, brand }: { emailSec: any; grade: st
       }
     >
       <div className="space-y-1">
+        {/* Protocol progress bar */}
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] font-mono text-white/30 mb-1">
+            <span>{passing} of {totalChecks} protocols</span>
+            <span className={gradeClass}>{grade || '\u2014'}</span>
+          </div>
+          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${gradeBarColor}`}
+              style={{ width: `${(passing / totalChecks) * 100}%` }}
+            />
+          </div>
+        </div>
+
         {EMAIL_PROTOCOLS.map(proto => {
           const { status, hint } = getEmailStatus(proto, emailSec);
           const cls = EMAIL_STATUS_CLASSES[status] || EMAIL_STATUS_CLASSES.MISSING;
@@ -425,6 +459,16 @@ function EmailPostureCard({ emailSec, grade, brand }: { emailSec: any; grade: st
                 : '\u2192 Implement DMARC enforcement to protect email'}
             </p>
           </div>
+        )}
+
+        {/* View DNS Details button */}
+        {onViewDetails && (
+          <button
+            onClick={onViewDetails}
+            className="mt-3 w-full text-center text-[10px] text-white/30 hover:text-afterburner transition-colors font-mono py-1"
+          >
+            View DNS Details &rarr;
+          </button>
         )}
       </div>
     </StatCard>
@@ -690,7 +734,7 @@ export function BrandDetail() {
           }}>
             <ExposureIndexCard brand={brand} threats={threats} />
             <ActiveThreatsCard threats={threats} />
-            <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} brand={brand} />
+            <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} brand={brand} onViewDetails={() => setActiveTab('email')} />
             <SocialRiskCard
               socialProfiles={socialProfiles}
               lastScan={brand.last_social_scan}

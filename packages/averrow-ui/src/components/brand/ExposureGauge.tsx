@@ -3,11 +3,12 @@ interface ExposureGaugeProps {
   size?: number;
 }
 
-export function ExposureGauge({ score, size = 120 }: ExposureGaugeProps) {
+export function ExposureGauge({ score, size = 160 }: ExposureGaugeProps) {
+
   if (score == null) return null;
 
   const center = size / 2;
-  const radius = (size - 12) / 2;
+  const radius = (size - 14) / 2;
   const circumference = 2 * Math.PI * radius;
 
   // Three severity zone arcs (each covers 1/3 of the ring)
@@ -28,27 +29,23 @@ export function ExposureGauge({ score, size = 120 }: ExposureGaugeProps) {
 
   // Ambient glow color based on score
   const glowColor =
-    score >= 80 ? 'rgba(239, 68, 68, 0.35)' :
-    score >= 60 ? 'rgba(249, 115, 22, 0.30)' :
-    score >= 40 ? 'rgba(229, 168, 50, 0.25)' :
-                  'rgba(59, 130, 246, 0.20)';
+    score >= 80 ? 'rgba(239, 68, 68, 0.6)' :
+    score >= 60 ? 'rgba(249, 115, 22, 0.5)' :
+    score >= 40 ? 'rgba(229, 168, 50, 0.4)' :
+                  'rgba(59, 130, 246, 0.3)';
 
   const pulseClass = score >= 80 ? 'gauge-critical' : score >= 60 ? 'gauge-high' : '';
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="relative flex items-center justify-center">
+      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
         {/* Ambient glow — blur behind the gauge */}
         <div
-          className="absolute rounded-full blur-2xl opacity-40 pointer-events-none"
-          style={{
-            width: '80%',
-            height: '80%',
-            background: glowColor,
-          }}
+          className="absolute inset-0 rounded-full blur-xl opacity-30 pointer-events-none"
+          style={{ background: glowColor }}
         />
         {/* Gauge SVG — with pulse class */}
-        <div className={pulseClass}>
+        <div className={`relative ${pulseClass}`}>
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-lg">
             {/* Background track */}
             <circle cx={center} cy={center} r={radius} fill="none"
@@ -75,12 +72,14 @@ export function ExposureGauge({ score, size = 120 }: ExposureGaugeProps) {
               strokeDashoffset={circumference * 0.25 - zoneLength * 2}
               transform={`rotate(-90 ${center} ${center})`} />
 
-            {/* Score fill arc */}
-            <circle cx={center} cy={center} r={radius} fill="none"
+            {/* Score fill arc — animated on mount via CSS transition */}
+            <circle
+              cx={center} cy={center} r={radius} fill="none"
               stroke={activeColor} strokeWidth="8" strokeLinecap="round"
               strokeDasharray={circumference} strokeDashoffset={fillOffset}
               transform={`rotate(-90 ${center} ${center})`}
-              className="transition-all duration-1000 ease-out" />
+              className="gauge-arc-animate"
+            />
 
             {/* Score position dot — pulsing */}
             <circle cx={dotX} cy={dotY} r="6" fill={activeColor}>
@@ -92,7 +91,7 @@ export function ExposureGauge({ score, size = 120 }: ExposureGaugeProps) {
 
           {/* Center content */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-display text-3xl font-extrabold" style={{ color: activeColor }}>{score}</span>
+            <span className="font-display text-4xl font-extrabold" style={{ color: activeColor }}>{score}</span>
           </div>
         </div>
       </div>
