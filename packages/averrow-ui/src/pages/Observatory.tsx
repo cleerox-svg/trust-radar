@@ -454,57 +454,46 @@ export function Observatory() {
       {/* Event ticker — self-positions with fixed at bottom */}
       <EventTicker />
 
-      {/* Bottom stats bar — always visible, pinned at very bottom */}
-      <div className={cn(
-        'z-20 bg-cockpit border-t border-cyan-800/20',
-        isMobile ? 'fixed bottom-0 left-0 w-full h-9' : 'absolute bottom-0 left-0 right-0'
-      )}>
-        <div className={cn(
-          'flex items-center justify-between',
-          isMobile ? 'px-4 h-full' : 'px-3 md:px-6 py-2 md:py-3'
-        )}>
-          {/* Mode label */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className={cn(
-              'font-mono uppercase tracking-wider',
-              isMobile ? 'text-[10px] text-contrail/60' : 'section-label'
-            )}>
-              {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
-            </span>
-          </div>
-
-          {/* Stats chips */}
-          <div className="flex items-center gap-3 md:gap-6 overflow-x-auto scrollbar-none">
-            {stats && (
-              <>
-                {isMobile ? (
-                  <>
-                    <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
-                      {(stats.threats_mapped ?? 0).toLocaleString()}
-                    </span>
-                    <span className="font-mono text-[10px] text-white/55">THREATS</span>
-                    <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
-                      {(stats.countries ?? 0).toLocaleString()}
-                    </span>
-                    <span className="font-mono text-[10px] text-white/55">COUNTRIES</span>
-                  </>
-                ) : (
-                  <>
-                    <StatChip value={stats.threats_mapped} label="Threats Mapped" color="text-accent" />
-                    <StatChip value={stats.countries} label="Countries" color="text-contrail" />
-                    <div className="hidden md:block">
-                      <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
-                    </div>
-                    <div className="hidden md:block">
-                      <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
+      {/* Bottom stats bar */}
+      {isMobile ? (
+        <div className="fixed bottom-0 left-0 w-full h-9 z-20 bg-cockpit border-t border-cyan-800/20">
+          <div className="flex items-center justify-between px-4 h-full">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="font-mono uppercase tracking-wider text-[10px] text-contrail/60">
+                {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 overflow-x-auto scrollbar-none">
+              {stats && (
+                <>
+                  <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
+                    {(stats.threats_mapped ?? 0).toLocaleString()}
+                  </span>
+                  <span className="font-mono text-[10px] text-white/55">THREATS</span>
+                  <span className="font-mono text-[10px] text-afterburner font-bold tabular-nums">
+                    {(stats.countries ?? 0).toLocaleString()}
+                  </span>
+                  <span className="font-mono text-[10px] text-white/55">COUNTRIES</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 glass-elevated rounded-xl px-6 py-3 flex items-center gap-6">
+          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/50 shrink-0">
+            {mapMode === 'global' ? 'GLOBAL THREAT MAP' : mapMode === 'operations' ? 'OPERATIONS MAP' : 'DENSITY HEATMAP'}
+          </span>
+          {stats && (
+            <>
+              <StatChip value={stats.threats_mapped} label="Threats Mapped" color="text-accent" />
+              <StatChip value={stats.countries} label="Countries" color="text-contrail" />
+              <StatChip value={stats.active_campaigns} label="Active Campaigns" color="text-warning" />
+              <StatChip value={stats.brands_monitored} label="Brands Monitored" color="text-positive" />
+            </>
+          )}
+        </div>
+      )}
 
       {/* ─── Clicked Arc Detail Card ─── */}
       {clickedArc && (
@@ -642,59 +631,79 @@ export function Observatory() {
 
       {/* ─── Right sidebar panel (desktop only) ─── */}
       {!isMobile && showPanel && mapMode !== 'heatmap' && (
-        <div className="absolute top-0 right-0 bottom-[84px] z-20 w-80 bg-cockpit/95 backdrop-blur-sm border-l border-white/5 overflow-y-auto">
+        <div className="absolute top-0 right-0 bottom-[84px] z-20 w-80 bg-slate-950/88 backdrop-blur-2xl border-l border-white/[0.06] shadow-[-8px_0_40px_rgba(0,0,0,0.5),inset_1px_0_0_rgba(255,255,255,0.04)] flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
           {/* Mode-aware header */}
           {mapMode === 'global' && (
             <>
-              <div className="p-4 border-b border-white/5">
-                <div className="section-label font-mono font-bold mb-3">
-                  Top Targeted Brands
-                </div>
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Top Targeted Brands</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+              <div className="px-4 pb-3">
                 <TopBrandsList period={period} />
               </div>
-              <div className="p-4 border-b border-white/5">
-                <div className="section-label font-mono font-bold mb-3">
-                  Hosting Providers
-                </div>
+              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 my-2" />
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Hosting Providers</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+              <div className="px-4 pb-3">
                 <TopProvidersList period={period} />
               </div>
-              <div className="p-4 border-b border-white/5">
-                <div className="section-label font-mono font-bold mb-3">
-                  Agent Intelligence
-                </div>
+              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 my-2" />
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Agent Intelligence</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+              <div className="px-4 pb-3">
                 <AgentAttribution agent="Observer + Sentinel" />
                 <AgentIntelFeed />
               </div>
-              <div className="p-4 border-b border-white/5">
-                <div className="section-label font-mono font-bold mb-3">
-                  Active Operations
-                </div>
+              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 my-2" />
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Active Operations</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+              <div className="px-4 pb-3">
                 <ActiveOperationsPanel />
               </div>
-              <div className="p-4">
-                <div className="section-label font-mono font-bold mb-3">
-                  Live Feed
-                </div>
+              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 my-2" />
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Live Feed</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+              <div className="px-4 pb-3">
                 <LiveThreatFeed />
               </div>
             </>
           )}
 
           {mapMode === 'operations' && (
-            <div className="p-4">
-              <div className="section-label font-mono font-bold mb-3">
-                Active Operations
+            <>
+              <div className="px-4 py-2 flex items-center gap-2">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 uppercase shrink-0">Active Operations</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
               </div>
-              <OperationsClusterList
-                operations={operations}
-                onSelect={(op) => {
-                  const countries = parseJsonArray(op.countries);
-                  const pos = countries.length > 0 ? countries[0] : '';
-                  setClickedCluster({ cluster: op, x: window.innerWidth / 2 - 160, y: 100 });
-                }}
-              />
-            </div>
+              <div className="px-4 pb-3">
+                <OperationsClusterList
+                  operations={operations}
+                  onSelect={(op) => {
+                    const countries = parseJsonArray(op.countries);
+                    const pos = countries.length > 0 ? countries[0] : '';
+                    setClickedCluster({ cluster: op, x: window.innerWidth / 2 - 160, y: 100 });
+                  }}
+                />
+              </div>
+            </>
           )}
+          </div>
         </div>
       )}
 
@@ -718,8 +727,8 @@ function StatChip({ value, label, color }: { value: number; label: string; color
   return (
     <div className="flex items-center gap-2">
       <div>
-        <div className={cn('font-display text-lg font-extrabold tabular-nums', color)}>{(value ?? 0).toLocaleString()}</div>
-        <div className="font-mono text-[9px] text-white/55 uppercase">{label}</div>
+        <div className={cn('font-mono text-xl font-bold tabular-nums', color)}>{(value ?? 0).toLocaleString()}</div>
+        <div className="font-mono text-[11px] text-white/50 uppercase">{label}</div>
       </div>
     </div>
   );

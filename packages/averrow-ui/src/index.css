@@ -664,6 +664,24 @@
   cursor: pointer;
 }
 
+/* ── GAUGE PULSE ANIMATIONS ───────────────────── */
+.gauge-critical {
+  position: relative;
+  animation: gauge-pulse-critical 2s ease-in-out infinite;
+}
+.gauge-high {
+  position: relative;
+  animation: gauge-pulse-high 3s ease-in-out infinite;
+}
+@keyframes gauge-pulse-critical {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(239, 68, 68, 0.3)); }
+  50% { filter: brightness(1.1) drop-shadow(0 0 12px rgba(239, 68, 68, 0.5)); }
+}
+@keyframes gauge-pulse-high {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 3px rgba(249, 115, 22, 0.2)); }
+  50% { filter: brightness(1.05) drop-shadow(0 0 8px rgba(249, 115, 22, 0.35)); }
+}
+
 /* ── BUTTON TRANSITIONS ────────────────────────── */
 .btn-primary {
   transition: all 0.15s ease;

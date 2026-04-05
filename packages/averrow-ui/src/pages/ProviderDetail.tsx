@@ -112,7 +112,7 @@ export function ProviderDetail() {
             </thead>
             <tbody>
               {threats.map(threat => (
-                <tr key={threat.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={threat.id} className="data-row">
                   <Td>
                     <span className="font-mono text-xs text-parchment/90 break-all">
                       {threat.malicious_url || threat.malicious_domain || threat.ip_address || '—'}

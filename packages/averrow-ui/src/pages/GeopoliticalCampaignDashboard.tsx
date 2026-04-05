@@ -260,7 +260,7 @@ function AsnClusterTable({ asns }: { asns: Array<{ asn: string; provider_name: s
         </thead>
         <tbody>
           {asns.map(asn => (
-            <tr key={asn.asn} className="border-b border-white/5">
+            <tr key={asn.asn} className="data-row border-b border-white/5">
               <td className="py-2 pr-4">
                 <span className="text-instrument-white">{asn.asn}</span>
                 {asn.is_known_adversary && (
@@ -344,7 +344,7 @@ function RecentThreatsTable({ threats }: { threats: GeoCampaignThreat[] }) {
         </thead>
         <tbody>
           {threats.slice(0, 20).map(threat => (
-            <tr key={threat.id} className="border-b border-white/5">
+            <tr key={threat.id} className="data-row border-b border-white/5">
               <td className="py-2 pr-4 text-instrument-white truncate max-w-[200px]">
                 {threat.malicious_domain ?? '—'}
               </td>

@@ -349,7 +349,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               </thead>
               <tbody>
                 {threats.map((threat, i) => (
-                  <tr key={String(threat.id ?? i)} className="border-b border-white/[0.04]">
+                  <tr key={String(threat.id ?? i)} className="data-row border-b border-white/[0.04]">
                     <td className="font-mono text-[11px] text-parchment py-1.5 px-2">{String(threat.threat_type ?? '—')}</td>
                     <td className="font-mono text-[11px] text-contrail/60 py-1.5 px-2 truncate max-w-[200px]">
                       {String(threat.malicious_domain ?? '—')}

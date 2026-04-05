@@ -436,7 +436,7 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
       tabIndex={0}
       onClick={() => { if (brand.id) navigate(`/brands/${brand.id}`); }}
       onKeyDown={(e) => { if (e.key === 'Enter' && brand.id) navigate(`/brands/${brand.id}`); }}
-      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] hover:bg-white/[0.03] cursor-pointer transition-colors group min-w-0"
+      className="data-row flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] cursor-pointer transition-colors group min-w-0"
     >
       {/* 1. Favicon */}
       <img

@@ -237,7 +237,7 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
               {filtered.map(lead => (
                 <tr
                   key={lead.id}
-                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                  className="data-row"
                   onClick={() => onSelect(lead)}
                 >
                   <Td>

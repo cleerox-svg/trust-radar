@@ -231,7 +231,7 @@ function BrandRiskMomentum() {
                   ? `${changePct > 0 ? '+' : ''}${Math.round(changePct)}%`
                   : 'NEW';
                 return (
-                  <tr key={b.brand_name} className="border-t border-white/5">
+                  <tr key={b.brand_name} className="data-row border-t border-white/5">
                     <td className="py-2 text-parchment">{b.brand_name}</td>
                     <td className="py-2 text-right font-mono text-parchment/80">{thisWeek.toLocaleString()}</td>
                     <td className="py-2 text-right font-mono text-contrail/60">{lastWeek.toLocaleString()}</td>

@@ -26,53 +26,74 @@ export function ExposureGauge({ score, size = 120 }: ExposureGaugeProps) {
   // Score fill arc
   const fillOffset = circumference * (1 - score / 100);
 
+  // Ambient glow color based on score
+  const glowColor =
+    score >= 80 ? 'rgba(239, 68, 68, 0.35)' :
+    score >= 60 ? 'rgba(249, 115, 22, 0.30)' :
+    score >= 40 ? 'rgba(229, 168, 50, 0.25)' :
+                  'rgba(59, 130, 246, 0.20)';
+
+  const pulseClass = score >= 80 ? 'gauge-critical' : score >= 60 ? 'gauge-high' : '';
+
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="relative">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-lg">
-          {/* Background track */}
-          <circle cx={center} cy={center} r={radius} fill="none"
-            stroke="rgba(255,255,255,0.04)" strokeWidth="8" />
+      <div className="relative flex items-center justify-center">
+        {/* Ambient glow — blur behind the gauge */}
+        <div
+          className="absolute rounded-full blur-2xl opacity-40 pointer-events-none"
+          style={{
+            width: '80%',
+            height: '80%',
+            background: glowColor,
+          }}
+        />
+        {/* Gauge SVG — with pulse class */}
+        <div className={pulseClass}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-lg">
+            {/* Background track */}
+            <circle cx={center} cy={center} r={radius} fill="none"
+              stroke="rgba(255,255,255,0.04)" strokeWidth="8" />
 
-          {/* Green zone (0-33%) */}
-          <circle cx={center} cy={center} r={radius} fill="none"
-            stroke="#28A050" strokeWidth="8" opacity="0.15"
-            strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
-            strokeDashoffset={circumference * 0.25}
-            transform={`rotate(-90 ${center} ${center})`} />
+            {/* Green zone (0-33%) */}
+            <circle cx={center} cy={center} r={radius} fill="none"
+              stroke="#28A050" strokeWidth="8" opacity="0.15"
+              strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
+              strokeDashoffset={circumference * 0.25}
+              transform={`rotate(-90 ${center} ${center})`} />
 
-          {/* Amber zone (33-66%) */}
-          <circle cx={center} cy={center} r={radius} fill="none"
-            stroke="#E8923C" strokeWidth="8" opacity="0.15"
-            strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
-            strokeDashoffset={circumference * 0.25 - zoneLength}
-            transform={`rotate(-90 ${center} ${center})`} />
+            {/* Amber zone (33-66%) */}
+            <circle cx={center} cy={center} r={radius} fill="none"
+              stroke="#E8923C" strokeWidth="8" opacity="0.15"
+              strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
+              strokeDashoffset={circumference * 0.25 - zoneLength}
+              transform={`rotate(-90 ${center} ${center})`} />
 
-          {/* Red zone (66-100%) */}
-          <circle cx={center} cy={center} r={radius} fill="none"
-            stroke="#C83C3C" strokeWidth="8" opacity="0.15"
-            strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
-            strokeDashoffset={circumference * 0.25 - zoneLength * 2}
-            transform={`rotate(-90 ${center} ${center})`} />
+            {/* Red zone (66-100%) */}
+            <circle cx={center} cy={center} r={radius} fill="none"
+              stroke="#C83C3C" strokeWidth="8" opacity="0.15"
+              strokeDasharray={`${zoneLength} ${circumference - zoneLength}`}
+              strokeDashoffset={circumference * 0.25 - zoneLength * 2}
+              transform={`rotate(-90 ${center} ${center})`} />
 
-          {/* Score fill arc */}
-          <circle cx={center} cy={center} r={radius} fill="none"
-            stroke={activeColor} strokeWidth="8" strokeLinecap="round"
-            strokeDasharray={circumference} strokeDashoffset={fillOffset}
-            transform={`rotate(-90 ${center} ${center})`}
-            className="transition-all duration-1000 ease-out" />
+            {/* Score fill arc */}
+            <circle cx={center} cy={center} r={radius} fill="none"
+              stroke={activeColor} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={circumference} strokeDashoffset={fillOffset}
+              transform={`rotate(-90 ${center} ${center})`}
+              className="transition-all duration-1000 ease-out" />
 
-          {/* Score position dot — pulsing */}
-          <circle cx={dotX} cy={dotY} r="6" fill={activeColor}>
-            <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite" />
-          </circle>
-          <circle cx={dotX} cy={dotY} r="3" fill="white" />
-        </svg>
+            {/* Score position dot — pulsing */}
+            <circle cx={dotX} cy={dotY} r="6" fill={activeColor}>
+              <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={dotX} cy={dotY} r="3" fill="white" />
+          </svg>
 
-        {/* Center content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-3xl font-extrabold" style={{ color: activeColor }}>{score}</span>
+          {/* Center content */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-display text-3xl font-extrabold" style={{ color: activeColor }}>{score}</span>
+          </div>
         </div>
       </div>
       <div className="font-mono text-[10px] font-bold tracking-wider uppercase" style={{ color: activeColor }}>

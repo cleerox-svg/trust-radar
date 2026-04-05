@@ -482,7 +482,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               </thead>
               <tbody>
                 {threats.map(threat => (
-                  <tr key={threat.id} className="border-b border-white/[0.04]">
+                  <tr key={threat.id} className="data-row border-b border-white/[0.04]">
                     <td className="font-mono text-[11px] text-parchment py-1.5 px-2">{threat.threat_type}</td>
                     <td className="font-mono text-[11px] text-contrail/60 py-1.5 px-2 truncate max-w-[200px]">
                       {threat.malicious_domain || '—'}
