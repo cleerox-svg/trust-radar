@@ -3,7 +3,7 @@ import Tilt from 'react-parallax-tilt';
 import { cn } from '@/lib/cn';
 
 interface StatCardProps {
-  title: string;
+  title: ReactNode;
   children: ReactNode;
   metric: ReactNode;
   metricLabel: ReactNode;

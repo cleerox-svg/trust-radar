@@ -615,16 +615,6 @@
 }
 
 /* ── GAUGE ANIMATIONS ─────────────────────────── */
-@keyframes gauge-pulse {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(229, 168, 50, 0.5)); }
-  50% { filter: drop-shadow(0 0 14px rgba(229, 168, 50, 0.9)); }
-}
-@keyframes gauge-pulse-critical {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5)); }
-  50% { filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.9)); }
-}
-.gauge-high { animation: gauge-pulse 4s ease-in-out infinite; }
-.gauge-critical { animation: gauge-pulse-critical 2s ease-in-out infinite; }
 
 /* ── SEVERITY CHIP SYSTEM ─────────────────────── */
 .chip-critical {
@@ -671,15 +661,19 @@
 }
 .gauge-high {
   position: relative;
-  animation: gauge-pulse-high 3s ease-in-out infinite;
+  animation: gauge-pulse-high 4s ease-in-out infinite;
 }
 @keyframes gauge-pulse-critical {
-  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(239, 68, 68, 0.3)); }
-  50% { filter: brightness(1.1) drop-shadow(0 0 12px rgba(239, 68, 68, 0.5)); }
+  0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.4)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 14px rgba(239, 68, 68, 0.7)); }
 }
 @keyframes gauge-pulse-high {
-  0%, 100% { filter: brightness(1) drop-shadow(0 0 3px rgba(249, 115, 22, 0.2)); }
-  50% { filter: brightness(1.05) drop-shadow(0 0 8px rgba(249, 115, 22, 0.35)); }
+  0%, 100% { opacity: 0.9; filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.25)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.45)); }
+}
+/* ── GAUGE ARC MOUNT ANIMATION ───────────────── */
+.gauge-arc-animate {
+  transition: stroke-dashoffset 1.2s ease-out;
 }
 
 /* ── BUTTON TRANSITIONS ────────────────────────── */
