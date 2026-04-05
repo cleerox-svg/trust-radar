@@ -39,6 +39,17 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 const TIMELINE_PERIODS = ['24h', '7d', '30d', '90d'] as const;
 
+const BRAND_TABS = [
+  { id: 'overview',      label: 'Overview' },
+  { id: 'threats',       label: 'Threats' },
+  { id: 'typosquats',    label: 'Typosquats' },
+  { id: 'email',         label: 'Email Security' },
+  { id: 'social',        label: 'Social' },
+  { id: 'intelligence',  label: 'Intelligence' },
+] as const;
+
+type BrandTab = typeof BRAND_TABS[number]['id'];
+
 function classificationVariant(c: string): 'critical' | 'success' | 'high' | 'default' {
   if (c === 'impersonation') return 'critical';
   if (c === 'official') return 'success';
@@ -509,6 +520,7 @@ export function BrandDetail() {
   const id = brandId || '';
 
   // State
+  const [activeTab, setActiveTab] = useState<BrandTab>('overview');
   const [socialFilter, setSocialFilter] = useState('all');
   const [timelinePeriod, setTimelinePeriod] = useState<string>('7d');
   const [threatSort, setThreatSort] = useState<{ key: string; asc: boolean }>({ key: 'severity', asc: false });
@@ -643,38 +655,568 @@ export function BrandDetail() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-           ROW 1 — Unified Stat Cards
+           Sticky Tab Bar
            ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {/* ── Card 1: Exposure Index ── */}
-        <ExposureIndexCard brand={brand} threats={threats} />
-
-        {/* ── Card 2: Active Threats ── */}
-        <ActiveThreatsCard threats={threats} />
-
-        {/* ── Card 3: Email Posture ── */}
-        <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} brand={brand} />
-
-        {/* ── Card 4: Social Risk ── */}
-        <SocialRiskCard
-          socialProfiles={socialProfiles}
-          lastScan={brand.last_social_scan}
-          onScan={() => scanProfiles.mutate(id)}
-          onDiscover={() => discoverProfiles.mutate(id)}
-          scanPending={scanProfiles.isPending}
-          discoverPending={discoverProfiles.isPending}
-        />
+      <div className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur-lg
+        border-b border-white/[0.06] -mx-6 px-6">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          {BRAND_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 px-4 py-3 text-xs font-medium transition-all
+                border-b-2 ${activeTab === tab.id
+                  ? 'border-amber-500 text-amber-400'
+                  : 'border-transparent text-white/40 hover:text-white/70'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-           ROW 2 — Threat Breakdown + AI Analysis + Providers
+           Tab Content
            ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Threat Type Summary Cards */}
-        <div className="lg:col-span-2 space-y-4">
-          <SectionLabel>Threat Breakdown</SectionLabel>
-          <ThreatSummaryCards threats={threats} />
 
+      {/* ── OVERVIEW TAB ── */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Hero: Exposure + 3 stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <ExposureIndexCard brand={brand} threats={threats} />
+            <ActiveThreatsCard threats={threats} />
+            <EmailPostureCard emailSec={emailSec} grade={brand.email_security_grade} brand={brand} />
+            <SocialRiskCard
+              socialProfiles={socialProfiles}
+              lastScan={brand.last_social_scan}
+              onScan={() => scanProfiles.mutate(id)}
+              onDiscover={() => discoverProfiles.mutate(id)}
+              scanPending={scanProfiles.isPending}
+              discoverPending={discoverProfiles.isPending}
+            />
+          </div>
+
+          {/* AI Deep Scan CTA */}
+          <div className="flex gap-2">
+            <Button variant="primary" size="sm"
+              onClick={() => triggerAnalysis.mutate(id)}
+              disabled={triggerAnalysis.isPending}>
+              {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
+            </Button>
+            <Button variant="ghost" size="sm"
+              onClick={() => cleanFP.mutate(id)}
+              disabled={cleanFP.isPending}>
+              CLEAN FALSE POSITIVES
+            </Button>
+          </div>
+
+          {/* Threat Breakdown + Providers */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <SectionLabel>Threat Breakdown</SectionLabel>
+              <ThreatSummaryCards threats={threats} />
+            </div>
+            <Card hover={false}>
+              <SectionLabel className="mb-4">Hosting Providers</SectionLabel>
+              <ProviderBars providers={providers} />
+            </Card>
+          </div>
+
+          {/* Latest 5 threats preview */}
+          <Card hover={false}>
+            <div className="flex items-center justify-between mb-4">
+              <SectionLabel>Recent Threats</SectionLabel>
+              {threats.length > 5 && (
+                <button onClick={() => setActiveTab('threats')}
+                  className="font-mono text-[10px] text-contrail hover:text-accent transition-colors">
+                  VIEW ALL {threats.length} &rarr;
+                </button>
+              )}
+            </div>
+            {threats.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle />}
+                title="No active threats for this brand"
+                subtitle="Run AI Deep Scan for the latest analysis"
+                variant="clean"
+                compact
+              />
+            ) : (
+              <div className="space-y-0">
+                {sortedThreats.slice(0, 5).map((t: any) => (
+                  <div key={t.id}
+                    className="flex items-center gap-3 py-2.5 border-b border-white/[0.03]
+                      hover:bg-white/[0.02] transition-colors">
+                    <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                      style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-mono text-xs text-white/90">
+                        {toTitleCase(t.threat_type || 'unknown')}
+                      </span>
+                      <span className="font-mono text-[10px] text-white/40 ml-2">
+                        {t.domain || t.target_url || ''}
+                      </span>
+                    </div>
+                    <span className="font-mono text-[10px] text-white/30 flex-shrink-0">
+                      {relativeTime(t.detected_at || t.created_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ── THREATS TAB ── */}
+      {activeTab === 'threats' && (
+        <div className="space-y-6">
+          {/* Timeline Chart */}
+          <Card hover={false}>
+            <div className="flex items-center justify-between mb-4">
+              <SectionLabel>Threat Timeline</SectionLabel>
+              <div className="flex gap-1.5">
+                {TIMELINE_PERIODS.map(p => (
+                  <button key={p} onClick={() => setTimelinePeriod(p)}
+                    className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
+                      timelinePeriod === p
+                        ? 'bg-accent/10 text-accent border border-accent/25'
+                        : 'text-white/55 hover:bg-white/5 hover:text-parchment border border-transparent'
+                    }`}>
+                    {p.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#C83C3C" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#C83C3C" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradHighSev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#E8923C" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#E8923C" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradActive" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#28A050" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#28A050" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date"
+                    tick={{ fill: '#78A0C8', fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} tickLine={false} />
+                  <YAxis tick={{ fill: '#78A0C8', fontSize: 10, fontFamily: 'IBM Plex Mono' }}
+                    axisLine={false} tickLine={false} />
+                  <Tooltip content={<TimelineTooltip />} />
+                  <Area type="monotone" dataKey="total" stroke="#C83C3C" fill="url(#gradTotal)" strokeWidth={2} name="Total" />
+                  <Area type="monotone" dataKey="high_sev" stroke="#E8923C" fill="url(#gradHighSev)" strokeWidth={1.5} name="High Severity" />
+                  <Area type="monotone" dataKey="active" stroke="#28A050" fill="url(#gradActive)" strokeWidth={1.5} name="Active" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-60 flex items-center justify-center text-white/40 font-mono text-xs">
+                No timeline data available
+              </div>
+            )}
+          </Card>
+
+          {/* Threats Table + Safe Domains */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <Card hover={false}>
+                <div className="flex items-center justify-between mb-4">
+                  <SectionLabel>Active Threats</SectionLabel>
+                  <span className="font-mono text-[10px] text-white/40">{threats.length} total</span>
+                </div>
+
+                {threats.length === 0 ? (
+                  <EmptyState
+                    icon={<CheckCircle />}
+                    title="No active threats for this brand"
+                    subtitle="Run AI Deep Scan for the latest analysis"
+                    action={{ label: 'Run AI Deep Scan', onClick: () => triggerAnalysis.mutate(id) }}
+                    variant="clean"
+                    compact
+                  />
+                ) : (
+                  <>
+                    {/* Table header */}
+                    <div className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_80px] gap-3 items-center
+                      pb-2 border-b border-white/[0.06] mb-2">
+                      <div />
+                      <button onClick={() => setThreatSort({ key: 'severity', asc: threatSort.key === 'severity' ? !threatSort.asc : false })}
+                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left hover:text-parchment transition-colors">
+                        Type / Severity {threatSort.key === 'severity' && (threatSort.asc ? '\u25B2' : '\u25BC')}
+                      </button>
+                      <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Target</div>
+                      <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Vector</div>
+                      <button onClick={() => setThreatSort({ key: 'date', asc: threatSort.key === 'date' ? !threatSort.asc : false })}
+                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-right hover:text-parchment transition-colors">
+                        Age {threatSort.key === 'date' && (threatSort.asc ? '\u25B2' : '\u25BC')}
+                      </button>
+                    </div>
+
+                    {/* Threat rows */}
+                    {visibleThreats.map((t: any) => {
+                      const secondaryLabel = t.url || t.domain || t.target_url || t.source || null;
+                      return (
+                        <div key={t.id}
+                          className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_100px] gap-3 items-center py-2.5
+                          border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group">
+                          <div className="h-full rounded-full" style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                              style={{
+                                backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8',
+                                boxShadow: t.severity === 'critical' ? `0 0 8px ${SEVERITY_COLORS.critical}` : 'none',
+                              }} />
+                            <div className="min-w-0">
+                              <div className="font-mono text-xs font-semibold text-white/90 truncate">
+                                {toTitleCase(t.threat_type || 'unknown')}
+                              </div>
+                              {secondaryLabel && (
+                                <div className="font-mono text-[9px] text-white/55 truncate">{secondaryLabel}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="font-display text-xs font-semibold text-white/80 truncate">
+                            {t.target_url || t.domain || '\u2014'}
+                          </div>
+                          {t.vector ? (
+                            <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
+                          ) : (
+                            <span className="text-white/40 text-[10px]">\u2014</span>
+                          )}
+                          <div className="flex items-center justify-end gap-2 min-w-0">
+                            <span className="font-mono text-[10px] text-white/40">
+                              {relativeTime(t.detected_at || t.created_at)}
+                            </span>
+                            {t.score != null && (
+                              <span className="font-mono text-[9px] text-white/50">{t.score}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {sortedThreats.length > 10 && (
+                      <button onClick={() => setExpandedThreats(!expandedThreats)}
+                        className="w-full mt-3 py-2 font-mono text-[10px] text-contrail hover:text-white
+                        border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all">
+                        {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} THREATS`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </Card>
+            </div>
+
+            {/* Safe Domains Panel */}
+            <Card hover={false}>
+              <SectionLabel className="mb-4">Safe Domains</SectionLabel>
+              <div className="space-y-2 mb-4">
+                {safeDomains.length === 0 ? (
+                  <div className="text-white/40 font-mono text-xs py-2">No safe domains configured</div>
+                ) : (
+                  safeDomains.map((d: any) => (
+                    <div key={d.id || d.domain} className="flex items-center justify-between py-1.5 border-b border-white/[0.03]">
+                      <span className="font-mono text-xs text-parchment/80">{d.domain}</span>
+                      <button onClick={() => deleteSafeDomain.mutate({ brandId: id, domainId: d.id })}
+                        className="font-mono text-[9px] text-white/50 hover:text-accent transition-colors">
+                        REMOVE
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={safeDomainInput}
+                  onChange={e => setSafeDomainInput(e.target.value)}
+                  placeholder="Add domain..."
+                  className="flex-1 bg-cockpit border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs text-parchment
+                    placeholder:text-white/30 focus:border-accent/30 focus:outline-none transition-colors"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && safeDomainInput.trim()) {
+                      addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() });
+                      setSafeDomainInput('');
+                    }
+                  }}
+                />
+                <Button variant="secondary" size="sm"
+                  onClick={() => { if (safeDomainInput.trim()) { addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() }); setSafeDomainInput(''); } }}
+                  disabled={!safeDomainInput.trim() || addSafeDomain.isPending}>
+                  ADD
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ── TYPOSQUATS TAB ── */}
+      {activeTab === 'typosquats' && (
+        <EmptyState
+          title="Typosquat Detection"
+          subtitle="Typosquat monitoring data will appear here once configured. Check back after the next Sentinel scan."
+          variant="scanning"
+          action={{ label: 'Back to Overview', onClick: () => setActiveTab('overview') }}
+        />
+      )}
+
+      {/* ── EMAIL SECURITY TAB ── */}
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          {/* Email Grade Hero */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card hover={false} className="lg:col-span-1">
+              <div className="flex flex-col items-center justify-center py-6">
+                <BIMIGradeBadge grade={brand.bimi_grade} size="lg" tooltip />
+                <div className="mt-4 text-center">
+                  <div className={`font-display text-4xl font-extrabold ${getGradeClass(brand.email_security_grade)}`}>
+                    {brand.email_security_grade || '\u2014'}
+                  </div>
+                  <div className="font-mono text-[10px] text-white/40 uppercase tracking-widest mt-1">
+                    Overall Email Grade
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Protocol Status */}
+            <Card hover={false} className="lg:col-span-2">
+              <SectionLabel className="mb-4">Protocol Status</SectionLabel>
+              <div className="space-y-3">
+                {EMAIL_PROTOCOLS.map(proto => {
+                  const { status, hint } = getEmailStatus(proto, emailSec);
+                  const cls = EMAIL_STATUS_CLASSES[status] || EMAIL_STATUS_CLASSES.MISSING;
+                  return (
+                    <div key={proto} className="flex items-center gap-3 py-2 border-b border-white/[0.04]">
+                      <span className="font-mono text-sm font-bold text-white/70 w-14 flex-shrink-0">{proto}</span>
+                      <span className={`font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded border leading-tight ${cls}`}>
+                        {status}
+                      </span>
+                      {hint && (
+                        <span className="font-mono text-xs text-white/40">{hint}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+
+          {/* BIMI Details */}
+          <Card hover={false}>
+            <SectionLabel className="mb-4">BIMI &amp; VMC Details</SectionLabel>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <BIMIStatusRow
+                  label="BIMI Record"
+                  status={brand.bimi_record ? 'pass' : 'missing'}
+                  detail={brand.bimi_record || undefined}
+                />
+                <BIMIStatusRow
+                  label="BIMI SVG Logo"
+                  status={brand.bimi_svg_url ? 'pass' : 'missing'}
+                  detail={brand.bimi_svg_url
+                    ? (() => { try { return new URL(brand.bimi_svg_url).hostname; } catch { return undefined; } })()
+                    : undefined}
+                />
+                <BIMIStatusRow
+                  label="VMC Certificate"
+                  status={brand.bimi_vmc_valid ? 'verified' : brand.bimi_vmc_url ? 'fail' : 'none'}
+                  detail={brand.bimi_vmc_expiry
+                    ? `Expires ${new Date(brand.bimi_vmc_expiry).toLocaleDateString()}`
+                    : undefined}
+                />
+              </div>
+
+              {/* SVG Preview */}
+              <div className="flex flex-col items-center justify-center">
+                {brand.bimi_svg_url ? (
+                  <div className="text-center">
+                    <img
+                      src={brand.bimi_svg_url}
+                      alt="BIMI Logo"
+                      className="w-20 h-20 rounded-lg mx-auto"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <p className="text-white/30 text-[10px] font-mono mt-2 truncate max-w-[200px]">
+                      {brand.bimi_svg_url}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center text-white/30">
+                    <div className="w-20 h-20 rounded-lg bg-white/[0.03] border border-white/[0.06]
+                      flex items-center justify-center mx-auto">
+                      <span className="font-mono text-[10px]">NO LOGO</span>
+                    </div>
+                    <p className="text-[10px] font-mono mt-2">Publish a BIMI record to display your logo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Raw DNS Records */}
+          {emailSec && (
+            <Card hover={false}>
+              <SectionLabel className="mb-4">Raw DNS Records</SectionLabel>
+              <div className="space-y-3">
+                {emailSec.spf_raw && (
+                  <div>
+                    <div className="font-mono text-[10px] text-white/40 uppercase tracking-wider mb-1">SPF</div>
+                    <div className="font-mono text-xs text-white/70 bg-white/[0.03] rounded-lg p-3 break-all">
+                      {emailSec.spf_raw}
+                    </div>
+                  </div>
+                )}
+                {emailSec.dmarc_raw && (
+                  <div>
+                    <div className="font-mono text-[10px] text-white/40 uppercase tracking-wider mb-1">DMARC</div>
+                    <div className="font-mono text-xs text-white/70 bg-white/[0.03] rounded-lg p-3 break-all">
+                      {emailSec.dmarc_raw}
+                    </div>
+                  </div>
+                )}
+                {brand.bimi_record && (
+                  <div>
+                    <div className="font-mono text-[10px] text-white/40 uppercase tracking-wider mb-1">BIMI</div>
+                    <div className="font-mono text-xs text-white/70 bg-white/[0.03] rounded-lg p-3 break-all">
+                      {brand.bimi_record}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Grade Improvement */}
+          {brand.bimi_grade && ['B', 'C', 'D', 'F'].includes(brand.bimi_grade) && (
+            <Card hover={false} className="border-l-[3px] border-amber-500/40">
+              <SectionLabel className="mb-3">Improvement Path</SectionLabel>
+              <div className="space-y-2 text-sm text-white/70">
+                {brand.bimi_grade === 'B' && (
+                  <p>&rarr; Publish a BIMI record with a valid SVG logo to reach grade A</p>
+                )}
+                {brand.bimi_grade === 'C' && (
+                  <p>&rarr; Upgrade DMARC policy to &ldquo;quarantine&rdquo; or &ldquo;reject&rdquo; to reach grade B</p>
+                )}
+                {(brand.bimi_grade === 'D' || brand.bimi_grade === 'F') && (
+                  <p>&rarr; Implement SPF, DKIM, and DMARC enforcement to protect email delivery</p>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── SOCIAL TAB ── */}
+      {activeTab === 'social' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SectionLabel>Social Profiles</SectionLabel>
+              <Badge variant="info">{socialProfiles.length}</Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => scanProfiles.mutate(id)} disabled={scanProfiles.isPending}>
+                RESCAN
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => discoverProfiles.mutate(id)} disabled={discoverProfiles.isPending}>
+                DISCOVER NEW
+              </Button>
+            </div>
+          </div>
+          <Tabs tabs={socialTabs} activeTab={socialFilter} onChange={setSocialFilter} />
+
+          {filteredProfiles.length === 0 ? (
+            <Card hover={false}>
+              <div className="py-6 text-center text-white/40 font-mono text-xs">No profiles match this filter</div>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredProfiles.map((profile: any) => (
+                <Card key={profile.id} hover={false} className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-white/[0.04] border border-white/[0.06]
+                        flex items-center justify-center font-mono text-xs text-contrail/60 font-bold">
+                        {PLATFORM_ICONS[(profile.platform ?? '').toLowerCase()] ?? '\u25CF'}
+                      </div>
+                      <div>
+                        <div className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</div>
+                        {profile.display_name && (
+                          <div className="text-[10px] text-white/55">{profile.display_name}</div>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={classificationVariant(profile.classification)}>
+                      {profile.classification}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-4 font-mono text-[10px] text-white/55">
+                    {profile.followers_count != null && (
+                      <span>{Number(profile.followers_count).toLocaleString()} followers</span>
+                    )}
+                    {profile.verified === 1 && (
+                      <span className="text-positive font-bold uppercase">Verified</span>
+                    )}
+                    {profile.platform && (
+                      <span className="uppercase">{profile.platform}</span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-contrail/50">Impersonation Score</span>
+                      <span className="font-mono text-xs font-bold" style={{
+                        color: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050'
+                      }}>{Math.round(profile.impersonation_score * 100)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/5 rounded overflow-hidden">
+                      <div className="h-full rounded transition-all duration-500" style={{
+                        width: `${Math.min(Math.round(profile.impersonation_score * 100), 100)}%`,
+                        background: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050',
+                      }} />
+                    </div>
+                  </div>
+
+                  {profile.ai_assessment && (
+                    <p className="text-xs text-contrail/60 line-clamp-3 leading-relaxed">{profile.ai_assessment}</p>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <Button variant="ghost" size="sm"
+                      onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'official' })}>
+                      Confirm Safe
+                    </Button>
+                    <Button variant="danger" size="sm"
+                      onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'impersonation' })}>
+                      Impersonation
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                      onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'safe' })}>
+                      False Positive
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── INTELLIGENCE TAB ── */}
+      {activeTab === 'intelligence' && (
+        <div className="space-y-6">
           {/* AI Threat Analysis — Executive Briefing */}
           {(brand.threat_analysis || analysis) && (() => {
             const astra = parseAstraAnalysis(analysis?.summary || analysis || brand.threat_analysis);
@@ -687,7 +1229,6 @@ export function BrandDetail() {
             return (
               <Card hover={false} className="border-l-[3px] border-accent">
                 <div className="space-y-4">
-                  {/* Header row */}
                   <div className="flex items-center justify-between">
                     <SectionLabel>AI Threat Analysis</SectionLabel>
                     <div className="flex items-center gap-2">
@@ -700,7 +1241,6 @@ export function BrandDetail() {
                     </div>
                   </div>
 
-                  {/* Summary */}
                   {summaryText && (
                     <div>
                       <h4 className="font-mono text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-1.5">
@@ -720,7 +1260,6 @@ export function BrandDetail() {
                     </div>
                   )}
 
-                  {/* Key Findings */}
                   {astra.keyFindings.length > 0 && (
                     <div>
                       <h4 className="font-mono text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-2">
@@ -737,7 +1276,6 @@ export function BrandDetail() {
                     </div>
                   )}
 
-                  {/* Actions + Timestamp */}
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex gap-2">
                       <Button variant="primary" size="sm"
@@ -762,328 +1300,19 @@ export function BrandDetail() {
             );
           })()}
 
-          {/* No analysis fallback — trigger button */}
           {!brand.threat_analysis && !analysis && (
-            <Card hover={false} className="border border-dashed border-white/10 flex items-center justify-between">
-              <div>
-                <div className="text-sm text-parchment/60">No ASTRA analysis available</div>
-                <div className="font-mono text-[10px] text-white/40 mt-1">Run an AI deep scan to generate threat intelligence</div>
-              </div>
-              <Button variant="primary" size="sm"
-                onClick={() => triggerAnalysis.mutate(id)}
-                disabled={triggerAnalysis.isPending}>
-                {triggerAnalysis.isPending ? 'ANALYZING...' : 'INITIATE SCAN'}
-              </Button>
-            </Card>
-          )}
-        </div>
-
-        {/* Hosting Providers */}
-        <Card hover={false}>
-          <SectionLabel className="mb-4">Hosting Providers</SectionLabel>
-          <ProviderBars providers={providers} />
-        </Card>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-           ROW 3 — Threat Timeline Chart
-           ════════════════════════════════════════════════════════════════ */}
-      <Card hover={false}>
-        <div className="flex items-center justify-between mb-4">
-          <SectionLabel>Threat Timeline</SectionLabel>
-          <div className="flex gap-1.5">
-            {TIMELINE_PERIODS.map(p => (
-              <button key={p} onClick={() => setTimelinePeriod(p)}
-                className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
-                  timelinePeriod === p
-                    ? 'bg-accent/10 text-accent border border-accent/25'
-                    : 'text-white/55 hover:bg-white/5 hover:text-parchment border border-transparent'
-                }`}>
-                {p.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-        {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C83C3C" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#C83C3C" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradHighSev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#E8923C" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#E8923C" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradActive" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#28A050" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#28A050" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date"
-                tick={{ fill: '#78A0C8', fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} tickLine={false} />
-              <YAxis tick={{ fill: '#78A0C8', fontSize: 10, fontFamily: 'IBM Plex Mono' }}
-                axisLine={false} tickLine={false} />
-              <Tooltip content={<TimelineTooltip />} />
-              <Area type="monotone" dataKey="total" stroke="#C83C3C" fill="url(#gradTotal)" strokeWidth={2} name="Total" />
-              <Area type="monotone" dataKey="high_sev" stroke="#E8923C" fill="url(#gradHighSev)" strokeWidth={1.5} name="High Severity" />
-              <Area type="monotone" dataKey="active" stroke="#28A050" fill="url(#gradActive)" strokeWidth={1.5} name="Active" />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-60 flex items-center justify-center text-white/40 font-mono text-xs">
-            No timeline data available
-          </div>
-        )}
-      </Card>
-
-      {/* ════════════════════════════════════════════════════════════════
-           ROW 4 — Threats Table + Safe Domains
-           ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Sortable Threats Table */}
-        <div className="lg:col-span-2">
-          <Card hover={false}>
-            <div className="flex items-center justify-between mb-4">
-              <SectionLabel>Active Threats</SectionLabel>
-              <span className="font-mono text-[10px] text-white/40">{threats.length} total</span>
-            </div>
-
-            {threats.length === 0 ? (
-              <EmptyState
-                icon={<CheckCircle />}
-                title="No active threats for this brand"
-                subtitle="Run AI Deep Scan for the latest analysis"
-                action={{ label: 'Run AI Deep Scan', onClick: () => triggerAnalysis.mutate(id) }}
-                variant="clean"
-                compact
-              />
-            ) : (
-              <>
-                {/* Table header */}
-                <div className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_80px] gap-3 items-center
-                  pb-2 border-b border-white/[0.06] mb-2">
-                  <div />
-                  <button onClick={() => setThreatSort({ key: 'severity', asc: threatSort.key === 'severity' ? !threatSort.asc : false })}
-                    className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left hover:text-parchment transition-colors">
-                    Type / Severity {threatSort.key === 'severity' && (threatSort.asc ? '\u25B2' : '\u25BC')}
-                  </button>
-                  <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Target</div>
-                  <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Vector</div>
-                  <button onClick={() => setThreatSort({ key: 'date', asc: threatSort.key === 'date' ? !threatSort.asc : false })}
-                    className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-right hover:text-parchment transition-colors">
-                    Age {threatSort.key === 'date' && (threatSort.asc ? '\u25B2' : '\u25BC')}
-                  </button>
-                </div>
-
-                {/* Threat rows */}
-                {visibleThreats.map((t: any) => {
-                  const secondaryLabel = t.url || t.domain || t.target_url || t.source || null;
-                  return (
-                    <div key={t.id}
-                      className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_100px] gap-3 items-center py-2.5
-                      border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group">
-                      {/* Severity bar */}
-                      <div className="h-full rounded-full" style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
-
-                      {/* Type + URL/domain */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8',
-                            boxShadow: t.severity === 'critical' ? `0 0 8px ${SEVERITY_COLORS.critical}` : 'none',
-                          }} />
-                        <div className="min-w-0">
-                          <div className="font-mono text-xs font-semibold text-white/90 truncate">
-                            {toTitleCase(t.threat_type || 'unknown')}
-                          </div>
-                          {secondaryLabel && (
-                            <div className="font-mono text-[9px] text-white/55 truncate">{secondaryLabel}</div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Target */}
-                      <div className="font-display text-xs font-semibold text-white/80 truncate">
-                        {t.target_url || t.domain || '\u2014'}
-                      </div>
-
-                      {/* Vector */}
-                      {t.vector ? (
-                        <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
-                      ) : (
-                        <span className="text-white/40 text-[10px]">\u2014</span>
-                      )}
-
-                      {/* Age + Score */}
-                      <div className="flex items-center justify-end gap-2 min-w-0">
-                        <span className="font-mono text-[10px] text-white/40">
-                          {relativeTime(t.detected_at || t.created_at)}
-                        </span>
-                        {t.score != null && (
-                          <span className="font-mono text-[9px] text-white/50">{t.score}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {sortedThreats.length > 10 && (
-                  <button onClick={() => setExpandedThreats(!expandedThreats)}
-                    className="w-full mt-3 py-2 font-mono text-[10px] text-contrail hover:text-white
-                    border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all">
-                    {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} THREATS`}
-                  </button>
-                )}
-              </>
-            )}
-          </Card>
-        </div>
-
-        {/* Safe Domains Panel */}
-        <Card hover={false}>
-          <SectionLabel className="mb-4">Safe Domains</SectionLabel>
-          <div className="space-y-2 mb-4">
-            {safeDomains.length === 0 ? (
-              <div className="text-white/40 font-mono text-xs py-2">No safe domains configured</div>
-            ) : (
-              safeDomains.map((d: any) => (
-                <div key={d.id || d.domain} className="flex items-center justify-between py-1.5 border-b border-white/[0.03]">
-                  <span className="font-mono text-xs text-parchment/80">{d.domain}</span>
-                  <button onClick={() => deleteSafeDomain.mutate({ brandId: id, domainId: d.id })}
-                    className="font-mono text-[9px] text-white/50 hover:text-accent transition-colors">
-                    REMOVE
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={safeDomainInput}
-              onChange={e => setSafeDomainInput(e.target.value)}
-              placeholder="Add domain..."
-              className="flex-1 bg-cockpit border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs text-parchment
-                placeholder:text-white/30 focus:border-accent/30 focus:outline-none transition-colors"
-              onKeyDown={e => {
-                if (e.key === 'Enter' && safeDomainInput.trim()) {
-                  addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() });
-                  setSafeDomainInput('');
-                }
+            <EmptyState
+              title="No intelligence analysis available"
+              subtitle="Run an AI deep scan to generate threat intelligence for this brand"
+              variant="scanning"
+              action={{
+                label: triggerAnalysis.isPending ? 'Analyzing...' : 'Initiate AI Deep Scan',
+                onClick: () => triggerAnalysis.mutate(id),
               }}
             />
-            <Button variant="secondary" size="sm"
-              onClick={() => { if (safeDomainInput.trim()) { addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() }); setSafeDomainInput(''); } }}
-              disabled={!safeDomainInput.trim() || addSafeDomain.isPending}>
-              ADD
-            </Button>
-          </div>
-        </Card>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-           ROW 5 — Social Profiles Grid
-           ════════════════════════════════════════════════════════════════ */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <SectionLabel>Social Profiles</SectionLabel>
-            <Badge variant="info">{socialProfiles.length}</Badge>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => scanProfiles.mutate(id)} disabled={scanProfiles.isPending}>
-              RESCAN
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => discoverProfiles.mutate(id)} disabled={discoverProfiles.isPending}>
-              DISCOVER NEW
-            </Button>
-          </div>
+          )}
         </div>
-        <Tabs tabs={socialTabs} activeTab={socialFilter} onChange={setSocialFilter} />
-
-        {filteredProfiles.length === 0 ? (
-          <Card hover={false}>
-            <div className="py-6 text-center text-white/40 font-mono text-xs">No profiles match this filter</div>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredProfiles.map((profile: any) => (
-              <Card key={profile.id} hover={false} className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {/* Platform icon circle */}
-                    <div className="w-8 h-8 rounded-full bg-white/[0.04] border border-white/[0.06]
-                      flex items-center justify-center font-mono text-xs text-contrail/60 font-bold">
-                      {PLATFORM_ICONS[(profile.platform ?? '').toLowerCase()] ?? '\u25CF'}
-                    </div>
-                    <div>
-                      <div className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</div>
-                      {profile.display_name && (
-                        <div className="text-[10px] text-white/55">{profile.display_name}</div>
-                      )}
-                    </div>
-                  </div>
-                  <Badge variant={classificationVariant(profile.classification)}>
-                    {profile.classification}
-                  </Badge>
-                </div>
-
-                {/* Stats row */}
-                <div className="flex items-center gap-4 font-mono text-[10px] text-white/55">
-                  {profile.followers_count != null && (
-                    <span>{Number(profile.followers_count).toLocaleString()} followers</span>
-                  )}
-                  {profile.verified === 1 && (
-                    <span className="text-positive font-bold uppercase">Verified</span>
-                  )}
-                  {profile.platform && (
-                    <span className="uppercase">{profile.platform}</span>
-                  )}
-                </div>
-
-                {/* Impersonation Score */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-contrail/50">Impersonation Score</span>
-                    <span className="font-mono text-xs font-bold" style={{
-                      color: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050'
-                    }}>{Math.round(profile.impersonation_score * 100)}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-white/5 rounded overflow-hidden">
-                    <div className="h-full rounded transition-all duration-500" style={{
-                      width: `${Math.min(Math.round(profile.impersonation_score * 100), 100)}%`,
-                      background: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050',
-                    }} />
-                  </div>
-                </div>
-
-                {/* AI Assessment */}
-                {profile.ai_assessment && (
-                  <p className="text-xs text-contrail/60 line-clamp-3 leading-relaxed">{profile.ai_assessment}</p>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
-                  <Button variant="ghost" size="sm"
-                    onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'official' })}>
-                    Confirm Safe
-                  </Button>
-                  <Button variant="danger" size="sm"
-                    onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'impersonation' })}>
-                    Impersonation
-                  </Button>
-                  <Button variant="ghost" size="sm"
-                    onClick={() => classifyProfile.mutate({ brandId: id, profileId: profile.id, classification: 'safe' })}>
-                    False Positive
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
