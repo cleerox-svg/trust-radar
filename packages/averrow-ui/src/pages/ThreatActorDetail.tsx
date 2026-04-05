@@ -237,7 +237,7 @@ export function ThreatActorDetail() {
               </thead>
               <tbody>
                 {actor.infrastructure.map(infra => (
-                  <tr key={infra.id} className="border-b border-white/5 text-white/70">
+                  <tr key={infra.id} className="data-row border-b border-white/5 text-white/70">
                     <td className="py-2 pr-4">{infra.asn ?? '—'}</td>
                     <td className="py-2 pr-4">{infra.domain ?? '—'}</td>
                     <td className="py-2 pr-4">{countryFlag(infra.country_code)} {infra.country_code ?? '—'}</td>

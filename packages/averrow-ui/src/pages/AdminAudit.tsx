@@ -427,7 +427,7 @@ function AuditRow({ entry, expanded, onToggle }: {
     <>
       <tr
         onClick={onToggle}
-        className="border-b border-white/[0.03] hover:bg-white/[0.03] cursor-pointer transition-colors group"
+        className="data-row border-b border-white/[0.03] group"
       >
         {/* Timestamp */}
         <td className="px-3 py-2.5 font-mono text-[12px] text-contrail/70 whitespace-nowrap" title={formatTimestamp(entry.timestamp)}>

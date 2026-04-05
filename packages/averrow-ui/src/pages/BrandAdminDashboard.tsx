@@ -137,7 +137,7 @@ export function BrandAdminDashboard() {
               </thead>
               <tbody>
                 {data.recent_threats.map((t) => (
-                  <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                  <tr key={t.id} className="data-row border-b border-white/5">
                     <td className="px-4 py-2 font-mono text-[11px] text-parchment/80">{t.threat_type}</td>
                     <td className="px-4 py-2 font-mono text-[11px] text-contrail truncate max-w-[200px]">{t.malicious_domain ?? '-'}</td>
                     <td className="px-4 py-2 font-mono text-[11px] text-parchment/70">{t.brand_name ?? '-'}</td>

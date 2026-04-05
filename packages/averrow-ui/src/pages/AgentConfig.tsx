@@ -91,7 +91,7 @@ function AgentRow({ agent }: { agent: Agent }) {
     : 100;
 
   return (
-    <tr className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+    <tr className="data-row border-b border-white/[0.04]">
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
           <AgentIcon agent={agent.name} size={24} className="shrink-0" />
