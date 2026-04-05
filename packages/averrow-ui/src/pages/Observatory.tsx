@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EventTicker } from '@/components/observatory/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { X, ChevronDown, Activity } from 'lucide-react';
 import { ObservatoryOverlay } from '@/components/ui/ObservatoryOverlay';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -442,7 +443,7 @@ export function Observatory() {
       {/* Bottom-right: LIVE indicator */}
       <div className={cn('absolute right-4 z-10', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
         <div className="bg-cockpit/90 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">
-          <span className="live-indicator">LIVE</span>
+          <LiveIndicator />
           <span className="font-mono text-[10px] text-white/55 tabular-nums">
             {threats.length.toLocaleString()} threats
           </span>

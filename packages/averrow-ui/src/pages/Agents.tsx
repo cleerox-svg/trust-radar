@@ -10,6 +10,7 @@ import { CardGridLoader } from '@/components/ui/PageLoader';
 import { Badge } from '@/components/ui/Badge';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { HistoryView } from '@/components/agents/HistoryView';
 import { ConfigView } from '@/components/agents/ConfigView';
 import { relativeTime, formatDuration } from '@/lib/time';
@@ -696,7 +697,7 @@ export function Agents() {
       {/* Page header with LIVE badge */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold text-parchment truncate">AI Agent Operations</h1>
-        <span className="live-indicator shrink-0">LIVE</span>
+        <LiveIndicator />
       </div>
 
       {/* Tab switcher — horizontal scroll on mobile */}

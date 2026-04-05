@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { severityColor } from '@/lib/severityColor';
+import { LiveIndicator } from '@/components/ui/LiveIndicator';
 
 interface RecentThreat {
   id: string;
@@ -45,9 +46,8 @@ export function LiveFeedCard() {
 
   return (
     <div className="rounded-xl glass-card glass-card-amber p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="font-mono text-[9px] tracking-widest text-afterburner">LIVE FEED</span>
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-afterburner" />
+      <div className="mb-3">
+        <LiveIndicator label="LIVE FEED" size="xs" />
       </div>
 
       {items.length === 0 ? (
