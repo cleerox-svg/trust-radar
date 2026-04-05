@@ -16,6 +16,8 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
+import { ExecutiveSummary } from '@/components/trends/ExecutiveSummary';
 /* ── Constants ── */
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -119,6 +121,7 @@ function IntelligenceBriefings() {
   return (
     <section>
       <SectionLabel className="mb-4">Observer Intelligence Briefings</SectionLabel>
+      <AgentAttribution agent="Observer" />
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -298,6 +301,7 @@ function ProviderMomentumPanel() {
 
       <Card hover={false}>
         <SectionLabel className="mb-3">NEXUS Active Clusters</SectionLabel>
+        <AgentAttribution agent="Nexus" />
         {nexusLoading ? (
           <Skeleton className="h-24 rounded-lg" />
         ) : !clusters?.length ? (
@@ -406,6 +410,9 @@ function TrendsContent() {
           ))}
         </div>
       </div>
+
+      {/* Executive Summary */}
+      <ExecutiveSummary period={window} />
 
       {/* Section 1: Intelligence Briefings */}
       <IntelligenceBriefings />

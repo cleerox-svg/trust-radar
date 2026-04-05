@@ -16,6 +16,7 @@ import { relativeTime } from '@/lib/time';
 import { Target } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
 
 const PIPELINE_STATUSES = ['new', 'researched', 'drafted', 'approved', 'sent', 'responded', 'meeting', 'converted'] as const;
 
@@ -358,6 +359,7 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
         {/* AI Findings */}
         <Card hover={false}>
           <SectionLabel className="mb-3">AI Findings</SectionLabel>
+          <AgentAttribution agent="Pathfinder" />
           {lead.findings_summary ? (
             <p className="text-sm text-parchment/80 leading-relaxed whitespace-pre-line">
               {lead.findings_summary}

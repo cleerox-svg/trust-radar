@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
 
 const PERIODS = [
   { id: '24h', label: '24H' },
@@ -661,6 +662,7 @@ export function Observatory() {
                 <div className="section-label font-mono font-bold mb-3">
                   Agent Intelligence
                 </div>
+                <AgentAttribution agent="Observer + Sentinel" />
                 <AgentIntelFeed />
               </div>
               <div className="p-4 border-b border-white/5">
