@@ -15,6 +15,7 @@ import {
 } from '@/hooks/useGeopoliticalCampaign';
 import type { GeoCampaignThreat } from '@/hooks/useGeopoliticalCampaign';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -549,6 +550,7 @@ export function GeopoliticalCampaignDashboard() {
       <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
         <div className="flex justify-between items-center mb-3">
           <SectionTitle>AI Intelligence Assessment</SectionTitle>
+          <AgentAttribution agent="ASTRA" />
           <button
             onClick={() => {
               setAssessmentError(null);
