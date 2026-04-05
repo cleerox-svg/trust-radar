@@ -26,6 +26,7 @@ import { StatCard } from '@/components/brands/StatCard';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 import { BIMIStatusRow } from '@/components/ui/BIMIStatusRow';
 import { relativeTime, timeAgo } from '@/lib/time';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const PLATFORM_ICONS: Record<string, string> = {
@@ -1231,7 +1232,8 @@ export function BrandDetail() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <SectionLabel>AI Threat Analysis</SectionLabel>
-                    <div className="flex items-center gap-2">
+                    <AgentAttribution agent="Analyst" lastRun={brand.analysis_updated_at || analysis?.updated_at} />
+                    <div className="flex items-center gap-2 mt-2">
                       <Badge variant="critical">CURRENT</Badge>
                       {astra.riskLevel && (
                         <span className={`inline-flex items-center font-mono text-[10px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded border ${RISK_BADGE_CLASSES[astra.riskLevel] || 'bg-white/5 text-white/60 border-white/10'}`}>
