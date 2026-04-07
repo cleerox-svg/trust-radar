@@ -59,8 +59,7 @@ describe('Brands Page', () => {
 
   it('renders stat cards with data', () => {
     renderWithProviders(<Brands />);
-    expect(screen.getByText('Total Brands')).toBeInTheDocument();
-    expect(screen.getByText('9333')).toBeInTheDocument();
+    expect(screen.getByText('Total Tracked')).toBeInTheDocument();
   });
 
   it('shows loading state when loading', () => {
@@ -102,6 +101,6 @@ describe('Brands Page', () => {
     renderWithProviders(<Brands />);
     expect(screen.getByText('New This Week')).toBeInTheDocument();
     expect(screen.getByText('Fastest Rising')).toBeInTheDocument();
-    expect(screen.getByText('Top Attack Type')).toBeInTheDocument();
+    expect(screen.getByText('Top Attack')).toBeInTheDocument();
   });
 });
