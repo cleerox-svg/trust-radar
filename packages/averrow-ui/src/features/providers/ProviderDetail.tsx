@@ -74,7 +74,7 @@ export function ProviderDetail() {
       </button>
 
       <div className="flex items-center gap-3">
-        <h1 className="font-display text-xl font-bold text-parchment">{provider.name}</h1>
+        <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{provider.name}</h1>
         {provider.asn && <Badge variant="info">{provider.asn}</Badge>}
         {provider.country && <Badge variant="default">{provider.country}</Badge>}
       </div>
@@ -122,7 +122,7 @@ export function ProviderDetail() {
                     <Badge variant="info">{threat.threat_type}</Badge>
                   </Td>
                   <Td>
-                    <span className="font-display font-semibold text-sm text-parchment">{threat.brand_name}</span>
+                    <span className="font-display font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{threat.brand_name}</span>
                   </Td>
                   <Td>
                     <span className="font-mono text-xs text-contrail/50">{relativeTime(threat.first_seen)}</span>

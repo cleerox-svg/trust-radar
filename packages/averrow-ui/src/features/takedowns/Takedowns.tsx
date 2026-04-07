@@ -119,7 +119,7 @@ function EvidencePanel({ takedownId }: { takedownId: string }) {
         <Card key={e.id} style={{ padding: '12px' }}>
           <div className="flex items-center gap-2 mb-1">
             <span className="badge-glass badge-pivot">{e.evidence_type.replace(/_/g, ' ')}</span>
-            <span className="font-mono text-xs font-semibold text-parchment">{e.title}</span>
+            <span className="font-mono text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{e.title}</span>
           </div>
           {e.content_text && (
             <p className="text-[11px] text-white/50 line-clamp-4">{e.content_text}</p>
@@ -151,24 +151,24 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               <span className="badge-glass badge-pivot">{takedown.target_type.replace(/_/g, ' ')}</span>
             </DetailRow>
             <DetailRow label="Platform">
-              <span className="text-parchment font-mono text-[11px]">
+              <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>
                 {takedown.target_platform ?? '\u2014'}
               </span>
             </DetailRow>
             <DetailRow label="Handle / URL">
-              <span className="text-parchment font-mono text-[11px] break-all select-all">
+              <span className="font-mono text-[11px] break-all select-all" style={{ color: 'var(--text-primary)' }}>
                 {takedown.target_value}
               </span>
             </DetailRow>
             {takedown.target_url && (
               <DetailRow label="Full URL">
-                <span className="text-afterburner font-mono text-[11px] break-all select-all">
+                <span className="font-mono text-[11px] break-all select-all" style={{ color: 'var(--amber)' }}>
                   {takedown.target_url}
                 </span>
               </DetailRow>
             )}
             <DetailRow label="Brand">
-              <span className="text-parchment text-[11px]">{takedown.brand_name ?? '\u2014'}</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-primary)' }}>{takedown.brand_name ?? '\u2014'}</span>
             </DetailRow>
             <DetailRow label="Source">
               <span className="text-white/50 font-mono text-[11px]">
@@ -181,7 +181,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               </span>
             </DetailRow>
             <DetailRow label="Priority">
-              <span className="font-mono text-[11px] text-parchment">{takedown.priority_score}/100</span>
+              <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{takedown.priority_score}/100</span>
             </DetailRow>
             <DetailRow label="Created">
               <span className="font-mono text-[11px] text-white/40">{relativeTime(takedown.created_at)}</span>
@@ -208,7 +208,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               href={takedown.provider_abuse_contact}
               target="_blank"
               rel="noopener noreferrer"
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-afterburner"
+              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--amber)' }}
             >
               Submit Form &rarr;
             </a>
@@ -216,7 +216,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           {takedown.provider_abuse_contact && takedown.provider_method === 'email' && (
             <a
               href={`mailto:${takedown.provider_abuse_contact}`}
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-afterburner"
+              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--amber)' }}
             >
               Draft Email &rarr;
             </a>
@@ -240,7 +240,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
             onChange={(e) => setLocalNotes(e.target.value)}
           />
           <button
-            className="glass-btn rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-parchment"
+            className="glass-btn rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}
             onClick={() => onUpdate(takedown.id, { notes: localNotes })}
             disabled={isUpdating}
           >
@@ -341,7 +341,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-3 min-w-0">
             <PlatformBadge platform={takedown.target_platform} />
-            <span className="font-mono text-sm font-semibold text-parchment truncate">
+            <span className="font-mono text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {takedown.target_value}
             </span>
           </div>
@@ -468,7 +468,7 @@ function MobileTakedownRow({
           </span>
         </div>
         <div className="mt-1 flex items-center gap-1 text-[11px]">
-          <span className="text-parchment truncate">{takedown.brand_name ?? 'Unknown'}</span>
+          <span className="truncate" style={{ color: 'var(--text-primary)' }}>{takedown.brand_name ?? 'Unknown'}</span>
           <span className="text-white/50">&rarr;</span>
           <span className="font-mono text-contrail/60 truncate">{takedown.target_value}</span>
         </div>
@@ -531,7 +531,7 @@ function TakedownsMobileView() {
   );
 
   return (
-    <div className="fixed inset-0 bg-cockpit flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ background: 'var(--bg-page)' }}>
       <DrillHeader
         title="TAKEDOWNS"
         badge={`${stats.pending} pending`}
@@ -553,7 +553,7 @@ function TakedownsMobileView() {
         defaultState="half"
         headerLeft={
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">SPARROW DRAFTS</span>
+            <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>SPARROW DRAFTS</span>
             <span className="text-[9px] font-mono text-white/55">{filtered.length} items</span>
           </div>
         }
@@ -701,7 +701,7 @@ function TakedownsDesktop() {
             onChange={(e) => setSortBy(e.target.value)}
           >
             {SORT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key} className="bg-cockpit text-parchment">{o.label}</option>
+              <option key={o.key} value={o.key} style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>{o.label}</option>
             ))}
           </select>
         }

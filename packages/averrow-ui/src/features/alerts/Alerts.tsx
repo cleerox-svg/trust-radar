@@ -152,7 +152,7 @@ function BrandGroupCard({
         />
         <div className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-display text-sm font-bold text-parchment uppercase tracking-wide">
+            <span className="font-display text-sm font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               {group.brand_name ?? 'Unknown Brand'}
             </span>
             <Badge variant="critical">{group.alerts.length} alerts</Badge>
@@ -197,7 +197,7 @@ function BrandGroupCard({
 
                   {/* Handle + platform */}
                   <div className="flex-1 min-w-0">
-                    <span className="font-mono text-[11px] font-semibold text-parchment">{handle}</span>
+                    <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{handle}</span>
                     <span className="font-mono text-[10px] text-white/40 ml-1.5">on</span>
                     <span className={cn(
                       'ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
@@ -246,7 +246,7 @@ function BrandGroupCard({
               {remaining > 0 && !showAll && (
                 <button
                   onClick={() => setShowAll(true)}
-                  className="font-mono text-[10px] font-semibold text-afterburner hover:text-afterburner-hover transition-colors"
+                  className="font-mono text-[10px] font-semibold hover:text-afterburner-hover transition-colors" style={{ color: 'var(--amber)' }}
                 >
                   + {remaining} more
                 </button>
@@ -254,7 +254,7 @@ function BrandGroupCard({
               {showAll && remaining > 0 && (
                 <button
                   onClick={() => setShowAll(false)}
-                  className="font-mono text-[10px] font-semibold text-contrail/50 hover:text-contrail transition-colors"
+                  className="font-mono text-[10px] font-semibold text-contrail/50 hover:text-[var(--text-secondary)] transition-colors"
                 >
                   Show less
                 </button>
@@ -273,7 +273,7 @@ function BrandGroupCard({
               <button
                 onClick={onCreateTakedowns}
                 disabled={isCreatingTakedowns}
-                className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-accent text-parchment hover:bg-accent/80 transition-all disabled:opacity-50"
+                className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-accent hover:bg-accent/80 transition-all disabled:opacity-50" style={{ color: 'var(--text-primary)' }}
               >
                 {isCreatingTakedowns ? 'Creating...' : 'Create Takedowns'}
               </button>
@@ -319,7 +319,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
             Social Impersonation
           </span>
         </div>
-        <button onClick={onClose} className="text-white/50 hover:text-parchment transition-colors p-1">
+        <button onClick={onClose} className="text-white/50 hover:text-[var(--text-primary)] transition-colors p-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -337,7 +337,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               alt=""
               className="w-4 h-4 rounded-sm"
             />
-            <span className="font-display text-sm font-bold text-parchment">{alert.brand_name ?? 'Unknown'}</span>
+            <span className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{alert.brand_name ?? 'Unknown'}</span>
             <span className="font-mono text-[10px] text-white/40">{alert.brand_domain ?? ''}</span>
           </div>
 
@@ -353,7 +353,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
 
           <div>
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Handle Detected</div>
-            <span className="font-mono text-[13px] font-bold text-parchment">{handle}</span>
+            <span className="font-mono text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>{handle}</span>
           </div>
 
           {score !== null && (
@@ -362,7 +362,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               <div className="flex items-baseline gap-2">
                 <span className={cn(
                   'font-display text-[28px] font-extrabold tabular-nums leading-none',
-                  score >= 75 ? 'text-[#fb923c] glow-amber' : 'text-contrail',
+                  score >= 75 ? 'text-[#fb923c] glow-amber' : 'text-[var(--text-secondary)]',
                 )}>
                   {score}%
                 </span>
@@ -492,7 +492,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               onChange={e => setNotes(e.target.value)}
               placeholder="Add notes..."
               rows={3}
-              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] text-parchment placeholder:text-white/30 focus:outline-none focus:border-afterburner-border resize-none font-mono"
+              className="w-full rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-[11px] placeholder:text-white/30 focus:outline-none focus:border-afterburner-border resize-none font-mono" style={{ color: 'var(--text-primary)' }}
             />
             {notes !== (alert.resolution_notes ?? '') && (
               <button
@@ -562,7 +562,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
         </span>
 
         {/* Brand name */}
-        <span className="flex-1 font-mono text-[11px] font-bold text-parchment truncate">
+        <span className="flex-1 font-mono text-[11px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>
           {alert.brand_name ?? handle}
         </span>
 
@@ -581,7 +581,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
       {expanded && (
         <div className="mt-2 ml-5 space-y-1.5 border-l-2 border-bulkhead/40 pl-3">
           <div className="font-mono text-[9px] text-white/55 uppercase tracking-wide">Handle</div>
-          <div className="font-mono text-[11px] text-parchment">{handle}</div>
+          <div className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{handle}</div>
           {alert.ai_assessment && (
             <>
               <div className="font-mono text-[9px] text-white/55 uppercase tracking-wide mt-1.5">AI Assessment</div>
@@ -672,7 +672,7 @@ function MobileAlertsLayout({
   ], [severityFilter]);
 
   return (
-    <div className="fixed inset-0 bg-cockpit flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ background: 'var(--bg-page)' }}>
       {/* DrillHeader */}
       <DrillHeader
         title="ALERTS"
@@ -693,7 +693,7 @@ function MobileAlertsLayout({
             </span>
             <div className="mt-1.5 flex items-center justify-between">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-parchment leading-none">
+                <span className="text-2xl font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>
                   {alerts24h.length}
                 </span>
                 {pctChange !== 0 && (
@@ -720,7 +720,7 @@ function MobileAlertsLayout({
         defaultState="half"
         headerLeft={
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">ALL ALERTS</span>
+            <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>ALL ALERTS</span>
             <span className="text-[9px] font-mono text-white/55">{filteredAlerts.length}</span>
           </div>
         }

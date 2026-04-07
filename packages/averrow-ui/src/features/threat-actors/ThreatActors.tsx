@@ -141,7 +141,7 @@ export function ThreatActors() {
         </StatCard>
         <StatCard
           title="INFRASTRUCTURE"
-          metric={<span className="text-[32px] font-bold leading-none text-afterburner">{stats?.tracked_infrastructure ?? 0}</span>}
+          metric={<span className="text-[32px] font-bold leading-none" style={{ color: 'var(--amber)' }}>{stats?.tracked_infrastructure ?? 0}</span>}
           metricLabel="tracked"
         >
           <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export function ThreatActors() {
             onClick={() => setFilter(f)}
             className={`rounded-full border px-3 py-1 font-mono text-[10px] transition-all ${
               filter === f
-                ? 'border-afterburner/50 bg-afterburner/10 text-afterburner'
+                ? 'border-[rgba(229,168,50,0.5)] bg-[rgba(229,168,50,0.1)] text-[var(--amber)]'
                 : 'border-white/10 bg-white/5 text-gauge-gray hover:border-white/20'
             }`}
           >

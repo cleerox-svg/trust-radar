@@ -129,7 +129,7 @@ export function ThreatActorDetail() {
         </StatCard>
         <StatCard
           title="TARGET SECTORS"
-          metric={<span className="text-lg sm:text-[24px] font-bold leading-none text-afterburner">{sectors.length || 0}</span>}
+          metric={<span className="text-lg sm:text-[24px] font-bold leading-none" style={{ color: 'var(--amber)' }}>{sectors.length || 0}</span>}
           metricLabel="sectors"
         >
           {sectors.length > 0 ? (
@@ -172,7 +172,7 @@ export function ThreatActorDetail() {
       {/* Campaigns */}
       {campaigns.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3 flex items-center gap-2">
+          <h2 className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-3 flex items-center gap-2">
             Active Campaigns
             <span className="flex-1 h-px bg-white/[0.06]" />
           </h2>
@@ -184,10 +184,10 @@ export function ThreatActorDetail() {
                   to={`/campaigns/${campaign.id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.10] transition-all group"
                 >
-                  <p className="text-instrument-white text-sm font-medium group-hover:text-afterburner transition-colors">
+                  <p className="text-instrument-white text-sm font-medium group-hover:text-[var(--amber)] transition-colors">
                     {campaign.name}
                   </p>
-                  <span className="text-white/40 group-hover:text-afterburner transition-colors">&rarr;</span>
+                  <span className="text-white/40 group-hover:text-[var(--amber)] transition-colors">&rarr;</span>
                 </Link>
               ) : (
                 <div
@@ -205,7 +205,7 @@ export function ThreatActorDetail() {
       {/* TTPs */}
       {ttps.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <h2 className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-3">
             Tactics, Techniques & Procedures
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -221,7 +221,7 @@ export function ThreatActorDetail() {
       {/* Infrastructure */}
       {actor.infrastructure && actor.infrastructure.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <h2 className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-3">
             Known Infrastructure
           </h2>
           <div className="overflow-x-auto">
@@ -244,7 +244,7 @@ export function ThreatActorDetail() {
                     <td className="py-2 pr-4">
                       <span className={
                         infra.confidence === 'confirmed' ? 'text-green-400' :
-                        infra.confidence === 'high' ? 'text-afterburner' : 'text-gauge-gray'
+                        infra.confidence === 'high' ? 'text-[var(--amber)]' : 'text-gauge-gray'
                       }>
                         {infra.confidence}
                       </span>
@@ -261,7 +261,7 @@ export function ThreatActorDetail() {
       {/* Targeted Brands */}
       {actor.targets && actor.targets.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-instrument-panel p-4">
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <h2 className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-3">
             Targeted Brands ({actor.targets.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">

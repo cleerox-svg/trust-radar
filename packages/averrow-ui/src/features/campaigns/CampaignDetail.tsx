@@ -23,7 +23,7 @@ export function CampaignDetail() {
         &larr; Back to Operations
       </button>
       <Card hover={false}>
-        <h1 className="font-display text-xl font-bold text-parchment mb-3">
+        <h1 className="font-display text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
           {campaign?.name || 'Campaign'}
         </h1>
         <p className="text-sm text-contrail/60">Detail view coming soon</p>

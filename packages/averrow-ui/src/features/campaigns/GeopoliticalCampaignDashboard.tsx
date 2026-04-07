@@ -50,7 +50,7 @@ function formatThreatType(type: string): string {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+    <h2 className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.42)' }}>
       {children}
     </h2>
   );
@@ -508,7 +508,7 @@ export function GeopoliticalCampaignDashboard() {
           </div>
           <div className="text-right">
             <div className="text-[10px] text-gauge-gray font-mono">Active since</div>
-            <div className="text-[14px] font-mono font-bold text-afterburner">
+            <div className="text-[14px] font-mono font-bold" style={{ color: 'var(--amber)' }}>
               {formatDate(campaign.start_date)}
             </div>
             <div className="text-[10px] text-gauge-gray font-mono mt-1">{daysActive} days</div>
@@ -560,7 +560,8 @@ export function GeopoliticalCampaignDashboard() {
               });
             }}
             disabled={assessmentMutation.isPending}
-            className="rounded-lg border border-afterburner/30 bg-afterburner/10 px-3 py-1.5 font-mono text-[10px] font-bold text-afterburner uppercase tracking-wider hover:bg-afterburner/20 transition-colors disabled:opacity-40"
+            className="rounded-lg border px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors disabled:opacity-40"
+            style={{ borderColor: 'rgba(229,168,50,0.30)', background: 'rgba(229,168,50,0.10)', color: 'var(--amber)' }}
           >
             {assessmentMutation.isPending ? 'Analyzing...' : 'Run Assessment'}
           </button>
@@ -605,7 +606,7 @@ export function GeopoliticalCampaignDashboard() {
         <StatCard
           title="LAST 24 HOURS"
           metric={
-            <span className="text-[32px] font-bold leading-none text-afterburner">
+            <span className="text-[32px] font-bold leading-none" style={{ color: 'var(--amber)' }}>
               {stats?.threats_24h ?? 0}
             </span>
           }

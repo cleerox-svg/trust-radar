@@ -65,13 +65,13 @@ export function Profile() {
         </h1>
       </div>
 
-      <div className="glass-card glass-card-amber rounded-xl p-6 mb-4">
+      <div className="glass-card-amber rounded-xl p-6 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-[#C83C3C] flex items-center justify-center text-lg font-bold text-white ring-2 ring-white/20 flex-shrink-0">
             {initials}
           </div>
           <div>
-            <h2 className="text-lg text-parchment font-semibold">{user?.name ?? 'User'}</h2>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</h2>
             <p className="text-[12px] text-white/40 mt-0.5">
               {user?.email} · {roleName}
             </p>
@@ -79,9 +79,9 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="glass-card rounded-xl p-5 mb-4">
+      <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <Monitor size={14} className="text-afterburner" />
+          <Monitor size={14} style={{ color: 'var(--amber)' }} />
           <span className="section-label">Account</span>
         </div>
 
@@ -99,7 +99,7 @@ export function Profile() {
               />
               <button
                 onClick={handleSaveName}
-                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider text-afterburner hover:text-afterburner-hover transition-colors"
+                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider hover:text-afterburner-hover transition-colors" style={{ color: 'var(--amber)' }}
               >
                 {saved ? 'Saved' : 'Save'}
               </button>
@@ -126,9 +126,9 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="glass-card rounded-xl p-5 mb-4">
+      <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <Shield size={14} className="text-afterburner" />
+          <Shield size={14} style={{ color: 'var(--amber)' }} />
           <span className="section-label">Security</span>
         </div>
 
@@ -166,9 +166,9 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="glass-card rounded-xl p-5">
+      <div className="rounded-xl p-5" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <Clock size={14} className="text-afterburner" />
+          <Clock size={14} style={{ color: 'var(--amber)' }} />
           <span className="section-label">Preferences</span>
         </div>
 
