@@ -103,7 +103,7 @@ export function MobileCommandCenter() {
               </div>
               <span style={{ fontSize:8, fontFamily:'monospace', color:'rgba(255,255,255,0.30)', letterSpacing:'0.18em' }}>LIVE</span>
             </div>
-            <div style={{ position:'relative', cursor:'pointer' }} onClick={() => navigate('/v2/notifications')}>
+            <div style={{ position:'relative', cursor:'pointer' }} onClick={() => navigate('/notifications')}>
               <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))', border:'1px solid rgba(255,255,255,0.14)', boxShadow:'0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15),inset 0 -1px 0 rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
                 🔔
               </div>
@@ -122,7 +122,7 @@ export function MobileCommandCenter() {
         {/* CRITICAL BANNER */}
         {criticalCount > 0 && (
           <div style={{ padding:'14px 20px 0' }}>
-            <DeepCard variant="critical" onClick={() => navigate('/v2/alerts')} style={{ padding:'11px 16px' }}>
+            <DeepCard variant="critical" onClick={() => navigate('/alerts')} style={{ padding:'11px 16px' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <div style={{ position:'relative', width:8, height:8, flexShrink:0 }}>
                   <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'#f87171', opacity:0.7, animation:'mcc-ping 1.8s ease-in-out infinite' }} />
@@ -157,12 +157,12 @@ export function MobileCommandCenter() {
 
         {/* STAT GRID */}
         <div style={{ padding:'14px 20px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          <StatTile label="Brands"  value={brandStats?.total_tracked ?? 0}  sub={`${brandStats?.new_this_week ?? 0} new this week`} accent={M.AMBER} onClick={() => navigate('/v2/brands')} />
-          <StatTile label="Threats" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/v2/threats')} />
-          <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/v2/alerts')} />
-          <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/v2/agents')} />
-          <StatTile label="Feeds"   value={feedStats?.active ?? 0}           sub={`of ${feedStats?.total ?? 34} active`}             accent={M.GREEN} onClick={() => navigate('/v2/feeds')} />
-          <StatTile label="Campaigns" value={0} sub="active ops" accent={M.BLUE} onClick={() => navigate('/v2/campaigns')} />
+          <StatTile label="Brands"  value={brandStats?.total_tracked ?? 0}  sub={`${brandStats?.new_this_week ?? 0} new this week`} accent={M.AMBER} onClick={() => navigate('/brands')} />
+          <StatTile label="Threats" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/threats')} />
+          <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/alerts')} />
+          <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/agents')} />
+          <StatTile label="Feeds"   value={feedStats?.active ?? 0}           sub={`of ${feedStats?.total ?? 34} active`}             accent={M.GREEN} onClick={() => navigate('/feeds')} />
+          <StatTile label="Campaigns" value={0} sub="active ops" accent={M.BLUE} onClick={() => navigate('/campaigns')} />
         </div>
 
         {/* BRANDS AT RISK */}
@@ -173,7 +173,7 @@ export function MobileCommandCenter() {
                 <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.AMBER},transparent)` }} />
                 <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Brands at Risk</span>
               </div>
-              <span onClick={() => navigate('/v2/brands')} style={{ fontSize:11, color:M.AMBER, cursor:'pointer', fontWeight:700, textShadow:`0 0 10px ${M.AMBER}60` }}>View all →</span>
+              <span onClick={() => navigate('/brands')} style={{ fontSize:11, color:M.AMBER, cursor:'pointer', fontWeight:700, textShadow:`0 0 10px ${M.AMBER}60` }}>View all →</span>
             </div>
             <DeepCard variant="base" style={{ padding:0, overflow:'hidden' }}>
               {topBrands.map((brand, i) => {
@@ -181,7 +181,7 @@ export function MobileCommandCenter() {
                 const tc = brand.threat_count ?? 0;
                 const sevKey = tc > 30 ? 'critical' : tc > 15 ? 'high' : 'medium';
                 return (
-                  <div key={brand.id} onClick={() => navigate(`/v2/brands/${brand.id}`)} style={{ padding:'14px 16px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display:'flex', alignItems:'center', gap:12, cursor:'pointer', borderLeft:`2px solid ${c.color}60`, background: i === 0 ? `linear-gradient(90deg,${c.color}08,transparent 50%)` : 'transparent' }}>
+                  <div key={brand.id} onClick={() => navigate(`/brands/${brand.id}`)} style={{ padding:'14px 16px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display:'flex', alignItems:'center', gap:12, cursor:'pointer', borderLeft:`2px solid ${c.color}60`, background: i === 0 ? `linear-gradient(90deg,${c.color}08,transparent 50%)` : 'transparent' }}>
                     <BrandAvatar name={brand.name} color={c.color} dimColor={c.dimColor} />
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, color:'rgba(255,255,255,0.92)' }}>{brand.name}</div>
@@ -240,7 +240,7 @@ export function MobileCommandCenter() {
             ) : filteredIntel.map((item: any, i: number) => {
               const s = SEV[item.severity] ?? SEV.low;
               return (
-                <div key={item.id} onClick={() => navigate('/v2/alerts')} style={{
+                <div key={item.id} onClick={() => navigate('/alerts')} style={{
                   padding:'13px 16px',
                   borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                   display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer',
@@ -279,10 +279,10 @@ export function MobileCommandCenter() {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             {[
-              { label:'Observatory',   desc:'Global threat map', emoji:'🌐', accent:M.BLUE,  path:'/v2/observatory' },
-              { label:'Brands Hub',    desc:'Portfolio health',  emoji:'🛡', accent:M.AMBER, path:'/v2/brands' },
-              { label:'Threat Actors', desc:'18 adversaries',    emoji:'🎯', accent:M.RED,   path:'/v2/threat-actors' },
-              { label:'Geo Campaign',  desc:'IRGC active',       emoji:'⚡', accent:M.RED,   path:'/v2/campaigns' },
+              { label:'Observatory',   desc:'Global threat map', emoji:'🌐', accent:M.BLUE,  path:'/observatory' },
+              { label:'Brands Hub',    desc:'Portfolio health',  emoji:'🛡', accent:M.AMBER, path:'/brands' },
+              { label:'Threat Actors', desc:'18 adversaries',    emoji:'🎯', accent:M.RED,   path:'/threat-actors' },
+              { label:'Geo Campaign',  desc:'IRGC active',       emoji:'⚡', accent:M.RED,   path:'/campaigns' },
             ].map(a => (
               <DeepCard key={a.label} variant="stat" accentColor={a.accent} onClick={() => navigate(a.path)} style={{ padding:'16px 14px', cursor:'pointer' }}>
                 <div style={{ fontSize:24, marginBottom:10, filter:`drop-shadow(0 0 8px ${a.accent}60)` }}>{a.emoji}</div>
@@ -307,10 +307,10 @@ export function MobileCommandCenter() {
       }}>
         {[
           { icon:'🏠', label:'Home',   id:'home',   path:'/v2',             badge: 0 },
-          { icon:'🌐', label:'Map',    id:'obs',    path:'/v2/observatory', badge: 0 },
-          { icon:'🛡', label:'Brands', id:'brands', path:'/v2/brands',      badge: 0 },
-          { icon:'🔔', label:'Alerts', id:'alerts', path:'/v2/alerts',      badge: unreadCount },
-          { icon:'☰',  label:'More',   id:'more',   path:'/v2/agents',      badge: 0 },
+          { icon:'🌐', label:'Map',    id:'obs',    path:'/observatory', badge: 0 },
+          { icon:'🛡', label:'Brands', id:'brands', path:'/brands',      badge: 0 },
+          { icon:'🔔', label:'Alerts', id:'alerts', path:'/alerts',      badge: unreadCount },
+          { icon:'☰',  label:'More',   id:'more',   path:'/agents',      badge: 0 },
         ].map(n => (
           <button key={n.id} onClick={() => { setActiveNav(n.id); navigate(n.path); }} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', position:'relative', padding:'6px 14px' }}>
             {(n.badge ?? 0) > 0 && (
