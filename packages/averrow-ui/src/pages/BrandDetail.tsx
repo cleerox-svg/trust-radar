@@ -14,6 +14,8 @@ import {
 } from '@/hooks/useBrandDetail';
 import { useBrandThreats, type BrandThreatRow } from '@/hooks/useBrands';
 import { DeepCard } from '@/components/ui/DeepCard';
+import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
+import { DimensionalButton } from '@/components/ui/DimensionalButton';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -673,34 +675,50 @@ export function BrandDetail() {
       </button>
 
       {/* ── Brand Header ── */}
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=48`}
-            alt="" className="w-10 h-10 rounded-lg ring-2 ring-white/[0.06]"
+      <DeepCard variant="base" style={{ padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
+        {/* Ambient glow behind the header — matches brand severity */}
+        <div style={{
+          position: 'absolute', top: -40, left: '30%',
+          width: 300, height: 200, borderRadius: '50%',
+          background: `radial-gradient(ellipse, ${SEVERITY_COLORS[brand.top_severity] || '#E5A832'}14, transparent 70%)`,
+          pointerEvents: 'none',
+        }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+          <DimensionalAvatar
+            name={brand.name}
+            color={SEVERITY_COLORS[brand.top_severity] || '#E5A832'}
+            size={52}
+            radius={14}
+            faviconUrl={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=64`}
+            severity={brand.top_severity}
           />
-          {brand.monitoring_status === 'active' && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full ring-2 ring-cockpit">
-              <span className="absolute inset-0 bg-accent rounded-full animate-ping opacity-50" />
-            </span>
-          )}
-        </div>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="font-display text-2xl font-extrabold text-parchment tracking-tight">{brand.name}</h1>
-            {brand.sector && <Badge variant="info">{brand.sector}</Badge>}
-            <Badge variant={brand.monitoring_status === 'active' ? 'success' : 'default'}>
-              {brand.monitoring_status}
-            </Badge>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{
+              fontSize: 22, fontWeight: 900, color: 'rgba(255,255,255,0.95)',
+              letterSpacing: -0.5, lineHeight: 1.1,
+            }}>
+              {brand.name}
+            </h1>
+            <div style={{
+              fontSize: 12, fontFamily: 'monospace',
+              color: 'rgba(255,255,255,0.40)', marginTop: 3,
+            }}>
+              {brand.canonical_domain}
+              {timeAgo(brand.first_seen) && (
+                <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.28)' }}>
+                  &middot; tracked {timeAgo(brand.first_seen)}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              {brand.sector && <Badge variant="info">{brand.sector}</Badge>}
+              <Badge variant={brand.monitoring_status === 'active' ? 'success' : 'default'}>
+                {brand.monitoring_status}
+              </Badge>
+            </div>
           </div>
-          <div className="font-mono text-sm text-contrail/50">
-            {brand.canonical_domain}
-            {timeAgo(brand.first_seen) && (
-              <span className="text-white/50 ml-2">&middot; tracked {timeAgo(brand.first_seen)}</span>
-            )}
-          </div>
         </div>
-      </div>
+      </DeepCard>
 
       {/* ════════════════════════════════════════════════════════════════
            Sticky Tab Bar
@@ -712,11 +730,12 @@ export function BrandDetail() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 px-4 py-3 text-xs font-medium transition-all
+              className={`flex-shrink-0 px-4 py-3 text-xs font-bold transition-all
                 border-b-2 ${activeTab === tab.id
                   ? 'border-amber-500 text-amber-400'
                   : 'border-transparent text-white/40 hover:text-white/70'
                 }`}
+              style={activeTab === tab.id ? { textShadow: '0 0 10px rgba(229,168,50,0.60)' } : undefined}
             >
               {tab.label}
             </button>
@@ -749,42 +768,39 @@ export function BrandDetail() {
           </div>
 
           {/* AI Deep Scan CTA */}
-          <div className="flex gap-2">
-            <Button variant="primary" size="sm"
+          <div style={{ display: 'flex', gap: 10 }}>
+            <DimensionalButton variant="primary" size="md"
               onClick={() => triggerAnalysis.mutate(id)}
               disabled={triggerAnalysis.isPending}>
               {triggerAnalysis.isPending ? 'ANALYZING...' : 'AI DEEP SCAN'}
-            </Button>
-            <Button variant="ghost" size="sm"
+            </DimensionalButton>
+            <DimensionalButton variant="secondary" size="md"
               onClick={() => cleanFP.mutate(id)}
               disabled={cleanFP.isPending}>
               CLEAN FALSE POSITIVES
-            </Button>
+            </DimensionalButton>
           </div>
 
           {/* Threat Breakdown + Providers */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
-              <SectionLabel>Threat Breakdown</SectionLabel>
+              <SectionLabel label="Threat Breakdown" accent="#C83C3C" />
               <ThreatSummaryCards threats={threats} />
             </div>
             <Card hover={false}>
-              <SectionLabel className="mb-4">Hosting Providers</SectionLabel>
+              <SectionLabel label="Top Providers" accent="#0A8AB5" />
               <ProviderBars providers={providers} />
             </Card>
           </div>
 
           {/* Latest 5 threats preview */}
           <Card hover={false}>
-            <div className="flex items-center justify-between mb-4">
-              <SectionLabel>Recent Threats</SectionLabel>
-              {threats.length > 5 && (
-                <button onClick={() => setActiveTab('threats')}
-                  className="font-mono text-[10px] text-contrail hover:text-accent transition-colors">
-                  VIEW ALL {threats.length} &rarr;
-                </button>
-              )}
-            </div>
+            <SectionLabel
+              label="Recent Threats"
+              accent="#C83C3C"
+              action={threats.length > 5 ? `View all ${threats.length}` : undefined}
+              onAction={() => setActiveTab('threats')}
+            />
             {threats.length === 0 ? (
               <EmptyState
                 icon={<CheckCircle />}
@@ -797,8 +813,8 @@ export function BrandDetail() {
               <div className="space-y-0">
                 {sortedThreats.slice(0, 5).map((t: any) => (
                   <div key={t.id}
-                    className="flex items-center gap-3 py-2.5 border-b border-white/[0.03]
-                      hover:bg-white/[0.02] transition-colors">
+                    className="data-row flex items-center gap-3 py-2.5 border-b border-white/[0.03] transition-colors"
+                    data-severity={t.severity}>
                     <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
                       style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
                     <div className="flex-1 min-w-0">
@@ -916,8 +932,9 @@ export function BrandDetail() {
                       const secondaryLabel = t.url || t.domain || t.target_url || t.source || null;
                       return (
                         <div key={t.id}
-                          className="grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_100px] gap-3 items-center py-2.5
-                          border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group">
+                          data-severity={t.severity}
+                          className="data-row grid grid-cols-[3px_minmax(0,1fr)_minmax(0,1fr)_80px_100px] gap-3 items-center py-2.5
+                          border-b border-white/[0.03] transition-colors group">
                           <div className="h-full rounded-full" style={{ backgroundColor: SEVERITY_COLORS[t.severity] || '#5A80A8' }} />
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-[7px] h-[7px] rounded-full flex-shrink-0"
