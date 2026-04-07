@@ -33,13 +33,17 @@ function SimpleStatCard({
     padding: '16px 20px',
     position: 'relative',
     userSelect: 'none',
-    borderLeft: accentColor ? `3px solid ${accentColor}` : undefined,
     cursor: onClick ? 'pointer' : undefined,
     background: 'rgba(22,30,48,0.50)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
     border: '1px solid rgba(229,168,50,0.15)',
     boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+    ...(accentColor && {
+      borderLeftWidth: '3px',
+      borderLeftStyle: 'solid',
+      borderLeftColor: accentColor,
+    }),
   };
 
   return (
