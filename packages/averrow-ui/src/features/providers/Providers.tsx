@@ -1,11 +1,16 @@
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { StatCard } from '@/components/ui/StatCard';
+import {
+  Card,
+  StatCard,
+  StatGrid,
+  PageHeader,
+  FilterBar,
+  EmptyState,
+  Skeleton,
+} from '@/design-system/components';
 import { Sparkline } from '@/features/brands/components/Sparkline';
-import { Badge } from '@/components/ui/Badge';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { Globe } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
 import {
   useProviderIntelligence,
   useProviders,
@@ -120,13 +125,14 @@ function ClusterPanel({
 
   return (
     <div className="space-y-1.5">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+      <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
         Cluster Intelligence
       </div>
       {selectedClusterId && (
         <button
           onClick={() => onSelect(null)}
-          className="w-full text-left font-mono text-[10px] text-afterburner hover:text-afterburner-hover px-2 py-1 mb-1"
+          className="w-full text-left font-mono text-[10px] px-2 py-1 mb-1"
+          style={{ color: 'var(--amber)' }}
         >
           Clear filter
         </button>
@@ -144,23 +150,21 @@ function ClusterPanel({
         const status = getClusterStatus(cluster);
         const isSelected = selectedClusterId === cluster.id;
         return (
-          <button
+          <Card
             key={cluster.id}
+            variant={isSelected ? 'active' : 'base'}
             onClick={() => onSelect(isSelected ? null : cluster.id)}
-            className={`w-full text-left rounded-lg p-2.5 transition-all glass-card ${
-              isSelected
-                ? 'border-afterburner-border bg-afterburner-muted'
-                : ''
-            }`}
+            padding="10px"
+            className="w-full text-left"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="font-mono text-[11px] text-parchment truncate">
+              <div className="font-mono text-[11px] truncate" style={{ color: 'var(--text-primary)' }}>
                 {cluster.cluster_name || `Cluster ${cluster.id.slice(0, 8)}`}
               </div>
               <StatusBadge status={status} />
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono text-[10px] text-contrail/50">
+              <span className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                 {cluster.threat_count.toLocaleString()} threats
               </span>
               {cluster.countries && (
@@ -173,7 +177,7 @@ function ClusterPanel({
                 </span>
               )}
             </div>
-          </button>
+          </Card>
         );
       })}
     </div>
@@ -200,24 +204,22 @@ function ProviderCard({
   const weeklyData = useMemo(() => estimateWeeklyVolumes(t7, t30), [t7, t30]);
 
   return (
-    <button
+    <Card
+      variant={isSelected ? 'active' : 'base'}
       onClick={() => onSelect(provider.id)}
-      className={`w-full text-left rounded-xl p-4 transition-all glass-card ${
-        isSelected
-          ? 'ring-1 ring-afterburner/20 border-afterburner-border'
-          : 'hover:-translate-y-0.5'
-      }`}
+      padding="16px"
+      className="w-full text-left"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-base">{countryFlag(provider.country)}</span>
           <div className="min-w-0">
-            <div className="font-display text-sm font-semibold text-parchment truncate">
+            <div className="font-display text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {provider.name}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[10px] text-white/55">
+              <span className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                 {provider.asn || 'No ASN'} {provider.country ? `\u00B7 ${provider.country}` : ''}
               </span>
             </div>
@@ -236,22 +238,22 @@ function ProviderCard({
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-3 py-2 border-t border-b border-white/[0.06] my-2">
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {provider.active_threat_count.toLocaleString()}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Active</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Active</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {t7.toLocaleString()}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">7d Trend</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>7d Trend</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {t30.toLocaleString()}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">30d Trend</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>30d Trend</div>
         </div>
       </div>
 
@@ -267,11 +269,11 @@ function ProviderCard({
         </div>
       )}
       {status === 'pivot' && (
-        <div className="mt-2 font-mono text-[10px] text-[#00D4FF]">
+        <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--blue)' }}>
           {'\u2192'} PIVOT DETECTED: went silent {provider.trend_30d ?? 0 > 50 ? '7+ days ago' : 'recently'}
         </div>
       )}
-    </button>
+    </Card>
   );
 }
 
@@ -285,14 +287,16 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
 
   if (detailLoading) {
     return (
-      <div className="rounded-xl p-6 space-y-4 glass-card">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
+      <Card padding="24px">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+          </div>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -311,21 +315,21 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
       critical: 'bg-[#f87171]/10 text-[#f87171] border-[#f87171]/30',
       high: 'bg-[#fb923c]/10 text-[#fb923c] border-[#fb923c]/30',
       medium: 'bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/30',
-      low: 'bg-contrail/10 text-contrail border-contrail/30',
+      low: 'bg-[#60a5fa]/10 text-[#60a5fa] border-[#60a5fa]/30',
     };
     return map[severity] ?? map.low;
   }
 
   return (
-    <div className="rounded-xl p-6 animate-fade-in glass-card">
+    <Card variant="elevated" padding="24px">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">{countryFlag(detail.country)}</span>
-            <h3 className="font-display text-lg font-bold text-parchment">{detail.name}</h3>
+            <h3 className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{detail.name}</h3>
           </div>
-          <div className="font-mono text-xs text-contrail/50 mt-1">
+          <div className="font-mono text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
             {detail.asn || 'No ASN'} {detail.country ? `\u00B7 ${detail.country}` : ''}
           </div>
         </div>
@@ -340,7 +344,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               }`}>
                 {detail.reputation_score}
               </div>
-              <div className="font-mono text-[9px] text-contrail/50 uppercase">Reputation</div>
+              <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Reputation</div>
             </div>
           )}
         </div>
@@ -350,7 +354,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left — Provider Info */}
         <div className="space-y-3">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+          <div className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
             Provider Details
           </div>
           <div className="space-y-2">
@@ -363,8 +367,8 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               ['Campaigns', String(detail.campaigns)],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between">
-                <span className="font-mono text-[11px] text-contrail/50">{label}</span>
-                <span className="font-mono text-[11px] text-parchment">{value}</span>
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{value}</span>
               </div>
             ))}
           </div>
@@ -372,7 +376,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
 
         {/* Center — Timeline Chart */}
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
             Threat Timeline (30d)
           </div>
           {timelineLoading ? (
@@ -422,7 +426,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
 
         {/* Right — Linked Clusters */}
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
             Linked Clusters
           </div>
           {clustersLoading ? (
@@ -434,23 +438,20 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
           ) : linkedClusters && linkedClusters.length > 0 ? (
             <div className="space-y-2">
               {linkedClusters.map(cluster => (
-                <div
-                  key={cluster.id}
-                  className="rounded-lg p-2.5 glass-card"
-                >
+                <Card key={cluster.id} padding="10px">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] text-parchment truncate">
+                    <span className="font-mono text-[11px] truncate" style={{ color: 'var(--text-primary)' }}>
                       {cluster.cluster_name || `Cluster ${cluster.id.slice(0, 8)}`}
                     </span>
                     <StatusBadge status={getClusterStatus(cluster)} />
                   </div>
-                  <div className="font-mono text-[10px] text-white/55 mt-1">
+                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
                     {cluster.threat_count} threats
                     {cluster.agent_notes && (
-                      <span className="block mt-0.5 text-white/50 truncate">{cluster.agent_notes}</span>
+                      <span className="block mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>{cluster.agent_notes}</span>
                     )}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           ) : (
@@ -463,7 +464,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
 
       {/* Recent Threats Table */}
       <div className="mt-6">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
           Recent Threats
         </div>
         {threatsLoading ? (
@@ -474,7 +475,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               <thead>
                 <tr className="border-b border-white/[0.06]">
                   {['Type', 'Domain', 'Severity', 'First Seen'].map(h => (
-                    <th key={h} className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left py-2 px-2">
+                    <th key={h} className="font-mono text-[9px] uppercase tracking-wider text-left py-2 px-2" style={{ color: 'var(--text-tertiary)' }}>
                       {h}
                     </th>
                   ))}
@@ -483,8 +484,8 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
               <tbody>
                 {threats.map(threat => (
                   <tr key={threat.id} className="data-row border-b border-white/[0.04]">
-                    <td className="font-mono text-[11px] text-parchment py-1.5 px-2">{threat.threat_type}</td>
-                    <td className="font-mono text-[11px] text-contrail/60 py-1.5 px-2 truncate max-w-[200px]">
+                    <td className="font-mono text-[11px] py-1.5 px-2" style={{ color: 'var(--text-primary)' }}>{threat.threat_type}</td>
+                    <td className="font-mono text-[11px] py-1.5 px-2 truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>
                       {threat.malicious_domain || '—'}
                     </td>
                     <td className="py-1.5 px-2">
@@ -510,7 +511,7 @@ function ProviderDetailPanel({ providerId }: { providerId: string }) {
           />
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -551,77 +552,34 @@ export function Providers() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Title */}
-      <h1 className="font-display text-xl font-bold text-parchment">Infrastructure Intelligence</h1>
+      <PageHeader title="Hosting Providers" subtitle="Infrastructure hosting threat activity" />
 
-      {/* Intelligence Header — 4 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatGrid cols={4}>
         <StatCard
-          title="Providers Tracked"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-parchment">
-              {intelLoading ? '—' : (intelligence?.total_providers ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Total"
-        >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-contrail" />
-              <span className="font-mono text-[11px] text-white/60">Infrastructure nodes</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-contrail/40" />
-              <span className="font-mono text-[11px] text-white/50">{intelligence?.total_clusters ?? 0} clusters</span>
-            </div>
-          </div>
-        </StatCard>
-
+          label="Providers Tracked"
+          value={intelLoading ? '—' : (intelligence?.total_providers ?? 0).toLocaleString()}
+          accentColor="var(--blue)"
+          sublabel={`${intelligence?.total_clusters ?? 0} clusters`}
+        />
         <StatCard
-          title="Active Operations"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-[#4ADE80]">
-              {intelLoading ? '—' : (intelligence?.active_operations ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="With threats"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
-            <span className="font-mono text-[11px] text-white/60">Providers with active threats</span>
-          </div>
-        </StatCard>
-
+          label="Active Operations"
+          value={intelLoading ? '—' : (intelligence?.active_operations ?? 0).toLocaleString()}
+          accentColor="var(--green)"
+          sublabel="Providers with active threats"
+        />
         <StatCard
-          title="Accelerating"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-amber-400">
-              {intelLoading ? '—' : (intelligence?.accelerating ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Campaigns"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span className="font-mono text-[11px] text-white/60">7d trend &gt; 30d average</span>
-          </div>
-        </StatCard>
-
+          label="Accelerating"
+          value={intelLoading ? '—' : (intelligence?.accelerating ?? 0).toLocaleString()}
+          accentColor="var(--amber)"
+          sublabel="7d trend > 30d average"
+        />
         <StatCard
-          title="Pivots Detected"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-afterburner">
-              {intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Infra moved"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-            <span className="font-mono text-[11px] text-white/60">Silent after &gt;50 threats/30d</span>
-          </div>
-        </StatCard>
-      </div>
+          label="Pivots Detected"
+          value={intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
+          accentColor="var(--red)"
+          sublabel="Silent after >50 threats/30d"
+        />
+      </StatGrid>
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -640,55 +598,37 @@ export function Providers() {
 
         {/* Center/Main — Provider Cards */}
         <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search providers or ASN..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="glass-input rounded-lg px-3 py-1.5 font-mono text-[11px] w-full sm:w-64"
-            />
-
-            {/* Status Pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_FILTERS.map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    setStatusFilter(f.id);
-                    setSelectedProviderId(null);
-                  }}
-                  className={`font-mono text-[10px] font-semibold px-3 py-1 rounded transition-all ${
-                    statusFilter === f.id
-                      ? 'glass-btn-active'
-                      : 'glass-btn'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Sort */}
-            <div className="flex items-center gap-1.5 sm:ml-auto">
-              <span className="font-mono text-[9px] text-white/55 uppercase">Sort:</span>
-              {SORT_OPTIONS.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setSortBy(s.id)}
-                  className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all ${
-                    sortBy === s.id
-                      ? 'bg-white/10 text-parchment'
-                      : 'text-white/55 hover:text-parchment'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <FilterBar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search providers or ASN...',
+            }}
+            filters={STATUS_FILTERS.map(f => ({ value: f.id, label: f.label }))}
+            active={statusFilter}
+            onChange={(v) => {
+              setStatusFilter(v);
+              setSelectedProviderId(null);
+            }}
+            actions={
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Sort:</span>
+                {SORT_OPTIONS.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSortBy(s.id)}
+                    className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all"
+                    style={{
+                      background: sortBy === s.id ? 'rgba(255,255,255,0.10)' : 'transparent',
+                      color: sortBy === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            }
+          />
 
           {/* Provider Cards Grid */}
           {providersLoading ? (
@@ -719,11 +659,11 @@ export function Providers() {
               )}
             </>
           ) : (
-            <div className="rounded-xl p-12 text-center glass-card">
-              <div className="font-mono text-[11px] text-white/40">
+            <Card padding="48px" className="text-center">
+              <div className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                 No providers match current filters
               </div>
-            </div>
+            </Card>
           )}
         </div>
       </div>

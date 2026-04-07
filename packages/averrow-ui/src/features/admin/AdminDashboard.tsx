@@ -7,6 +7,7 @@ import { useAdminAction } from '@/hooks/useAdminAction';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
+import { Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { DailyBriefingWidget } from '@/components/DailyBriefingWidget';
@@ -27,9 +28,9 @@ function shortDate(iso: string): string {
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-cockpit/95 px-3 py-2 backdrop-blur-sm">
-      <div className="font-mono text-[10px] text-contrail/60">{label}</div>
-      <div className="font-mono text-sm font-bold text-parchment">{fmt(payload[0].value)} threats</div>
+    <div className="rounded-lg border border-white/10 px-3 py-2 backdrop-blur-sm" style={{ background: 'var(--bg-card)' }}>
+      <div className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{label}</div>
+      <div className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{fmt(payload[0].value)} threats</div>
     </div>
   );
 }
@@ -68,7 +69,7 @@ function BudgetPanel() {
     : 'progress-bar-fill-teal';
 
   return (
-    <div className="glass-card glass-card-amber rounded-xl p-4 space-y-4">
+    <Card style={{ padding: '20px', marginBottom: 16 }} className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="section-label">AI Budget</div>
         <span className={`badge-glass ${throttleBadge(budget.throttle_level)}`}>
@@ -82,7 +83,7 @@ function BudgetPanel() {
           <span className={`font-display text-lg font-bold ${throttleColor(budget.throttle_level)}`}>
             ${budget.spent_this_month.toFixed(2)}
           </span>
-          <span className="font-mono text-[10px] text-contrail/50">
+          <span className="font-mono text-[10px] text-white/40">
             / ${budget.config.monthly_limit_usd.toFixed(2)}
           </span>
         </div>
@@ -97,22 +98,22 @@ function BudgetPanel() {
       {/* Key metrics */}
       <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
         <div>
-          <div className="text-contrail/50 mb-0.5">Remaining</div>
-          <div className="text-parchment font-semibold">${budget.remaining.toFixed(2)}</div>
+          <div className="text-white/40 mb-0.5">Remaining</div>
+          <div className="text-white/95 font-semibold">${budget.remaining.toFixed(2)}</div>
         </div>
         <div>
-          <div className="text-contrail/50 mb-0.5">Daily burn</div>
-          <div className="text-parchment font-semibold">${budget.daily_burn_rate.toFixed(2)}/day</div>
+          <div className="text-white/40 mb-0.5">Daily burn</div>
+          <div className="text-white/95 font-semibold">${budget.daily_burn_rate.toFixed(2)}/day</div>
         </div>
         <div>
-          <div className="text-contrail/50 mb-0.5">Projected</div>
-          <div className={`font-semibold ${budget.projected_monthly > budget.config.monthly_limit_usd ? 'text-accent' : 'text-parchment'}`}>
+          <div className="text-white/40 mb-0.5">Projected</div>
+          <div className={`font-semibold ${budget.projected_monthly > budget.config.monthly_limit_usd ? 'text-accent' : 'text-white/95'}`}>
             ${budget.projected_monthly.toFixed(2)}
           </div>
         </div>
         <div>
-          <div className="text-contrail/50 mb-0.5">Days left</div>
-          <div className="text-parchment font-semibold">{budget.days_in_month - budget.days_elapsed}</div>
+          <div className="text-white/40 mb-0.5">Days left</div>
+          <div className="text-white/95 font-semibold">{budget.days_in_month - budget.days_elapsed}</div>
         </div>
       </div>
 
@@ -129,12 +130,12 @@ function BudgetPanel() {
       {breakdown && breakdown.length > 0 && (
         <>
           <hr className="hud-divider" />
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Spend by Agent</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-2">Spend by Agent</div>
           <div className="space-y-1.5">
             {breakdown.map((a) => (
               <div key={a.agent_id} className="flex items-center justify-between font-mono text-[10px]">
-                <span className="text-parchment/80">{a.agent_id}</span>
-                <span className="text-contrail/60">${a.cost_usd.toFixed(3)} ({a.calls})</span>
+                <span className="text-white/80">{a.agent_id}</span>
+                <span className="text-white/60">${a.cost_usd.toFixed(3)} ({a.calls})</span>
               </div>
             ))}
           </div>
@@ -147,20 +148,21 @@ function BudgetPanel() {
         <button
           type="button"
           onClick={() => { setEditing(true); setLimitInput(String(budget.config.monthly_limit_usd)); }}
-          className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
+          className="font-mono text-[10px] text-amber-400 hover:text-amber-300 transition-colors"
         >
           Edit monthly limit &rarr;
         </button>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] text-contrail/50">$</span>
+          <span className="font-mono text-[10px] text-white/40">$</span>
           <input
             type="number"
             step="0.01"
             min="0"
             value={limitInput}
             onChange={(e) => setLimitInput(e.target.value)}
-            className="w-20 rounded border border-white/10 bg-cockpit px-2 py-1 font-mono text-[11px] text-parchment outline-none focus:border-afterburner"
+            className="w-20 rounded border border-white/10 px-2 py-1 font-mono text-[11px] text-white/95 outline-none focus:border-amber-400"
+            style={{ background: 'var(--bg-card)' }}
           />
           <button
             type="button"
@@ -171,7 +173,7 @@ function BudgetPanel() {
               }
               setEditing(false);
             }}
-            className="font-mono text-[10px] text-positive hover:text-afterburner-hover transition-colors"
+            className="font-mono text-[10px] text-positive hover:text-amber-300 transition-colors"
           >
             Save
           </button>
@@ -184,7 +186,7 @@ function BudgetPanel() {
           </button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -227,7 +229,7 @@ function EmailSecuritySection() {
   const maxGradeCount = Math.max(...grades.map(g => g.count ?? 0), 1);
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-4">
+    <div className="rounded-xl border border-white/10 p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="section-label">Email Security Coverage</div>
@@ -236,7 +238,7 @@ function EmailSecuritySection() {
             <button
               type="button"
               onClick={scanAction.confirm}
-              className="glass-btn flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+              className="rounded border border-white/10 hover:bg-white/5 transition-colorsflex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
             >
               <Mail className="w-3.5 h-3.5" />
               Scan All Brands &rarr;
@@ -248,21 +250,21 @@ function EmailSecuritySection() {
               <button
                 type="button"
                 onClick={scanAction.execute}
-                className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-green-400"
+                className="rounded border border-white/10 hover:bg-white/5 transition-colorsflex items-center gap-1 px-2 py-1 font-mono text-[10px] text-green-400"
               >
                 <Check className="w-3 h-3" /> Confirm
               </button>
               <button
                 type="button"
                 onClick={scanAction.cancel}
-                className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-white/40"
+                className="rounded border border-white/10 hover:bg-white/5 transition-colorsflex items-center gap-1 px-2 py-1 font-mono text-[10px] text-white/40"
               >
                 <X className="w-3 h-3" /> Cancel
               </button>
             </div>
           )}
           {scanAction.state === 'loading' && (
-            <span className="flex items-center gap-1.5 font-mono text-[10px] text-afterburner">
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-amber-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning...
             </span>
           )}
@@ -278,12 +280,12 @@ function EmailSecuritySection() {
       </div>
 
       {/* Summary stats */}
-      <div className="flex items-center gap-4 font-mono text-[11px] text-contrail/60">
-        <span><strong className="text-parchment">{fmt(scanned)}</strong> scanned</span>
+      <div className="flex items-center gap-4 font-mono text-[11px] text-white/60">
+        <span><strong className="text-white/95">{fmt(scanned)}</strong> scanned</span>
         <span>&middot;</span>
-        <span><strong className="text-parchment">{fmt(pending)}</strong> pending</span>
+        <span><strong className="text-white/95">{fmt(pending)}</strong> pending</span>
         <span>&middot;</span>
-        <span>Avg score: <strong className="text-parchment">{avgScore}/100</strong></span>
+        <span>Avg score: <strong className="text-white/95">{avgScore}/100</strong></span>
       </div>
 
       <hr className="hud-divider" />
@@ -291,7 +293,7 @@ function EmailSecuritySection() {
       {/* Grade distribution */}
       {grades.length > 0 && (
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-3">Grade Distribution</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-3">Grade Distribution</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {grades.map((g) => {
               const color = GRADE_COLORS[g.grade] ?? '#78A0C8';
@@ -313,7 +315,7 @@ function EmailSecuritySection() {
                       {isF ? (
                         <span className="text-red-400 font-bold">{fmt(g.count)}</span>
                       ) : (
-                        <span className="text-parchment/80">{fmt(g.count)}</span>
+                        <span className="text-white/80">{fmt(g.count)}</span>
                       )}
                     </span>
                   </div>
@@ -335,8 +337,8 @@ function EmailSecuritySection() {
       {/* Scan coverage bar */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/50">Scan Coverage</span>
-          <span className="font-mono text-[10px] text-parchment/70">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">Scan Coverage</span>
+          <span className="font-mono text-[10px] text-white/70">
             {coveragePct.toFixed(1)}% &nbsp;({fmt(scanned)} / {fmt(total)})
           </span>
         </div>
@@ -394,18 +396,18 @@ function OperationCard({ op }: { op: OperationConfig }) {
   const Icon = op.icon;
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-3">
+    <div className="rounded-xl border border-white/10 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-amber-400" />
-        <span className="font-mono text-[12px] font-semibold text-parchment">{op.label}</span>
+        <span className="font-mono text-[12px] font-semibold text-white/95">{op.label}</span>
       </div>
-      <div className="font-mono text-[10px] text-contrail/50">{op.badge}</div>
+      <div className="font-mono text-[10px] text-white/40">{op.badge}</div>
 
       {action.state === 'idle' && (
         <button
           type="button"
           onClick={action.confirm}
-          className="glass-btn w-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+          className="rounded border border-white/10 hover:bg-white/5 transition-colorsw-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
         >
           Run
         </button>
@@ -417,14 +419,14 @@ function OperationCard({ op }: { op: OperationConfig }) {
             <button
               type="button"
               onClick={action.execute}
-              className="glass-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-green-400"
+              className="rounded border border-white/10 hover:bg-white/5 transition-colorsflex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-green-400"
             >
               <Check className="w-3 h-3" /> Confirm
             </button>
             <button
               type="button"
               onClick={action.cancel}
-              className="glass-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-white/40"
+              className="rounded border border-white/10 hover:bg-white/5 transition-colorsflex-1 flex items-center justify-center gap-1 px-2 py-1.5 font-mono text-[10px] text-white/40"
             >
               <X className="w-3 h-3" /> Cancel
             </button>
@@ -432,7 +434,7 @@ function OperationCard({ op }: { op: OperationConfig }) {
         </div>
       )}
       {action.state === 'loading' && (
-        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-afterburner">
+        <div className="flex items-center justify-center gap-1.5 py-1.5 font-mono text-[10px] text-amber-400">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Running...
         </div>
       )}
@@ -479,7 +481,7 @@ function MaintenanceSection() {
   const pendingScans = emailStats?.pending ?? 0;
 
   return (
-    <div className="glass-card glass-card-amber rounded-xl overflow-hidden">
+    <div className="rounded-xl border border-white/10 overflow-hidden">
       {/* Header — always visible */}
       <button
         type="button"
@@ -511,10 +513,10 @@ function MaintenanceSection() {
           <hr className="hud-divider" />
 
           {/* Stats bar */}
-          <div className="flex items-center gap-4 font-mono text-[10px] text-contrail/50">
-            <span>Unlinked threats: <strong className="text-parchment">{fmt(unlinkedThreats)}</strong></span>
+          <div className="flex items-center gap-4 font-mono text-[10px] text-white/40">
+            <span>Unlinked threats: <strong className="text-white/95">{fmt(unlinkedThreats)}</strong></span>
             <span>&middot;</span>
-            <span>Pending email scans: <strong className="text-parchment">{fmt(pendingScans)}</strong></span>
+            <span>Pending email scans: <strong className="text-white/95">{fmt(pendingScans)}</strong></span>
           </div>
         </div>
       )}
@@ -556,49 +558,18 @@ export function AdminDashboard() {
 
   return (
     <div className="animate-fade-in space-y-8">
-      {/* ── PAGE HEADER ─────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl font-bold text-parchment">System Health</h1>
-          <p className="font-mono text-[11px] text-white/55 mt-1">All systems running normally</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={isHealthy ? 'dot-pulse-green' : 'dot-pulse-amber'} />
-          <span className={`badge-glass ${isHealthy ? 'badge-active' : 'badge-accelerating'}`}>
-            {isHealthy ? 'OPERATIONAL' : 'DEGRADED'}
-          </span>
-          <span className="font-mono text-[9px] text-white/50 ml-2">Updated just now</span>
-        </div>
-      </div>
+      <PageHeader title="Admin Dashboard" subtitle="Platform health and operations" />
 
       {/* ── DAILY BRIEFING WIDGET ─────────────────── */}
       <DailyBriefingWidget />
 
       {/* ── TOP STAT ROW ────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card glass-card-amber rounded-xl p-4">
-          <div className="section-label mb-2">Threats Today</div>
-          <div className="metric-xl glow-afterburner">{fmt(threats.today)}</div>
-          <div className="font-mono text-[9px] text-white/55 mt-1">{fmt(threats.total)} total</div>
-        </div>
-        <div className="glass-card glass-card-green rounded-xl p-4">
-          <div className="section-label mb-2">Feed Ingestion</div>
-          <div className="metric-xl glow-green">{fmt(feeds.ingested)}</div>
-          <div className="font-mono text-[9px] text-white/55 mt-1">records (24h)</div>
-        </div>
-        <div className="glass-card glass-card-green rounded-xl p-4">
-          <div className="section-label mb-2">Agent Runs</div>
-          <div className="metric-xl glow-green">{fmt(agents.total)}</div>
-          <div className="font-mono text-[9px] text-white/55 mt-1">
-            {fmt(agents.successes)} success / {agents.errors} errors
-          </div>
-        </div>
-        <div className="glass-card glass-card-amber rounded-xl p-4">
-          <div className="section-label mb-2">Active Sessions</div>
-          <div className="metric-xl glow-afterburner">{fmt(sessions.count)}</div>
-          <div className="font-mono text-[9px] text-white/55 mt-1">authenticated</div>
-        </div>
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Threats Today" value={fmt(threats.today)} accentColor="var(--red)" sublabel={`${fmt(threats.total)} total`} />
+        <StatCard label="Feed Ingestion" value={fmt(feeds.ingested)} accentColor="var(--amber)" sublabel="records (24h)" />
+        <StatCard label="Agent Runs" value={fmt(agents.total)} accentColor="var(--blue)" sublabel={`${fmt(agents.successes)} success / ${agents.errors} errors`} />
+        <StatCard label="Active Sessions" value={fmt(sessions.count)} accentColor="var(--green)" sublabel="authenticated" />
+      </StatGrid>
 
       {/* ── THREE-COLUMN LAYOUT ─────────────────── */}
       <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
@@ -607,19 +578,19 @@ export function AdminDashboard() {
           <SectionLabel>Infrastructure</SectionLabel>
 
           {/* Database */}
-          <div className="glass-card glass-card-amber rounded-xl p-4 space-y-4">
+          <div className="rounded-xl border border-white/10 p-4 space-y-4">
             <div className="section-label">Database</div>
 
             {/* Main DB */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono text-[11px] font-semibold text-parchment">{infra.mainDb.name}</span>
+                <span className="font-mono text-[11px] font-semibold text-white/95">{infra.mainDb.name}</span>
                 <span className="badge-glass badge-active">PRIMARY</span>
               </div>
               <div className="progress-bar-track h-2 mb-1.5">
                 <div className="progress-bar-fill-teal" style={{ width: `${dbSizePercent}%` }} />
               </div>
-              <div className="font-mono text-[10px] text-contrail/50">{infra.mainDb.sizeMb} MB</div>
+              <div className="font-mono text-[10px] text-white/40">{infra.mainDb.sizeMb} MB</div>
               <div className="font-mono text-[10px] text-white/55 mt-0.5">
                 {infra.mainDb.tables} tables &middot; {migrations.total} migrations
               </div>
@@ -638,7 +609,7 @@ export function AdminDashboard() {
             {/* Audit DB */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-[11px] font-semibold text-parchment">{infra.auditDb.name}</span>
+                <span className="font-mono text-[11px] font-semibold text-white/95">{infra.auditDb.name}</span>
                 <span className="badge-glass badge-dormant">AUDIT</span>
               </div>
               <div className="font-mono text-[10px] text-white/55">
@@ -648,12 +619,12 @@ export function AdminDashboard() {
           </div>
 
           {/* Worker */}
-          <div className="glass-card glass-card-amber rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Worker</div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="dot-pulse-green" />
-                <span className="font-mono text-[11px] font-semibold text-parchment">{infra.worker.name}</span>
+                <span className="font-mono text-[11px] font-semibold text-white/95">{infra.worker.name}</span>
               </div>
               <span className="badge-glass badge-active">ACTIVE</span>
             </div>
@@ -663,14 +634,14 @@ export function AdminDashboard() {
           </div>
 
           {/* KV Namespaces */}
-          <div className="glass-card rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">KV Namespaces ({infra.kvNamespaces.length})</div>
             <div className="space-y-2">
               {infra.kvNamespaces.map((kv) => (
                 <div key={kv.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="dot-pulse-green" />
-                    <span className="font-mono text-[11px] text-parchment">{kv.name}</span>
+                    <span className="font-mono text-[11px] text-white/95">{kv.name}</span>
                   </div>
                   <span className="badge-glass badge-active">ACTIVE</span>
                 </div>
@@ -687,7 +658,7 @@ export function AdminDashboard() {
           <SectionLabel>Activity</SectionLabel>
 
           {/* Threat Ingestion Chart */}
-          <div className="glass-card glass-card-amber rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Threat Ingestion (14D)</div>
             <div className="h-[180px]">
               {chartData.length > 0 ? (
@@ -728,7 +699,7 @@ export function AdminDashboard() {
               )}
             </div>
             <hr className="hud-divider" />
-            <div className="flex items-center justify-between font-mono text-[10px] text-contrail/50">
+            <div className="flex items-center justify-between font-mono text-[10px] text-white/40">
               <span>Total: {fmt(trendTotal)}</span>
               <span>Avg/day: {fmt(trendAvg)}</span>
               {trendPeak.day && <span>Peak: {shortDate(trendPeak.day)}</span>}
@@ -736,19 +707,19 @@ export function AdminDashboard() {
           </div>
 
           {/* Agent Performance */}
-          <div className="glass-card glass-card-green rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Agent Performance (24H)</div>
             <div className="flex gap-4 mb-3">
               <div>
-                <div className="font-display text-lg font-bold text-parchment">{fmt(agents.total)}</div>
+                <div className="font-display text-lg font-bold text-white/95">{fmt(agents.total)}</div>
                 <div className="font-mono text-[9px] text-white/55 uppercase">Runs</div>
               </div>
               <div>
-                <div className="font-display text-lg font-bold text-parchment">{fmt(agents.successes)}</div>
+                <div className="font-display text-lg font-bold text-white/95">{fmt(agents.successes)}</div>
                 <div className="font-mono text-[9px] text-white/55 uppercase">Success</div>
               </div>
               <div>
-                <div className={`font-display text-lg font-bold ${agents.errors > 0 ? 'text-accent' : 'text-parchment'}`}>
+                <div className={`font-display text-lg font-bold ${agents.errors > 0 ? 'text-accent' : 'text-white/95'}`}>
                   {agents.errors}
                 </div>
                 <div className="font-mono text-[9px] text-white/55 uppercase">Errors</div>
@@ -760,9 +731,9 @@ export function AdminDashboard() {
                 style={{ width: `${successRate}%` }}
               />
             </div>
-            <div className="font-mono text-[10px] text-contrail/50 mb-3">{successRate}% success rate</div>
+            <div className="font-mono text-[10px] text-white/40 mb-3">{successRate}% success rate</div>
             <hr className="hud-divider" />
-            <div className="font-mono text-[10px] text-contrail/50 mt-2">
+            <div className="font-mono text-[10px] text-white/40 mt-2">
               {fmt(feeds.pulls)} feed pulls &middot; {fmt(feeds.ingested)} ingested
             </div>
           </div>
@@ -776,50 +747,50 @@ export function AdminDashboard() {
           <BudgetPanel />
 
           {/* Sessions */}
-          <div className="glass-card glass-card-amber rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Sessions</div>
-            <div className="font-display text-2xl font-bold text-parchment mb-1">{fmt(sessions.count)}</div>
+            <div className="font-display text-2xl font-bold text-white/95 mb-1">{fmt(sessions.count)}</div>
             <div className="font-mono text-[10px] text-white/55 mb-3">active sessions &middot; 1 total user</div>
             <Link
               to="/profile"
-              className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
+              className="font-mono text-[10px] text-amber-400 hover:text-amber-300 transition-colors"
             >
               Revoke all sessions &rarr;
             </Link>
           </div>
 
           {/* Compliance */}
-          <div className="glass-card rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Compliance</div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="text-positive">&#10003;</span>
-                <span className="text-parchment/80">Data residency: ENAM</span>
+                <span className="text-white/80">Data residency: ENAM</span>
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="text-positive">&#10003;</span>
-                <span className="text-parchment/80">Audit logging: Active</span>
+                <span className="text-white/80">Audit logging: Active</span>
               </div>
               <div className="font-mono text-[10px] text-white/55 ml-5">
                 {fmt(audit.count)} events recorded
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="text-positive">&#10003;</span>
-                <span className="text-parchment/80">Encryption at rest: D1 managed</span>
+                <span className="text-white/80">Encryption at rest: D1 managed</span>
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="text-positive">&#10003;</span>
-                <span className="text-parchment/80">TLS: Cloudflare managed</span>
+                <span className="text-white/80">TLS: Cloudflare managed</span>
               </div>
               <div className="flex items-center gap-2 font-mono text-[11px]">
                 <span className="text-positive">&#10003;</span>
-                <span className="text-parchment/80">Auth: Google OAuth</span>
+                <span className="text-white/80">Auth: Google OAuth</span>
               </div>
             </div>
             <div className="mt-3">
               <Link
                 to="/admin/audit"
-                className="font-mono text-[10px] text-afterburner hover:text-afterburner-hover transition-colors"
+                className="font-mono text-[10px] text-amber-400 hover:text-amber-300 transition-colors"
               >
                 View Audit Log &rarr;
               </Link>
@@ -827,9 +798,9 @@ export function AdminDashboard() {
           </div>
 
           {/* Migrations */}
-          <div className="glass-card rounded-xl p-4">
+          <div className="rounded-xl border border-white/10 p-4">
             <div className="section-label mb-3">Migrations</div>
-            <div className="font-display text-lg font-bold text-parchment">{migrations.total}</div>
+            <div className="font-display text-lg font-bold text-white/95">{migrations.total}</div>
             <div className="font-mono text-[10px] text-white/55 mt-0.5">migrations run</div>
             {migrations.last_run && (
               <div className="font-mono text-[10px] text-white/55 mt-1.5">
@@ -843,7 +814,7 @@ export function AdminDashboard() {
             )}
             <div className="flex items-center gap-1.5 mt-2">
               <span className="text-positive font-mono text-[11px]">&#10003;</span>
-              <span className="font-mono text-[10px] text-parchment/70">Up to date</span>
+              <span className="font-mono text-[10px] text-white/70">Up to date</span>
             </div>
           </div>
         </div>

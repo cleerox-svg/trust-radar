@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useLeads, useLeadStats, useEnrichLead, useUpdateLead } from '@/hooks/useLeads';
 import type { SalesLead, LeadStats } from '@/hooks/useLeads';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { StatCard } from '@/components/ui/StatCard';
-import { SectionLabel } from '@/components/ui/SectionLabel';
-import { Select } from '@/components/ui/Select';
-import { Input } from '@/components/ui/Input';
+import {
+  Card,
+  Badge,
+  Button,
+  StatCard,
+  StatGrid,
+  SectionLabel,
+  Select,
+  PageHeader,
+  FilterBar,
+} from '@/design-system/components';
 import { Table, Th, Td } from '@/components/ui/Table';
 import { TableLoader } from '@/components/ui/PageLoader';
 import { DrillHeader } from '@/components/mobile/DrillHeader';
@@ -52,12 +56,19 @@ function KanbanCard({ lead, onClick }: { lead: SalesLead; onClick: () => void })
   return (
     <div role="button" tabIndex={0} onClick={onClick} onKeyDown={e => e.key === 'Enter' && onClick()} className="cursor-pointer">
     <Card className="space-y-2">
-      <div className="font-display font-semibold text-sm text-parchment truncate">
+      <div className="font-display font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
         {lead.company_name ?? 'Unnamed Lead'}
       </div>
-      <div className="font-mono text-[11px] text-white/55 truncate">{lead.company_domain ?? '—'}</div>
+      <div className="font-mono text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{lead.company_domain ?? '—'}</div>
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-afterburner/10 border border-afterburner/20 font-display text-lg font-bold text-afterburner">
+        <span
+          className="inline-flex items-center justify-center w-10 h-10 rounded-lg font-display text-lg font-bold"
+          style={{
+            background: 'rgba(229,168,50,0.10)',
+            border: '1px solid rgba(229,168,50,0.20)',
+            color: 'var(--amber)',
+          }}
+        >
           {lead.prospect_score}
         </span>
         {lead.pitch_angle && (
@@ -66,7 +77,7 @@ function KanbanCard({ lead, onClick }: { lead: SalesLead; onClick: () => void })
           </Badge>
         )}
       </div>
-      <div className="flex items-center gap-2 text-[10px] font-mono text-contrail/60">
+      <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: 'var(--text-secondary)' }}>
         {lead.email_security_grade && (
           <BIMIGradeBadge grade={lead.email_security_grade} size="sm" showLabel tooltip />
         )}
@@ -161,62 +172,61 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
     <div className="space-y-6">
       {stats && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <StatGrid cols={4}>
             {PIPELINE_STATUSES.map(s => (
-              <div key={s} className="bg-instrument border border-white/[0.06] rounded-lg p-3 text-center">
-                <div className="font-display text-lg font-bold text-parchment">{getPipelineCount(stats.pipeline, s)}</div>
-                <div className="font-mono text-[9px] uppercase tracking-wider text-contrail/50">{s}</div>
-              </div>
+              <StatCard key={s} label={s} value={getPipelineCount(stats.pipeline, s)} />
             ))}
-          </div>
+          </StatGrid>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase text-contrail/50">Response Rate</span>
-                <span className="font-mono text-xs text-parchment">{(stats.response_rate ?? 0).toFixed(1)}%</span>
+                <span className="font-mono text-[10px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Response Rate</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{(stats.response_rate ?? 0).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-positive rounded" style={{ width: `${stats.response_rate ?? 0}%` }} />
+                <div className="h-full rounded" style={{ background: 'var(--green)', width: `${stats.response_rate ?? 0}%` }} />
               </div>
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase text-contrail/50">Conversion Rate</span>
-                <span className="font-mono text-xs text-parchment">{(stats.conversion_rate ?? 0).toFixed(1)}%</span>
+                <span className="font-mono text-[10px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Conversion Rate</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{(stats.conversion_rate ?? 0).toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-white/5 rounded overflow-hidden">
-                <div className="h-full bg-accent rounded" style={{ width: `${stats.conversion_rate ?? 0}%` }} />
+                <div className="h-full rounded" style={{ background: 'var(--amber)', width: `${stats.conversion_rate ?? 0}%` }} />
               </div>
             </div>
           </div>
         </>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          options={[
-            { value: '', label: 'All Statuses' },
-            ...PIPELINE_STATUSES.map(s => ({ value: s, label: columnLabel(s) })),
-          ]}
-        />
-        <Select
-          value={pitchFilter}
-          onChange={e => setPitchFilter(e.target.value)}
-          options={[
-            { value: '', label: 'All Pitch Angles' },
-            ...pitchAngles.map(p => ({ value: p, label: p.replace(/_/g, ' ') })),
-          ]}
-        />
-        <Input
-          placeholder="Search company or domain..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-56"
-        />
-      </div>
+      <FilterBar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'Search company or domain...',
+        }}
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            options={[
+              { value: '', label: 'All Statuses' },
+              ...PIPELINE_STATUSES.map(s => ({ value: s, label: columnLabel(s) })),
+            ]}
+          />
+          <Select
+            value={pitchFilter}
+            onChange={e => setPitchFilter(e.target.value)}
+            options={[
+              { value: '', label: 'All Pitch Angles' },
+              ...pitchAngles.map(p => ({ value: p, label: p.replace(/_/g, ' ') })),
+            ]}
+          />
+        </div>
+      </FilterBar>
 
       <div className="overflow-x-auto">
         <Card hover={false} className="p-0 overflow-hidden">
@@ -241,17 +251,17 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
                   onClick={() => onSelect(lead)}
                 >
                   <Td>
-                    <span className="font-display font-semibold text-sm text-parchment">
+                    <span className="font-display font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                       {lead.company_name ?? 'Unnamed'}
                     </span>
                   </Td>
                   <Td>
-                    <span className="font-mono text-xs text-contrail/60">
+                    <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                       {lead.company_domain ?? '—'}
                     </span>
                   </Td>
                   <Td>
-                    <span className="font-mono text-sm font-bold text-afterburner">
+                    <span className="font-mono text-sm font-bold" style={{ color: 'var(--amber)' }}>
                       {lead.prospect_score}
                     </span>
                   </Td>
@@ -263,7 +273,7 @@ function PipelineView({ leads, stats, onSelect }: { leads: SalesLead[]; stats: L
                     ) : '—'}
                   </Td>
                   <Td>
-                    <span className="font-mono text-xs text-contrail/60">
+                    <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                       {lead.threat_count_30d ?? '—'}
                     </span>
                   </Td>
@@ -329,10 +339,10 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
 
       <div className="pt-14 space-y-6">
         {/* Subtitle */}
-        <div className="flex flex-wrap items-center gap-2 text-contrail/60 font-mono text-xs">
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
           {lead.company_domain && <span>{lead.company_domain}</span>}
           {lead.company_domain && <span>·</span>}
-          <span>Score: <span className="text-afterburner font-bold">{lead.prospect_score}</span></span>
+          <span>Score: <span className="font-bold" style={{ color: 'var(--amber)' }}>{lead.prospect_score}</span></span>
           {lead.email_security_grade && (
             <>
               <span>·</span>
@@ -345,7 +355,7 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
         </div>
 
         {/* Overview Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatGrid cols={4}>
           <StatCard label="Prospect Score" value={lead.prospect_score} accentColor="#E5A832" />
           <StatCard
             label="Email Grade"
@@ -354,14 +364,14 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
           />
           <StatCard label="Threats / 30d" value={lead.threat_count_30d ?? 0} accentColor="#C83C3C" />
           <StatCard label="Status" value={columnLabel(lead.status)} />
-        </div>
+        </StatGrid>
 
         {/* AI Findings */}
         <Card hover={false}>
           <SectionLabel className="mb-3">AI Findings</SectionLabel>
           <AgentAttribution agent="Pathfinder" />
           {lead.findings_summary ? (
-            <p className="text-sm text-parchment/80 leading-relaxed whitespace-pre-line">
+            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-primary)' }}>
               {lead.findings_summary}
             </p>
           ) : (
@@ -398,12 +408,12 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
                 {outreach1.subject && (
                   <div>
                     <span className="font-mono text-[10px] text-white/55 uppercase">Subject</span>
-                    <p className="text-sm text-parchment font-semibold mt-1">{outreach1.subject}</p>
+                    <p className="text-sm font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>{outreach1.subject}</p>
                   </div>
                 )}
                 <div>
                   <span className="font-mono text-[10px] text-white/55 uppercase">Body</span>
-                  <p className="text-sm text-parchment/70 mt-1 whitespace-pre-line leading-relaxed">{outreach1.body}</p>
+                  <p className="text-sm mt-1 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{outreach1.body}</p>
                 </div>
                 <Button
                   variant="secondary"
@@ -419,12 +429,12 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
                 {outreach2.subject && (
                   <div>
                     <span className="font-mono text-[10px] text-white/55 uppercase">Subject</span>
-                    <p className="text-sm text-parchment font-semibold mt-1">{outreach2.subject}</p>
+                    <p className="text-sm font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>{outreach2.subject}</p>
                   </div>
                 )}
                 <div>
                   <span className="font-mono text-[10px] text-white/55 uppercase">Body</span>
-                  <p className="text-sm text-parchment/70 mt-1 whitespace-pre-line leading-relaxed">{outreach2.body}</p>
+                  <p className="text-sm mt-1 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{outreach2.body}</p>
                 </div>
                 <Button
                   variant="secondary"
@@ -444,25 +454,25 @@ function LeadDetail({ lead, onBack }: { lead: SalesLead; onBack: () => void }) {
           {lead.target_name ? (
             <div className="space-y-2 text-sm">
               <div className="flex gap-2">
-                <span className="text-contrail/50 font-mono text-[10px] uppercase w-16">Name</span>
-                <span className="text-parchment">{lead.target_name}</span>
+                <span className="font-mono text-[10px] uppercase w-16" style={{ color: 'var(--text-tertiary)' }}>Name</span>
+                <span style={{ color: 'var(--text-primary)' }}>{lead.target_name}</span>
               </div>
               {lead.target_title && (
                 <div className="flex gap-2">
-                  <span className="text-contrail/50 font-mono text-[10px] uppercase w-16">Title</span>
-                  <span className="text-parchment/70">{lead.target_title}</span>
+                  <span className="font-mono text-[10px] uppercase w-16" style={{ color: 'var(--text-tertiary)' }}>Title</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{lead.target_title}</span>
                 </div>
               )}
               {lead.target_email && (
                 <div className="flex gap-2">
-                  <span className="text-contrail/50 font-mono text-[10px] uppercase w-16">Email</span>
-                  <span className="text-parchment/70 font-mono text-xs">{lead.target_email}</span>
+                  <span className="font-mono text-[10px] uppercase w-16" style={{ color: 'var(--text-tertiary)' }}>Email</span>
+                  <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{lead.target_email}</span>
                 </div>
               )}
               {lead.target_linkedin && (
                 <div className="flex gap-2">
-                  <span className="text-contrail/50 font-mono text-[10px] uppercase w-16">LinkedIn</span>
-                  <span className="text-parchment/70 font-mono text-xs">{lead.target_linkedin}</span>
+                  <span className="font-mono text-[10px] uppercase w-16" style={{ color: 'var(--text-tertiary)' }}>LinkedIn</span>
+                  <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{lead.target_linkedin}</span>
                 </div>
               )}
             </div>
@@ -531,11 +541,11 @@ function EnrichView({ leads }: { leads: SalesLead[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label="Total Leads" value={leads.length} />
-        <StatCard label="AI Enriched" value={enriched.length} accentColor="#4ade80" />
-        <StatCard label="Awaiting Enrichment" value={unenriched.length} accentColor="#E5A832" />
-      </div>
+      <StatGrid cols={3}>
+        <StatCard label="Total Leads" value={leads.length} accentColor="#E5A832" />
+        <StatCard label="AI Enriched" value={enriched.length} accentColor="#3CB878" />
+        <StatCard label="Awaiting Enrichment" value={unenriched.length} accentColor="#0A8AB5" />
+      </StatGrid>
 
       {unenriched.length > 0 && (
         <Card hover={false}>
@@ -555,17 +565,21 @@ function EnrichView({ leads }: { leads: SalesLead[] }) {
           </div>
           <div className="space-y-2">
             {unenriched.map(lead => (
-              <div key={lead.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-cockpit border border-white/[0.04]">
+              <div
+                key={lead.id}
+                className="flex items-center justify-between py-2 px-3 rounded-lg"
+                style={{ background: 'var(--bg-page)', border: '1px solid rgba(255,255,255,0.04)' }}
+              >
                 <div className="flex items-center gap-3">
-                  <span className="font-display font-semibold text-sm text-parchment">
+                  <span className="font-display font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                     {lead.company_name ?? 'Unnamed'}
                   </span>
-                  <span className="font-mono text-[11px] text-white/55">
+                  <span className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                     {lead.company_domain ?? ''}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm font-bold text-afterburner">{lead.prospect_score}</span>
+                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--amber)' }}>{lead.prospect_score}</span>
                   {lead.email_security_grade && (
                     <Badge variant={gradeVariant(lead.email_security_grade)} className="text-[8px] py-0 px-1.5">
                       {lead.email_security_grade}
@@ -610,32 +624,35 @@ export function Leads() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-bold text-parchment">Lead Management</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={activeView === 'kanban' ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => setActiveView('kanban')}
-          >
-            Kanban
-          </Button>
-          <Button
-            variant={activeView === 'pipeline' ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => setActiveView('pipeline')}
-          >
-            Sales Pipeline
-          </Button>
-          <Button
-            variant={activeView === 'enrich' ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => setActiveView('enrich')}
-          >
-            Enrich Leads
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Leads"
+        subtitle="Prospect pipeline powered by Pathfinder"
+        actions={
+          <>
+            <Button
+              variant={activeView === 'kanban' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setActiveView('kanban')}
+            >
+              Kanban
+            </Button>
+            <Button
+              variant={activeView === 'pipeline' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setActiveView('pipeline')}
+            >
+              Sales Pipeline
+            </Button>
+            <Button
+              variant={activeView === 'enrich' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setActiveView('enrich')}
+            >
+              Enrich Leads
+            </Button>
+          </>
+        }
+      />
 
       {activeView === 'kanban' && (
         <KanbanView leads={leads} onSelect={setSelectedLead} />
