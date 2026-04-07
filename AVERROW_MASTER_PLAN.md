@@ -1,6 +1,6 @@
 # AVERROW — Master Platform Plan
 **Last updated:** March 27, 2026  
-**Status:** Active development — React migration in progress, old SPA preserved for demos  
+**Status:** React /v2 is the live platform. Old SPA preserved at /legacy as escape hatch.
 **Repo:** github.com/cleerox-svg/trust-radar  
 **Worker:** trust-radar | **DB:** trust-radar-v2 (D1)
 
