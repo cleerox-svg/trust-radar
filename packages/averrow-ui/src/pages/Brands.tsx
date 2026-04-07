@@ -465,7 +465,9 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
           dimColor={dimColor}
           size={36}
           radius={10}
-          faviconUrl={brand.logo_url ?? undefined}
+          faviconUrl={brand.canonical_domain
+            ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
+            : undefined}
           severity={sev ?? undefined}
         />
       </div>
