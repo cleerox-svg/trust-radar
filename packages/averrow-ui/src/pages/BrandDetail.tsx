@@ -12,7 +12,7 @@ import {
   useScanSocialProfiles,
   useDiscoverSocialProfiles,
 } from '@/hooks/useBrandDetail';
-import { useLookalikes, useScanLookalikes, type LookalikeDomain } from '@/hooks/useLookalikes';
+import { useBrandThreats, type BrandThreatRow } from '@/hooks/useBrands';
 import { DeepCard } from '@/components/ui/DeepCard';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -22,6 +22,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { CheckCircle } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SeverityChip } from '@/components/ui/SeverityChip';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
 import { StatCard } from '@/components/brands/StatCard';
@@ -1363,41 +1364,26 @@ export function BrandDetail() {
 }
 
 // ── TYPOSQUATS TAB ──────────────────────────────────────────────
-function threatLevelToSev(level: string | null): 'critical' | 'high' | 'medium' | 'low' {
-  switch ((level || '').toUpperCase()) {
-    case 'HIGH': return 'critical';
-    case 'MEDIUM': return 'high';
-    case 'LOW': return 'medium';
-    default: return 'low';
-  }
-}
-
-const THREAT_CHIP: Record<string, string> = {
-  HIGH:   'bg-[#C83C3C]/15 text-[#f87171] border border-[#C83C3C]/40',
-  MEDIUM: 'bg-[#fb923c]/15 text-[#fb923c] border border-[#fb923c]/40',
-  LOW:    'bg-[#fbbf24]/15 text-[#fbbf24] border border-[#fbbf24]/40',
-  NONE:   'bg-white/5 text-white/50 border border-white/10',
-};
-
 function TyposquatsTab({ brandId }: { brandId: string }) {
-  const [filter, setFilter] = useState<'ALL' | 'REGISTERED' | 'HIGH'>('ALL');
-  const params =
-    filter === 'REGISTERED' ? { registered: 1 as const } :
-    filter === 'HIGH' ? { threat_level: 'HIGH' } :
-    {};
+  const [filter, setFilter] = useState<'ALL' | 'CRITICAL_HIGH' | 'AUTO'>('ALL');
 
-  const allQuery = useLookalikes(brandId, { limit: 100 });
-  const registeredQuery = useLookalikes(brandId, { registered: 1, limit: 1 });
-  const highQuery = useLookalikes(brandId, { threat_level: 'HIGH', limit: 1 });
-  const filteredQuery = useLookalikes(brandId, { ...params, limit: 100 });
-  const scan = useScanLookalikes();
+  const query = useBrandThreats(brandId, { threat_type: 'typosquatting', limit: 100 });
 
-  const total = allQuery.data?.total ?? 0;
-  const registeredTotal = registeredQuery.data?.total ?? 0;
-  const highTotal = highQuery.data?.total ?? 0;
-  const rows: LookalikeDomain[] = filteredQuery.data?.data ?? [];
+  const allRows: BrandThreatRow[] = query.data?.rows ?? [];
+  const total = query.data?.total ?? 0;
 
-  if (allQuery.isLoading) {
+  const critHighCount = allRows.filter(
+    (r) => r.severity === 'critical' || r.severity === 'high',
+  ).length;
+  const autoCount = allRows.filter((r) => r.source_feed === 'typosquat_scanner').length;
+
+  const rows = allRows.filter((r) => {
+    if (filter === 'CRITICAL_HIGH') return r.severity === 'critical' || r.severity === 'high';
+    if (filter === 'AUTO') return r.source_feed === 'typosquat_scanner';
+    return true;
+  });
+
+  if (query.isLoading) {
     return <div className="text-center text-white/40 font-mono text-xs py-12">Loading typosquats...</div>;
   }
 
@@ -1405,12 +1391,8 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
     return (
       <EmptyState
         title="No typosquats detected yet"
-        subtitle="Run a scan to generate and check lookalike domains"
+        subtitle="Scanned automatically by Sentinel · next scan: ~7 days"
         variant="scanning"
-        action={{
-          label: scan.isPending ? 'Scanning...' : 'Run Scan',
-          onClick: () => scan.mutate(brandId),
-        }}
       />
     );
   }
@@ -1421,24 +1403,24 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
       <DeepCard variant="active" accentColor="#C83C3C">
         <div className="grid grid-cols-3 gap-6 p-2">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Variants</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Typosquats</div>
             <div className="text-3xl font-bold text-instrument-white mt-1">{total}</div>
           </div>
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Registered</div>
-            <div className="text-3xl font-bold text-[#f87171] mt-1">{registeredTotal}</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Critical / High</div>
+            <div className="text-3xl font-bold text-[#f87171] mt-1">{critHighCount}</div>
           </div>
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">High Threat</div>
-            <div className="text-3xl font-bold text-[#fb923c] mt-1">{highTotal}</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Auto-detected</div>
+            <div className="text-3xl font-bold text-[#fb923c] mt-1">{autoCount}</div>
           </div>
         </div>
       </DeepCard>
 
-      {/* FILTER PILLS + SCAN */}
+      {/* FILTER PILLS + STATUS */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-2">
-          {(['ALL', 'REGISTERED', 'HIGH'] as const).map((f) => (
+          {(['ALL', 'CRITICAL_HIGH', 'AUTO'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -1448,18 +1430,13 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
                   : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
               }`}
             >
-              {f === 'HIGH' ? 'High Threat' : f}
+              {f === 'CRITICAL_HIGH' ? 'Critical / High' : f === 'AUTO' ? 'Auto-detected' : 'All'}
             </button>
           ))}
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => scan.mutate(brandId)}
-          disabled={scan.isPending}
-        >
-          {scan.isPending ? 'Scanning...' : 'Run Scan'}
-        </Button>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-white/40">
+          Scanned automatically by Sentinel · next scan: ~7 days
+        </div>
       </div>
 
       {/* DOMAIN LIST */}
@@ -1471,9 +1448,9 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
         ) : (
           <div className="divide-y divide-white/5">
             {rows.map((d) => {
-              const isReg = d.registered === 1;
-              const sev = isReg ? 'critical' : threatLevelToSev(d.threat_level);
-              const level = (d.threat_level || 'NONE').toUpperCase();
+              const sev = (d.severity || 'low').toLowerCase() as 'critical' | 'high' | 'medium' | 'low';
+              const isAuto = d.source_feed === 'typosquat_scanner';
+              const domain = d.malicious_domain || d.malicious_url || '—';
               return (
                 <div
                   key={d.id}
@@ -1481,27 +1458,18 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
                   data-severity={sev}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm text-instrument-white truncate">{d.domain}</div>
+                    <div className="font-mono text-sm text-instrument-white truncate">{domain}</div>
                     <div className="flex items-center gap-3 mt-1 text-[10px] text-white/50 font-mono">
                       {d.ip_address && <span>{d.ip_address}</span>}
-                      {d.registrar && <span>{d.registrar}</span>}
-                      <span>{relativeTime(d.created_at)}</span>
+                      <span>{isAuto ? 'Auto-detected' : d.source_feed || 'manual'}</span>
+                      <span>{relativeTime(d.first_seen || d.created_at)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {d.bimi_record && <BIMIGradeBadge grade="A" size="sm" />}
-                    <span className={`px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-widest ${THREAT_CHIP[level] || THREAT_CHIP.NONE}`}>
-                      {level}
+                    <SeverityChip severity={sev} size="sm" />
+                    <span className="px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-widest bg-[#C83C3C]/20 text-[#f87171] border border-[#C83C3C]/40">
+                      Registered
                     </span>
-                    {isReg ? (
-                      <span className="px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-widest bg-[#C83C3C]/20 text-[#f87171] border border-[#C83C3C]/40">
-                        Registered
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-widest bg-white/5 text-white/40 border border-white/10">
-                        Unregistered
-                      </span>
-                    )}
                   </div>
                 </div>
               );
