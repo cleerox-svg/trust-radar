@@ -37,8 +37,8 @@ const Observatory = React.lazy(() => import('@/features/observatory/Observatory'
 
 function ObservatoryLoader() {
   return (
-    <div className="flex items-center justify-center h-full bg-cockpit">
-      <div className="text-contrail font-mono text-sm">Loading Observatory...</div>
+    <div className="flex items-center justify-center h-full" style={{ background: 'var(--bg-page)' }}>
+      <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>Loading Observatory...</div>
     </div>
   );
 }
@@ -46,8 +46,8 @@ function ObservatoryLoader() {
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-cockpit">
-    <div className="text-contrail font-mono text-sm">Loading...</div>
+  if (loading) return <div className="flex items-center justify-center h-screen" style={{ background: 'var(--bg-page)' }}>
+    <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
   </div>;
 
   if (!isAuthenticated) {

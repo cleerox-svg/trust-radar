@@ -101,10 +101,10 @@ function HomeDashboard() {
     <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in">
       {/* Greeting */}
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-parchment tracking-tight">
+        <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           {greeting}
         </h1>
-        <p className="text-contrail/50 text-sm font-mono mt-1">
+        <p className="text-sm font-mono mt-1" style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
           })}
@@ -157,9 +157,9 @@ function HomeDashboard() {
       </div>
 
       {/* Latest Intel feed */}
-      <div className="glass-stat rounded-xl p-5">
+      <div className="p-5" style={{ background: 'rgba(22,30,48,0.50)', backdropFilter: 'blur(12px)', border: '1px solid rgba(229,168,50,0.15)', borderRadius: '0.75rem' }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-contrail/60 text-[10px] font-mono uppercase tracking-widest">
+          <h2 className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
             Latest Intelligence
           </h2>
           <span className="text-white/30 text-[10px] font-mono">
@@ -185,10 +185,10 @@ function HomeDashboard() {
               hover:bg-amber-500/5 hover:border-amber-500/15
               transition-all text-left group"
           >
-            <div className="text-contrail/40 group-hover:text-amber-400 transition-colors mb-2">
+            <div className="group-hover:text-amber-400 transition-colors mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }}>
               {item.icon}
             </div>
-            <p className="text-parchment/80 font-medium text-sm group-hover:text-parchment">
+            <p className="font-medium text-sm" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>
               {item.label}
             </p>
             <p className="text-white/30 text-xs mt-0.5">{item.desc}</p>
