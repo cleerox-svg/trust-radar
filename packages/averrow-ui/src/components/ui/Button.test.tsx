@@ -25,17 +25,20 @@ describe('Button', () => {
 
   it('applies primary variant styles by default', () => {
     const { container } = render(<Button>Primary</Button>);
-    expect(container.firstChild).toHaveClass('bg-accent');
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.background).toContain('linear-gradient');
   });
 
   it('applies size styles', () => {
     const { container } = render(<Button size="sm">Small</Button>);
-    expect(container.firstChild).toHaveClass('text-[11px]');
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.fontSize).toBe('10px');
   });
 
   it('applies large size styles', () => {
     const { container } = render(<Button size="lg">Large</Button>);
-    expect(container.firstChild).toHaveClass('text-sm');
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.fontSize).toBe('12px');
   });
 
   it('renders all variants without error', () => {
@@ -54,8 +57,9 @@ describe('Button', () => {
 
   it('applies disabled styling', () => {
     const { container } = render(<Button disabled>Disabled</Button>);
-    expect(container.firstChild).toHaveClass('disabled:opacity-50');
-    expect(container.firstChild).toBeDisabled();
+    const el = container.firstChild as HTMLElement;
+    expect(el).toBeDisabled();
+    expect(el.style.opacity).toBe('0.4');
   });
 
   it('forwards native button attributes', () => {
