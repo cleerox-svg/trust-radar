@@ -38,9 +38,9 @@ function ProfileCard({ profile }: { profile: ActorProfile }) {
   }, [profile.domain]);
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-2">
+    <div className="rounded-xl p-4 space-y-2" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">Profile</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">Profile</span>
         <span className="text-white/40 text-[9px]">·</span>
         <span className="font-mono text-[9px] text-white/50">
           {profile.captures.length} signal{profile.captures.length !== 1 ? 's' : ''}
@@ -103,7 +103,7 @@ export function ThreatActorPanel() {
 
   if (isError) {
     return (
-      <div className="glass-card rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3">
+      <div className="rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <span className="text-white/40 text-sm font-mono">Unable to load captures</span>
         <button
           onClick={() => refetch()}
@@ -116,8 +116,8 @@ export function ThreatActorPanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4 min-h-[400px] space-y-4">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+    <div className="rounded-xl p-4 min-h-[400px] space-y-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
         Threat Actor Profiling
       </div>
 
@@ -136,7 +136,16 @@ export function ThreatActorPanel() {
       ) : (
         <>
           {totalCaptures < 3 && (
-            <div className="glass-card rounded-lg p-3 text-[11px] text-white/40 font-mono leading-relaxed">
+            <div
+              className="rounded-lg p-3 text-[11px] text-white/40 font-mono leading-relaxed"
+              style={{
+                background: 'rgba(15,23,42,0.50)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+              }}
+            >
               Actor profiles emerge as capture volume grows.
               Currently analyzing {totalCaptures} capture{totalCaptures !== 1 ? 's' : ''} across{' '}
               {clusterCount} infrastructure cluster{clusterCount !== 1 ? 's' : ''}.

@@ -1,9 +1,18 @@
 import { useState, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useSpamTrapCampaigns, useSpamTrapDaily } from '@/hooks/useSpamTrap';
 import type { SeedCampaign } from '@/hooks/useSpamTrap';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const GLASS_CARD: CSSProperties = {
+  background: 'rgba(15,23,42,0.50)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255,255,255,0.07)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+};
 
 function StatusBadge({ status }: { status: string }) {
   const s = (status ?? '—').toLowerCase();
@@ -31,7 +40,7 @@ function CampaignCard({ campaign }: { campaign: SeedCampaign }) {
   const catchRate = seedCount > 0 ? ((catches / seedCount) * 100).toFixed(1) : '0.0';
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-3">
+    <div className="rounded-xl p-4 space-y-3" style={GLASS_CARD}>
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-semibold text-white">{campaign.name ?? '—'}</span>
         <StatusBadge status={campaign.status ?? 'unknown'} />
@@ -59,7 +68,7 @@ function CampaignCard({ campaign }: { campaign: SeedCampaign }) {
                 <td className="py-1.5 font-mono text-[11px] text-white/60">{ch}</td>
                 <td className="py-1.5 font-mono text-[11px] text-white/50 text-right">{seedCount}</td>
                 <td className="py-1.5 font-mono text-[11px] text-white/50 text-right">{catches}</td>
-                <td className="py-1.5 font-mono text-[11px] text-afterburner text-right">{catchRate}%</td>
+                <td className="py-1.5 font-mono text-[11px] text-[#E5A832] text-right">{catchRate}%</td>
               </tr>
             ))}
           </tbody>
@@ -89,14 +98,14 @@ function SeedStrategist() {
   };
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-3">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+    <div className="rounded-xl p-4 space-y-3" style={GLASS_CARD}>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
         Seed Strategist
       </div>
       <button
         onClick={run}
         disabled={running}
-        className="px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-afterburner text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
+        className="px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-[#E5A832] text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
       >
         {running ? 'Running…' : 'Run Seed Strategist'}
       </button>
@@ -131,8 +140,8 @@ function CaptureTimeline() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+    <div className="rounded-xl p-4" style={GLASS_CARD}>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-3">
         Capture Timeline (30d)
       </div>
       <div className="h-[120px]">
@@ -176,7 +185,7 @@ export function CampaignPanel() {
 
   if (isError) {
     return (
-      <div className="glass-card rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3">
+      <div className="rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3" style={GLASS_CARD}>
         <span className="text-white/40 text-sm font-mono">Unable to load campaigns</span>
         <button
           onClick={() => refetch()}
@@ -189,8 +198,8 @@ export function CampaignPanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4 min-h-[400px] space-y-4">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+    <div className="rounded-xl p-4 min-h-[400px] space-y-4" style={GLASS_CARD}>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
         Campaign Intelligence
       </div>
 
