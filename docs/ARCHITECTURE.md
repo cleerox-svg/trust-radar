@@ -1,6 +1,6 @@
 # Architecture
 
-Trust Radar is a monorepo-based platform built on Cloudflare Workers, D1, and KV. This document covers the system architecture, routing, data layer, and frontend serving strategy.
+Averrow is a monorepo-based platform built on Cloudflare Workers, D1, and KV. This document covers the system architecture, routing, data layer, and frontend serving strategy.
 
 ## Monorepo Structure
 
@@ -174,6 +174,6 @@ Three environments are configured in `wrangler.toml`:
 
 | Environment | Domain | Purpose |
 |-------------|--------|---------|
-| Production | `trustradar.ca` | Live platform |
-| Staging | `staging.trustradar.ca` | Pre-production testing |
+| Production | `averrow.com` | Live platform |
+| Staging | `staging.averrow.com` | Pre-production testing |
 | Dev | Local | Local development with wrangler dev |
