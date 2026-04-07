@@ -477,21 +477,27 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const threatType = url.searchParams.get("threat_type");
+    const typeClause = threatType ? " AND threat_type = ?" : "";
+    const typeBind: unknown[] = threatType ? [threatType] : [];
 
     const rows = await env.DB.prepare(`
       SELECT id, threat_type, severity, status, malicious_domain, malicious_url,
              ip_address, country_code, hosting_provider_id, campaign_id,
+             source_feed, confidence_score,
              first_seen, last_seen, created_at
       FROM threats WHERE target_brand_id = ?
         AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)
+        ${typeClause}
       ORDER BY created_at DESC LIMIT ? OFFSET ?
-    `).bind(brandId, brandId, limit, offset).all();
+    `).bind(brandId, brandId, ...typeBind, limit, offset).all();
 
     // TODO: migrate to getThreatsByBrand() from db/threats.ts when safe-domain filtering is supported there
     const total = await env.DB.prepare(
       `SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ?
-         AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)`
-    ).bind(brandId, brandId).first<{ n: number }>();
+         AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)
+         ${typeClause}`
+    ).bind(brandId, brandId, ...typeBind).first<{ n: number }>();
 
     return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {

@@ -110,16 +110,36 @@ export function useBrandDetail(brandId: string) {
   });
 }
 
-export function useBrandThreats(brandId: string, options?: { limit?: number; offset?: number; type?: string; status?: string }) {
-  const { limit = 20, offset = 0, type, status } = options || {};
+export interface BrandThreatRow {
+  id: string;
+  threat_type: string;
+  severity: string;
+  status: string;
+  malicious_domain: string | null;
+  malicious_url: string | null;
+  ip_address: string | null;
+  country_code: string | null;
+  source_feed: string | null;
+  confidence_score: number | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  created_at: string;
+}
+
+export function useBrandThreats(
+  brandId: string,
+  options?: { limit?: number; offset?: number; type?: string; status?: string; threat_type?: string },
+) {
+  const { limit = 20, offset = 0, type, status, threat_type } = options || {};
   return useQuery({
-    queryKey: ['brand-threats', brandId, limit, offset, type, status],
+    queryKey: ['brand-threats', brandId, limit, offset, type, status, threat_type],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (type) params.set('type', type);
       if (status) params.set('status', status);
-      const res = await api.get<unknown>(`/api/brands/${brandId}/threats?${params}`);
-      return res.data ?? [];
+      if (threat_type) params.set('threat_type', threat_type);
+      const res = await api.get<BrandThreatRow[]>(`/api/brands/${brandId}/threats?${params}`);
+      return { rows: (res.data ?? []) as BrandThreatRow[], total: res.total ?? 0 };
     },
     enabled: !!brandId,
   });
