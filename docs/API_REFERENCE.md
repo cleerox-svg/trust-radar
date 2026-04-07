@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for the Trust Radar API. All authenticated endpoints require a `Bearer` token in the `Authorization` header. Base URL: `https://trustradar.ca`
+Complete reference for the Averrow API. All authenticated endpoints require a `Bearer` token in the `Authorization` header. Base URL: `https://acerrow.com`
 
 ## Authentication
 
