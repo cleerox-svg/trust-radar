@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { StatCard } from '@/components/brands/StatCard';
+import { StatCard } from '@/components/ui/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useThreatActorDetail } from '@/hooks/useThreatActors';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';

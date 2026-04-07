@@ -27,7 +27,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SeverityChip } from '@/components/ui/SeverityChip';
 import { ThreatSummaryCards } from '@/components/brand/ThreatSummaryCards';
 import { ProviderBars } from '@/components/brand/ProviderBars';
-import { StatCard } from '@/components/brands/StatCard';
+import { StatCard } from '@/components/ui/StatCard';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 import { BIMIStatusRow } from '@/components/ui/BIMIStatusRow';
 import { relativeTime, timeAgo } from '@/lib/time';
