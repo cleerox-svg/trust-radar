@@ -80,7 +80,7 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   // ─── /login redirect → OAuth flow ────────────────────────────────
   router.get("/login", (request: Request) => {
     const url = new URL(request.url);
-    return Response.redirect(`${url.origin}/api/auth/login?return_to=/v2/observatory`, 302);
+    return Response.redirect(`${url.origin}/api/auth/login?return_to=/v2`, 302);
   });
 
   // ─── Legacy escape hatch — old homepage at /legacy ──────────────
