@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats } from '@/hooks/useAgents';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput } from '@/hooks/useAgents';
-import { StatCard } from '@/components/ui/StatCard';
+import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -175,11 +175,13 @@ function AgentCard({
   const agentColor = meta?.color ?? agent.color;
 
   return (
-    <div
+    <Card
+      variant={agent.status === 'error' ? 'critical' : agent.status === 'active' ? 'active' : 'base'}
       className={cn(
-        'glass-card card-accent-top rounded-xl p-5 transition-all duration-200 cursor-pointer group',
-        isSelected && 'border-white/25 scale-[1.01]',
+        'card-accent-top transition-all duration-200 group',
+        isSelected && 'scale-[1.01]',
       )}
+      style={{ padding: '20px', cursor: 'pointer' }}
       onClick={onSelect}
     >
       {/* Header */}
@@ -231,7 +233,7 @@ function AgentCard({
         </div>
         <RunStatusBlocks activity={agent.activity} />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -257,11 +259,10 @@ function FlightControlCard({
   const tokenBarColor = tokenPct >= 90 ? '#C83C3C' : tokenPct >= 80 ? '#FB923C' : '#22D3EE';
 
   return (
-    <div
-      className={cn(
-        'col-span-1 sm:col-span-2 lg:col-span-3 glass-card card-accent-top rounded-xl p-6 transition-all duration-200 cursor-pointer',
-        isSelected && 'border-white/25',
-      )}
+    <Card
+      variant={agent.status === 'error' ? 'critical' : 'active'}
+      className="col-span-1 sm:col-span-2 lg:col-span-3 card-accent-top transition-all duration-200"
+      style={{ padding: '24px', cursor: 'pointer' }}
       onClick={onSelect}
     >
       <div className="flex flex-col lg:flex-row gap-6">
@@ -350,7 +351,7 @@ function FlightControlCard({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -382,7 +383,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
   }, [typedHealth]);
 
   return (
-    <div className="col-span-1 sm:col-span-2 lg:col-span-3 glass-card rounded-xl p-6 animate-fade-in">
+    <Card className="col-span-1 sm:col-span-2 lg:col-span-3 animate-fade-in" style={{ padding: '24px' }}>
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left: Agent info */}
         <div className="lg:w-72 shrink-0 space-y-4">
@@ -508,7 +509,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
           <div className="text-white/40 font-mono text-[11px]">No recent outputs</div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -564,7 +565,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
   ];
 
   return (
-    <div className="glass-card rounded-xl p-4">
+    <Card style={{ padding: '16px' }}>
       <div className="section-label font-mono font-bold mb-3">
         Pipeline Automation
       </div>
@@ -587,7 +588,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -616,16 +617,16 @@ function MonitorView() {
   return (
     <div className="space-y-6">
       {/* TOP STATS BAR */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Agents Operational" value={`${operational}/${total}`} accentColor="#4ADE80" />
+      <StatGrid cols={4}>
+        <StatCard label="Agents Operational" value={`${operational}/${total}`} accentColor="var(--green)" />
         <StatCard label="Jobs (24h)" value={totalJobs.toLocaleString()} />
         <StatCard label="Outputs (24h)" value={totalOutputs.toLocaleString()} />
         <StatCard
           label="Errors (24h)"
           value={totalErrors}
-          accentColor={totalErrors > 0 ? (totalErrors >= 5 ? '#C83C3C' : '#FB923C') : undefined}
+          accentColor={totalErrors > 0 ? (totalErrors >= 5 ? 'var(--red)' : 'var(--sev-high)') : undefined}
         />
-      </div>
+      </StatGrid>
 
       {/* AGENT CARDS GRID */}
       <div>
@@ -695,26 +696,23 @@ export function Agents() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Page header with LIVE badge */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold text-parchment truncate">AI Agent Operations</h1>
-        <LiveIndicator />
-      </div>
+      <PageHeader
+        title="AI Agent Operations"
+        subtitle="AI agent mesh — threat intelligence automation"
+        actions={<LiveIndicator />}
+      />
 
-      {/* Tab switcher — horizontal scroll on mobile */}
-      <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
-        {(['MONITOR', 'HISTORY', 'CONFIG'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'flex-1 sm:flex-none rounded-lg px-4 min-h-[44px] text-[11px] font-mono font-semibold tracking-wider uppercase whitespace-nowrap',
-              activeTab === tab ? 'glass-btn-active' : 'glass-btn',
-            )}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {/* Tab switcher */}
+      <Tabs
+        tabs={[
+          { id: 'MONITOR', label: 'Monitor' },
+          { id: 'HISTORY', label: 'History' },
+          { id: 'CONFIG',  label: 'Config'  },
+        ]}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as AgentTab)}
+        variant="pills"
+      />
 
       {/* Tab panels */}
       {activeTab === 'MONITOR' && <MonitorView />}
