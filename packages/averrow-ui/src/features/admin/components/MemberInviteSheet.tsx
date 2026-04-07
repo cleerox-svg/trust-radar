@@ -39,7 +39,7 @@ export function MemberInviteSheet({ open, onClose }: MemberInviteSheetProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
               Email address
             </label>
             <Input
@@ -53,7 +53,7 @@ export function MemberInviteSheet({ open, onClose }: MemberInviteSheetProps) {
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
               Role
             </label>
             <Select
@@ -63,10 +63,10 @@ export function MemberInviteSheet({ open, onClose }: MemberInviteSheetProps) {
               className="w-full"
             />
             <div className="mt-2 text-[10px] text-white/55 space-y-0.5">
-              <div><span className="text-parchment/60">Owner</span> — Full access, billing, delete org</div>
-              <div><span className="text-parchment/60">Admin</span> — Manage members, configure integrations</div>
-              <div><span className="text-parchment/60">Analyst</span> — View all data, manage takedowns/alerts</div>
-              <div><span className="text-parchment/60">Viewer</span> — Read-only access to brands and threats</div>
+              <div><span className="text-[color:var(--text-secondary)]">Owner</span> — Full access, billing, delete org</div>
+              <div><span className="text-[color:var(--text-secondary)]">Admin</span> — Manage members, configure integrations</div>
+              <div><span className="text-[color:var(--text-secondary)]">Analyst</span> — View all data, manage takedowns/alerts</div>
+              <div><span className="text-[color:var(--text-secondary)]">Viewer</span> — Read-only access to brands and threats</div>
             </div>
           </div>
 

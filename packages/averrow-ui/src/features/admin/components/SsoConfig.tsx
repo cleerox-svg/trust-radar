@@ -114,7 +114,7 @@ export function SsoConfig({ slug }: { slug: string }) {
 
         {/* Protocol Selection */}
         <div className="mb-6">
-          <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-2">
+          <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-2">
             Authentication Protocol
           </label>
           <div className="flex gap-2">
@@ -125,8 +125,8 @@ export function SsoConfig({ slug }: { slug: string }) {
                 onClick={() => setProtocol(p)}
                 className={`px-4 py-2 rounded-lg text-[11px] font-mono border transition-colors ${
                   protocol === p
-                    ? 'border-afterburner/40 bg-afterburner/10 text-afterburner'
-                    : 'border-white/10 text-contrail/50 hover:bg-white/5'
+                    ? 'border-[color:var(--amber)]/40 bg-[color:var(--amber)]/10 text-[color:var(--amber)]'
+                    : 'border-white/10 text-[color:var(--text-tertiary)] hover:bg-white/5'
                 }`}
               >
                 {p === 'none' ? 'Disabled' : p.toUpperCase()}
@@ -141,13 +141,13 @@ export function SsoConfig({ slug }: { slug: string }) {
             <SectionLabel>SAML 2.0</SectionLabel>
 
             {/* Auto-generated fields */}
-            <div className="bg-cockpit border border-white/10 rounded-lg p-4 space-y-3">
+            <div className="bg-[color:var(--bg-page)] border border-white/10 rounded-lg p-4 space-y-3">
               <div>
-                <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+                <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                   Entity ID (auto-generated)
                 </label>
                 <div className="flex gap-2 items-center">
-                  <div className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-md px-3 py-2 text-xs font-mono text-contrail/70 select-all">
+                  <div className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-md px-3 py-2 text-xs font-mono text-[color:var(--text-secondary)] select-all">
                     {entityId}
                   </div>
                   <Button
@@ -161,11 +161,11 @@ export function SsoConfig({ slug }: { slug: string }) {
               </div>
 
               <div>
-                <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+                <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                   ACS URL (auto-generated)
                 </label>
                 <div className="flex gap-2 items-center">
-                  <div className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-md px-3 py-2 text-xs font-mono text-contrail/70 select-all">
+                  <div className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-md px-3 py-2 text-xs font-mono text-[color:var(--text-secondary)] select-all">
                     {acsUrl}
                   </div>
                   <Button
@@ -180,7 +180,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             </div>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 IdP Metadata URL
               </label>
               <div className="flex gap-2">
@@ -202,7 +202,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             </div>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 IdP Certificate
               </label>
               <div className="flex gap-2 items-center">
@@ -216,7 +216,7 @@ export function SsoConfig({ slug }: { slug: string }) {
                     </div>
                   ) : (
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="px-3 py-2 border border-dashed border-white/20 rounded-lg text-[11px] text-contrail/50 hover:bg-white/5 transition-colors">
+                      <div className="px-3 py-2 border border-dashed border-white/20 rounded-lg text-[11px] text-[color:var(--text-tertiary)] hover:bg-white/5 transition-colors">
                         Upload IdP Certificate (.pem, .crt)
                       </div>
                       <input
@@ -242,7 +242,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             <SectionLabel>OpenID Connect</SectionLabel>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Provider
               </label>
               <Select
@@ -254,7 +254,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             </div>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Client ID
               </label>
               <Input
@@ -266,7 +266,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             </div>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Client Secret
               </label>
               <Input
@@ -279,7 +279,7 @@ export function SsoConfig({ slug }: { slug: string }) {
             </div>
 
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Discovery URL
               </label>
               <Input
@@ -350,17 +350,17 @@ export function SsoConfig({ slug }: { slug: string }) {
       {/* Info Card */}
       <Card hover={false}>
         <SectionLabel className="mb-2">How SSO Works</SectionLabel>
-        <ul className="space-y-1.5 text-[11px] text-parchment/60">
+        <ul className="space-y-1.5 text-[11px] text-[color:var(--text-secondary)]">
           <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-afterburner/60 mt-1 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--amber)]/60 mt-1 shrink-0" />
             SSO authentication runs inside the Averrow Worker via Web Crypto API — no additional infrastructure required
           </li>
           <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-afterburner/60 mt-1 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--amber)]/60 mt-1 shrink-0" />
             When enabled, team members will be redirected to your identity provider on login
           </li>
           <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-afterburner/60 mt-1 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--amber)]/60 mt-1 shrink-0" />
             Existing password-based accounts will continue to work as a fallback
           </li>
         </ul>

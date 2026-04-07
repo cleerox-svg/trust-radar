@@ -87,7 +87,7 @@ export function WebhookConfig() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
               Endpoint URL
             </label>
             <div className="flex gap-2">
@@ -109,11 +109,11 @@ export function WebhookConfig() {
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
               Secret (HMAC-SHA256 signing key)
             </label>
             <div className="flex gap-2 items-center">
-              <div className="flex-1 bg-cockpit border border-white/10 rounded-md px-3 py-2 text-xs font-mono text-contrail/60 truncate">
+              <div className="flex-1 bg-[color:var(--bg-page)] border border-white/10 rounded-md px-3 py-2 text-xs font-mono text-[color:var(--text-secondary)] truncate">
                 {showSecret && newSecret ? newSecret : (webhook?.has_secret ? '••••••••••••••••••••••••••••••••' : 'Not configured')}
               </div>
               {webhook?.has_secret && (
@@ -148,10 +148,10 @@ export function WebhookConfig() {
                 type="checkbox"
                 checked={events.includes(evt.key)}
                 onChange={() => toggleEvent(evt.key)}
-                className="w-3.5 h-3.5 mt-0.5 rounded border-white/20 bg-cockpit accent-afterburner"
+                className="w-3.5 h-3.5 mt-0.5 rounded border-white/20 bg-[color:var(--bg-page)] accent-[color:var(--amber)]"
               />
               <div>
-                <span className="text-[11px] font-mono text-parchment/80">{evt.key}</span>
+                <span className="text-[11px] font-mono text-[color:var(--text-primary)]">{evt.key}</span>
                 <span className="text-[10px] text-white/55 ml-2">{evt.label}</span>
               </div>
             </label>
@@ -195,13 +195,13 @@ export function WebhookConfig() {
               {deliveries.slice(0, 10).map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-center justify-between py-2 px-3 bg-cockpit border border-white/[0.06] rounded-lg text-[11px] font-mono"
+                  className="flex items-center justify-between py-2 px-3 bg-[color:var(--bg-page)] border border-white/[0.06] rounded-lg text-[11px] font-mono"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Badge variant={d.success ? 'success' : 'critical'}>
                       {d.status_code}
                     </Badge>
-                    <span className="text-contrail/60 truncate">{d.event}</span>
+                    <span className="text-[color:var(--text-secondary)] truncate">{d.event}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 text-white/55">
                     <span>{d.response_time_ms}ms</span>
@@ -217,7 +217,7 @@ export function WebhookConfig() {
       {/* Webhook Payload Example */}
       <Card hover={false}>
         <SectionLabel className="mb-2">Payload Example</SectionLabel>
-        <pre className="bg-cockpit border border-white/10 rounded-lg p-3 text-[10px] font-mono text-contrail/60 overflow-x-auto">
+        <pre className="bg-[color:var(--bg-page)] border border-white/10 rounded-lg p-3 text-[10px] font-mono text-[color:var(--text-secondary)] overflow-x-auto">
 {`{
   "event": "threat.critical",
   "timestamp": "2026-03-28T13:17:15Z",
@@ -236,7 +236,7 @@ export function WebhookConfig() {
       {/* STIX Export */}
       <Card hover={false}>
         <SectionLabel className="mb-2">STIX 2.1 Export</SectionLabel>
-        <p className="text-[11px] text-contrail/50 mb-3">
+        <p className="text-[11px] text-[color:var(--text-tertiary)] mb-3">
           Export threat indicators in STIX 2.1 format for SIEM ingestion.
         </p>
         <div className="flex gap-2 flex-wrap">

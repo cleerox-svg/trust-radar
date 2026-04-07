@@ -5,13 +5,13 @@ export function AdminUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-parchment font-display">Users</h1>
-        <p className="text-sm text-contrail/50 font-mono mt-1">User management</p>
+        <h1 className="text-xl font-bold font-display" style={{ color: 'var(--text-primary)' }}>Users</h1>
+        <p className="text-sm font-mono mt-1" style={{ color: 'var(--text-secondary)' }}>User management</p>
       </div>
 
       <Card hover={false}>
         <SectionLabel className="mb-2">Active Users</SectionLabel>
-        <div className="text-2xl font-bold text-parchment font-display">1</div>
+        <div className="text-2xl font-bold font-display" style={{ color: 'var(--text-primary)' }}>1</div>
         <p className="text-xs text-white/55 mt-1">Administrator</p>
       </Card>
 

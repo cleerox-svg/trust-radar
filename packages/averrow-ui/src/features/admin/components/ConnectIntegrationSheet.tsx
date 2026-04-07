@@ -160,7 +160,7 @@ export function ConnectIntegrationSheet({ open, onClose, integration }: ConnectI
         <form onSubmit={handleSubmit} className="space-y-3">
           {fields.map((field) => (
             <div key={field.key}>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 {field.label}
               </label>
               <Input
