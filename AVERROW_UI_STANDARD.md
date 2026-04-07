@@ -1,4 +1,7 @@
 # Averrow UI Standard — v1.0
+> **NOTE:** `RESTRUCTURE_SPEC.md` is the authoritative source for new development.
+> This document remains as a component quick-reference for the depth treatment and color tokens.
+> When in conflict, RESTRUCTURE_SPEC.md wins.
 # April 2026 — Source of truth for all Claude Code sessions
 # Every component, token, and pattern locked here first
 
