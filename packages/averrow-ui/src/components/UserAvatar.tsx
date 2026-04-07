@@ -46,13 +46,13 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
           {initials}
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] text-parchment font-medium truncate">
+          <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
             {user?.name ?? 'User'}
           </p>
           <p className="text-[11px] text-white/40 truncate">
             {user?.email}
           </p>
-          <p className="text-[10px] font-mono text-contrail/50 uppercase tracking-wider mt-0.5">
+          <p className="text-[10px] font-mono uppercase tracking-wider mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {roleName}
           </p>
         </div>
@@ -66,7 +66,7 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
             className="w-full flex items-center gap-3 px-4 py-2.5 md:py-2.5 min-h-[52px] md:min-h-0 text-left hover:bg-white/5 transition-colors touch-target border-b border-white/[0.04] md:border-b-0"
           >
             <item.icon size={15} className="text-white/40 flex-shrink-0" />
-            <span className="text-[14px] md:text-[12px] text-parchment/80">{item.label}</span>
+            <span className="text-[14px] md:text-[12px]" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
           </button>
         ))}
       </div>

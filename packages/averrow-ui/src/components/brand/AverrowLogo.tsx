@@ -16,8 +16,8 @@ export function AverrowLogo({ size = 'default' }: { size?: 'small' | 'default' |
         <path d="M14.5 22H17.5L16 18Z" fill="#0C1220" />
       </svg>
       <div>
-        <div className="font-display font-bold text-parchment tracking-[0.15em] text-sm">AVERROW</div>
-        <div className="font-mono text-[7px] text-afterburner tracking-[0.2em]">THREAT INTERCEPTOR</div>
+        <div className="font-display font-bold tracking-[0.15em] text-sm" style={{ color: 'var(--text-primary)' }}>AVERROW</div>
+        <div className="font-mono text-[7px] tracking-[0.2em]" style={{ color: 'var(--amber)' }}>THREAT INTERCEPTOR</div>
       </div>
     </div>
   );
