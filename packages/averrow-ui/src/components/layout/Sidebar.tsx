@@ -195,7 +195,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   key={item.path}
                   to={item.path}
                   onClick={onNavigate}
-                  end={item.path === '/observatory' || item.path === '/'}
+                  end
                   style={({ isActive }) => (isActive ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE)}
                 >
                   {({ isActive }) => (
