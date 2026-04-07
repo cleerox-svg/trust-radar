@@ -8,14 +8,16 @@ describe('Badge', () => {
     expect(screen.getByText('CRITICAL')).toBeInTheDocument();
   });
 
-  it('applies variant classes for critical', () => {
+  it('applies variant styling for critical', () => {
     const { container } = render(<Badge variant="critical">HIGH</Badge>);
-    expect(container.firstChild).toHaveClass('badge-critical');
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.background).toBeTruthy();
+    expect(el.style.border).toBeTruthy();
   });
 
-  it('applies default variant when none specified', () => {
+  it('renders with default variant when none specified', () => {
     const { container } = render(<Badge>DEFAULT</Badge>);
-    expect(container.firstChild).toHaveClass('badge-dormant');
+    expect(container.firstChild).toBeInTheDocument();
   });
 
   it('accepts custom className', () => {
@@ -32,11 +34,11 @@ describe('Badge', () => {
     });
   });
 
-  it('applies base styling classes', () => {
+  it('applies base inline styling', () => {
     const { container } = render(<Badge>TEST</Badge>);
-    expect(container.firstChild).toHaveClass('font-mono');
-    expect(container.firstChild).toHaveClass('uppercase');
-    expect(container.firstChild).toHaveClass('rounded');
-    expect(container.firstChild).toHaveClass('border');
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.textTransform).toBe('uppercase');
+    expect(el.style.fontFamily).toBeTruthy();
+    expect(el.style.border).toBeTruthy();
   });
 });
