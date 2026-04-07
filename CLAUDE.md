@@ -1,20 +1,23 @@
 # CLAUDE.md — Averrow Platform: Claude Code Standing Instructions
 
-This file is read at the start of every Claude Code session. Follow all instructions here
-before writing any code. These are non-negotiable standards for the Averrow platform.
+This file is read at the start of every Claude Code session.
+Follow all instructions here before writing any code. These are non-negotiable.
 
 ---
 
 ## 1. Read These First (Every Session)
 
 Before writing any code, read:
-1. `AVERROW_MASTER_PLAN.md` — platform vision, agent architecture, build roadmap
-2. `AVERROW_DESIGN_SYSTEM_BRIEF.md` — UI tokens, component patterns, color rules
-3. `AVERROW_API_REFERENCE.md` — existing API routes (do not duplicate)
+1. `RESTRUCTURE_SPEC.md` — target architecture, component specs, migration sequence
+2. `AVERROW_UI_STANDARD.md` — design system quick reference
+3. `docs/API_REFERENCE.md` — all API routes (do not duplicate)
 
-If the task touches the UI, also check:
+If the task touches agents or backend:
+4. `docs/AI_AGENTS.md` — agent architecture and rules
+
 ```bash
-grep -n "TODO\|FIXME\|HACK" packages/averrow-ui/src/ -r --include="*.tsx" | head -20
+# Always check for TODOs before starting
+grep -rn "TODO\|FIXME\|HACK" packages/averrow-ui/src/ --include="*.tsx" | head -20
 ```
 
 ---
@@ -24,298 +27,330 @@ grep -n "TODO\|FIXME\|HACK" packages/averrow-ui/src/ -r --include="*.tsx" | head
 ```
 /
 ├── packages/
-│   ├── trust-radar/          ← Cloudflare Worker (backend)
+│   ├── trust-radar/              ← Cloudflare Worker (backend) — internal name kept
 │   │   ├── src/
-│   │   │   ├── agents/       ← All agent files (sentinel, analyst, nexus, etc.)
-│   │   │   ├── routes/       ← API route handlers
-│   │   │   ├── index.ts      ← Worker entry point, fetch + scheduled handlers
-│   │   │   └── orchestrator.ts ← Agent scheduling logic
+│   │   │   ├── agents/           ← All agent files
+│   │   │   ├── routes/           ← API route handlers
+│   │   │   ├── handlers/         ← Route handler functions
+│   │   │   ├── feeds/            ← Threat feed modules
+│   │   │   ├── lib/              ← Shared utilities
+│   │   │   └── index.ts          ← Worker entry point
 │   │   └── wrangler.toml
-│   └── averrow-ui/           ← React frontend (/v2)
+│   └── averrow-ui/               ← React frontend (the live platform)
 │       ├── src/
-│       │   ├── pages/        ← Page components
-│       │   ├── components/   ← Shared components
-│       │   │   └── brands/   ← StatCard, SocialDots, TrendBadge, Sparkline, etc.
-│       │   ├── hooks/        ← TanStack Query hooks
-│       │   └── lib/          ← Utilities (severityColor.ts, etc.)
+│       │   ├── design-system/    ← [RESTRUCTURE TARGET] tokens + primitives
+│       │   ├── features/         ← [RESTRUCTURE TARGET] domain-driven features
+│       │   ├── layouts/          ← Shell, Sidebar, TopBar, MobileNav
+│       │   ├── mobile/           ← Mobile-specific views (CommandCenter only)
+│       │   ├── pages/            ← Migrating to features/ during restructure
+│       │   ├── components/       ← Migrating to features/ or design-system/
+│       │   ├── hooks/            ← TanStack Query hooks
+│       │   └── lib/              ← api.ts, auth.tsx, time.ts, cn.ts
 │       └── tailwind.config.ts
-├── CLAUDE.md                 ← This file
-├── AVERROW_MASTER_PLAN.md    ← Platform master plan
-├── AVERROW_DESIGN_SYSTEM_BRIEF.md
-├── AVERROW_API_REFERENCE.md
-└── PRODUCT_BOUNDARIES.md
+├── docs/
+│   ├── API_REFERENCE.md          ← All API routes — update when adding endpoints
+│   ├── ARCHITECTURE.md           ← System architecture
+│   ├── AI_AGENTS.md              ← Agent specifications
+│   ├── archive/                  ← Superseded documents
+│   └── ...
+├── CLAUDE.md                     ← This file
+├── RESTRUCTURE_SPEC.md           ← Architecture source of truth ← READ THIS
+├── AVERROW_UI_STANDARD.md        ← Component quick reference
+└── AVERROW_MASTER_PLAN.md        ← Platform vision + roadmap
 ```
 
 ---
 
-## 3. The Old SPA — NEVER TOUCH
+## 3. Current Platform State
 
+**React /v2 IS the live platform.**
+- `averrow.com` → serves React /v2 by default (session-aware routing)
+- `averrow.com/legacy` → old SPA escape hatch
+- `/v2` is not in URLs — React Router `basename="/v2"` handles it internally
+
+**NEVER MODIFY — frozen forever:**
 ```
-public/          ← OLD SPA — DO NOT MODIFY EVER
-app.js           ← OLD SPA — DO NOT MODIFY EVER
-styles.css       ← OLD SPA — DO NOT MODIFY EVER
+public/          ← OLD SPA — DO NOT TOUCH
+app.js           ← OLD SPA — DO NOT TOUCH
+styles.css       ← OLD SPA — DO NOT TOUCH
 ```
 
-The old SPA lives at the primary URL and is the demo fallback. It must remain
-functional at all times. All UI work goes to `packages/averrow-ui/` only.
-
-React /v2 is at `/v2` — do not make it the default until explicitly instructed.
+**Restructure in progress:** Sessions R1–R10 per `RESTRUCTURE_SPEC.md`.
+Check the spec to see which sessions are complete before starting work.
 
 ---
 
 ## 4. Code Standards (Zero Exceptions)
 
 ### TypeScript
-- `tsc --noEmit` must pass with zero errors before every commit
-- No `any` types unless absolutely unavoidable — use `unknown` + type guard instead
+- `npx tsc --noEmit` must pass before every commit
+- No `any` types — use `unknown` + type guard
 - No `// @ts-ignore` — fix the actual type issue
-- Double-cast pattern when needed: `value as unknown as TargetType`
 
 ### React / UI
-- **Zero inline styles** — Tailwind classes only
-- Exception: dynamic hex colors from `severityColor()` or `threatTypeColor()` via
-  `style={{ color: severityColor(...) }}` — this is the only acceptable inline style
-- Import `severityColor`, `severityOpacity`, `threatTypeColor` from `src/lib/severityColor.ts`
-  — never redefine these functions anywhere else
-- Use existing shared components — never rebuild what already exists:
-  - `StatCard` — detail/metric card wrapper (all detail views)
-  - `SocialDots` — platform indicator dots
-  - `TrendBadge` — directional trend ▲/▼
-  - `Sparkline` — 7-point inline SVG trend line
-  - `BrandRow` — compact list row
-  - `LiveFeedCard`, `PortfolioHealthCard`, `AttackVectorsCard` — sidebar cards
+
+**The platform is undergoing a full restructure (R1–R10 per RESTRUCTURE_SPEC.md).**
+
+**For sessions working on new/restructured files:**
+- Import components from `@/design-system/components`
+- Use CSS custom properties: `var(--amber)`, `var(--text-primary)`, `var(--sev-critical)` etc.
+- Never use old tokens in new code: no `glass-card`, `bg-cockpit`, `text-parchment`, `text-contrail`
+
+**For sessions NOT yet migrating a file:**
+- Leave existing old tokens in place — do not mix systems in one file
+- Old files stay old until their designated restructure session
+
+**Components — always use shared components, never rebuild inline:**
+During restructure, check `RESTRUCTURE_SPEC.md` for the current component locations.
+After restructure: everything imports from `@/design-system/components`.
+
+**Frozen components — never refactor these:**
+- `ThreatMap.tsx` — WebGL canvas, untouchable
+- `ExposureGauge.tsx` — custom SVG, untouchable
+- `PortfolioHealthCard.tsx` — SVG donut, untouchable
+- `Sparkline.tsx`, `ActivitySparkline.tsx` — SVG sparklines, untouchable
+- `EventTicker.tsx` — scrolling ticker, untouchable
 
 ### Backend / Worker
 - All agents must write to `agent_runs` on start AND completion
 - All agents must emit to `agent_events` after completion
 - Never hardcode secrets — use `env.SECRET_NAME`
 - D1 queries: always use prepared statements, never string interpolation
-- Batch size limits: ip-api.com = 100 IPs/request, 45 req/min max
+- New endpoints must be added to `docs/API_REFERENCE.md`
 
 ---
 
 ## 5. Design System Quick Reference
 
-### Colors
-```
-Afterburner:       #E5A832   Primary accent — CTAs, active states, nav highlights
-Wing Blue:         #0A8AB5   Secondary accent, info states
-Signal Red:        #C83C3C   Alerts, critical, logo
-Signal Red Deep:   #6B1010   Logo gradient start (Deep Arrow: #6B1010 → #C83C3C)
-Deep Space:        #080C14   Primary dark background
-Instrument Panel:  #111827   Card/panel backgrounds
-Instrument White:  #E8ECF1   Primary text on dark
-Gauge Gray:        #8896AB   Secondary text
+### CSS Custom Properties (defined in design-system/tokens.css after R1)
 
-Orbital Teal:      #00d4ff   RESERVED — Observatory map beams + logo glow ONLY
-Thrust:            #7aeaff   RESERVED — Observatory highlights only
-Ring Glow:         #00b8d9   RESERVED — Observatory border accents only
+```css
+/* Backgrounds */
+--bg-page:      #060A14
+--bg-card:      rgba(22,30,48,0.85)
+--bg-sidebar:   rgba(10,16,30,0.96)
 
-Severity palette:
-  Critical: #f87171    High: #fb923c    Medium: #fbbf24
-  Low: #78A0C8         Clean: #4ade80
+/* Primary accents */
+--amber:        #E5A832    /* primary — CTAs, active states, nav */
+--amber-dim:    #B8821F    /* gradient pair */
+--red:          #C83C3C    /* alerts, critical, logo */
+--red-dim:      #8B1A1A    /* gradient pair */
+--blue:         #0A8AB5    /* info, infrastructure */
+--blue-dim:     #065A78
+--green:        #3CB878    /* healthy, operational */
+--green-dim:    #1A6B3C
+
+/* Text */
+--text-primary:   rgba(255,255,255,0.92)
+--text-secondary: rgba(255,255,255,0.60)
+--text-tertiary:  rgba(255,255,255,0.40)
+--text-muted:     rgba(255,255,255,0.25)
+
+/* Severity */
+--sev-critical:        #f87171
+--sev-critical-bg:     rgba(239,68,68,0.10)
+--sev-critical-border: rgba(239,68,68,0.30)
+--sev-high:            #fb923c
+--sev-high-bg:         rgba(249,115,22,0.08)
+--sev-medium:          #fbbf24
+--sev-medium-bg:       rgba(229,168,50,0.08)
+--sev-low:             #60a5fa
+--sev-low-bg:          rgba(59,130,246,0.07)
+
+/* RESERVED — Observatory WebGL only */
+--orbital-teal: #00d4ff
 ```
 
-### Stat Card Pattern (all detail views)
-```
-Layout: detail-rows LEFT | vertical divider | big metric RIGHT
-Left:   6px dot + label (text-[11px] text-white/60) + count (text-[11px] font-mono)
-Right:  32px bold metric + 9px muted label below
-Outer:  rounded-xl border border-white/10 bg-cockpit p-4
-Title:  font-mono text-[9px] uppercase tracking-widest text-contrail/70
-```
+### Light Theme
+`[data-theme="light"]` overrides all `--bg-*` and `--text-*` vars.
+Accent colors and severity colors stay the same in light mode.
+Set via `document.documentElement.setAttribute('data-theme', 'light')`.
+Stored in `localStorage` via `useTheme()` hook.
 
-### Tailwind Custom Tokens (tailwind.config.ts)
-```
-New primary:    bg-afterburner, text-afterburner, border-afterburner-border
-New secondary:  bg-wing-blue, text-wing-blue, border-wing-blue-border
-New alert:      bg-signal-red, text-signal-red, border-signal-red-border
-New neutrals:   bg-deep-space, bg-instrument-panel, bg-panel-highlight
-New text:       text-instrument-white, text-gauge-gray
-New glass:      .glass-card, .glass-sidebar, .glass-elevated, .glass-stat, .glass-input
-Light theme:    bg-cloud, bg-warm-cream, text-ink, text-slate
+### Component Usage (after R2+)
+```typescript
+import {
+  Card, Button, Badge, Avatar, StatCard,
+  DataRow, FilterBar, Tabs, PageHeader, StatGrid,
+  Input, Select, Modal, EmptyState
+} from '@/design-system/components';
 
-Legacy (still available): bg-cockpit, text-contrail, bg-orbital-teal, etc.
+// Card variants
+<Card />                              // base glass
+<Card variant="elevated" />           // modals, panels
+<Card variant="active" />             // live data, amber glow
+<Card variant="critical" />           // alerts, red glow
+<Card variant="active" accent="#0A8AB5" />  // custom accent
+
+// Button variants
+<Button />                            // primary amber gradient
+<Button variant="secondary" />        // glass dark
+<Button variant="danger" />           // red gradient
+<Button variant="ghost" />            // transparent
+
+// Badge — unified severity + status
+<Badge severity="critical" />
+<Badge severity="high" />
+<Badge status="active" pulse />
+
+// Avatar
+<Avatar name="Acme Corp" color="var(--red)" />
+<Avatar name="Google" faviconUrl="https://..." severity="critical" />
 ```
 
 ---
 
 ## 6. Agent Architecture Rules
 
-The platform uses an event-driven agent mesh. Follow these rules:
-
 ### Every agent must:
-1. Log a row to `agent_runs` at start: `status = 'success'`, `completed_at = NULL`
+1. Log a row to `agent_runs` at start
 2. Update `agent_runs` on completion with `completed_at` and `records_processed`
-3. Emit to `agent_events` after completion so Flight Control can trigger downstream agents
-4. Handle errors gracefully — catch all exceptions, log to `agent_runs.error_message`
+3. Emit to `agent_events` after completion
+4. Handle errors — catch all exceptions, log to `agent_runs.error_message`
 
-### Agent trigger chain (do not break this):
+### Agent trigger chain:
 ```
-Sentinel → [agent_events: feed_pulled] → Cartographer
-Cartographer → [agent_events: threats_enriched] → Nexus
-Nexus → [agent_events: cluster_detected] → Analyst + Observer (if high severity)
-Nexus → [agent_events: pivot_detected] → Observer (immediate)
-Analyst → [agent_events: scores_updated] → Pathfinder (if new high-value leads)
+Sentinel      → [feed_pulled]        → Cartographer
+Cartographer  → [threats_enriched]   → Nexus
+Nexus         → [cluster_detected]   → Analyst + Observer (high severity)
+Nexus         → [pivot_detected]     → Observer (immediate)
+Analyst       → [scores_updated]     → Pathfinder (new high-value leads)
 ```
 
 ### AI usage rules:
-- Haiku: classification, scoring, short summaries — high volume tasks
-- Sonnet: threat actor narratives, cluster briefs — run sparingly
-- NEVER use AI to do what SQL GROUP BY can do — correlation is SQL, narrative is AI
+- **Haiku:** classification, scoring, short summaries — high volume
+- **Sonnet:** threat actor narratives, cluster briefs — sparingly
+- **NEVER** use AI for what SQL `GROUP BY` can do in 50ms
 - All AI calls go through Cloudflare AI Gateway
 
-### Cron schedule (wrangler.toml):
+### Cron schedule:
 ```
-Sentinel:     every 30 min  ("*/30 * * * *")
-Cartographer: every 15 min  ("*/15 * * * *") — also triggered by Sentinel
-Nexus:        every 4 hours ("0 */4 * * *")  — also triggered by Cartographer
-Analyst:      every 30 min  ("*/30 * * * *") — also triggered by Nexus
-Observer:     daily at 00:00 ("0 0 * * *")   — also triggered by Nexus pivot events
+Sentinel:     */30 * * * *   (every 30 min)
+Cartographer: */15 * * * *   (every 15 min)
+Nexus:        0 */4 * * *    (every 4 hours)
+Analyst:      */30 * * * *   (every 30 min)
+Observer:     0 0 * * *      (daily 00:00)
 ```
 
 ---
 
 ## 7. API Conventions
 
-- All public endpoints: `GET/POST /api/v1/...`
-- All internal agent triggers: `POST /api/internal/agents/:name/run`
-  - Gated by `Authorization: Bearer ${env.INTERNAL_SECRET}`
-- All admin endpoints: `GET/POST /api/admin/...`
-  - Require JWT with `role: admin`
-- New endpoints must be added to `AVERROW_API_REFERENCE.md`
+- User endpoints: `/api/...` (JWT Bearer auth)
+- Admin endpoints: `/api/admin/...` (JWT + admin role)
+- Internal agent triggers: `/api/internal/agents/:name/run` (INTERNAL_SECRET header)
+- **Every new endpoint must be added to `docs/API_REFERENCE.md`**
 - Never duplicate an existing endpoint — check the reference first
 
 ### Standard response format:
 ```typescript
 // Success
-{ data: T, meta?: { total, page, limit } }
+{ success: true, data: T, total?: number }
 
 // Error
-{ error: string, code?: string }
+{ success: false, error: string }
 ```
 
 ---
 
 ## 8. Database Rules
 
-- Database: `trust-radar-v2` (D1, SQLite)
-- Never DROP or ALTER existing columns without explicit instruction
-- Always add new columns with `ALTER TABLE ... ADD COLUMN` (not recreating tables)
-- New migrations go in `src/migrations/` and must be documented in AVERROW_MASTER_PLAN.md
-- Migration naming: `NNNN_description.sql` (e.g. `0023_add_actor_profiles.sql`)
-- Always use `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE` for upserts — never
-  run SELECT then INSERT — race conditions in concurrent workers
+- Primary DB: `trust-radar-v2` (D1, SQLite) — internal name kept intentionally
+- Audit DB: `trust-radar-v2-audit`
+- **Never DROP or ALTER existing columns** without explicit instruction
+- New columns: `ALTER TABLE ... ADD COLUMN` only
+- New migrations: `migrations/NNNN_description.sql`
+- Always use prepared statements — never string interpolation
+- Use `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE` — never SELECT then INSERT
 
-### Key tables quick reference:
+### Key tables:
 ```
-threats              — Core threat intelligence (52K+ rows)
-hosting_providers    — ASN/provider enrichment
-infrastructure_clusters — Nexus correlation output
-agent_events         — Inter-agent event queue
-agent_runs           — Agent execution log
-agent_outputs        — AI-generated insights
-campaigns            — Threat campaign groupings
-brands               — Brand registry
-organizations        — Multi-tenant org layer
+brands                    ← Brand registry (9,652+ brands)
+brand_profiles            ← User-created brand profiles
+threats                   ← Core threat intelligence (113K+ rows)
+lookalike_domains         ← Typosquat scanner results
+alerts                    ← Platform alerts
+agent_runs                ← Agent execution log
+agent_events              ← Inter-agent event queue
+agent_outputs             ← AI-generated insights
+campaigns                 ← Threat campaign groupings
+organizations             ← Multi-tenant org layer
+org_members               ← Org membership + roles
 ```
 
 ---
 
 ## 9. PR and Merge Workflow
 
-### After every commit:
 ```bash
-# 1. Build check
-cd packages/averrow-ui && npm run build
-cd ../trust-radar && tsc --noEmit
-
-# 2. Push and open PR
+# After every session:
+cd packages/averrow-ui && npx tsc --noEmit
+git add -A
+git commit -m "type(scope): description"
 git push origin HEAD
-gh pr create --title "feat: [description]" --body "[what changed and why]"
-
-# 3. Enable auto-merge immediately
-gh pr merge --auto --squash $(gh pr list --head $(git branch --show-current) --json number -q '.[0].number')
 ```
 
-### Auto-merge is required on every PR
-Do not wait for manual merge approval. Enable auto-merge immediately after PR creation.
-CI acts as the gate — if build passes, it merges automatically.
-
-### Commit message format:
+Commit format:
 ```
-feat(scope): description       ← new feature
-fix(scope): description        ← bug fix
-refactor(scope): description   ← code cleanup, no behavior change
-chore(scope): description      ← build, deps, config
-docs(scope): description       ← documentation only
+feat(scope):      new feature
+fix(scope):       bug fix
+refactor(scope):  cleanup, no behavior change
+docs(scope):      documentation only
+chore(scope):     build, deps, config
 ```
 
 Examples:
 ```
-feat(nexus): infrastructure cluster correlation, pivot detection
-fix(cartographer): increase batch size to 500, fix cron timing
-refactor(brands-hub): extract BrandRow to shared component
+feat(brands): add favicon support to DimensionalAvatar
+fix(sidebar): exact active state matching on all NavLinks
+refactor(restructure-r2): rebuild Card + Button + Badge to CSS vars
+docs(claude): update standing instructions for restructure
 ```
 
 ---
 
 ## 10. What NOT to Build Without Explicit Instruction
 
-- Do not add new npm packages without checking if existing ones cover the need
-- Do not add new API endpoints for data that can be derived client-side
-- Do not add loading skeletons to views that already have them
-- Do not refactor working code during a bug fix session — one thing at a time
-- Do not modify the old SPA files under any circumstances
-- Do not push directly to `main` — always use feature branches + PR + auto-merge
-- Do not use `console.log` in production code — use the agent_runs error logging pattern
-- Do not create duplicate utility functions — check `src/lib/` first
+- New npm packages without checking if existing ones cover the need
+- New API endpoints for data derivable client-side
+- Loading skeletons on views that already have them
+- Refactoring working code during a bug fix session — one thing at a time
+- Anything in `public/`, `app.js`, `styles.css` — frozen forever
+- Old design tokens (`glass-card`, `bg-cockpit`, `text-parchment`) in new files
+- Duplicate utility functions — check `src/lib/` first
+- `console.log` in production — use `agent_runs` error logging
 
 ---
 
 ## 11. Session Checklist (Before Marking Complete)
 
-Before ending any session, verify:
-
-- [ ] `tsc --noEmit` passes in both packages with zero errors
-- [ ] `npm run build` succeeds in averrow-ui
-- [ ] No inline styles added (except dynamic severity colors)
-- [ ] No old SPA files touched
-- [ ] New API endpoints added to AVERROW_API_REFERENCE.md
-- [ ] New agent logic follows agent_runs + agent_events pattern
-- [ ] AVERROW_DESIGN_SYSTEM_BRIEF.md updated if new UI patterns were locked in
-- [ ] AVERROW_MASTER_PLAN.md updated if architecture changed
-- [ ] PR opened and auto-merge enabled
+- [ ] `npx tsc --noEmit` passes in `packages/averrow-ui`
+- [ ] No old SPA files touched (`public/`, `app.js`, `styles.css`)
+- [ ] New API endpoints added to `docs/API_REFERENCE.md`
+- [ ] New agent logic follows `agent_runs` + `agent_events` pattern
+- [ ] `RESTRUCTURE_SPEC.md` updated if architecture decisions were made
 - [ ] Commit message follows `type(scope): description` format
+- [ ] Pushed to feature branch (not master directly)
 
 ---
 
-## 12. Platform Context (Read This Once)
+## 12. Platform Context
 
 Averrow is a **threat actor intelligence platform** — not just brand protection.
 
-The goal is to identify WHO is conducting attacks, HOW they operate, WHERE they move
+The goal: identify WHO is conducting attacks, HOW they operate, WHERE they move
 infrastructure, and get ahead of them. Threats are evidence. Patterns are the product.
 
-**The customer ROI story:**
-- Replaces 2-3 security analyst headcount
+**Customer ROI:**
+- Replaces 2–3 security analyst headcount
 - Protects brand equity (irreplaceable once damaged)
 - Protects customers (the real victims of impersonation attacks)
-- Quantifiable: analyst-hours replaced, takedowns completed, breach exposure prevented
-
-**The competitive gap:**
-No mid-market platform connects infrastructure correlation → brand protection →
-threat actor profiling → predictive intelligence at this price point.
-
-**Key agents and their purpose:**
-- Sentinel: feed ingestion (eyes)
-- Cartographer: geo/ASN enrichment (location)
-- Nexus: infrastructure correlation (brain)
-- AI Detector: synthetic attack detection (instinct)
-- Analyst: brand risk scoring (judgment)
-- Observer: narrative briefings (voice)
-- Sparrow: takedown execution (action)
-- Flight Control: supervision + orchestration (command)
+- Quantifiable: analyst-hours replaced, takedowns completed, exposure prevented
 
 **The rule:** SQL does correlation. AI does narrative.
-Never pay AI tokens to do what GROUP BY can do in 50ms.
+Never pay AI tokens to do what `GROUP BY` can do in 50ms.
+
+**Pricing:** Free | Professional $1,499/mo | Business $3,999/mo | Enterprise
+**Positioning:** Global (not Canada-first). Avro Arrow heritage on About page only.
+**Parent company:** LRX Enterprises Inc. (Canadian-incorporated)
+**Domains:** averrow.com (primary), averrow.ca (Canadian market)
