@@ -39,7 +39,11 @@ function SimpleStatCard({
 
   return (
     <div
-      className={cn('glass-stat rounded-xl transition-all', className)}
+      className={cn(
+        'glass-stat rounded-xl transition-all',
+        accentColor && 'border-l-[3px]',
+        className,
+      )}
       style={containerStyle}
       onClick={onClick}
     >
@@ -83,14 +87,16 @@ function SimpleStatCard({
           </div>
         )}
         {trend && (
-          <div style={{
-            fontSize: 10, fontFamily: 'var(--font-mono)', marginTop: 4,
-            color: trendDirection === 'up'
-              ? '#4ade80'
-              : trendDirection === 'down'
-              ? '#f87171'
-              : 'rgba(255,255,255,0.40)',
-          }}>
+          <div
+            className={cn(
+              'font-mono text-[10px] mt-1',
+              trendDirection === 'up'
+                ? 'text-positive'
+                : trendDirection === 'down'
+                ? 'text-accent'
+                : 'text-white/55',
+            )}
+          >
             {trend}
           </div>
         )}
