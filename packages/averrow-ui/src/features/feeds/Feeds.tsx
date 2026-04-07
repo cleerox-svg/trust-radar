@@ -8,6 +8,12 @@ import { cn } from '@/lib/cn';
 import { RotateCw, Loader2, Check, X, Zap } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  Card,
+  StatCard,
+  StatGrid,
+  PageHeader,
+} from '@/design-system/components';
 
 /* ─── Helpers ─── */
 
@@ -205,28 +211,12 @@ function HeaderStats({ feeds }: { feeds: FeedOverview[] }) {
   const needsAttention = feeds.filter(f => f.enabled && f.total_ingested === 0).length;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <div className="glass-card glass-card-green relative rounded-xl p-4">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Active Feeds</div>
-        <div className="text-[28px] font-bold leading-none text-green-400 font-display">{active}</div>
-      </div>
-      <div className="glass-card glass-card-amber relative rounded-xl p-4">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Total Ingested</div>
-        <div className="text-[28px] font-bold leading-none text-afterburner font-display">
-          {totalIngested.toLocaleString()}
-        </div>
-      </div>
-      <div className="glass-card glass-card-amber relative rounded-xl p-4">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Needs Attention</div>
-        <div className={cn('text-[28px] font-bold leading-none font-display', needsAttention > 0 ? 'text-amber-400' : 'text-white/30')}>
-          {needsAttention}
-        </div>
-      </div>
-      <div className="glass-card relative rounded-xl p-4">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Disabled</div>
-        <div className="text-[28px] font-bold leading-none text-white/40 font-display">{disabled}</div>
-      </div>
-    </div>
+    <StatGrid cols={4}>
+      <StatCard label="Active Feeds"    value={active}        accentColor="var(--green)" />
+      <StatCard label="Total Ingested"  value={totalIngested} accentColor="var(--amber)" />
+      <StatCard label="Needs Attention" value={needsAttention} accentColor={needsAttention > 0 ? 'var(--sev-medium)' : undefined} />
+      <StatCard label="Disabled"        value={disabled} />
+    </StatGrid>
   );
 }
 
@@ -240,7 +230,7 @@ function AttentionBanner({ feeds }: { feeds: FeedOverview[] }) {
   });
 
   return (
-    <div className="glass-card glass-card-amber relative rounded-xl p-4">
+    <Card variant="active" style={{ padding: '16px' }}>
       <div className="flex items-start gap-2">
         <span className="text-amber-400 text-sm mt-0.5">&#9888;</span>
         <div>
@@ -252,7 +242,7 @@ function AttentionBanner({ feeds }: { feeds: FeedOverview[] }) {
           </span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -262,7 +252,7 @@ function FeedHealthStrip({ feeds }: { feeds: FeedOverview[] }) {
   const disabled = feeds.filter(f => !f.enabled);
 
   return (
-    <div className="glass-card relative rounded-xl p-4">
+    <Card style={{ padding: '16px' }}>
       <div className="flex items-center gap-3 flex-wrap">
         <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">Feed Health</span>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -282,7 +272,7 @@ function FeedHealthStrip({ feeds }: { feeds: FeedOverview[] }) {
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full border border-white/20 inline-block" /> {disabled.length} disabled</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -300,10 +290,10 @@ function FeedCard({
   const rate = successRate(feed);
   const issue = detectFeedIssue(feed);
 
+  const cardVariant: 'base' | 'active' | 'critical' =
+    category === 'attention' ? 'active' : 'base';
   const cardClass = cn(
-    'glass-card relative rounded-xl p-4 cursor-pointer transition-all',
-    category === 'healthy' && 'hover:border-green-500/20',
-    category === 'attention' && 'glass-card-amber',
+    'cursor-pointer transition-all',
     category === 'disabled' && 'opacity-60',
   );
 
@@ -325,7 +315,7 @@ function FeedCard({
 
   return (
     <div>
-      <div className={cardClass} onClick={onToggle}>
+      <Card variant={cardVariant} className={cardClass} style={{ padding: '16px' }} onClick={onToggle}>
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
@@ -408,7 +398,7 @@ function FeedCard({
         {category === 'disabled' && (
           <div className="text-[10px] text-white/40 font-mono">Disabled</div>
         )}
-      </div>
+      </Card>
 
       {/* Expanded detail panel */}
       {isExpanded && (
@@ -430,7 +420,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
   }, [history]);
 
   return (
-    <div className="glass-card relative rounded-xl p-4 mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <Card className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ padding: '16px' }}>
       {/* LEFT — Feed Details */}
       <div className="space-y-3">
         <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Feed Details</div>
@@ -556,7 +546,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
           <div className="text-[11px] text-white/40 font-mono">No pull history available</div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -656,15 +646,11 @@ export function Feeds() {
   return (
     <div className="space-y-5">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-parchment font-display">Feeds</h1>
-          <p className="text-sm text-contrail/50 font-mono mt-1">
-            {allFeeds.length} feed configurations &middot; Threat intelligence ingestion
-          </p>
-        </div>
-        <TriggerAllButton />
-      </div>
+      <PageHeader
+        title="Threat Feeds"
+        subtitle={`${allFeeds.length} feed configurations · Threat intelligence ingestion`}
+        actions={<TriggerAllButton />}
+      />
 
       {/* 1. Header stats */}
       <HeaderStats feeds={allFeeds} />
