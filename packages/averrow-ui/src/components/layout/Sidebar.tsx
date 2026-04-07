@@ -6,7 +6,6 @@ import {
   Cpu, Rss, LayoutDashboard, Users, ClipboardList, Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/cn';
 import { useAuth } from '@/lib/auth';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
 
@@ -26,6 +25,56 @@ interface SidebarProps {
   onNavigate?: () => void;
 }
 
+const SIDEBAR_CONTAINER_STYLE: React.CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(10,16,30,0.96) 0%, rgba(6,10,20,0.99) 100%)',
+  backdropFilter: 'blur(24px)',
+  WebkitBackdropFilter: 'blur(24px)',
+  borderRight: '1px solid rgba(255,255,255,0.07)',
+  boxShadow: [
+    '4px 0 48px rgba(0,0,0,0.60)',
+    'inset -1px 0 0 rgba(255,255,255,0.05)',
+    'inset 0 1px 0 rgba(255,255,255,0.06)',
+  ].join(', '),
+};
+
+const NAV_INACTIVE_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '9px 14px',
+  margin: '1px 8px',
+  borderRadius: 10,
+  color: 'rgba(255,255,255,0.55)',
+  background: 'transparent',
+  border: '1px solid transparent',
+  transition: 'all 0.15s ease',
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 500,
+  textDecoration: 'none',
+};
+
+const NAV_ACTIVE_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '9px 12px',
+  margin: '1px 8px',
+  borderRadius: 10,
+  color: '#E5A832',
+  background: 'linear-gradient(135deg, rgba(229,168,50,0.12), rgba(229,168,50,0.06))',
+  border: '1px solid rgba(229,168,50,0.22)',
+  borderLeft: '2px solid #E5A832',
+  boxShadow: [
+    'inset 0 1px 0 rgba(229,168,50,0.20)',
+    '0 0 12px rgba(229,168,50,0.08)',
+  ].join(', '),
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: 'none',
+};
+
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout, isSuperAdmin, isBrandAdmin } = useAuth();
   const [alertCount, setAlertCount] = useState(0);
@@ -42,7 +91,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Brand admins see a reduced sidebar scoped to their org
   const BRAND_ADMIN_SECTIONS: NavSection[] = [
     {
       label: 'INTELLIGENCE',
@@ -67,7 +115,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     },
   ];
 
-  // Super admins see the full platform sidebar
   const SUPER_ADMIN_SECTIONS: NavSection[] = [
     {
       label: 'INTELLIGENCE',
@@ -105,52 +152,104 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const NAV_SECTIONS = isBrandAdmin ? BRAND_ADMIN_SECTIONS : SUPER_ADMIN_SECTIONS;
 
   return (
-    <aside className="w-56 h-full flex flex-col bg-slate-950/80 backdrop-blur-2xl border-r border-white/[0.06] shadow-[4px_0_40px_rgba(0,0,0,0.5),inset_-1px_0_0_rgba(255,255,255,0.04)]">
-      <div className="p-4 border-b border-white/5">
+    <aside className="w-56 h-full flex flex-col" style={SIDEBAR_CONTAINER_STYLE}>
+      <div
+        className="px-4 pt-4"
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          paddingBottom: 16,
+          marginBottom: 8,
+        }}
+      >
         <AverrowLogo />
       </div>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {NAV_SECTIONS.map((section, idx) => (
-          <div key={section.label} className={idx > 0 ? 'mt-2' : ''}>
-            <div className="flex items-center gap-2 px-3 pt-3 pb-1">
-              <span className="text-[9px] font-mono tracking-[0.2em] text-white/45 uppercase">{section.label}</span>
-              <span className="flex-1 h-px bg-white/[0.06]" />
-            </div>
-            {section.items.map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={onNavigate}
-                end={item.path === '/observatory' || item.path === '/'}
-                className={({ isActive }) => cn(
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg mx-2 text-sm transition-colors relative',
-                  isActive
-                    ? 'bg-amber-500/10 text-amber-400 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-0.5 before:rounded-r-full before:bg-amber-500'
-                    : 'text-white/60 hover:bg-white/5 hover:text-parchment'
-                )}
+      <nav className="flex-1 overflow-y-auto py-2">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 16px 6px' }}>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.22em',
+                  color: 'rgba(255,255,255,0.35)',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 700,
+                }}
               >
-                <item.icon size={16} className="shrink-0 opacity-70" />
-                <span>{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="badge-glass badge-critical ml-auto text-xs px-1.5 py-0.5">
-                    {item.badge}
-                  </span>
-                )}
-              </NavLink>
-            ))}
+                {section.label}
+              </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: 1,
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0.08), transparent)',
+                }}
+              />
+            </div>
+            {section.items.map(item => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onNavigate}
+                  end={item.path === '/observatory' || item.path === '/'}
+                  style={({ isActive }) => (isActive ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        size={16}
+                        style={{
+                          flexShrink: 0,
+                          color: isActive ? '#E5A832' : 'rgba(255,255,255,0.40)',
+                          filter: isActive ? 'drop-shadow(0 0 4px rgba(229,168,50,0.60))' : undefined,
+                        }}
+                      />
+                      <span>{item.label}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="badge-glass badge-critical ml-auto text-xs px-1.5 py-0.5">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
         ))}
       </nav>
-      <div className="p-4 border-t border-white/5">
+      <div
+        style={{
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          padding: '12px 16px',
+          marginTop: 'auto',
+        }}
+      >
         {isBrandAdmin && user?.organization && (
           <div className="text-[10px] font-mono text-afterburner/70 uppercase tracking-wider mb-1">
             {user.organization.name}
           </div>
         )}
-        <div className="text-xs text-parchment/70 truncate">{user?.email}</div>
+        <div
+          className="truncate"
+          style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace' }}
+        >
+          {user?.email}
+        </div>
         <button
           onClick={logout}
-          className="mt-2 text-xs text-white/60 hover:text-accent transition-colors font-mono"
+          className="mt-2 hover:text-accent transition-colors"
+          style={{
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.30)',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            letterSpacing: '0.12em',
+          }}
         >
           LOGOUT
         </button>
