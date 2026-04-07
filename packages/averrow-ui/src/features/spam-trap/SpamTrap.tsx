@@ -2,10 +2,10 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useSpamTrapAddresses, useSpamTrapStats } from '@/hooks/useSpamTrap';
 import { StatCard } from '@/components/ui/StatCard';
-import { HoneypotNetworkPanel } from '@/components/spam-trap/HoneypotNetworkPanel';
-import { CaptureForensicsPanel } from '@/components/spam-trap/CaptureForensicsPanel';
-import { CampaignPanel } from '@/components/spam-trap/CampaignPanel';
-import { ThreatActorPanel } from '@/components/spam-trap/ThreatActorPanel';
+import { HoneypotNetworkPanel } from './components/HoneypotNetworkPanel';
+import { CaptureForensicsPanel } from './components/CaptureForensicsPanel';
+import { CampaignPanel } from './components/CampaignPanel';
+import { ThreatActorPanel } from './components/ThreatActorPanel';
 import { PageLoader } from '@/components/ui/PageLoader';
 
 export function SpamTrap() {

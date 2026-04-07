@@ -15,7 +15,7 @@ import {
   useBrandSearch,
 } from '@/hooks/useAdminOrgs';
 import type { AdminOrg, BrandSearchResult, CreateOrgPayload } from '@/hooks/useAdminOrgs';
-import { CreateOrgSheet } from '@/components/org/CreateOrgSheet';
+import { CreateOrgSheet } from './components/CreateOrgSheet';
 
 // ─── Plan config ────────────────────────────────────────────
 
