@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StatCard } from '@/components/brands/StatCard';
+import { StatCard } from '@/components/ui/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';

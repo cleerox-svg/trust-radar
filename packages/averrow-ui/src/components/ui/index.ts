@@ -1,8 +1,12 @@
 // Averrow UI Standard v1.0 components
 export { DeepCard } from './DeepCard';
 export type { DeepCardProps, DeepVariant } from './DeepCard';
+export { Avatar } from './Avatar';
+export type { AvatarProps, AvatarSeverity } from './Avatar';
 export { DimensionalAvatar } from './DimensionalAvatar';
 export type { DimensionalAvatarProps } from './DimensionalAvatar';
+export { StatCard, SimpleStatCard, DetailStatCard } from './StatCard';
+export type { StatCardProps } from './StatCard';
 export { SeverityChip } from './SeverityChip';
 export type { SeverityChipProps, Severity, ChipSize } from './SeverityChip';
 export { GlowNumber } from './GlowNumber';

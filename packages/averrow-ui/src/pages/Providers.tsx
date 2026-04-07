@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { StatCard } from '@/components/brands/StatCard';
+import { StatCard } from '@/components/ui/StatCard';
 import { Sparkline } from '@/components/brands/Sparkline';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';

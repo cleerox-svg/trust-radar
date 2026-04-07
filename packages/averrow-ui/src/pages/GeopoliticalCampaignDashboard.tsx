@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { StatCard } from '@/components/brands/StatCard';
+import { StatCard } from '@/components/ui/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { severityColor, severityOpacity, threatTypeColor } from '@/lib/severityColor';
 import {
