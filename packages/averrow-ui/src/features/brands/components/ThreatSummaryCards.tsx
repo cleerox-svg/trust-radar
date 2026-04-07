@@ -40,7 +40,7 @@ export function ThreatSummaryCards({ threats }: { threats: any[] }) {
           style={{ borderTopWidth: '3px', borderTopColor: card.color }}
         >
           <div className="font-display text-2xl font-extrabold" style={{ color: card.color }}>{card.count}</div>
-          <div className="font-mono text-[10px] text-contrail/50 uppercase tracking-wider mt-1">{card.label}</div>
+          <div className="font-mono text-[10px] uppercase tracking-wider mt-1" style={{ color: 'var(--text-secondary)' }}>{card.label}</div>
         </div>
       ))}
     </div>

@@ -118,12 +118,12 @@ function toTitleCase(str: string): string {
 function TimelineTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-cockpit/95 border border-white/10 rounded-lg px-3 py-2 text-xs backdrop-blur-sm">
+    <div className="border border-white/10 rounded-lg px-3 py-2 text-xs backdrop-blur-sm" style={{ background: 'var(--bg-page)' }}>
       <div className="font-mono text-contrail/60 mb-1">{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} className="flex justify-between gap-4">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span className="font-mono text-parchment">{p.value}</span>
+          <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{p.value}</span>
         </div>
       ))}
     </div>
@@ -338,7 +338,7 @@ function getGradeClass(grade: string | null): string {
   if (!grade) return 'text-contrail/50';
   const g = grade.toUpperCase();
   if (g === 'A+' || g === 'A') return 'text-[#4ade80]';
-  if (g.startsWith('B')) return 'text-contrail';
+  if (g.startsWith('B')) return 'text-[#78A0C8]';
   if (g.startsWith('C')) return 'text-[#fbbf24]';
   if (g.startsWith('D')) return 'text-[#fb923c]';
   return 'text-[#f87171]';
@@ -470,7 +470,7 @@ function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec:
         {onViewDetails && (
           <button
             onClick={onViewDetails}
-            className="mt-3 w-full text-center text-[10px] text-white/30 hover:text-afterburner transition-colors font-mono py-1"
+            className="mt-3 w-full text-center text-[10px] text-white/30 transition-colors font-mono py-1 hover:[color:var(--amber)]"
           >
             View DNS Details &rarr;
           </button>
@@ -545,14 +545,16 @@ function SocialRiskCard({
             <button
               onClick={onScan}
               disabled={scanPending}
-              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+              className="font-mono text-[10px] transition-colors disabled:opacity-40"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {scanPending ? 'SCANNING...' : 'SCAN'}
             </button>
             <button
               onClick={onDiscover}
               disabled={discoverPending}
-              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+              className="font-mono text-[10px] transition-colors disabled:opacity-40"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {discoverPending ? 'DISCOVERING...' : 'DISCOVER NEW'}
             </button>
@@ -849,7 +851,7 @@ export function BrandDetail() {
                     className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
                       timelinePeriod === p
                         ? 'bg-accent/10 text-accent border border-accent/25'
-                        : 'text-white/55 hover:bg-white/5 hover:text-parchment border border-transparent'
+                        : 'text-white/55 hover:bg-white/5 hover:[color:var(--text-primary)] border border-transparent'
                     }`}>
                     {p.toUpperCase()}
                   </button>
@@ -916,13 +918,13 @@ export function BrandDetail() {
                       pb-2 border-b border-white/[0.06] mb-2">
                       <div />
                       <button onClick={() => setThreatSort({ key: 'severity', asc: threatSort.key === 'severity' ? !threatSort.asc : false })}
-                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left hover:text-parchment transition-colors">
+                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left hover:[color:var(--text-primary)] transition-colors">
                         Type / Severity {threatSort.key === 'severity' && (threatSort.asc ? '\u25B2' : '\u25BC')}
                       </button>
                       <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Target</div>
                       <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Vector</div>
                       <button onClick={() => setThreatSort({ key: 'date', asc: threatSort.key === 'date' ? !threatSort.asc : false })}
-                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-right hover:text-parchment transition-colors">
+                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-right hover:[color:var(--text-primary)] transition-colors">
                         Age {threatSort.key === 'date' && (threatSort.asc ? '\u25B2' : '\u25BC')}
                       </button>
                     </div>
@@ -973,8 +975,9 @@ export function BrandDetail() {
 
                     {sortedThreats.length > 10 && (
                       <button onClick={() => setExpandedThreats(!expandedThreats)}
-                        className="w-full mt-3 py-2 font-mono text-[10px] text-contrail hover:text-white
-                        border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all">
+                        className="w-full mt-3 py-2 font-mono text-[10px] hover:text-white
+                        border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all"
+                        style={{ color: 'var(--text-secondary)' }}>
                         {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} THREATS`}
                       </button>
                     )}
@@ -1006,8 +1009,9 @@ export function BrandDetail() {
                   value={safeDomainInput}
                   onChange={e => setSafeDomainInput(e.target.value)}
                   placeholder="Add domain..."
-                  className="flex-1 bg-cockpit border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs text-parchment
+                  className="flex-1 border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs
                     placeholder:text-white/30 focus:border-accent/30 focus:outline-none transition-colors"
+                  style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && safeDomainInput.trim()) {
                       addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() });
@@ -1213,7 +1217,7 @@ export function BrandDetail() {
                         {PLATFORM_ICONS[(profile.platform ?? '').toLowerCase()] ?? '\u25CF'}
                       </div>
                       <div>
-                        <div className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</div>
+                        <div className="font-mono font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>@{profile.handle}</div>
                         {profile.display_name && (
                           <div className="text-[10px] text-white/55">{profile.display_name}</div>
                         )}
@@ -1314,7 +1318,8 @@ export function BrandDetail() {
                         {needsTruncation && (
                           <button
                             onClick={() => setExpandedSummary(!expandedSummary)}
-                            className="ml-1.5 font-mono text-[10px] font-semibold text-contrail hover:text-white transition-colors"
+                            className="ml-1.5 font-mono text-[10px] font-semibold hover:text-white transition-colors"
+                            style={{ color: 'var(--text-secondary)' }}
                           >
                             {expandedSummary ? 'Show less' : 'Show more'}
                           </button>
@@ -1417,7 +1422,7 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
   return (
     <div className="space-y-6">
       {/* STAT ROW */}
-      <DeepCard variant="active" accentColor="#C83C3C">
+      <DeepCard variant="active" accent="#C83C3C">
         <div className="grid grid-cols-3 gap-6 p-2">
           <div>
             <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Typosquats</div>
