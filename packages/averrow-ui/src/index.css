@@ -1,3 +1,4 @@
+@import './design-system/tokens.css';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
 /* Averrow Text Hierarchy — DO NOT use below these minimums on readable content:
@@ -11,15 +12,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --z-base: 0;
-  --z-dropdown: 100;
-  --z-sidebar-overlay: 200;
-  --z-sidebar: 300;
-  --z-modal: 400;
-  --z-toast: 500;
-}
 
 @layer base {
   * {
