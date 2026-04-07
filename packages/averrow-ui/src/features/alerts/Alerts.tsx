@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
-import { StatCard } from '@/components/ui/StatCard';
+import { StatCard, Card, StatGrid, FilterBar, PageHeader, DataRow } from '@/components/ui';
 import { Badge } from '@/components/ui/Badge';
+import type { Severity } from '@/components/ui/Badge';
 import { Sparkline } from '@/features/brands/components/Sparkline';
 import {
   useAlerts, useAlertStats, useUpdateAlert, useBulkAcknowledge, useBulkTakedown,
@@ -138,7 +139,7 @@ function BrandGroupCard({
   const newCount = group.alerts.filter(a => a.status === 'new').length;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <Card style={{ padding: 0, overflow: 'hidden' }}>
       {/* Group header */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -176,16 +177,14 @@ function BrandGroupCard({
               const platform = extractPlatform(alert.title);
               const isSelected = selectedAlertId === alert.id;
 
+              const sev = (severityBadgeMap[alert.severity] ?? 'low') as Severity;
               return (
-                <button
+                <DataRow
                   key={alert.id}
+                  severity={sev}
+                  unread={alert.status === 'new'}
                   onClick={() => onSelectAlert(alert)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all border-l-2',
-                    isSelected
-                      ? 'bg-afterburner-muted border-l-afterburner'
-                      : 'border-l-transparent hover:bg-white/[0.02] hover:border-l-white/10',
-                  )}
+                  className={cn('flex items-center gap-3', isSelected && 'bg-afterburner-muted')}
                 >
                   {/* Severity dot */}
                   <span className={cn(
@@ -236,7 +235,7 @@ function BrandGroupCard({
                   <span className="font-mono text-[10px] text-white/50 tabular-nums w-14 text-right flex-shrink-0">
                     {timeAgo(alert.created_at)}
                   </span>
-                </button>
+                </DataRow>
               );
             })}
           </div>
@@ -282,7 +281,7 @@ function BrandGroupCard({
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -302,7 +301,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
   const platform = extractPlatform(alert.title);
 
   return (
-    <div className="glass-card glass-card-amber rounded-xl p-5 mt-1">
+    <Card variant="active" style={{ padding: '20px', marginTop: 4 }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -515,7 +514,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -788,98 +787,81 @@ export function Alerts() {
   /* ─── Desktop layout (unchanged) ─── */
   return (
     <div className="space-y-5">
-      {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-parchment font-display">Alerts</h1>
-        <p className="text-sm text-contrail/50 font-mono mt-1">Active contacts requiring attention</p>
-      </div>
+      <PageHeader title="Alerts" subtitle="Active contacts requiring attention" />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <StatGrid cols={4}>
         <StatCard
           label="Total Alerts"
           value={statsLoading ? '...' : (stats?.total ?? 0)}
-          accentColor="#C83C3C"
+          accentColor="var(--red)"
         />
         <StatCard
           label="New / Unacknowledged"
           value={statsLoading ? '...' : (stats?.new_count ?? 0)}
-          accentColor="#FB923C"
+          accentColor="var(--sev-high)"
         />
         <StatCard
           label="Acknowledged"
           value={statsLoading ? '...' : (stats?.acknowledged ?? 0)}
-          accentColor="#E5A832"
+          accentColor="var(--amber)"
         />
         <StatCard
           label="Resolved"
           value={statsLoading ? '...' : (stats?.resolved ?? 0)}
-          accentColor="#4ADE80"
+          accentColor="var(--green)"
         />
-      </div>
+      </StatGrid>
 
-      {/* Warning banner */}
       {stats && stats.new_count > 0 && (
-        <div className="glass-card glass-card-red rounded-xl px-4 py-3 flex items-center gap-3">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#f87171] dot-pulse-red flex-shrink-0" />
-          <span className="font-mono text-[11px] font-semibold text-parchment">
+        <Card variant="critical" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="w-2.5 h-2.5 rounded-full dot-pulse-red flex-shrink-0" style={{ background: 'var(--sev-critical)' }} />
+          <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
             {stats.new_count} unacknowledged {stats.high > 0 ? 'HIGH' : ''} severity alert{stats.new_count !== 1 ? 's' : ''} require review
           </span>
-        </div>
+        </Card>
       )}
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-4">
-        <PillGroup
-          label="Status"
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'new', label: 'New' },
-            { value: 'acknowledged', label: 'Ack' },
-            { value: 'resolved', label: 'Resolved' },
-            { value: 'false_positive', label: 'Dismissed' },
-          ]}
-          selected={filters.status ?? 'all'}
-          onChange={v => setFilter('status', v)}
-        />
-        <PillGroup
-          label="Severity"
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'CRITICAL', label: 'Critical' },
-            { value: 'HIGH', label: 'High' },
-            { value: 'MEDIUM', label: 'Medium' },
-          ]}
-          selected={filters.severity ?? 'all'}
-          onChange={v => setFilter('severity', v)}
-        />
-        <PillGroup
-          label="Type"
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'social_impersonation', label: 'Social' },
-            { value: 'phishing_detected', label: 'Phishing' },
-            { value: 'lookalike_domain_active', label: 'Lookalike' },
-            { value: 'bimi_removed', label: 'BIMI Removed' },
-            { value: 'dmarc_downgraded', label: 'DMARC Downgraded' },
-            { value: 'vmc_expiring', label: 'VMC Expiring' },
-            { value: 'typosquat_bimi', label: 'BIMI Spoofing' },
-          ]}
-          selected={filters.alert_type ?? 'all'}
-          onChange={v => setFilter('alert_type', v)}
-        />
-
-        {/* Search */}
-        <div className="ml-auto">
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search alerts..."
-            className="w-56 rounded-md bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 text-[11px] text-parchment placeholder:text-white/30 focus:outline-none focus:border-afterburner-border font-mono"
+      <FilterBar
+        search={{ value: search, onChange: setSearch, placeholder: 'Search alerts...' }}
+        filters={[
+          { value: 'all',      label: 'All',      count: stats?.total },
+          { value: 'CRITICAL', label: 'Critical', count: stats?.critical },
+          { value: 'HIGH',     label: 'High',     count: stats?.high },
+          { value: 'MEDIUM',   label: 'Medium',   count: stats?.medium },
+        ]}
+        active={filters.severity ?? 'all'}
+        onChange={v => setFilter('severity', v)}
+      >
+        <div className="flex flex-wrap items-center gap-4">
+          <PillGroup
+            label="Status"
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'new', label: 'New' },
+              { value: 'acknowledged', label: 'Ack' },
+              { value: 'resolved', label: 'Resolved' },
+              { value: 'false_positive', label: 'Dismissed' },
+            ]}
+            selected={filters.status ?? 'all'}
+            onChange={v => setFilter('status', v)}
+          />
+          <PillGroup
+            label="Type"
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'social_impersonation', label: 'Social' },
+              { value: 'phishing_detected', label: 'Phishing' },
+              { value: 'lookalike_domain_active', label: 'Lookalike' },
+              { value: 'bimi_removed', label: 'BIMI Removed' },
+              { value: 'dmarc_downgraded', label: 'DMARC Downgraded' },
+              { value: 'vmc_expiring', label: 'VMC Expiring' },
+              { value: 'typosquat_bimi', label: 'BIMI Spoofing' },
+            ]}
+            selected={filters.alert_type ?? 'all'}
+            onChange={v => setFilter('alert_type', v)}
           />
         </div>
-      </div>
+      </FilterBar>
 
       {/* Loading */}
       {alertsLoading && (
