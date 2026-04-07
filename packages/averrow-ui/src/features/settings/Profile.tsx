@@ -60,12 +60,12 @@ export function Profile() {
         >
           <ArrowLeft className="w-4 h-4 text-white/60" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-contrail/70 font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
           Profile & Settings
         </h1>
       </div>
 
-      <div className="glass-card-amber rounded-xl p-6 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      <div className="rounded-xl p-6 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-[#C83C3C] flex items-center justify-center text-lg font-bold text-white ring-2 ring-white/20 flex-shrink-0">
             {initials}
@@ -99,7 +99,7 @@ export function Profile() {
               />
               <button
                 onClick={handleSaveName}
-                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider hover:text-afterburner-hover transition-colors" style={{ color: 'var(--amber)' }}
+                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider hover:text-[#F5C76A] transition-colors" style={{ color: 'var(--amber)' }}
               >
                 {saved ? 'Saved' : 'Save'}
               </button>
@@ -135,7 +135,7 @@ export function Profile() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] text-parchment/80">Active Sessions</p>
+              <p className="text-[13px] text-[rgba(255,255,255,0.74)]">Active Sessions</p>
               <p className="text-[11px] text-white/40 mt-0.5">
                 {sessionData?.total ?? 0} sessions
               </p>

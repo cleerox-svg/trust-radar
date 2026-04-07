@@ -55,7 +55,7 @@ const platformColors: Record<string, string> = {
   X: 'bg-white/10 text-white/80 border-white/20',
   Instagram: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
   Facebook: 'bg-blue-600/15 text-blue-400 border-blue-600/30',
-  Social: 'bg-contrail/10 text-contrail border-contrail/20',
+  Social: 'bg-contrail/10 text-[rgba(255,255,255,0.60)] border-contrail/20',
 };
 
 const severityBadgeMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
@@ -85,8 +85,8 @@ function PillGroup({ label, options, selected, onChange }: PillGroupProps) {
           className={cn(
             'font-mono text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border transition-all',
             selected === o.value
-              ? 'bg-afterburner-muted text-afterburner border-afterburner-border'
-              : 'bg-white/[0.03] text-contrail/50 border-white/[0.06] hover:border-white/15 hover:text-contrail/70',
+              ? 'bg-afterburner-muted text-[#E5A832] border-afterburner-border'
+              : 'bg-white/[0.03] text-[rgba(255,255,255,0.30)] border-white/[0.06] hover:border-white/15 hover:text-[rgba(255,255,255,0.42)]',
           )}
         >
           {o.label}
@@ -211,7 +211,7 @@ function BrandGroupCard({
                   {score !== null && (
                     <span className={cn(
                       'font-mono text-[12px] font-bold tabular-nums',
-                      score >= 75 ? 'text-[#fb923c]' : 'text-contrail/60',
+                      score >= 75 ? 'text-[#fb923c]' : 'text-[rgba(255,255,255,0.36)]',
                     )}>
                       {score}%
                     </span>
@@ -224,7 +224,7 @@ function BrandGroupCard({
                   <span className={cn(
                     'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
                     alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
-                    alert.status === 'acknowledged' && 'bg-afterburner-muted text-afterburner',
+                    alert.status === 'acknowledged' && 'bg-afterburner-muted text-[#E5A832]',
                     alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
                     alert.status === 'false_positive' && 'bg-white/5 text-white/40',
                   )}>
@@ -246,7 +246,7 @@ function BrandGroupCard({
               {remaining > 0 && !showAll && (
                 <button
                   onClick={() => setShowAll(true)}
-                  className="font-mono text-[10px] font-semibold hover:text-afterburner-hover transition-colors" style={{ color: 'var(--amber)' }}
+                  className="font-mono text-[10px] font-semibold hover:text-[#D49A28] transition-colors" style={{ color: 'var(--amber)' }}
                 >
                   + {remaining} more
                 </button>
@@ -254,7 +254,7 @@ function BrandGroupCard({
               {showAll && remaining > 0 && (
                 <button
                   onClick={() => setShowAll(false)}
-                  className="font-mono text-[10px] font-semibold text-contrail/50 hover:text-[var(--text-secondary)] transition-colors"
+                  className="font-mono text-[10px] font-semibold text-[rgba(255,255,255,0.30)] hover:text-[var(--text-secondary)] transition-colors"
                 >
                   Show less
                 </button>
@@ -265,7 +265,7 @@ function BrandGroupCard({
                 <button
                   onClick={onAcknowledgeAll}
                   disabled={isAcknowledging}
-                  className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-all disabled:opacity-50"
+                  className="font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md border border-afterburner-border text-[#E5A832] hover:bg-afterburner-muted transition-all disabled:opacity-50"
                 >
                   {isAcknowledging ? 'Acknowledging...' : 'Acknowledge All'}
                 </button>
@@ -309,7 +309,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
           <span className={cn(
             'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
             alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
-            alert.status === 'acknowledged' && 'bg-afterburner-muted text-afterburner',
+            alert.status === 'acknowledged' && 'bg-afterburner-muted text-[#E5A832]',
             alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
             alert.status === 'false_positive' && 'bg-white/5 text-white/40',
           )}>
@@ -329,7 +329,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* LEFT — Alert Details */}
         <div className="space-y-3">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Alert Details</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.30)] mb-2">Alert Details</div>
 
           <div className="flex items-center gap-2">
             <img
@@ -372,22 +372,22 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
 
           <div>
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Detected</div>
-            <span className="font-mono text-[11px] text-parchment/70">{timeAgo(alert.created_at)}</span>
+            <span className="font-mono text-[11px] text-[rgba(255,255,255,0.64)]">{timeAgo(alert.created_at)}</span>
           </div>
 
           <div>
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Source</div>
-            <span className="font-mono text-[11px] text-contrail/60">Social Monitor Agent</span>
+            <span className="font-mono text-[11px] text-[rgba(255,255,255,0.36)]">Social Monitor Agent</span>
           </div>
         </div>
 
         {/* CENTER — Evidence & Assessment */}
         <div className="space-y-3 border-l border-white/[0.06] pl-5">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Evidence & Assessment</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.30)] mb-2">Evidence & Assessment</div>
 
           <div>
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Summary</div>
-            <p className="text-[12px] text-parchment/80 leading-relaxed">{alert.summary}</p>
+            <p className="text-[12px] text-[rgba(255,255,255,0.74)] leading-relaxed">{alert.summary}</p>
           </div>
 
           {score !== null && (
@@ -409,11 +409,11 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">AI Assessment</div>
             {alert.ai_assessment ? (
               <div className="space-y-2">
-                <p className="text-[12px] text-parchment/80 leading-relaxed">{alert.ai_assessment}</p>
+                <p className="text-[12px] text-[rgba(255,255,255,0.74)] leading-relaxed">{alert.ai_assessment}</p>
                 {alert.ai_recommendations && (
                   <div>
                     <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Recommendations</div>
-                    <p className="text-[12px] text-contrail/70 leading-relaxed">{alert.ai_recommendations}</p>
+                    <p className="text-[12px] text-[rgba(255,255,255,0.42)] leading-relaxed">{alert.ai_recommendations}</p>
                   </div>
                 )}
               </div>
@@ -425,7 +425,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
 
         {/* RIGHT — Actions */}
         <div className="space-y-3 border-l border-white/[0.06] pl-5">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 mb-2">Actions</div>
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.30)] mb-2">Actions</div>
 
           <div className="flex flex-col gap-2">
             {alert.status === 'new' && (
@@ -433,14 +433,14 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
                 <button
                   onClick={() => onUpdate('acknowledged')}
                   disabled={isUpdating}
-                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-all disabled:opacity-50"
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-afterburner-border text-[#E5A832] hover:bg-afterburner-muted transition-all disabled:opacity-50"
                 >
                   Acknowledge
                 </button>
                 <button
                   onClick={() => onUpdate('false_positive')}
                   disabled={isUpdating}
-                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/[0.04] transition-all disabled:opacity-50"
                 >
                   Dismiss
                 </button>
@@ -458,7 +458,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
                 <button
                   onClick={() => onUpdate('new')}
                   disabled={isUpdating}
-                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                  className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/[0.04] transition-all disabled:opacity-50"
                 >
                   Re-open
                 </button>
@@ -468,7 +468,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               <button
                 onClick={() => onUpdate('new')}
                 disabled={isUpdating}
-                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/[0.04] transition-all disabled:opacity-50"
               >
                 Re-open
               </button>
@@ -477,7 +477,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               <button
                 onClick={() => onUpdate('new')}
                 disabled={isUpdating}
-                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-contrail/60 hover:bg-white/[0.04] transition-all disabled:opacity-50"
+                className="w-full font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-2 rounded-md border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/[0.04] transition-all disabled:opacity-50"
               >
                 Re-open
               </button>
@@ -498,7 +498,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
               <button
                 onClick={() => onUpdate(alert.status, notes)}
                 disabled={isUpdating}
-                className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-afterburner-muted text-afterburner border border-afterburner-border hover:bg-afterburner-muted transition-all disabled:opacity-50"
+                className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-afterburner-muted text-[#E5A832] border border-afterburner-border hover:bg-afterburner-muted transition-all disabled:opacity-50"
               >
                 Save Notes
               </button>
@@ -509,7 +509,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
           {alert.status === 'resolved' && alert.resolution_notes && (
             <div className="pt-2">
               <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Resolution Notes</div>
-              <p className="text-[11px] text-parchment/70 leading-relaxed">{alert.resolution_notes}</p>
+              <p className="text-[11px] text-[rgba(255,255,255,0.64)] leading-relaxed">{alert.resolution_notes}</p>
             </div>
           )}
         </div>
@@ -534,7 +534,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
     CRITICAL: 'text-[#f87171] bg-[#f87171]/10',
     HIGH: 'text-[#fb923c] bg-[#fb923c]/10',
     MEDIUM: 'text-[#fbbf24] bg-[#fbbf24]/10',
-    LOW: 'text-contrail bg-contrail/10',
+    LOW: 'text-[rgba(255,255,255,0.60)] bg-contrail/10',
   };
 
   return (
@@ -573,7 +573,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
       </div>
 
       {/* Message text */}
-      <div className="mt-1 ml-5 font-mono text-[10px] text-contrail/50 leading-relaxed truncate">
+      <div className="mt-1 ml-5 font-mono text-[10px] text-[rgba(255,255,255,0.30)] leading-relaxed truncate">
         {alert.summary}
       </div>
 
@@ -585,7 +585,7 @@ function MobileAlertRow({ alert }: { alert: Alert }) {
           {alert.ai_assessment && (
             <>
               <div className="font-mono text-[9px] text-white/55 uppercase tracking-wide mt-1.5">AI Assessment</div>
-              <div className="font-mono text-[10px] text-contrail/60 leading-relaxed">{alert.ai_assessment}</div>
+              <div className="font-mono text-[10px] text-[rgba(255,255,255,0.36)] leading-relaxed">{alert.ai_assessment}</div>
             </>
           )}
         </div>

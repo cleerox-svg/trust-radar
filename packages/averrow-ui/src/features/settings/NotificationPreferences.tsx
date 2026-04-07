@@ -82,12 +82,12 @@ export function NotificationPreferences() {
         >
           <ArrowLeft className="w-4 h-4 text-white/60" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-contrail/70 font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
           Notification Preferences
         </h1>
       </div>
 
-      <div className="glass-card-amber rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <span className="section-label">Alert Types</span>
         <div className="mt-3 space-y-1">
           {(['brand_threat', 'campaign_escalation', 'feed_health', 'intelligence_digest', 'agent_milestone'] as const).map(key => (
@@ -97,7 +97,7 @@ export function NotificationPreferences() {
               className="w-full flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 touch-target"
             >
               <div>
-                <p className="text-[13px] text-parchment/80 text-left">{PREF_LABELS[key]}</p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{PREF_LABELS[key]}</p>
                 <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
@@ -124,7 +124,7 @@ export function NotificationPreferences() {
               className="w-full flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 touch-target"
             >
               <div>
-                <p className="text-[13px] text-parchment/80 text-left">{PREF_LABELS[key]}</p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{PREF_LABELS[key]}</p>
                 <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${

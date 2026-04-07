@@ -194,7 +194,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           <div className="section-label">EVIDENCE</div>
           {takedown.evidence_summary && (
             <Card style={{ padding: '12px' }}>
-              <p className="text-[12px] text-parchment/80 leading-relaxed">{takedown.evidence_summary}</p>
+              <p className="text-[12px] text-[rgba(255,255,255,0.74)] leading-relaxed">{takedown.evidence_summary}</p>
             </Card>
           )}
           {takedown.evidence_detail && (
@@ -354,7 +354,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 text-[11px]">
             {takedown.brand_name && (
-              <span className="text-parchment/70">{takedown.brand_name}</span>
+              <span className="text-[rgba(255,255,255,0.64)]">{takedown.brand_name}</span>
             )}
             {takedown.target_platform && (
               <>
@@ -431,7 +431,7 @@ function sortieId(index: number): string {
 const MOBILE_STATUS_COLOR: Record<string, string> = {
   draft: 'bg-white/10 text-white/60',
   requested: 'bg-amber-500/15 text-amber-400',
-  submitted: 'bg-afterburner-muted text-afterburner',
+  submitted: 'bg-afterburner-muted text-[#E5A832]',
   pending_response: 'bg-amber-500/15 text-amber-400',
   taken_down: 'bg-green-500/15 text-green-400',
   failed: 'bg-red-500/15 text-red-400',
@@ -458,7 +458,7 @@ function MobileTakedownRow({
       {/* Left: sortie ID + brand → domain */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] font-bold text-contrail/50">
+          <span className="font-mono text-[10px] font-bold text-[rgba(255,255,255,0.30)]">
             {sortieId(index)}
           </span>
           <span
@@ -470,7 +470,7 @@ function MobileTakedownRow({
         <div className="mt-1 flex items-center gap-1 text-[11px]">
           <span className="truncate" style={{ color: 'var(--text-primary)' }}>{takedown.brand_name ?? 'Unknown'}</span>
           <span className="text-white/50">&rarr;</span>
-          <span className="font-mono text-contrail/60 truncate">{takedown.target_value}</span>
+          <span className="font-mono text-[rgba(255,255,255,0.36)] truncate">{takedown.target_value}</span>
         </div>
       </div>
 

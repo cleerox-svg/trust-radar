@@ -161,7 +161,7 @@ function RunDetail({ run }: { run: AgentRun }) {
           {run.status === 'failed' && run.error_message && (
             <div className="sm:col-span-2 lg:col-span-3">
               <span className="font-mono text-white/40 block mb-1">Error</span>
-              <div className="glass-card-red rounded-lg px-3 py-2 font-mono text-[11px] text-[#f87171]">
+              <div className="rounded-lg px-3 py-2 font-mono text-[11px] text-[#f87171]" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(239,68,68,0.30)', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                 {run.error_message}
               </div>
             </div>

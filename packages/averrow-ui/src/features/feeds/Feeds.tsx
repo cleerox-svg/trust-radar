@@ -254,7 +254,7 @@ function FeedHealthStrip({ feeds }: { feeds: FeedOverview[] }) {
   return (
     <Card style={{ padding: '16px' }}>
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">Feed Health</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">Feed Health</span>
         <div className="flex items-center gap-1.5 flex-wrap">
           {healthy.map(f => (
             <div key={f.feed_name} className="w-2.5 h-2.5 rounded-full bg-green-400" title={f.display_name} />
@@ -423,7 +423,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
     <Card className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ padding: '16px' }}>
       {/* LEFT — Feed Details */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Feed Details</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Feed Details</div>
 
         <DetailRow label="Feed Name" value={feed.feed_name} />
         <DetailRow label="Display Name" value={feed.display_name} />
@@ -435,7 +435,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
               href={feed.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] font-mono text-contrail/60 hover:text-[var(--text-secondary)] truncate"
+              className="text-[10px] font-mono text-[rgba(255,255,255,0.36)] hover:text-[var(--text-secondary)] truncate"
             >
               {feed.source_url}
             </a>
@@ -463,7 +463,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
 
       {/* RIGHT — Pull History */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Pull History</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Pull History</div>
 
         {isLoading ? (
           <div className="space-y-2">
@@ -624,7 +624,7 @@ export function Feeds() {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-bold font-display" style={{ color: 'var(--text-primary)' }}>Feeds</h1>
-          <p className="text-sm text-contrail/50 font-mono mt-1">Threat intelligence feed sources</p>
+          <p className="text-sm text-[rgba(255,255,255,0.30)] font-mono mt-1">Threat intelligence feed sources</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (

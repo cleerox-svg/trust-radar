@@ -81,12 +81,12 @@ const GRADE_STYLES: Record<string, string> = {
 };
 
 const THREAT_TYPE_STYLES: Record<string, string> = {
-  phishing: 'text-contrail border-contrail/30',
+  phishing: 'text-[rgba(255,255,255,0.60)] border-contrail/30',
   typosquat: 'text-yellow-400 border-yellow-400/30',
   malware: 'text-amber-400 border-amber-400/30',
   c2: 'text-red-400 border-red-400/30',
   credential: 'text-orange-400 border-orange-400/30',
-  social: 'text-afterburner border-afterburner-border',
+  social: 'text-[#E5A832] border-afterburner-border',
 };
 
 const PAGE_SIZE = 50;
@@ -250,7 +250,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
   if (!open) return null;
 
   const inputClass = 'w-full glass-input rounded-lg px-3 py-2 font-mono text-sm';
-  const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-contrail/60 mb-1.5';
+  const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-[rgba(255,255,255,0.36)] mb-1.5';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -319,7 +319,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-white/10 text-contrail/60 hover:bg-white/5 transition-colors"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/5 transition-colors"
           >
             Cancel
           </button>
@@ -664,7 +664,7 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{brand.name}</span>
           {brand.top_threat_type && (
-            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded border border-contrail/20 text-contrail/50 flex-shrink-0">
+            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded border border-contrail/20 text-[rgba(255,255,255,0.30)] flex-shrink-0">
               {brand.top_threat_type.replace(/_/g, ' ')}
             </span>
           )}
@@ -967,7 +967,7 @@ export function Brands() {
                       className={cn(
                         'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors whitespace-nowrap',
                         activeTab === tab
-                          ? 'text-afterburner border-afterburner-border bg-afterburner-muted'
+                          ? 'text-[#E5A832] border-afterburner-border bg-afterburner-muted'
                           : 'text-white/50 border-white/10 hover:text-white/70'
                       )}
                     >
@@ -1012,7 +1012,7 @@ export function Brands() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-parchment disabled:opacity-30 transition-colors"
+                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)] disabled:opacity-30 transition-colors"
                   >
                     Prev
                   </button>
@@ -1026,8 +1026,8 @@ export function Brands() {
                         className={cn(
                           'font-mono text-[11px] px-2.5 py-1 rounded border transition-colors',
                           page === p
-                            ? 'border-afterburner text-afterburner'
-                            : 'border-white/10 text-white/40 hover:text-parchment',
+                            ? 'border-afterburner text-[#E5A832]'
+                            : 'border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)]',
                         )}
                       >
                         {p}
@@ -1037,7 +1037,7 @@ export function Brands() {
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-parchment disabled:opacity-30 transition-colors"
+                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)] disabled:opacity-30 transition-colors"
                   >
                     Next
                   </button>
