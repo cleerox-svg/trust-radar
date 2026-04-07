@@ -17,6 +17,16 @@ const queryClient = new QueryClient({
   },
 });
 
+// Apply stored theme before React mounts — prevents flash
+(function() {
+  try {
+    const stored = localStorage.getItem('averrow-theme');
+    if (stored === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch {}
+})();
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

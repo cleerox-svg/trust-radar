@@ -1,0 +1,129 @@
+/* ============================================================
+   Averrow Design System — CSS Custom Properties v1.0
+   Single source of truth for all visual decisions.
+   Dark/light/themes: override variables in [data-theme] block.
+   Never hardcode colors in components — use these vars.
+   ============================================================ */
+
+:root {
+  /* ── Page backgrounds ── */
+  --bg-page:      #060A14;
+  --bg-card:      rgba(22, 30, 48, 0.85);
+  --bg-card-deep: rgba(12, 18, 32, 0.95);
+  --bg-elevated:  rgba(18, 26, 44, 0.92);
+  --bg-sidebar:   rgba(10, 16, 30, 0.96);
+  --bg-input:     rgba(15, 22, 38, 0.80);
+
+  /* ── Primary accents ── */
+  --amber:        #E5A832;
+  --amber-dim:    #B8821F;
+  --amber-glow:   rgba(229, 168, 50, 0.20);
+  --amber-border: rgba(229, 168, 50, 0.25);
+
+  --red:          #C83C3C;
+  --red-dim:      #8B1A1A;
+  --red-glow:     rgba(200, 60, 60, 0.20);
+  --red-border:   rgba(200, 60, 60, 0.30);
+
+  --blue:         #0A8AB5;
+  --blue-dim:     #065A78;
+  --blue-glow:    rgba(10, 138, 181, 0.20);
+  --blue-border:  rgba(10, 138, 181, 0.25);
+
+  --green:        #3CB878;
+  --green-dim:    #1A6B3C;
+  --green-glow:   rgba(60, 184, 120, 0.20);
+  --green-border: rgba(60, 184, 120, 0.25);
+
+  /* ── Reserved — Observatory WebGL only ── */
+  --orbital-teal: #00d4ff;
+  --thrust:       #7aeaff;
+
+  /* ── Severity ── */
+  --sev-critical:        #f87171;
+  --sev-critical-bg:     rgba(239, 68, 68, 0.10);
+  --sev-critical-border: rgba(239, 68, 68, 0.30);
+  --sev-critical-glow:   rgba(239, 68, 68, 0.50);
+
+  --sev-high:        #fb923c;
+  --sev-high-bg:     rgba(249, 115, 22, 0.08);
+  --sev-high-border: rgba(249, 115, 22, 0.25);
+  --sev-high-glow:   rgba(249, 115, 22, 0.50);
+
+  --sev-medium:        #fbbf24;
+  --sev-medium-bg:     rgba(229, 168, 50, 0.08);
+  --sev-medium-border: rgba(229, 168, 50, 0.22);
+  --sev-medium-glow:   rgba(229, 168, 50, 0.50);
+
+  --sev-low:        #60a5fa;
+  --sev-low-bg:     rgba(59, 130, 246, 0.07);
+  --sev-low-border: rgba(59, 130, 246, 0.20);
+  --sev-low-glow:   rgba(59, 130, 246, 0.40);
+
+  --sev-info:        #4ade80;
+  --sev-info-bg:     rgba(74, 222, 128, 0.07);
+  --sev-info-border: rgba(74, 222, 128, 0.15);
+  --sev-info-glow:   rgba(74, 222, 128, 0.40);
+
+  /* ── Text ── */
+  --text-primary:   rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.60);
+  --text-tertiary:  rgba(255, 255, 255, 0.40);
+  --text-muted:     rgba(255, 255, 255, 0.25);
+  --text-accent:    var(--amber);
+
+  /* ── Borders ── */
+  --border-base:    rgba(255, 255, 255, 0.09);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+  --border-sidebar: rgba(255, 255, 255, 0.07);
+
+  /* ── Card depth system ── */
+  --card-bg:     linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-deep) 100%);
+  --card-rim:    inset 0 1px 0 var(--border-strong), inset 0 -1px 0 rgba(0, 0, 0, 0.40);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.60);
+  --card-radius: 16px;
+
+  /* ── Typography ── */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* ── Z-index ── */
+  --z-base:            0;
+  --z-dropdown:      100;
+  --z-sidebar-overlay: 200;
+  --z-sidebar:       300;
+  --z-modal:         400;
+  --z-toast:         500;
+
+  /* ── Transitions ── */
+  --transition-fast:   all 0.12s ease;
+  --transition-base:   all 0.18s ease;
+  --transition-slow:   all 0.30s ease;
+}
+
+/* ============================================================
+   Light theme — override bg + text vars only.
+   Accents and severity stay the same.
+   Applied via: document.documentElement.setAttribute('data-theme','light')
+   ============================================================ */
+[data-theme="light"] {
+  --bg-page:      #F2F4F8;
+  --bg-card:      rgba(255, 255, 255, 0.90);
+  --bg-card-deep: rgba(245, 247, 252, 0.95);
+  --bg-elevated:  rgba(255, 255, 255, 0.96);
+  --bg-sidebar:   rgba(255, 255, 255, 0.97);
+  --bg-input:     rgba(255, 255, 255, 0.85);
+
+  --text-primary:   rgba(15, 20, 35, 0.92);
+  --text-secondary: rgba(15, 20, 35, 0.60);
+  --text-tertiary:  rgba(15, 20, 35, 0.40);
+  --text-muted:     rgba(15, 20, 35, 0.25);
+
+  --border-base:    rgba(0, 0, 0, 0.08);
+  --border-strong:  rgba(0, 0, 0, 0.14);
+  --border-sidebar: rgba(0, 0, 0, 0.08);
+
+  --card-bg:     linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-deep) 100%);
+  --card-rim:    inset 0 1px 0 rgba(255, 255, 255, 0.80), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
