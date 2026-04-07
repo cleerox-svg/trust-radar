@@ -1,51 +1,54 @@
-import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Sidebar } from './Sidebar';
-import { TopBar } from './TopBar';
+import { Sidebar }        from './Sidebar';
+import { TopBar }         from './TopBar';
+import { MobileNav }      from '@/layouts/MobileNav';
 import { DeepBackground } from '@/components/ui/DeepBackground';
 import { PageTransition } from '@/components/ui/PageTransition';
-import { cn } from '@/lib/cn';
+import { useBreakpoint }  from '@/design-system/hooks';
+import { cn }             from '@/lib/cn';
 
 export function Shell() {
-  const location = useLocation();
-  const isFullScreen = location.pathname.includes('/observatory');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location      = useLocation();
+  const { isMobile }  = useBreakpoint();
+  const isFullScreen  = location.pathname.includes('/observatory');
+  const isHome        = location.pathname === '/';
+
+  // On mobile home: MobileCommandCenter renders full-screen with its own header
+  const hideTopBar = isMobile && isHome;
 
   return (
-    <div className="flex h-screen bg-cockpit">
+    <div
+      className="flex bg-cockpit"
+      style={{ minHeight: '100vh', position: 'relative' }}
+    >
       <DeepBackground />
-      {/* Desktop sidebar — always visible on lg+ */}
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
 
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm lg:hidden"
-            style={{ zIndex: 'var(--z-sidebar-overlay)' }}
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div
-            className="fixed left-0 top-0 bottom-0 w-72 bg-[#040912] border-r border-white/10 transform transition-transform duration-200 lg:hidden"
-            style={{ zIndex: 'var(--z-sidebar)' }}
-          >
-            <Sidebar onNavigate={() => setSidebarOpen(false)} />
-          </div>
-        </>
-      )}
+      {!isMobile && <Sidebar />}
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className={cn(
-          isFullScreen ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto p-4 lg:p-6'
-        )}>
-          <PageTransition>
-            <Outlet />
-          </PageTransition>
+        {!hideTopBar && <TopBar />}
+
+        <main
+          className={cn(
+            isFullScreen
+              ? 'flex-1 overflow-hidden'
+              : 'flex-1 overflow-auto',
+          )}
+          style={{
+            paddingBottom: isMobile && !isFullScreen ? 80 : undefined,
+          }}
+        >
+          <div className={cn(
+            !isFullScreen && !isMobile && 'p-4 lg:p-6',
+          )}>
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
+          </div>
         </main>
       </div>
+
+      {isMobile && <MobileNav />}
     </div>
   );
 }

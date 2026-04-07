@@ -40,7 +40,6 @@ export function MobileCommandCenter() {
   const { data: notifData }   = useNotifications(true);
 
   const [intelFilter, setIntelFilter] = useState<string>('all');
-  const [activeNav, setActiveNav] = useState<string>('home');
 
   const notifications = Array.isArray(notifData?.notifications)
     ? notifData!.notifications
@@ -79,7 +78,7 @@ export function MobileCommandCenter() {
       <div style={{ position:'fixed', bottom:-140, right:-80, width:380, height:380, borderRadius:'50%', background:'rgba(229,168,50,0.06)', filter:'blur(140px)', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', inset:0, opacity:0.02, backgroundImage:'linear-gradient(rgba(255,255,255,0.15) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.15) 1px,transparent 1px)', backgroundSize:'60px 60px', pointerEvents:'none', zIndex:0 }} />
 
-      <div style={{ position:'relative', zIndex:1, paddingBottom:110 }}>
+      <div style={{ position:'relative', zIndex:1 }}>
 
         {/* HEADER */}
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'22px 20px 0' }}>
@@ -293,38 +292,6 @@ export function MobileCommandCenter() {
           </div>
         </div>
 
-      </div>
-
-      {/* ── BOTTOM NAV ── */}
-      <div style={{
-        position:'fixed', bottom:0, left:0, right:0,
-        background:'rgba(4,7,16,0.94)',
-        backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
-        borderTop:'1px solid rgba(255,255,255,0.08)',
-        boxShadow:'0 -8px 32px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.07)',
-        padding:'10px 0 28px',
-        display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:100,
-      }}>
-        {[
-          { icon:'🏠', label:'Home',   id:'home',   path:'/v2',             badge: 0 },
-          { icon:'🌐', label:'Map',    id:'obs',    path:'/observatory', badge: 0 },
-          { icon:'🛡', label:'Brands', id:'brands', path:'/brands',      badge: 0 },
-          { icon:'🔔', label:'Alerts', id:'alerts', path:'/alerts',      badge: unreadCount },
-          { icon:'☰',  label:'More',   id:'more',   path:'/agents',      badge: 0 },
-        ].map(n => (
-          <button key={n.id} onClick={() => { setActiveNav(n.id); navigate(n.path); }} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', position:'relative', padding:'6px 14px' }}>
-            {(n.badge ?? 0) > 0 && (
-              <div style={{ position:'absolute', top:2, right:8, minWidth:16, height:16, borderRadius:'50%', background:`linear-gradient(135deg,${M.RED},${M.RED_DIM})`, border:'2px solid rgba(4,7,16,0.9)', fontSize:8, fontWeight:900, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'monospace', boxShadow:`0 2px 8px ${M.RED}60` }}>
-                {(n.badge ?? 0) > 99 ? '99+' : n.badge}
-              </div>
-            )}
-            <span style={{ fontSize:22, filter: activeNav === n.id ? `drop-shadow(0 0 6px ${M.AMBER}80)` : 'none' }}>{n.icon}</span>
-            <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.08em', color: activeNav === n.id ? M.AMBER : 'rgba(255,255,255,0.30)', textTransform:'uppercase', textShadow: activeNav === n.id ? `0 0 10px ${M.AMBER}60` : 'none' }}>{n.label}</span>
-            {activeNav === n.id && (
-              <div style={{ position:'absolute', bottom:0, left:'50%', transform:'translateX(-50%)', width:24, height:2, borderRadius:99, background:`linear-gradient(90deg,transparent,${M.AMBER},transparent)`, boxShadow:`0 0 8px ${M.AMBER}` }} />
-            )}
-          </button>
-        ))}
       </div>
     </div>
   );
