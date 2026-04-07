@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  M, DeepCard, StatTile, BrandAvatar, SevChip, GradeBadge,
+  M, SEV, DeepCard, StatTile, BrandAvatar, SevChip, GradeBadge,
 } from './MobileUIKit';
 
 import { useBrands, useBrandStats } from '@/hooks/useBrands';
@@ -8,7 +9,7 @@ import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
 import { useAgents } from '@/hooks/useAgents';
 import { useFeedStats } from '@/hooks/useFeeds';
-import { useUnreadCount } from '@/hooks/useNotifications';
+import { useUnreadCount, useNotifications } from '@/hooks/useNotifications';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -36,6 +37,19 @@ export function MobileCommandCenter() {
   const { data: feedStats }   = useFeedStats();
   const { data: unreadData }  = useUnreadCount();
   const { data: brandsData }  = useBrands({ view: 'top', limit: 10 });
+  const { data: notifData }   = useNotifications(true);
+
+  const [intelFilter, setIntelFilter] = useState<string>('all');
+  const [activeNav, setActiveNav] = useState<string>('home');
+
+  const notifications = Array.isArray(notifData?.notifications)
+    ? notifData!.notifications
+    : [];
+
+  const filteredIntel = (intelFilter === 'all'
+    ? notifications
+    : notifications.filter((n: any) => n.severity === intelFilter)
+  ).slice(0, 5);
 
   const agents       = Array.isArray(agentData) ? agentData : [];
   const unreadCount  = typeof unreadData === 'number' ? unreadData : 0;
@@ -187,10 +201,130 @@ export function MobileCommandCenter() {
           </div>
         )}
 
-        <div style={{ padding:'20px', color:'rgba(255,255,255,0.20)', fontSize:11, fontFamily:'monospace', textAlign:'center' }}>
-          Phase 9c will complete this screen
+        {/* ── LATEST INTELLIGENCE ── */}
+        <div style={{ padding:'18px 20px 0' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.BLUE},transparent)` }} />
+              <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Latest Intelligence</span>
+            </div>
+            <span style={{ fontSize:9, color:'rgba(255,255,255,0.22)', fontFamily:'monospace' }}>Powered by Observer</span>
+          </div>
+
+          {/* Filter pills */}
+          <div style={{ display:'flex', gap:6, marginBottom:12, overflowX:'auto' }}>
+            {['all','critical','high','medium','low'].map(f => {
+              const active = intelFilter === f;
+              const s = SEV[f];
+              return (
+                <button key={f} onClick={() => setIntelFilter(f)} style={{
+                  flexShrink:0, padding:'5px 13px', borderRadius:99,
+                  fontSize:9, fontFamily:'monospace', cursor:'pointer',
+                  textTransform:'uppercase', letterSpacing:'0.12em',
+                  border:`1px solid ${active ? (s?.border ?? 'rgba(229,168,50,0.35)') : 'rgba(255,255,255,0.08)'}`,
+                  backgroundColor: active ? (s?.bg ?? 'rgba(229,168,50,0.12)') : 'rgba(255,255,255,0.03)',
+                  color: active ? (s?.text ?? M.AMBER) : 'rgba(255,255,255,0.38)',
+                  boxShadow: active ? `inset 0 1px 0 ${s?.dot ?? M.AMBER}30` : 'none',
+                }}>
+                  {f}
+                </button>
+              );
+            })}
+          </div>
+
+          <DeepCard variant="base" style={{ padding:0, overflow:'hidden' }}>
+            {filteredIntel.length === 0 ? (
+              <div style={{ padding:'20px 16px', textAlign:'center', color:'rgba(255,255,255,0.25)', fontSize:12 }}>
+                No {intelFilter !== 'all' ? intelFilter + ' ' : ''}alerts
+              </div>
+            ) : filteredIntel.map((item: any, i: number) => {
+              const s = SEV[item.severity] ?? SEV.low;
+              return (
+                <div key={item.id} onClick={() => navigate('/v2/alerts')} style={{
+                  padding:'13px 16px',
+                  borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer',
+                  borderLeft:`2px solid ${s.dot}70`,
+                  background:`linear-gradient(90deg,${s.dot}08,transparent 40%)`,
+                }}>
+                  <div style={{ width:8, height:8, borderRadius:'50%', marginTop:4, flexShrink:0, background:s.dot, boxShadow:`0 0 8px ${s.dot}80` }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.88)', lineHeight:1.4 }}>
+                      {item.title}
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5 }}>
+                      <span style={{ fontSize:10, color:'rgba(255,255,255,0.28)', fontFamily:'monospace' }}>
+                        {timeAgo(item.created_at)}
+                      </span>
+                      {item.brand_name && (
+                        <>
+                          <span style={{ width:2, height:2, borderRadius:'50%', background:'rgba(255,255,255,0.18)' }} />
+                          <span style={{ fontSize:10, color:'rgba(255,255,255,0.38)' }}>{item.brand_name}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{ fontSize:18, color:'rgba(255,255,255,0.18)', flexShrink:0, paddingTop:1 }}>›</span>
+                </div>
+              );
+            })}
+          </DeepCard>
         </div>
 
+        {/* ── QUICK ACTIONS ── */}
+        <div style={{ padding:'18px 20px 0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+            <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.GREEN},transparent)` }} />
+            <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Quick Actions</span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            {[
+              { label:'Observatory',   desc:'Global threat map', emoji:'🌐', accent:M.BLUE,  path:'/v2/observatory' },
+              { label:'Brands Hub',    desc:'Portfolio health',  emoji:'🛡', accent:M.AMBER, path:'/v2/brands' },
+              { label:'Threat Actors', desc:'18 adversaries',    emoji:'🎯', accent:M.RED,   path:'/v2/threat-actors' },
+              { label:'Geo Campaign',  desc:'IRGC active',       emoji:'⚡', accent:M.RED,   path:'/v2/campaigns' },
+            ].map(a => (
+              <DeepCard key={a.label} variant="stat" accentColor={a.accent} onClick={() => navigate(a.path)} style={{ padding:'16px 14px', cursor:'pointer' }}>
+                <div style={{ fontSize:24, marginBottom:10, filter:`drop-shadow(0 0 8px ${a.accent}60)` }}>{a.emoji}</div>
+                <div style={{ fontSize:12, fontWeight:800, color:'rgba(255,255,255,0.90)' }}>{a.label}</div>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.32)', marginTop:3 }}>{a.desc}</div>
+              </DeepCard>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── BOTTOM NAV ── */}
+      <div style={{
+        position:'fixed', bottom:0, left:0, right:0,
+        background:'rgba(4,7,16,0.94)',
+        backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+        borderTop:'1px solid rgba(255,255,255,0.08)',
+        boxShadow:'0 -8px 32px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.07)',
+        padding:'10px 0 28px',
+        display:'flex', justifyContent:'space-around', alignItems:'center', zIndex:100,
+      }}>
+        {[
+          { icon:'🏠', label:'Home',   id:'home',   path:'/v2',             badge: 0 },
+          { icon:'🌐', label:'Map',    id:'obs',    path:'/v2/observatory', badge: 0 },
+          { icon:'🛡', label:'Brands', id:'brands', path:'/v2/brands',      badge: 0 },
+          { icon:'🔔', label:'Alerts', id:'alerts', path:'/v2/alerts',      badge: unreadCount },
+          { icon:'☰',  label:'More',   id:'more',   path:'/v2/agents',      badge: 0 },
+        ].map(n => (
+          <button key={n.id} onClick={() => { setActiveNav(n.id); navigate(n.path); }} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', position:'relative', padding:'6px 14px' }}>
+            {(n.badge ?? 0) > 0 && (
+              <div style={{ position:'absolute', top:2, right:8, minWidth:16, height:16, borderRadius:'50%', background:`linear-gradient(135deg,${M.RED},${M.RED_DIM})`, border:'2px solid rgba(4,7,16,0.9)', fontSize:8, fontWeight:900, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'monospace', boxShadow:`0 2px 8px ${M.RED}60` }}>
+                {(n.badge ?? 0) > 99 ? '99+' : n.badge}
+              </div>
+            )}
+            <span style={{ fontSize:22, filter: activeNav === n.id ? `drop-shadow(0 0 6px ${M.AMBER}80)` : 'none' }}>{n.icon}</span>
+            <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.08em', color: activeNav === n.id ? M.AMBER : 'rgba(255,255,255,0.30)', textTransform:'uppercase', textShadow: activeNav === n.id ? `0 0 10px ${M.AMBER}60` : 'none' }}>{n.label}</span>
+            {activeNav === n.id && (
+              <div style={{ position:'absolute', bottom:0, left:'50%', transform:'translateX(-50%)', width:24, height:2, borderRadius:99, background:`linear-gradient(90deg,transparent,${M.AMBER},transparent)`, boxShadow:`0 0 8px ${M.AMBER}` }} />
+            )}
+          </button>
+        ))}
       </div>
     </div>
   );
