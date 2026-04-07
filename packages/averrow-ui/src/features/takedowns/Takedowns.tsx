@@ -7,6 +7,13 @@ import { relativeTime } from '@/lib/time';
 import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterChips } from '@/components/mobile';
 import { Shield } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  Card,
+  StatCard,
+  StatGrid,
+  FilterBar,
+  PageHeader,
+} from '@/design-system/components';
 
 // ─── Status mapping (DB → display) ────────────────────────────
 
@@ -100,23 +107,6 @@ function PriorityBar({ score }: { score: number }) {
   );
 }
 
-// ─── Stat card ─────────────────────────────────────────────────
-
-function StatCard({ title, value, glowClass }: {
-  title: string;
-  value: number;
-  glowClass?: string;
-}) {
-  return (
-    <div className="glass-card rounded-xl p-4">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">{title}</div>
-      <div className={`font-mono text-[28px] font-bold leading-none ${glowClass ?? 'text-parchment'}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 // ─── Evidence panel (expanded detail) ──────────────────────────
 
 function EvidencePanel({ takedownId }: { takedownId: string }) {
@@ -126,7 +116,7 @@ function EvidencePanel({ takedownId }: { takedownId: string }) {
   return (
     <div className="space-y-2">
       {evidence.map((e: TakedownEvidence) => (
-        <div key={e.id} className="glass-card rounded-lg p-3">
+        <Card key={e.id} style={{ padding: '12px' }}>
           <div className="flex items-center gap-2 mb-1">
             <span className="badge-glass badge-pivot">{e.evidence_type.replace(/_/g, ' ')}</span>
             <span className="font-mono text-xs font-semibold text-parchment">{e.title}</span>
@@ -134,7 +124,7 @@ function EvidencePanel({ takedownId }: { takedownId: string }) {
           {e.content_text && (
             <p className="text-[11px] text-white/50 line-clamp-4">{e.content_text}</p>
           )}
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -203,14 +193,14 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
         <div className="space-y-3">
           <div className="section-label">EVIDENCE</div>
           {takedown.evidence_summary && (
-            <div className="glass-card rounded-lg p-3">
+            <Card style={{ padding: '12px' }}>
               <p className="text-[12px] text-parchment/80 leading-relaxed">{takedown.evidence_summary}</p>
-            </div>
+            </Card>
           )}
           {takedown.evidence_detail && (
-            <div className="glass-card rounded-lg p-3">
+            <Card style={{ padding: '12px' }}>
               <p className="text-[11px] text-white/50 whitespace-pre-line">{takedown.evidence_detail}</p>
-            </div>
+            </Card>
           )}
           <EvidencePanel takedownId={takedown.id} />
           {takedown.provider_abuse_contact && takedown.provider_method === 'form' && (
@@ -339,14 +329,13 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
   updatingId: string | null;
 }) {
   const sev = takedown.severity?.toUpperCase() ?? '';
-  const accentClass = sev === 'HIGH' || sev === 'CRITICAL'
-    ? 'glass-card-red'
-    : sev === 'MEDIUM'
-      ? 'glass-card-amber'
-      : '';
+  const cardVariant: 'critical' | 'active' | 'base' =
+    sev === 'HIGH' || sev === 'CRITICAL' ? 'critical'
+      : sev === 'MEDIUM' ? 'active'
+      : 'base';
 
   return (
-    <div className={`glass-card ${accentClass} rounded-xl p-4 cursor-pointer transition-all`}>
+    <Card variant={cardVariant} style={{ padding: '16px', cursor: 'pointer' }}>
       <div onClick={onToggle}>
         {/* Row 1: platform icon + handle + status badge */}
         <div className="flex items-center justify-between gap-3 mb-2">
@@ -427,7 +416,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
           updatingId={updatingId}
         />
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -680,76 +669,61 @@ function TakedownsDesktop() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Page title */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold text-parchment">Takedowns</h1>
-        <span className="font-mono text-[10px] text-white/50 uppercase tracking-wider">Sparrow Queue</span>
-      </div>
+      {/* Page header */}
+      <PageHeader
+        title="Takedowns"
+        subtitle={`${stats.total} total requests`}
+        meta={<span className="font-mono text-[10px] text-white/50 uppercase tracking-wider">Sparrow Queue</span>}
+      />
 
       {/* ─── STAT CARDS ──────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Takedowns" value={stats.total} />
-        <StatCard title="Pending Review" value={stats.draft} glowClass="glow-amber" />
-        <StatCard title="Submitted" value={stats.submitted} glowClass="glow-afterburner" />
-        <StatCard title="Resolved" value={stats.resolved} glowClass="glow-green" />
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Total Takedowns" value={stats.total}     accentColor="var(--amber)" />
+        <StatCard label="Pending Review"  value={stats.draft}     accentColor="var(--sev-high)" />
+        <StatCard label="Submitted"       value={stats.submitted} accentColor="var(--blue)" />
+        <StatCard label="Resolved"        value={stats.resolved}  accentColor="var(--green)" />
+      </StatGrid>
 
       {/* ─── FILTER BAR ──────────────────────────────── */}
-      <div className="glass-card rounded-xl p-3">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          {/* Left: status pills + type pills */}
-          <div className="flex flex-wrap items-center gap-2">
-            {STATUS_PILLS.map((pill) => (
-              <button
-                key={pill.key}
-                className={`${statusFilter === pill.key ? 'glass-btn-active' : 'glass-btn'} rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider`}
-                onClick={() => setStatusFilter(pill.key)}
-              >
-                {pill.label}
-                {pillCounts[pill.key as keyof typeof pillCounts] != null && (
-                  <span className="ml-1.5 text-white/50">{pillCounts[pill.key as keyof typeof pillCounts]}</span>
-                )}
-              </button>
+      <FilterBar
+        filters={STATUS_PILLS.map(p => ({
+          value: p.key,
+          label: p.label,
+          count: pillCounts[p.key as keyof typeof pillCounts],
+        }))}
+        active={statusFilter}
+        onChange={setStatusFilter}
+        search={{ value: search, onChange: handleSearch, placeholder: 'Search by brand, handle, or URL...' }}
+        actions={
+          <select
+            className="glass-input rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider bg-transparent"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key} className="bg-cockpit text-parchment">{o.label}</option>
             ))}
-            <span className="w-px h-5 bg-white/10 mx-1" />
-            {TYPE_PILLS.map((pill) => (
-              <button
-                key={pill.key}
-                className={`${typeFilter === pill.key ? 'glass-btn-active' : 'glass-btn'} rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider`}
-                onClick={() => setTypeFilter(pill.key)}
-              >
-                {pill.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Right: sort + search */}
-          <div className="flex items-center gap-2">
-            <select
-              className="glass-input rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider bg-transparent"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+          </select>
+        }
+      >
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {TYPE_PILLS.map((pill) => (
+            <button
+              key={pill.key}
+              className={`${typeFilter === pill.key ? 'glass-btn-active' : 'glass-btn'} rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider`}
+              onClick={() => setTypeFilter(pill.key)}
             >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key} className="bg-cockpit text-parchment">{o.label}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              className="glass-input rounded-md px-3 py-1.5 font-mono text-[11px] w-56"
-              placeholder="Search by brand, handle, or URL..."
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-          </div>
+              {pill.label}
+            </button>
+          ))}
         </div>
-      </div>
+      </FilterBar>
 
       {/* ─── LOADING STATE ───────────────────────────── */}
       {isLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-card rounded-xl p-4 animate-pulse h-48" />
+            <Card key={i} style={{ padding: '16px', height: 192 }} className="animate-pulse"><div /></Card>
           ))}
         </div>
       )}
