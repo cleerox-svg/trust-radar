@@ -127,7 +127,7 @@ function TriggerAllButton() {
   }
   if (action.state === 'loading') {
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[10px] text-afterburner">
+      <span className="flex items-center gap-1.5 font-mono text-[10px]" style={{ color: 'var(--amber)' }}>
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Triggering...
       </span>
     );
@@ -183,7 +183,7 @@ function RetryButton({ feedName }: { feedName: string }) {
   }
   if (action.state === 'loading') {
     return (
-      <span className="flex items-center gap-1 font-mono text-[9px] text-afterburner" onClick={(e) => e.stopPropagation()}>
+      <span className="flex items-center gap-1 font-mono text-[9px]" style={{ color: 'var(--amber)' }} onClick={(e) => e.stopPropagation()}>
         <Loader2 className="w-3 h-3 animate-spin" />
       </span>
     );
@@ -234,7 +234,7 @@ function AttentionBanner({ feeds }: { feeds: FeedOverview[] }) {
       <div className="flex items-start gap-2">
         <span className="text-amber-400 text-sm mt-0.5">&#9888;</span>
         <div>
-          <span className="text-[13px] font-semibold text-parchment font-display">
+          <span className="text-[13px] font-semibold font-display" style={{ color: 'var(--text-primary)' }}>
             {attentionFeeds.length} feed{attentionFeeds.length > 1 ? 's' : ''} need attention
           </span>
           <span className="text-[12px] text-white/50 ml-1">
@@ -254,7 +254,7 @@ function FeedHealthStrip({ feeds }: { feeds: FeedOverview[] }) {
   return (
     <Card style={{ padding: '16px' }}>
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">Feed Health</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">Feed Health</span>
         <div className="flex items-center gap-1.5 flex-wrap">
           {healthy.map(f => (
             <div key={f.feed_name} className="w-2.5 h-2.5 rounded-full bg-green-400" title={f.display_name} />
@@ -320,7 +320,7 @@ function FeedCard({
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
             <div className={dotClass} />
-            <span className="text-[14px] font-semibold text-parchment font-display truncate">
+            <span className="text-[14px] font-semibold font-display truncate" style={{ color: 'var(--text-primary)' }}>
               {feed.display_name}
             </span>
           </div>
@@ -336,13 +336,13 @@ function FeedCard({
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div>
-            <div className={cn('text-[16px] font-bold font-mono', feed.total_ingested > 0 ? 'text-parchment' : 'text-white/30')}>
+            <div className={cn('text-[16px] font-bold font-mono', feed.total_ingested > 0 ? 'text-[var(--text-primary)]' : 'text-white/30')}>
               {formatNumber(feed.total_ingested)}
             </div>
             <div className="text-[9px] font-mono uppercase tracking-wider text-white/40">Threats</div>
           </div>
           <div>
-            <div className="text-[16px] font-bold font-mono text-parchment">
+            <div className="text-[16px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
               {formatNumber(feed.total_pulls)}
             </div>
             <div className="text-[9px] font-mono uppercase tracking-wider text-white/40">Pulls</div>
@@ -355,7 +355,7 @@ function FeedCard({
               </>
             ) : (
               <>
-                <div className="text-[16px] font-bold font-mono text-parchment">
+                <div className="text-[16px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
                   {formatNumber(feed.successes)}
                 </div>
                 <div className="text-[9px] font-mono uppercase tracking-wider text-white/40">Successes</div>
@@ -423,7 +423,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
     <Card className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ padding: '16px' }}>
       {/* LEFT — Feed Details */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Feed Details</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Feed Details</div>
 
         <DetailRow label="Feed Name" value={feed.feed_name} />
         <DetailRow label="Display Name" value={feed.display_name} />
@@ -435,7 +435,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
               href={feed.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] font-mono text-contrail/60 hover:text-contrail truncate"
+              className="text-[10px] font-mono text-[rgba(255,255,255,0.36)] hover:text-[var(--text-secondary)] truncate"
             >
               {feed.source_url}
             </a>
@@ -463,7 +463,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
 
       {/* RIGHT — Pull History */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-2">Pull History</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Pull History</div>
 
         {isLoading ? (
           <div className="space-y-2">
@@ -526,7 +526,7 @@ function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
                   <span className="text-white/50">
                     {pull.duration_ms != null ? `${(pull.duration_ms / 1000).toFixed(1)}s` : '—'}
                   </span>
-                  <span className={pull.records_ingested > 0 ? 'text-parchment' : 'text-white/30'}>
+                  <span className={pull.records_ingested > 0 ? 'text-[var(--text-primary)]' : 'text-white/30'}>
                     {pull.records_ingested}
                   </span>
                   <span>
@@ -554,7 +554,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-2">
       <span className="text-[10px] font-mono text-white/40 w-24 flex-shrink-0">{label}</span>
-      <span className="text-[11px] font-mono text-parchment">{value}</span>
+      <span className="text-[11px] font-mono" style={{ color: 'var(--text-primary)' }}>{value}</span>
     </div>
   );
 }
@@ -623,8 +623,8 @@ export function Feeds() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-parchment font-display">Feeds</h1>
-          <p className="text-sm text-contrail/50 font-mono mt-1">Threat intelligence feed sources</p>
+          <h1 className="text-xl font-bold font-display" style={{ color: 'var(--text-primary)' }}>Feeds</h1>
+          <p className="text-sm text-[rgba(255,255,255,0.30)] font-mono mt-1">Threat intelligence feed sources</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (

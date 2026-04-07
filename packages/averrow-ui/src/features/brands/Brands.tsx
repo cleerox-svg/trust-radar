@@ -81,12 +81,12 @@ const GRADE_STYLES: Record<string, string> = {
 };
 
 const THREAT_TYPE_STYLES: Record<string, string> = {
-  phishing: 'text-contrail border-contrail/30',
+  phishing: 'text-[rgba(255,255,255,0.60)] border-contrail/30',
   typosquat: 'text-yellow-400 border-yellow-400/30',
   malware: 'text-amber-400 border-amber-400/30',
   c2: 'text-red-400 border-red-400/30',
   credential: 'text-orange-400 border-orange-400/30',
-  social: 'text-afterburner border-afterburner-border',
+  social: 'text-[#E5A832] border-afterburner-border',
 };
 
 const PAGE_SIZE = 50;
@@ -250,13 +250,13 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
   if (!open) return null;
 
   const inputClass = 'w-full glass-input rounded-lg px-3 py-2 font-mono text-sm';
-  const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-contrail/60 mb-1.5';
+  const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-[rgba(255,255,255,0.36)] mb-1.5';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl p-6 shadow-2xl glass-card">
-        <h2 className="font-display text-lg font-bold text-parchment mb-5">Monitor Brand</h2>
+      <div className="relative w-full max-w-md rounded-xl p-6 shadow-2xl" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+        <h2 className="font-display text-lg font-bold mb-5" style={{ color:'var(--text-primary)' }}>Monitor Brand</h2>
 
         <div className="space-y-4">
           <div>
@@ -319,14 +319,15 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-white/10 text-contrail/60 hover:bg-white/5 transition-colors"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-white/10 text-[rgba(255,255,255,0.36)] hover:bg-white/5 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={addBrand.isPending}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-colors disabled:opacity-50"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-4 py-2 rounded-lg border border-afterburner-border hover:bg-afterburner-muted transition-colors disabled:opacity-50"
+            style={{ color: 'var(--amber)' }}
           >
             {addBrand.isPending ? 'Adding...' : 'Monitor Brand'}
           </button>
@@ -391,7 +392,7 @@ function StatsRow() {
         <DeepCard
           key={c.label}
           variant="active"
-          accentColor={c.accent}
+          accent={c.accent}
           style={{ padding: '16px 20px', minWidth: 160, position: 'relative', overflow: 'hidden' }}
         >
           <div style={{
@@ -661,9 +662,9 @@ function MobileBrandRow({ brand, rank }: { brand: Brand; rank: number }) {
       {/* Name + domain + type pill */}
       <div className="flex flex-col min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-parchment truncate">{brand.name}</span>
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{brand.name}</span>
           {brand.top_threat_type && (
-            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded border border-contrail/20 text-contrail/50 flex-shrink-0">
+            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded border border-contrail/20 text-[rgba(255,255,255,0.30)] flex-shrink-0">
               {brand.top_threat_type.replace(/_/g, ' ')}
             </span>
           )}
@@ -753,7 +754,7 @@ function MobileBrandsLayout({
   ], [activeTab, setActiveTab, setPage]);
 
   return (
-    <div className="fixed inset-0 bg-cockpit flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ background: 'var(--bg-page)' }}>
       {/* DrillHeader */}
       <DrillHeader title="BRANDS" onBack={() => navigate('/v2/')} />
 
@@ -776,7 +777,8 @@ function MobileBrandsLayout({
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search brands or domains..."
-              className="w-full bg-instrument rounded-lg border border-bulkhead/30 p-2.5 pl-9 text-sm text-parchment placeholder:text-white/40 font-mono outline-none focus:border-contrail/40"
+              className="w-full bg-instrument rounded-lg border border-bulkhead/30 p-2.5 pl-9 text-sm placeholder:text-white/40 font-mono outline-none focus:border-contrail/40"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
         </div>
@@ -790,7 +792,7 @@ function MobileBrandsLayout({
         defaultState="half"
         headerLeft={
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-mono font-bold tracking-wider text-parchment">TOP THREATENED</span>
+            <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>TOP THREATENED</span>
             <span className="text-[9px] font-mono text-white/55">{filteredBrands.length} brands</span>
           </div>
         }
@@ -900,7 +902,7 @@ export function Brands() {
     <div className="animate-fade-in space-y-6">
       {/* Header row with title + view toggle + add brand */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-xl font-bold text-parchment">Brands</h1>
+        <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Brands</h1>
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex gap-1">
             {VIEW_OPTIONS.map(opt => (
@@ -920,7 +922,8 @@ export function Brands() {
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-afterburner-border text-afterburner hover:bg-afterburner-muted transition-colors whitespace-nowrap"
+            className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-afterburner-border hover:bg-afterburner-muted transition-colors whitespace-nowrap"
+            style={{ color: 'var(--amber)' }}
           >
             <span className="hidden sm:inline">Monitor Brand</span>
             <span className="sm:hidden">+ Brand</span>
@@ -964,7 +967,7 @@ export function Brands() {
                       className={cn(
                         'px-3 py-1.5 text-[10px] font-mono tracking-wider capitalize rounded-lg border transition-colors whitespace-nowrap',
                         activeTab === tab
-                          ? 'text-afterburner border-afterburner-border bg-afterburner-muted'
+                          ? 'text-[#E5A832] border-afterburner-border bg-afterburner-muted'
                           : 'text-white/50 border-white/10 hover:text-white/70'
                       )}
                     >
@@ -1009,7 +1012,7 @@ export function Brands() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-parchment disabled:opacity-30 transition-colors"
+                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)] disabled:opacity-30 transition-colors"
                   >
                     Prev
                   </button>
@@ -1023,8 +1026,8 @@ export function Brands() {
                         className={cn(
                           'font-mono text-[11px] px-2.5 py-1 rounded border transition-colors',
                           page === p
-                            ? 'border-afterburner text-afterburner'
-                            : 'border-white/10 text-white/40 hover:text-parchment',
+                            ? 'border-afterburner text-[#E5A832]'
+                            : 'border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)]',
                         )}
                       >
                         {p}
@@ -1034,7 +1037,7 @@ export function Brands() {
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-parchment disabled:opacity-30 transition-colors"
+                    className="font-mono text-[11px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-[rgba(255,255,255,0.92)] disabled:opacity-30 transition-colors"
                   >
                     Next
                   </button>
@@ -1106,7 +1109,7 @@ export function Brands() {
                       onClick={() => navigate(`/brands/${brand.id}`)}
                     >
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
-                        <div className="bg-cockpit border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono shadow-lg">
+                        <div className="border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono shadow-lg" style={{ background: 'var(--bg-page)' }}>
                           <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
                           <div className="text-[10px] text-white/50">
                             {brand.threat_count ?? 0} threats
@@ -1210,7 +1213,7 @@ export function Brands() {
                             )}
 
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
-                              <div className="bg-cockpit border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono">
+                              <div className="border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono" style={{ background: 'var(--bg-page)' }}>
                                 <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
                                 <div className="text-[10px] text-white/50">
                                   {brand.canonical_domain}

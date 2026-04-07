@@ -118,12 +118,12 @@ function toTitleCase(str: string): string {
 function TimelineTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-cockpit/95 border border-white/10 rounded-lg px-3 py-2 text-xs backdrop-blur-sm">
-      <div className="font-mono text-contrail/60 mb-1">{label}</div>
+    <div className="border border-white/10 rounded-lg px-3 py-2 text-xs backdrop-blur-sm" style={{ background: 'var(--bg-page)' }}>
+      <div className="font-mono text-[rgba(255,255,255,0.36)] mb-1">{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} className="flex justify-between gap-4">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span className="font-mono text-parchment">{p.value}</span>
+          <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{p.value}</span>
         </div>
       ))}
     </div>
@@ -137,8 +137,8 @@ const SEVERITY_TW: Record<string, { dot: string; text: string; hex: string }> = 
   critical: { dot: 'bg-[#f87171]', text: 'text-[#f87171]', hex: '#f87171' },
   high:     { dot: 'bg-[#fb923c]', text: 'text-[#fb923c]', hex: '#fb923c' },
   medium:   { dot: 'bg-[#fbbf24]', text: 'text-[#fbbf24]', hex: '#fbbf24' },
-  low:      { dot: 'bg-contrail/50', text: 'text-contrail/50', hex: '#78A0C8' },
-  info:     { dot: 'bg-contrail/50', text: 'text-contrail/50', hex: '#78A0C8' },
+  low:      { dot: 'bg-contrail/50', text: 'text-[rgba(255,255,255,0.30)]', hex: '#78A0C8' },
+  info:     { dot: 'bg-contrail/50', text: 'text-[rgba(255,255,255,0.30)]', hex: '#78A0C8' },
 };
 
 const THREAT_TYPE_COLORS: Record<string, { bar: string; text: string }> = {
@@ -214,7 +214,7 @@ function ExposureIndexCard({ brand, threats }: { brand: any; threats: any[] }) {
           return (
             <div key={type} className="space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-contrail/60 truncate">
+                <span className="font-mono text-[10px] text-[rgba(255,255,255,0.36)] truncate">
                   {type.replace(/_/g, ' ')}
                 </span>
                 <span className={`font-mono text-[10px] font-semibold ${tc.text}`}>
@@ -246,7 +246,7 @@ function ActiveThreatsCard({ threats }: { threats: any[] }) {
 
   const total = threats.length;
   const highestActive = SEVERITY_ORDER.find(s => counts[s] > 0) || 'low';
-  const totalTextClass = SEVERITY_TW[highestActive]?.text || 'text-contrail/50';
+  const totalTextClass = SEVERITY_TW[highestActive]?.text || 'text-[rgba(255,255,255,0.30)]';
 
   return (
     <StatCard
@@ -265,7 +265,7 @@ function ActiveThreatsCard({ threats }: { threats: any[] }) {
           return (
             <div key={sev} className="flex items-center gap-2">
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tw.dot}`} />
-              <span className="font-mono text-[10px] text-contrail/50 flex-1 capitalize">{sev}</span>
+              <span className="font-mono text-[10px] text-[rgba(255,255,255,0.30)] flex-1 capitalize">{sev}</span>
               <span className={`font-mono text-[10px] font-semibold ${c > 0 ? tw.text : 'text-white/[0.15]'}`}>
                 {c}
               </span>
@@ -335,10 +335,10 @@ const EMAIL_STATUS_CLASSES: Record<string, string> = {
 };
 
 function getGradeClass(grade: string | null): string {
-  if (!grade) return 'text-contrail/50';
+  if (!grade) return 'text-[rgba(255,255,255,0.30)]';
   const g = grade.toUpperCase();
   if (g === 'A+' || g === 'A') return 'text-[#4ade80]';
-  if (g.startsWith('B')) return 'text-contrail';
+  if (g.startsWith('B')) return 'text-[#78A0C8]';
   if (g.startsWith('C')) return 'text-[#fbbf24]';
   if (g.startsWith('D')) return 'text-[#fb923c]';
   return 'text-[#f87171]';
@@ -398,7 +398,7 @@ function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec:
           const cls = EMAIL_STATUS_CLASSES[status] || EMAIL_STATUS_CLASSES.MISSING;
           return (
             <div key={proto} className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-contrail/70 w-10 flex-shrink-0">{proto}</span>
+              <span className="font-mono text-[10px] text-[rgba(255,255,255,0.42)] w-10 flex-shrink-0">{proto}</span>
               <span className={`font-mono text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded border leading-tight ${cls}`}>
                 {status}
               </span>
@@ -470,7 +470,7 @@ function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec:
         {onViewDetails && (
           <button
             onClick={onViewDetails}
-            className="mt-3 w-full text-center text-[10px] text-white/30 hover:text-afterburner transition-colors font-mono py-1"
+            className="mt-3 w-full text-center text-[10px] text-white/30 transition-colors font-mono py-1 hover:[color:var(--amber)]"
           >
             View DNS Details &rarr;
           </button>
@@ -545,14 +545,16 @@ function SocialRiskCard({
             <button
               onClick={onScan}
               disabled={scanPending}
-              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+              className="font-mono text-[10px] transition-colors disabled:opacity-40"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {scanPending ? 'SCANNING...' : 'SCAN'}
             </button>
             <button
               onClick={onDiscover}
               disabled={discoverPending}
-              className="font-mono text-[10px] text-contrail hover:text-parchment transition-colors disabled:opacity-40"
+              className="font-mono text-[10px] transition-colors disabled:opacity-40"
+              style={{ color: 'var(--text-secondary)' }}
             >
               {discoverPending ? 'DISCOVERING...' : 'DISCOVER NEW'}
             </button>
@@ -658,10 +660,10 @@ export function BrandDetail() {
   if (!brand) {
     return (
       <div className="animate-fade-in">
-        <button onClick={() => navigate('/brands')} className="font-mono text-xs text-contrail/50 hover:text-accent transition-colors mb-4">
+        <button onClick={() => navigate('/brands')} className="font-mono text-xs text-[rgba(255,255,255,0.30)] hover:text-accent transition-colors mb-4">
           &larr; Back to Brands
         </button>
-        <Card hover={false}><p className="text-sm text-contrail/60">Brand not found</p></Card>
+        <Card hover={false}><p className="text-sm text-[rgba(255,255,255,0.36)]">Brand not found</p></Card>
       </div>
     );
   }
@@ -670,7 +672,7 @@ export function BrandDetail() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* ── Nav ── */}
-      <button onClick={() => navigate('/brands')} className="font-mono text-xs text-contrail/50 hover:text-accent transition-colors">
+      <button onClick={() => navigate('/brands')} className="font-mono text-xs text-[rgba(255,255,255,0.30)] hover:text-accent transition-colors">
         &larr; Back to Brands
       </button>
 
@@ -849,7 +851,7 @@ export function BrandDetail() {
                     className={`font-mono text-[11px] font-semibold px-3 py-1 rounded transition-all ${
                       timelinePeriod === p
                         ? 'bg-accent/10 text-accent border border-accent/25'
-                        : 'text-white/55 hover:bg-white/5 hover:text-parchment border border-transparent'
+                        : 'text-white/55 hover:bg-white/5 hover:[color:var(--text-primary)] border border-transparent'
                     }`}>
                     {p.toUpperCase()}
                   </button>
@@ -916,13 +918,13 @@ export function BrandDetail() {
                       pb-2 border-b border-white/[0.06] mb-2">
                       <div />
                       <button onClick={() => setThreatSort({ key: 'severity', asc: threatSort.key === 'severity' ? !threatSort.asc : false })}
-                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left hover:text-parchment transition-colors">
+                        className="font-mono text-[9px] text-[rgba(255,255,255,0.30)] uppercase tracking-wider text-left hover:[color:var(--text-primary)] transition-colors">
                         Type / Severity {threatSort.key === 'severity' && (threatSort.asc ? '\u25B2' : '\u25BC')}
                       </button>
-                      <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Target</div>
-                      <div className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider">Vector</div>
+                      <div className="font-mono text-[9px] text-[rgba(255,255,255,0.30)] uppercase tracking-wider">Target</div>
+                      <div className="font-mono text-[9px] text-[rgba(255,255,255,0.30)] uppercase tracking-wider">Vector</div>
                       <button onClick={() => setThreatSort({ key: 'date', asc: threatSort.key === 'date' ? !threatSort.asc : false })}
-                        className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-right hover:text-parchment transition-colors">
+                        className="font-mono text-[9px] text-[rgba(255,255,255,0.30)] uppercase tracking-wider text-right hover:[color:var(--text-primary)] transition-colors">
                         Age {threatSort.key === 'date' && (threatSort.asc ? '\u25B2' : '\u25BC')}
                       </button>
                     </div>
@@ -973,8 +975,9 @@ export function BrandDetail() {
 
                     {sortedThreats.length > 10 && (
                       <button onClick={() => setExpandedThreats(!expandedThreats)}
-                        className="w-full mt-3 py-2 font-mono text-[10px] text-contrail hover:text-white
-                        border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all">
+                        className="w-full mt-3 py-2 font-mono text-[10px] hover:text-white
+                        border border-white/[0.04] rounded-lg hover:border-accent/20 transition-all"
+                        style={{ color: 'var(--text-secondary)' }}>
                         {expandedThreats ? 'SHOW LESS' : `SHOW ALL ${sortedThreats.length} THREATS`}
                       </button>
                     )}
@@ -992,7 +995,7 @@ export function BrandDetail() {
                 ) : (
                   safeDomains.map((d: any) => (
                     <div key={d.id || d.domain} className="flex items-center justify-between py-1.5 border-b border-white/[0.03]">
-                      <span className="font-mono text-xs text-parchment/80">{d.domain}</span>
+                      <span className="font-mono text-xs text-[rgba(255,255,255,0.74)]">{d.domain}</span>
                       <button onClick={() => deleteSafeDomain.mutate({ brandId: id, domainId: d.id })}
                         className="font-mono text-[9px] text-white/50 hover:text-accent transition-colors">
                         REMOVE
@@ -1006,8 +1009,9 @@ export function BrandDetail() {
                   value={safeDomainInput}
                   onChange={e => setSafeDomainInput(e.target.value)}
                   placeholder="Add domain..."
-                  className="flex-1 bg-cockpit border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs text-parchment
+                  className="flex-1 border border-white/[0.06] rounded-md px-3 py-1.5 font-mono text-xs
                     placeholder:text-white/30 focus:border-accent/30 focus:outline-none transition-colors"
+                  style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && safeDomainInput.trim()) {
                       addSafeDomain.mutate({ brandId: id, domain: safeDomainInput.trim() });
@@ -1209,11 +1213,11 @@ export function BrandDetail() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full bg-white/[0.04] border border-white/[0.06]
-                        flex items-center justify-center font-mono text-xs text-contrail/60 font-bold">
+                        flex items-center justify-center font-mono text-xs text-[rgba(255,255,255,0.36)] font-bold">
                         {PLATFORM_ICONS[(profile.platform ?? '').toLowerCase()] ?? '\u25CF'}
                       </div>
                       <div>
-                        <div className="font-mono font-semibold text-sm text-parchment">@{profile.handle}</div>
+                        <div className="font-mono font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>@{profile.handle}</div>
                         {profile.display_name && (
                           <div className="text-[10px] text-white/55">{profile.display_name}</div>
                         )}
@@ -1238,7 +1242,7 @@ export function BrandDetail() {
 
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-contrail/50">Impersonation Score</span>
+                      <span className="font-mono text-[10px] text-[rgba(255,255,255,0.30)]">Impersonation Score</span>
                       <span className="font-mono text-xs font-bold" style={{
                         color: profile.impersonation_score >= 0.70 ? '#C83C3C' : profile.impersonation_score >= 0.40 ? '#E8923C' : '#28A050'
                       }}>{Math.round(profile.impersonation_score * 100)}%</span>
@@ -1252,7 +1256,7 @@ export function BrandDetail() {
                   </div>
 
                   {profile.ai_assessment && (
-                    <p className="text-xs text-contrail/60 line-clamp-3 leading-relaxed">{profile.ai_assessment}</p>
+                    <p className="text-xs text-[rgba(255,255,255,0.36)] line-clamp-3 leading-relaxed">{profile.ai_assessment}</p>
                   )}
 
                   <div className="flex gap-2 pt-1">
@@ -1314,7 +1318,8 @@ export function BrandDetail() {
                         {needsTruncation && (
                           <button
                             onClick={() => setExpandedSummary(!expandedSummary)}
-                            className="ml-1.5 font-mono text-[10px] font-semibold text-contrail hover:text-white transition-colors"
+                            className="ml-1.5 font-mono text-[10px] font-semibold hover:text-white transition-colors"
+                            style={{ color: 'var(--text-secondary)' }}
                           >
                             {expandedSummary ? 'Show less' : 'Show more'}
                           </button>
@@ -1417,7 +1422,7 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
   return (
     <div className="space-y-6">
       {/* STAT ROW */}
-      <DeepCard variant="active" accentColor="#C83C3C">
+      <DeepCard variant="active" accent="#C83C3C">
         <div className="grid grid-cols-3 gap-6 p-2">
           <div>
             <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Typosquats</div>
@@ -1443,7 +1448,7 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-md font-mono text-[10px] uppercase tracking-widest border transition-colors ${
                 filter === f
-                  ? 'bg-afterburner/20 text-afterburner border-afterburner/40'
+                  ? 'bg-afterburner/20 text-[#E5A832] border-afterburner/40'
                   : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
               }`}
             >

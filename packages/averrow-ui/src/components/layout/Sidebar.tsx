@@ -230,7 +230,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         }}
       >
         {isBrandAdmin && user?.organization && (
-          <div className="text-[10px] font-mono text-afterburner/70 uppercase tracking-wider mb-1">
+          <div className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: 'var(--amber)', opacity: 0.7 }}>
             {user.organization.name}
           </div>
         )}

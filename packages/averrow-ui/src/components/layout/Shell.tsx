@@ -18,8 +18,8 @@ export function Shell() {
 
   return (
     <div
-      className="flex bg-cockpit"
-      style={{ minHeight: '100vh', position: 'relative' }}
+      className="flex"
+      style={{ minHeight: '100vh', position: 'relative', background: 'var(--bg-page)' }}
     >
       <DeepBackground />
 

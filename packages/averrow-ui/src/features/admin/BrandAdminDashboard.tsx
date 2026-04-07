@@ -8,6 +8,23 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { severityColor } from '@/lib/severityColor';
 import { relativeTime } from '@/lib/time';
 
+const GLASS_CARD: React.CSSProperties = {
+  background: 'rgba(15,23,42,0.50)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255,255,255,0.07)',
+  borderRadius: '0.75rem',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+};
+const GLASS_STAT: React.CSSProperties = {
+  background: 'rgba(22,30,48,0.50)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(229,168,50,0.15)',
+  borderRadius: '0.75rem',
+  boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+};
+
 function emailGrade(score: number | null): string {
   if (score === null) return '-';
   if (score >= 90) return 'A';
@@ -42,10 +59,10 @@ export function BrandAdminDashboard() {
     <div className="p-6 space-y-6 max-w-7xl">
       {/* Header */}
       <div>
-        <h1 className="font-display text-xl font-bold text-parchment">
+        <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Welcome, {user?.name?.split(' ')[0] ?? 'there'}
         </h1>
-        <p className="font-mono text-[11px] text-contrail/60 mt-1">
+        <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
           {orgName} &middot; {plan} plan
         </p>
       </div>
@@ -83,28 +100,29 @@ export function BrandAdminDashboard() {
               <Link
                 key={brand.id}
                 to={`/brands/${brand.id}`}
-                className="glass-stat p-4 rounded-xl border border-white/10 hover:border-afterburner/30 transition-colors"
+                className="p-4 hover:border-afterburner/30 transition-colors block"
+                style={GLASS_STAT}
               >
                 <div className="flex items-center gap-2">
-                  <Shield size={14} className="text-wing-blue" />
-                  <span className="font-display text-sm font-semibold text-parchment truncate">{brand.name}</span>
+                  <Shield size={14} style={{ color: 'var(--blue)' }} />
+                  <span className="font-display text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{brand.name}</span>
                 </div>
-                <div className="font-mono text-[10px] text-contrail/50 mt-0.5">{brand.canonical_domain}</div>
+                <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{brand.canonical_domain}</div>
                 <div className="flex items-center gap-4 mt-3">
                   <div className="flex items-center gap-1.5">
                     <div
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ backgroundColor: severityColor(null, brand.threat_count) }}
                     />
-                    <span className="font-mono text-[11px] text-parchment/80">{brand.threat_count} threats</span>
+                    <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{brand.threat_count} threats</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Activity size={10} className="text-contrail/50" />
-                    <span className="font-mono text-[11px] text-parchment/80">{brand.active_threats} active</span>
+                    <Activity size={10} style={{ color: 'var(--text-tertiary)' }} />
+                    <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{brand.active_threats} active</span>
                   </div>
                   {brand.email_security_grade && (
                     <div className="flex items-center gap-1.5">
-                      <Mail size={10} className="text-contrail/50" />
+                      <Mail size={10} style={{ color: 'var(--text-tertiary)' }} />
                       <span
                         className="font-mono text-[11px] font-bold"
                         style={{ color: severityColor(brand.email_security_score) }}
@@ -124,23 +142,23 @@ export function BrandAdminDashboard() {
       {data?.recent_threats && data.recent_threats.length > 0 && (
         <section>
           <SectionLabel>Recent Threats (24h)</SectionLabel>
-          <div className="glass-card rounded-xl border border-white/10 overflow-hidden mt-3 overflow-x-auto">
+          <div className="overflow-hidden mt-3 overflow-x-auto" style={GLASS_CARD}>
             <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="border-b border-white/5">
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Type</th>
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Domain</th>
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Brand</th>
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">Severity</th>
-                  <th className="font-mono text-[9px] uppercase tracking-widest text-contrail/50 px-4 py-2">When</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest px-4 py-2" style={{ color: 'var(--text-tertiary)' }}>Type</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest px-4 py-2" style={{ color: 'var(--text-tertiary)' }}>Domain</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest px-4 py-2" style={{ color: 'var(--text-tertiary)' }}>Brand</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest px-4 py-2" style={{ color: 'var(--text-tertiary)' }}>Severity</th>
+                  <th className="font-mono text-[9px] uppercase tracking-widest px-4 py-2" style={{ color: 'var(--text-tertiary)' }}>When</th>
                 </tr>
               </thead>
               <tbody>
                 {data.recent_threats.map((t) => (
                   <tr key={t.id} className="data-row border-b border-white/5">
-                    <td className="px-4 py-2 font-mono text-[11px] text-parchment/80">{t.threat_type}</td>
-                    <td className="px-4 py-2 font-mono text-[11px] text-contrail truncate max-w-[200px]">{t.malicious_domain ?? '-'}</td>
-                    <td className="px-4 py-2 font-mono text-[11px] text-parchment/70">{t.brand_name ?? '-'}</td>
+                    <td className="px-4 py-2 font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{t.threat_type}</td>
+                    <td className="px-4 py-2 font-mono text-[11px] truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>{t.malicious_domain ?? '-'}</td>
+                    <td className="px-4 py-2 font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{t.brand_name ?? '-'}</td>
                     <td className="px-4 py-2">
                       <span
                         className="font-mono text-[10px] font-bold uppercase"
@@ -149,7 +167,7 @@ export function BrandAdminDashboard() {
                         {t.severity ?? '-'}
                       </span>
                     </td>
-                    <td className="px-4 py-2 font-mono text-[10px] text-contrail/50">{relativeTime(t.created_at)}</td>
+                    <td className="px-4 py-2 font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{relativeTime(t.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -166,14 +184,14 @@ export function BrandAdminDashboard() {
           <div className="space-y-2 mt-3">
             {data?.recent_alerts && data.recent_alerts.length > 0 ? (
               data.recent_alerts.slice(0, 8).map((a) => (
-                <div key={a.id} className="glass-stat p-3 rounded-lg border border-white/10 flex items-center gap-3">
+                <div key={a.id} className="p-3 flex items-center gap-3" style={GLASS_STAT}>
                   <AlertTriangle
                     size={14}
                     style={{ color: severityColor(null, a.severity === 'CRITICAL' ? 200 : a.severity === 'HIGH' ? 100 : 20) }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-mono text-[11px] text-parchment/90 truncate">{a.title}</div>
-                    <div className="font-mono text-[9px] text-contrail/50">{a.brand_name} &middot; {relativeTime(a.created_at)}</div>
+                    <div className="font-mono text-[11px] truncate" style={{ color: 'var(--text-primary)' }}>{a.title}</div>
+                    <div className="font-mono text-[9px]" style={{ color: 'var(--text-tertiary)' }}>{a.brand_name} &middot; {relativeTime(a.created_at)}</div>
                   </div>
                   <span className="font-mono text-[9px] uppercase text-white/55">{a.status}</span>
                 </div>
@@ -187,23 +205,23 @@ export function BrandAdminDashboard() {
         {/* Takedown Status */}
         <section>
           <SectionLabel>Takedown Status</SectionLabel>
-          <div className="glass-stat p-5 rounded-xl border border-white/10 mt-3">
+          <div className="p-5 mt-3" style={GLASS_STAT}>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="font-display text-2xl font-bold text-parchment">{data?.takedown_summary?.total ?? 0}</div>
-                <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-wider">Total Requests</div>
+                <div className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{data?.takedown_summary?.total ?? 0}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Total Requests</div>
               </div>
               <div>
-                <div className="font-display text-2xl font-bold text-afterburner">{data?.takedown_summary?.pending ?? 0}</div>
-                <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-wider">Pending</div>
+                <div className="font-display text-2xl font-bold" style={{ color: 'var(--amber)' }}>{data?.takedown_summary?.pending ?? 0}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Pending</div>
               </div>
               <div>
-                <div className="font-display text-2xl font-bold text-positive">{data?.takedown_summary?.taken_down ?? 0}</div>
-                <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-wider">Taken Down</div>
+                <div className="font-display text-2xl font-bold" style={{ color: 'var(--green)' }}>{data?.takedown_summary?.taken_down ?? 0}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Taken Down</div>
               </div>
               <div>
-                <div className="font-display text-2xl font-bold text-accent">{data?.takedown_summary?.failed ?? 0}</div>
-                <div className="font-mono text-[10px] text-contrail/60 uppercase tracking-wider">Failed</div>
+                <div className="font-display text-2xl font-bold" style={{ color: 'var(--red)' }}>{data?.takedown_summary?.failed ?? 0}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Failed</div>
               </div>
             </div>
           </div>

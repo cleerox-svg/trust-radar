@@ -51,14 +51,14 @@ function NotificationItem({ notification, onRead }: { notification: Notification
           <span className={`dot-pulse mt-1.5 flex-shrink-0 ${severityDotClass(notification.severity)}`} style={{ width: 6, height: 6 }} />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] text-parchment/90 leading-snug line-clamp-2">
+          <p className="text-[13px] leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>
             {notification.title}
           </p>
           <p className="text-[11px] text-white/40 mt-1 line-clamp-1">
             {notification.message}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] font-mono text-contrail/50 uppercase">
+            <span className="text-[10px] font-mono uppercase" style={{ color: 'var(--text-secondary)' }}>
               {notification.type.replace('_', ' ')}
             </span>
             <span className="text-[10px] text-white/40">·</span>
@@ -103,12 +103,13 @@ function NotificationList({
     <div className="flex flex-col max-h-[520px] md:max-h-[520px]">
       <div className="px-4 pt-4 pb-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-contrail/70 font-bold">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-secondary)' }}>
             Notifications
           </span>
           <button
             onClick={() => markAllRead.mutate()}
-            className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors touch-target"
+            className="text-[10px] font-mono transition-colors touch-target"
+            style={{ color: 'var(--amber)' }}
           >
             Mark all read
           </button>
@@ -151,7 +152,8 @@ function NotificationList({
       <div className="border-t border-white/5 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <button
           onClick={() => { navigate('/notifications'); onClose(); }}
-          className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors touch-target"
+          className="text-[10px] font-mono transition-colors touch-target"
+          style={{ color: 'var(--amber)' }}
         >
           View all notifications &rarr;
         </button>

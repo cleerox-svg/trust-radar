@@ -45,7 +45,7 @@ export function LiveFeedCard() {
   const items = threats ?? [];
 
   return (
-    <div className="rounded-xl glass-card glass-card-amber p-4">
+    <div className="p-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
       <div className="mb-3">
         <LiveIndicator label="LIVE FEED" size="xs" />
       </div>
@@ -90,7 +90,8 @@ export function LiveFeedCard() {
 
       <a
         href="/contacts"
-        className="mt-3 block text-[10px] text-afterburner transition-colors hover:text-white"
+        className="mt-3 block text-[10px] transition-colors hover:text-white"
+        style={{ color: 'var(--amber)' }}
       >
         View all in Observatory →
       </a>

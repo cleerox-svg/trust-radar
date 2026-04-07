@@ -129,7 +129,7 @@ export function ExecutiveSummary({ period }: ExecutiveSummaryProps) {
       {metrics && (
         <div className="flex gap-6 pt-4 border-t border-white/[0.06]">
           <div>
-            <p className="font-mono font-bold text-lg text-parchment">
+            <p className="font-mono font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
               {metrics.totalThreats.toLocaleString()}
             </p>
             <p className="text-white/30 text-[10px]">Total Threats</p>
@@ -143,14 +143,14 @@ export function ExecutiveSummary({ period }: ExecutiveSummaryProps) {
             <p className="text-white/30 text-[10px]">Period Trend</p>
           </div>
           <div>
-            <p className="font-mono font-bold text-lg text-afterburner">
+            <p className="font-mono font-bold text-lg" style={{ color: 'var(--amber)' }}>
               {metrics.topType.label}
             </p>
             <p className="text-white/30 text-[10px]">Top Threat Type</p>
           </div>
           {topBrand && (
             <div>
-              <p className="font-mono font-bold text-lg text-parchment">
+              <p className="font-mono font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
                 {topBrand.brand_name}
               </p>
               <p className="text-white/30 text-[10px]">Most Targeted Brand</p>

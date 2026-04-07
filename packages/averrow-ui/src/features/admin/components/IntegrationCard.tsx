@@ -38,19 +38,26 @@ export function IntegrationCard({
   return (
     <div
       className={cn(
-        'glass-card rounded-xl p-4 flex flex-col gap-3 transition-all',
+        'p-4 flex flex-col gap-3 transition-all',
         isConnected && !isError && 'border-positive/30',
         isError && 'border-accent/30',
-        !isConnected && !isError && 'border-white/[0.06]',
       )}
+      style={{
+        background: 'rgba(15,23,42,0.50)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: '0.75rem',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+      }}
     >
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold text-contrail shrink-0">
+        <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold shrink-0" style={{ color: 'var(--text-secondary)' }}>
           {def.logoChar}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-parchment">{def.name}</div>
-          <div className="text-[11px] text-contrail/50 truncate">{def.description}</div>
+          <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{def.name}</div>
+          <div className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>{def.description}</div>
         </div>
         {isConnected && !isError && (
           <div className="w-2 h-2 rounded-full bg-positive shrink-0 mt-1.5" />

@@ -7,7 +7,7 @@ describe('StatCard', () => {
     render(<StatCard label="Active Threats" value={1234} />);
     expect(screen.getByText('Active Threats')).toBeInTheDocument();
     // CountUp renders inside the value container — verify the span exists
-    expect(screen.getByText('Active Threats').closest('.glass-stat')).toBeInTheDocument();
+    expect(screen.getByText('Active Threats').closest('[data-testid="stat-card"]')).toBeInTheDocument();
   });
 
   it('renders string values', () => {
@@ -46,15 +46,14 @@ describe('StatCard', () => {
 
   it('applies accent color border', () => {
     const { container } = render(<StatCard label="Test" value={0} accentColor="#C83C3C" />);
-    // Tilt wrapper is firstChild; the glass-stat card is inside it
-    const card = container.querySelector('.glass-stat')!;
+    const card = container.querySelector('[data-testid="stat-card"]')!;
     expect(card).toHaveStyle({ borderLeftColor: '#C83C3C' });
     expect(card).toHaveClass('border-l-[3px]');
   });
 
   it('does not apply border-left style without accentColor', () => {
     const { container } = render(<StatCard label="Test" value={0} />);
-    const card = container.querySelector('.glass-stat')!;
+    const card = container.querySelector('[data-testid="stat-card"]')!;
     expect(card).not.toHaveClass('border-l-[3px]');
   });
 });

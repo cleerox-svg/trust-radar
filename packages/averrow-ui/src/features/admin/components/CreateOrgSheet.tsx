@@ -178,16 +178,16 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
       <div className="relative w-full sm:max-w-lg bg-instrument border border-white/10 rounded-t-2xl sm:rounded-xl p-6 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <div className="font-mono text-xs font-bold text-afterburner uppercase tracking-wider">
+          <div className="font-mono text-xs font-bold text-[color:var(--amber)] uppercase tracking-wider">
             Create Organization — Step {step}/{totalSteps}
           </div>
-          <button onClick={onClose} className="text-white/55 hover:text-parchment text-lg">&times;</button>
+          <button onClick={onClose} className="text-white/55 hover:text-[color:var(--text-primary)] text-lg">&times;</button>
         </div>
 
         {/* Progress bar */}
         <div className="h-1 rounded-full bg-white/5 mb-6">
           <div
-            className="h-full rounded-full bg-afterburner transition-all"
+            className="h-full rounded-full bg-[color:var(--amber)] transition-all"
             style={{ width: `${(step / totalSteps) * 100}%` }}
           />
         </div>
@@ -197,7 +197,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
           <div className="space-y-4">
             <SectionLabel>Organization Details</SectionLabel>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Organization Name
               </label>
               <Input
@@ -209,7 +209,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               />
             </div>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Slug
               </label>
               <div className="flex items-center gap-2">
@@ -223,20 +223,20 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Plan
               </label>
               <Select options={PLAN_OPTIONS} value={plan} onChange={(e) => setPlan(e.target.value)} className="w-full" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+                <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                   Max Brands
                 </label>
                 <Input type="number" value={maxBrands} onChange={(e) => setMaxBrands(e.target.value)} className="w-full" />
               </div>
               <div>
-                <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+                <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                   Max Members
                 </label>
                 <Input type="number" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} className="w-full" />
@@ -270,7 +270,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                       className="w-full text-left px-3 py-2 hover:bg-white/5 border-b border-white/[0.03] last:border-0 flex items-center justify-between transition-colors"
                     >
                       <div>
-                        <span className="text-sm text-parchment">{r.name}</span>
+                        <span className="text-sm text-[color:var(--text-primary)]">{r.name}</span>
                         <span className="text-[11px] text-white/55 font-mono ml-2">{r.canonical_domain}</span>
                       </div>
                       <span className="text-[10px] text-white/55">{r.threat_count} threats</span>
@@ -283,11 +283,11 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
             {/* Selected brands */}
             {selectedBrands.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[11px] text-contrail/50 font-mono">{selectedBrands.length} brand{selectedBrands.length !== 1 ? 's' : ''} selected</div>
+                <div className="text-[11px] text-[color:var(--text-tertiary)] font-mono">{selectedBrands.length} brand{selectedBrands.length !== 1 ? 's' : ''} selected</div>
                 {selectedBrands.map((b) => (
                   <div key={b.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-white/[0.03] border border-white/[0.06]">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-parchment">{b.name}</span>
+                      <span className="text-sm text-[color:var(--text-primary)]">{b.name}</span>
                       <span className="text-[11px] text-white/55 font-mono">{b.canonical_domain}</span>
                       {b.is_primary && <Badge variant="info">Primary</Badge>}
                     </div>
@@ -296,7 +296,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                         <button
                           type="button"
                           onClick={() => setPrimaryBrand(b.id)}
-                          className="text-[10px] font-mono text-white/55 hover:text-afterburner transition-colors"
+                          className="text-[10px] font-mono text-white/55 hover:text-[color:var(--amber)] transition-colors"
                         >
                           Set Primary
                         </button>
@@ -331,14 +331,14 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                     type="checkbox"
                     checked={selectedServices.has(svc.id)}
                     onChange={() => toggleService(svc.id)}
-                    className="accent-afterburner w-3.5 h-3.5"
+                    className="accent-[color:var(--amber)] w-3.5 h-3.5"
                   />
-                  <span className="text-sm text-parchment/80">{svc.label}</span>
+                  <span className="text-sm text-[color:var(--text-primary)]/80">{svc.label}</span>
                 </label>
               ))}
             </div>
 
-            <div className="text-[11px] text-contrail/50 font-mono uppercase tracking-wide pt-2">SIEM Integration</div>
+            <div className="text-[11px] text-[color:var(--text-tertiary)] font-mono uppercase tracking-wide pt-2">SIEM Integration</div>
             <div className="space-y-1 ml-2">
               {SERVICES.filter(s => s.group === 'siem').map((svc) => (
                 <label key={svc.id} className="flex items-center gap-3 py-2 px-3 rounded-md hover:bg-white/[0.03] cursor-pointer transition-colors">
@@ -346,9 +346,9 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
                     type="checkbox"
                     checked={selectedServices.has(svc.id)}
                     onChange={() => toggleService(svc.id)}
-                    className="accent-afterburner w-3.5 h-3.5"
+                    className="accent-[color:var(--amber)] w-3.5 h-3.5"
                   />
-                  <span className="text-sm text-parchment/80">{svc.label}</span>
+                  <span className="text-sm text-[color:var(--text-primary)]/80">{svc.label}</span>
                 </label>
               ))}
             </div>
@@ -363,7 +363,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               This person will be invited as the organization's Brand Admin. They can then invite other members and configure integrations.
             </p>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Admin Name
               </label>
               <Input
@@ -375,7 +375,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               />
             </div>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
                 Admin Email (required)
               </label>
               <Input
@@ -389,13 +389,13 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
 
             {/* Summary */}
             <div className="mt-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-2">
-              <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/60">Summary</div>
-              <div className="text-[11px] text-parchment/70 space-y-1">
-                <div><span className="text-contrail/50">Org:</span> {name}</div>
-                <div><span className="text-contrail/50">Plan:</span> {plan} · {maxBrands} brands · {maxMembers} members</div>
-                <div><span className="text-contrail/50">Brands:</span> {selectedBrands.length} assigned</div>
-                <div><span className="text-contrail/50">Services:</span> {selectedServices.size} enabled</div>
-                {adminEmail && <div><span className="text-contrail/50">Admin:</span> {adminEmail}</div>}
+              <div className="font-mono text-[9px] uppercase tracking-widest text-[color:var(--text-secondary)]">Summary</div>
+              <div className="text-[11px] text-[color:var(--text-primary)]/70 space-y-1">
+                <div><span className="text-[color:var(--text-tertiary)]">Org:</span> {name}</div>
+                <div><span className="text-[color:var(--text-tertiary)]">Plan:</span> {plan} · {maxBrands} brands · {maxMembers} members</div>
+                <div><span className="text-[color:var(--text-tertiary)]">Brands:</span> {selectedBrands.length} assigned</div>
+                <div><span className="text-[color:var(--text-tertiary)]">Services:</span> {selectedServices.size} enabled</div>
+                {adminEmail && <div><span className="text-[color:var(--text-tertiary)]">Admin:</span> {adminEmail}</div>}
               </div>
             </div>
           </div>
@@ -414,7 +414,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               size="md"
               onClick={() => setStep(step + 1)}
               disabled={step === 1 && !name.trim()}
-              className="flex-1 bg-afterburner hover:bg-afterburner-hover text-deep-space"
+              className="flex-1 bg-[color:var(--amber)] hover:bg-[color:var(--amber-dim)] text-black"
             >
               Continue
             </Button>
@@ -424,7 +424,7 @@ export function CreateOrgSheet({ open, onClose, onCreated }: CreateOrgSheetProps
               size="md"
               onClick={handleCreate}
               disabled={createOrg.isPending || !name.trim()}
-              className="flex-1 bg-afterburner hover:bg-afterburner-hover text-deep-space"
+              className="flex-1 bg-[color:var(--amber)] hover:bg-[color:var(--amber-dim)] text-black"
             >
               {createOrg.isPending ? 'Creating...' : 'Create Organization'}
             </Button>

@@ -33,14 +33,24 @@ function SimpleStatCard({
     padding: '16px 20px',
     position: 'relative',
     userSelect: 'none',
-    borderLeft: accentColor ? `3px solid ${accentColor}` : undefined,
     cursor: onClick ? 'pointer' : undefined,
+    background: 'rgba(22,30,48,0.50)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid rgba(229,168,50,0.15)',
+    boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+    ...(accentColor && {
+      borderLeftWidth: '3px',
+      borderLeftStyle: 'solid',
+      borderLeftColor: accentColor,
+    }),
   };
 
   return (
     <div
+      data-testid="stat-card"
       className={cn(
-        'glass-stat rounded-xl transition-all',
+        'rounded-xl transition-all',
         accentColor && 'border-l-[3px]',
         className,
       )}
@@ -120,9 +130,18 @@ function DetailStatCard({
 }: DetailStatCardProps) {
   return (
     <div
-      className={cn('glass-stat rounded-xl transition-all', className)}
+      data-testid="stat-card"
+      className={cn('rounded-xl transition-all', className)}
       onClick={onClick}
-      style={{ padding: '14px 16px', cursor: onClick ? 'pointer' : undefined }}
+      style={{
+        padding: '14px 16px',
+        cursor: onClick ? 'pointer' : undefined,
+        background: 'rgba(22,30,48,0.50)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(229,168,50,0.15)',
+        boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+      }}
     >
       <div style={{
         fontSize: 9, fontFamily: 'var(--font-mono)',

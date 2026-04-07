@@ -13,12 +13,12 @@ export function Notifications() {
         >
           <ArrowLeft className="w-4 h-4 text-white/60" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-contrail/70 font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
           All Notifications
         </h1>
       </div>
 
-      <div className="glass-card glass-card-amber rounded-xl p-12 text-center">
+      <div className="rounded-xl p-12 text-center" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <p className="text-[13px] text-white/40 font-mono">
           Full notification history coming soon.
         </p>

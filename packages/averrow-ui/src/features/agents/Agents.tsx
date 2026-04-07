@@ -191,7 +191,7 @@ function AgentCard({
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-mono text-sm font-bold text-parchment">
+            <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {meta?.displayName ?? agent.display_name}
             </span>
             <span
@@ -208,18 +208,18 @@ function AgentCard({
       {/* 3-metric row */}
       <div className="flex gap-5 mb-4">
         <div>
-          <div className="font-display text-lg font-bold text-parchment">{agent.jobs_24h}</div>
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{agent.jobs_24h}</div>
           <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider">Jobs 24h</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">{agent.outputs_24h}</div>
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{agent.outputs_24h}</div>
           <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider">Outputs</div>
         </div>
         <div>
-          <div className={cn(
-            'font-display text-lg font-bold',
-            agent.error_count_24h > 0 ? 'text-[#C83C3C]' : 'text-parchment',
-          )}>
+          <div
+            className="font-display text-lg font-bold"
+            style={{ color: agent.error_count_24h > 0 ? '#C83C3C' : 'var(--text-primary)' }}
+          >
             {agent.error_count_24h}
           </div>
           <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider">Errors</div>
@@ -273,7 +273,7 @@ function FlightControlCard({
           </span>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-sm font-bold text-parchment">Flight Control</span>
+              <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Flight Control</span>
               <span
                 className={cn('w-2 h-2 rounded-full', statusDotClass(agent))}
                 style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
@@ -333,19 +333,19 @@ function FlightControlCard({
           {/* Backlog counters */}
           <div className="flex gap-4">
             <div>
-              <div className="font-display text-sm font-bold text-parchment">
+              <div className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                 {dashStats?.agent_backlogs?.cartographer?.toLocaleString() ?? '—'}
               </div>
               <div className="font-mono text-[8px] text-white/50 uppercase">Cart backlog</div>
             </div>
             <div>
-              <div className="font-display text-sm font-bold text-parchment">
+              <div className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                 {dashStats?.agent_backlogs?.analyst?.toLocaleString() ?? '—'}
               </div>
               <div className="font-mono text-[8px] text-white/50 uppercase">Analyst backlog</div>
             </div>
             <div>
-              <div className="font-display text-sm font-bold text-parchment">{agent.jobs_24h}</div>
+              <div className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{agent.jobs_24h}</div>
               <div className="font-mono text-[8px] text-white/50 uppercase">FC Jobs 24h</div>
             </div>
           </div>
@@ -392,7 +392,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
               <AgentIcon agent={agent.name} size={40} />
             </span>
             <div>
-              <h3 className="font-mono text-lg font-bold text-parchment">
+              <h3 className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                 {meta?.displayName ?? agent.display_name}
               </h3>
               <div className="font-mono text-[10px] text-white/40 mt-0.5">
@@ -517,7 +517,7 @@ function DetailRow({ label, value, children }: { label: string; value?: string; 
   return (
     <div className="flex items-center justify-between">
       <span className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{label}</span>
-      {children ?? <span className="font-mono text-[11px] text-parchment">{value}</span>}
+      {children ?? <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{value}</span>}
     </div>
   );
 }
@@ -573,7 +573,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
         {pipelines.map(p => (
           <div key={p.label} className="space-y-1">
             <div className="font-mono text-[10px] text-white/50">{p.label}</div>
-            <div className="font-display text-sm font-bold text-parchment">
+            <div className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {p.count.toLocaleString()} <span className="font-mono text-[9px] text-white/50 font-normal">{p.suffix}</span>
             </div>
             <div className="flex items-center gap-1.5">

@@ -152,7 +152,7 @@ function ConfigCard({
   const statusLabel = agentData?.status ?? 'unknown';
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div className="rounded-xl overflow-hidden" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
       {/* Header — always visible */}
       <button
         onClick={onToggle}
@@ -162,7 +162,7 @@ function ConfigCard({
           <AgentIcon agent={agentId} size={28} />
         </span>
         <div className="flex-1 min-w-0">
-          <span className="font-mono text-sm font-bold text-parchment">
+          <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
             {config.name}
           </span>
           <span className="block font-mono text-[10px] text-white/40 mt-0.5">
@@ -196,11 +196,11 @@ function ConfigCard({
       {isOpen && (
         <div className="px-5 pb-5 pt-1 border-t border-white/[0.06] space-y-4 animate-fade-in">
           <ConfigSection label="Schedule">
-            <span className="font-mono text-[11px] text-parchment">{config.schedule}</span>
+            <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{config.schedule}</span>
           </ConfigSection>
 
           <ConfigSection label="Model">
-            <span className="font-mono text-[11px] text-parchment">{config.model}</span>
+            <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{config.model}</span>
           </ConfigSection>
 
           <ConfigSection label="Scope">
@@ -214,7 +214,7 @@ function ConfigCard({
                   key={output}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] font-mono text-[10px] text-white/60"
                 >
-                  <span className="text-afterburner">&rarr;</span> {output}
+                  <span style={{ color: 'var(--amber)' }}>&rarr;</span> {output}
                 </span>
               ))}
             </div>
@@ -223,7 +223,7 @@ function ConfigCard({
           <ConfigSection label="Performance (24h)">
             <div className="flex gap-6">
               <div>
-                <span className="font-display text-sm font-bold text-parchment">{successCount}</span>
+                <span className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{successCount}</span>
                 <span className="font-mono text-[9px] text-white/40 ml-1">successful</span>
               </div>
               <div>
@@ -234,7 +234,7 @@ function ConfigCard({
               </div>
               <div>
                 <span className="font-mono text-[10px] text-white/40">Last run: </span>
-                <span className="font-mono text-[11px] text-parchment">
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>
                   {relativeTime(agentData?.last_run_at ?? null)}
                 </span>
               </div>

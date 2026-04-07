@@ -81,10 +81,10 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
           <div className="font-mono text-xs font-bold text-warning uppercase tracking-wider">
             Copy your API key now
           </div>
-          <p className="text-[11px] text-contrail/50">
+          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
             This key will not be shown again. Store it securely.
           </p>
-          <div className="bg-cockpit border border-white/10 rounded-lg p-3 font-mono text-xs text-parchment break-all select-all">
+          <div className="border border-white/10 rounded-lg p-3 font-mono text-xs break-all select-all" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
             {revealedKey}
           </div>
           <div className="flex gap-2">
@@ -108,7 +108,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">
               Key Name
             </label>
             <Input
@@ -121,7 +121,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-2">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-2">
               Permissions
             </label>
             <div className="space-y-2">
@@ -131,10 +131,11 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
                     type="checkbox"
                     checked={scopes.includes(s.key)}
                     onChange={() => toggleScope(s.key)}
-                    className="w-3.5 h-3.5 rounded border-white/20 bg-cockpit text-afterburner accent-afterburner"
+                    className="w-3.5 h-3.5 rounded border-white/20 accent-[color:var(--amber)]"
+                    style={{ background: 'var(--bg-page)' }}
                   />
-                  <span className="text-[11px] text-parchment/80">
-                    <span className="font-mono text-contrail/60">{s.key}</span> — {s.label}
+                  <span className="text-[11px]" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-mono text-[color:var(--text-secondary)]">{s.key}</span> — {s.label}
                   </span>
                 </label>
               ))}
@@ -142,7 +143,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-2">
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-2">
               Expiry
             </label>
             <div className="flex gap-2 flex-wrap">
@@ -154,7 +155,7 @@ export function ApiKeyCreateSheet({ open, onClose }: ApiKeyCreateSheetProps) {
                   className={`px-3 py-1 rounded-md text-[11px] font-mono border transition-colors ${
                     expiry === opt.value
                       ? 'border-accent/30 bg-accent/10 text-accent'
-                      : 'border-white/10 text-contrail/50 hover:bg-white/5'
+                      : 'border-white/10 text-[color:var(--text-tertiary)] hover:bg-white/5'
                   }`}
                 >
                   {opt.label}

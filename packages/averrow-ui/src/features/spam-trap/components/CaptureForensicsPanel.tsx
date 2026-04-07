@@ -1,8 +1,17 @@
 import { useState, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useSpamTrapCaptures, useSpamTrapCapture } from '@/hooks/useSpamTrap';
 import type { SpamTrapCapture, SpamTrapCaptureDetail } from '@/hooks/useSpamTrap';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+
+const GLASS_CARD: CSSProperties = {
+  background: 'rgba(15,23,42,0.50)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255,255,255,0.07)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+};
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: '#f87171',
@@ -70,7 +79,15 @@ function CaptureCard({ capture }: { capture: SpamTrapCapture }) {
   const severityColor = SEVERITY_COLORS[(capture.severity ?? '').toLowerCase()] ?? '#78A0C8';
 
   return (
-    <div className={`glass-card rounded-xl overflow-hidden ${capture.category === 'phishing' ? 'glass-card-red' : ''}`}>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        ...GLASS_CARD,
+        ...(capture.category === 'phishing'
+          ? { borderTop: '1px solid rgba(200,60,60,0.7)' }
+          : {}),
+      }}
+    >
       {/* Collapsed header */}
       <button
         onClick={handleExpand}
@@ -186,7 +203,7 @@ function ExpandedDetail({
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* LEFT — Email Intelligence */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
           Email Intelligence
         </div>
         <div className="space-y-1.5 text-[11px]">
@@ -214,7 +231,7 @@ function ExpandedDetail({
 
       {/* CENTER — URLs */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
           URLs
         </div>
         <div className="text-[32px] font-bold font-mono text-white leading-none">
@@ -242,7 +259,7 @@ function ExpandedDetail({
         {urls.length > 5 && (
           <button
             onClick={() => setShowAllUrls(!showAllUrls)}
-            className="text-[10px] font-mono text-afterburner hover:text-afterburner-hover transition-colors"
+            className="text-[10px] font-mono text-[#E5A832] hover:text-[#D49A28] transition-colors"
           >
             {showAllUrls ? '[Show less]' : `[Show all ${urls.length}]`}
           </button>
@@ -251,18 +268,18 @@ function ExpandedDetail({
 
       {/* RIGHT — Actions */}
       <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
           Actions
         </div>
         <button
           onClick={onRunAi}
           disabled={aiLoading}
-          className="w-full px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-afterburner text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
+          className="w-full px-3 py-2 rounded-lg bg-afterburner-muted border border-afterburner-border text-[#E5A832] text-[11px] font-mono hover:bg-afterburner-muted disabled:opacity-40 transition-colors"
         >
           {aiLoading ? 'Analyzing…' : 'Run AI Analysis'}
         </button>
         {aiResult && (
-          <div className="glass-card rounded-lg p-3 text-[10px] text-white/70 font-mono whitespace-pre-wrap">
+          <div className="rounded-lg p-3 text-[10px] text-white/70 font-mono whitespace-pre-wrap" style={GLASS_CARD}>
             {aiResult}
           </div>
         )}
@@ -310,7 +327,7 @@ export function CaptureForensicsPanel() {
 
   if (isError) {
     return (
-      <div className="glass-card rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3">
+      <div className="rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3" style={GLASS_CARD}>
         <span className="text-white/40 text-sm font-mono">Unable to load captures</span>
         <button
           onClick={() => refetch()}
@@ -323,8 +340,8 @@ export function CaptureForensicsPanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4 min-h-[400px]">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-4">
+    <div className="rounded-xl p-4 min-h-[400px]" style={GLASS_CARD}>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-4">
         Capture Forensics
       </div>
 

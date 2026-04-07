@@ -80,7 +80,16 @@ export function HoneypotNetworkPanel() {
 
   if (isError) {
     return (
-      <div className="glass-card rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3">
+      <div
+        className="rounded-xl p-4 min-h-[400px] flex flex-col items-center justify-center gap-3"
+        style={{
+          background: 'rgba(15,23,42,0.50)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+        }}
+      >
         <span className="text-white/40 text-sm font-mono">Unable to load seed addresses</span>
         <button
           onClick={() => refetch()}
@@ -93,9 +102,18 @@ export function HoneypotNetworkPanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4 min-h-[400px]">
+    <div
+      className="rounded-xl p-4 min-h-[400px]"
+      style={{
+        background: 'rgba(15,23,42,0.50)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+      }}
+    >
       <div className="flex items-center justify-between mb-4">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)]">
           Honeypot Network
         </div>
         <div className="flex gap-1">
@@ -247,7 +265,7 @@ export function HoneypotNetworkPanel() {
                   <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider mt-0.5">Bot Visits</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 text-center">
-                  <div className="font-mono text-xl font-bold text-afterburner">{seedingData.honeypot_visits.last_24h}</div>
+                  <div className="font-mono text-xl font-bold text-[#E5A832]">{seedingData.honeypot_visits.last_24h}</div>
                   <div className="font-mono text-[9px] text-white/40 uppercase tracking-wider mt-0.5">Last 24h</div>
                 </div>
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 text-center">
@@ -351,7 +369,7 @@ export function HoneypotNetworkPanel() {
                       <tr key={addr.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
                         <td className="py-2 pr-2">
                           <span
-                            className="font-mono text-[11px] text-parchment/80 block truncate max-w-[200px]"
+                            className="font-mono text-[11px] text-[rgba(255,255,255,0.74)] block truncate max-w-[200px]"
                             title={addr.address}
                           >
                             {addr.address.length > 30 ? addr.address.slice(0, 30) + '…' : addr.address}

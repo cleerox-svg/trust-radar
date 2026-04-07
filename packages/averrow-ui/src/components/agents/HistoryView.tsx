@@ -81,7 +81,7 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
   const totalTokens = data.reduce((sum, d) => sum + d.total_tokens, 0);
 
   return (
-    <div className="glass-card rounded-xl p-5 mb-6">
+    <div className="rounded-xl p-5 mb-6" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
       <div className="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-4">
         Token Usage (All Time)
       </div>
@@ -102,7 +102,7 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
                 style={{ width: `${(entry.total_tokens / maxTokens) * 100}%` }}
               />
             </div>
-            <div className="w-20 text-right font-mono text-[11px] text-parchment tabular-nums">
+            <div className="w-20 text-right font-mono text-[11px] tabular-nums" style={{ color: 'var(--text-primary)' }}>
               {entry.total_tokens.toLocaleString()}
             </div>
           </div>
@@ -110,7 +110,7 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
       </div>
       <div className="mt-4 pt-3 border-t border-white/[0.06]">
         <span className="font-mono text-[10px] text-white/40">Total: </span>
-        <span className="font-mono text-[11px] text-parchment font-bold">
+        <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>
           {totalTokens.toLocaleString()} tokens
         </span>
       </div>
@@ -126,33 +126,33 @@ function RunDetail({ run }: { run: AgentRun }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-[11px]">
           <div>
             <span className="font-mono text-white/40 block mb-1">Run ID</span>
-            <span className="font-mono text-parchment select-all">{run.id}</span>
+            <span className="font-mono select-all" style={{ color: 'var(--text-primary)' }}>{run.id}</span>
           </div>
           <div>
             <span className="font-mono text-white/40 block mb-1">Started</span>
-            <span className="font-mono text-parchment">{formatFullDate(run.started_at)}</span>
+            <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{formatFullDate(run.started_at)}</span>
           </div>
           <div>
             <span className="font-mono text-white/40 block mb-1">Completed</span>
-            <span className="font-mono text-parchment">{formatFullDate(run.completed_at)}</span>
+            <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{formatFullDate(run.completed_at)}</span>
           </div>
           {run.tokens_used ? (
             <>
               <div>
                 <span className="font-mono text-white/40 block mb-1">Input Tokens</span>
-                <span className="font-mono text-parchment">
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>
                   {(run.input_tokens ?? 0).toLocaleString()}
                 </span>
               </div>
               <div>
                 <span className="font-mono text-white/40 block mb-1">Output Tokens</span>
-                <span className="font-mono text-parchment">
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>
                   {(run.output_tokens ?? 0).toLocaleString()}
                 </span>
               </div>
               <div>
                 <span className="font-mono text-white/40 block mb-1">Total Tokens</span>
-                <span className="font-mono text-parchment">
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>
                   {(run.tokens_used ?? 0).toLocaleString()}
                 </span>
               </div>
@@ -161,7 +161,7 @@ function RunDetail({ run }: { run: AgentRun }) {
           {run.status === 'failed' && run.error_message && (
             <div className="sm:col-span-2 lg:col-span-3">
               <span className="font-mono text-white/40 block mb-1">Error</span>
-              <div className="glass-card-red rounded-lg px-3 py-2 font-mono text-[11px] text-[#f87171]">
+              <div className="rounded-lg px-3 py-2 font-mono text-[11px] text-[#f87171]" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(239,68,68,0.30)', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                 {run.error_message}
               </div>
             </div>
@@ -277,7 +277,7 @@ export function HistoryView() {
       </div>
 
       {/* Run Log Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      <div className="rounded-xl overflow-hidden" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -329,16 +329,16 @@ export function HistoryView() {
                         <td className="px-4 py-3">
                           <StatusBadge status={run.status} />
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-parchment tabular-nums">
+                        <td className="px-4 py-3 font-mono text-[11px] tabular-nums" style={{ color: 'var(--text-primary)' }}>
                           {run.records_processed > 0 ? run.records_processed : '\u2014'}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-parchment tabular-nums hidden sm:table-cell">
+                        <td className="px-4 py-3 font-mono text-[11px] tabular-nums hidden sm:table-cell" style={{ color: 'var(--text-primary)' }}>
                           {run.outputs_generated > 0 ? run.outputs_generated : '\u2014'}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-parchment tabular-nums">
+                        <td className="px-4 py-3 font-mono text-[11px] tabular-nums" style={{ color: 'var(--text-primary)' }}>
                           {formatTokens(run.tokens_used ?? 0)}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-parchment tabular-nums">
+                        <td className="px-4 py-3 font-mono text-[11px] tabular-nums" style={{ color: 'var(--text-primary)' }}>
                           {formatRunDuration(run)}
                         </td>
                       </tr>

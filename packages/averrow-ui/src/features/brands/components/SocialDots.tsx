@@ -69,7 +69,7 @@ export function SocialDots({ profiles, maxDots = 6, className }: SocialDotsProps
           onMouseLeave={() => setHoveredIdx(null)}
         >
           {hoveredIdx === i && (
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded bg-cockpit px-2 py-1 font-mono text-[10px] text-parchment border border-white/10 shadow-lg z-20 pointer-events-none">
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded px-2 py-1 font-mono text-[10px] border border-white/10 shadow-lg z-20 pointer-events-none" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
               {getLabel(profile)}
             </span>
           )}

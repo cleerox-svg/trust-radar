@@ -59,12 +59,12 @@ function ChartTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass-card rounded-lg px-3 py-2 text-xs">
-      <div className="font-mono text-contrail/60 mb-1">{label}</div>
+    <div className="rounded-lg px-3 py-2 text-xs" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      <div className="font-mono mb-1" style={{ color: 'var(--text-secondary)' }}>{label}</div>
       {payload.map((p) => (
         <div key={p.name} className="flex justify-between gap-4">
           <span style={{ color: p.color }}>{THREAT_TYPE_LABELS[p.name] ?? p.name}</span>
-          <span className="font-mono text-parchment">{(p.value ?? 0).toLocaleString()}</span>
+          <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{(p.value ?? 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -76,34 +76,32 @@ function ChartTooltip({ active, payload, label }: {
 function BriefingCard({ briefing }: { briefing: IntelligenceBriefing }) {
   const [expanded, setExpanded] = useState(false);
   const sev = briefing.severity?.toLowerCase() ?? 'low';
-  const cardClass =
-    sev === 'critical' ? 'glass-card-red' :
-    sev === 'high' ? 'glass-card-amber' : '';
   const dotColor = SEVERITY_COLORS[sev] ?? '#78A0C8';
   const title = briefing.summary?.slice(0, 100) ?? 'Untitled';
   const hasMore = (briefing.summary?.length ?? 0) > 100;
 
   return (
-    <div className={`glass-card rounded-xl p-4 ${cardClass}`}>
+    <div className="rounded-xl p-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border: sev === 'critical' ? '1px solid rgba(200,60,60,0.30)' : sev === 'high' ? '1px solid rgba(229,168,50,0.30)' : '1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
       <div className="flex items-start gap-2">
         <span
           className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: dotColor }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-parchment leading-snug">
+          <p className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
             {expanded ? briefing.summary : title}
             {!expanded && hasMore && '…'}
           </p>
           {hasMore && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="mt-1 text-[11px] font-mono text-afterburner hover:text-afterburner-hover transition-colors"
+              className="mt-1 text-[11px] font-mono transition-colors hover:opacity-80"
+              style={{ color: 'var(--amber)' }}
             >
               {expanded ? 'Show less' : 'Show more'}
             </button>
           )}
-          <div className="mt-2 font-mono text-[10px] text-contrail/50">
+          <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
             {new Date(briefing.created_at).toLocaleDateString('en-US', {
               month: 'short', day: 'numeric', year: 'numeric',
               hour: '2-digit', minute: '2-digit',
@@ -213,7 +211,7 @@ function BrandRiskMomentum() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left font-mono text-[10px] uppercase tracking-widest text-contrail/50">
+              <tr className="text-left font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
                 <th className="pb-2">Brand</th>
                 <th className="pb-2 text-right">This Week</th>
                 <th className="pb-2 text-right">Last Week</th>
@@ -232,9 +230,9 @@ function BrandRiskMomentum() {
                   : 'NEW';
                 return (
                   <tr key={b.brand_name} className="data-row border-t border-white/5">
-                    <td className="py-2 text-parchment">{b.brand_name}</td>
-                    <td className="py-2 text-right font-mono text-parchment/80">{thisWeek.toLocaleString()}</td>
-                    <td className="py-2 text-right font-mono text-contrail/60">{lastWeek.toLocaleString()}</td>
+                    <td className="py-2" style={{ color: 'var(--text-primary)' }}>{b.brand_name}</td>
+                    <td className="py-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.78)' }}>{thisWeek.toLocaleString()}</td>
+                    <td className="py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{lastWeek.toLocaleString()}</td>
                     <td className={`py-2 text-right font-mono font-semibold ${changeGlow(isFinite(changePct) ? changePct : 0)}`}>
                       {displayChange}
                     </td>
@@ -282,14 +280,14 @@ function ProviderMomentumPanel() {
               const color = barColor(count);
               return (
                 <div key={p.provider} className="flex items-center gap-3">
-                  <div className="w-28 text-xs text-parchment/80 truncate font-mono">{p.provider}</div>
+                  <div className="w-28 text-xs truncate font-mono" style={{ color: 'rgba(255,255,255,0.78)' }}>{p.provider}</div>
                   <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{ width: `${pct}%`, backgroundColor: color }}
                     />
                   </div>
-                  <div className="font-mono text-[11px] text-contrail/60 w-12 text-right">
+                  <div className="font-mono text-[11px] w-12 text-right" style={{ color: 'var(--text-secondary)' }}>
                     {count.toLocaleString()}
                   </div>
                 </div>
@@ -315,9 +313,9 @@ function ProviderMomentumPanel() {
                     className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
                     style={{ backgroundColor: SEVERITY_COLORS[c.severity?.toLowerCase() ?? 'low'] ?? '#78A0C8' }}
                   />
-                  <span className="text-xs text-parchment truncate">{c.label}</span>
+                  <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{c.label}</span>
                 </div>
-                <span className="font-mono text-[10px] text-contrail/50 shrink-0">
+                <span className="font-mono text-[10px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
                   {(c.threat_count ?? 0).toLocaleString()} threats
                 </span>
               </div>
@@ -365,8 +363,8 @@ function ThreatTypeTotals({ volume }: { volume: VolumePoint[] }) {
                 if (!active || !payload?.length) return null;
                 const item = payload[0];
                 return (
-                  <div className="glass-card rounded-lg px-3 py-2 text-xs">
-                    <span className="text-parchment font-mono">{((item.value as number) ?? 0).toLocaleString()}</span>
+                  <div className="rounded-lg px-3 py-2 text-xs" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                    <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{((item.value as number) ?? 0).toLocaleString()}</span>
                   </div>
                 );
               }}
@@ -395,7 +393,7 @@ function TrendsContent() {
     <div className="animate-fade-in space-y-6">
       {/* Header + Time Filter */}
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold text-parchment">Platform Intelligence</h1>
+        <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Platform Intelligence</h1>
         <div className="flex gap-1.5">
           {WINDOWS.map((w) => (
             <button

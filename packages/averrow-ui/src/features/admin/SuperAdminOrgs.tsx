@@ -87,12 +87,12 @@ function OrgListView({ onSelect, onCreate }: {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-parchment font-display">Organizations</h1>
-          <p className="text-[11px] text-contrail/50 font-mono mt-0.5">
+          <h1 className="text-xl font-bold text-[color:var(--text-primary)] font-display">Organizations</h1>
+          <p className="text-[11px] text-[color:var(--text-tertiary)] font-mono mt-0.5">
             Manage all organizations on the platform
           </p>
         </div>
-        <Button onClick={onCreate} className="bg-afterburner hover:bg-afterburner-hover text-deep-space">
+        <Button onClick={onCreate} className="bg-[color:var(--amber)] hover:bg-[color:var(--amber-dim)] text-black">
           Create New Organization
         </Button>
       </div>
@@ -123,31 +123,31 @@ function OrgListRow({ org, onClick }: { org: AdminOrg; onClick: () => void }) {
       <button type="button" onClick={onClick} className="w-full text-left">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold text-parchment shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold text-[color:var(--text-primary)] shrink-0">
               {org.name.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-parchment">{org.name}</span>
+                <span className="text-sm font-medium text-[color:var(--text-primary)]">{org.name}</span>
                 <Badge variant={planBadgeVariant(org.plan)}>{org.plan}</Badge>
                 <Badge variant={statusBadgeVariant(org.status)}>{org.status}</Badge>
               </div>
-              <div className="text-[11px] text-contrail/50 font-mono mt-0.5">
+              <div className="text-[11px] text-[color:var(--text-tertiary)] font-mono mt-0.5">
                 {org.slug}.averrow.com
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-6 shrink-0 text-[11px] text-contrail/50 font-mono">
+          <div className="flex items-center gap-6 shrink-0 text-[11px] text-[color:var(--text-tertiary)] font-mono">
             <div className="text-center">
-              <div className="text-sm font-bold text-parchment">{org.member_count}</div>
+              <div className="text-sm font-bold text-[color:var(--text-primary)]">{org.member_count}</div>
               <div>members</div>
             </div>
             <div className="text-center">
-              <div className="text-sm font-bold text-parchment">{org.brand_count}</div>
+              <div className="text-sm font-bold text-[color:var(--text-primary)]">{org.brand_count}</div>
               <div>brands</div>
             </div>
             <div className="text-center hidden sm:block">
-              <div className="text-sm text-parchment/70">{new Date(org.created_at).toLocaleDateString()}</div>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(org.created_at).toLocaleDateString()}</div>
               <div>created</div>
             </div>
           </div>
@@ -187,21 +187,21 @@ function OrgDetailView({ orgId, onBack }: { orgId: string; onBack: () => void })
       <div>
         <button
           onClick={onBack}
-          className="text-[11px] text-contrail/50 font-mono hover:text-parchment transition-colors mb-3 flex items-center gap-1"
+          className="text-[11px] text-[color:var(--text-tertiary)] font-mono hover:text-[color:var(--text-primary)] transition-colors mb-3 flex items-center gap-1"
         >
           &larr; Back to Organizations
         </button>
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-parchment shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-[color:var(--text-primary)] shrink-0">
             {org.name.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-parchment font-display">{org.name}</h1>
+              <h1 className="text-xl font-bold text-[color:var(--text-primary)] font-display">{org.name}</h1>
               <Badge variant={planBadgeVariant(org.plan)}>{org.plan}</Badge>
               <Badge variant={statusBadgeVariant(org.status)}>{org.status}</Badge>
             </div>
-            <p className="text-[11px] text-contrail/50 font-mono mt-0.5">
+            <p className="text-[11px] text-[color:var(--text-tertiary)] font-mono mt-0.5">
               Created: {new Date(org.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })} · {org.members?.length ?? 0} member{(org.members?.length ?? 0) !== 1 ? 's' : ''} · {org.brands?.length ?? 0} brand{(org.brands?.length ?? 0) !== 1 ? 's' : ''}
             </p>
           </div>
@@ -295,8 +295,8 @@ function DetailMembersTab({ orgId, members }: {
             <tbody>
               {members.map((m) => (
                 <tr key={m.user_id} className="border-b border-white/[0.03]">
-                  <td className="py-3 pr-4 text-parchment font-medium">{m.user_name}</td>
-                  <td className="py-3 pr-4 text-contrail/60 font-mono">{m.email}</td>
+                  <td className="py-3 pr-4 text-[color:var(--text-primary)] font-medium">{m.user_name}</td>
+                  <td className="py-3 pr-4 text-[color:var(--text-secondary)] font-mono">{m.email}</td>
                   <td className="py-3 pr-4">
                     <Badge variant={m.role === 'admin' || m.role === 'owner' ? 'info' : 'default'}>{m.role}</Badge>
                   </td>
@@ -342,7 +342,7 @@ function DetailBrandsTab({ orgId, brands, maxBrands }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-contrail/50 font-mono">{brands.length} / {maxBrands} brands</div>
+        <div className="text-[11px] text-[color:var(--text-tertiary)] font-mono">{brands.length} / {maxBrands} brands</div>
         <Button variant="secondary" size="sm" onClick={() => setShowSearch(!showSearch)} disabled={brands.length >= maxBrands}>
           Add Brand
         </Button>
@@ -371,7 +371,7 @@ function DetailBrandsTab({ orgId, brands, maxBrands }: {
                     className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 flex items-center justify-between transition-colors"
                   >
                     <div>
-                      <span className="text-sm text-parchment">{r.name}</span>
+                      <span className="text-sm text-[color:var(--text-primary)]">{r.name}</span>
                       <span className="text-[11px] text-white/55 font-mono ml-2">{r.canonical_domain}</span>
                     </div>
                     <span className="text-[10px] text-white/55">{r.threat_count} threats</span>
@@ -395,10 +395,10 @@ function DetailBrandsTab({ orgId, brands, maxBrands }: {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-parchment">{b.brand_name}</span>
+                    <span className="text-sm font-medium text-[color:var(--text-primary)]">{b.brand_name}</span>
                     {b.is_primary === 1 && <Badge variant="info">Primary</Badge>}
                   </div>
-                  <div className="text-[11px] text-contrail/50 font-mono mt-0.5">{b.canonical_domain}</div>
+                  <div className="text-[11px] text-[color:var(--text-tertiary)] font-mono mt-0.5">{b.canonical_domain}</div>
                 </div>
                 <Button
                   variant="ghost"
@@ -479,16 +479,16 @@ function DetailSettingsTab({ orgId, org }: { orgId: string; org: AdminOrg }) {
         <SectionLabel className="mb-4">Organization Details</SectionLabel>
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">Name</label>
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">Name</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} className="w-full" />
           </div>
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">Slug</label>
-            <div className="text-sm text-contrail/50 font-mono">{org.slug} (read-only)</div>
+            <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">Slug</label>
+            <div className="text-sm text-[color:var(--text-tertiary)] font-mono">{org.slug} (read-only)</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">Plan</label>
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">Plan</label>
               <Select
                 options={[
                   { value: 'free', label: 'Free' },
@@ -509,11 +509,11 @@ function DetailSettingsTab({ orgId, org }: { orgId: string; org: AdminOrg }) {
               />
             </div>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">Max Brands</label>
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">Max Brands</label>
               <Input type="number" value={maxBrands} onChange={(e) => setMaxBrands(e.target.value)} className="w-full" />
             </div>
             <div>
-              <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">Max Members</label>
+              <label className="block text-[11px] text-[color:var(--text-secondary)] font-mono uppercase tracking-wide mb-1">Max Members</label>
               <Input type="number" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} className="w-full" />
             </div>
           </div>
