@@ -33,3 +33,10 @@ export type { DataRowProps, SeverityDotProps } from './DataRow';
 
 export { FilterBar } from './FilterBar';
 export type { FilterBarProps, FilterOption } from './FilterBar';
+
+// ── Layout components ──────────────────────────────────────────────────────
+export { PageHeader } from './PageHeader';
+export type { PageHeaderProps } from './PageHeader';
+
+export { StatGrid } from './StatGrid';
+export type { StatGridProps } from './StatGrid';
