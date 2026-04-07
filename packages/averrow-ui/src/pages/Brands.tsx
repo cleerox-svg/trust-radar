@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBrands, useBrandStats, useToggleMonitor, useAddBrand } from '@/hooks/useBrands';
 import type { Brand } from '@/hooks/useBrands';
-import { StatCard } from '@/components/brands/StatCard';
 import { SocialDots } from '@/components/brands/SocialDots';
 import { TrendBadge } from '@/components/brands/TrendBadge';
 import { Sparkline } from '@/components/brands/Sparkline';
@@ -19,6 +18,40 @@ import { useMobile, DrillHeader, MobileBottomSheet, HeroStatGrid, MobileFilterCh
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Search, Shield } from 'lucide-react';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
+import {
+  DeepCard,
+  DimensionalAvatar,
+  SeverityChip,
+  GlowNumber,
+  SectionLabel,
+} from '@/components/ui';
+import type { Severity } from '@/components/ui';
+
+/* ─── Severity colors for UI Standard components ─── */
+const SEV_COLORS: Record<string, { color: string; dim: string }> = {
+  critical: { color: '#C83C3C', dim: '#8B1A1A' },
+  high:     { color: '#fb923c', dim: '#7c2d12' },
+  medium:   { color: '#fbbf24', dim: '#78350f' },
+  low:      { color: '#60a5fa', dim: '#1e3a5f' },
+  info:     { color: '#4ade80', dim: '#14532d' },
+};
+
+function sevFromBrand(exposure: number | null | undefined, count: number | null | undefined): Severity {
+  const c = count ?? 0;
+  const e = exposure ?? 100;
+  if (e < 40 || c >= 200) return 'critical';
+  if ((e >= 40 && e < 60) || (c >= 100 && c < 200)) return 'high';
+  if ((e >= 60 && e < 80) || (c >= 50 && c < 100)) return 'medium';
+  if (c === 0) return 'info';
+  return 'low';
+}
+
+function sevColorOf(sev: Severity): string {
+  return SEV_COLORS[sev].color;
+}
+function sevDimColorOf(sev: Severity): string {
+  return SEV_COLORS[sev].dim;
+}
 
 /* ─── Types ─── */
 
@@ -318,102 +351,86 @@ function StatsRow() {
     );
   }
 
-  const sectors = stats?.sector_breakdown?.slice(0, 3) ?? [];
+  const cards: Array<{
+    label: string;
+    value: number;
+    suffix?: string;
+    sub?: string;
+    accent: string;
+  }> = [
+    {
+      label: 'Total Tracked',
+      value: stats?.total_tracked ?? 0,
+      sub: stats?.sector_breakdown?.[0]?.sector ?? undefined,
+      accent: '#E5A832',
+    },
+    {
+      label: 'New This Week',
+      value: stats?.new_this_week ?? 0,
+      sub: stats?.newest_brand_name ?? undefined,
+      accent: '#E5A832',
+    },
+    {
+      label: 'Fastest Rising',
+      value: stats?.fastest_rising_pct ?? 0,
+      suffix: '%',
+      sub: stats?.fastest_rising ?? undefined,
+      accent: '#C83C3C',
+    },
+    {
+      label: 'Top Attack',
+      value: 0,
+      sub: stats?.top_threat_type?.replace(/_/g, ' ') ?? '—',
+      accent: '#C83C3C',
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <StatCard
-        title="Total Brands"
-        metric={
-          <span className="text-[32px] font-bold leading-none text-afterburner">
-            {stats?.total_tracked ?? 0}
-          </span>
-        }
-        metricLabel="tracked"
-      >
-        <div className="space-y-1.5">
-          {sectors.map(s => (
-            <div key={s.sector} className="flex items-center gap-2">
-              <span className="block h-1.5 w-1.5 rounded-full bg-afterburner/60 flex-shrink-0" />
-              <span className="font-mono text-[10px] text-white/50 truncate flex-1">{s.sector}</span>
-              <span className="font-mono text-[10px] text-white/50">{s.count}</span>
+      {cards.map((c, i) => (
+        <DeepCard
+          key={c.label}
+          variant="active"
+          accentColor={c.accent}
+          style={{ padding: '16px 20px', minWidth: 160, position: 'relative', overflow: 'hidden' }}
+        >
+          <div style={{
+            position: 'absolute', top: 12, left: 16,
+            width: 4, height: 4, borderRadius: '50%',
+            background: c.accent, boxShadow: `0 0 8px ${c.accent}`,
+          }} />
+          <div style={{
+            position: 'absolute', right: -16, bottom: -16,
+            width: 80, height: 80, borderRadius: '50%',
+            background: `radial-gradient(circle, ${c.accent}40, transparent 70%)`,
+            pointerEvents: 'none',
+          }} />
+          <div style={{ marginTop: 8, position: 'relative' }}>
+            <div style={{
+              fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.20em',
+              color: 'rgba(255,255,255,0.40)', textTransform: 'uppercase', marginBottom: 6,
+            }}>
+              {c.label}
             </div>
-          ))}
-          {sectors.length === 0 && (
-            <span className="font-mono text-[10px] text-white/40">No sector data</span>
-          )}
-        </div>
-      </StatCard>
-
-      <StatCard
-        title="New This Week"
-        metric={
-          <span className="text-[32px] font-bold leading-none text-[#4ade80]">
-            {stats?.new_this_week ?? 0}
-          </span>
-        }
-        metricLabel="new"
-      >
-        <div className="space-y-1">
-          {stats?.newest_brand_name && (
-            <span className="block font-mono text-[10px] text-white/50 truncate">{stats.newest_brand_name}</span>
-          )}
-          {stats?.newest_brand_sector && (
-            <span className="block font-mono text-[10px] text-white/50">{stats.newest_brand_sector}</span>
-          )}
-          {stats?.newest_brand_added_by && (
-            <span className="block font-mono text-[10px] text-white/40">added by {stats.newest_brand_added_by}</span>
-          )}
-        </div>
-      </StatCard>
-
-      <StatCard
-        title="Fastest Rising"
-        metric={
-          <span className="text-[32px] font-bold leading-none text-[#fb923c]">
-            {stats?.fastest_rising_pct ? `${stats.fastest_rising_pct}%` : '—'}
-          </span>
-        }
-        metricLabel="trend"
-      >
-        <div className="space-y-1">
-          {stats?.fastest_rising && (
-            <span className="block font-mono text-[10px] text-white/50 truncate">{stats.fastest_rising}</span>
-          )}
-          {stats?.fastest_rising_domain && (
-            <span className="block font-mono text-[10px] text-white/50 truncate">{stats.fastest_rising_domain}</span>
-          )}
-        </div>
-      </StatCard>
-
-      <StatCard
-        title="Top Attack Type"
-        metric={
-          stats?.top_threat_type ? (
-            <span className="text-sm font-bold leading-none">
-              {threatTypePill(stats.top_threat_type)}
-            </span>
-          ) : (
-            <span className="text-[32px] font-bold leading-none text-white/40">&mdash;</span>
-          )
-        }
-        metricLabel="most common"
-      >
-        <div className="space-y-1.5">
-          {stats?.second_threat_type && (
-            <div className="flex items-center gap-2">
-              <span className="block h-1.5 w-1.5 rounded-full bg-contrail/40 flex-shrink-0" />
-              <span className="font-mono text-[10px] text-white/50">{stats.second_threat_type.replace(/_/g, ' ')}</span>
-            </div>
-          )}
-          {stats?.third_threat_type && (
-            <div className="flex items-center gap-2">
-              <span className="block h-1.5 w-1.5 rounded-full bg-contrail/20 flex-shrink-0" />
-              <span className="font-mono text-[10px] text-white/50">{stats.third_threat_type.replace(/_/g, ' ')}</span>
-            </div>
-          )}
-        </div>
-      </StatCard>
+            {i === 3 ? (
+              <div style={{
+                fontSize: 22, fontWeight: 800,
+                color: c.accent, textShadow: `0 0 12px ${c.accent}66`,
+                textTransform: 'capitalize', lineHeight: 1.1,
+              }}>
+                {c.sub ?? '—'}
+              </div>
+            ) : (
+              <GlowNumber value={c.value} color={c.accent} size="lg" suffix={c.suffix} />
+            )}
+            {i !== 3 && c.sub && (
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                {c.sub}
+              </div>
+            )}
+          </div>
+        </DeepCard>
+      ))}
     </div>
   );
 }
@@ -427,41 +444,34 @@ interface BrandRowProps {
 
 function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
   const navigate = useNavigate();
-  const countColor = severityColor(brand.exposure_score ?? null, brand.threat_count ?? 0);
-  const typeColor = threatTypeColor(brand.top_threat_type ?? '');
+  const sev = sevFromBrand(brand.exposure_score, brand.threat_count);
+  const countColor = sevColorOf(sev);
+  const dimColor = sevDimColorOf(sev);
 
   return (
     <div
       role="button"
       tabIndex={0}
+      data-severity={sev}
       onClick={() => { if (brand.id) navigate(`/brands/${brand.id}`); }}
       onKeyDown={(e) => { if (e.key === 'Enter' && brand.id) navigate(`/brands/${brand.id}`); }}
       className="data-row flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] cursor-pointer transition-colors group min-w-0"
     >
-      {/* 1. Favicon */}
-      <img
-        src={`https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`}
-        alt=""
-        className="w-7 h-7 rounded-md object-contain bg-white/5 flex-shrink-0"
-        loading="lazy"
-        onError={(e) => {
-          const target = e.currentTarget;
-          target.classList.add('hidden');
-          const fallback = target.nextElementSibling;
-          if (fallback) (fallback as HTMLElement).classList.remove('hidden');
-        }}
-      />
-      <div
-        className="hidden w-7 h-7 rounded-md flex-shrink-0 flex items-center justify-center text-[10px] font-bold font-mono text-white"
-        style={{ background: countColor }}
-      >
-        {(brand.name ?? '').slice(0, 2).toUpperCase()}
+      {/* 1. Avatar */}
+      <div className="flex-shrink-0">
+        <DimensionalAvatar
+          name={brand.name ?? '?'}
+          color={countColor}
+          dimColor={dimColor}
+          size={36}
+          radius={10}
+        />
       </div>
 
       {/* 2. Name + domain */}
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-sm font-medium text-white/90 truncate">{brand.name}</span>
-        <span className="text-[11px] text-white/60 font-mono truncate">{brand.canonical_domain}</span>
+        <span className="text-sm font-bold text-white/90 truncate">{brand.name}</span>
+        <span className="text-[11px] text-white/40 font-mono truncate">{brand.canonical_domain}</span>
       </div>
 
       {/* 3. Social dots — hidden on mobile */}
@@ -475,27 +485,19 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
       </div>
 
       {/* 5. Threat count */}
-      <span
-        className="w-14 text-right font-bold font-mono text-sm flex-shrink-0"
-        style={{ color: countColor }}
-      >
-        {(brand.threat_count ?? 0).toLocaleString()}
-      </span>
+      <div className="w-16 text-right flex-shrink-0 flex justify-end">
+        <GlowNumber value={brand.threat_count ?? 0} color={countColor} size="md" animate={false} />
+      </div>
 
       {/* 6. Trend badge */}
       <div className="w-14 flex-shrink-0">
         <TrendBadge trend={brand.threat_trend} />
       </div>
 
-      {/* 7. Type pill — hidden on mobile */}
+      {/* 7. Severity chip — hidden on mobile */}
       <div className="flex-shrink-0 hidden md:block">
         {brand.top_threat_type ? (
-          <span
-            className="text-[9px] font-mono px-2 py-0.5 rounded border"
-            style={{ color: typeColor, borderColor: `${typeColor}4D` }}
-          >
-            {brand.top_threat_type.replace(/_/g, ' ')}
-          </span>
+          <SeverityChip severity={sev} size="xs" />
         ) : (
           <span className="text-[9px] font-mono text-white/20">&mdash;</span>
         )}
@@ -933,7 +935,8 @@ export function Brands() {
           {/* Left: filter bar + brand rows */}
           <div className="min-w-0">
             {/* Filter bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+            <DeepCard variant="base" style={{ padding: '10px 16px', marginBottom: 12 }}>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -967,8 +970,10 @@ export function Brands() {
                 </div>
               </div>
             </div>
+            </DeepCard>
 
             {/* Brand rows */}
+            <DeepCard variant="base" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="flex flex-col">
               {pagedBrands.map(brand => (
                 <BrandRow key={brand.id} brand={brand} onToggleMonitor={handleToggleMonitor} />
@@ -988,6 +993,7 @@ export function Brands() {
                 />
               )}
             </div>
+            </DeepCard>
 
             {/* Pagination */}
             {totalPages > 1 && (
