@@ -1,7 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { StatCard } from '@/components/ui/StatCard';
+import {
+  Card,
+  StatCard,
+  StatGrid,
+  FilterBar,
+  PageHeader,
+  EmptyState,
+} from '@/design-system/components';
 import { Sparkline } from '@/features/brands/components/Sparkline';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CardGridLoader } from '@/components/ui/PageLoader';
@@ -16,7 +23,6 @@ import type { Operation } from '@/hooks/useOperations';
 import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
 import type { GeopoliticalCampaign } from '@/hooks/useGeopoliticalCampaign';
 import { Activity, Search } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -115,20 +121,25 @@ function OperationCard({
   const primaryCountry = countries[0] ?? '';
 
   return (
-    <button
+    <Card
+      variant={isSelected ? 'active' : 'base'}
+      hover={!isSelected}
       onClick={() => onSelect(operation.id)}
-      className={`w-full text-left rounded-xl p-4 transition-all glass-card glass-card-purple ${
-        isSelected
-          ? 'ring-1 ring-afterburner/20 border-afterburner-border'
-          : 'hover:-translate-y-0.5'
-      }`}
+      className="w-full text-left"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <StatusBadge status={operation.status} />
           {primaryAsn && (
-            <span className="font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-contrail/20 bg-contrail/5 text-contrail/60">
+            <span
+              className="font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border"
+              style={{
+                color: 'var(--text-secondary)',
+                borderColor: 'rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.04)',
+              }}
+            >
               {primaryAsn}
             </span>
           )}
@@ -136,10 +147,13 @@ function OperationCard({
       </div>
 
       {/* Name */}
-      <div className="font-display text-sm font-semibold text-parchment truncate mb-0.5">
+      <div
+        className="font-display text-sm font-semibold truncate mb-0.5"
+        style={{ color: 'var(--text-primary)' }}
+      >
         {operation.cluster_name || `Cluster ${operation.id.slice(0, 8)}`}
       </div>
-      <div className="font-mono text-[10px] text-white/50 mb-3">
+      <div className="font-mono text-[10px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
         {primaryAsn} {primaryCountry ? `\u00B7 ${countryFlag(primaryCountry)} ${primaryCountry}` : ''}
         {operation.first_detected ? ` \u00B7 Since ${formatDate(operation.first_detected)}` : ''}
       </div>
@@ -147,22 +161,22 @@ function OperationCard({
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-3 py-2 border-t border-b border-white/[0.06] my-2">
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {operation.threat_count.toLocaleString()}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Threats</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Threats</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {operation.confidence_score != null ? `${operation.confidence_score}%` : '—'}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Confidence</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Confidence</div>
         </div>
         <div>
-          <div className="font-display text-lg font-bold text-parchment">
+          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {countries.length}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Countries</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Countries</div>
         </div>
       </div>
 
@@ -173,21 +187,21 @@ function OperationCard({
 
       {/* Status alert */}
       {operation.status === 'accelerating' && (
-        <div className="mt-2 font-mono text-[10px] text-amber-400 glow-amber">
+        <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--amber)' }}>
           {'\u26A0'} ACCELERATING: activity increasing across infrastructure
         </div>
       )}
       {operation.status === 'pivot' && (
-        <div className="mt-2 font-mono text-[10px] text-afterburner glow-afterburner">
+        <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--amber)' }}>
           {'\u2192'} PIVOT DETECTED: infrastructure migration observed
         </div>
       )}
       {operation.agent_notes && (
-        <div className="mt-1 font-mono text-[10px] text-white/50 truncate">
+        <div className="mt-1 font-mono text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>
           {operation.agent_notes}
         </div>
       )}
-    </button>
+    </Card>
   );
 }
 
@@ -212,23 +226,23 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
       critical: 'bg-[#f87171]/10 text-[#f87171] border-[#f87171]/30',
       high: 'bg-[#fb923c]/10 text-[#fb923c] border-[#fb923c]/30',
       medium: 'bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/30',
-      low: 'bg-contrail/10 text-contrail border-contrail/30',
+      low: 'bg-[#60a5fa]/10 text-[#60a5fa] border-[#60a5fa]/30',
     };
     return map[severity] ?? map.low;
   }
 
   return (
-    <div className="rounded-xl p-6 animate-fade-in glass-card glass-card-purple">
+    <Card variant="active" className="animate-fade-in" padding="24px">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
             {countries[0] && <span className="text-xl">{countryFlag(countries[0])}</span>}
-            <h3 className="font-display text-lg font-bold text-parchment">
+            <h3 className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
               {operation.cluster_name || `Cluster ${operation.id.slice(0, 8)}`}
             </h3>
           </div>
-          <div className="font-mono text-xs text-contrail/50 mt-1">
+          <div className="font-mono text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
             {asns.join(', ')} {countries.length > 0 ? `\u00B7 ${countries.map(countryFlag).join(' ')}` : ''}
           </div>
         </div>
@@ -239,7 +253,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left — Cluster Info */}
         <div className="space-y-3">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70">
+          <div className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
             Operation Details
           </div>
           <div className="space-y-2">
@@ -252,8 +266,8 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               ['Countries', countries.join(', ') || 'N/A'],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between">
-                <span className="font-mono text-[11px] text-contrail/50">{label}</span>
-                <span className="font-mono text-[11px] text-parchment">{value}</span>
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{value}</span>
               </div>
             ))}
           </div>
@@ -261,7 +275,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
 
         {/* Center — Timeline Chart */}
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
             Threat Timeline (30d)
           </div>
           {timelineLoading ? (
@@ -311,17 +325,17 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
 
         {/* Right — Agent Notes */}
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
             NEXUS Intelligence
           </div>
           {operation.agent_notes ? (
-            <div className="rounded-lg p-3 glass-card">
-              <div className="font-mono text-[11px] text-parchment/80 leading-relaxed">
+            <Card padding="12px">
+              <div className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                 {operation.agent_notes}
               </div>
-            </div>
+            </Card>
           ) : (
-            <div className="font-mono text-[11px] text-white/40 py-4 text-center">
+            <div className="font-mono text-[11px] py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
               No intelligence notes
             </div>
           )}
@@ -330,7 +344,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
 
       {/* Recent Threats Table */}
       <div className="mt-6">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/70 mb-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
           Recent Threats
         </div>
         {threatsLoading ? (
@@ -341,7 +355,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               <thead>
                 <tr className="border-b border-white/[0.06]">
                   {['Type', 'Domain', 'Severity', 'First Seen'].map(h => (
-                    <th key={h} className="font-mono text-[9px] text-contrail/50 uppercase tracking-wider text-left py-2 px-2">
+                    <th key={h} className="font-mono text-[9px] uppercase tracking-wider text-left py-2 px-2" style={{ color: 'var(--text-tertiary)' }}>
                       {h}
                     </th>
                   ))}
@@ -350,8 +364,8 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
               <tbody>
                 {threats.map((threat, i) => (
                   <tr key={String(threat.id ?? i)} className="data-row border-b border-white/[0.04]">
-                    <td className="font-mono text-[11px] text-parchment py-1.5 px-2">{String(threat.threat_type ?? '—')}</td>
-                    <td className="font-mono text-[11px] text-contrail/60 py-1.5 px-2 truncate max-w-[200px]">
+                    <td className="font-mono text-[11px] py-1.5 px-2" style={{ color: 'var(--text-primary)' }}>{String(threat.threat_type ?? '—')}</td>
+                    <td className="font-mono text-[11px] py-1.5 px-2 truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>
                       {String(threat.malicious_domain ?? '—')}
                     </td>
                     <td className="py-1.5 px-2">
@@ -377,7 +391,7 @@ function OperationDetailPanel({ operationId, operation }: { operationId: string;
           />
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -413,45 +427,42 @@ function CampaignCard({
   }
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all glass-card"
-    >
+    <Card hover onClick={onClick} className="w-full text-left">
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <AttackTypeBadge type={attackType} />
       </div>
 
       {/* Name */}
-      <div className="font-display text-sm font-semibold text-parchment truncate mb-0.5">
+      <div className="font-display text-sm font-semibold truncate mb-0.5" style={{ color: 'var(--text-primary)' }}>
         {campaign.name}
       </div>
-      <div className="font-mono text-[10px] text-white/50 mb-3">
+      <div className="font-mono text-[10px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
         First seen {formatDate(campaign.first_seen)} {'\u00B7'} Last seen {formatDate(campaign.last_seen)}
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-3 py-2 border-t border-white/[0.06]">
         <div>
-          <div className="font-display text-base font-bold text-parchment">
+          <div className="font-display text-base font-bold" style={{ color: 'var(--text-primary)' }}>
             {campaign.threat_count}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Threats</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Threats</div>
         </div>
         <div>
-          <div className="font-display text-base font-bold text-parchment">
+          <div className="font-display text-base font-bold" style={{ color: 'var(--text-primary)' }}>
             {campaign.brand_count}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Brands</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Brands</div>
         </div>
         <div>
-          <div className="font-display text-base font-bold text-parchment">
+          <div className="font-display text-base font-bold" style={{ color: 'var(--text-primary)' }}>
             {campaign.provider_count}
           </div>
-          <div className="font-mono text-[9px] text-contrail/50 uppercase">Providers</div>
+          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Providers</div>
         </div>
       </div>
-    </button>
+    </Card>
   );
 }
 
@@ -469,10 +480,7 @@ function GeoCampaignCard({
   const threatActors = parseJsonArray(campaign.threat_actors);
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all glass-card border-signal-red/20"
-    >
+    <Card variant="critical" hover onClick={onClick} className="w-full text-left">
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold uppercase ${
@@ -490,7 +498,7 @@ function GeoCampaignCard({
       </div>
 
       {/* Name */}
-      <div className="font-display text-sm font-semibold text-parchment truncate mb-1">
+      <div className="font-display text-sm font-semibold truncate mb-1" style={{ color: 'var(--text-primary)' }}>
         {campaign.name}
       </div>
       {campaign.description && (
@@ -526,7 +534,7 @@ function GeoCampaignCard({
           </div>
         )}
       </div>
-    </button>
+    </Card>
   );
 }
 
@@ -599,84 +607,42 @@ export function Campaigns() {
   return (
     <div className="animate-fade-in space-y-8">
       {/* Page Title */}
-      <h1 className="font-display text-xl font-bold text-parchment">Threat Operations</h1>
+      <PageHeader
+        title="Threat Campaigns"
+        subtitle="Active adversary operations targeting monitored brands"
+      />
 
       {/* ─── Header Stats (4 cards) ─────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatGrid cols={4}>
         <StatCard
-          title="Active Operations"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-[#4ADE80]">
-              {opsStatsLoading ? '—' : (opsStats?.active_operations ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Clusters"
-        >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="font-mono text-[11px] text-white/60">{opsStats?.accelerating ?? 0} accelerating</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-contrail/40" />
-              <span className="font-mono text-[11px] text-white/50">{opsStats?.total_clusters ?? 0} total clusters</span>
-            </div>
-          </div>
-        </StatCard>
-
+          label="Active Operations"
+          value={opsStatsLoading ? '—' : (opsStats?.active_operations ?? 0).toLocaleString()}
+          accentColor="var(--green)"
+        />
         <StatCard
-          title="Campaigns Tracked"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-parchment">
-              {opsStatsLoading ? '—' : (opsStats?.campaigns_tracked ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Active"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-contrail" />
-            <span className="font-mono text-[11px] text-white/60">IP-level campaign clusters</span>
-          </div>
-        </StatCard>
-
+          label="Campaigns Tracked"
+          value={opsStatsLoading ? '—' : (opsStats?.campaigns_tracked ?? 0).toLocaleString()}
+          accentColor="var(--amber)"
+        />
         <StatCard
-          title="Brands Targeted"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-[#f87171]">
-              {opsStatsLoading ? '—' : (opsStats?.brands_targeted ?? 0).toLocaleString()}
-            </span>
-          }
-          metricLabel="Distinct"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#f87171]" />
-            <span className="font-mono text-[11px] text-white/60">Across active threats</span>
-          </div>
-        </StatCard>
-
+          label="Brands Targeted"
+          value={opsStatsLoading ? '—' : (opsStats?.brands_targeted ?? 0).toLocaleString()}
+          accentColor="var(--red)"
+        />
         <StatCard
-          title="Threat Types"
-          metric={
-            <span className="text-[32px] font-bold leading-none text-afterburner">
-              {opsStatsLoading ? '—' : (() => {
-                const raw = opsStats?.threat_types;
-                if (raw == null) return '0';
-                if (typeof raw === 'number') return raw.toLocaleString();
-                if (typeof raw === 'string') return raw;
-                if (Array.isArray(raw)) return raw.join(', ');
-                if (typeof raw === 'object') return Object.keys(raw).join(', ');
-                return String(raw);
-              })()}
-            </span>
-          }
-          metricLabel="Categories"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-            <span className="font-mono text-[11px] text-white/60">Active attack types</span>
-          </div>
-        </StatCard>
-      </div>
+          label="Threat Types"
+          value={opsStatsLoading ? '—' : (() => {
+            const raw = opsStats?.threat_types;
+            if (raw == null) return '0';
+            if (typeof raw === 'number') return raw.toLocaleString();
+            if (typeof raw === 'string') return raw;
+            if (Array.isArray(raw)) return raw.join(', ');
+            if (typeof raw === 'object') return Object.keys(raw).join(', ');
+            return String(raw);
+          })()}
+          accentColor="var(--amber)"
+        />
+      </StatGrid>
 
       {/* ─── Section A: Threat Actor Operations ────────────────── */}
       <section>
@@ -684,7 +650,7 @@ export function Campaigns() {
           <div className="section-label font-mono font-bold mb-1">
             NEXUS Correlated Operations
           </div>
-          <div className="font-mono text-[11px] text-contrail/50">
+          <div className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
             Infrastructure-level operations detected by NEXUS correlation engine
           </div>
         </div>
@@ -740,7 +706,7 @@ export function Campaigns() {
             <div className="section-label font-mono font-bold mb-1">
               Geopolitical Campaigns
             </div>
-            <div className="font-mono text-[11px] text-contrail/50">
+            <div className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               State-linked threat campaigns tracked by adversary country and ASN
             </div>
           </div>
@@ -771,54 +737,46 @@ export function Campaigns() {
           <div className="section-label font-mono font-bold mb-1">
             Active Campaigns
           </div>
-          <div className="font-mono text-[11px] text-contrail/50">
+          <div className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
             IP-clustered campaigns tracked by Strategist agent
           </div>
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <input
-            type="text"
-            placeholder="Search campaigns..."
-            value={campaignSearch}
-            onChange={e => setCampaignSearch(e.target.value)}
-            className="glass-input rounded-lg px-3 py-1.5 font-mono text-[11px] w-full sm:w-64"
-          />
-
-          <div className="flex flex-wrap gap-1.5">
-            {ATTACK_FILTERS.map(f => (
-              <button
-                key={f.id}
-                onClick={() => setAttackFilter(f.id)}
-                className={`font-mono text-[10px] font-semibold px-3 py-1 rounded transition-all ${
-                  attackFilter === f.id
-                    ? 'glass-btn-active'
-                    : 'glass-btn'
-                }`}
+        <FilterBar
+          search={{
+            value: campaignSearch,
+            onChange: setCampaignSearch,
+            placeholder: 'Search campaigns...',
+          }}
+          filters={ATTACK_FILTERS.map(f => ({ value: f.id, label: f.label }))}
+          active={attackFilter}
+          onChange={setAttackFilter}
+          actions={
+            <div className="flex items-center gap-1.5">
+              <span
+                className="font-mono text-[9px] uppercase"
+                style={{ color: 'var(--text-tertiary)' }}
               >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:ml-auto">
-            <span className="font-mono text-[9px] text-white/55 uppercase">Sort:</span>
-            {SORT_OPTIONS.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSortBy(s.id)}
-                className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all ${
-                  sortBy === s.id
-                    ? 'bg-white/10 text-parchment'
-                    : 'text-white/55 hover:text-parchment'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                Sort:
+              </span>
+              {SORT_OPTIONS.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setSortBy(s.id)}
+                  className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded transition-all"
+                  style={{
+                    background: sortBy === s.id ? 'rgba(255,255,255,0.10)' : 'transparent',
+                    color: sortBy === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          }
+        />
 
         {/* Campaign Cards Grid */}
         {campaignsLoading ? (

@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Card } from '@/components/ui/Card';
-import { SectionLabel } from '@/components/ui/SectionLabel';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Tabs } from '@/components/ui/Tabs';
-import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  Card,
+  SectionLabel,
+  Badge,
+  Button,
+  Tabs,
+  EmptyState,
+  PageHeader,
+} from '@/design-system/components';
 import { MemberInviteSheet } from '@/features/admin/components/MemberInviteSheet';
 import { IntegrationCard } from '@/features/admin/components/IntegrationCard';
 import type { IntegrationDef } from '@/features/admin/components/IntegrationCard';
@@ -88,19 +91,10 @@ export function Organization() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <OrgHeader
-        name="LRX Enterprises"
-        slug="lrx-enterprises"
-        plan={org?.plan ?? 'enterprise'}
-        status={org?.status ?? 'active'}
-        brandCount={brandCount}
-        memberCount={memberCount}
-      />
+      <PageHeader title="Organization" subtitle={org?.name ?? 'Settings'} />
 
       {/* Tab Bar */}
-      <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
-        <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-      </div>
+      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} variant="underline" sticky />
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
@@ -156,34 +150,6 @@ export function Organization() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// HEADER
-// ═══════════════════════════════════════════════════════════════
-
-function OrgHeader({ name, slug, plan, status, brandCount, memberCount }: {
-  name: string; slug: string; plan: string; status: string; brandCount: number; memberCount: number;
-}) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-parchment shrink-0">
-        LR
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-xl font-bold text-parchment font-display">{name}</h1>
-          <Badge variant="info">{plan}</Badge>
-        </div>
-        <p className="text-[11px] text-contrail/50 font-mono mt-0.5">
-          {slug}.averrow.com · <span className="capitalize">{status}</span>
-        </p>
-        <p className="text-[11px] text-white/55 font-mono">
-          {brandCount} brand{brandCount !== 1 ? 's' : ''} · {memberCount} member{memberCount !== 1 ? 's' : ''} · <span className="capitalize">{plan}</span> plan
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
 // TAB 1 — OVERVIEW
 // ═══════════════════════════════════════════════════════════════
 
@@ -203,14 +169,14 @@ function OverviewTab({ brandCount, maxBrands, memberCount, maxMembers, integrati
       {/* Plan Details */}
       <Card hover={false}>
         <SectionLabel className="mb-3">{plan.toUpperCase()} Plan</SectionLabel>
-        <ul className="space-y-1.5 text-[11px] text-parchment/70">
+        <ul className="space-y-1.5 text-[11px] opacity-70">
           <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-positive" /> Unlimited threat monitoring</li>
           <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-positive" /> Up to {maxBrands} brands, {maxMembers} members</li>
           <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-positive" /> SIEM integrations</li>
           <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-positive" /> API access</li>
           <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-positive" /> Priority support</li>
         </ul>
-        <Button variant="ghost" size="sm" className="mt-4 text-contrail/50" disabled>
+        <Button variant="ghost" size="sm" className="mt-4 text-white/40" disabled>
           Manage Billing
         </Button>
       </Card>
@@ -221,8 +187,8 @@ function OverviewTab({ brandCount, maxBrands, memberCount, maxMembers, integrati
 function StatMiniCard({ label, value, pct }: { label: string; value: string; pct?: number }) {
   return (
     <Card hover={false} className="p-3">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-contrail/60 mb-1">{label}</div>
-      <div className="text-lg font-bold text-parchment font-display">{value}</div>
+      <div className="font-mono text-[9px] uppercase tracking-widest text-white/55 mb-1">{label}</div>
+      <div className="text-lg font-bold text-white/90 font-display">{value}</div>
       {pct !== undefined && (
         <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
           <div
@@ -248,7 +214,7 @@ function BrandsTab({ brands, maxBrands }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-contrail/50 font-mono">{brands.length} / {maxBrands} brands</div>
+        <div className="text-[11px] text-white/40 font-mono">{brands.length} / {maxBrands} brands</div>
         <Button variant="secondary" size="sm" disabled={brands.length >= maxBrands}>
           Add Brand
         </Button>
@@ -263,10 +229,10 @@ function BrandsTab({ brands, maxBrands }: {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-parchment">{b.brand_name}</span>
+                    <span className="text-sm font-medium text-white/90">{b.brand_name}</span>
                     {b.is_primary === 1 && <Badge variant="info">Primary</Badge>}
                   </div>
-                  <div className="text-[11px] text-contrail/50 font-mono mt-0.5">{b.canonical_domain}</div>
+                  <div className="text-[11px] text-white/40 font-mono mt-0.5">{b.canonical_domain}</div>
                   <div className="text-[10px] text-white/55 mt-1">{b.threat_count} threats</div>
                 </div>
                 <div className="flex gap-2 shrink-0">
@@ -329,13 +295,13 @@ function MembersTab({ members, invites, onInvite }: {
             <tbody>
               {members.map((m) => (
                 <tr key={m.user_id} className="border-b border-white/[0.03]">
-                  <td className="py-3 pr-4 text-parchment font-medium">{m.user_name}</td>
-                  <td className="py-3 pr-4 text-contrail/60 font-mono">{m.email}</td>
+                  <td className="py-3 pr-4 font-medium text-white/90">{m.user_name}</td>
+                  <td className="py-3 pr-4 text-white/55 font-mono">{m.email}</td>
                   <td className="py-3 pr-4">
                     <select
                       value={m.role}
                       onChange={(e) => updateRole.mutate({ userId: m.user_id, role: e.target.value })}
-                      className="bg-transparent border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-mono text-parchment/70"
+                      className="bg-transparent border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-mono opacity-70"
                     >
                       <option value="owner">Owner</option>
                       <option value="admin">Admin</option>
@@ -374,7 +340,7 @@ function MembersTab({ members, invites, onInvite }: {
             {invites.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between py-2 border-b border-white/[0.03]">
                 <div>
-                  <span className="text-[11px] text-parchment/80 font-mono">{inv.email}</span>
+                  <span className="text-[11px] opacity-80 font-mono">{inv.email}</span>
                   <span className="text-[10px] text-white/55 ml-2 capitalize">{inv.org_role}</span>
                 </div>
                 <Button
@@ -487,12 +453,12 @@ function ApiKeysTab({ apiKeys, onCreate }: {
                 try { scopes = JSON.parse(k.scopes); } catch { /* empty */ }
                 return (
                   <tr key={k.id} className="border-b border-white/[0.03]">
-                    <td className="py-3 pr-4 text-parchment font-medium">{k.name}</td>
-                    <td className="py-3 pr-4 font-mono text-contrail/60">{k.key_prefix}...</td>
+                    <td className="py-3 pr-4 font-medium text-white/90">{k.name}</td>
+                    <td className="py-3 pr-4 font-mono text-white/55">{k.key_prefix}...</td>
                     <td className="py-3 pr-4">
                       <div className="flex flex-wrap gap-1">
                         {scopes.map((s) => (
-                          <span key={s} className="text-[9px] font-mono bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-contrail/50">
+                          <span key={s} className="text-[9px] font-mono bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white/40">
                             {s}
                           </span>
                         ))}
@@ -542,14 +508,14 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
         <SectionLabel className="mb-4">Organization Details</SectionLabel>
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-white/55 font-mono uppercase tracking-wide mb-1">
               Organization Name
             </label>
             <div className="flex gap-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="glass-input rounded-md px-3 py-2 text-sm flex-1"
+                className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm flex-1"
               />
               <Button
                 variant="secondary"
@@ -563,24 +529,24 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-white/55 font-mono uppercase tracking-wide mb-1">
               Billing Email
             </label>
             <div className="flex gap-2">
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="glass-input rounded-md px-3 py-2 text-sm flex-1"
+                className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm flex-1"
               />
               <Button variant="secondary" size="md" disabled>Save</Button>
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] text-contrail/60 font-mono uppercase tracking-wide mb-1">
+            <label className="block text-[11px] text-white/55 font-mono uppercase tracking-wide mb-1">
               Slug
             </label>
-            <div className="text-sm text-contrail/50 font-mono">{slug || 'lrx-enterprises'} (read-only)</div>
+            <div className="text-sm text-white/40 font-mono">{slug || 'lrx-enterprises'} (read-only)</div>
           </div>
         </div>
       </Card>
@@ -588,7 +554,7 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
       {/* SSO Configuration — now has its own tab */}
       <Card hover={false}>
         <SectionLabel className="mb-3">SSO Configuration</SectionLabel>
-        <p className="text-[11px] text-contrail/50 mb-3">
+        <p className="text-[11px] text-white/40 mb-3">
           Configure Single Sign-On for your organization in the dedicated SSO tab.
         </p>
       </Card>
@@ -598,7 +564,7 @@ function SettingsTab({ orgName, slug }: { orgName: string; slug: string }) {
         <SectionLabel className="mb-3">SCIM Provisioning</SectionLabel>
         <div className="space-y-2">
           <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-contrail/60 font-mono">Status</span>
+            <span className="text-white/55 font-mono">Status</span>
             <span className="text-white/55">Not configured</span>
           </div>
           <Button variant="secondary" size="sm" className="mt-2" disabled>
