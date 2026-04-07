@@ -639,11 +639,33 @@
   position: relative;
   border-left: 2px solid transparent;
   transition: background 0.12s ease, border-color 0.12s ease;
+  cursor: pointer;
 }
 .data-row:hover {
-  background: rgba(229, 168, 50, 0.04);
-  border-left-color: rgba(229, 168, 50, 0.35);
-  cursor: pointer;
+  background: linear-gradient(90deg, var(--amber-glow) 0%, transparent 40%);
+  border-left-color: var(--amber-border) !important;
+}
+
+/* Severity-specific hover overrides */
+.data-row--critical:hover {
+  background: linear-gradient(90deg, var(--sev-critical-bg) 0%, transparent 40%);
+  border-left-color: var(--sev-critical-border) !important;
+}
+.data-row--high:hover {
+  background: linear-gradient(90deg, var(--sev-high-bg) 0%, transparent 40%);
+  border-left-color: var(--sev-high-border) !important;
+}
+.data-row--medium:hover {
+  background: linear-gradient(90deg, var(--sev-medium-bg) 0%, transparent 40%);
+  border-left-color: var(--sev-medium-border) !important;
+}
+.data-row--low:hover {
+  background: linear-gradient(90deg, var(--sev-low-bg) 0%, transparent 40%);
+  border-left-color: var(--sev-low-border) !important;
+}
+.data-row--info:hover {
+  background: linear-gradient(90deg, var(--sev-info-bg) 0%, transparent 40%);
+  border-left-color: var(--sev-info-border) !important;
 }
 
 /* ── GAUGE PULSE ANIMATIONS ───────────────────── */

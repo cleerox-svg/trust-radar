@@ -32,16 +32,14 @@ describe('Tabs', () => {
 
   it('highlights active tab', () => {
     render(<Tabs tabs={tabs} activeTab="active" onChange={() => {}} />);
-    const activeButton = screen.getByText('Active').closest('button');
-    expect(activeButton).toHaveClass('text-accent');
-    expect(activeButton).toHaveClass('bg-accent/10');
+    const activeButton = screen.getByText('Active').closest('button') as HTMLButtonElement;
+    expect(activeButton.style.color).toBe('var(--amber)');
   });
 
   it('does not highlight inactive tabs', () => {
     render(<Tabs tabs={tabs} activeTab="all" onChange={() => {}} />);
-    const draftButton = screen.getByText('Draft').closest('button');
-    expect(draftButton).toHaveClass('text-contrail/50');
-    expect(draftButton).not.toHaveClass('bg-accent/10');
+    const draftButton = screen.getByText('Draft').closest('button') as HTMLButtonElement;
+    expect(draftButton.style.color).toBe('var(--text-tertiary)');
   });
 
   it('renders tabs without counts', () => {
@@ -63,7 +61,7 @@ describe('Tabs', () => {
 
     // Simulate parent updating the activeTab
     rerender(<Tabs tabs={tabs} activeTab="draft" onChange={onChange} />);
-    const draftButton = screen.getByText('Draft').closest('button');
-    expect(draftButton).toHaveClass('text-accent');
+    const draftButton = screen.getByText('Draft').closest('button') as HTMLButtonElement;
+    expect(draftButton.style.color).toBe('var(--amber)');
   });
 });
