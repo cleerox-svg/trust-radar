@@ -24,3 +24,12 @@ export { DimensionalButton } from './DimensionalButton';
 export { LiveIndicator } from './LiveIndicator';
 export type { LiveIndicatorProps } from './LiveIndicator';
 export { DeepBackground } from './DeepBackground';
+
+export { Tabs } from './Tabs';
+export type { Tab, TabsProps } from './Tabs';
+
+export { DataRow, SeverityDot } from './DataRow';
+export type { DataRowProps, SeverityDotProps } from './DataRow';
+
+export { FilterBar } from './FilterBar';
+export type { FilterBarProps, FilterOption } from './FilterBar';
