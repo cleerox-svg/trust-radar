@@ -558,7 +558,31 @@ export function AdminDashboard() {
 
   return (
     <div className="animate-fade-in space-y-8">
-      <PageHeader title="Admin Dashboard" subtitle="Platform health and operations" />
+      <PageHeader
+        title="Admin Dashboard"
+        subtitle="Platform health and operations"
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+              System Health
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono)',
+                padding: '3px 8px',
+                borderRadius: 4,
+                border: `1px solid ${agents.errors > 0 ? 'var(--sev-high)' : 'var(--green)'}`,
+                color: agents.errors > 0 ? 'var(--sev-high)' : 'var(--green)',
+                background: agents.errors > 0 ? 'rgba(251,146,60,0.1)' : 'rgba(60,184,120,0.1)',
+              }}
+            >
+              {agents.errors > 0 ? 'DEGRADED' : 'OPERATIONAL'}
+            </span>
+          </div>
+        }
+      />
 
       {/* ── DAILY BRIEFING WIDGET ─────────────────── */}
       <DailyBriefingWidget />
