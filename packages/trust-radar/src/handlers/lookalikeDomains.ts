@@ -19,13 +19,19 @@ export async function handleListLookalikes(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Verify brand ownership
-    const brand = await env.DB.prepare(
+    // Check brand_profiles first (user-created), then fall back to brands table
+    const brandProfile = await env.DB.prepare(
       "SELECT id FROM brand_profiles WHERE id = ? AND user_id = ?",
     ).bind(brandId, userId).first<{ id: string }>();
 
-    if (!brand) {
-      return json({ success: false, error: "Brand profile not found" }, 404, origin);
+    const brandRecord = !brandProfile
+      ? await env.DB.prepare(
+          "SELECT id FROM brands WHERE id = ?",
+        ).bind(brandId).first<{ id: string }>()
+      : null;
+
+    if (!brandProfile && !brandRecord) {
+      return json({ success: false, error: "Brand not found" }, 404, origin);
     }
 
     const url = new URL(request.url);
@@ -78,13 +84,19 @@ export async function handleGenerateLookalikes(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Verify brand ownership and get domain
-    const brand = await env.DB.prepare(
+    // Check brand_profiles first (user-created), then fall back to brands table
+    let brand = await env.DB.prepare(
       "SELECT id, domain FROM brand_profiles WHERE id = ? AND user_id = ?",
     ).bind(brandId, userId).first<{ id: string; domain: string }>();
 
     if (!brand) {
-      return json({ success: false, error: "Brand profile not found" }, 404, origin);
+      brand = await env.DB.prepare(
+        "SELECT id, canonical_domain AS domain FROM brands WHERE id = ?",
+      ).bind(brandId).first<{ id: string; domain: string }>();
+    }
+
+    if (!brand) {
+      return json({ success: false, error: "Brand not found" }, 404, origin);
     }
 
     if (!brand.domain) {
@@ -196,13 +208,19 @@ export async function handleScanLookalikes(
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Verify brand ownership
-    const brand = await env.DB.prepare(
+    // Check brand_profiles first (user-created), then fall back to brands table
+    const brandProfile = await env.DB.prepare(
       "SELECT id FROM brand_profiles WHERE id = ? AND user_id = ?",
     ).bind(brandId, userId).first<{ id: string }>();
 
-    if (!brand) {
-      return json({ success: false, error: "Brand profile not found" }, 404, origin);
+    const brandRecord = !brandProfile
+      ? await env.DB.prepare(
+          "SELECT id FROM brands WHERE id = ?",
+        ).bind(brandId).first<{ id: string }>()
+      : null;
+
+    if (!brandProfile && !brandRecord) {
+      return json({ success: false, error: "Brand not found" }, 404, origin);
     }
 
     // Reset last_checked for all this brand's domains so the batch checker picks them up
