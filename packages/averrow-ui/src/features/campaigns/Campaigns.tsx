@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { StatCard } from '@/components/ui/StatCard';
-import { Sparkline } from '@/components/brands/Sparkline';
+import { Sparkline } from '@/features/brands/components/Sparkline';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CardGridLoader } from '@/components/ui/PageLoader';
 import { useCampaigns, useCampaignStats } from '@/hooks/useCampaigns';

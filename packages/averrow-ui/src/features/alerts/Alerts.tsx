@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
-import { Sparkline } from '@/components/brands/Sparkline';
+import { Sparkline } from '@/features/brands/components/Sparkline';
 import {
   useAlerts, useAlertStats, useUpdateAlert, useBulkAcknowledge, useBulkTakedown,
   type Alert, type AlertFilters,

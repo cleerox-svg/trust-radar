@@ -5,13 +5,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { MemberInviteSheet } from '@/components/org/MemberInviteSheet';
-import { IntegrationCard } from '@/components/org/IntegrationCard';
-import type { IntegrationDef } from '@/components/org/IntegrationCard';
-import { ConnectIntegrationSheet } from '@/components/org/ConnectIntegrationSheet';
-import { ApiKeyCreateSheet } from '@/components/org/ApiKeyCreateSheet';
-import { WebhookConfig } from '@/components/org/WebhookConfig';
-import { SsoConfig } from '@/components/org/SsoConfig';
+import { MemberInviteSheet } from '@/features/admin/components/MemberInviteSheet';
+import { IntegrationCard } from '@/features/admin/components/IntegrationCard';
+import type { IntegrationDef } from '@/features/admin/components/IntegrationCard';
+import { ConnectIntegrationSheet } from '@/features/admin/components/ConnectIntegrationSheet';
+import { ApiKeyCreateSheet } from '@/features/admin/components/ApiKeyCreateSheet';
+import { WebhookConfig } from '@/features/admin/components/WebhookConfig';
+import { SsoConfig } from '@/features/admin/components/SsoConfig';
 import {
   useOrg, useOrgMembers, useOrgBrands, useOrgInvites,
   useOrgApiKeys, useOrgIntegrations,
