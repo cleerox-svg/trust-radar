@@ -465,6 +465,8 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
           dimColor={dimColor}
           size={36}
           radius={10}
+          faviconUrl={brand.logo_url ?? undefined}
+          severity={sev ?? undefined}
         />
       </div>
 
