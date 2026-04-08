@@ -5,6 +5,13 @@ import { useAuth } from '@/lib/auth';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/time';
+import { Button, Input } from '@/design-system/components';
+
+const readonlyField: React.CSSProperties = {
+  background: 'var(--bg-input)',
+  border: '1px solid var(--border-base)',
+  color: 'var(--text-tertiary)',
+};
 
 interface SessionData {
   total: number;
@@ -56,9 +63,15 @@ export function Profile() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="glass-btn p-2 rounded-lg touch-target"
+          className="p-2 rounded-lg touch-target"
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border-base)',
+            color: 'var(--text-secondary)',
+            transition: 'var(--transition-fast)',
+          }}
         >
-          <ArrowLeft className="w-4 h-4 text-white/60" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
         <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
           Profile & Settings
@@ -91,18 +104,15 @@ export function Profile() {
               Display Name
             </label>
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="glass-input rounded-lg px-3 py-2 text-[13px] flex-1"
+                className="text-[13px] flex-1"
               />
-              <button
-                onClick={handleSaveName}
-                className="glass-btn px-4 py-2 rounded-lg text-[11px] font-mono uppercase tracking-wider hover:text-[#F5C76A] transition-colors" style={{ color: 'var(--amber)' }}
-              >
+              <Button variant="ghost" size="sm" onClick={handleSaveName}>
                 {saved ? 'Saved' : 'Save'}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -110,7 +120,10 @@ export function Profile() {
             <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
               Email
             </label>
-            <div className="glass-input rounded-lg px-3 py-2 text-[13px] text-white/40 cursor-not-allowed">
+            <div
+              className="rounded-lg px-3 py-2 text-[13px] cursor-not-allowed"
+              style={readonlyField}
+            >
               {user?.email}
             </div>
           </div>
@@ -119,7 +132,10 @@ export function Profile() {
             <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
               Role
             </label>
-            <div className="glass-input rounded-lg px-3 py-2 text-[13px] text-white/40 cursor-not-allowed">
+            <div
+              className="rounded-lg px-3 py-2 text-[13px] cursor-not-allowed"
+              style={readonlyField}
+            >
               {roleName}
             </div>
           </div>
@@ -143,7 +159,13 @@ export function Profile() {
             <button
               onClick={() => forceLogout.mutate()}
               disabled={forceLogout.isPending}
-              className="glass-btn px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-wider text-[#C83C3C]/70 hover:text-[#C83C3C] hover:border-[#C83C3C]/30 transition-colors touch-target"
+              className="px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-wider touch-target"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--sev-critical-border)',
+                color: 'var(--sev-critical)',
+                transition: 'var(--transition-fast)',
+              }}
             >
               {forceLogout.isPending ? 'Revoking...' : 'Revoke all other sessions'}
             </button>
@@ -178,18 +200,23 @@ export function Profile() {
               Theme
             </label>
             <div className="flex gap-2">
-              {['Dark', 'Light', 'System'].map(theme => (
-                <button
-                  key={theme}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider touch-target ${
-                    theme === 'Dark'
-                      ? 'glass-btn-active text-[#00D4FF]'
-                      : 'glass-btn text-white/40'
-                  }`}
-                >
-                  {theme}
-                </button>
-              ))}
+              {['Dark', 'Light', 'System'].map(theme => {
+                const active = theme === 'Dark';
+                return (
+                  <button
+                    key={theme}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider touch-target"
+                    style={{
+                      background: active ? 'var(--amber-glow)' : 'var(--bg-input)',
+                      border: `1px solid ${active ? 'var(--amber-border)' : 'var(--border-base)'}`,
+                      color: active ? 'var(--amber)' : 'var(--text-tertiary)',
+                      transition: 'var(--transition-fast)',
+                    }}
+                  >
+                    {theme}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -197,7 +224,14 @@ export function Profile() {
             <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
               Timezone
             </label>
-            <div className="glass-input rounded-lg px-3 py-2 text-[13px] text-white/60">
+            <div
+              className="rounded-lg px-3 py-2 text-[13px]"
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-base)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               {Intl.DateTimeFormat().resolvedOptions().timeZone} (auto-detected)
             </div>
           </div>
