@@ -43,3 +43,9 @@ export type { StatGridProps } from './StatGrid';
 
 export { ReportPanel } from './ReportPanel';
 export type { ReportPanelProps } from './ReportPanel';
+
+export { TrendSparkline } from './TrendSparkline';
+export type { TrendSparklineProps } from './TrendSparkline';
+
+export { ThreatAreaChart } from './ThreatAreaChart';
+export type { ThreatAreaChartProps, ThreatDataPoint } from './ThreatAreaChart';
