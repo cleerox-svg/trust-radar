@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   SectionLabel,
@@ -210,6 +211,7 @@ function BrandsTab({ brands, maxBrands }: {
   maxBrands: number;
 }) {
   const removeBrand = useRemoveBrand();
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-4">
@@ -236,7 +238,7 @@ function BrandsTab({ brands, maxBrands }: {
                   <div className="text-[10px] text-white/55 mt-1">{b.threat_count} threats</div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => window.location.href = `/v2/brands/${b.brand_id}`}>
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/brands/${b.brand_id}`)}>
                     View
                   </Button>
                   <Button

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { severityColor } from '@/lib/severityColor';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
@@ -88,13 +89,13 @@ export function LiveFeedCard() {
         </div>
       )}
 
-      <a
-        href="/contacts"
+      <Link
+        to="/contacts"
         className="mt-3 block text-[10px] transition-colors hover:text-white"
         style={{ color: 'var(--amber)' }}
       >
         View all in Observatory →
-      </a>
+      </Link>
     </div>
   );
 }
