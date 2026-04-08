@@ -263,7 +263,13 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
           <div className="section-label">NOTES</div>
           <textarea
-            className="glass-input w-full rounded-md px-3 py-2 font-mono text-[11px] h-24 resize-none"
+            className="w-full rounded-md px-3 py-2 font-mono text-[11px] h-24 resize-none"
+            style={{
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-base)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+            }}
             placeholder="Add notes..."
             value={localNotes}
             onChange={(e) => setLocalNotes(e.target.value)}
@@ -723,7 +729,13 @@ function TakedownsDesktop() {
         search={{ value: search, onChange: handleSearch, placeholder: 'Search by brand, handle, or URL...' }}
         actions={
           <select
-            className="glass-input rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider bg-transparent"
+            className="rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+            style={{
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-base)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+            }}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
           >

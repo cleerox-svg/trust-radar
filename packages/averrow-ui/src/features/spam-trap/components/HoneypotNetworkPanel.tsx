@@ -4,6 +4,7 @@ import type { SeedAddress } from '@/hooks/useSpamTrap';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Target, Search } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Input } from '@/design-system/components';
 
 const CHANNEL_COLORS: Record<string, string> = {
   employee: '#E5A832',
@@ -171,13 +172,15 @@ export function HoneypotNetworkPanel() {
           )}
 
           {/* Search */}
-          <input
-            type="text"
-            placeholder="Search address, domain, or channel..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="glass-input w-full mb-3 text-xs"
-          />
+          <div className="mb-3">
+            <Input
+              type="text"
+              placeholder="Search address, domain, or channel..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="text-xs"
+            />
+          </div>
         </>
       )}
 
@@ -377,8 +380,12 @@ export function HoneypotNetworkPanel() {
                         </td>
                         <td className="py-2 pr-2">
                           <span
-                            className="badge-glass text-[10px] font-mono px-1.5 py-0.5 rounded"
-                            style={{ color: CHANNEL_COLORS[addr.channel] || 'rgba(255,255,255,0.5)' }}
+                            className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                            style={{
+                              background: 'var(--bg-input)',
+                              border: '1px solid var(--border-base)',
+                              color: CHANNEL_COLORS[addr.channel] || 'var(--text-secondary)',
+                            }}
                           >
                             {addr.channel}
                           </span>

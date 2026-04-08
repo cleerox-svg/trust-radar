@@ -4,6 +4,7 @@ import { useSpamTrapCaptures, useSpamTrapCapture } from '@/hooks/useSpamTrap';
 import type { SpamTrapCapture, SpamTrapCaptureDetail } from '@/hooks/useSpamTrap';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Badge } from '@/design-system/components';
 
 const GLASS_CARD: CSSProperties = {
   background: 'rgba(15,23,42,0.50)',
@@ -23,15 +24,9 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 function AuthBadge({ label, result }: { label: string; result: string | null }) {
   const pass = result === 'pass';
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
-        pass ? 'badge-glass badge-active' : 'badge-glass badge-critical'
-      }`}
-    >
-      {label} {pass ? '✓' : '✗'}
-    </span>
-  );
+  return pass
+    ? <Badge status="active"     label={`${label} \u2713`} size="xs" />
+    : <Badge severity="critical" label={`${label} \u2717`} size="xs" />;
 }
 
 function CaptureCard({ capture }: { capture: SpamTrapCapture }) {

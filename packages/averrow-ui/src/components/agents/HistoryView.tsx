@@ -2,8 +2,7 @@ import { useState, useMemo, Fragment } from 'react';
 import { useAgentRuns, useAgentTokenUsage } from '@/hooks/useAgents';
 import type { AgentRun, TokenUsageEntry } from '@/hooks/useAgents';
 import { relativeTime } from '@/lib/time';
-import { cn } from '@/lib/cn';
-import { Button } from '@/design-system/components';
+import { Badge, Button, Input } from '@/design-system/components';
 
 // ─── Agent display metadata ────────────────────────────────────
 const AGENT_COLORS: Record<string, string> = {
@@ -97,10 +96,25 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
                 {AGENT_NAMES[entry.agent_id] ?? entry.agent_id}
               </span>
             </div>
-            <div className="flex-1 progress-bar-track h-2.5">
+            <div
+              style={{
+                flex: 1,
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-base)',
+                borderRadius: 4,
+                overflow: 'hidden',
+                height: 10,
+              }}
+            >
               <div
-                className="progress-bar-fill-teal"
-                style={{ width: `${(entry.total_tokens / maxTokens) * 100}%` }}
+                style={{
+                  width: `${(entry.total_tokens / maxTokens) * 100}%`,
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'width 0.5s ease',
+                  background: 'linear-gradient(90deg, var(--amber-dim), var(--amber))',
+                  boxShadow: '0 0 10px var(--amber-glow)',
+                }}
               />
             </div>
             <div className="w-20 text-right font-mono text-[11px] tabular-nums" style={{ color: 'var(--text-primary)' }}>
@@ -230,17 +244,25 @@ export function HistoryView() {
 
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-2 items-center">
-        <input
-          type="text"
-          placeholder="Search agents..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="glass-input rounded-lg px-3 py-2 text-[11px] font-mono w-full sm:w-48"
-        />
+        <div className="w-full sm:w-48">
+          <Input
+            type="text"
+            placeholder="Search agents..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="text-[11px] font-mono"
+          />
+        </div>
         <select
           value={agentFilter}
           onChange={(e) => { setAgentFilter(e.target.value); setPage(0); }}
-          className="glass-input rounded-lg px-3 py-2 text-[11px] font-mono w-full sm:w-auto"
+          className="rounded-lg px-3 py-2 text-[11px] font-mono w-full sm:w-auto"
+          style={{
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border-base)',
+            color: 'var(--text-primary)',
+            outline: 'none',
+          }}
         >
           <option value="">All Agents</option>
           {ALL_AGENTS.map((a) => (
@@ -250,7 +272,13 @@ export function HistoryView() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-          className="glass-input rounded-lg px-3 py-2 text-[11px] font-mono w-full sm:w-auto"
+          className="rounded-lg px-3 py-2 text-[11px] font-mono w-full sm:w-auto"
+          style={{
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border-base)',
+            color: 'var(--text-primary)',
+            outline: 'none',
+          }}
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s.toUpperCase()}</option>
@@ -385,16 +413,8 @@ export function HistoryView() {
 
 // ─── Status Badge ──────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
-  const config = {
-    success: { dot: 'dot-pulse-green', badge: 'badge-active', label: 'SUCCESS' },
-    partial: { dot: 'dot-pulse-amber', badge: 'badge-high', label: 'PARTIAL' },
-    failed: { dot: 'dot-pulse-red', badge: 'badge-critical', label: 'FAILED' },
-  }[status] ?? { dot: 'dot-pulse-gray', badge: 'badge-dormant', label: status.toUpperCase() };
-
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-mono font-semibold tracking-wider', config.badge)}>
-      <span className={cn('w-1.5 h-1.5 rounded-full', config.dot)} />
-      {config.label}
-    </span>
-  );
+  if (status === 'success') return <Badge status="healthy"  label="Success" size="xs" pulse />;
+  if (status === 'partial') return <Badge severity="high"   label="Partial" size="xs" pulse />;
+  if (status === 'failed')  return <Badge severity="critical" label="Failed" size="xs" pulse />;
+  return <Badge status="inactive" label={status.toUpperCase()} size="xs" />;
 }
