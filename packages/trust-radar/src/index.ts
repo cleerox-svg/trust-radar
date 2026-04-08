@@ -267,7 +267,7 @@ export default {
           return new Response('Unauthorized', { status: 401 });
         }
         const { generateAndEmailBriefing } = await import('./handlers/briefing');
-        const result = await generateAndEmailBriefing(env);
+        const result = await generateAndEmailBriefing(env, 'manual:admin');
         return Response.json(result);
       }
 
