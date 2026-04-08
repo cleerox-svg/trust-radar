@@ -4,6 +4,7 @@ import { useSpamTrapCampaigns, useSpamTrapDaily } from '@/hooks/useSpamTrap';
 import type { SeedCampaign } from '@/hooks/useSpamTrap';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Badge } from '@/design-system/components';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const GLASS_CARD: CSSProperties = {
@@ -16,16 +17,10 @@ const GLASS_CARD: CSSProperties = {
 
 function StatusBadge({ status }: { status: string }) {
   const s = (status ?? '—').toLowerCase();
-  const color =
-    s === 'active' ? 'badge-active' :
-    s === 'completed' ? 'badge-pivot' :
-    s === 'paused' ? 'badge-dormant' :
-    'badge-dormant';
-  return (
-    <span className={`badge-glass ${color} text-[10px] font-mono`}>
-      {(status ?? '—').toUpperCase()}
-    </span>
-  );
+  const label = (status ?? '—').toUpperCase();
+  if (s === 'active')    return <Badge status="active"   label={label} size="xs" />;
+  if (s === 'completed') return <Badge status="healthy"  label={label} size="xs" />;
+  return                        <Badge status="inactive" label={label} size="xs" />;
 }
 
 function CampaignCard({ campaign }: { campaign: SeedCampaign }) {
