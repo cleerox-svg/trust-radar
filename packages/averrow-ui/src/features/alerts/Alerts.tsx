@@ -360,10 +360,12 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
             <div>
               <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-1">Impersonation Score</div>
               <div className="flex items-baseline gap-2">
-                <span className={cn(
-                  'font-display text-[28px] font-extrabold tabular-nums leading-none',
-                  score >= 75 ? 'text-[#fb923c] glow-amber' : 'text-[var(--text-secondary)]',
-                )}>
+                <span
+                  className="font-display text-[28px] font-extrabold tabular-nums leading-none"
+                  style={score >= 75
+                    ? { color: '#fb923c', textShadow: '0 0 20px rgba(251,146,60,0.7)' }
+                    : { color: 'var(--text-secondary)' }}
+                >
                   {score}%
                 </span>
               </div>
