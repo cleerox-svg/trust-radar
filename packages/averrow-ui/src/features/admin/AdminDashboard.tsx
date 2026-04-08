@@ -609,7 +609,7 @@ export function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.mainDb.name}</span>
-                <Badge status="active" label="Primary" size="xs" />
+                <Badge status="active" label="PRIMARY" size="xs" />
               </div>
               <div className="progress-bar-track h-2 mb-1.5">
                 <div className="progress-bar-fill-teal" style={{ width: `${dbSizePercent}%` }} />
@@ -634,7 +634,7 @@ export function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.auditDb.name}</span>
-                <Badge status="inactive" label="Audit" size="xs" />
+                <Badge status="inactive" label="AUDIT" size="xs" />
               </div>
               <div className="font-mono text-[10px] text-white/55">
                 {infra.auditDb.sizeKb} KB &middot; {infra.auditDb.tables} tables &middot; {infra.auditDb.region}
@@ -650,7 +650,7 @@ export function AdminDashboard() {
                 <span className="dot-pulse-green" />
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.worker.name}</span>
               </div>
-              <Badge status="active" label="Active" size="xs" />
+              <Badge status="active" label="ACTIVE" size="xs" />
             </div>
             <div className="font-mono text-[10px] text-white/55 mt-1.5">{infra.worker.platform}</div>
             <div className="font-mono text-[10px] text-white/50 mt-0.5">ID: 5a136591...</div>
@@ -667,7 +667,7 @@ export function AdminDashboard() {
                     <span className="dot-pulse-green" />
                     <span className="font-mono text-[11px] text-white/95">{kv.name}</span>
                   </div>
-                  <Badge status="active" label="Active" size="xs" />
+                  <Badge status="active" label="ACTIVE" size="xs" />
                 </div>
               ))}
               <div className="font-mono text-[10px] text-white/55 mt-1 ml-5">
