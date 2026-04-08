@@ -55,36 +55,6 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
 
-  .glass-sidebar {
-    @apply bg-deep-space/85 backdrop-blur-2xl
-           border-r border-instrument-edge/40;
-  }
-
-  /* Layer 3 — Elevated panels, modals, dropdowns */
-  .glass-elevated {
-    background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 0.75rem;
-    box-shadow:
-      0 8px 40px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  .glass-stat {
-    @apply bg-instrument-panel/50 backdrop-blur-md
-           border border-afterburner-border rounded-xl;
-    box-shadow: 0 0 20px rgba(229,168,50,0.05),
-                inset 0 1px 0 rgba(255,255,255,0.04);
-    transition: all 0.2s ease;
-  }
-  .glass-stat:hover {
-    border-color: rgba(229, 168, 50, 0.25);
-    box-shadow: 0 0 30px rgba(229, 168, 50, 0.08),
-                inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-
   .glass-input {
     @apply bg-deep-space/50 backdrop-blur-sm
            border border-instrument-edge/60 rounded-lg
@@ -93,90 +63,21 @@
   .glass-input:focus {
     @apply border-afterburner/50 ring-2 ring-afterburner/10;
   }
-
-  /* Layer 4 — Active/live data elements — amber glow */
-  .glass-active {
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(229, 168, 50, 0.20);
-    border-radius: 0.75rem;
-    box-shadow:
-      0 0 0 1px rgba(229, 168, 50, 0.08),
-      0 8px 40px rgba(0, 0, 0, 0.4),
-      0 0 20px rgba(229, 168, 50, 0.08);
-  }
-
-  /* Layer 4 — Critical/high-severity elements — red glow */
-  .glass-critical {
-    background: rgba(15, 23, 42, 0.70);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    border-radius: 0.75rem;
-    box-shadow:
-      0 0 0 1px rgba(239, 68, 68, 0.12),
-      0 8px 40px rgba(0, 0, 0, 0.5),
-      0 0 24px rgba(239, 68, 68, 0.10);
-  }
-
-  /* Top inner highlight — glass light hit on top edge */
-  .glass-highlight {
-    position: relative;
-  }
-  .glass-highlight::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-    border-radius: inherit;
-    pointer-events: none;
-  }
 }
 
 /* ═══════════════════════════════════════════════
    AVERROW GLASS HUD SYSTEM
 ═══════════════════════════════════════════════ */
 
-/* Note: .glass-card, .glass-sidebar, .glass-elevated, .glass-stat,
-   and .glass-input are now defined in @layer utilities above using
-   the new design system tokens. The legacy variants below are kept
-   for backwards compatibility. */
+/* Note: .glass-card and .glass-input are defined in @layer utilities above
+   using the new design system tokens. */
 
 /* Top edge glow — add class alongside glass-card */
-.glass-card-teal::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.6), transparent);
-  border-radius: 1px;
-}
-.glass-card-red::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,60,60,0.7), transparent);
-}
 .glass-card-amber::before {
   content: '';
   position: absolute;
   top: 0; left: 15%; right: 15%; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(251,146,60,0.6), transparent);
-}
-.glass-card-purple::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(167,139,250,0.6), transparent);
-}
-.glass-card-green::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(74,222,128,0.5), transparent);
 }
 
 /* ── GLASS BUTTONS ───────────────────────────── */
@@ -752,21 +653,6 @@
 @supports not (backdrop-filter: blur(16px)) {
   .glass-card {
     background: rgba(17, 24, 39, 0.9);
-  }
-  .glass-sidebar {
-    background: rgba(8, 12, 20, 0.95);
-  }
-  .glass-elevated {
-    background: rgba(15, 23, 42, 0.92);
-  }
-  .glass-stat {
-    background: rgba(17, 24, 39, 0.85);
-  }
-  .glass-active {
-    background: rgba(15, 23, 42, 0.88);
-  }
-  .glass-critical {
-    background: rgba(15, 23, 42, 0.92);
   }
 }
 
