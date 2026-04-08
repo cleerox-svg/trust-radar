@@ -12,7 +12,6 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { CardGridLoader } from '@/components/ui/PageLoader';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
-import { severityColor, severityOpacity, threatTypeColor } from '@/lib/severityColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Search, Shield } from 'lucide-react';
 import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
@@ -24,7 +23,6 @@ import {
   SectionLabel,
 } from '@/components/ui';
 import type { Severity } from '@/components/ui';
-import { Button } from '@/design-system/components';
 
 /* ─── Severity colors for UI Standard components ─── */
 const SEV_COLORS: Record<string, { color: string; dim: string }> = {
@@ -51,10 +49,6 @@ function sevColorOf(sev: Severity): string {
 function sevDimColorOf(sev: Severity): string {
   return SEV_COLORS[sev].dim;
 }
-
-/* ─── Types ─── */
-
-type BrandView = 'list' | 'heatmap' | 'swimlane';
 
 /* ─── Constants ─── */
 
@@ -89,12 +83,6 @@ const THREAT_TYPE_STYLES: Record<string, string> = {
 };
 
 const PAGE_SIZE = 50;
-
-const VIEW_OPTIONS = [
-  { key: 'list' as const, label: '≡ LIST' },
-  { key: 'heatmap' as const, label: '▦ MAP' },
-  { key: 'swimlane' as const, label: '║ LANES' },
-];
 
 /* ─── Helpers ─── */
 
@@ -557,20 +545,6 @@ export function Brands() {
   const { data: brands = [], isLoading } = useBrands({ view: 'all', timeRange: '7d' });
   const toggleMonitor = useToggleMonitor();
 
-  /* ─── View toggle with localStorage persistence ─── */
-  const [view, setView] = useState<BrandView>(() => {
-    try {
-      return (localStorage.getItem('averrow:brands:view') as BrandView) ?? 'list';
-    } catch {
-      return 'list';
-    }
-  });
-
-  const handleViewChange = (v: BrandView) => {
-    setView(v);
-    try { localStorage.setItem('averrow:brands:view', v); } catch {}
-  };
-
   /* ─── Shared filter state ─── */
   const [search, setSearch] = useState('');
   const [sector, setSector] = useState('all');
@@ -617,22 +591,10 @@ export function Brands() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header row with title + view toggle + add brand */}
+      {/* Header row with title + add brand */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Brands</h1>
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex gap-1">
-            {VIEW_OPTIONS.map(opt => (
-              <Button
-                key={opt.key}
-                variant={view === opt.key ? 'primary' : 'ghost'}
-                size="sm"
-                onClick={() => handleViewChange(opt.key)}
-              >
-                {opt.label}
-              </Button>
-            ))}
-          </div>
           <button
             onClick={() => setModalOpen(true)}
             className="font-mono text-[11px] font-semibold uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-lg border border-afterburner-border hover:bg-afterburner-muted transition-colors whitespace-nowrap"
@@ -650,7 +612,7 @@ export function Brands() {
       {/* View content */}
       {isLoading ? (
         <CardGridLoader count={12} />
-      ) : view === 'list' ? (
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4 mt-4">
           {/* Left: filter bar + brand rows */}
           <div className="min-w-0">
@@ -778,210 +740,6 @@ export function Brands() {
             <AttackVectorsCard brands={filteredBrands} />
           </div>
         </div>
-      ) : view === 'heatmap' ? (
-        /* ─── Heatmap View ─── */
-        (() => {
-          const maxCount = Math.max(...filteredBrands.map(b => b.threat_count ?? 0), 1);
-          const cols = filteredBrands.length < 20 ? 5
-            : filteredBrands.length < 50 ? 8
-            : filteredBrands.length < 100 ? 10 : 12;
-          const heatmapBrands = [...filteredBrands].sort((a, b) => (b.threat_count ?? 0) - (a.threat_count ?? 0));
-          const criticalCount = filteredBrands.filter(b => (b.threat_count ?? 0) >= 200).length;
-          const cleanCount = filteredBrands.filter(b => (b.threat_count ?? 0) === 0).length;
-          const totalThreats = filteredBrands.reduce((sum, b) => sum + (b.threat_count ?? 0), 0);
-
-          return (
-            <div className="mt-4">
-              {/* Header bar */}
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                <div className="flex items-center gap-4">
-                  <span className="text-[9px] font-mono text-white/55 tracking-widest">EXPOSURE</span>
-                  {[
-                    { label: 'Critical', color: '#f87171' },
-                    { label: 'High',     color: '#fb923c' },
-                    { label: 'Medium',   color: '#fbbf24' },
-                    { label: 'Low',      color: '#78A0C8' },
-                    { label: 'Clean',    color: '#4ade80' },
-                  ].map(s => (
-                    <div key={s.label} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-sm" style={{ background: s.color }} />
-                      <span className="text-[9px] text-white/50">{s.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search brands..."
-                  className="rounded-lg px-3 py-1.5 text-sm w-48"
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-base)',
-                    color: 'var(--text-primary)',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-
-              {/* Grid */}
-              {heatmapBrands.length > 0 ? (
-                <div
-                  className="grid gap-1.5"
-                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-                >
-                  {heatmapBrands.map(brand => (
-                    <div
-                      key={brand.id}
-                      className="aspect-square rounded cursor-pointer transition-all hover:ring-2 hover:ring-white/30 hover:scale-110 relative group"
-                      style={{
-                        background: severityColor(brand.exposure_score, brand.threat_count),
-                        opacity: severityOpacity(brand.threat_count ?? 0, maxCount),
-                      }}
-                      onClick={() => navigate(`/brands/${brand.id}`)}
-                    >
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
-                        <div className="border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono shadow-lg" style={{ background: 'var(--bg-page)' }}>
-                          <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
-                          <div className="text-[10px] text-white/50">
-                            {brand.threat_count ?? 0} threats
-                            {brand.email_security_grade ? ` · ${brand.email_security_grade}` : ''}
-                          </div>
-                        </div>
-                        <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/20" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-16 text-white/40 text-sm">
-                  No brands match current filters
-                </div>
-              )}
-
-              {/* Summary bar */}
-              <div className="flex gap-6 mt-4 text-[10px] font-mono">
-                <span>
-                  <span className="text-red-400 font-bold">{criticalCount}</span>
-                  <span className="text-white/50 ml-1">critical brands</span>
-                </span>
-                <span>
-                  <span className="text-green-400 font-bold">{cleanCount}</span>
-                  <span className="text-white/50 ml-1">clean</span>
-                </span>
-                <span>
-                  <span className="text-white/60 font-bold">{totalThreats.toLocaleString()}</span>
-                  <span className="text-white/50 ml-1">total threats</span>
-                </span>
-                <span>
-                  <span className="text-white/60 font-bold">{filteredBrands.length}</span>
-                  <span className="text-white/50 ml-1">brands shown</span>
-                </span>
-              </div>
-            </div>
-          );
-        })()
-      ) : (
-        /* ─── Swimlane View ─── */
-        (() => {
-          const SWIMLANE_SECTORS = [
-            'Financial Services', 'Technology', 'Cryptocurrency',
-            'Healthcare', 'Retail', 'Government', 'Media', 'Other',
-          ];
-
-          const grouped = SWIMLANE_SECTORS.reduce((acc, s) => {
-            const sectorBrands = filteredBrands
-              .filter(b => {
-                const brandSector = b.sector ?? 'Other';
-                return brandSector === s || (s === 'Other' && !SWIMLANE_SECTORS.includes(brandSector));
-              })
-              .sort((a, b) => (b.threat_count ?? 0) - (a.threat_count ?? 0));
-            if (sectorBrands.length > 0) acc[s] = sectorBrands;
-            return acc;
-          }, {} as Record<string, Brand[]>);
-
-          return (
-            <div className="flex flex-col gap-6 mt-2">
-              {Object.entries(grouped).map(([sectorName, sectorBrands]) => {
-                const maxInSector = Math.max(...sectorBrands.map(b => b.threat_count ?? 0), 1);
-                const visible = sectorBrands.slice(0, 7);
-                const overflow = sectorBrands.length - 7;
-
-                return (
-                  <div key={sectorName}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[9px] font-mono text-white/55 tracking-widest uppercase flex-shrink-0">
-                        {sectorName}
-                      </span>
-                      <span className="text-[9px] font-mono text-white/40 border border-white/10 rounded px-1.5 py-0.5 flex-shrink-0">
-                        {sectorBrands.length}
-                      </span>
-                      <div className="flex-1 h-px bg-white/[0.06]" />
-                    </div>
-
-                    <div className="flex gap-2 flex-wrap">
-                      {visible.map(brand => {
-                        const pillWidth = Math.max(56, Math.min(200, Math.round(
-                          48 + ((brand.threat_count ?? 0) / maxInSector) * 152
-                        )));
-                        const color = severityColor(brand.exposure_score, brand.threat_count);
-
-                        return (
-                          <div
-                            key={brand.id}
-                            className="h-8 rounded flex items-center gap-1.5 justify-center px-2 cursor-pointer transition-all hover:brightness-110 hover:scale-105 flex-shrink-0 relative group"
-                            style={{ background: color, width: `${pillWidth}px`, opacity: 0.82 }}
-                            onClick={() => navigate(`/brands/${brand.id}`)}
-                          >
-                            <span className="text-[9px] font-bold text-cockpit truncate">
-                              {brand.name}
-                            </span>
-                            {(brand.threat_count ?? 0) > 0 && (
-                              <span className="text-[9px] text-cockpit/60 flex-shrink-0">
-                                {(brand.threat_count ?? 0) >= 1000
-                                  ? `${((brand.threat_count ?? 0) / 1000).toFixed(1)}k`
-                                  : brand.threat_count}
-                              </span>
-                            )}
-
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-20 pointer-events-none">
-                              <div className="border border-white/20 rounded px-2 py-1.5 whitespace-nowrap font-mono" style={{ background: 'var(--bg-page)' }}>
-                                <div className="text-[11px] font-medium text-white/90">{brand.name}</div>
-                                <div className="text-[10px] text-white/50">
-                                  {brand.canonical_domain}
-                                  {brand.email_security_grade ? ` · ${brand.email_security_grade}` : ''}
-                                </div>
-                                <div className="text-[10px]" style={{ color }}>
-                                  {brand.threat_count ?? 0} threats
-                                </div>
-                              </div>
-                              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/20" />
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {overflow > 0 && (
-                        <div className="h-8 rounded border border-white/10 flex items-center px-3 text-[9px] font-mono text-white/40 flex-shrink-0">
-                          +{overflow} more
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {Object.keys(grouped).length === 0 && (
-                <EmptyState
-                  icon={<Search />}
-                  title="No brands match current filters"
-                  subtitle={`Try a different filter — you're monitoring ${(brands ?? []).length} brands`}
-                  action={{ label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
-                  variant="clean"
-                />
-              )}
-            </div>
-          );
-        })()
       )}
 
       <AddBrandModal open={modalOpen} onClose={() => setModalOpen(false)} />

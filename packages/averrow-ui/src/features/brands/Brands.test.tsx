@@ -71,13 +71,6 @@ describe('Brands Page', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('renders view toggle buttons', () => {
-    renderWithProviders(<Brands />);
-    expect(screen.getByText('≡ LIST')).toBeInTheDocument();
-    expect(screen.getByText('▦ MAP')).toBeInTheDocument();
-    expect(screen.getByText('║ LANES')).toBeInTheDocument();
-  });
-
   it('renders filter tab buttons', () => {
     renderWithProviders(<Brands />);
     expect(screen.getByText('all')).toBeInTheDocument();
