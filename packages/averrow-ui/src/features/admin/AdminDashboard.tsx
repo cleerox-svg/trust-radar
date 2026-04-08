@@ -93,7 +93,7 @@ function BudgetPanel() {
         <div className="font-mono text-[10px] text-white/55">{budget.pct_used.toFixed(1)}% used</div>
       </div>
 
-      <hr className="hud-divider" />
+      <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
       {/* Key metrics */}
       <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
@@ -119,7 +119,7 @@ function BudgetPanel() {
 
       {budget.anthropic_reported > 0 && (
         <>
-          <hr className="hud-divider" />
+          <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
           <div className="font-mono text-[10px] text-white/55">
             Anthropic reported: ${budget.anthropic_reported.toFixed(2)}
           </div>
@@ -129,7 +129,7 @@ function BudgetPanel() {
       {/* Agent breakdown */}
       {breakdown && breakdown.length > 0 && (
         <>
-          <hr className="hud-divider" />
+          <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
           <div className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-2">Spend by Agent</div>
           <div className="space-y-1.5">
             {breakdown.map((a) => (
@@ -143,7 +143,7 @@ function BudgetPanel() {
       )}
 
       {/* Edit limit */}
-      <hr className="hud-divider" />
+      <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
       {!editing ? (
         <button
           type="button"
@@ -288,7 +288,7 @@ function EmailSecuritySection() {
         <span>Avg score: <strong className="text-white/95">{avgScore}/100</strong></span>
       </div>
 
-      <hr className="hud-divider" />
+      <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
       {/* Grade distribution */}
       {grades.length > 0 && (
@@ -303,8 +303,10 @@ function EmailSecuritySection() {
                 <div key={g.grade} className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`font-mono text-[12px] font-bold ${isF ? 'glow-red' : ''}`}
-                      style={{ color }}
+                      className="font-mono text-[12px] font-bold"
+                      style={isF
+                        ? { color, textShadow: '0 0 20px rgba(200,60,60,0.8)' }
+                        : { color }}
                     >
                       {g.grade}
                     </span>
@@ -332,7 +334,7 @@ function EmailSecuritySection() {
         </div>
       )}
 
-      <hr className="hud-divider" />
+      <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
       {/* Scan coverage bar */}
       <div>
@@ -510,7 +512,7 @@ function MaintenanceSection() {
             ))}
           </div>
 
-          <hr className="hud-divider" />
+          <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
           {/* Stats bar */}
           <div className="flex items-center gap-4 font-mono text-[10px] text-white/40">
@@ -628,7 +630,7 @@ export function AdminDashboard() {
               )}
             </div>
 
-            <hr className="hud-divider" />
+            <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
             {/* Audit DB */}
             <div>
@@ -722,7 +724,7 @@ export function AdminDashboard() {
                 </div>
               )}
             </div>
-            <hr className="hud-divider" />
+            <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
             <div className="flex items-center justify-between font-mono text-[10px] text-white/40">
               <span>Total: {fmt(trendTotal)}</span>
               <span>Avg/day: {fmt(trendAvg)}</span>
@@ -756,7 +758,7 @@ export function AdminDashboard() {
               />
             </div>
             <div className="font-mono text-[10px] text-white/40 mb-3">{successRate}% success rate</div>
-            <hr className="hud-divider" />
+            <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
             <div className="font-mono text-[10px] text-white/40 mt-2">
               {fmt(feeds.pulls)} feed pulls &middot; {fmt(feeds.ingested)} ingested
             </div>

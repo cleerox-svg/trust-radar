@@ -72,7 +72,7 @@
 /* Note: .glass-card and .glass-input are defined in @layer utilities above
    using the new design system tokens. */
 
-/* Top edge glow — add class alongside glass-card */
+/* Top edge glow — used by frozen PortfolioHealthCard */
 .glass-card-amber::before {
   content: '';
   position: absolute;
@@ -106,15 +106,6 @@
     0 0 24px rgba(229,168,50,0.35),
     inset 0 1px 0 rgba(255,255,255,0.12);
 }
-
-/* ── GLOW TEXT ───────────────────────────────── */
-.glow-teal   { color: #00D4FF; text-shadow: 0 0 20px rgba(0,212,255,0.7); }
-.glow-red    { color: #f87171; text-shadow: 0 0 20px rgba(200,60,60,0.8); }
-.glow-amber  { color: #fb923c; text-shadow: 0 0 20px rgba(251,146,60,0.7); }
-.glow-afterburner { color: #E5A832; text-shadow: 0 0 20px rgba(229,168,50,0.7); }
-.glow-purple { color: #A78BFA; text-shadow: 0 0 20px rgba(167,139,250,0.7); }
-.glow-green  { color: #4ADE80; text-shadow: 0 0 20px rgba(74,222,128,0.6); }
-.glow-white  { color: #ffffff; text-shadow: 0 0 20px rgba(255,255,255,0.4); }
 
 /* ── STATUS BADGES ───────────────────────────── */
 .badge-glass {
@@ -295,14 +286,6 @@
   height: 100%;
   border-radius: 4px;
   transition: width 0.5s ease;
-}
-
-/* ── HUD DIVIDER ─────────────────────────────── */
-.hud-divider {
-  border: none;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent);
-  margin: 12px 0;
 }
 
 /* ── METRIC NUMBER ───────────────────────────── */

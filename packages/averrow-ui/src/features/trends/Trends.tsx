@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -195,10 +195,10 @@ function ThreatVolumeChart({ window }: { window: string }) {
 function BrandRiskMomentum() {
   const { data: brands, isLoading } = useBrandMomentum();
 
-  function changeGlow(pct: number): string {
-    if (pct > 100) return 'glow-red';
-    if (pct > 50) return 'glow-amber';
-    return 'glow-afterburner';
+  function changeGlow(pct: number): CSSProperties {
+    if (pct > 100) return { color: '#f87171', textShadow: '0 0 20px rgba(200,60,60,0.8)' };
+    if (pct > 50)  return { color: '#fb923c', textShadow: '0 0 20px rgba(251,146,60,0.7)' };
+    return { color: '#E5A832', textShadow: '0 0 20px rgba(229,168,50,0.7)' };
   }
 
   return (
@@ -234,7 +234,7 @@ function BrandRiskMomentum() {
                     <td className="py-2" style={{ color: 'var(--text-primary)' }}>{b.brand_name}</td>
                     <td className="py-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.78)' }}>{thisWeek.toLocaleString()}</td>
                     <td className="py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{lastWeek.toLocaleString()}</td>
-                    <td className={`py-2 text-right font-mono font-semibold ${changeGlow(isFinite(changePct) ? changePct : 0)}`}>
+                    <td className="py-2 text-right font-mono font-semibold" style={changeGlow(isFinite(changePct) ? changePct : 0)}>
                       {displayChange}
                     </td>
                   </tr>

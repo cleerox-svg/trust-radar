@@ -272,9 +272,9 @@ export function AdminAudit() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Events" value={total} glowClass="glow-afterburner" />
-        <StatCard title="Today" value={todayCount} glowClass="glow-afterburner" />
-        <StatCard title="Failures / Denied" value={failureDeniedCount} glowClass="glow-amber" />
+        <StatCard title="Total Events" value={total} />
+        <StatCard title="Today" value={todayCount} />
+        <StatCard title="Failures / Denied" value={failureDeniedCount} />
         <StatCard title="Unique Actions" value={uniqueActions} />
       </div>
 

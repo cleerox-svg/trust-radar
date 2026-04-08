@@ -260,7 +260,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
             onUpdate={onUpdate}
             isUpdating={isUpdating}
           />
-          <hr className="hud-divider" />
+          <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
           <div className="section-label">NOTES</div>
           <textarea
             className="glass-input w-full rounded-md px-3 py-2 font-mono text-[11px] h-24 resize-none"
@@ -396,7 +396,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
           {takedown.evidence_summary}
         </p>
 
-        <hr className="hud-divider" />
+        <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
         {/* Row 4: priority bar + method + date */}
         <div className="space-y-1.5 mb-3">
@@ -409,7 +409,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
           </div>
         </div>
 
-        <hr className="hud-divider" />
+        <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
 
         {/* Row 5: action buttons */}
         <div className="flex items-center justify-between gap-2">
