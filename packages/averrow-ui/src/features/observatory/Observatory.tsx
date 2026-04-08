@@ -915,7 +915,7 @@ function TopBrandsList({ period }: { period: string }) {
           />
           <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{brand.name}</span>
           <div className="flex items-center gap-2 shrink-0">
-            <BIMIGradeBadge grade={brand.bimi_grade} size="sm" />
+            <BIMIGradeBadge grade={brand.email_security_grade} size="sm" />
             <span
               className="font-mono text-xs font-bold tabular-nums"
               style={{
