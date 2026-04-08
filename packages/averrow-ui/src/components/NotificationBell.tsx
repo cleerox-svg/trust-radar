@@ -120,19 +120,28 @@ function NotificationList({
       </div>
 
       <div className="flex gap-1 px-4 pb-3 flex-shrink-0">
-        {(Object.keys(FILTER_LABELS) as FilterType[]).map(key => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition-all touch-target ${
-              filter === key
-                ? 'glass-btn-active text-[#00D4FF]'
-                : 'glass-btn text-white/50'
-            }`}
-          >
-            {FILTER_LABELS[key]}
-          </button>
-        ))}
+        {(Object.keys(FILTER_LABELS) as FilterType[]).map(key => {
+          const isActive = filter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className="px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition-all touch-target"
+              style={{
+                background: isActive
+                  ? 'linear-gradient(135deg, var(--amber), var(--amber-dim))'
+                  : 'transparent',
+                border: isActive
+                  ? '1px solid rgba(229, 168, 50, 0.60)'
+                  : '1px solid var(--border-base)',
+                color: isActive ? '#000' : 'var(--text-secondary)',
+                fontWeight: 800,
+              }}
+            >
+              {FILTER_LABELS[key]}
+            </button>
+          );
+        })}
       </div>
 
       <div className="border-t border-white/5" />
@@ -183,7 +192,11 @@ export function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="relative glass-btn p-2 rounded-lg touch-target"
+        className="relative p-2 rounded-lg touch-target"
+        style={{
+          background: 'transparent',
+          border: '1px solid var(--border-base)',
+        }}
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5 text-white/70" />

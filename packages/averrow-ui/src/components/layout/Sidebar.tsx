@@ -8,6 +8,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
+import { Badge } from '@/design-system/components';
 
 interface NavItem {
   label: string;
@@ -210,8 +211,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       />
                       <span>{item.label}</span>
                       {item.badge !== undefined && item.badge > 0 && (
-                        <span className="badge-glass badge-critical ml-auto text-xs px-1.5 py-0.5">
-                          {item.badge}
+                        <span className="ml-auto">
+                          <Badge severity="critical" label={String(item.badge)} size="xs" />
                         </span>
                       )}
                     </>

@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useTrends';
 import type { IntelligenceBriefing, VolumePoint } from '@/hooks/useTrends';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/design-system/components';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -396,15 +397,14 @@ function TrendsContent() {
         <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Platform Intelligence</h1>
         <div className="flex gap-1.5">
           {WINDOWS.map((w) => (
-            <button
+            <Button
               key={w}
+              variant={window === w ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setWindow(w)}
-              className={`glass-btn font-mono text-[11px] font-semibold px-3 py-1 rounded ${
-                window === w ? 'glass-btn-active' : ''
-              }`}
             >
               {w.toUpperCase()}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

@@ -295,7 +295,11 @@ function FlightControlCard({
               return (
                 <div
                   key={a.name}
-                  className="flex items-center gap-1.5 glass-btn rounded-lg px-2.5 py-1.5"
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border-base)',
+                  }}
                 >
                   <span
                     className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusDotClass(a))}

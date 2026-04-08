@@ -26,6 +26,7 @@ import {
   SectionLabel,
 } from '@/components/ui';
 import type { Severity } from '@/components/ui';
+import { Button } from '@/design-system/components';
 
 /* ─── Severity colors for UI Standard components ─── */
 const SEV_COLORS: Record<string, { color: string; dim: string }> = {
@@ -906,18 +907,14 @@ export function Brands() {
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex gap-1">
             {VIEW_OPTIONS.map(opt => (
-              <button
+              <Button
                 key={opt.key}
+                variant={view === opt.key ? 'primary' : 'ghost'}
+                size="sm"
                 onClick={() => handleViewChange(opt.key)}
-                className={cn(
-                  'px-3 py-1.5 text-[10px] font-mono tracking-wider rounded-lg transition-colors',
-                  view === opt.key
-                    ? 'glass-btn-active'
-                    : 'glass-btn'
-                )}
               >
                 {opt.label}
-              </button>
+              </Button>
             ))}
           </div>
           <button

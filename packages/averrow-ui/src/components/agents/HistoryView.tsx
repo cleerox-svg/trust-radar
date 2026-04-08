@@ -3,6 +3,7 @@ import { useAgentRuns, useAgentTokenUsage } from '@/hooks/useAgents';
 import type { AgentRun, TokenUsageEntry } from '@/hooks/useAgents';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { Button } from '@/design-system/components';
 
 // ─── Agent display metadata ────────────────────────────────────
 const AGENT_COLORS: Record<string, string> = {
@@ -257,22 +258,20 @@ export function HistoryView() {
         </select>
         <div className="flex gap-1">
           {WINDOW_OPTIONS.map((w) => (
-            <button
+            <Button
               key={w.value}
+              variant={windowFilter === w.value ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => { setWindowFilter(w.value); setPage(0); }}
-              className={cn(
-                'rounded-lg px-3 py-2 text-[11px] font-mono',
-                windowFilter === w.value ? 'glass-btn-active' : 'glass-btn',
-              )}
             >
               {w.label}
-            </button>
+            </Button>
           ))}
         </div>
         <div className="ml-auto">
-          <button onClick={handleExportCsv} className="glass-btn rounded-lg px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-white/60">
+          <Button variant="ghost" size="sm" onClick={handleExportCsv}>
             Export CSV
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -358,23 +357,25 @@ export function HistoryView() {
             {total.toLocaleString()} total runs
           </span>
           <div className="flex gap-1">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className={cn('glass-btn rounded-lg px-3 py-1.5 text-[11px] font-mono', page === 0 && 'opacity-30 cursor-not-allowed')}
             >
               Prev
-            </button>
+            </Button>
             <span className="font-mono text-[10px] text-white/50 flex items-center px-2">
               {page + 1} / {totalPages}
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className={cn('glass-btn rounded-lg px-3 py-1.5 text-[11px] font-mono', page >= totalPages - 1 && 'opacity-30 cursor-not-allowed')}
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}

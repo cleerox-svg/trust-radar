@@ -13,6 +13,7 @@ import {
   StatCard,
   StatGrid,
   PageHeader,
+  Button,
 } from '@/design-system/components';
 
 /* ─── Helpers ─── */
@@ -94,34 +95,40 @@ function TriggerAllButton() {
 
   if (action.state === 'idle') {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={action.confirm}
-        className="glass-btn flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+        icon={<RotateCw className="w-3.5 h-3.5" />}
       >
-        <RotateCw className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Trigger All</span>
-      </button>
+      </Button>
     );
   }
   if (action.state === 'confirming') {
     return (
       <div className="flex items-center gap-2">
         <span className="font-mono text-[10px] text-amber-400">Trigger all feeds?</span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={action.execute}
-          className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-green-400"
+          icon={<Check className="w-3 h-3" />}
+          style={{ color: '#4ade80' }}
         >
-          <Check className="w-3 h-3" /> Confirm
-        </button>
-        <button
+          Confirm
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={action.cancel}
-          className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[10px] text-white/40"
+          icon={<X className="w-3 h-3" />}
         >
-          <X className="w-3 h-3" /> Cancel
-        </button>
+          Cancel
+        </Button>
       </div>
     );
   }
@@ -152,32 +159,40 @@ function RetryButton({ feedName }: { feedName: string }) {
 
   if (action.state === 'idle') {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={(e) => { e.stopPropagation(); action.confirm(); }}
-        className="glass-btn flex items-center gap-1 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-amber-400"
+        icon={<RotateCw className="w-3 h-3" />}
+        style={{ color: 'var(--amber)' }}
       >
-        <RotateCw className="w-3 h-3" /> Retry
-      </button>
+        Retry
+      </Button>
     );
   }
   if (action.state === 'confirming') {
     return (
       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={action.execute}
-          className="glass-btn flex items-center gap-0.5 px-1.5 py-1 font-mono text-[9px] text-green-400"
+          icon={<Check className="w-3 h-3" />}
+          style={{ color: '#4ade80' }}
         >
-          <Check className="w-3 h-3" />
-        </button>
-        <button
+          {''}
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={action.cancel}
-          className="glass-btn flex items-center gap-0.5 px-1.5 py-1 font-mono text-[9px] text-white/40"
+          icon={<X className="w-3 h-3" />}
         >
-          <X className="w-3 h-3" />
-        </button>
+          {''}
+        </Button>
       </div>
     );
   }
