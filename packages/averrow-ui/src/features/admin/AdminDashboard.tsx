@@ -7,7 +7,7 @@ import { useAdminAction } from '@/hooks/useAdminAction';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { Badge, Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
+import { Badge, Button, Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { DailyBriefingWidget } from '@/components/DailyBriefingWidget';
@@ -527,6 +527,32 @@ function MaintenanceSection() {
 export function AdminDashboard() {
   const { data, isLoading, isError } = useSystemHealth();
 
+  const [classifying, setClassifying] = useState(false);
+  const [classifyResult, setClassifyResult] = useState<string | null>(null);
+
+  async function handleClassifySaasTechniques() {
+    setClassifying(true);
+    setClassifyResult(null);
+    let total = 0;
+    try {
+      while (true) {
+        const res = await api.post<{
+          processed: number;
+          classified: number;
+          remaining: number;
+        }>('/api/admin/backfill-saas-techniques');
+        total += res.data?.classified ?? 0;
+        if ((res.data?.processed ?? 0) < 5000 || (res.data?.remaining ?? 0) === 0) break;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      setClassifyResult(`${total.toLocaleString()} threats classified`);
+    } catch {
+      setClassifyResult('Failed — check console');
+    } finally {
+      setClassifying(false);
+    }
+  }
+
   if (isLoading) return <PageLoader />;
 
   const threats = data?.threats ?? { total: 0, today: 0, week: 0 };
@@ -586,6 +612,29 @@ export function AdminDashboard() {
 
       {/* ── DAILY BRIEFING WIDGET ─────────────────── */}
       <DailyBriefingWidget />
+
+      {/* ── ADMIN ACTIONS ─────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleClassifySaasTechniques}
+          disabled={classifying}
+          loading={classifying}
+        >
+          {classifying ? 'Classifying...' : 'Classify SaaS Techniques'}
+        </Button>
+        {classifyResult && (
+          <span style={{
+            fontSize: 11,
+            color: 'var(--sev-info)',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: 8,
+          }}>
+            ✓ {classifyResult}
+          </span>
+        )}
+      </div>
 
       {/* ── TOP STAT ROW ────────────────────────── */}
       <StatGrid cols={4}>
