@@ -1,11 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StatCard } from '@/components/ui/StatCard';
+import { Search } from 'lucide-react';
+import {
+  Badge,
+  Card,
+  FilterBar,
+  PageHeader,
+  StatCard,
+  StatGrid,
+} from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';
-import { Search } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -24,79 +31,215 @@ function parseJsonArray(val: string | null): string[] {
 
 // ─── Status Badge ─────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    active: 'bg-signal-red/20 text-red-400 border-signal-red/30',
-    dormant: 'bg-white/5 text-gauge-gray border-white/10',
-    disrupted: 'bg-green-500/20 text-green-400 border-green-500/30',
-    unknown: 'bg-white/5 text-gauge-gray border-white/10',
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${colors[status] ?? colors.unknown}`}>
-      {status}
-    </span>
-  );
+function actorStatusBadge(status: string) {
+  switch (status) {
+    case 'active':    return <Badge severity="critical" label="Active"    size="xs" pulse />;
+    case 'dormant':   return <Badge status="inactive"   label="Dormant"   size="xs" />;
+    case 'disrupted': return <Badge status="healthy"    label="Disrupted" size="xs" />;
+    default:          return <Badge status="inactive"   label={status}    size="xs" />;
+  }
 }
 
+// ─── Attribution + TTP color maps ─────────────────────────────
 
-// ─── Actor Row ────────────────────────────────────────────────
+const ATTRIBUTION_COLORS: Record<string, string> = {
+  IRGC: 'var(--red)',
+  GRU:  'var(--blue)',
+  FSB:  'var(--blue)',
+  SVR:  'var(--blue)',
+  MSS:  'var(--sev-high)',
+  RGB:  'var(--sev-medium)',
+  APT:  'var(--amber)',
+};
 
-function ActorRow({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
-  const aliases = parseJsonArray(actor.aliases);
-  const ttps = parseJsonArray(actor.ttps);
+function attributionColor(attribution: string | null): string {
+  if (!attribution) return 'var(--text-muted)';
+  const upper = attribution.toUpperCase();
+  for (const [key, color] of Object.entries(ATTRIBUTION_COLORS)) {
+    if (upper.includes(key)) return color;
+  }
+  return 'var(--text-tertiary)';
+}
+
+// High-signal MITRE ATT&CK techniques — phishing, ransomware, DDoS,
+// supply chain, valid accounts, network sniffing.
+const HIGH_SIGNAL_TTPS = ['T1566', 'T1486', 'T1498', 'T1195', 'T1078', 'T1040'];
+
+function ttpColor(ttp: string): string {
+  const code = ttp.split('.')[0];
+  if (HIGH_SIGNAL_TTPS.includes(code)) return 'var(--sev-high)';
+  return 'var(--text-muted)';
+}
+
+// ─── Actor Card ───────────────────────────────────────────────
+
+function ActorCard({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
+  const aliases  = parseJsonArray(actor.aliases);
+  const ttps     = parseJsonArray(actor.ttps);
+  const sectors  = parseJsonArray(actor.target_sectors);
+  const flag     = countryFlag(actor.country);
+  const accColor = attributionColor(actor.attribution);
+  const isActive = actor.status === 'active';
 
   return (
-    <button
+    <Card
+      variant={isActive ? 'active' : 'base'}
+      accent={isActive ? accColor : undefined}
       onClick={onClick}
-      className="w-full text-left rounded-xl border border-white/10 bg-instrument-panel p-4 hover:border-afterburner/30 hover:bg-panel-highlight transition-all"
+      style={{ padding: '16px 20px', cursor: 'pointer' }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-mono text-instrument-white font-semibold">{actor.name}</span>
-            <StatusBadge status={actor.status} />
+      {/* Header row: name + status + country */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-start',
+        justifyContent: 'space-between', gap: 12, marginBottom: 10,
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Actor name + status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: 15, fontWeight: 900,
+              color: 'var(--text-primary)', fontFamily: 'var(--font-mono)',
+              letterSpacing: -0.3,
+            }}>
+              {actor.name}
+            </span>
+            {actorStatusBadge(actor.status)}
           </div>
+
+          {/* Aliases */}
           {aliases.length > 0 && (
-            <div className="text-[10px] text-gauge-gray font-mono mb-1">
-              AKA: {aliases.join(', ')}
-            </div>
-          )}
-          {actor.description && (
-            <p className="text-[11px] text-white/60 line-clamp-2 mt-1">{actor.description}</p>
-          )}
-          {ttps.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {ttps.slice(0, 4).map(ttp => (
-                <span key={ttp} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-gauge-gray border border-white/5">
-                  {ttp.replace(/_/g, ' ')}
-                </span>
-              ))}
-              {ttps.length > 4 && (
-                <span className="font-mono text-[9px] text-gauge-gray">+{ttps.length - 4}</span>
-              )}
+            <div style={{
+              fontSize: 10, color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)', marginTop: 3,
+            }}>
+              aka {aliases.slice(0, 3).join(', ')}
+              {aliases.length > 3 && ` +${aliases.length - 3}`}
             </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">{countryFlag(actor.country)}</span>
-            <span className="font-mono text-[10px] text-gauge-gray">{actor.attribution ?? 'Unknown'}</span>
-          </div>
-          <div className="flex gap-3 mt-1">
-            <span className="font-mono text-[10px] text-white/40">{actor.infra_count ?? 0} infra</span>
-            <span className="font-mono text-[10px] text-white/40">{actor.target_count ?? 0} targets</span>
-          </div>
+
+        {/* Right: flag + attribution */}
+        <div style={{
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', gap: 4, flexShrink: 0,
+        }}>
+          {/* Country flag + code */}
+          {actor.country && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px', borderRadius: 6,
+              background: `${accColor}12`,
+              border: `1px solid ${accColor}30`,
+            }}>
+              {flag && <span style={{ fontSize: 14 }}>{flag}</span>}
+              <span style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                fontWeight: 800, letterSpacing: '0.14em',
+                color: accColor, textTransform: 'uppercase',
+              }}>
+                {actor.country}
+              </span>
+            </div>
+          )}
+
+          {/* Attribution group */}
+          {actor.attribution && (
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)',
+              color: accColor, letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+            }}>
+              {actor.attribution}
+            </span>
+          )}
         </div>
       </div>
-    </button>
+
+      {/* Description */}
+      {actor.description && (
+        <p style={{
+          fontSize: 12, color: 'var(--text-secondary)',
+          lineHeight: 1.60, margin: '0 0 10px',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        } as React.CSSProperties}>
+          {actor.description}
+        </p>
+      )}
+
+      {/* TTP pills */}
+      {ttps.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+          {ttps.slice(0, 6).map(ttp => {
+            const color = ttpColor(ttp);
+            return (
+              <span key={ttp} style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                fontWeight: 700, letterSpacing: '0.08em',
+                padding: '3px 7px', borderRadius: 5,
+                background: `${color}10`,
+                border: `1px solid ${color}30`,
+                color,
+              }}>
+                {ttp}
+              </span>
+            );
+          })}
+          {ttps.length > 6 && (
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)', padding: '3px 4px',
+            }}>
+              +{ttps.length - 6}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer: infra / targets / sectors / last seen */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 16,
+        paddingTop: 8,
+        borderTop: '1px solid var(--border-base)',
+        fontSize: 10, fontFamily: 'var(--font-mono)',
+        color: 'var(--text-muted)',
+      }}>
+        {actor.infra_count != null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <span style={{ color: 'var(--blue)' }}>◈</span>
+            <span>{actor.infra_count} infra</span>
+          </div>
+        )}
+        {actor.target_count != null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <span style={{ color: 'var(--amber)' }}>◉</span>
+            <span>{actor.target_count} targets</span>
+          </div>
+        )}
+        {sectors.length > 0 && (
+          <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {sectors.slice(0, 3).join(' · ')}
+          </div>
+        )}
+        {actor.last_seen && (
+          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            Last seen {new Date(actor.last_seen).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
 // ─── Main Page ────────────────────────────────────────────────
 
+type CountryFilter = 'all' | 'IR' | 'RU' | 'CN' | 'KP';
+
 export function ThreatActors() {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'IR' | 'RU' | 'CN' | 'KP'>('all');
+  const [filter, setFilter] = useState<CountryFilter>('all');
   const country = filter === 'all' ? undefined : filter;
 
   const { data: actors, isLoading } = useThreatActors({ country, status: 'active' });
@@ -114,97 +257,139 @@ export function ThreatActors() {
     return Array.from(grouped.entries()).map(([attribution, count]) => ({ attribution, count }));
   }, [stats?.by_attribution, actors]);
 
+  const filterOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'IR',  label: `${countryFlag('IR')} IR` },
+    { value: 'RU',  label: `${countryFlag('RU')} RU` },
+    { value: 'CN',  label: `${countryFlag('CN')} CN` },
+    { value: 'KP',  label: `${countryFlag('KP')} KP` },
+  ];
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-mono font-bold text-instrument-white tracking-tight">
-          Threat Actors
-        </h1>
-        <p className="text-[11px] text-gauge-gray mt-1">
-          State-sponsored and organized threat actor profiles — infrastructure, TTPs, and targeted brands
-        </p>
-      </div>
+    <div style={{ padding: 24 }}>
+      <PageHeader
+        title="Threat Actors"
+        subtitle="State-sponsored and organized threat actor profiles — infrastructure, TTPs, and targeted brands"
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <StatGrid cols={4}>
         <StatCard
-          title="TRACKED ACTORS"
-          metric={<span className="text-[32px] font-bold leading-none text-signal-red">{stats?.total ?? 0}</span>}
-          metricLabel="total"
+          title="Tracked Actors"
+          metric={stats?.total ?? 0}
+          metricLabel="Total"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-signal-red" />
-            <span className="text-[11px] text-white/60">Active</span>
-            <span className="text-[11px] font-mono text-instrument-white">{stats?.active ?? 0}</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 11, color: 'var(--text-secondary)',
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--sev-critical)',
+              boxShadow: '0 0 6px var(--sev-critical)',
+            }} />
+            <span>Active</span>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-primary)', fontWeight: 700,
+            }}>
+              {stats?.active ?? 0}
+            </span>
           </div>
         </StatCard>
+
         <StatCard
-          title="INFRASTRUCTURE"
-          metric={<span className="text-[32px] font-bold leading-none" style={{ color: 'var(--amber)' }}>{stats?.tracked_infrastructure ?? 0}</span>}
-          metricLabel="tracked"
+          title="Infrastructure"
+          metric={stats?.tracked_infrastructure ?? 0}
+          metricLabel="Tracked"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-afterburner" />
-            <span className="text-[11px] text-white/60">ASNs / IPs / Domains</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 11, color: 'var(--text-secondary)',
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--amber)',
+              boxShadow: '0 0 6px var(--amber)',
+            }} />
+            <span>ASNs / IPs / Domains</span>
           </div>
         </StatCard>
+
         <StatCard
-          title="TARGETED BRANDS"
-          metric={<span className="text-[32px] font-bold leading-none text-[#f87171]">{stats?.targeted_brands ?? 0}</span>}
-          metricLabel="brands"
+          title="Targeted Brands"
+          metric={stats?.targeted_brands ?? 0}
+          metricLabel="Brands"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#f87171]" />
-            <span className="text-[11px] text-white/60">In crosshairs</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 11, color: 'var(--text-secondary)',
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--sev-critical)',
+              boxShadow: '0 0 6px var(--sev-critical)',
+            }} />
+            <span>In crosshairs</span>
           </div>
         </StatCard>
+
         <StatCard
-          title="BY ATTRIBUTION"
-          metric={<span className="text-[32px] font-bold leading-none text-wing-blue">{attributionGroups.length}</span>}
-          metricLabel="groups"
+          title="By Attribution"
+          metric={attributionGroups.length}
+          metricLabel="Groups"
         >
-          <div className="space-y-1">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {attributionGroups.slice(0, 3).map(a => (
-              <div key={a.attribution} className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-wing-blue" />
-                <span className="text-[11px] text-white/60">{a.attribution || 'Unknown'}</span>
-                <span className="text-[11px] font-mono text-instrument-white">{a.count}</span>
+              <div key={a.attribution} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 11, color: 'var(--text-secondary)',
+              }}>
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: 'var(--blue)',
+                  boxShadow: '0 0 6px var(--blue)',
+                }} />
+                <span>{a.attribution || 'Unknown'}</span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-primary)', fontWeight: 700,
+                  marginLeft: 'auto',
+                }}>
+                  {a.count}
+                </span>
               </div>
             ))}
           </div>
         </StatCard>
-      </div>
+      </StatGrid>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-gauge-gray">Origin:</span>
-        {(['all', 'IR', 'RU', 'CN', 'KP'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full border px-3 py-1 font-mono text-[10px] transition-all ${
-              filter === f
-                ? 'border-[rgba(229,168,50,0.5)] bg-[rgba(229,168,50,0.1)] text-[var(--amber)]'
-                : 'border-white/10 bg-white/5 text-gauge-gray hover:border-white/20'
-            }`}
-          >
-            {f === 'all' ? 'All' : `${countryFlag(f)} ${f}`}
-          </button>
-        ))}
-      </div>
+      {/* Filter bar */}
+      <FilterBar
+        filters={filterOptions}
+        active={filter}
+        onChange={(v) => setFilter(v as CountryFilter)}
+      />
 
       {/* Actor List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))',
+          gap: 12,
+        }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
           ))}
         </div>
       ) : actors && actors.length > 0 ? (
-        <div className="space-y-3">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))',
+          gap: 12,
+        }}>
           {actors.map(actor => (
-            <ActorRow
+            <ActorCard
               key={actor.id}
               actor={actor}
               onClick={() => navigate(`/threat-actors/${actor.id}`)}
