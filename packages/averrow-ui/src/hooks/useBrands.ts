@@ -19,10 +19,8 @@ interface Brand {
   last_social_scan: string | null;
   logo_url: string | null;
   social_profiles: BrandSocialProfile[] | null;
-  threat_trend: number | null;
   top_threat_type: string | null;
   threat_history: number[] | null;
-  bimi_grade: string | null;
   bimi_record: string | null;
   bimi_svg_url: string | null;
   bimi_vmc_url: string | null;
@@ -35,6 +33,9 @@ interface Brand {
 }
 
 interface BrandDetail extends Brand {
+  // Legacy columns retained for BrandDetail view — not on the list endpoint.
+  bimi_grade: string | null;
+  threat_trend: number | null;
   threat_analysis: string | null;
   analysis_updated_at: string | null;
   official_handles: string | null;

@@ -2,8 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBrands, useBrandStats, useToggleMonitor, useAddBrand } from '@/hooks/useBrands';
 import type { Brand } from '@/hooks/useBrands';
-import { SocialDots } from './components/SocialDots';
-import { TrendBadge } from './components/TrendBadge';
 import { LiveFeedCard } from './components/LiveFeedCard';
 import { PortfolioHealthCard } from './components/PortfolioHealthCard';
 import { AttackVectorsCard } from './components/AttackVectorsCard';
@@ -13,41 +11,51 @@ import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Search, Shield } from 'lucide-react';
-import { BIMIGradeBadge } from '@/components/ui/BIMIGradeBadge';
 import {
   DeepCard,
-  DimensionalAvatar,
-  SeverityChip,
   GlowNumber,
-  SectionLabel,
   TrendSparkline,
 } from '@/components/ui';
-import type { Severity } from '@/components/ui';
 
-/* ─── Severity colors for UI Standard components ─── */
-const SEV_COLORS: Record<string, { color: string; dim: string }> = {
-  critical: { color: '#C83C3C', dim: '#8B1A1A' },
-  high:     { color: '#fb923c', dim: '#7c2d12' },
-  medium:   { color: '#fbbf24', dim: '#78350f' },
-  low:      { color: '#60a5fa', dim: '#1e3a5f' },
-  info:     { color: '#4ade80', dim: '#14532d' },
-};
+/* ─── Severity helpers (card grid) ─── */
 
-function sevFromBrand(exposure: number | null | undefined, count: number | null | undefined): Severity {
-  const c = count ?? 0;
-  const e = exposure ?? 100;
-  if (e < 40 || c >= 200) return 'critical';
-  if ((e >= 40 && e < 60) || (c >= 100 && c < 200)) return 'high';
-  if ((e >= 60 && e < 80) || (c >= 50 && c < 100)) return 'medium';
-  if (c === 0) return 'info';
+// Severity based on threat count
+function cardSeverity(count: number): 'critical' | 'high' | 'medium' | 'low' {
+  if (count > 2000) return 'critical';
+  if (count > 500)  return 'high';
+  if (count > 100)  return 'medium';
   return 'low';
 }
 
-function sevColorOf(sev: Severity): string {
-  return SEV_COLORS[sev].color;
+// Accent color per severity
+function severityAccent(sev: string): string {
+  switch (sev) {
+    case 'critical': return '#E24B4A';
+    case 'high':     return '#BA7517';
+    case 'medium':   return '#E5A832';
+    default:         return '#639922';
+  }
 }
-function sevDimColorOf(sev: Severity): string {
-  return SEV_COLORS[sev].dim;
+
+// Email/exposure grade → color
+function gradeStyle(grade: string | null): {
+  bg: string; color: string; border: string;
+} {
+  if (!grade) return { bg: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.10)' };
+  const g = grade.replace('+', '').replace('-', '');
+  if (g === 'A')  return { bg: 'rgba(99,153,34,0.15)',   color: '#97C459', border: 'rgba(99,153,34,0.35)' };
+  if (g === 'B')  return { bg: 'rgba(229,168,50,0.12)',  color: '#E5A832', border: 'rgba(229,168,50,0.30)' };
+  if (g === 'C')  return { bg: 'rgba(186,117,23,0.12)',  color: '#EF9F27', border: 'rgba(186,117,23,0.30)' };
+  if (g === 'D')  return { bg: 'rgba(226,75,74,0.12)',   color: '#F09595', border: 'rgba(226,75,74,0.30)' };
+  return             { bg: 'rgba(226,75,74,0.18)',   color: '#E24B4A', border: 'rgba(226,75,74,0.40)' };
+}
+
+// Social risk score → label + color
+function socialRisk(score: number | null): { label: string; color: string } | null {
+  if (score == null) return null;
+  if (score >= 70) return { label: 'High',   color: '#E24B4A' };
+  if (score >= 40) return { label: 'Med',    color: '#BA7517' };
+  return              { label: 'Low',    color: '#639922' };
 }
 
 /* ─── Constants ─── */
@@ -434,115 +442,316 @@ function StatsRow() {
   );
 }
 
-/* ─── Brand Row ─── */
+/* ─── Favicon Avatar ─── */
 
-interface BrandRowProps {
-  brand: Brand;
-  onToggleMonitor: (id: string) => void;
+function FaviconAvatar({
+  name,
+  faviconUrl,
+  size = 38,
+}: {
+  name:        string;
+  domain?:     string | null;
+  faviconUrl?: string;
+  size?:       number;
+}) {
+  const [failed, setFailed] = useState(false);
+  const radius = Math.round(size * 0.26);
+
+  return (
+    <div style={{
+      width:          size,
+      height:         size,
+      borderRadius:   radius,
+      background:     'linear-gradient(145deg, var(--bg-elevated), var(--bg-card-deep))',
+      border:         '1px solid var(--border-base)',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      overflow:       'hidden',
+      flexShrink:     0,
+    }}>
+      {faviconUrl && !failed ? (
+        <img
+          src={faviconUrl}
+          width={Math.round(size * 0.60)}
+          height={Math.round(size * 0.60)}
+          alt={name}
+          onError={() => setFailed(true)}
+          style={{ borderRadius: 3, display: 'block' }}
+        />
+      ) : (
+        <span style={{
+          fontSize:   Math.round(size * 0.37),
+          fontWeight: 900,
+          color:      'var(--text-secondary)',
+        }}>
+          {(name[0] ?? '?').toUpperCase()}
+        </span>
+      )}
+    </div>
+  );
 }
 
-function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
-  const navigate = useNavigate();
-  const sev = sevFromBrand(brand.exposure_score, brand.threat_count);
-  const countColor = sevColorOf(sev);
-  const dimColor = sevDimColorOf(sev);
+/* ─── Brand Card ─── */
+
+function BrandCard({
+  brand,
+}: {
+  brand: Brand;
+  onToggleMonitor: (id: string) => void;
+}) {
+  const navigate  = useNavigate();
+  const tc        = brand.threat_count ?? 0;
+  const sev       = cardSeverity(tc);
+  const accent    = severityAccent(sev);
+  const emailG    = gradeStyle(brand.email_security_grade);
+  const exposureG = gradeStyle(
+    brand.exposure_score != null
+      ? (brand.exposure_score >= 80 ? 'A'
+       : brand.exposure_score >= 60 ? 'B'
+       : brand.exposure_score >= 40 ? 'C'
+       : brand.exposure_score >= 20 ? 'D' : 'F')
+      : null
+  );
+  const social   = socialRisk(brand.social_risk_score ?? null);
+  const faviconUrl = brand.canonical_domain
+    ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
+    : undefined;
+
+  // Sparkline from threat_history (array of daily counts)
+  const sparkData: number[] = Array.isArray(brand.threat_history)
+    ? brand.threat_history.slice(-14)
+    : [];
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      data-severity={sev}
-      onClick={() => { if (brand.id) navigate(`/brands/${brand.id}`); }}
-      onKeyDown={(e) => { if (e.key === 'Enter' && brand.id) navigate(`/brands/${brand.id}`); }}
-      className="data-row flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/[0.06] cursor-pointer transition-colors group min-w-0"
+      onClick={() => navigate(`/brands/${brand.id}`)}
+      style={{
+        background:   'linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-deep) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border:       `1px solid var(--border-base)`,
+        borderLeft:   `3px solid ${accent}`,
+        borderRadius: 'var(--card-radius)',
+        padding:      '14px 16px',
+        cursor:       'pointer',
+        position:     'relative',
+        overflow:     'hidden',
+        transition:   'var(--transition-fast)',
+        boxShadow:    'var(--card-shadow), inset 0 1px 0 var(--border-strong)',
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = `${accent}60`;
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          `var(--card-shadow), inset 0 1px 0 var(--border-strong), 0 0 20px ${accent}12`;
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-base)';
+        (e.currentTarget as HTMLDivElement).style.borderLeftColor = accent;
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          'var(--card-shadow), inset 0 1px 0 var(--border-strong)';
+      }}
     >
-      {/* 1. Avatar */}
-      <div className="flex-shrink-0">
-        <DimensionalAvatar
-          name={brand.name ?? '?'}
-          color={countColor}
-          dimColor={dimColor}
-          size={36}
-          radius={10}
-          faviconUrl={brand.canonical_domain
-            ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
-            : undefined}
-          severity={sev ?? undefined}
-        />
-      </div>
+      {/* ── HEADER: favicon + name + threat count ─────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
 
-      {/* 2. Name + domain */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-sm font-bold text-white/90 truncate">{brand.name}</span>
-        <span className="text-[11px] text-white/40 font-mono truncate">{brand.canonical_domain}</span>
-      </div>
-
-      {/* 3. Social dots — hidden on mobile */}
-      <div className="flex-shrink-0 hidden md:block">
-        <SocialDots profiles={brand.social_profiles} maxDots={4} />
-      </div>
-
-      {/* 4. Trend sparkline — hidden on mobile */}
-      <div className="flex-shrink-0 hidden sm:block">
-        {brand.threat_history && brand.threat_history.length >= 2 ? (
-          <TrendSparkline
-            data={brand.threat_history}
-            width={100}
-            height={28}
-            color={countColor}
-            animate={false}
+        {/* Favicon with severity dot */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <FaviconAvatar
+            name={brand.name}
+            domain={brand.canonical_domain}
+            faviconUrl={faviconUrl}
+            size={38}
           />
-        ) : (
-          <div style={{ width: 100, height: 28 }} />
-        )}
+          <div style={{
+            position:     'absolute',
+            bottom:       -2,
+            right:        -2,
+            width:        10,
+            height:       10,
+            borderRadius: '50%',
+            background:   accent,
+            border:       '2px solid var(--bg-page)',
+            boxShadow:    `0 0 6px ${accent}80`,
+          }} />
+        </div>
+
+        {/* Name + domain */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize:    14,
+            fontWeight:  700,
+            color:       'var(--text-primary)',
+            whiteSpace:  'nowrap',
+            overflow:    'hidden',
+            textOverflow:'ellipsis',
+          }}>
+            {brand.name}
+          </div>
+          <div style={{
+            fontSize:    11,
+            color:       'var(--text-muted)',
+            fontFamily:  'var(--font-mono)',
+            marginTop:   2,
+          }}>
+            {brand.canonical_domain ?? '—'}
+          </div>
+        </div>
+
+        {/* Threat count */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{
+            fontSize:    20,
+            fontWeight:  900,
+            fontFamily:  'var(--font-mono)',
+            color:       accent,
+            lineHeight:  1,
+            textShadow:  `0 0 16px ${accent}60`,
+          }}>
+            {tc.toLocaleString()}
+          </div>
+          <div style={{
+            fontSize:    9,
+            color:       'var(--text-muted)',
+            fontFamily:  'var(--font-mono)',
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            marginTop:   2,
+          }}>
+            threats
+          </div>
+        </div>
       </div>
 
-      {/* 5. Threat count */}
-      <div className="w-16 text-right flex-shrink-0 flex justify-end">
-        <GlowNumber value={brand.threat_count ?? 0} color={countColor} size="md" animate={false} />
+      {/* ── METRIC TILES ─────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
+
+        {/* Exposure */}
+        <div style={{
+          flex: 1,
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 8,
+          padding: '7px 8px',
+          textAlign: 'center',
+          border: '1px solid var(--border-base)',
+        }}>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.14em', color: 'var(--text-muted)',
+            textTransform: 'uppercase', marginBottom: 5,
+          }}>
+            Exposure
+          </div>
+          {brand.exposure_score != null ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 6, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)',
+                background: exposureG.bg, color: exposureG.color,
+                border: `1px solid ${exposureG.border}`,
+              }}>
+                {brand.exposure_score >= 80 ? 'A'
+                : brand.exposure_score >= 60 ? 'B'
+                : brand.exposure_score >= 40 ? 'C'
+                : brand.exposure_score >= 20 ? 'D' : 'F'}
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {brand.exposure_score}
+              </span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>—</div>
+          )}
+        </div>
+
+        {/* Email grade */}
+        <div style={{
+          flex: 1,
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 8,
+          padding: '7px 8px',
+          textAlign: 'center',
+          border: '1px solid var(--border-base)',
+        }}>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.14em', color: 'var(--text-muted)',
+            textTransform: 'uppercase', marginBottom: 5,
+          }}>
+            Email
+          </div>
+          {brand.email_security_grade ? (
+            <div style={{
+              width: 26, height: 26, borderRadius: 6, margin: '0 auto',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)',
+              background: emailG.bg, color: emailG.color,
+              border: `1px solid ${emailG.border}`,
+            }}>
+              {brand.email_security_grade}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>—</div>
+          )}
+        </div>
+
+        {/* Social risk */}
+        <div style={{
+          flex: 1,
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 8,
+          padding: '7px 8px',
+          textAlign: 'center',
+          border: '1px solid var(--border-base)',
+        }}>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.14em', color: 'var(--text-muted)',
+            textTransform: 'uppercase', marginBottom: 5,
+          }}>
+            Social
+          </div>
+          {social ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: social.color, flexShrink: 0,
+                boxShadow: `0 0 6px ${social.color}`,
+              }} />
+              <span style={{ fontSize: 12, color: social.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                {social.label}
+              </span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>—</div>
+          )}
+        </div>
       </div>
 
-      {/* 6. Trend badge */}
-      <div className="w-14 flex-shrink-0">
-        <TrendBadge trend={brand.threat_trend} />
-      </div>
-
-      {/* 7. Severity chip — hidden on mobile */}
-      <div className="flex-shrink-0 hidden md:block">
-        {brand.top_threat_type ? (
-          <SeverityChip severity={sev} size="xs" />
-        ) : (
-          <span className="text-[9px] font-mono text-white/20">&mdash;</span>
-        )}
-      </div>
-
-      {/* 8. Grade badge — hidden on mobile */}
-      <div className="w-9 text-center flex-shrink-0 hidden md:block">
-        <BIMIGradeBadge grade={brand.bimi_grade} size="sm" tooltip />
-      </div>
-
-      {/* 9. Star toggle */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleMonitor(brand.id);
-        }}
-        className={cn(
-          'flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity',
-          brand.monitored ? 'text-yellow-400 opacity-100' : 'text-white/30 hover:text-yellow-400',
-        )}
-        aria-label={brand.monitored ? 'Unmonitor' : 'Monitor'}
-      >
-        {brand.monitored ? (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ) : (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-          </svg>
-        )}
-      </button>
+      {/* ── SPARKLINE ────────────────────────────────────────── */}
+      {sparkData.length > 1 ? (
+        <TrendSparkline
+          data={sparkData}
+          width={310}
+          height={36}
+          color={accent}
+          animate={false}
+        />
+      ) : (
+        <div style={{
+          height: 36,
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            no trend data
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -676,28 +885,35 @@ export function Brands() {
             </div>
             </DeepCard>
 
-            {/* Brand rows */}
-            <DeepCard variant="base" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="flex flex-col">
-              {pagedBrands.map(brand => (
-                <BrandRow key={brand.id} brand={brand} onToggleMonitor={handleToggleMonitor} />
-              ))}
-              {pagedBrands.length === 0 && (
-                <EmptyState
-                  icon={(brands ?? []).length === 0 ? <Shield /> : <Search />}
-                  title={(brands ?? []).length === 0 ? 'No brands monitored yet' : 'No brands match your search'}
-                  subtitle={(brands ?? []).length === 0
-                    ? 'Add your first brand to start tracking threats, typosquats, and email security posture'
-                    : `Try a different name or domain — you're monitoring ${(brands ?? []).length} brands`}
-                  action={(brands ?? []).length === 0
-                    ? { label: 'Monitor new brand', onClick: () => setModalOpen(true) }
-                    : { label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
-                  variant={(brands ?? []).length === 0 ? 'scanning' : 'clean'}
-                  compact
-                />
-              )}
-            </div>
-            </DeepCard>
+            {/* Brand card grid */}
+            {pagedBrands.length > 0 ? (
+              <div style={{
+                display:             'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+                gap:                 12,
+              }}>
+                {pagedBrands.map(brand => (
+                  <BrandCard
+                    key={brand.id}
+                    brand={brand}
+                    onToggleMonitor={handleToggleMonitor}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={(brands ?? []).length === 0 ? <Shield /> : <Search />}
+                title={(brands ?? []).length === 0 ? 'No brands monitored yet' : 'No brands match your search'}
+                subtitle={(brands ?? []).length === 0
+                  ? 'Add your first brand to start tracking threats, typosquats, and email security posture'
+                  : `Try a different name or domain — you're monitoring ${(brands ?? []).length} brands`}
+                action={(brands ?? []).length === 0
+                  ? { label: 'Monitor new brand', onClick: () => setModalOpen(true) }
+                  : { label: 'Clear search', onClick: () => { setSearch(''); setPage(1); } }}
+                variant={(brands ?? []).length === 0 ? 'scanning' : 'clean'}
+                compact
+              />
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (

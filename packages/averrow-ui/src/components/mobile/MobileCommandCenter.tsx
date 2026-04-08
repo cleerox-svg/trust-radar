@@ -190,7 +190,7 @@ export function MobileCommandCenter() {
                         <span style={{ fontSize:16, fontWeight:900, fontFamily:'monospace', color:c.color, textShadow:`0 0 12px ${c.color}70` }}>{tc}</span>
                         <SevChip severity={sevKey} />
                       </div>
-                      <GradeBadge grade={brand.bimi_grade ?? brand.email_security_grade} />
+                      <GradeBadge grade={brand.email_security_grade} />
                     </div>
                   </div>
                 );
