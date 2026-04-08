@@ -406,6 +406,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-domain-geo` | Admin | Resolve malicious domains → IP → geo + hosting provider (Cloudflare DoH, 500/call) |
 | POST | `/api/admin/backfill-brand-match` | SuperAdmin | Backfill brand matching |
 | POST | `/api/admin/backfill-brand-enrichment` | Admin | Populate brand logo_url, website_url, hq_lat/lng/country via Clearbit + DNS + ipapi (50/call) |
+| POST | `/api/admin/backfill-brand-sector` | Admin | Classify brand sector via Haiku + fetch RDAP registrant data (20/call) |
 | POST | `/api/admin/backfill-safe-domains` | SuperAdmin | Backfill safe domains |
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |
 | POST | `/api/admin/import-tranco` | SuperAdmin | Import Tranco top sites |
