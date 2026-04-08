@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useAdminTakedowns, useUpdateTakedown } from '@/hooks/useTakedowns';
 import type { Takedown } from '@/hooks/useTakedowns';
 import { useToast } from '@/components/ui/Toast';
@@ -72,131 +72,251 @@ const SORT_OPTIONS = [
   { key: 'brand', label: 'Brand' },
 ] as const;
 
-// ─── Platform badges ───────────────────────────────────────────
+// ─── Type + platform + workflow identity ──────────────────────
 
-function PlatformBadge({ platform }: { platform: string | null }) {
-  const config: Record<string, { label: string; classes: string }> = {
-    tiktok: { label: 'TT', classes: 'bg-white/10 text-white' },
-    youtube: { label: 'YT', classes: 'bg-red-500/20 text-red-400' },
-    github: { label: 'GH', classes: 'bg-purple-500/20 text-purple-400' },
-    linkedin: { label: 'LI', classes: 'bg-blue-500/20 text-blue-400' },
-  };
-  const fallback = { label: 'URL', classes: 'bg-amber-500/20 text-amber-400' };
-  const c = (platform ? config[platform.toLowerCase()] : null) ?? fallback;
-  return (
-    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md font-mono text-[10px] font-bold ${c.classes}`}>
-      {c.label}
-    </span>
-  );
+interface TypeConf  { icon: string; color: string; label: string }
+interface PlatConf  { icon: string; label: string }
+interface StatusConf {
+  color: string;
+  label: string;
+  cta:   string; // primary action label
+  next:  string; // db status the CTA transitions to
 }
 
-// ─── Priority bar ──────────────────────────────────────────────
+const TYPE_CONFIG: Record<string, TypeConf> = {
+  URL:    { icon: '🔗', color: 'var(--blue)',       label: 'URL'    },
+  SOCIAL: { icon: '👤', color: 'var(--sev-high)',   label: 'Social' },
+  DOMAIN: { icon: '🌐', color: 'var(--amber)',      label: 'Domain' },
+  EMAIL:  { icon: '📧', color: 'var(--sev-medium)', label: 'Email'  },
+};
 
-function PriorityBar({ score }: { score: number }) {
-  const fillClass = score > 70
-    ? 'progress-bar-fill-red'
-    : score > 40
-      ? 'progress-bar-fill-amber'
-      : 'progress-bar-fill-teal';
-  return (
-    <div className="flex items-center gap-2">
-      <span className="font-mono text-[10px] text-white/40 w-14 shrink-0">Priority</span>
-      <div className="progress-bar-track h-[6px] flex-1">
-        <div className={fillClass} style={{ width: `${score}%` }} />
-      </div>
-      <span className="font-mono text-[10px] text-white/60 w-10 text-right">{score}/100</span>
-    </div>
-  );
+function resolveTypeConf(targetType: string | null | undefined): TypeConf {
+  const t = (targetType ?? '').toLowerCase();
+  if (t.includes('social')) return TYPE_CONFIG.SOCIAL;
+  if (t.includes('domain')) return TYPE_CONFIG.DOMAIN;
+  if (t.includes('email'))  return TYPE_CONFIG.EMAIL;
+  return TYPE_CONFIG.URL;
 }
+
+const PLATFORM_CONFIG: Record<string, PlatConf> = {
+  tiktok:    { icon: '🎵', label: 'TikTok'      },
+  instagram: { icon: '📸', label: 'Instagram'   },
+  twitter:   { icon: '𝕏',  label: 'X / Twitter' },
+  x:         { icon: '𝕏',  label: 'X / Twitter' },
+  youtube:   { icon: '▶',  label: 'YouTube'     },
+  github:    { icon: '⚙',  label: 'GitHub'      },
+  facebook:  { icon: 'f',  label: 'Facebook'    },
+  linkedin:  { icon: 'in', label: 'LinkedIn'    },
+};
+
+// Workflow config keyed on the DB status values.
+// Draft → Pending → Submitted → Resolved
+const STATUS_CONFIG: Record<string, StatusConf> = {
+  draft:            { color: 'var(--amber)',      label: 'Draft',     cta: 'Submit →',         next: 'requested'  },
+  requested:        { color: 'var(--sev-high)',   label: 'Pending',   cta: 'Mark Sent →',      next: 'submitted'  },
+  submitted:        { color: 'var(--blue)',       label: 'Submitted', cta: 'Mark Resolved →',  next: 'taken_down' },
+  pending_response: { color: 'var(--blue)',       label: 'Awaiting',  cta: 'Mark Resolved →',  next: 'taken_down' },
+  taken_down:       { color: 'var(--sev-info)',   label: 'Resolved',  cta: '',                 next: ''           },
+  withdrawn:        { color: 'var(--text-muted)', label: 'Dismissed', cta: '',                 next: ''           },
+  failed:           { color: 'var(--text-muted)', label: 'Failed',    cta: '',                 next: ''           },
+  expired:          { color: 'var(--text-muted)', label: 'Expired',   cta: '',                 next: ''           },
+};
 
 // ─── Takedown card ─────────────────────────────────────────────
 
-function TakedownCard({ takedown, onOpen, onUpdate }: {
+function TakedownCard({
+  takedown,
+  onReview,
+  onStatusChange,
+  onDismiss,
+}: {
   takedown: Takedown;
-  onOpen: (takedown: Takedown) => void;
-  onUpdate: (id: string, updates: { status?: string; notes?: string }) => void;
+  onReview:       (t: Takedown) => void;
+  onStatusChange: (id: string, status: string) => void;
+  onDismiss:      (id: string) => void;
 }) {
-  const sev = takedown.severity?.toUpperCase() ?? '';
-  const cardVariant: 'critical' | 'active' | 'base' =
-    sev === 'HIGH' || sev === 'CRITICAL' ? 'critical'
-      : sev === 'MEDIUM' ? 'active'
-      : 'base';
+  const typeConf   = resolveTypeConf(takedown.target_type);
+  const platConf   = takedown.target_platform
+    ? PLATFORM_CONFIG[takedown.target_platform.toLowerCase()]
+    : undefined;
+  const statusConf = STATUS_CONFIG[takedown.status] ?? STATUS_CONFIG.draft;
+  const priority   = takedown.priority_score ?? 0;
+  const isHigh     = priority >= 70;
+  const isTerminal = takedown.status === 'taken_down' || takedown.status === 'withdrawn';
 
   return (
-    <Card variant={cardVariant} style={{ padding: '16px', cursor: 'pointer' }}>
-      <div onClick={() => onOpen(takedown)}>
-        {/* Row 1: platform icon + handle + status badge */}
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <PlatformBadge platform={takedown.target_platform} />
-            <span className="font-mono text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-              {takedown.target_value}
+    <Card
+      variant={isHigh && !isTerminal ? 'active' : 'base'}
+      accent={isHigh ? 'var(--red)' : typeConf.color}
+      style={{ padding: 0, overflow: 'hidden' }}
+    >
+      {/* Card header: type badge + platform + status */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--border-base)',
+        background: `${typeConf.color}08`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {/* Type badge */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '3px 8px', borderRadius: 6,
+            background: `${typeConf.color}15`,
+            border: `1px solid ${typeConf.color}35`,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 12 }}>{typeConf.icon}</span>
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)',
+              fontWeight: 800, letterSpacing: '0.12em',
+              color: typeConf.color, textTransform: 'uppercase',
+            }}>
+              {typeConf.label}
             </span>
           </div>
-          <Badge
-            status={STATUS_TO_BADGE[takedown.status] ?? 'draft'}
-            label={STATUS_DISPLAY[takedown.status] ?? takedown.status}
-          />
-        </div>
 
-        {/* Row 2: brand + platform + severity */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 text-[11px]">
-            {takedown.brand_name && (
-              <span className="text-[rgba(255,255,255,0.64)]">{takedown.brand_name}</span>
-            )}
-            {takedown.target_platform && (
-              <>
-                <span className="text-white/40">&middot;</span>
-                <span className="text-white/40 font-mono">{takedown.target_platform}</span>
-              </>
-            )}
-          </div>
-          <Badge severity={SEVERITY_TO_BADGE[sev] ?? 'low'} label={sev} />
-        </div>
-
-        {/* Row 3: evidence summary */}
-        <p className="text-[11px] text-white/50 leading-relaxed line-clamp-2 mb-3">
-          {takedown.evidence_summary}
-        </p>
-
-        <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
-
-        {/* Row 4: priority bar + method + date */}
-        <div className="space-y-1.5 mb-3">
-          <PriorityBar score={takedown.priority_score} />
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-white/40 font-mono">
-              Method: {takedown.provider_method ?? 'unknown'}
+          {/* Platform */}
+          {platConf && (
+            <span style={{
+              fontSize: 10, color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {platConf.icon} {platConf.label}
             </span>
-            <span className="text-white/50 font-mono">{relativeTime(takedown.created_at)}</span>
-          </div>
+          )}
         </div>
 
-        <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
+        {/* Status */}
+        <div style={{
+          fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 800,
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          color: statusConf.color,
+          padding: '2px 8px', borderRadius: 4,
+          background: `${statusConf.color}12`,
+          border: `1px solid ${statusConf.color}30`,
+          flexShrink: 0,
+        }}>
+          {statusConf.label}
+        </div>
+      </div>
 
-        {/* Row 5: action buttons */}
-        <div className="flex items-center justify-between gap-2">
+      {/* Card body: brand + target + description + priority */}
+      <div style={{ padding: '12px 14px' }}>
+        {/* Brand name */}
+        {takedown.brand_name && (
+          <div style={{
+            fontSize: 10, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', marginBottom: 4,
+            letterSpacing: '0.10em', textTransform: 'uppercase',
+          }}>
+            {takedown.brand_name}
+          </div>
+        )}
+
+        {/* Target */}
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+          fontFamily: 'var(--font-mono)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          marginBottom: 6,
+        }}>
+          {takedown.target_value}
+        </div>
+
+        {/* Evidence summary */}
+        {takedown.evidence_summary && (
+          <p style={{
+            fontSize: 11, color: 'var(--text-secondary)',
+            lineHeight: 1.55, margin: '0 0 10px',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          } as React.CSSProperties}>
+            {takedown.evidence_summary}
+          </p>
+        )}
+
+        {/* Priority bar + meta */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+              letterSpacing: '0.12em', marginBottom: 4,
+            }}>
+              PRIORITY {priority}/100
+            </div>
+            <div style={{
+              height: 4, borderRadius: 99,
+              background: 'rgba(255,255,255,0.06)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%', borderRadius: 99, width: `${priority}%`,
+                background: isHigh
+                  ? 'linear-gradient(90deg, var(--red-dim), var(--red))'
+                  : 'linear-gradient(90deg, var(--amber-dim), var(--amber))',
+                boxShadow: `0 0 8px ${isHigh ? 'var(--red-glow)' : 'var(--amber-glow)'}`,
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+          </div>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', flexShrink: 0, textAlign: 'right',
+            lineHeight: 1.4,
+          }}>
+            <div>{takedown.provider_method ?? 'email'}</div>
+            {takedown.evidence_count != null && (
+              <div>{takedown.evidence_count} evidence</div>
+            )}
+            <div>{relativeTime(takedown.created_at)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action row */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 14px',
+        borderTop: '1px solid var(--border-base)',
+        background: 'rgba(0,0,0,0.20)',
+      }}>
+        {/* Primary CTA — advances workflow */}
+        {statusConf.cta && (
           <Button
             variant="primary"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); onOpen(takedown); }}
+            onClick={() => onStatusChange(takedown.id, statusConf.next)}
           >
-            Review →
+            {statusConf.cta}
           </Button>
-          {takedown.status === 'draft' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdate(takedown.id, { status: 'withdrawn' });
-              }}
-            >
-              Dismiss
-            </Button>
-          )}
-        </div>
+        )}
+
+        {/* View detail */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onReview(takedown)}
+        >
+          View Detail
+        </Button>
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Dismiss — only for non-resolved, non-dismissed */}
+        {!isTerminal && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDismiss(takedown.id)}
+          >
+            Dismiss
+          </Button>
+        )}
       </div>
     </Card>
   );
@@ -437,22 +557,31 @@ export function Takedowns() {
 
       {/* ─── LOADING STATE ───────────────────────────── */}
       {isLoading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
+          gap: 12,
+        }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} style={{ padding: '16px', height: 192 }} className="animate-pulse"><div /></Card>
+            <Card key={i} style={{ padding: '16px', height: 220 }} className="animate-pulse"><div /></Card>
           ))}
         </div>
       )}
 
       {/* ─── CARD GRID ───────────────────────────────── */}
       {!isLoading && takedowns.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
+          gap: 12,
+        }}>
           {takedowns.map((td) => (
             <TakedownCard
               key={td.id}
               takedown={td}
-              onOpen={setSelectedTakedown}
-              onUpdate={handleUpdate}
+              onReview={setSelectedTakedown}
+              onStatusChange={(id, status) => handleUpdate(id, { status })}
+              onDismiss={(id) => handleUpdate(id, { status: 'withdrawn' })}
             />
           ))}
         </div>
