@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useAdminTakedowns, useTakedownEvidence, useUpdateTakedown } from '@/hooks/useTakedowns';
-import type { Takedown, TakedownEvidence } from '@/hooks/useTakedowns';
+import { useAdminTakedowns, useUpdateTakedown } from '@/hooks/useTakedowns';
+import type { Takedown } from '@/hooks/useTakedowns';
 import { useToast } from '@/components/ui/Toast';
 import { relativeTime } from '@/lib/time';
 import { Shield } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   Button,
 } from '@/design-system/components';
 import type { BadgeStatus, Severity } from '@/design-system/components';
+import { ReportPanel } from '@/components/ui/ReportPanel';
 
 // ─── Status mapping (DB → display) ────────────────────────────
 
@@ -108,253 +109,12 @@ function PriorityBar({ score }: { score: number }) {
   );
 }
 
-// ─── Evidence panel (expanded detail) ──────────────────────────
-
-function EvidencePanel({ takedownId }: { takedownId: string }) {
-  const { data: evidence, isLoading } = useTakedownEvidence(takedownId);
-  if (isLoading) return <div className="animate-pulse h-16 rounded-lg bg-white/[0.03]" />;
-  if (!evidence?.length) return <p className="text-[11px] text-white/30 font-mono">No evidence artifacts.</p>;
-  return (
-    <div className="space-y-2">
-      {evidence.map((e: TakedownEvidence) => (
-        <Card key={e.id} style={{ padding: '12px' }}>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge label={e.evidence_type.replace(/_/g, ' ')} />
-            <span className="font-mono text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{e.title}</span>
-          </div>
-          {e.content_text && (
-            <p className="text-[11px] text-white/50 line-clamp-4">{e.content_text}</p>
-          )}
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-// ─── Detail panel (three-column) ───────────────────────────────
-
-function DetailPanel({ takedown, onUpdate, updatingId }: {
-  takedown: Takedown;
-  onUpdate: (id: string, updates: { status?: string; notes?: string }) => void;
-  updatingId: string | null;
-}) {
-  const [localNotes, setLocalNotes] = useState(takedown.notes ?? '');
-  const isUpdating = updatingId === takedown.id;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-white/[0.06]">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT — Target Details */}
-        <div className="space-y-3">
-          <div className="section-label">TARGET DETAILS</div>
-          <div className="space-y-2">
-            <DetailRow label="Type">
-              <Badge label={takedown.target_type.replace(/_/g, ' ')} />
-            </DetailRow>
-            <DetailRow label="Platform">
-              <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>
-                {takedown.target_platform ?? '\u2014'}
-              </span>
-            </DetailRow>
-            <DetailRow label="Handle / URL">
-              <span className="font-mono text-[11px] break-all select-all" style={{ color: 'var(--text-primary)' }}>
-                {takedown.target_value}
-              </span>
-            </DetailRow>
-            {takedown.target_url && (
-              <DetailRow label="Full URL">
-                <span className="font-mono text-[11px] break-all select-all" style={{ color: 'var(--amber)' }}>
-                  {takedown.target_url}
-                </span>
-              </DetailRow>
-            )}
-            <DetailRow label="Brand">
-              <span className="text-[11px]" style={{ color: 'var(--text-primary)' }}>{takedown.brand_name ?? '\u2014'}</span>
-            </DetailRow>
-            <DetailRow label="Source">
-              <span className="text-white/50 font-mono text-[11px]">
-                {takedown.source_type ? 'Sparrow AI' : 'Manual'}
-              </span>
-            </DetailRow>
-            <DetailRow label="Severity">
-              <Badge severity={SEVERITY_TO_BADGE[takedown.severity] ?? 'low'} label={takedown.severity} />
-            </DetailRow>
-            <DetailRow label="Priority">
-              <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{takedown.priority_score}/100</span>
-            </DetailRow>
-            <DetailRow label="Created">
-              <span className="font-mono text-[11px] text-white/40">{relativeTime(takedown.created_at)}</span>
-            </DetailRow>
-          </div>
-        </div>
-
-        {/* CENTER — Evidence */}
-        <div className="space-y-3">
-          <div className="section-label">EVIDENCE</div>
-          {takedown.evidence_summary && (
-            <Card style={{ padding: '12px' }}>
-              <p className="text-[12px] text-[rgba(255,255,255,0.74)] leading-relaxed">{takedown.evidence_summary}</p>
-            </Card>
-          )}
-          {takedown.evidence_detail && (
-            <Card style={{ padding: '12px' }}>
-              <p className="text-[11px] text-white/50 whitespace-pre-line">{takedown.evidence_detail}</p>
-            </Card>
-          )}
-          <EvidencePanel takedownId={takedown.id} />
-          {takedown.provider_abuse_contact && takedown.provider_method === 'form' && (
-            <a
-              href={takedown.provider_abuse_contact}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 12px',
-                borderRadius: 6,
-                border: '1px solid var(--border-base)',
-                background: 'transparent',
-                color: 'var(--amber)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}
-            >
-              Submit Form &rarr;
-            </a>
-          )}
-          {takedown.provider_abuse_contact && takedown.provider_method === 'email' && (
-            <a
-              href={`mailto:${takedown.provider_abuse_contact}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 12px',
-                borderRadius: 6,
-                border: '1px solid var(--border-base)',
-                background: 'transparent',
-                color: 'var(--amber)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}
-            >
-              Draft Email &rarr;
-            </a>
-          )}
-        </div>
-
-        {/* RIGHT — Actions */}
-        <div className="space-y-3">
-          <div className="section-label">ACTIONS</div>
-          <StatusActions
-            takedown={takedown}
-            onUpdate={onUpdate}
-            isUpdating={isUpdating}
-          />
-          <hr style={{ border: 'none', height: 1, background: 'linear-gradient(90deg, transparent, rgba(229,168,50,0.2), transparent)', margin: '12px 0' }} />
-          <div className="section-label">NOTES</div>
-          <textarea
-            className="w-full rounded-md px-3 py-2 font-mono text-[11px] h-24 resize-none"
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-base)',
-              color: 'var(--text-primary)',
-              outline: 'none',
-            }}
-            placeholder="Add notes..."
-            value={localNotes}
-            onChange={(e) => setLocalNotes(e.target.value)}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onUpdate(takedown.id, { notes: localNotes })}
-            disabled={isUpdating}
-          >
-            Save Notes
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="font-mono text-[10px] text-white/40 uppercase tracking-wider w-20 shrink-0 pt-0.5">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-// ─── Status action buttons ─────────────────────────────────────
-
-function StatusActions({ takedown, onUpdate, isUpdating }: {
-  takedown: Takedown;
-  onUpdate: (id: string, updates: { status?: string }) => void;
-  isUpdating: boolean;
-}) {
-  const s = takedown.status;
-  const btn = (label: string, status: string, variant: 'primary' | 'ghost' | 'success' = 'primary') => (
-    <Button
-      variant={variant}
-      size="sm"
-      onClick={() => onUpdate(takedown.id, { status })}
-      disabled={isUpdating}
-    >
-      {label}
-    </Button>
-  );
-
-  if (s === 'draft') return (
-    <div className="flex flex-wrap gap-2">
-      {btn('Mark as Reviewed', 'requested')}
-      {btn('Submit Takedown', 'submitted')}
-      {btn('Dismiss', 'withdrawn', 'ghost')}
-    </div>
-  );
-  if (s === 'requested') return (
-    <div className="flex flex-wrap gap-2">
-      {btn('Submit Takedown', 'submitted')}
-      {btn('Back to Draft', 'draft', 'ghost')}
-    </div>
-  );
-  if (s === 'submitted') return (
-    <div className="flex flex-wrap gap-2">
-      {btn('Mark Resolved', 'taken_down', 'success')}
-      {btn('Mark Unresolved', 'requested', 'ghost')}
-    </div>
-  );
-  if (s === 'pending_response') return (
-    <div className="flex flex-wrap gap-2">
-      {btn('Mark Resolved', 'taken_down', 'success')}
-      {btn('Failed', 'failed', 'ghost')}
-    </div>
-  );
-  if (s === 'taken_down') return (
-    <Badge status="success" label="RESOLVED" />
-  );
-  return (
-    <Badge status={STATUS_TO_BADGE[s] ?? 'draft'} label={STATUS_DISPLAY[s] ?? s} />
-  );
-}
-
 // ─── Takedown card ─────────────────────────────────────────────
 
-function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: {
+function TakedownCard({ takedown, onOpen, onUpdate }: {
   takedown: Takedown;
-  isExpanded: boolean;
-  onToggle: () => void;
+  onOpen: (takedown: Takedown) => void;
   onUpdate: (id: string, updates: { status?: string; notes?: string }) => void;
-  updatingId: string | null;
 }) {
   const sev = takedown.severity?.toUpperCase() ?? '';
   const cardVariant: 'critical' | 'active' | 'base' =
@@ -364,7 +124,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
 
   return (
     <Card variant={cardVariant} style={{ padding: '16px', cursor: 'pointer' }}>
-      <div onClick={onToggle}>
+      <div onClick={() => onOpen(takedown)}>
         {/* Row 1: platform icon + handle + status badge */}
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-3 min-w-0">
@@ -420,9 +180,9 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
           <Button
             variant="primary"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            onClick={(e) => { e.stopPropagation(); onOpen(takedown); }}
           >
-            {isExpanded ? 'Close' : 'Review \u2192'}
+            Review →
           </Button>
           {takedown.status === 'draft' && (
             <Button
@@ -438,17 +198,103 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
           )}
         </div>
       </div>
-
-      {/* Expanded detail panel */}
-      {isExpanded && (
-        <DetailPanel
-          takedown={takedown}
-          onUpdate={onUpdate}
-          updatingId={updatingId}
-        />
-      )}
     </Card>
   );
+}
+
+// ─── Build markdown report from takedown ───────────────────────
+
+function buildTakedownReport(takedown: Takedown): string {
+  const parts: string[] = [];
+
+  parts.push('## Target');
+  parts.push(`**Type:** ${takedown.target_type.replace(/_/g, ' ')}`);
+  if (takedown.target_platform) {
+    parts.push(`**Platform:** ${takedown.target_platform}`);
+  }
+  parts.push(`**Handle / URL:** ${takedown.target_value}`);
+  if (takedown.target_url) {
+    parts.push(`**Full URL:** ${takedown.target_url}`);
+  }
+  if (takedown.brand_name) {
+    parts.push(`**Brand:** ${takedown.brand_name}`);
+  }
+  parts.push(`**Source:** ${takedown.source_type ? 'Sparrow AI' : 'Manual'}`);
+  parts.push('');
+
+  parts.push('## Evidence');
+  if (takedown.evidence_summary) {
+    parts.push(takedown.evidence_summary);
+    parts.push('');
+  }
+  if (takedown.evidence_detail) {
+    parts.push('### Details');
+    parts.push(takedown.evidence_detail);
+    parts.push('');
+  }
+
+  if (takedown.provider_name || takedown.provider_abuse_contact) {
+    parts.push('## Provider');
+    if (takedown.provider_name) {
+      parts.push(`**Provider:** ${takedown.provider_name}`);
+    }
+    if (takedown.provider_method) {
+      parts.push(`**Method:** ${takedown.provider_method}`);
+    }
+    if (takedown.provider_abuse_contact) {
+      parts.push(`**Abuse Contact:** ${takedown.provider_abuse_contact}`);
+    }
+    parts.push('');
+  }
+
+  if (takedown.notes) {
+    parts.push('## Notes');
+    parts.push(takedown.notes);
+  }
+
+  return parts.join('\n');
+}
+
+// ─── Status action buttons for the report panel ───────────────
+
+function TakedownActions({ takedown, onUpdate, isUpdating }: {
+  takedown: Takedown;
+  onUpdate: (id: string, updates: { status?: string }) => void;
+  isUpdating: boolean;
+}) {
+  const s = takedown.status;
+
+  if (s === 'draft') return (
+    <>
+      <Button variant="primary" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'submitted' })}>
+        Mark Submitted
+      </Button>
+      <Button variant="ghost" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'withdrawn' })}>
+        Dismiss
+      </Button>
+    </>
+  );
+  if (s === 'requested') return (
+    <>
+      <Button variant="primary" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'submitted' })}>
+        Mark Submitted
+      </Button>
+      <Button variant="ghost" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'draft' })}>
+        Back to Draft
+      </Button>
+    </>
+  );
+  if (s === 'submitted' || s === 'pending_response') return (
+    <>
+      <Button variant="success" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'taken_down' })}>
+        Mark Resolved
+      </Button>
+      <Button variant="ghost" size="sm" disabled={isUpdating} onClick={() => onUpdate(takedown.id, { status: 'failed' })}>
+        Failed
+      </Button>
+    </>
+  );
+  return null;
 }
 
 
@@ -460,7 +306,7 @@ export function Takedowns() {
   const [sortBy, setSortBy] = useState('priority');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedTakedown, setSelectedTakedown] = useState<Takedown | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Debounce search
@@ -518,6 +364,8 @@ export function Takedowns() {
       onSuccess: () => {
         showToast(updates.status ? 'Status updated' : 'Notes saved', 'success');
         setUpdatingId(null);
+        // Close panel on status change
+        if (updates.status) setSelectedTakedown(null);
       },
       onError: () => {
         showToast('Update failed', 'error');
@@ -598,15 +446,13 @@ export function Takedowns() {
 
       {/* ─── CARD GRID ───────────────────────────────── */}
       {!isLoading && takedowns.length > 0 && (
-        <div className={expandedId ? 'space-y-4' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {takedowns.map((td) => (
             <TakedownCard
               key={td.id}
               takedown={td}
-              isExpanded={expandedId === td.id}
-              onToggle={() => setExpandedId(expandedId === td.id ? null : td.id)}
+              onOpen={setSelectedTakedown}
               onUpdate={handleUpdate}
-              updatingId={updatingId}
             />
           ))}
         </div>
@@ -621,6 +467,53 @@ export function Takedowns() {
           variant="clean"
         />
       )}
+
+      {/* ─── DETAIL PANEL ─────────────────────────────── */}
+      <ReportPanel
+        isOpen={!!selectedTakedown}
+        onClose={() => setSelectedTakedown(null)}
+        title={selectedTakedown?.target_value ?? 'Takedown Request'}
+        subtitle={
+          selectedTakedown
+            ? `${selectedTakedown.target_type.replace(/_/g, ' ')} · ${selectedTakedown.brand_name ?? 'Unknown brand'}`
+            : undefined
+        }
+        badge={
+          selectedTakedown ? (
+            <>
+              <Badge
+                severity={SEVERITY_TO_BADGE[selectedTakedown.severity?.toUpperCase()] ?? 'low'}
+                label={selectedTakedown.severity}
+              />
+              <Badge
+                status={STATUS_TO_BADGE[selectedTakedown.status] ?? 'draft'}
+                label={STATUS_DISPLAY[selectedTakedown.status] ?? selectedTakedown.status}
+              />
+            </>
+          ) : null
+        }
+        content={selectedTakedown ? buildTakedownReport(selectedTakedown) : ''}
+        meta={
+          selectedTakedown ? (
+            <>
+              <span>Priority {selectedTakedown.priority_score}/100</span>
+              <span>•</span>
+              <span>Method: {selectedTakedown.provider_method ?? 'unknown'}</span>
+              <span>•</span>
+              <span>{relativeTime(selectedTakedown.created_at)}</span>
+            </>
+          ) : null
+        }
+        actions={
+          selectedTakedown ? (
+            <TakedownActions
+              takedown={selectedTakedown}
+              onUpdate={handleUpdate}
+              isUpdating={updatingId === selectedTakedown.id}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 }

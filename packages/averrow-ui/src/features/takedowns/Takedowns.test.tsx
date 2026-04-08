@@ -10,10 +10,6 @@ vi.mock('@/hooks/useTakedowns', () => ({
     data: null,
     isLoading: false,
   }),
-  useTakedownEvidence: vi.fn().mockReturnValue({
-    data: [],
-    isLoading: false,
-  }),
   useUpdateTakedown: vi.fn().mockReturnValue({
     mutate: vi.fn(),
   }),
@@ -90,12 +86,12 @@ describe('Takedowns Page', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('expands takedown details on click', async () => {
+  it('opens takedown detail panel on click', async () => {
     renderWithProviders(<Takedowns />);
-    await userEvent.click(screen.getByText('phishing.test.com'));
-    expect(screen.getByText('TARGET DETAILS')).toBeInTheDocument();
-    expect(screen.getByText('EVIDENCE')).toBeInTheDocument();
-    expect(screen.getByText('ACTIONS')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByText('phishing.test.com')[0]);
+    // ReportPanel renders ## headings from buildTakedownReport (uppercase via CSS)
+    expect(screen.getByText('Target')).toBeInTheDocument();
+    expect(screen.getByText('Evidence')).toBeInTheDocument();
   });
 
   it('shows search input', () => {

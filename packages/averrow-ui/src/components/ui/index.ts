@@ -40,3 +40,6 @@ export type { PageHeaderProps } from './PageHeader';
 
 export { StatGrid } from './StatGrid';
 export type { StatGridProps } from './StatGrid';
+
+export { ReportPanel } from './ReportPanel';
+export type { ReportPanelProps } from './ReportPanel';
