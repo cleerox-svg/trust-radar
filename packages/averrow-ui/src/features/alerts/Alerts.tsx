@@ -315,9 +315,7 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
           )}>
             {alert.status === 'false_positive' ? 'dismissed' : alert.status}
           </span>
-          <span className="badge-glass badge-nexus font-mono text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border">
-            Social Impersonation
-          </span>
+          <Badge status="running" label="Social Impersonation" size="xs" />
         </div>
         <button onClick={onClose} className="text-white/50 hover:text-[var(--text-primary)] transition-colors p-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

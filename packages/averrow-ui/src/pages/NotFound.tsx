@@ -9,8 +9,12 @@ export function NotFound() {
       </div>
       <Link
         to="/observatory"
-        className="glass-btn px-4 py-2 rounded-lg text-sm mt-2"
-        style={{ color: 'var(--amber)' }}
+        className="px-4 py-2 rounded-lg text-sm mt-2"
+        style={{
+          color: 'var(--amber)',
+          background: 'transparent',
+          border: '1px solid var(--border-base)',
+        }}
       >
         &larr; Back to Observatory
       </Link>

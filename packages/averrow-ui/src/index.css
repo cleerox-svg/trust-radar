@@ -63,7 +63,6 @@
   .glass-input:focus {
     @apply border-afterburner/50 ring-2 ring-afterburner/10;
   }
-
 }
 
 /* ═══════════════════════════════════════════════
