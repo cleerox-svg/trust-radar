@@ -447,28 +447,56 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
 
     await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: currentBrandId, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
 
-    // ─── Auto-enrich new brand: logo URL + HQ geolocation (best-effort) ───
-    // Runs inline — adds ~200ms but avoids needing ExecutionContext here.
+    // ─── Auto-enrich new brand: Sessions A + B (best-effort) ────────
+    // Session A: logo + HQ geo. Session B: sector (Haiku) + RDAP.
+    // Runs inline (ExecutionContext not plumbed here) but every sub-call
+    // has a short timeout and Promise.allSettled — worst case ~8s.
     try {
-      const { enrichBrand } = await import("../lib/brand-enricher");
-      const enrichment = await enrichBrand(domain, env.CACHE);
+      const { enrichBrand, fetchRdap, classifySector } = await import(
+        "../lib/brand-enricher"
+      );
+
+      const apiKey = env.ANTHROPIC_API_KEY;
+      const [enrichRes, rdapRes, sectorRes] = await Promise.allSettled([
+        enrichBrand(domain, env.CACHE),
+        fetchRdap(domain),
+        apiKey
+          ? classifySector(domain, brandName, apiKey)
+          : Promise.resolve(null),
+      ]);
+
+      const enrichment = enrichRes.status === "fulfilled" ? enrichRes.value : null;
+      const rdapData   = rdapRes.status === "fulfilled"   ? rdapRes.value   : null;
+      const sectorVal  = sectorRes.status === "fulfilled" ? sectorRes.value : null;
+
       await env.DB.prepare(`
         UPDATE brands SET
-          logo_url    = COALESCE(logo_url, ?),
-          website_url = COALESCE(website_url, ?),
-          hq_lat      = COALESCE(hq_lat, ?),
-          hq_lng      = COALESCE(hq_lng, ?),
-          hq_country  = COALESCE(hq_country, ?),
-          hq_ip       = COALESCE(hq_ip, ?),
-          enriched_at = datetime('now')
+          logo_url             = COALESCE(logo_url, ?),
+          website_url          = COALESCE(website_url, ?),
+          hq_lat               = COALESCE(hq_lat, ?),
+          hq_lng               = COALESCE(hq_lng, ?),
+          hq_country           = COALESCE(hq_country, ?),
+          hq_ip                = COALESCE(hq_ip, ?),
+          sector               = COALESCE(sector, ?),
+          registrar            = COALESCE(registrar, ?),
+          registered_at        = COALESCE(registered_at, ?),
+          expires_at           = COALESCE(expires_at, ?),
+          registrant_country   = COALESCE(registrant_country, ?),
+          enriched_at          = datetime('now'),
+          sector_classified_at = datetime('now')
         WHERE id = ?
       `).bind(
-        enrichment.logo_url,
-        enrichment.website_url,
-        enrichment.hq_lat,
-        enrichment.hq_lng,
-        enrichment.hq_country,
-        enrichment.hq_ip,
+        enrichment?.logo_url    ?? null,
+        enrichment?.website_url ?? null,
+        enrichment?.hq_lat      ?? null,
+        enrichment?.hq_lng      ?? null,
+        enrichment?.hq_country  ?? null,
+        enrichment?.hq_ip       ?? null,
+        sectorVal,
+        rdapData?.registrar          ?? null,
+        rdapData?.registered_at      ?? null,
+        rdapData?.expires_at         ?? null,
+        rdapData?.registrant_country ?? null,
         currentBrandId,
       ).run();
     } catch { /* enrichment is best-effort — never block brand creation */ }

@@ -805,6 +805,113 @@ export async function handleBackfillBrandEnrichment(
   }
 }
 
+// POST /api/admin/backfill-brand-sector
+// Classifies brand sectors via Haiku + fetches RDAP registrant data.
+// 20 brands per call (Haiku + RDAP + title fetch ≈ 3 subrequests each).
+export async function handleBackfillBrandSector(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const { fetchRdap, classifySector } = await import("../lib/brand-enricher");
+
+    if (!env.ANTHROPIC_API_KEY) {
+      return json({
+        success: false,
+        error:   "ANTHROPIC_API_KEY not configured",
+      }, 500, origin);
+    }
+
+    // Count remaining (no sector classification yet)
+    const totalRow = await env.DB.prepare(`
+      SELECT COUNT(*) as n FROM brands
+      WHERE (sector IS NULL OR sector_classified_at IS NULL)
+        AND canonical_domain IS NOT NULL
+        AND canonical_domain != ''
+    `).first<{ n: number }>();
+    const totalPending = totalRow?.n ?? 0;
+
+    if (totalPending === 0) {
+      return json({
+        success: true,
+        data: {
+          message:    "All brands classified",
+          processed:  0,
+          classified: 0,
+          remaining:  0,
+        },
+      }, 200, origin);
+    }
+
+    const batch = await env.DB.prepare(`
+      SELECT id, name, canonical_domain FROM brands
+      WHERE (sector IS NULL OR sector_classified_at IS NULL)
+        AND canonical_domain IS NOT NULL
+        AND canonical_domain != ''
+      LIMIT 20
+    `).all<{ id: string; name: string; canonical_domain: string }>();
+
+    const apiKey = env.ANTHROPIC_API_KEY;
+    let classified = 0;
+
+    for (const brand of batch.results) {
+      try {
+        // Run RDAP + sector classification in parallel
+        const [rdap, sector] = await Promise.allSettled([
+          fetchRdap(brand.canonical_domain),
+          classifySector(brand.canonical_domain, brand.name, apiKey),
+        ]);
+
+        const rdapData  = rdap.status === "fulfilled" ? rdap.value : null;
+        const sectorVal = sector.status === "fulfilled" ? sector.value : null;
+
+        await env.DB.prepare(`
+          UPDATE brands SET
+            sector               = COALESCE(sector, ?),
+            registrar            = COALESCE(registrar, ?),
+            registered_at        = COALESCE(registered_at, ?),
+            expires_at           = COALESCE(expires_at, ?),
+            registrant_country   = COALESCE(registrant_country, ?),
+            sector_classified_at = datetime('now')
+          WHERE id = ?
+        `).bind(
+          sectorVal,
+          rdapData?.registrar          ?? null,
+          rdapData?.registered_at      ?? null,
+          rdapData?.expires_at         ?? null,
+          rdapData?.registrant_country ?? null,
+          brand.id,
+        ).run();
+
+        classified++;
+      } catch (err) {
+        console.error(`[backfill-brand-sector] failed for ${brand.id}:`, err);
+        // Mark attempted so we don't loop forever
+        await env.DB.prepare(
+          `UPDATE brands SET sector_classified_at = datetime('now') WHERE id = ?`,
+        ).bind(brand.id).run();
+      }
+    }
+
+    return json({
+      success: true,
+      data: {
+        processed:  batch.results.length,
+        classified,
+        remaining:  Math.max(0, totalPending - batch.results.length),
+      },
+    }, 200, origin);
+  } catch (err) {
+    console.error(`[backfill-brand-sector] Fatal error:`, err);
+    return json({
+      success: false,
+      error:   err instanceof Error ? err.message : "An internal error occurred",
+    }, 500, origin);
+  }
+}
+
 // Core brand-match backfill logic — returns { matched, checked, pending }
 export async function runBrandMatchBackfill(env: Env): Promise<{ matched: number; checked: number; pending: number }> {
   const brandRows = await env.DB.prepare(

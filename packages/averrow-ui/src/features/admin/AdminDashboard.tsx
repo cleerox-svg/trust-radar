@@ -611,6 +611,34 @@ export function AdminDashboard() {
     }
   }
 
+  const [sectorRunning, setSectorRunning] = useState(false);
+  const [sectorResult, setSectorResult] = useState<string | null>(null);
+
+  async function handleSectorClassify() {
+    setSectorRunning(true);
+    setSectorResult(null);
+    let total = 0;
+    let rounds = 0;
+    try {
+      while (rounds < 600) { // 600 × 20 = 12,000 brands max
+        rounds++;
+        const res = await api.post<{
+          processed: number;
+          classified: number;
+          remaining: number;
+        }>('/api/admin/backfill-brand-sector');
+        total += res.data?.classified ?? 0;
+        if ((res.data?.processed ?? 0) < 20 || (res.data?.remaining ?? 0) === 0) break;
+        await new Promise(r => setTimeout(r, 600)); // 600ms — Haiku rate limit buffer
+      }
+      setSectorResult(`${total.toLocaleString()} brands classified`);
+    } catch {
+      setSectorResult('Failed — check console');
+    } finally {
+      setSectorRunning(false);
+    }
+  }
+
   const [domainResolving, setDomainResolving] = useState(false);
   const [domainResult, setDomainResult] = useState<string | null>(null);
 
@@ -778,6 +806,25 @@ export function AdminDashboard() {
             marginLeft: 8,
           }}>
             ✓ {brandEnrichResult}
+          </span>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleSectorClassify}
+          disabled={sectorRunning}
+          loading={sectorRunning}
+        >
+          {sectorRunning ? 'Classifying sectors...' : 'Classify Brand Sectors'}
+        </Button>
+        {sectorResult && (
+          <span style={{
+            fontSize: 11,
+            color: 'var(--sev-info)',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: 8,
+          }}>
+            ✓ {sectorResult}
           </span>
         )}
       </div>
