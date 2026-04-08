@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
+  Badge,
   Card,
   StatCard,
   StatGrid,
@@ -58,30 +59,10 @@ type OpStatus = 'accelerating' | 'pivot' | 'active' | 'dormant';
 function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase() as OpStatus;
   switch (s) {
-    case 'accelerating':
-      return (
-        <span className="badge-glass badge-accelerating font-mono text-[10px] font-bold">
-          ACCELERATING
-        </span>
-      );
-    case 'pivot':
-      return (
-        <span className="badge-glass badge-pivot font-mono text-[10px] font-bold">
-          {'\u2192'} PIVOT
-        </span>
-      );
-    case 'active':
-      return (
-        <span className="badge-glass badge-active font-mono text-[10px] font-bold">
-          ACTIVE
-        </span>
-      );
-    default:
-      return (
-        <span className="badge-glass badge-dormant font-mono text-[10px] font-bold">
-          DORMANT
-        </span>
-      );
+    case 'accelerating': return <Badge status="warning"  label="Accelerating" size="xs" />;
+    case 'pivot':        return <Badge status="active"   label="\u2192 Pivot" size="xs" />;
+    case 'active':       return <Badge status="active"   label="Active" size="xs" />;
+    default:             return <Badge status="inactive" label="Dormant" size="xs" />;
   }
 }
 
