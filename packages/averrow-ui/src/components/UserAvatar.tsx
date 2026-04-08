@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Bell, Building2, Key, LogOut } from 'lucide-react';
+import { User, Bell, Building2, Key, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/useWindowWidth';
+import { useTheme } from '@/design-system/hooks';
 import { Dropdown } from './Dropdown';
 import { BottomSheet } from './BottomSheet';
 
@@ -17,6 +18,7 @@ interface MenuItem {
 function ProfileMenu({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toggle, isDark } = useTheme();
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -30,6 +32,11 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   const menuItems: MenuItem[] = [
     { label: 'Profile & Settings', icon: User, path: '/profile' },
     { label: 'Notification Preferences', icon: Bell, path: '/notifications/preferences' },
+    {
+      label: isDark ? 'Light Mode' : 'Dark Mode',
+      icon: isDark ? Sun : Moon,
+      onClick: () => { toggle(); onClose(); },
+    },
     { label: 'Organization', icon: Building2, path: '/admin' },
     { label: 'API Keys', icon: Key, path: '/admin' },
   ];
@@ -62,7 +69,10 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
         {menuItems.map(item => (
           <button
             key={item.label}
-            onClick={() => item.path && handleNav(item.path)}
+            onClick={() => {
+              if (item.onClick) item.onClick();
+              else if (item.path) handleNav(item.path);
+            }}
             className="w-full flex items-center gap-3 px-4 py-2.5 md:py-2.5 min-h-[52px] md:min-h-0 text-left hover:bg-white/5 transition-colors touch-target border-b border-white/[0.04] md:border-b-0"
           >
             <item.icon size={15} className="text-white/40 flex-shrink-0" />
