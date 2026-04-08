@@ -17,6 +17,7 @@ export interface Provider {
   is_bulletproof: number | null;
   first_threat: string | null;
   last_threat: string | null;
+  threat_history?: number[];
 }
 
 export interface IntelligenceStats {
