@@ -72,9 +72,9 @@ describe('Takedowns Page', () => {
     expect(screen.getByText('DOMAIN', { selector: 'button' })).toBeInTheDocument();
   });
 
-  it('renders platform badges', () => {
+  it('renders platform identity', () => {
     renderWithProviders(<Takedowns />);
-    expect(screen.getByText('GH')).toBeInTheDocument();
+    expect(screen.getByText(/GitHub/)).toBeInTheDocument();
   });
 
   it('shows loading state when loading', () => {
@@ -86,9 +86,10 @@ describe('Takedowns Page', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('opens takedown detail panel on click', async () => {
+  it('opens takedown detail panel on View Detail click', async () => {
     renderWithProviders(<Takedowns />);
-    await userEvent.click(screen.getAllByText('phishing.test.com')[0]);
+    const viewButtons = screen.getAllByText('View Detail');
+    await userEvent.click(viewButtons[0]);
     // ReportPanel renders ## headings from buildTakedownReport (uppercase via CSS)
     expect(screen.getByText('Target')).toBeInTheDocument();
     expect(screen.getByText('Evidence')).toBeInTheDocument();
