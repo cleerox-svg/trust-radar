@@ -99,6 +99,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
              b.official_handles, b.email_security_grade,
              b.exposure_score,
              b.social_risk_score,
+             b.logo_url,
              COUNT(t.id) AS threat_count,
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              MAX(t.created_at) AS last_threat_seen,
@@ -445,6 +446,33 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     }
 
     await audit(env, { action: "brand_monitor_add", userId, resourceType: "brand", resourceId: currentBrandId, details: { domain, reason: body.reason, threats_linked: threatsLinked }, request });
+
+    // ─── Auto-enrich new brand: logo URL + HQ geolocation (best-effort) ───
+    // Runs inline — adds ~200ms but avoids needing ExecutionContext here.
+    try {
+      const { enrichBrand } = await import("../lib/brand-enricher");
+      const enrichment = await enrichBrand(domain, env.CACHE);
+      await env.DB.prepare(`
+        UPDATE brands SET
+          logo_url    = COALESCE(logo_url, ?),
+          website_url = COALESCE(website_url, ?),
+          hq_lat      = COALESCE(hq_lat, ?),
+          hq_lng      = COALESCE(hq_lng, ?),
+          hq_country  = COALESCE(hq_country, ?),
+          hq_ip       = COALESCE(hq_ip, ?),
+          enriched_at = datetime('now')
+        WHERE id = ?
+      `).bind(
+        enrichment.logo_url,
+        enrichment.website_url,
+        enrichment.hq_lat,
+        enrichment.hq_lng,
+        enrichment.hq_country,
+        enrichment.hq_ip,
+        currentBrandId,
+      ).run();
+    } catch { /* enrichment is best-effort — never block brand creation */ }
+
     return json({ success: true, data: { brand_id: currentBrandId, domain, name: brandName, threats_linked: threatsLinked, message: threatsLinked > 0 ? `Found ${threatsLinked} existing threats matching this brand` : "No existing threats matched" } }, 201, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);

@@ -6,6 +6,7 @@ import { json } from "../lib/cors";
 import {
   handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleSystemHealth,
   handleBackfillClassifications, handleBackfillGeo, handleBackfillDomainGeo, handleBackfillBrandMatch,
+  handleBackfillBrandEnrichment,
   handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands,
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
   handleBackfillSocialConfig, handleBackfillSaasTechniques,
@@ -248,6 +249,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBackfillBrandMatch(request, env);
+  });
+  router.post("/api/admin/backfill-brand-enrichment", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBackfillBrandEnrichment(request, env);
   });
   router.post("/api/admin/backfill-safe-domains", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);

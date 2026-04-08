@@ -709,6 +709,102 @@ export async function handleBackfillDomainGeo(
   }
 }
 
+// POST /api/admin/backfill-brand-enrichment
+// Populates logo_url, website_url, hq_lat, hq_lng, hq_country
+// for brands that haven't been enriched yet.
+// Processes 50 brands per call (logo HEAD + DNS + ipapi = 3 subrequests each max).
+export async function handleBackfillBrandEnrichment(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const { enrichBrand } = await import("../lib/brand-enricher");
+
+    // Count remaining
+    const totalRow = await env.DB.prepare(`
+      SELECT COUNT(*) as n FROM brands
+      WHERE enriched_at IS NULL
+        AND canonical_domain IS NOT NULL
+        AND canonical_domain != ''
+    `).first<{ n: number }>();
+    const totalPending = totalRow?.n ?? 0;
+
+    if (totalPending === 0) {
+      return json({
+        success: true,
+        data: {
+          message: "All brands enriched",
+          processed: 0,
+          enriched: 0,
+          remaining: 0,
+        },
+      }, 200, origin);
+    }
+
+    // Fetch batch
+    const batch = await env.DB.prepare(`
+      SELECT id, canonical_domain FROM brands
+      WHERE enriched_at IS NULL
+        AND canonical_domain IS NOT NULL
+        AND canonical_domain != ''
+      LIMIT 50
+    `).all<{ id: string; canonical_domain: string }>();
+
+    let enriched = 0;
+
+    for (const brand of batch.results) {
+      try {
+        const result = await enrichBrand(brand.canonical_domain, env.CACHE);
+
+        await env.DB.prepare(`
+          UPDATE brands SET
+            logo_url    = COALESCE(logo_url, ?),
+            website_url = COALESCE(website_url, ?),
+            hq_lat      = COALESCE(hq_lat, ?),
+            hq_lng      = COALESCE(hq_lng, ?),
+            hq_country  = COALESCE(hq_country, ?),
+            hq_ip       = COALESCE(hq_ip, ?),
+            enriched_at = datetime('now')
+          WHERE id = ?
+        `).bind(
+          result.logo_url,
+          result.website_url,
+          result.hq_lat,
+          result.hq_lng,
+          result.hq_country,
+          result.hq_ip,
+          brand.id,
+        ).run();
+
+        enriched++;
+      } catch (err) {
+        console.error(`[backfill-brand-enrichment] failed for ${brand.id}:`, err);
+        // Mark as attempted even on failure so we don't loop forever
+        await env.DB.prepare(
+          `UPDATE brands SET enriched_at = datetime('now') WHERE id = ?`,
+        ).bind(brand.id).run();
+      }
+    }
+
+    return json({
+      success: true,
+      data: {
+        processed: batch.results.length,
+        enriched,
+        remaining: Math.max(0, totalPending - batch.results.length),
+      },
+    }, 200, origin);
+  } catch (err) {
+    console.error(`[backfill-brand-enrichment] Fatal error:`, err);
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "An internal error occurred",
+    }, 500, origin);
+  }
+}
+
 // Core brand-match backfill logic — returns { matched, checked, pending }
 export async function runBrandMatchBackfill(env: Env): Promise<{ matched: number; checked: number; pending: number }> {
   const brandRows = await env.DB.prepare(

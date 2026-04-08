@@ -583,6 +583,34 @@ export function AdminDashboard() {
     }
   }
 
+  const [brandEnriching, setBrandEnriching] = useState(false);
+  const [brandEnrichResult, setBrandEnrichResult] = useState<string | null>(null);
+
+  async function handleBrandEnrich() {
+    setBrandEnriching(true);
+    setBrandEnrichResult(null);
+    let total = 0;
+    let rounds = 0;
+    try {
+      while (rounds < 250) {
+        rounds++;
+        const res = await api.post<{
+          processed: number;
+          enriched: number;
+          remaining: number;
+        }>('/api/admin/backfill-brand-enrichment');
+        total += res.data?.enriched ?? 0;
+        if ((res.data?.processed ?? 0) < 50 || (res.data?.remaining ?? 0) === 0) break;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      setBrandEnrichResult(`${total.toLocaleString()} brands enriched`);
+    } catch {
+      setBrandEnrichResult('Failed — check console');
+    } finally {
+      setBrandEnriching(false);
+    }
+  }
+
   const [domainResolving, setDomainResolving] = useState(false);
   const [domainResult, setDomainResult] = useState<string | null>(null);
 
@@ -731,6 +759,25 @@ export function AdminDashboard() {
             marginLeft: 8,
           }}>
             ✓ {domainResult}
+          </span>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleBrandEnrich}
+          disabled={brandEnriching}
+          loading={brandEnriching}
+        >
+          {brandEnriching ? 'Enriching brands...' : 'Enrich Brand Logos + HQ'}
+        </Button>
+        {brandEnrichResult && (
+          <span style={{
+            fontSize: 11,
+            color: 'var(--sev-info)',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: 8,
+          }}>
+            ✓ {brandEnrichResult}
           </span>
         )}
       </div>

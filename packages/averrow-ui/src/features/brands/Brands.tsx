@@ -514,9 +514,11 @@ function BrandCard({
       : null
   );
   const social   = socialRisk(brand.social_risk_score ?? null);
-  const faviconUrl = brand.canonical_domain
-    ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
-    : undefined;
+  const faviconUrl =
+    brand.logo_url ??
+    (brand.canonical_domain
+      ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
+      : undefined);
 
   // Sparkline from threat_history (array of daily counts)
   const sparkData: number[] = Array.isArray(brand.threat_history)
