@@ -45,13 +45,6 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function estimateWeeklyVolumes(threatCount: number): number[] {
-  const base = threatCount / 7;
-  return Array.from({ length: 7 }, (_, i) =>
-    Math.max(0, base + (Math.sin(i * 1.2) * base * 0.3))
-  );
-}
-
 // ─── Status Badge ─────────────────────────────────────────────
 
 type OpStatus = 'accelerating' | 'pivot' | 'active' | 'dormant';
@@ -134,10 +127,7 @@ function OperationCard({
   const accent    = opAccent(sev);
   const primaryAsn = asns[0] ?? '';
 
-  const sparkData = useMemo(
-    () => estimateWeeklyVolumes(operation.threat_count),
-    [operation.threat_count],
-  );
+  const sparkData = operation.threat_history ?? [];
 
   return (
     <Card
@@ -297,11 +287,26 @@ function OperationCard({
       </div>
 
       {/* Sparkline */}
-      <TrendSparkline
-        data={sparkData}
-        height={28}
-        color={accent}
-      />
+      {sparkData.length >= 2 ? (
+        <TrendSparkline
+          data={sparkData}
+          height={28}
+          color={accent}
+        />
+      ) : (
+        <div style={{
+          height: 28,
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            insufficient data
+          </span>
+        </div>
+      )}
 
       {/* Status alerts */}
       {operation.status === 'accelerating' && (

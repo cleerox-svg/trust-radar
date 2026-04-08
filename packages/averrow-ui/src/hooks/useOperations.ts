@@ -15,6 +15,7 @@ export interface Operation {
   first_detected: string | null;
   last_seen: string | null;
   last_updated: string | null;
+  threat_history?: number[];
 }
 
 export interface OperationsStats {

@@ -26,7 +26,18 @@ export async function handleListOperations(request: Request, env: Env): Promise<
     const rows = await env.DB.prepare(`
       SELECT ic.id, ic.cluster_name, ic.asns, ic.countries, ic.threat_count,
              ic.status, ic.confidence_score, ic.agent_notes,
-             ic.first_detected, ic.last_seen, ic.last_updated
+             ic.first_detected, ic.last_seen, ic.last_updated,
+             (
+               SELECT json_group_array(daily_count)
+               FROM (
+                 SELECT COUNT(*) as daily_count
+                 FROM threats t2
+                 WHERE t2.cluster_id = ic.id
+                   AND t2.created_at >= datetime('now', '-14 days')
+                 GROUP BY date(t2.created_at)
+                 ORDER BY date(t2.created_at) ASC
+               )
+             ) as threat_history_json
       FROM infrastructure_clusters ic ${where}
       ORDER BY
         CASE ic.status
@@ -43,7 +54,15 @@ export async function handleListOperations(request: Request, env: Env): Promise<
       `SELECT COUNT(*) AS n FROM infrastructure_clusters ic ${where}`
     ).bind(...params.slice(0, -2)).first<{ n: number }>();
 
-    return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
+    const data = (rows.results as Array<Record<string, unknown>>).map(row => ({
+      ...row,
+      threat_history: row.threat_history_json
+        ? JSON.parse(row.threat_history_json as string)
+        : undefined,
+      threat_history_json: undefined,
+    }));
+
+    return json({ success: true, data, total: total?.n ?? 0 }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
