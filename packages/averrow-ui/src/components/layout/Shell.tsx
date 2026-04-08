@@ -5,42 +5,45 @@ import { MobileNav }      from '@/layouts/MobileNav';
 import { DeepBackground } from '@/components/ui/DeepBackground';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { useBreakpoint }  from '@/design-system/hooks';
-import { cn }             from '@/lib/cn';
 
 export function Shell() {
-  const location      = useLocation();
-  const { isMobile }  = useBreakpoint();
-  const isFullScreen  = location.pathname.includes('/observatory');
-  const isHome        = location.pathname === '/';
-
-  // On mobile home: MobileCommandCenter renders full-screen with its own header
-  const hideTopBar = isMobile && isHome;
+  const location     = useLocation();
+  const { isMobile } = useBreakpoint();
+  const isFullScreen = location.pathname.includes('/observatory');
+  const isHome       = location.pathname === '/';
+  const hideTopBar   = isMobile && isHome;
 
   return (
     <div
       className="flex"
-      style={{ minHeight: '100vh', position: 'relative', background: 'var(--bg-page)' }}
+      style={{
+        height:   '100dvh',   // dvh = dynamic viewport height (handles mobile browser chrome)
+        overflow: 'hidden',   // contain the layout
+        background: 'var(--bg-page)',
+        position: 'relative',
+      }}
     >
       <DeepBackground />
 
       {!isMobile && <Sidebar />}
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden', minWidth:0 }}>
         {!hideTopBar && <TopBar />}
 
         <main
-          className={cn(
-            isFullScreen
-              ? 'flex-1 overflow-hidden'
-              : 'flex-1 overflow-auto',
-          )}
           style={{
-            paddingBottom: isMobile && !isFullScreen ? 80 : undefined,
+            flex:       1,
+            overflowY:  isFullScreen ? 'hidden' : 'auto',
+            overflowX:  'hidden',
+            paddingBottom: isMobile && !isFullScreen ? 80 : 0,
+            // Enable momentum scrolling on iOS
+            WebkitOverflowScrolling: 'touch',
           }}
         >
-          <div className={cn(
-            !isFullScreen && !isMobile && 'p-4 lg:p-6',
-          )}>
+          <div style={{
+            padding: (!isFullScreen && !isMobile) ? '16px 24px' : undefined,
+            // Mobile: pages handle their own padding
+          }}>
             <PageTransition>
               <Outlet />
             </PageTransition>
