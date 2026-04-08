@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  M, SEV, DeepCard, StatTile, BrandAvatar, SevChip, GradeBadge,
+  M, SEV, DeepCard, StatTile, SevChip, GradeBadge,
 } from './MobileUIKit';
+import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
 
 import { useBrands, useBrandStats } from '@/hooks/useBrands';
 import { useObservatoryStats } from '@/hooks/useObservatory';
@@ -171,7 +172,15 @@ export function MobileCommandCenter() {
                 const sevKey = tc > 30 ? 'critical' : tc > 15 ? 'high' : 'medium';
                 return (
                   <div key={brand.id} onClick={() => navigate(`/brands/${brand.id}`)} style={{ padding:'14px 16px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display:'flex', alignItems:'center', gap:12, cursor:'pointer', borderLeft:`2px solid ${c.color}60`, background: i === 0 ? `linear-gradient(90deg,${c.color}08,transparent 50%)` : 'transparent' }}>
-                    <BrandAvatar name={brand.name} color={c.color} dimColor={c.dimColor} />
+                    <DimensionalAvatar
+                      name={brand.name}
+                      color={c.color}
+                      dimColor={c.dimColor}
+                      faviconUrl={brand.canonical_domain
+                        ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
+                        : undefined}
+                      severity={sevKey}
+                    />
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{brand.name}</div>
                       <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{brand.canonical_domain}</div>
