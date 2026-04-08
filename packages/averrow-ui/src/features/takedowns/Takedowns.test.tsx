@@ -53,8 +53,10 @@ describe('Takedowns Page', () => {
     renderWithProviders(<Takedowns />);
     expect(screen.getByText('Total Takedowns')).toBeInTheDocument();
     expect(screen.getByText('Pending Review')).toBeInTheDocument();
-    expect(screen.getByText('Submitted')).toBeInTheDocument();
-    expect(screen.getByText('Resolved')).toBeInTheDocument();
+    // "Submitted" and "Resolved" also appear as status labels on the takedown
+    // cards — stat-card label + card status pill — so we expect ≥1 match.
+    expect(screen.getAllByText('Submitted').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Resolved').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders status filter pills', () => {
