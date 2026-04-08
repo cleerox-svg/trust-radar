@@ -9,7 +9,8 @@ import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
 import { useAgents } from '@/hooks/useAgents';
 import { useFeedStats } from '@/hooks/useFeeds';
-import { useUnreadCount, useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/hooks/useNotifications';
+import { NotificationBell } from '@/components/NotificationBell';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -35,7 +36,6 @@ export function MobileCommandCenter() {
   const { data: alertStats }  = useAlertStats();
   const { data: agentData }   = useAgents();
   const { data: feedStats }   = useFeedStats();
-  const { data: unreadData }  = useUnreadCount();
   const { data: brandsData }  = useBrands({ view: 'top', limit: 10 });
   const { data: notifData }   = useNotifications(true);
 
@@ -51,7 +51,6 @@ export function MobileCommandCenter() {
   ).slice(0, 5);
 
   const agents       = Array.isArray(agentData) ? agentData : [];
-  const unreadCount  = typeof unreadData === 'number' ? unreadData : 0;
   const criticalCount = alertStats?.critical ?? 0;
 
   const topBrands = [...(brandsData ?? [])]
@@ -102,16 +101,7 @@ export function MobileCommandCenter() {
               </div>
               <span style={{ fontSize:8, fontFamily:'monospace', color:'var(--text-muted)', letterSpacing:'0.18em' }}>LIVE</span>
             </div>
-            <div style={{ position:'relative', cursor:'pointer' }} onClick={() => navigate('/notifications')}>
-              <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))', border:'1px solid var(--border-strong)', boxShadow:'0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15),inset 0 -1px 0 rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
-                🔔
-              </div>
-              {unreadCount > 0 && (
-                <div style={{ position:'absolute', top:-4, right:-4, minWidth:18, height:18, borderRadius:99, background:`linear-gradient(135deg,${M.RED},${M.RED_DIM})`, border:'2px solid #060A14', fontSize:9, fontWeight:800, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'monospace', padding:'0 4px', boxShadow:`0 2px 8px rgba(239,68,68,0.6)` }}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </div>
-              )}
-            </div>
+            <NotificationBell />
             <div style={{ width:36, height:36, borderRadius:11, background:`linear-gradient(145deg,${M.RED},${M.RED_DIM})`, border:`1px solid ${M.RED}60`, boxShadow:`0 4px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,120,120,0.35),inset 0 -1px 0 rgba(0,0,0,0.4),0 0 16px ${M.RED}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.6)' }}>
               CL
             </div>
