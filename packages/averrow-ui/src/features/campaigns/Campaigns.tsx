@@ -10,7 +10,7 @@ import {
   PageHeader,
   EmptyState,
 } from '@/design-system/components';
-import { Sparkline } from '@/features/brands/components/Sparkline';
+import { TrendSparkline } from '@/components/ui/TrendSparkline';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CardGridLoader } from '@/components/ui/PageLoader';
 import { useCampaigns, useCampaignStats } from '@/hooks/useCampaigns';
@@ -84,6 +84,39 @@ function AttackTypeBadge({ type }: { type: string | null }) {
   );
 }
 
+// ─── Severity + color helpers ─────────────────────────────────
+
+function opSeverity(count: number): 'critical' | 'high' | 'medium' | 'low' {
+  if (count > 3000) return 'critical';
+  if (count > 1000) return 'high';
+  if (count > 300)  return 'medium';
+  return 'low';
+}
+
+function opAccent(sev: string): string {
+  switch (sev) {
+    case 'critical': return 'var(--sev-critical)';
+    case 'high':     return 'var(--sev-high)';
+    case 'medium':   return 'var(--amber)';
+    default:         return 'var(--text-muted)';
+  }
+}
+
+function confidenceColor(score: number | null): string {
+  if (score == null)  return 'var(--text-muted)';
+  if (score >= 90)    return 'var(--sev-info)';
+  if (score >= 70)    return 'var(--amber)';
+  return 'var(--sev-critical)';
+}
+
+function asnColor(asn: string): string {
+  if (asn.includes('CN') || asn.includes('4837') || asn.includes('4134')) return 'var(--sev-high)';
+  if (asn.includes('RU') || asn.includes('8359') || asn.includes('12389')) return 'var(--blue)';
+  if (asn.includes('IR') || asn.includes('44244')) return 'var(--red)';
+  if (asn.includes('KP')) return 'var(--sev-medium)';
+  return 'var(--text-muted)';
+}
+
 // ─── Operation Card (Tier 1) ──────────────────────────────────
 
 function OperationCard({
@@ -95,90 +128,220 @@ function OperationCard({
   isSelected: boolean;
   onSelect: (id: string) => void;
 }) {
-  const asns = parseJsonArray(operation.asns);
+  const asns      = parseJsonArray(operation.asns);
   const countries = parseJsonArray(operation.countries);
-  const weeklyData = useMemo(() => estimateWeeklyVolumes(operation.threat_count), [operation.threat_count]);
+  const sev       = opSeverity(operation.threat_count);
+  const accent    = opAccent(sev);
   const primaryAsn = asns[0] ?? '';
-  const primaryCountry = countries[0] ?? '';
+
+  const sparkData = useMemo(
+    () => estimateWeeklyVolumes(operation.threat_count),
+    [operation.threat_count],
+  );
 
   return (
     <Card
       variant={isSelected ? 'active' : 'base'}
       hover={!isSelected}
       onClick={() => onSelect(operation.id)}
-      className="w-full text-left"
+      style={{
+        borderLeft: `3px solid ${accent}`,
+        padding:    '14px 16px',
+        cursor:     'pointer',
+        position:   'relative',
+        overflow:   'hidden',
+      }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <StatusBadge status={operation.status} />
-          {primaryAsn && (
-            <span
-              className="font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border"
-              style={{
-                color: 'var(--text-secondary)',
-                borderColor: 'rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.04)',
-              }}
-            >
-              {primaryAsn}
+      {/* Header: status + ASN badge + country flags */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <StatusBadge status={operation.status} />
+
+        {primaryAsn && (
+          <span style={{
+            fontSize:      9,
+            fontFamily:    'var(--font-mono)',
+            fontWeight:    800,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            padding:       '2px 7px',
+            borderRadius:  5,
+            color:         asnColor(primaryAsn),
+            background:    `${asnColor(primaryAsn)}15`,
+            border:        `1px solid ${asnColor(primaryAsn)}35`,
+          }}>
+            {primaryAsn}
+          </span>
+        )}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
+          {countries.slice(0, 3).map(c => (
+            <span key={c} style={{ fontSize: 14 }}>{countryFlag(c)}</span>
+          ))}
+          {countries.length > 3 && (
+            <span style={{
+              fontSize:   9,
+              color:      'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              +{countries.length - 3}
             </span>
           )}
         </div>
       </div>
 
-      {/* Name */}
-      <div
-        className="font-display text-sm font-semibold truncate mb-0.5"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      {/* Cluster name */}
+      <div style={{
+        fontSize:     13,
+        fontWeight:   700,
+        color:        'var(--text-primary)',
+        marginBottom: 3,
+        overflow:     'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace:   'nowrap',
+      }}>
         {operation.cluster_name || `Cluster ${operation.id.slice(0, 8)}`}
       </div>
-      <div className="font-mono text-[10px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
-        {primaryAsn} {primaryCountry ? `\u00B7 ${countryFlag(primaryCountry)} ${primaryCountry}` : ''}
-        {operation.first_detected ? ` \u00B7 Since ${formatDate(operation.first_detected)}` : ''}
+
+      {/* Meta line */}
+      <div style={{
+        fontSize:     10,
+        fontFamily:   'var(--font-mono)',
+        color:        'var(--text-muted)',
+        marginBottom: 12,
+      }}>
+        {primaryAsn}
+        {operation.first_detected
+          ? ` \u00B7 Since ${formatDate(operation.first_detected)}`
+          : ''}
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-3 gap-3 py-2 border-t border-b border-white/[0.06] my-2">
+      {/* Metric row */}
+      <div style={{
+        display:             'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap:                 12,
+        paddingTop:          10,
+        paddingBottom:       10,
+        borderTop:           '1px solid var(--border-base)',
+        borderBottom:        '1px solid var(--border-base)',
+        marginBottom:        10,
+      }}>
         <div>
-          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div style={{
+            fontSize:   18,
+            fontWeight: 900,
+            fontFamily: 'var(--font-mono)',
+            color:      accent,
+            lineHeight: 1,
+            textShadow: `0 0 14px ${accent}60`,
+          }}>
             {operation.threat_count.toLocaleString()}
           </div>
-          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Threats</div>
-        </div>
-        <div>
-          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            {operation.confidence_score != null ? `${operation.confidence_score}%` : '—'}
+          <div style={{
+            fontSize:      9,
+            fontFamily:    'var(--font-mono)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color:         'var(--text-muted)',
+            marginTop:     3,
+          }}>
+            Threats
           </div>
-          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Confidence</div>
         </div>
+
         <div>
-          <div className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div style={{
+            fontSize:   18,
+            fontWeight: 900,
+            fontFamily: 'var(--font-mono)',
+            lineHeight: 1,
+            color:      confidenceColor(operation.confidence_score),
+          }}>
+            {operation.confidence_score != null
+              ? `${operation.confidence_score}%`
+              : '\u2014'}
+          </div>
+          <div style={{
+            fontSize:      9,
+            fontFamily:    'var(--font-mono)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color:         'var(--text-muted)',
+            marginTop:     3,
+          }}>
+            Confidence
+          </div>
+        </div>
+
+        <div>
+          <div style={{
+            fontSize:   18,
+            fontWeight: 900,
+            fontFamily: 'var(--font-mono)',
+            lineHeight: 1,
+            color:      'var(--text-secondary)',
+          }}>
             {countries.length}
           </div>
-          <div className="font-mono text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>Countries</div>
+          <div style={{
+            fontSize:      9,
+            fontFamily:    'var(--font-mono)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color:         'var(--text-muted)',
+            marginTop:     3,
+          }}>
+            Countries
+          </div>
         </div>
       </div>
 
       {/* Sparkline */}
-      <div className="mt-2">
-        <Sparkline data={weeklyData} width={280} height={20} />
-      </div>
+      <TrendSparkline
+        data={sparkData}
+        height={28}
+        color={accent}
+      />
 
-      {/* Status alert */}
+      {/* Status alerts */}
       {operation.status === 'accelerating' && (
-        <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--amber)' }}>
-          {'\u26A0'} ACCELERATING: activity increasing across infrastructure
+        <div style={{
+          marginTop:  8,
+          fontSize:   10,
+          fontFamily: 'var(--font-mono)',
+          color:      'var(--amber)',
+          display:    'flex',
+          alignItems: 'center',
+          gap:        5,
+        }}>
+          <span>{'\u26A0'}</span>
+          <span>{'ACCELERATING \u2014 activity increasing'}</span>
         </div>
       )}
       {operation.status === 'pivot' && (
-        <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--amber)' }}>
-          {'\u2192'} PIVOT DETECTED: infrastructure migration observed
+        <div style={{
+          marginTop:  8,
+          fontSize:   10,
+          fontFamily: 'var(--font-mono)',
+          color:      'var(--amber)',
+          display:    'flex',
+          alignItems: 'center',
+          gap:        5,
+        }}>
+          <span>{'\u2192'}</span>
+          <span>{'PIVOT DETECTED \u2014 infrastructure migration'}</span>
         </div>
       )}
       {operation.agent_notes && (
-        <div className="mt-1 font-mono text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>
+        <div style={{
+          marginTop:    6,
+          fontSize:     10,
+          fontFamily:   'var(--font-mono)',
+          color:        'var(--text-muted)',
+          overflow:     'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace:   'nowrap',
+        }}>
           {operation.agent_notes}
         </div>
       )}
