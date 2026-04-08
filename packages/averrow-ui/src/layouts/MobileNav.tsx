@@ -1,34 +1,79 @@
-// Averrow — MobileNav
-// Fixed bottom navigation for mobile. Rendered by Shell on mobile viewports.
-// Active state driven by useLocation() — always accurate on every page.
+// Averrow — MobileNav with More menu
+// Fixed bottom navigation for mobile.
+// "More" opens a full-screen panel with all platform modules.
 
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import { useAuth } from '@/lib/auth';
 
 const AMBER   = '#E5A832';
 const RED     = '#C83C3C';
 const RED_DIM = '#8B1A1A';
 
 interface NavItem {
-  id:    string;
-  icon:  string;
-  label: string;
-  path:  string;
+  id:     string;
+  icon:   string;
+  label:  string;
+  path:   string;
   exact?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'home',   icon: '🏠', label: 'Home',   path: '/',          exact: true },
+  { id: 'home',   icon: '🏠', label: 'Home',   path: '/',           exact: true },
   { id: 'obs',    icon: '🌐', label: 'Map',    path: '/observatory' },
   { id: 'brands', icon: '🛡', label: 'Brands', path: '/brands' },
   { id: 'alerts', icon: '🔔', label: 'Alerts', path: '/alerts' },
-  { id: 'more',   icon: '☰',  label: 'More',   path: '/agents' },
+];
+
+const MORE_SECTIONS = [
+  {
+    label: 'Intelligence',
+    items: [
+      { icon: '🌐', label: 'Observatory',   path: '/observatory' },
+      { icon: '🛡', label: 'Brands',        path: '/brands' },
+      { icon: '⚡', label: 'Threats',       path: '/threats' },
+      { icon: '🏭', label: 'Providers',     path: '/providers' },
+      { icon: '🗺', label: 'Operations',    path: '/campaigns' },
+      { icon: '🎯', label: 'Threat Actors', path: '/threat-actors' },
+      { icon: '📈', label: 'Intelligence',  path: '/trends' },
+    ],
+  },
+  {
+    label: 'Response',
+    items: [
+      { icon: '⚖️', label: 'Takedowns', path: '/admin/takedowns' },
+      { icon: '🔔', label: 'Alerts',    path: '/alerts' },
+      { icon: '📬', label: 'Spam Trap', path: '/admin/spam-trap' },
+      { icon: '🎯', label: 'Leads',     path: '/leads' },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [
+      { icon: '🤖', label: 'Agents',    path: '/agents' },
+      { icon: '📡', label: 'Feeds',     path: '/feeds' },
+      { icon: '📊', label: 'Dashboard', path: '/admin' },
+      { icon: '👥', label: 'Team',      path: '/admin/users' },
+      { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { icon: '👤', label: 'Profile',       path: '/profile' },
+      { icon: '🔔', label: 'Notifications', path: '/notifications' },
+    ],
+  },
 ];
 
 export function MobileNav() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate      = useNavigate();
+  const location      = useLocation();
+  const { isSuperAdmin } = useAuth();
   const { data: unreadData } = useUnreadCount();
+  const [showMore, setShowMore]   = useState(false);
+
   const unreadCount = typeof unreadData === 'number'
     ? unreadData
     : (unreadData as any)?.count ?? 0;
@@ -38,106 +83,312 @@ export function MobileNav() {
     return location.pathname.startsWith(item.path);
   }
 
+  const moreIsActive = showMore || (
+    !NAV_ITEMS.some(i => isActive(i))
+  );
+
+  function handleNavigate(path: string) {
+    setShowMore(false);
+    navigate(path);
+  }
+
+  // Add Organizations for super admins only
+  const sections = MORE_SECTIONS.map(s =>
+    s.label === 'Platform' && isSuperAdmin
+      ? {
+          ...s,
+          items: [
+            ...s.items,
+            { icon: '🏢', label: 'Organizations', path: '/admin/organizations' },
+          ],
+        }
+      : s
+  );
+
   return (
-    <div style={{
-      position:             'fixed',
-      bottom:               0,
-      left:                 0,
-      right:                0,
-      zIndex:               'var(--z-sidebar)' as any,
-      background:           'rgba(4,7,16,0.94)',
-      backdropFilter:       'blur(24px)',
-      WebkitBackdropFilter: 'blur(24px)',
-      borderTop:            '1px solid rgba(255,255,255,0.08)',
-      boxShadow:            '0 -8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
-      paddingBottom:        'env(safe-area-inset-bottom, 0px)',
-      display:              'flex',
-      justifyContent:       'space-around',
-      alignItems:           'center',
-      padding:              '10px 0',
-    }}>
-      {NAV_ITEMS.map(item => {
-        const active = isActive(item);
-        const showBadge = item.id === 'alerts' && unreadCount > 0;
-
-        return (
-          <button
-            key={item.id}
-            onClick={() => navigate(item.path)}
-            style={{
-              display:        'flex',
-              flexDirection:  'column',
-              alignItems:     'center',
-              gap:            3,
-              background:     'none',
-              border:         'none',
-              cursor:         'pointer',
-              position:       'relative',
-              padding:        '4px 14px',
-              outline:        'none',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {showBadge && (
+    <>
+      {/* ── More Panel — full screen overlay ── */}
+      {showMore && (
+        <div
+          style={{
+            position:             'fixed',
+            inset:                0,
+            zIndex:               'var(--z-modal)' as any,
+            background:           'rgba(4,7,16,0.98)',
+            backdropFilter:       'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            overflowY:            'auto',
+            paddingBottom:        100,
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            padding:       '20px 20px 16px',
+            borderBottom:  '1px solid rgba(255,255,255,0.07)',
+            display:       'flex',
+            alignItems:    'center',
+            justifyContent: 'space-between',
+          }}>
+            <div>
               <div style={{
-                position:     'absolute',
-                top:          0,
-                right:        6,
-                minWidth:     16,
-                height:       16,
-                borderRadius: '50%',
-                background:   `linear-gradient(135deg, ${RED}, ${RED_DIM})`,
-                border:       '2px solid rgba(4,7,16,0.9)',
-                fontSize:     8,
-                fontWeight:   900,
-                color:        '#fff',
-                display:      'flex',
-                alignItems:   'center',
-                justifyContent: 'center',
-                fontFamily:   'monospace',
-                boxShadow:    `0 2px 8px ${RED}60`,
-                padding:      '0 2px',
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.22em', color: 'var(--amber)',
+                marginBottom: 4,
               }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
+                AVERROW
               </div>
-            )}
-
-            <span style={{
-              fontSize: 22,
-              filter:   active ? `drop-shadow(0 0 6px ${AMBER}80)` : 'none',
-              transition: 'filter 0.15s ease',
-            }}>
-              {item.icon}
-            </span>
-
-            <span style={{
-              fontSize:      9,
-              fontFamily:    'monospace',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color:         active ? AMBER : 'rgba(255,255,255,0.30)',
-              textShadow:    active ? `0 0 10px ${AMBER}60` : 'none',
-              transition:    'color 0.15s ease',
-            }}>
-              {item.label}
-            </span>
-
-            {active && (
               <div style={{
-                position:     'absolute',
-                bottom:       0,
-                left:         '50%',
-                transform:    'translateX(-50%)',
-                width:        24,
-                height:       2,
-                borderRadius: 99,
-                background:   `linear-gradient(90deg, transparent, ${AMBER}, transparent)`,
-                boxShadow:    `0 0 8px ${AMBER}`,
-              }} />
-            )}
-          </button>
-        );
-      })}
-    </div>
+                fontSize: 18, fontWeight: 900,
+                color: 'var(--text-primary)',
+              }}>
+                All Modules
+              </div>
+            </div>
+            <button
+              onClick={() => setShowMore(false)}
+              style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(255,255,255,0.08)',
+                border:     '1px solid rgba(255,255,255,0.12)',
+                color:      'var(--text-secondary)',
+                fontSize:   18, cursor: 'pointer',
+                display:    'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Navigation sections */}
+          {sections.map(section => (
+            <div key={section.label} style={{ padding: '16px 16px 8px' }}>
+              {/* Section label */}
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                gap: 8, marginBottom: 10,
+              }}>
+                <span style={{
+                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.22em', color: 'var(--text-muted)',
+                  textTransform: 'uppercase', fontWeight: 700,
+                }}>
+                  {section.label}
+                </span>
+                <div style={{
+                  flex: 1, height: 1,
+                  background: 'linear-gradient(90deg, var(--border-base), transparent)',
+                }} />
+              </div>
+
+              {/* 2-column grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+              }}>
+                {section.items.map(item => (
+                  <button
+                    key={item.path}
+                    onClick={() => handleNavigate(item.path)}
+                    style={{
+                      padding:      '14px',
+                      borderRadius: 12,
+                      background:   'var(--card-bg)',
+                      border:       `1px solid var(--border-base)`,
+                      boxShadow: [
+                        'var(--card-shadow)',
+                        'inset 0 1px 0 var(--border-strong)',
+                        'inset 0 -1px 0 rgba(0,0,0,0.40)',
+                      ].join(', '),
+                      display:    'flex',
+                      alignItems: 'center',
+                      gap:        10,
+                      cursor:     'pointer',
+                      textAlign:  'left',
+                      transition: 'var(--transition-fast)',
+                    }}
+                  >
+                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                    <span style={{
+                      fontSize:   13,
+                      fontWeight: 600,
+                      color:      'var(--text-primary)',
+                    }}>
+                      {item.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Logout */}
+          <div style={{ padding: '8px 16px 16px' }}>
+            <button
+              onClick={() => { /* logout handled by UserAvatar */ }}
+              style={{
+                width:        '100%',
+                padding:      '13px',
+                borderRadius: 12,
+                background:   'linear-gradient(135deg, rgba(200,60,60,0.12), rgba(139,26,26,0.08))',
+                border:       '1px solid var(--red-border)',
+                color:        'var(--sev-critical)',
+                fontSize:     12,
+                fontWeight:   700,
+                fontFamily:   'var(--font-mono)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                cursor:       'pointer',
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bottom Nav Bar ── */}
+      <div style={{
+        position:             'fixed',
+        bottom:               0,
+        left:                 0,
+        right:                0,
+        zIndex:               'var(--z-sidebar)' as any,
+        background:           'rgba(4,7,16,0.94)',
+        backdropFilter:       'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderTop:            '1px solid rgba(255,255,255,0.08)',
+        boxShadow:            '0 -8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
+        display:              'flex',
+        justifyContent:       'space-around',
+        alignItems:           'center',
+        padding:              '10px 0 env(safe-area-inset-bottom, 16px)',
+      }}>
+        {/* Main 4 nav items */}
+        {NAV_ITEMS.map(item => {
+          const active    = isActive(item) && !showMore;
+          const showBadge = item.id === 'alerts' && unreadCount > 0;
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => { setShowMore(false); navigate(item.path); }}
+              style={{
+                display:       'flex',
+                flexDirection: 'column',
+                alignItems:    'center',
+                gap:           3,
+                cursor:        'pointer',
+                position:      'relative',
+                padding:       '4px 14px',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {showBadge && (
+                <div style={{
+                  position:     'absolute',
+                  top:          0,
+                  right:        6,
+                  minWidth:     16,
+                  height:       16,
+                  borderRadius: '50%',
+                  background:   `linear-gradient(135deg, ${RED}, ${RED_DIM})`,
+                  border:       '2px solid rgba(4,7,16,0.9)',
+                  fontSize:     8,
+                  fontWeight:   900,
+                  color:        '#fff',
+                  display:      'flex',
+                  alignItems:   'center',
+                  justifyContent: 'center',
+                  fontFamily:   'monospace',
+                  boxShadow:    `0 2px 8px ${RED}60`,
+                  padding:      '0 2px',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </div>
+              )}
+              <span style={{
+                fontSize:   22,
+                filter:     active ? `drop-shadow(0 0 6px ${AMBER}80)` : 'none',
+                transition: 'filter 0.15s ease',
+              }}>
+                {item.icon}
+              </span>
+              <span style={{
+                fontSize:      9,
+                fontFamily:    'monospace',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color:         active ? AMBER : 'rgba(255,255,255,0.30)',
+                textShadow:    active ? `0 0 10px ${AMBER}60` : 'none',
+                transition:    'color 0.15s ease',
+              }}>
+                {item.label}
+              </span>
+              {active && (
+                <div style={{
+                  position:     'absolute',
+                  bottom:       0,
+                  left:         '50%',
+                  transform:    'translateX(-50%)',
+                  width:        24,
+                  height:       2,
+                  borderRadius: 99,
+                  background:   `linear-gradient(90deg, transparent, ${AMBER}, transparent)`,
+                  boxShadow:    `0 0 8px ${AMBER}`,
+                }} />
+              )}
+            </button>
+          );
+        })}
+
+        {/* More button */}
+        <button
+          onClick={() => setShowMore(!showMore)}
+          style={{
+            display:       'flex',
+            flexDirection: 'column',
+            alignItems:    'center',
+            gap:           3,
+            cursor:        'pointer',
+            position:      'relative',
+            padding:       '4px 14px',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{
+            fontSize:   22,
+            filter:     moreIsActive ? `drop-shadow(0 0 6px ${AMBER}80)` : 'none',
+            transition: 'filter 0.15s ease',
+          }}>
+            ☰
+          </span>
+          <span style={{
+            fontSize:      9,
+            fontFamily:    'monospace',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color:         moreIsActive ? AMBER : 'rgba(255,255,255,0.30)',
+            textShadow:    moreIsActive ? `0 0 10px ${AMBER}60` : 'none',
+            transition:    'color 0.15s ease',
+          }}>
+            More
+          </span>
+          {moreIsActive && (
+            <div style={{
+              position:     'absolute',
+              bottom:       0,
+              left:         '50%',
+              transform:    'translateX(-50%)',
+              width:        24,
+              height:       2,
+              borderRadius: 99,
+              background:   `linear-gradient(90deg, transparent, ${AMBER}, transparent)`,
+              boxShadow:    `0 0 8px ${AMBER}`,
+            }} />
+          )}
+        </button>
+      </div>
+    </>
   );
 }

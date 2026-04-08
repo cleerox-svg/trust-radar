@@ -10,8 +10,13 @@ import '@/index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
-      retry: 1,
+      staleTime: 5 * 60_000,  // 5 minutes — data stays fresh between page visits
+      gcTime:    10 * 60_000, // 10 minutes — keep in cache even when not displayed
+      retry: (failureCount, error: any) => {
+        // Don't retry 4xx errors — only retry network/5xx errors
+        if (error?.status >= 400 && error?.status < 500) return false;
+        return failureCount < 2;
+      },
       refetchOnWindowFocus: false,
     },
   },

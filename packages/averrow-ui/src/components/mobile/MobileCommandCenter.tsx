@@ -66,7 +66,7 @@ export function MobileCommandCenter() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div style={{ minHeight: '100vh', background: '#060A14', fontFamily: 'system-ui,-apple-system,sans-serif', color: '#fff', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-page)', fontFamily: 'system-ui,-apple-system,sans-serif', color: 'var(--text-primary)', overflowX: 'hidden' }}>
       <style>{`
         @keyframes mcc-ping { 75%,100%{transform:scale(2.2);opacity:0} }
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,7 @@ export function MobileCommandCenter() {
               {greeting},{' '}
               <span style={{ color:M.AMBER, textShadow:`0 0 20px ${M.AMBER}50` }}>Claude</span>
             </div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.30)', marginTop:5 }}>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:5 }}>
               {new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })}
             </div>
           </div>
@@ -100,10 +100,10 @@ export function MobileCommandCenter() {
                 <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'#4ade80', opacity:0.65, animation:'mcc-ping 1.6s ease-in-out infinite' }} />
                 <div style={{ position:'relative', width:8, height:8, borderRadius:'50%', background:'#22c55e', boxShadow:'0 0 8px rgba(34,197,94,0.8)' }} />
               </div>
-              <span style={{ fontSize:8, fontFamily:'monospace', color:'rgba(255,255,255,0.30)', letterSpacing:'0.18em' }}>LIVE</span>
+              <span style={{ fontSize:8, fontFamily:'monospace', color:'var(--text-muted)', letterSpacing:'0.18em' }}>LIVE</span>
             </div>
             <div style={{ position:'relative', cursor:'pointer' }} onClick={() => navigate('/notifications')}>
-              <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))', border:'1px solid rgba(255,255,255,0.14)', boxShadow:'0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15),inset 0 -1px 0 rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
+              <div style={{ width:36, height:36, borderRadius:11, background:'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))', border:'1px solid var(--border-strong)', boxShadow:'0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15),inset 0 -1px 0 rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
                 🔔
               </div>
               {unreadCount > 0 && (
@@ -148,7 +148,7 @@ export function MobileCommandCenter() {
                 ALL SYSTEMS OPERATIONAL
               </span>
             </div>
-            <span style={{ fontSize:10, color:'rgba(255,255,255,0.30)', fontFamily:'monospace' }}>
+            <span style={{ fontSize:10, color:'var(--text-muted)', fontFamily:'monospace' }}>
               {lastScan ? `Scan: ${timeAgo(lastScan)}` : 'Scanning...'}
             </span>
           </DeepCard>
@@ -170,7 +170,7 @@ export function MobileCommandCenter() {
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:11 }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.AMBER},transparent)` }} />
-                <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Brands at Risk</span>
+                <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'var(--text-tertiary)', textTransform:'uppercase' }}>Brands at Risk</span>
               </div>
               <span onClick={() => navigate('/brands')} style={{ fontSize:11, color:M.AMBER, cursor:'pointer', fontWeight:700, textShadow:`0 0 10px ${M.AMBER}60` }}>View all →</span>
             </div>
@@ -183,8 +183,8 @@ export function MobileCommandCenter() {
                   <div key={brand.id} onClick={() => navigate(`/brands/${brand.id}`)} style={{ padding:'14px 16px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display:'flex', alignItems:'center', gap:12, cursor:'pointer', borderLeft:`2px solid ${c.color}60`, background: i === 0 ? `linear-gradient(90deg,${c.color}08,transparent 50%)` : 'transparent' }}>
                     <BrandAvatar name={brand.name} color={c.color} dimColor={c.dimColor} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'rgba(255,255,255,0.92)' }}>{brand.name}</div>
-                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.32)', marginTop:2, fontFamily:'monospace' }}>{brand.canonical_domain}</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{brand.name}</div>
+                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, fontFamily:'monospace' }}>{brand.canonical_domain}</div>
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5, flexShrink:0 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -205,9 +205,9 @@ export function MobileCommandCenter() {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.BLUE},transparent)` }} />
-              <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Latest Intelligence</span>
+              <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'var(--text-tertiary)', textTransform:'uppercase' }}>Latest Intelligence</span>
             </div>
-            <span style={{ fontSize:9, color:'rgba(255,255,255,0.22)', fontFamily:'monospace' }}>Powered by Observer</span>
+            <span style={{ fontSize:9, color:'var(--text-muted)', fontFamily:'monospace' }}>Powered by Observer</span>
           </div>
 
           {/* Filter pills */}
@@ -222,7 +222,7 @@ export function MobileCommandCenter() {
                   textTransform:'uppercase', letterSpacing:'0.12em',
                   border:`1px solid ${active ? (s?.border ?? 'rgba(229,168,50,0.35)') : 'rgba(255,255,255,0.08)'}`,
                   backgroundColor: active ? (s?.bg ?? 'rgba(229,168,50,0.12)') : 'rgba(255,255,255,0.03)',
-                  color: active ? (s?.text ?? M.AMBER) : 'rgba(255,255,255,0.38)',
+                  color: active ? (s?.text ?? M.AMBER) : 'var(--text-tertiary)',
                   boxShadow: active ? `inset 0 1px 0 ${s?.dot ?? M.AMBER}30` : 'none',
                 }}>
                   {f}
@@ -233,7 +233,7 @@ export function MobileCommandCenter() {
 
           <DeepCard variant="base" style={{ padding:0, overflow:'hidden' }}>
             {filteredIntel.length === 0 ? (
-              <div style={{ padding:'20px 16px', textAlign:'center', color:'rgba(255,255,255,0.25)', fontSize:12 }}>
+              <div style={{ padding:'20px 16px', textAlign:'center', color:'var(--text-muted)', fontSize:12 }}>
                 No {intelFilter !== 'all' ? intelFilter + ' ' : ''}alerts
               </div>
             ) : filteredIntel.map((item: any, i: number) => {
@@ -248,22 +248,22 @@ export function MobileCommandCenter() {
                 }}>
                   <div style={{ width:8, height:8, borderRadius:'50%', marginTop:4, flexShrink:0, background:s.dot, boxShadow:`0 0 8px ${s.dot}80` }} />
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.88)', lineHeight:1.4 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', lineHeight:1.4 }}>
                       {item.title}
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5 }}>
-                      <span style={{ fontSize:10, color:'rgba(255,255,255,0.28)', fontFamily:'monospace' }}>
+                      <span style={{ fontSize:10, color:'var(--text-muted)', fontFamily:'monospace' }}>
                         {timeAgo(item.created_at)}
                       </span>
                       {item.brand_name && (
                         <>
                           <span style={{ width:2, height:2, borderRadius:'50%', background:'rgba(255,255,255,0.18)' }} />
-                          <span style={{ fontSize:10, color:'rgba(255,255,255,0.38)' }}>{item.brand_name}</span>
+                          <span style={{ fontSize:10, color:'var(--text-tertiary)' }}>{item.brand_name}</span>
                         </>
                       )}
                     </div>
                   </div>
-                  <span style={{ fontSize:18, color:'rgba(255,255,255,0.18)', flexShrink:0, paddingTop:1 }}>›</span>
+                  <span style={{ fontSize:18, color:'var(--text-muted)', flexShrink:0, paddingTop:1 }}>›</span>
                 </div>
               );
             })}
@@ -274,7 +274,7 @@ export function MobileCommandCenter() {
         <div style={{ padding:'18px 20px 0' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
             <div style={{ width:2, height:14, borderRadius:99, background:`linear-gradient(180deg,${M.GREEN},transparent)` }} />
-            <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Quick Actions</span>
+            <span style={{ fontSize:9, fontFamily:'monospace', letterSpacing:'0.20em', color:'var(--text-tertiary)', textTransform:'uppercase' }}>Quick Actions</span>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             {[
@@ -285,8 +285,8 @@ export function MobileCommandCenter() {
             ].map(a => (
               <DeepCard key={a.label} variant="stat" accentColor={a.accent} onClick={() => navigate(a.path)} style={{ padding:'16px 14px', cursor:'pointer' }}>
                 <div style={{ fontSize:24, marginBottom:10, filter:`drop-shadow(0 0 8px ${a.accent}60)` }}>{a.emoji}</div>
-                <div style={{ fontSize:12, fontWeight:800, color:'rgba(255,255,255,0.90)' }}>{a.label}</div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,0.32)', marginTop:3 }}>{a.desc}</div>
+                <div style={{ fontSize:12, fontWeight:800, color:'var(--text-primary)' }}>{a.label}</div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:3 }}>{a.desc}</div>
               </DeepCard>
             ))}
           </div>
