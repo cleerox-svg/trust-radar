@@ -9,9 +9,15 @@ export function Notifications() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="glass-btn p-2 rounded-lg touch-target"
+          className="p-2 rounded-lg touch-target"
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border-base)',
+            color: 'var(--text-secondary)',
+            transition: 'var(--transition-fast)',
+          }}
         >
-          <ArrowLeft className="w-4 h-4 text-white/60" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
         <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
           All Notifications

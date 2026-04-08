@@ -4,6 +4,7 @@ import type { Agent } from '@/hooks/useAgents';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { Badge } from '@/design-system/components';
 
 // ─── Agent config definitions ──────────────────────────────────
 interface AgentConfigDef {
@@ -170,16 +171,9 @@ function ConfigCard({
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className={cn(
-            'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-mono font-semibold tracking-wider',
-            isActive ? 'badge-active' : 'badge-dormant',
-          )}>
-            <span className={cn(
-              'w-1.5 h-1.5 rounded-full',
-              isActive ? 'dot-pulse-green' : 'dot-pulse-gray',
-            )} />
-            {statusLabel.toUpperCase()}
-          </span>
+          {isActive
+            ? <Badge status="active"   label={statusLabel} size="xs" pulse />
+            : <Badge status="inactive" label={statusLabel} size="xs" />}
           <svg
             className={cn('w-4 h-4 text-white/30 transition-transform', isOpen && 'rotate-180')}
             fill="none"

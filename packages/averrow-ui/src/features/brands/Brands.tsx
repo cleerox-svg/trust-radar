@@ -250,7 +250,13 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   if (!open) return null;
 
-  const inputClass = 'w-full glass-input rounded-lg px-3 py-2 font-mono text-sm';
+  const inputClass = 'w-full rounded-lg px-3 py-2 font-mono text-sm';
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border-base)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+  };
   const labelClass = 'block font-mono text-[10px] uppercase tracking-widest text-[rgba(255,255,255,0.36)] mb-1.5';
 
   return (
@@ -264,6 +270,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
             <label className={labelClass}>Domain *</label>
             <input
               className={inputClass}
+              style={inputStyle}
               placeholder="example.com"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
@@ -275,6 +282,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
             <label className={labelClass}>Brand Name</label>
             <input
               className={inputClass}
+              style={inputStyle}
               placeholder="Auto-detected from domain"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -285,6 +293,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
             <label className={labelClass}>Sector</label>
             <select
               className={inputClass}
+              style={inputStyle}
               value={sector}
               onChange={(e) => setSector(e.target.value)}
             >
@@ -297,6 +306,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
             <label className={labelClass}>Reason</label>
             <select
               className={inputClass}
+              style={inputStyle}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             >
@@ -310,6 +320,7 @@ function AddBrandModal({ open, onClose }: { open: boolean; onClose: () => void }
             <label className={labelClass}>Notes</label>
             <textarea
               className={cn(inputClass, 'resize-none h-20')}
+              style={inputStyle}
               placeholder="Optional notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -945,11 +956,23 @@ export function Brands() {
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                 placeholder="Search brands or domains..."
-                className="flex-1 glass-input rounded-lg px-3 py-1.5 text-sm min-w-0"
+                className="flex-1 rounded-lg px-3 py-1.5 text-sm min-w-0"
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-base)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
               />
               <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
                 <select
-                  className="glass-input rounded-lg px-3 py-1.5 font-mono text-xs flex-shrink-0"
+                  className="rounded-lg px-3 py-1.5 font-mono text-xs flex-shrink-0"
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-base)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
                   value={sector}
                   onChange={(e) => { setSector(e.target.value); setPage(1); }}
                 >
@@ -1085,7 +1108,13 @@ export function Brands() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search brands..."
-                  className="glass-input rounded-lg px-3 py-1.5 text-sm w-48"
+                  className="rounded-lg px-3 py-1.5 text-sm w-48"
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-base)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
                 />
               </div>
 
