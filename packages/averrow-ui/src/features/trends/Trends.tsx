@@ -19,6 +19,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
 import { AgentAttribution } from '@/components/ui/AgentAttribution';
 import { ExecutiveSummary } from '@/components/trends/ExecutiveSummary';
+import { ReportPanel } from '@/components/ui/ReportPanel';
+import { Badge } from '@/components/ui/Badge';
 /* ── Constants ── */
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -74,8 +76,7 @@ function ChartTooltip({ active, payload, label }: {
 
 /* ── Section 1: Observer Intelligence Briefings ── */
 
-function BriefingCard({ briefing }: { briefing: IntelligenceBriefing }) {
-  const [expanded, setExpanded] = useState(false);
+function BriefingCard({ briefing, onOpen }: { briefing: IntelligenceBriefing; onOpen: (b: IntelligenceBriefing) => void }) {
   const sev = briefing.severity?.toLowerCase() ?? 'low';
   const dotColor = SEVERITY_COLORS[sev] ?? '#78A0C8';
   const title = briefing.summary?.slice(0, 100) ?? 'Untitled';
@@ -90,18 +91,16 @@ function BriefingCard({ briefing }: { briefing: IntelligenceBriefing }) {
         />
         <div className="min-w-0 flex-1">
           <p className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
-            {expanded ? briefing.summary : title}
-            {!expanded && hasMore && '…'}
+            {title}
+            {hasMore && '…'}
           </p>
-          {hasMore && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="mt-1 text-[11px] font-mono transition-colors hover:opacity-80"
-              style={{ color: 'var(--amber)' }}
-            >
-              {expanded ? 'Show less' : 'Show more'}
-            </button>
-          )}
+          <button
+            onClick={() => onOpen(briefing)}
+            className="mt-1 text-[11px] font-mono transition-colors hover:opacity-80"
+            style={{ color: 'var(--amber)' }}
+          >
+            Read full briefing →
+          </button>
           <div className="mt-2 font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
             {new Date(briefing.created_at).toLocaleDateString('en-US', {
               month: 'short', day: 'numeric', year: 'numeric',
@@ -116,6 +115,14 @@ function BriefingCard({ briefing }: { briefing: IntelligenceBriefing }) {
 
 function IntelligenceBriefings() {
   const { data: briefings, isLoading } = useIntelligenceBriefings(6);
+  const [selected, setSelected] = useState<IntelligenceBriefing | null>(null);
+
+  const selectedSev = selected?.severity?.toLowerCase();
+  const badgeSeverity: 'critical' | 'high' | 'medium' | 'low' =
+    selectedSev === 'critical' ? 'critical'
+      : selectedSev === 'high' ? 'high'
+      : selectedSev === 'medium' ? 'medium'
+      : 'low';
 
   return (
     <section>
@@ -134,10 +141,41 @@ function IntelligenceBriefings() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {briefings.map((b) => (
-            <BriefingCard key={b.id} briefing={b} />
+            <BriefingCard key={b.id} briefing={b} onOpen={setSelected} />
           ))}
         </div>
       )}
+
+      <ReportPanel
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected?.summary?.slice(0, 80) ?? 'Intelligence Briefing'}
+        subtitle="Observer Intelligence — Powered by ASTRA"
+        badge={
+          selected ? (
+            <>
+              <Badge status="active" label="Observer" size="xs" />
+              <Badge severity={badgeSeverity} size="xs" />
+            </>
+          ) : null
+        }
+        content={selected?.summary ?? ''}
+        meta={
+          selected ? (
+            <>
+              <span>
+                {new Date(selected.created_at).toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                })}
+              </span>
+              <span>•</span>
+              <span>{selected.output_type}</span>
+              <span>•</span>
+              <span>300 day period</span>
+            </>
+          ) : null
+        }
+      />
     </section>
   );
 }
