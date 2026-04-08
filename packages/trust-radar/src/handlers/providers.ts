@@ -69,7 +69,18 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              SUM(CASE WHEN t.severity IN ('critical','high') THEN 1 ELSE 0 END) AS high_sev,
              MIN(t.created_at) AS first_seen,
-             MAX(t.created_at) AS last_seen
+             MAX(t.created_at) AS last_seen,
+             (
+               SELECT json_group_array(daily_count)
+               FROM (
+                 SELECT COUNT(*) as daily_count
+                 FROM threats t2
+                 WHERE t2.hosting_provider_id = t.hosting_provider_id
+                   AND t2.created_at >= datetime('now', '-14 days')
+                 GROUP BY date(t2.created_at)
+                 ORDER BY date(t2.created_at) ASC
+               )
+             ) as threat_history_json
       FROM threats t
       LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
       ${where}
@@ -77,7 +88,14 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
       ORDER BY threat_count DESC LIMIT ? OFFSET ?
     `).bind(...params).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    const data = rows.results.map((row: Record<string, unknown>) => ({
+      ...row,
+      threat_history: row.threat_history_json
+        ? JSON.parse(row.threat_history_json as string)
+        : undefined,
+      threat_history_json: undefined,
+    }));
+    return json({ success: true, data }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
@@ -369,7 +387,18 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
              hp.reputation_score, hp.avg_response_time,
              hp.is_bulletproof,
              MIN(t.created_at) AS first_threat,
-             MAX(t.created_at) AS last_threat
+             MAX(t.created_at) AS last_threat,
+             (
+               SELECT json_group_array(daily_count)
+               FROM (
+                 SELECT COUNT(*) as daily_count
+                 FROM threats t2
+                 WHERE t2.hosting_provider_id = hp.id
+                   AND t2.created_at >= datetime('now', '-14 days')
+                 GROUP BY date(t2.created_at)
+                 ORDER BY date(t2.created_at) ASC
+               )
+             ) as threat_history_json
       FROM hosting_providers hp
       LEFT JOIN threats t ON t.hosting_provider_id = hp.id
       ${where}
@@ -384,7 +413,15 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
     `).bind(...params.slice(0, params.length - 2)).all();
     const total = (countResult.results[0] as Record<string, unknown>)?.total ?? 0;
 
-    return json({ success: true, data: rows.results, meta: { total, limit, offset } }, 200, origin);
+    const data = rows.results.map((row: Record<string, unknown>) => ({
+      ...row,
+      threat_history: row.threat_history_json
+        ? JSON.parse(row.threat_history_json as string)
+        : undefined,
+      threat_history_json: undefined,
+    }));
+
+    return json({ success: true, data, meta: { total, limit, offset } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

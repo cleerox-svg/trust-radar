@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Card,
@@ -57,17 +57,6 @@ function getClusterStatus(c: Cluster): ProviderStatus {
   if (c.status === 'dormant') return 'quiet';
   // Parse ASN trends from cluster data if available
   return c.status === 'active' ? 'active' : 'quiet';
-}
-
-function estimateWeeklyVolumes(t7: number, t30: number): number[] {
-  // Estimate 7 weekly volumes from 7d and 30d data
-  const weeklyAvg30 = t30 / 4;
-  const weeks: number[] = [];
-  for (let i = 0; i < 6; i++) {
-    weeks.push(Math.max(0, weeklyAvg30 + (Math.random() - 0.5) * weeklyAvg30 * 0.3));
-  }
-  weeks.push(t7); // most recent week is the 7d value
-  return weeks;
 }
 
 // ─── Status Badge Component ──────────────────────────────────
@@ -186,7 +175,7 @@ function ProviderCard({
   const nexusLinked = hasNexusLink(provider, clusters);
   const t7 = provider.trend_7d ?? 0;
   const t30 = provider.trend_30d ?? 0;
-  const weeklyData = useMemo(() => estimateWeeklyVolumes(t7, t30), [t7, t30]);
+  const sparkData = provider.threat_history ?? [];
 
   return (
     <Card
@@ -242,17 +231,33 @@ function ProviderCard({
 
       {/* Sparkline bar */}
       <div className="mt-2">
-        <TrendSparkline
-          data={weeklyData}
-          width={280}
-          height={28}
-          color={
-            status === 'accelerating' ? 'var(--red)' :
-            status === 'pivot' ? 'var(--blue)' :
-            status === 'active' ? 'var(--amber)' :
-            'var(--text-muted)'
-          }
-        />
+        {sparkData.length >= 2 ? (
+          <TrendSparkline
+            data={sparkData}
+            height={32}
+            color={
+              (provider.reputation_score ?? 50) < 30 ? 'var(--sev-critical)' :
+              (provider.reputation_score ?? 50) < 60 ? 'var(--sev-high)' :
+              'var(--text-muted)'
+            }
+          />
+        ) : (
+          <div style={{
+            height: 32,
+            background: 'rgba(255,255,255,0.02)',
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <span style={{
+              fontSize: 9, color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              insufficient data
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Status alert */}

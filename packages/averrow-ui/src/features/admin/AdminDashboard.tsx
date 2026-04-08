@@ -553,6 +553,36 @@ export function AdminDashboard() {
     }
   }
 
+  const [geoEnriching, setGeoEnriching] = useState(false);
+  const [geoResult, setGeoResult] = useState<string | null>(null);
+
+  async function handleGeoEnrich() {
+    setGeoEnriching(true);
+    setGeoResult(null);
+    let total = 0;
+    try {
+      while (true) {
+        const res = await api.post<{
+          total: number;
+          enriched: number;
+          remaining: number;
+          skippedPrivate?: number;
+          skippedNoResult?: number;
+        }>('/api/admin/backfill-geo');
+        const enriched = res.data?.enriched ?? 0;
+        const skipped = (res.data?.skippedPrivate ?? 0) + (res.data?.skippedNoResult ?? 0);
+        total += enriched;
+        if ((res.data?.remaining ?? 0) === 0 || enriched + skipped === 0) break;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      setGeoResult(`${total.toLocaleString()} threats geocoded`);
+    } catch {
+      setGeoResult('Failed — check console');
+    } finally {
+      setGeoEnriching(false);
+    }
+  }
+
   if (isLoading) return <PageLoader />;
 
   const threats = data?.threats ?? { total: 0, today: 0, week: 0 };
@@ -632,6 +662,25 @@ export function AdminDashboard() {
             marginLeft: 8,
           }}>
             ✓ {classifyResult}
+          </span>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleGeoEnrich}
+          disabled={geoEnriching}
+          loading={geoEnriching}
+        >
+          {geoEnriching ? 'Enriching...' : 'Geo Enrich Threats'}
+        </Button>
+        {geoResult && (
+          <span style={{
+            fontSize: 11,
+            color: 'var(--sev-info)',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: 8,
+          }}>
+            ✓ {geoResult}
           </span>
         )}
       </div>
