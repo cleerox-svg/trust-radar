@@ -97,11 +97,24 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
              b.official_handles, b.email_security_grade,
+             b.exposure_score,
+             b.social_risk_score,
              COUNT(t.id) AS threat_count,
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              MAX(t.created_at) AS last_threat_seen,
              CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored,
-             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
+             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count,
+             (
+               SELECT json_group_array(daily_count)
+               FROM (
+                 SELECT COUNT(*) as daily_count
+                 FROM threats t2
+                 WHERE t2.target_brand_id = b.id
+                   AND t2.created_at >= datetime('now', '-14 days')
+                 GROUP BY date(t2.created_at)
+                 ORDER BY date(t2.created_at) ASC
+               )
+             ) as threat_history_json
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
       LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
@@ -161,9 +174,17 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
 
+    const data = rows.results.map((row: Record<string, unknown>) => ({
+      ...row,
+      threat_history: row.threat_history_json
+        ? JSON.parse(row.threat_history_json as string)
+        : undefined,
+      threat_history_json: undefined,
+    }));
+
     return json({
       success: true,
-      data: rows.results,
+      data,
       total: total?.n ?? 0,
       tabs: {
         under_attack: underAttackCount?.n ?? 0,
@@ -192,6 +213,8 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.sector, b.canonical_domain,
              b.official_handles, b.email_security_grade,
+             b.exposure_score,
+             b.social_risk_score,
              COUNT(t.id) AS threat_count,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
@@ -220,6 +243,8 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.first_seen,
              b.official_handles, b.email_security_grade,
+             b.exposure_score,
+             b.social_risk_score,
              COUNT(t.id) AS threat_count,
              MAX(t.created_at) AS last_threat_seen,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count

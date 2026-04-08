@@ -20,7 +20,7 @@ interface Brand {
   logo_url: string | null;
   social_profiles: BrandSocialProfile[] | null;
   top_threat_type: string | null;
-  threat_history: number[] | null;
+  threat_history?: number[];
   bimi_record: string | null;
   bimi_svg_url: string | null;
   bimi_vmc_url: string | null;
