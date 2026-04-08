@@ -704,6 +704,7 @@ export async function handleListBriefingHistory(
 
 export async function generateAndEmailBriefing(
   env: Env,
+  trigger: string = 'cron:daily',
 ): Promise<{ briefingId: number; emailSent: boolean; error?: string }> {
   const briefing = await fetchComprehensiveBriefing(env);
 
@@ -712,9 +713,9 @@ export async function generateAndEmailBriefing(
 
   const insertResult = await env.DB.prepare(
     `INSERT INTO threat_briefings (type, report_date, report_data, generated_at, trigger, emailed)
-    VALUES ('daily', ?, ?, datetime('now'), 'cron:daily', 0)`,
+    VALUES ('daily', ?, ?, datetime('now'), ?, 0)`,
   )
-    .bind(reportDate, JSON.stringify(briefing))
+    .bind(reportDate, JSON.stringify(briefing), trigger)
     .run();
   const briefingId = insertResult.meta.last_row_id;
 

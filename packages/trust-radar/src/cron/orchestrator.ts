@@ -85,9 +85,10 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(narrativeResult);
   }
 
-  // Daily at 12:00 UTC (8 AM ET): Generate + email daily briefing
-  if (minute === 0 && hour === 12) {
-    console.log('[CRON] 12:00 UTC — starting daily briefing generation');
+  // Daily at 13:00 UTC (9 AM ET): Generate + email daily briefing
+  // NOTE: hour 13 avoids collision with social ops (hour % 6 === 0 runs at 0/6/12/18)
+  if (minute === 0 && hour === 13) {
+    console.log('[CRON] 13:00 UTC — starting daily briefing generation');
     const emailResult = await runJob('briefing_email', async () => {
       // Dedup: only skip if a cron briefing already exists for today (manual ones don't count)
       const today = now.toISOString().slice(0, 10);
@@ -95,7 +96,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
       try {
         existing = await env.DB.prepare(
           `SELECT COUNT(*) as count FROM threat_briefings
-           WHERE report_date = ? AND trigger LIKE 'cron%'`
+           WHERE report_date = ? AND trigger LIKE 'cron%' AND emailed = 1`
         ).bind(today).first<{ count: number }>();
       } catch (err) {
         console.error('[CRON] Briefing dedup check failed:', err instanceof Error ? err.message : String(err));
