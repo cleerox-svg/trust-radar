@@ -4,7 +4,6 @@ import { useBrands, useBrandStats, useToggleMonitor, useAddBrand } from '@/hooks
 import type { Brand } from '@/hooks/useBrands';
 import { SocialDots } from './components/SocialDots';
 import { TrendBadge } from './components/TrendBadge';
-import { Sparkline } from './components/Sparkline';
 import { LiveFeedCard } from './components/LiveFeedCard';
 import { PortfolioHealthCard } from './components/PortfolioHealthCard';
 import { AttackVectorsCard } from './components/AttackVectorsCard';
@@ -21,6 +20,7 @@ import {
   SeverityChip,
   GlowNumber,
   SectionLabel,
+  TrendSparkline,
 } from '@/components/ui';
 import type { Severity } from '@/components/ui';
 
@@ -482,9 +482,19 @@ function BrandRow({ brand, onToggleMonitor }: BrandRowProps) {
         <SocialDots profiles={brand.social_profiles} maxDots={4} />
       </div>
 
-      {/* 4. Sparkline — hidden on mobile */}
+      {/* 4. Trend sparkline — hidden on mobile */}
       <div className="flex-shrink-0 hidden sm:block">
-        <Sparkline data={brand.threat_history ?? []} width={80} height={20} />
+        {brand.threat_history && brand.threat_history.length >= 2 ? (
+          <TrendSparkline
+            data={brand.threat_history}
+            width={100}
+            height={28}
+            color={countColor}
+            animate={false}
+          />
+        ) : (
+          <div style={{ width: 100, height: 28 }} />
+        )}
       </div>
 
       {/* 5. Threat count */}
