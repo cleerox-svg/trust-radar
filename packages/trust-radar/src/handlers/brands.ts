@@ -96,7 +96,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
 
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
-             b.official_handles, b.email_security_grade,
+             b.official_handles, b.email_security_grade, b.bimi_grade, b.threat_trend,
              COUNT(t.id) AS threat_count,
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              MAX(t.created_at) AS last_threat_seen,
@@ -191,7 +191,7 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
 
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.sector, b.canonical_domain,
-             b.official_handles, b.email_security_grade,
+             b.official_handles, b.email_security_grade, b.bimi_grade, b.threat_trend,
              COUNT(t.id) AS threat_count,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
@@ -219,7 +219,7 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
   try {
     const rows = await env.DB.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.first_seen,
-             b.official_handles, b.email_security_grade,
+             b.official_handles, b.email_security_grade, b.bimi_grade, b.threat_trend,
              COUNT(t.id) AS threat_count,
              MAX(t.created_at) AS last_threat_seen,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
