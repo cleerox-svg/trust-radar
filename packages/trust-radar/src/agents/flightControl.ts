@@ -38,6 +38,8 @@ interface Backlog {
   greynoiseUnchecked: number;
   seclookupUnchecked: number;
   watchdog: number;
+  domainGeoBacklog:   number;  // threats with domain but no IP
+  brandEnrichBacklog: number;  // brands with no enriched_at
 }
 
 interface DegradedFeed {
@@ -294,7 +296,7 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -305,7 +307,7 @@ export const flightControlAgent: AgentModule = {
       'flight_control',
       'info',
       'batch_complete',
-      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, budget: $${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, domain geo backlog: ${backlogs.domainGeoBacklog}, brand enrich backlog: ${backlogs.brandEnrichBacklog}, budget: $${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       { backlogs, stalled, budget: budgetStatus, scaling: scalingActions, recovery: recoveryActions }
     );
 
@@ -434,7 +436,20 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     `).first<{ count: number }>().catch(() => ({ count: 0 })),
   ]);
 
-  return {
+  const domainGeoRow = await db.prepare(`
+    SELECT COUNT(*) as n FROM threats
+    WHERE (ip_address IS NULL OR ip_address = '')
+      AND malicious_domain IS NOT NULL
+      AND malicious_domain NOT LIKE '*%'
+      AND malicious_domain LIKE '%.%'
+  `).first<{ n: number }>();
+
+  const brandEnrichRow = await db.prepare(`
+    SELECT COUNT(*) as n FROM brands
+    WHERE enriched_at IS NULL AND canonical_domain IS NOT NULL
+  `).first<{ n: number }>();
+
+  const backlog: Backlog = {
     cartographer: cartResult?.count ?? 0,
     analyst: analystResult?.count ?? 0,
     totalUnlinked: totalUnlinkedResult?.count ?? 0,
@@ -448,7 +463,14 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     greynoiseUnchecked: greynoiseResult?.count ?? 0,
     seclookupUnchecked: seclookupResult?.count ?? 0,
     watchdog: watchdogResult?.count ?? 0,
+    domainGeoBacklog:   0,
+    brandEnrichBacklog: 0,
   };
+
+  backlog.domainGeoBacklog   = domainGeoRow?.n ?? 0;
+  backlog.brandEnrichBacklog = brandEnrichRow?.n ?? 0;
+
+  return backlog;
 }
 
 // ─── Agent Health ────────────────────────────────────────────────

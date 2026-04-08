@@ -256,6 +256,31 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     logger.error('threat_feed_scan_geo_error', { error: e instanceof Error ? e.message : String(e) });
   }
 
+  // Resolve domain→IP for threats that have a domain but no IP
+  try {
+    const { handleBackfillDomainGeo } = await import('../handlers/admin');
+    const fakeReq = new Request('https://localhost/api/admin/backfill-domain-geo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const domainGeoRes = await handleBackfillDomainGeo(fakeReq, env);
+    const domainGeoData = await domainGeoRes.json() as {
+      success: boolean;
+      data?: { processed: number; resolved: number; enriched: number };
+    };
+    if (domainGeoData.success && domainGeoData.data?.resolved) {
+      logger.info('domain_geo_resolution', {
+        processed: domainGeoData.data.processed,
+        resolved:  domainGeoData.data.resolved,
+        enriched:  domainGeoData.data.enriched,
+      });
+    }
+  } catch (err) {
+    logger.error('domain_geo_resolution_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Feed ingestion — wrapped in try/catch so enrichment/social still run on failure
   const { runAllFeeds, runAllEnrichmentFeeds } = await import('../lib/feedRunner');
   let feedResult = { feedsRun: 0, totalNew: 0, feedsFailed: 0, feedsSkipped: 0 };
@@ -706,6 +731,43 @@ async function runObserverBriefing(env: Env): Promise<void> {
     }
   } catch (err) {
     logger.error('observer_briefing_tranco_error', { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Enrich new brands (logo, HQ geo, sector, RDAP)
+  // Run one batch per daily cycle — covers ~50 new brands/day
+  try {
+    const { handleBackfillBrandEnrichment, handleBackfillBrandSector } =
+      await import('../handlers/admin');
+
+    // Session A: logo + HQ geo
+    const enrichReq = new Request('https://localhost/api/admin/backfill-brand-enrichment', {
+      method: 'POST',
+    });
+    const enrichRes = await handleBackfillBrandEnrichment(enrichReq, env);
+    const enrichData = await enrichRes.json() as {
+      success: boolean;
+      data?: { processed: number; enriched: number; remaining: number };
+    };
+
+    if (enrichData.data?.remaining && enrichData.data.remaining > 0) {
+      // Run a second batch if backlog is large
+      await handleBackfillBrandEnrichment(enrichReq.clone(), env);
+    }
+
+    // Session B: sector + RDAP (separate, uses Haiku)
+    const sectorReq = new Request('https://localhost/api/admin/backfill-brand-sector', {
+      method: 'POST',
+    });
+    await handleBackfillBrandSector(sectorReq, env);
+
+    logger.info('brand_enrichment_cron', {
+      logo_enriched:     enrichData.data?.enriched ?? 0,
+      sector_remaining:  enrichData.data?.remaining ?? 0,
+    });
+  } catch (err) {
+    logger.error('brand_enrichment_cron_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Seed Strategist agent
