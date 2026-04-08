@@ -132,14 +132,14 @@ export function MobileNav() {
             <div>
               <div style={{
                 fontSize: 9, fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.22em', color: 'var(--amber)',
+                letterSpacing: '0.22em', color: '#E5A832',
                 marginBottom: 4,
               }}>
                 AVERROW
               </div>
               <div style={{
                 fontSize: 18, fontWeight: 900,
-                color: 'var(--text-primary)',
+                color: '#fff',
               }}>
                 All Modules
               </div>
@@ -150,7 +150,7 @@ export function MobileNav() {
                 width: 36, height: 36, borderRadius: 10,
                 background: 'rgba(255,255,255,0.08)',
                 border:     '1px solid rgba(255,255,255,0.12)',
-                color:      'var(--text-secondary)',
+                color:      'rgba(255,255,255,0.60)',
                 fontSize:   18, cursor: 'pointer',
                 display:    'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -169,14 +169,14 @@ export function MobileNav() {
               }}>
                 <span style={{
                   fontSize: 9, fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.22em', color: 'var(--text-muted)',
+                  letterSpacing: '0.22em', color: 'rgba(255,255,255,0.35)',
                   textTransform: 'uppercase', fontWeight: 700,
                 }}>
                   {section.label}
                 </span>
                 <div style={{
                   flex: 1, height: 1,
-                  background: 'linear-gradient(90deg, var(--border-base), transparent)',
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0.08), transparent)',
                 }} />
               </div>
 
@@ -193,11 +193,10 @@ export function MobileNav() {
                     style={{
                       padding:      '14px',
                       borderRadius: 12,
-                      background:   'var(--card-bg)',
-                      border:       `1px solid var(--border-base)`,
+                      background:   'linear-gradient(160deg, rgba(22,30,48,0.85), rgba(12,18,32,0.95))',
+                      border:       '1px solid rgba(255,255,255,0.09)',
                       boxShadow: [
-                        'var(--card-shadow)',
-                        'inset 0 1px 0 var(--border-strong)',
+                        'inset 0 1px 0 rgba(255,255,255,0.12)',
                         'inset 0 -1px 0 rgba(0,0,0,0.40)',
                       ].join(', '),
                       display:    'flex',
@@ -212,7 +211,7 @@ export function MobileNav() {
                     <span style={{
                       fontSize:   13,
                       fontWeight: 600,
-                      color:      'var(--text-primary)',
+                      color:      'rgba(255,255,255,0.85)',
                     }}>
                       {item.label}
                     </span>
