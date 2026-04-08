@@ -10,7 +10,7 @@ import {
   Skeleton,
   Badge,
 } from '@/design-system/components';
-import { Sparkline } from '@/features/brands/components/Sparkline';
+import { TrendSparkline } from '@/components/ui/TrendSparkline';
 import { Globe } from 'lucide-react';
 import {
   useProviderIntelligence,
@@ -242,7 +242,17 @@ function ProviderCard({
 
       {/* Sparkline bar */}
       <div className="mt-2">
-        <Sparkline data={weeklyData} width={280} height={20} />
+        <TrendSparkline
+          data={weeklyData}
+          width={280}
+          height={28}
+          color={
+            status === 'accelerating' ? 'var(--red)' :
+            status === 'pivot' ? 'var(--blue)' :
+            status === 'active' ? 'var(--amber)' :
+            'var(--text-muted)'
+          }
+        />
       </div>
 
       {/* Status alert */}
