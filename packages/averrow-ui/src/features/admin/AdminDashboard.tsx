@@ -7,7 +7,7 @@ import { useAdminAction } from '@/hooks/useAdminAction';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageLoader } from '@/components/ui/PageLoader';
-import { Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
+import { Badge, Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { DailyBriefingWidget } from '@/components/DailyBriefingWidget';
@@ -44,12 +44,12 @@ function throttleColor(level: BudgetStatus['throttle_level']): string {
   }
 }
 
-function throttleBadge(level: BudgetStatus['throttle_level']): string {
+function ThrottleBadge({ level }: { level: BudgetStatus['throttle_level'] }) {
   switch (level) {
-    case 'emergency': return 'badge-critical';
-    case 'hard': return 'badge-accelerating';
-    case 'soft': return 'badge-accelerating';
-    default: return 'badge-active';
+    case 'emergency': return <Badge severity="critical" label="Emergency" />;
+    case 'hard':      return <Badge status="warning"    label="Hard" />;
+    case 'soft':      return <Badge status="warning"    label="Soft" />;
+    default:          return <Badge status="active"     label="Normal" />;
   }
 }
 
@@ -72,9 +72,7 @@ function BudgetPanel() {
     <Card style={{ padding: '20px', marginBottom: 16 }} className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="section-label">AI Budget</div>
-        <span className={`badge-glass ${throttleBadge(budget.throttle_level)}`}>
-          {budget.throttle_level === 'none' ? 'NORMAL' : budget.throttle_level.toUpperCase()}
-        </span>
+        <ThrottleBadge level={budget.throttle_level} />
       </div>
 
       {/* Spend bar */}
@@ -611,7 +609,7 @@ export function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.mainDb.name}</span>
-                <span className="badge-glass badge-active">PRIMARY</span>
+                <Badge status="active" label="Primary" size="xs" />
               </div>
               <div className="progress-bar-track h-2 mb-1.5">
                 <div className="progress-bar-fill-teal" style={{ width: `${dbSizePercent}%` }} />
@@ -636,7 +634,7 @@ export function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.auditDb.name}</span>
-                <span className="badge-glass badge-dormant">AUDIT</span>
+                <Badge status="inactive" label="Audit" size="xs" />
               </div>
               <div className="font-mono text-[10px] text-white/55">
                 {infra.auditDb.sizeKb} KB &middot; {infra.auditDb.tables} tables &middot; {infra.auditDb.region}
@@ -652,7 +650,7 @@ export function AdminDashboard() {
                 <span className="dot-pulse-green" />
                 <span className="font-mono text-[11px] font-semibold text-white/95">{infra.worker.name}</span>
               </div>
-              <span className="badge-glass badge-active">ACTIVE</span>
+              <Badge status="active" label="Active" size="xs" />
             </div>
             <div className="font-mono text-[10px] text-white/55 mt-1.5">{infra.worker.platform}</div>
             <div className="font-mono text-[10px] text-white/50 mt-0.5">ID: 5a136591...</div>
@@ -669,7 +667,7 @@ export function AdminDashboard() {
                     <span className="dot-pulse-green" />
                     <span className="font-mono text-[11px] text-white/95">{kv.name}</span>
                   </div>
-                  <span className="badge-glass badge-active">ACTIVE</span>
+                  <Badge status="active" label="Active" size="xs" />
                 </div>
               ))}
               <div className="font-mono text-[10px] text-white/55 mt-1 ml-5">
