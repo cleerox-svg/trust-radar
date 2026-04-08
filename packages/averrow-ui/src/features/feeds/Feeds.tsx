@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFeeds, useFeedHistory } from '@/hooks/useFeeds';
 import { useAdminAction } from '@/hooks/useAdminAction';
 import type { FeedOverview, FeedPullRecord } from '@/hooks/useFeeds';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { ThreatAreaChart } from '@/components/ui/ThreatAreaChart';
+import { DataRow, SeverityDot } from '@/components/ui/DataRow';
 import { cn } from '@/lib/cn';
 import { RotateCw, Loader2, Check, X, Zap } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -66,10 +67,10 @@ function successRate(feed: FeedOverview): number {
   return Math.round((feed.successes / feed.total_pulls) * 100);
 }
 
-function successBarColor(rate: number): string {
-  if (rate >= 90) return 'bg-green-400';
-  if (rate >= 50) return 'bg-amber-400';
-  return 'bg-red-400';
+function successBarGradient(rate: number): string {
+  if (rate >= 90) return 'linear-gradient(90deg, var(--green-dim), var(--green))';
+  if (rate >= 60) return 'linear-gradient(90deg, var(--amber-dim), var(--amber))';
+  return 'linear-gradient(90deg, var(--red-dim), var(--red))';
 }
 
 type FeedCategory = 'healthy' | 'attention' | 'disabled';
@@ -394,18 +395,33 @@ function FeedCard({
         {/* Footer */}
         {category !== 'disabled' && (
           <div className="space-y-2">
-            <div className="text-[10px] text-white/40 font-mono">
+            <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
               Last run: {timeAgo(feed.last_run)}
             </div>
-            {/* Success rate bar */}
+            {/* Success rate bar — CSS vars, green/amber/red by rate */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div
+                style={{
+                  flex: 1,
+                  height: 3,
+                  borderRadius: 99,
+                  overflow: 'hidden',
+                  background: 'rgba(255,255,255,0.06)',
+                }}
+              >
                 <div
-                  className={cn('h-full rounded-full transition-all', successBarColor(rate))}
-                  style={{ width: `${rate}%` }}
+                  style={{
+                    height: '100%',
+                    width: `${Math.min(rate, 100)}%`,
+                    borderRadius: 99,
+                    background: successBarGradient(rate),
+                    transition: 'width 0.5s ease',
+                  }}
                 />
               </div>
-              <span className="text-[10px] font-mono text-white/40">{rate}%</span>
+              <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                {rate}%
+              </span>
             </div>
           </div>
         )}
@@ -417,160 +433,249 @@ function FeedCard({
 
       {/* Expanded detail panel */}
       {isExpanded && (
-        <FeedDetailPanel feed={feed} />
+        <FeedDetailPanel feed={feed} category={category} />
       )}
     </div>
   );
 }
 
-function FeedDetailPanel({ feed }: { feed: FeedOverview }) {
+function FeedDetailPanel({ feed, category }: { feed: FeedOverview; category: FeedCategory }) {
   const { data: history, isLoading } = useFeedHistory(feed.feed_name, 20);
 
+  // Transform recent pull records into chart data (oldest → newest for the area chart)
   const chartData = useMemo(() => {
     if (!history) return [];
-    return [...history].reverse().map((h: FeedPullRecord) => ({
-      time: new Date(h.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ingested: h.records_ingested,
+    return [...history].reverse().slice(-20).map((h: FeedPullRecord) => ({
+      label: new Date(h.started_at).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: '2-digit',
+      }),
+      value: h.records_ingested,
     }));
   }, [history]);
 
-  return (
-    <Card className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ padding: '16px' }}>
-      {/* LEFT — Feed Details */}
-      <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Feed Details</div>
+  const chartColor =
+    category === 'attention' ? 'var(--sev-high)' :
+    category === 'disabled'  ? 'var(--text-muted)' :
+                               'var(--sev-info)';
 
-        <DetailRow label="Feed Name" value={feed.feed_name} />
-        <DetailRow label="Display Name" value={feed.display_name} />
-        {feed.description && <DetailRow label="Description" value={feed.description} />}
-        {feed.source_url && (
-          <div className="flex items-start gap-2">
-            <span className="text-[10px] font-mono text-white/40 w-24 flex-shrink-0">Source URL</span>
-            <a
-              href={feed.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-mono text-[rgba(255,255,255,0.36)] hover:text-[var(--text-secondary)] truncate"
-            >
-              {feed.source_url}
-            </a>
+  const configRows: Array<{ label: string; value: string; mono?: boolean; truncate?: boolean }> = [
+    { label: 'Feed Name',    value: feed.feed_name, mono: true },
+    { label: 'Display Name', value: feed.display_name ?? '—' },
+    { label: 'Description',  value: feed.description ?? '—' },
+    { label: 'Source URL',   value: feed.source_url ?? '—', mono: true, truncate: true },
+    { label: 'Schedule',     value: humanizeCron(feed.schedule_cron), mono: true },
+    { label: 'Batch Size',   value: feed.batch_size != null ? feed.batch_size.toLocaleString() : '—' },
+    { label: 'Rate Limit',   value: feed.rate_limit != null ? `${feed.rate_limit}/min` : '—' },
+    { label: 'Status',       value: feed.enabled ? 'Enabled' : 'Disabled' },
+  ];
+
+  const retryConfig = feed.retry_count != null
+    ? `${feed.retry_count} retries · ${feed.retry_delay_seconds ?? 0}s delay`
+    : null;
+
+  return (
+    <Card
+      className="mt-2"
+      style={{
+        padding: 0,
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+        gap: 16,
+      }}
+    >
+      {/* LEFT — Feed Configuration */}
+      <div style={{
+        padding: '16px',
+        borderRight: '1px solid var(--border-base)',
+      }}>
+        <div style={{
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.20em',
+          color: 'var(--amber)', textTransform: 'uppercase', marginBottom: 10,
+          fontWeight: 800,
+        }}>
+          Feed Configuration
+        </div>
+
+        {configRows.map(({ label, value, mono, truncate }) => (
+          <div key={label} style={{
+            display: 'flex', alignItems: 'flex-start',
+            gap: 8, padding: '5px 0',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            <div style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)', letterSpacing: '0.10em',
+              textTransform: 'uppercase', minWidth: 90, flexShrink: 0,
+              paddingTop: 1,
+            }}>
+              {label}
+            </div>
+            {label === 'Source URL' && feed.source_url ? (
+              <a
+                href={feed.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                  minWidth: 0,
+                  textDecoration: 'none',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {value}
+              </a>
+            ) : (
+              <div style={{
+                fontSize: mono ? 10 : 12,
+                fontFamily: mono ? 'var(--font-mono)' : 'inherit',
+                color: 'var(--text-secondary)',
+                overflow: truncate ? 'hidden' : 'visible',
+                textOverflow: truncate ? 'ellipsis' : 'clip',
+                whiteSpace: truncate ? 'nowrap' : 'normal',
+                flex: 1, minWidth: 0,
+              }}>
+                {value}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {retryConfig && (
+          <div style={{
+            marginTop: 8, padding: '6px 10px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-base)',
+            fontSize: 10, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+          }}>
+            Retry: {retryConfig}
           </div>
         )}
-        <DetailRow label="Schedule" value={humanizeCron(feed.schedule_cron)} />
-        {feed.batch_size != null && <DetailRow label="Batch Size" value={String(feed.batch_size)} />}
-        {feed.rate_limit != null && <DetailRow label="Rate Limit" value={String(feed.rate_limit)} />}
-        {feed.retry_count != null && (
-          <DetailRow
-            label="Retry Config"
-            value={`${feed.retry_count} retries, ${feed.retry_delay_seconds ?? 0}s delay`}
-          />
-        )}
-        <DetailRow label="Status" value={feed.enabled ? 'Enabled' : 'Disabled'} />
+
         {feed.filters && (
-          <div>
-            <span className="text-[10px] font-mono text-white/40 block mb-1">Filters</span>
-            <pre className="text-[10px] font-mono text-white/50 bg-white/5 rounded p-2 overflow-x-auto">
-              {feed.filters}
-            </pre>
+          <div style={{
+            marginTop: 8, padding: '6px 10px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-base)',
+            fontSize: 10, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}>
+            Filters: {feed.filters}
           </div>
         )}
       </div>
 
-      {/* RIGHT — Pull History */}
-      <div className="space-y-3">
-        <div className="font-mono text-[9px] uppercase tracking-widest text-[rgba(255,255,255,0.42)] mb-2">Pull History</div>
+      {/* RIGHT — Pull History + Recent Runs */}
+      <div style={{ padding: '16px', minWidth: 0 }}>
+        <div style={{
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.20em',
+          color: 'var(--amber)', textTransform: 'uppercase', marginBottom: 10,
+          fontWeight: 800,
+        }}>
+          Pull History
+        </div>
 
         {isLoading ? (
           <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-6 w-full" />
             ))}
           </div>
-        ) : history && history.length > 0 ? (
+        ) : (
           <>
-            {/* Chart */}
-            {chartData.length > 1 && (
-              <div className="h-32 w-full mb-3">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                    <XAxis
-                      dataKey="time"
-                      tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.3)' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: '#0E1A2B',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 8,
-                        fontSize: 11,
-                      }}
-                      labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                      itemStyle={{ color: '#E5A832' }}
-                    />
-                    <Bar dataKey="ingested" fill="#E5A832" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {chartData.length > 1 ? (
+              <ThreatAreaChart
+                data={chartData}
+                height={120}
+                color={chartColor}
+                label="Records Ingested"
+                showXAxis={false}
+                showGrid={false}
+              />
+            ) : (
+              <div style={{
+                height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-muted)', fontSize: 11,
+                fontStyle: 'italic',
+              }}>
+                No pull history yet
               </div>
             )}
 
-            {/* Table */}
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              <div className="grid grid-cols-4 gap-2 text-[9px] font-mono uppercase tracking-wider text-white/50 px-1">
-                <span>Started</span>
-                <span>Duration</span>
-                <span>Ingested</span>
-                <span>Status</span>
+            {/* Recent run records */}
+            <div style={{ marginTop: 12 }}>
+              <div style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.14em',
+                color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6,
+              }}>
+                Recent Runs
               </div>
-              {history.slice(0, 10).map((pull: FeedPullRecord) => (
-                <div
-                  key={pull.id}
-                  className="grid grid-cols-4 gap-2 text-[10px] font-mono px-1 py-1 rounded hover:bg-white/5"
-                >
-                  <span className="text-white/50 truncate">
-                    {new Date(pull.started_at).toLocaleString([], {
-                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                    })}
-                  </span>
-                  <span className="text-white/50">
-                    {pull.duration_ms != null ? `${(pull.duration_ms / 1000).toFixed(1)}s` : '—'}
-                  </span>
-                  <span className={pull.records_ingested > 0 ? 'text-[var(--text-primary)]' : 'text-white/30'}>
-                    {pull.records_ingested}
-                  </span>
-                  <span>
-                    {pull.status === 'success' ? (
-                      <span className="text-green-400">&#10003; success</span>
-                    ) : (
-                      <span className="text-red-400" title={pull.error_message ?? ''}>
-                        &#10007; error
-                      </span>
-                    )}
-                  </span>
+
+              {history && history.length > 0 ? (
+                history.slice(0, 6).map((record: FeedPullRecord) => {
+                  const isSuccess = record.status === 'success';
+                  const dur = record.duration_ms != null
+                    ? `${(record.duration_ms / 1000).toFixed(1)}s`
+                    : '—';
+                  const when = new Date(record.started_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  });
+
+                  return (
+                    <DataRow key={record.id} severity={isSuccess ? undefined : 'high'}>
+                      <div
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '5px 8px', width: '100%',
+                        }}
+                        title={!isSuccess ? (record.error_message ?? undefined) : undefined}
+                      >
+                        <SeverityDot severity={isSuccess ? 'info' : 'high'} size={7} />
+                        <span style={{
+                          fontSize: 10, fontFamily: 'var(--font-mono)',
+                          color: 'var(--text-muted)', flex: 1,
+                        }}>
+                          {when}
+                        </span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700,
+                          color: isSuccess ? 'var(--sev-info)' : 'var(--sev-high)',
+                          fontFamily: 'var(--font-mono)',
+                        }}>
+                          {record.records_ingested.toLocaleString()}
+                        </span>
+                        <span style={{
+                          fontSize: 9, color: 'var(--text-muted)',
+                          fontFamily: 'var(--font-mono)', minWidth: 32, textAlign: 'right',
+                        }}>
+                          {dur}
+                        </span>
+                      </div>
+                    </DataRow>
+                  );
+                })
+              ) : (
+                <div style={{
+                  fontSize: 11, fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-muted)', fontStyle: 'italic',
+                }}>
+                  No recent runs
                 </div>
-              ))}
+              )}
             </div>
           </>
-        ) : (
-          <div className="text-[11px] text-white/40 font-mono">No pull history available</div>
         )}
       </div>
     </Card>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="text-[10px] font-mono text-white/40 w-24 flex-shrink-0">{label}</span>
-      <span className="text-[11px] font-mono" style={{ color: 'var(--text-primary)' }}>{value}</span>
-    </div>
   );
 }
 
