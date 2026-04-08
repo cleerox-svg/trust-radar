@@ -4,10 +4,13 @@ import { MobileCommandCenter } from '@/components/mobile/MobileCommandCenter';
 import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
 import { useAgents } from '@/hooks/useAgents';
-import { useBrandStats } from '@/hooks/useBrands';
+import { useBrandStats, useBrands } from '@/hooks/useBrands';
 import { useNotifications } from '@/hooks/useNotifications';
-import { StatCard } from '@/components/ui/StatCard';
-import { Shield, AlertTriangle, Bell, Bot, Globe, Activity, Crosshair, Target } from 'lucide-react';
+import { useIntelligenceBriefings } from '@/hooks/useTrends';
+import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
+import { useDailyBriefing } from '@/hooks/useDailyBriefing';
+import { Card, StatCard, Avatar, Badge, SeverityDot } from '@/components/ui';
+import { RefreshCw } from 'lucide-react';
 
 // ── Latest Intel Feed ──────────────────────────────────────────────────
 function LatestIntelFeed() {
@@ -71,129 +74,492 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-// ── Home Dashboard ─────────────────────────────────────────────────────
+// ── Home entry (mobile dispatch) ───────────────────────────────────────
 export function Home() {
   const isMobile = useMobile();
-
-  if (isMobile) {
-    return <MobileCommandCenter />;
-  }
-
+  if (isMobile) return <MobileCommandCenter />;
   return <HomeDashboard />;
 }
 
+// ── Desktop: Executive Command Center ──────────────────────────────────
 function HomeDashboard() {
   const navigate = useNavigate();
-  const { data: obsStats } = useObservatoryStats();
-  const { data: alertStats } = useAlertStats();
-  const { data: agents } = useAgents();
-  const { data: brandStats } = useBrandStats();
+
+  // ── Data ──
+  const { data: obsStats }     = useObservatoryStats();
+  const { data: alertStats }   = useAlertStats();
+  const { data: agents }       = useAgents();
+  const { data: brandStats }   = useBrandStats();
+  const { data: topBrands }    = useBrands({ limit: 5 });
+  const { data: geoCampaigns } = useGeopoliticalCampaigns('active');
+  const { data: intelItems }   = useIntelligenceBriefings(5);
+  const { refetch: refetchBriefing, isFetching: briefingLoading }
+                               = useDailyBriefing();
+
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const safeAgents = Array.isArray(agents) ? agents : [];
-  const operationalCount = safeAgents.filter(a => a.status === 'active' || a.status === 'healthy').length;
-  const errorCount = safeAgents.filter(a => a.error_count_24h > 0).length;
-  const criticalAlerts = alertStats?.critical ?? 0;
+  const agentsOnline = safeAgents.filter(
+    a => a.status === 'healthy' || a.status === 'running' || a.status === 'active',
+  ).length;
+
+  const topBrandsList  = Array.isArray(topBrands)    ? topBrands    : [];
+  const geoList        = Array.isArray(geoCampaigns) ? geoCampaigns : [];
+  const intelList      = Array.isArray(intelItems)   ? intelItems   : [];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in">
-      {/* Greeting */}
-      <div>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          {greeting}
-        </h1>
-        <p className="text-sm font-mono mt-1" style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-          })}
-        </p>
-        {criticalAlerts > 0 && (
-          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5
-            bg-red-500/10 border border-red-500/20 rounded-lg">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-red-400 text-sm">
-              {criticalAlerts} critical alert{criticalAlerts > 1 ? 's' : ''} require attention
-            </span>
+    <div style={{ padding: 0, maxWidth: '100%' }}>
+
+      {/* ── Page header ─────────────────────────────────────────── */}
+      <div style={{
+        padding: '24px 32px 20px',
+        borderBottom: '1px solid var(--border-base)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <h1 style={{
+            fontSize: 26, fontWeight: 900, color: 'var(--text-primary)',
+            letterSpacing: -0.5, margin: 0,
+          }}>
+            {greeting}
+          </h1>
+          <div style={{
+            fontSize: 11, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', marginTop: 4,
+            letterSpacing: '0.08em',
+          }}>
+            {today}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <button onClick={() => navigate('/brands')} className="text-left">
-          <StatCard
-            label="Brands Monitored"
-            value={brandStats?.total_tracked ?? 0}
-            sublabel={brandStats?.new_this_week ? `${brandStats.new_this_week} new this week` : undefined}
-            accentColor="#E5A832"
-          />
-        </button>
-        <button onClick={() => navigate('/threats')} className="text-left">
-          <StatCard
-            label="Threats Mapped"
-            value={obsStats?.threats_mapped?.toLocaleString() ?? 0}
-            sublabel={obsStats?.countries ? `${obsStats.countries} countries` : undefined}
-            accentColor={criticalAlerts > 0 ? '#C83C3C' : '#FB923C'}
-          />
-        </button>
-        <button onClick={() => navigate('/alerts')} className="text-left">
-          <StatCard
-            label="Alerts"
-            value={alertStats?.total ?? 0}
-            sublabel={criticalAlerts > 0 ? `${criticalAlerts} critical` : undefined}
-            accentColor={criticalAlerts > 0 ? '#C83C3C' : undefined}
-          />
-        </button>
-        <button onClick={() => navigate('/agents')} className="text-left">
-          <StatCard
-            label="Agents Running"
-            value={`${operationalCount}/${safeAgents.length || 11}`}
-            sublabel={errorCount > 0 ? `${errorCount} with errors` : 'All healthy'}
-            accentColor={errorCount > 0 ? '#FB923C' : '#4ADE80'}
-          />
-        </button>
-      </div>
-
-      {/* Latest Intel feed */}
-      <div className="p-5" style={{ background: 'rgba(22,30,48,0.50)', backdropFilter: 'blur(12px)', border: '1px solid rgba(229,168,50,0.15)', borderRadius: '0.75rem' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-            Latest Intelligence
-          </h2>
-          <span className="text-white/30 text-[10px] font-mono">
-            Powered by Observer
+        {/* Platform status badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SeverityDot severity="info" size={8} pulse />
+          <span style={{
+            fontSize: 10, fontFamily: 'var(--font-mono)',
+            color: 'var(--sev-info)', letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+          }}>
+            Platform Operational
           </span>
         </div>
-        <LatestIntelFeed />
       </div>
 
-      {/* Quick nav tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {([
-          { label: 'Observatory', icon: <Globe className="w-5 h-5" />, path: '/observatory', desc: 'Global threat map' },
-          { label: 'Brands', icon: <Shield className="w-5 h-5" />, path: '/brands', desc: 'Brand health' },
-          { label: 'Threat Actors', icon: <Crosshair className="w-5 h-5" />, path: '/threat-actors', desc: 'Adversary profiles' },
-          { label: 'Campaigns', icon: <Target className="w-5 h-5" />, path: '/campaigns', desc: 'Active operations' },
-        ] as const).map(item => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className="flex flex-col items-start p-4 rounded-xl
-              bg-white/[0.03] border border-white/[0.06]
-              hover:bg-amber-500/5 hover:border-amber-500/15
-              transition-all text-left group"
-          >
-            <div className="group-hover:text-amber-400 transition-colors mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }}>
-              {item.icon}
+      {/* ── Stat bar ──────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 12, padding: '20px 32px',
+        borderBottom: '1px solid var(--border-base)',
+      }}>
+        <StatCard
+          label="Brands Monitored"
+          value={brandStats?.total_tracked ?? 0}
+          sublabel={`${brandStats?.new_this_week ?? 0} new this week`}
+          accentColor="#E5A832"
+        />
+        <StatCard
+          label="Threats Mapped"
+          value={obsStats?.threats_mapped ?? 0}
+          sublabel={`${obsStats?.countries ?? 0} countries`}
+          accentColor="#C83C3C"
+        />
+        <StatCard
+          label="Active Alerts"
+          value={alertStats?.total ?? 0}
+          sublabel={`${alertStats?.critical ?? 0} critical`}
+          accentColor="#fb923c"
+        />
+        <StatCard
+          label="Agents Running"
+          value={`${agentsOnline}/${safeAgents.length || 11}`}
+          sublabel="All healthy"
+          accentColor="#0A8AB5"
+        />
+      </div>
+
+      {/* ── Two-column body ─────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 380px',
+        gap: 20,
+        padding: '20px 32px 32px',
+        alignItems: 'start',
+      }}>
+
+        {/* ── LEFT: Observer Briefing ─────────────────────────── */}
+        <div>
+          <Card variant="base" style={{ padding: '24px 28px', marginBottom: 16 }}>
+            {/* Briefing header */}
+            <div style={{
+              display: 'flex', alignItems: 'flex-start',
+              justifyContent: 'space-between', marginBottom: 20,
+            }}>
+              <div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+                }}>
+                  <Badge status="active" label="Observer" size="xs" />
+                  <span style={{
+                    fontSize: 9, fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-muted)', letterSpacing: '0.14em',
+                  }}>
+                    PLATFORM OPERATIONS BRIEFING
+                  </span>
+                </div>
+                <h2 style={{
+                  fontSize: 16, fontWeight: 900, color: 'var(--text-primary)',
+                  margin: 0, letterSpacing: -0.2,
+                }}>
+                  Intelligence Summary
+                </h2>
+                {intelList[0] && (
+                  <div style={{
+                    fontSize: 10, fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-muted)', marginTop: 4,
+                  }}>
+                    Latest {new Date(intelList[0].created_at).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => refetchBriefing()}
+                disabled={briefingLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid var(--border-base)',
+                  color: 'var(--text-tertiary)',
+                  fontSize: 10, fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.10em', cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  opacity: briefingLoading ? 0.5 : 1,
+                }}
+              >
+                <RefreshCw size={11} style={{
+                  animation: briefingLoading ? 'spin 0.6s linear infinite' : 'none',
+                }} />
+                Refresh
+              </button>
             </div>
-            <p className="font-medium text-sm" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>
-              {item.label}
-            </p>
-            <p className="text-white/30 text-xs mt-0.5">{item.desc}</p>
-          </button>
-        ))}
+
+            {/* Observer intelligence briefing items */}
+            {intelList.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '32px 0',
+                color: 'var(--text-muted)', fontSize: 13,
+                fontStyle: 'italic',
+              }}>
+                No briefing generated yet. Observer runs daily at 9am ET.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {intelList.slice(0, 4).map((item) => {
+                  const sev = item.severity as 'critical' | 'high' | 'medium' | 'low' | 'info';
+                  const borderColor =
+                    sev === 'critical' ? 'var(--sev-critical)' :
+                    sev === 'high'     ? 'var(--sev-high)' :
+                    'var(--amber-border)';
+                  const cleaned = item.summary
+                    .replace(/\*\*/g, '')
+                    .replace(/^##\s/gm, '')
+                    .replace(/^#\s/gm, '');
+                  return (
+                    <div key={item.id} style={{
+                      paddingLeft: 14,
+                      borderLeft: `2px solid ${borderColor}`,
+                    }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center',
+                        gap: 8, marginBottom: 5,
+                      }}>
+                        {sev === 'critical' || sev === 'high' ? (
+                          <Badge severity={sev} size="xs" />
+                        ) : (
+                          <Badge status="active" size="xs" label="Info" />
+                        )}
+                        <span style={{
+                          fontSize: 9, fontFamily: 'var(--font-mono)',
+                          color: 'var(--text-muted)', letterSpacing: '0.12em',
+                        }}>
+                          {new Date(item.created_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <p style={{
+                        fontSize: 13, lineHeight: 1.65,
+                        color: 'var(--text-secondary)', margin: 0,
+                      }}>
+                        {cleaned.slice(0, 280)}
+                        {cleaned.length > 280 && (
+                          <button
+                            onClick={() => navigate('/intelligence')}
+                            style={{
+                              background: 'none', border: 'none',
+                              color: 'var(--amber)', cursor: 'pointer',
+                              fontSize: 12, fontWeight: 700,
+                              padding: '0 4px',
+                            }}
+                          >
+                            ... read more →
+                          </button>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+
+                <button
+                  onClick={() => navigate('/trends')}
+                  style={{
+                    alignSelf: 'flex-start',
+                    fontSize: 10, fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.10em', color: 'var(--amber)',
+                    background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '4px 0',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  View all intelligence →
+                </button>
+              </div>
+            )}
+          </Card>
+
+          {/* 24h Threat Ticker */}
+          <Card variant="base" style={{ padding: '16px 20px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SeverityDot severity="critical" size={7} pulse />
+                <span style={{
+                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.20em', color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                }}>
+                  Latest Intelligence
+                </span>
+              </div>
+              <span style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                color: 'var(--text-muted)',
+              }}>
+                Powered by Observer
+              </span>
+            </div>
+            <LatestIntelFeed />
+          </Card>
+        </div>
+
+        {/* ── RIGHT: Platform Status ──────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Brands at Risk */}
+          <Card variant="base" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px 10px',
+              borderBottom: '1px solid var(--border-base)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 2, height: 14, borderRadius: 99,
+                  background: 'linear-gradient(180deg, var(--amber), transparent)',
+                }} />
+                <span style={{
+                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.20em', color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                }}>
+                  Brands at Risk
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/brands')}
+                style={{
+                  fontSize: 11, color: 'var(--amber)', cursor: 'pointer',
+                  fontWeight: 700, background: 'none', border: 'none',
+                  textShadow: '0 0 10px var(--amber-glow)',
+                }}
+              >
+                View all →
+              </button>
+            </div>
+
+            {topBrandsList.slice(0, 5).map((brand, i) => {
+              const tc = brand.threat_count ?? 0;
+              const sev: 'critical' | 'high' | 'medium' =
+                tc > 1000 ? 'critical' : tc > 200 ? 'high' : 'medium';
+              return (
+                <div
+                  key={brand.id}
+                  onClick={() => navigate(`/brands/${brand.id}`)}
+                  style={{
+                    padding: '12px 16px',
+                    borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(229,168,50,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <Avatar
+                    name={brand.name}
+                    size={34}
+                    radius={10}
+                    color={tc > 1000 ? '#C83C3C' : '#B8821F'}
+                    faviconUrl={brand.canonical_domain
+                      ? `https://www.google.com/s2/favicons?domain=${brand.canonical_domain}&sz=32`
+                      : undefined}
+                    severity={sev}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 12, fontWeight: 700,
+                      color: 'var(--text-primary)',
+                    }}>
+                      {brand.name}
+                    </div>
+                    <div style={{
+                      fontSize: 10, color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)',
+                    }}>
+                      {brand.canonical_domain}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 14, fontWeight: 900,
+                    fontFamily: 'var(--font-mono)',
+                    color: tc > 1000 ? 'var(--sev-critical)' : 'var(--amber)',
+                    textShadow: '0 0 10px currentColor',
+                    flexShrink: 0,
+                  }}>
+                    {tc.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+
+          {/* Geopolitical Watch */}
+          {geoList.length > 0 && (
+            <Card variant="critical" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{
+                padding: '14px 16px 10px',
+                borderBottom: '1px solid var(--red-border)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <SeverityDot severity="critical" size={7} pulse />
+                <span style={{
+                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.20em', color: 'var(--sev-critical)',
+                  textTransform: 'uppercase',
+                }}>
+                  Geopolitical Watch
+                </span>
+              </div>
+
+              {geoList.slice(0, 3).map((campaign, i) => (
+                <div
+                  key={campaign.id}
+                  onClick={() => navigate(`/campaigns/geo/${campaign.id}`)}
+                  style={{
+                    padding: '12px 16px',
+                    borderTop: i > 0 ? '1px solid rgba(200,60,60,0.12)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,60,60,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div style={{
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', marginBottom: 4, gap: 8,
+                  }}>
+                    <div style={{
+                      fontSize: 12, fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      overflow: 'hidden', textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap', minWidth: 0, flex: 1,
+                    }}>
+                      {campaign.name}
+                    </div>
+                    <Badge status="active" label="Active" size="xs" />
+                  </div>
+                  {campaign.conflict && (
+                    <div style={{
+                      fontSize: 10, color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}>
+                      {campaign.conflict}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <div
+                onClick={() => navigate('/campaigns')}
+                style={{
+                  padding: '10px 16px',
+                  borderTop: '1px solid rgba(200,60,60,0.12)',
+                  fontSize: 10, fontFamily: 'var(--font-mono)',
+                  color: 'var(--sev-high)', cursor: 'pointer',
+                  letterSpacing: '0.10em', textTransform: 'uppercase',
+                  textAlign: 'center',
+                }}
+              >
+                View all operations →
+              </div>
+            </Card>
+          )}
+
+          {/* Quick nav shortcuts */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,
+          }}>
+            {[
+              { icon: '🌐', label: 'Observatory',   path: '/observatory',      sub: 'Global threat map' },
+              { icon: '🎯', label: 'Threat Actors', path: '/threat-actors',    sub: 'Adversary profiles' },
+              { icon: '⚖️', label: 'Takedowns',     path: '/admin/takedowns',  sub: 'Active requests' },
+              { icon: '📡', label: 'Feeds',         path: '/feeds',            sub: 'Ingestion health' },
+            ].map(item => (
+              <Card
+                key={item.path}
+                variant="base"
+                onClick={() => navigate(item.path)}
+                style={{ padding: '12px 14px', cursor: 'pointer' }}
+              >
+                <div style={{ fontSize: 20, marginBottom: 6 }}>{item.icon}</div>
+                <div style={{
+                  fontSize: 12, fontWeight: 700,
+                  color: 'var(--text-primary)',
+                }}>
+                  {item.label}
+                </div>
+                <div style={{
+                  fontSize: 10, color: 'var(--text-muted)', marginTop: 2,
+                }}>
+                  {item.sub}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
