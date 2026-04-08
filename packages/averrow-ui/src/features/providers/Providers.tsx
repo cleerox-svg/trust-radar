@@ -8,6 +8,7 @@ import {
   FilterBar,
   EmptyState,
   Skeleton,
+  Badge,
 } from '@/design-system/components';
 import { Sparkline } from '@/features/brands/components/Sparkline';
 import { Globe } from 'lucide-react';
@@ -74,29 +75,13 @@ function estimateWeeklyVolumes(t7: number, t30: number): number[] {
 function StatusBadge({ status }: { status: ProviderStatus }) {
   switch (status) {
     case 'accelerating':
-      return (
-        <span className="badge-glass badge-accelerating font-mono text-[10px] font-bold">
-          ACCELERATING
-        </span>
-      );
+      return <Badge status="warning" label="ACCELERATING" />;
     case 'pivot':
-      return (
-        <span className="badge-glass badge-pivot font-mono text-[10px] font-bold">
-          PIVOT
-        </span>
-      );
+      return <Badge status="running" label="PIVOT" />;
     case 'active':
-      return (
-        <span className="badge-glass badge-active font-mono text-[10px] font-bold">
-          ACTIVE
-        </span>
-      );
+      return <Badge status="active" label="ACTIVE" />;
     case 'quiet':
-      return (
-        <span className="badge-glass badge-dormant font-mono text-[10px] font-bold">
-          QUIET
-        </span>
-      );
+      return <Badge status="inactive" label="QUIET" />;
   }
 }
 
@@ -227,9 +212,7 @@ function ProviderCard({
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {nexusLinked && (
-            <span className="badge-glass badge-nexus font-mono text-[9px] font-bold">
-              NEXUS
-            </span>
+            <Badge status="running" label="NEXUS" size="xs" />
           )}
           <StatusBadge status={status} />
         </div>

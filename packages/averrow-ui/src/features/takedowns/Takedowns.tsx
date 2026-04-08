@@ -13,7 +13,10 @@ import {
   StatGrid,
   FilterBar,
   PageHeader,
+  Badge,
+  Button,
 } from '@/design-system/components';
+import type { BadgeStatus, Severity } from '@/design-system/components';
 
 // ─── Status mapping (DB → display) ────────────────────────────
 
@@ -28,22 +31,22 @@ const STATUS_DISPLAY: Record<string, string> = {
   withdrawn: 'DISMISSED',
 };
 
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  draft: 'badge-glass badge-dormant',
-  requested: 'badge-glass badge-high',
-  submitted: 'badge-glass badge-pivot',
-  pending_response: 'badge-glass badge-accelerating',
-  taken_down: 'badge-glass badge-success',
-  failed: 'badge-glass badge-failed',
-  expired: 'badge-glass badge-dormant',
-  withdrawn: 'badge-glass badge-dormant',
+const STATUS_TO_BADGE: Record<string, BadgeStatus> = {
+  draft: 'draft',
+  requested: 'pending',
+  submitted: 'running',
+  pending_response: 'warning',
+  taken_down: 'success',
+  failed: 'failed',
+  expired: 'inactive',
+  withdrawn: 'inactive',
 };
 
-const SEVERITY_BADGE_CLASS: Record<string, string> = {
-  HIGH: 'badge-glass badge-critical',
-  MEDIUM: 'badge-glass badge-high',
-  LOW: 'badge-glass badge-dormant',
-  CRITICAL: 'badge-glass badge-critical',
+const SEVERITY_TO_BADGE: Record<string, Severity> = {
+  HIGH: 'critical',
+  MEDIUM: 'high',
+  LOW: 'low',
+  CRITICAL: 'critical',
 };
 
 // ─── Filter pill definitions ───────────────────────────────────
@@ -118,7 +121,7 @@ function EvidencePanel({ takedownId }: { takedownId: string }) {
       {evidence.map((e: TakedownEvidence) => (
         <Card key={e.id} style={{ padding: '12px' }}>
           <div className="flex items-center gap-2 mb-1">
-            <span className="badge-glass badge-pivot">{e.evidence_type.replace(/_/g, ' ')}</span>
+            <Badge label={e.evidence_type.replace(/_/g, ' ')} />
             <span className="font-mono text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{e.title}</span>
           </div>
           {e.content_text && (
@@ -148,7 +151,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           <div className="section-label">TARGET DETAILS</div>
           <div className="space-y-2">
             <DetailRow label="Type">
-              <span className="badge-glass badge-pivot">{takedown.target_type.replace(/_/g, ' ')}</span>
+              <Badge label={takedown.target_type.replace(/_/g, ' ')} />
             </DetailRow>
             <DetailRow label="Platform">
               <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>
@@ -176,9 +179,7 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               </span>
             </DetailRow>
             <DetailRow label="Severity">
-              <span className={SEVERITY_BADGE_CLASS[takedown.severity] ?? 'badge-glass badge-dormant'}>
-                {takedown.severity}
-              </span>
+              <Badge severity={SEVERITY_TO_BADGE[takedown.severity] ?? 'low'} label={takedown.severity} />
             </DetailRow>
             <DetailRow label="Priority">
               <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{takedown.priority_score}/100</span>
@@ -208,7 +209,21 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
               href={takedown.provider_abuse_contact}
               target="_blank"
               rel="noopener noreferrer"
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--amber)' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderRadius: 6,
+                border: '1px solid var(--border-base)',
+                background: 'transparent',
+                color: 'var(--amber)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
             >
               Submit Form &rarr;
             </a>
@@ -216,7 +231,21 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
           {takedown.provider_abuse_contact && takedown.provider_method === 'email' && (
             <a
               href={`mailto:${takedown.provider_abuse_contact}`}
-              className="glass-btn inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--amber)' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderRadius: 6,
+                border: '1px solid var(--border-base)',
+                background: 'transparent',
+                color: 'var(--amber)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
             >
               Draft Email &rarr;
             </a>
@@ -239,13 +268,14 @@ function DetailPanel({ takedown, onUpdate, updatingId }: {
             value={localNotes}
             onChange={(e) => setLocalNotes(e.target.value)}
           />
-          <button
-            className="glass-btn rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onUpdate(takedown.id, { notes: localNotes })}
             disabled={isUpdating}
           >
             Save Notes
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -269,22 +299,16 @@ function StatusActions({ takedown, onUpdate, isUpdating }: {
   isUpdating: boolean;
 }) {
   const s = takedown.status;
-  const btn = (label: string, status: string, variant: 'primary' | 'ghost' | 'success' = 'primary') => {
-    const classes = {
-      primary: 'glass-btn-active rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider',
-      success: 'glass-btn rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-green-400 border-green-400/30',
-      ghost: 'glass-btn rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-white/50',
-    };
-    return (
-      <button
-        className={classes[variant]}
-        onClick={() => onUpdate(takedown.id, { status })}
-        disabled={isUpdating}
-      >
-        {label}
-      </button>
-    );
-  };
+  const btn = (label: string, status: string, variant: 'primary' | 'ghost' | 'success' = 'primary') => (
+    <Button
+      variant={variant}
+      size="sm"
+      onClick={() => onUpdate(takedown.id, { status })}
+      disabled={isUpdating}
+    >
+      {label}
+    </Button>
+  );
 
   if (s === 'draft') return (
     <div className="flex flex-wrap gap-2">
@@ -312,10 +336,10 @@ function StatusActions({ takedown, onUpdate, isUpdating }: {
     </div>
   );
   if (s === 'taken_down') return (
-    <span className="badge-glass badge-success">RESOLVED</span>
+    <Badge status="success" label="RESOLVED" />
   );
   return (
-    <span className={STATUS_BADGE_CLASS[s] ?? 'badge-glass badge-dormant'}>{STATUS_DISPLAY[s] ?? s}</span>
+    <Badge status={STATUS_TO_BADGE[s] ?? 'draft'} label={STATUS_DISPLAY[s] ?? s} />
   );
 }
 
@@ -345,9 +369,10 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
               {takedown.target_value}
             </span>
           </div>
-          <span className={STATUS_BADGE_CLASS[takedown.status] ?? 'badge-glass badge-dormant'}>
-            {STATUS_DISPLAY[takedown.status] ?? takedown.status}
-          </span>
+          <Badge
+            status={STATUS_TO_BADGE[takedown.status] ?? 'draft'}
+            label={STATUS_DISPLAY[takedown.status] ?? takedown.status}
+          />
         </div>
 
         {/* Row 2: brand + platform + severity */}
@@ -363,7 +388,7 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
               </>
             )}
           </div>
-          <span className={SEVERITY_BADGE_CLASS[sev] ?? 'badge-glass badge-dormant'}>{sev}</span>
+          <Badge severity={SEVERITY_TO_BADGE[sev] ?? 'low'} label={sev} />
         </div>
 
         {/* Row 3: evidence summary */}
@@ -388,22 +413,24 @@ function TakedownCard({ takedown, isExpanded, onToggle, onUpdate, updatingId }: 
 
         {/* Row 5: action buttons */}
         <div className="flex items-center justify-between gap-2">
-          <button
-            className="glass-btn-active rounded-md px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
           >
             {isExpanded ? 'Close' : 'Review \u2192'}
-          </button>
+          </Button>
           {takedown.status === 'draft' && (
-            <button
-              className="glass-btn rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-white/40"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={(e) => {
                 e.stopPropagation();
                 onUpdate(takedown.id, { status: 'withdrawn' });
               }}
             >
               Dismiss
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -708,13 +735,14 @@ function TakedownsDesktop() {
       >
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TYPE_PILLS.map((pill) => (
-            <button
+            <Button
               key={pill.key}
-              className={`${typeFilter === pill.key ? 'glass-btn-active' : 'glass-btn'} rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider`}
+              variant={typeFilter === pill.key ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setTypeFilter(pill.key)}
             >
               {pill.label}
-            </button>
+            </Button>
           ))}
         </div>
       </FilterBar>
