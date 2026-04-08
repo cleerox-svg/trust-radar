@@ -62,3 +62,19 @@ export function useCampaignDetail(campaignId: string) {
     enabled: !!campaignId,
   });
 }
+
+interface CampaignTimelineData {
+  labels: string[];
+  values: number[];
+}
+
+export function useCampaignTimeline(campaignId: string, period: '24h' | '7d' | '30d' | '90d' = '30d') {
+  return useQuery({
+    queryKey: ['campaign-timeline', campaignId, period],
+    queryFn: async () => {
+      const res = await api.get<CampaignTimelineData>(`/api/campaigns/${campaignId}/timeline?period=${period}`);
+      return res.data ?? { labels: [], values: [] };
+    },
+    enabled: !!campaignId,
+  });
+}
