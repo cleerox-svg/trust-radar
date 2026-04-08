@@ -403,6 +403,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-classifications` | SuperAdmin | Backfill threat classifications |
 | POST | `/api/admin/backfill-saas-techniques` | Admin | Backfill SaaS attack technique classification (PushSecurity taxonomy) |
 | POST | `/api/admin/backfill-geo` | SuperAdmin | Backfill geo enrichment |
+| POST | `/api/admin/backfill-domain-geo` | Admin | Resolve malicious domains → IP → geo + hosting provider (Cloudflare DoH, 500/call) |
 | POST | `/api/admin/backfill-brand-match` | SuperAdmin | Backfill brand matching |
 | POST | `/api/admin/backfill-safe-domains` | SuperAdmin | Backfill safe domains |
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |

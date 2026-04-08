@@ -583,6 +583,37 @@ export function AdminDashboard() {
     }
   }
 
+  const [domainResolving, setDomainResolving] = useState(false);
+  const [domainResult, setDomainResult] = useState<string | null>(null);
+
+  async function handleDomainGeo() {
+    setDomainResolving(true);
+    setDomainResult(null);
+    let totalResolved = 0;
+    let rounds = 0;
+    try {
+      while (rounds < 200) { // max 200 rounds = 100K domains
+        rounds++;
+        const res = await api.post<{
+          processed: number;
+          resolved: number;
+          enriched: number;
+          remaining: number;
+        }>('/api/admin/backfill-domain-geo');
+
+        totalResolved += res.data?.resolved ?? 0;
+
+        if ((res.data?.processed ?? 0) < 500 || (res.data?.remaining ?? 0) === 0) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      setDomainResult(`${totalResolved.toLocaleString()} domains resolved`);
+    } catch {
+      setDomainResult('Failed — check console');
+    } finally {
+      setDomainResolving(false);
+    }
+  }
+
   if (isLoading) return <PageLoader />;
 
   const threats = data?.threats ?? { total: 0, today: 0, week: 0 };
@@ -681,6 +712,25 @@ export function AdminDashboard() {
             marginLeft: 8,
           }}>
             ✓ {geoResult}
+          </span>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleDomainGeo}
+          disabled={domainResolving}
+          loading={domainResolving}
+        >
+          {domainResolving ? 'Resolving domains...' : 'Resolve Domain IPs'}
+        </Button>
+        {domainResult && (
+          <span style={{
+            fontSize: 11,
+            color: 'var(--sev-info)',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: 8,
+          }}>
+            ✓ {domainResult}
           </span>
         )}
       </div>

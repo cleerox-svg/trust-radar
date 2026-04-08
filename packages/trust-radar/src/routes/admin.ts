@@ -5,7 +5,7 @@ import { requireAdmin, requireSuperAdmin, isAuthContext } from "../middleware/au
 import { json } from "../lib/cors";
 import {
   handleAdminStats, handleAdminListUsers, handleAdminUpdateUser, handleAdminHealth, handleSystemHealth,
-  handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch,
+  handleBackfillClassifications, handleBackfillGeo, handleBackfillDomainGeo, handleBackfillBrandMatch,
   handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands,
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
   handleBackfillSocialConfig, handleBackfillSaasTechniques,
@@ -238,6 +238,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBackfillGeo(request, env);
+  });
+  router.post("/api/admin/backfill-domain-geo", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBackfillDomainGeo(request, env);
   });
   router.post("/api/admin/backfill-brand-match", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
