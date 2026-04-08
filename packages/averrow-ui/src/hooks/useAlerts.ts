@@ -24,6 +24,11 @@ export interface Alert {
   updated_at: string;
   brand_name: string | null;
   brand_domain: string | null;
+  saas_technique_id: string | null;
+  saas_technique_name: string | null;
+  saas_technique_phase: string | null;
+  saas_technique_phase_label: string | null;
+  saas_technique_severity: string | null;
 }
 
 export interface AlertStats {

@@ -16,6 +16,8 @@ export { StatCard, SimpleStatCard, DetailStatCard } from './StatCard';
 export type { StatCardProps } from './StatCard';
 export { SeverityChip } from './SeverityChip';
 export type { SeverityChipProps, ChipSize } from './SeverityChip';
+export { SaasTechniqueBadge } from './SaasTechniqueBadge';
+export type { SaasTechniqueBadgeProps } from './SaasTechniqueBadge';
 export { GlowNumber } from './GlowNumber';
 export type { GlowNumberProps, GlowSize, GlowFormat } from './GlowNumber';
 export { SectionLabel } from './SectionLabel';

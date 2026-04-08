@@ -401,6 +401,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | DELETE | `/api/admin/sales-leads/:id` | Admin | Delete lead |
 | GET | `/api/admin/sales-leads/:id/activity` | Admin | Lead activity log |
 | POST | `/api/admin/backfill-classifications` | SuperAdmin | Backfill threat classifications |
+| POST | `/api/admin/backfill-saas-techniques` | Admin | Backfill SaaS attack technique classification (PushSecurity taxonomy) |
 | POST | `/api/admin/backfill-geo` | SuperAdmin | Backfill geo enrichment |
 | POST | `/api/admin/backfill-brand-match` | SuperAdmin | Backfill brand matching |
 | POST | `/api/admin/backfill-safe-domains` | SuperAdmin | Backfill safe domains |
