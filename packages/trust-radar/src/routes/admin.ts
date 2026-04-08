@@ -8,7 +8,7 @@ import {
   handleBackfillClassifications, handleBackfillGeo, handleBackfillBrandMatch,
   handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands,
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
-  handleBackfillSocialConfig,
+  handleBackfillSocialConfig, handleBackfillSaasTechniques,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -228,6 +228,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBackfillClassifications(request, env);
+  });
+  router.post("/api/admin/backfill-saas-techniques", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBackfillSaasTechniques(request, env);
   });
   router.post("/api/admin/backfill-geo", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { Card, DataRow, FilterBar, PageHeader } from '@/components/ui';
+import { Card, DataRow, FilterBar, PageHeader, SaasTechniqueBadge } from '@/components/ui';
 import { relativeTime } from '@/lib/time';
 import { CheckCircle, Search } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -23,6 +23,11 @@ interface Threat {
   actor_name: string | null;
   country_code: string | null;
   created_at: string;
+  saas_technique_id: string | null;
+  saas_technique_name: string | null;
+  saas_technique_phase: string | null;
+  saas_technique_phase_label: string | null;
+  saas_technique_severity: string | null;
 }
 
 function toSeverity(s: string | null): Severity | undefined {
@@ -92,7 +97,19 @@ export function Threats() {
                 <DataRow key={t.id} severity={toSeverity(t.severity)}>
                   <div className="grid grid-cols-[1fr_1.5fr_1fr_1fr_0.6fr_0.6fr_0.8fr] gap-3 items-center w-full font-mono text-[11px]">
                     <span style={{ color: 'var(--text-primary)' }}>{t.threat_type}</span>
-                    <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{t.malicious_domain ?? '-'}</span>
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{t.malicious_domain ?? '-'}</span>
+                      {t.saas_technique_id && t.saas_technique_name && t.saas_technique_phase && t.saas_technique_phase_label && (
+                        <SaasTechniqueBadge
+                          techniqueId={t.saas_technique_id}
+                          techniqueName={t.saas_technique_name}
+                          phase={t.saas_technique_phase}
+                          phaseLabel={t.saas_technique_phase_label}
+                          severity={t.saas_technique_severity ?? 'medium'}
+                          size="xs"
+                        />
+                      )}
+                    </div>
                     <span>
                       {t.target_brand_id ? (
                         <Link

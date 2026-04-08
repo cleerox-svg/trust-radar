@@ -13,6 +13,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
 import { classifyThreat } from "../lib/haiku";
+import { classifySaasTechnique } from "../lib/saas-classifier";
 
 // ─── Homoglyph & brand-squatting detection ──────────────────────
 
@@ -228,10 +229,23 @@ export const sentinelAgent: AgentModule = {
         }
       }
 
+      // SaaS attack technique classification (PushSecurity taxonomy).
+      const saasTechniqueId = classifySaasTechnique({
+        threat_type:      threatType,
+        malicious_domain: threat.malicious_domain,
+        malicious_url:    threat.malicious_url,
+        source_feed:      threat.source_feed,
+      });
+
       try {
         await env.DB.prepare(
-          `UPDATE threats SET confidence_score = ?, severity = COALESCE(severity, ?), threat_type = ? WHERE id = ?`
-        ).bind(confidence, severity, threatType, threat.id).run();
+          `UPDATE threats
+             SET confidence_score   = ?,
+                 severity           = COALESCE(severity, ?),
+                 threat_type        = ?,
+                 saas_technique_id  = COALESCE(saas_technique_id, ?)
+           WHERE id = ?`
+        ).bind(confidence, severity, threatType, saasTechniqueId, threat.id).run();
         itemsUpdated++;
       } catch (err) {
         console.error(`[sentinel] update failed for ${threat.id}:`, err);

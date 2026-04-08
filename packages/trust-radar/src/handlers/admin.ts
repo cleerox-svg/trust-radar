@@ -8,6 +8,7 @@ import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
 import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo, PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
+import { classifySaasTechnique } from "../lib/saas-classifier";
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -408,6 +409,68 @@ export async function handleBackfillClassifications(request: Request, env: Env):
     return json({
       success: true,
       data: { total, classified, haikuFailures: failed, batches: batchNum },
+    }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── Backfill: SaaS attack technique classification ────────────
+// POST /api/admin/backfill-saas-techniques
+// Classifies up to 5000 unclassified threats per call using the
+// PushSecurity saas-attacks taxonomy (rule-based, no AI cost).
+export async function handleBackfillSaasTechniques(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const totalRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM threats WHERE saas_technique_id IS NULL"
+    ).first<{ n: number }>();
+    const totalPending = totalRow?.n ?? 0;
+
+    if (totalPending === 0) {
+      return json({
+        success: true,
+        data: { message: "No threats need SaaS technique classification", total: 0, classified: 0 },
+      }, 200, origin);
+    }
+
+    const batch = await env.DB.prepare(
+      `SELECT id, threat_type, malicious_domain, malicious_url, source_feed
+         FROM threats
+        WHERE saas_technique_id IS NULL
+        ORDER BY created_at DESC
+        LIMIT 5000`
+    ).all<{
+      id:                string;
+      threat_type:       string | null;
+      malicious_domain:  string | null;
+      malicious_url:     string | null;
+      source_feed:       string | null;
+    }>();
+
+    let classified = 0;
+    for (const threat of batch.results) {
+      const techniqueId = classifySaasTechnique(threat);
+      if (!techniqueId) continue;
+      try {
+        await env.DB.prepare(
+          "UPDATE threats SET saas_technique_id = ? WHERE id = ?"
+        ).bind(techniqueId, threat.id).run();
+        classified++;
+      } catch (err) {
+        console.error(`[backfill-saas-techniques] update failed for ${threat.id}:`, err);
+      }
+    }
+
+    return json({
+      success: true,
+      data: {
+        totalPending,
+        processed:  batch.results.length,
+        classified,
+        remaining:  Math.max(0, totalPending - classified),
+      },
     }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);

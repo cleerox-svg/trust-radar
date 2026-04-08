@@ -71,18 +71,49 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
     ).bind(...params).first<{ c: number }>();
     const total = countRow?.c ?? 0;
 
-    // Get paginated results with brand join
-    const rows = await env.DB.prepare(
-      `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain
-       FROM alerts a
-       LEFT JOIN brands b ON b.id = a.brand_id
-       ${where}
-       ORDER BY
-         CASE a.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2
-                         WHEN 'MEDIUM' THEN 3 ELSE 4 END,
-         a.created_at DESC
-       LIMIT ? OFFSET ?`
-    ).bind(...params, Math.min(200, limit), offset).all();
+    // Get paginated results with brand join + SaaS technique (joined via threat).
+    // Wrapped in try/catch so alerts keep loading if the saas_techniques
+    // migration has not been applied yet.
+    let rows: D1Result;
+    try {
+      rows = await env.DB.prepare(
+        `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain,
+                st.id          AS saas_technique_id,
+                st.name        AS saas_technique_name,
+                st.phase       AS saas_technique_phase,
+                st.phase_label AS saas_technique_phase_label,
+                st.severity    AS saas_technique_severity
+         FROM alerts a
+         LEFT JOIN brands b ON b.id = a.brand_id
+         LEFT JOIN threats t
+                ON t.id = a.source_id
+               AND a.source_type = 'threat'
+         LEFT JOIN saas_techniques st ON st.id = t.saas_technique_id
+         ${where}
+         ORDER BY
+           CASE a.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2
+                           WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+           a.created_at DESC
+         LIMIT ? OFFSET ?`
+      ).bind(...params, Math.min(200, limit), offset).all();
+    } catch {
+      rows = await env.DB.prepare(
+        `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain,
+                NULL AS saas_technique_id,
+                NULL AS saas_technique_name,
+                NULL AS saas_technique_phase,
+                NULL AS saas_technique_phase_label,
+                NULL AS saas_technique_severity
+         FROM alerts a
+         LEFT JOIN brands b ON b.id = a.brand_id
+         ${where}
+         ORDER BY
+           CASE a.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2
+                           WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+           a.created_at DESC
+         LIMIT ? OFFSET ?`
+      ).bind(...params, Math.min(200, limit), offset).all();
+    }
 
     return json({ success: true, data: rows.results, total }, 200, origin);
   } catch (err) {

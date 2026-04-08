@@ -194,14 +194,30 @@ function BrandGroupCard({
 
                   {/* Handle + platform */}
                   <div className="flex-1 min-w-0">
-                    <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{handle}</span>
-                    <span className="font-mono text-[10px] text-white/40 ml-1.5">on</span>
-                    <span className={cn(
-                      'ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
-                      platformColors[platform] ?? platformColors.Social,
-                    )}>
-                      {platform}
-                    </span>
+                    <div>
+                      <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{handle}</span>
+                      <span className="font-mono text-[10px] text-white/40 ml-1.5">on</span>
+                      <span className={cn(
+                        'ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
+                        platformColors[platform] ?? platformColors.Social,
+                      )}>
+                        {platform}
+                      </span>
+                    </div>
+                    {alert.saas_technique_name && alert.saas_technique_phase_label && (
+                      <div
+                        style={{
+                          fontSize:   9,
+                          color:      'var(--text-muted)',
+                          fontFamily: 'var(--font-mono)',
+                          marginTop:  2,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {alert.saas_technique_name} · {alert.saas_technique_phase_label}
+                      </div>
+                    )}
                   </div>
 
                   {/* Score */}

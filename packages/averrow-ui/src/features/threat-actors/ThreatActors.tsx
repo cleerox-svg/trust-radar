@@ -6,6 +6,7 @@ import {
   Card,
   FilterBar,
   PageHeader,
+  SaasTechniqueBadge,
   StatCard,
   StatGrid,
 } from '@/components/ui';
@@ -13,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';
+import { saasTechniquesForTtps } from '@/lib/saas-techniques';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -74,12 +76,13 @@ function ttpColor(ttp: string): string {
 // ─── Actor Card ───────────────────────────────────────────────
 
 function ActorCard({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
-  const aliases  = parseJsonArray(actor.aliases);
-  const ttps     = parseJsonArray(actor.ttps);
-  const sectors  = parseJsonArray(actor.target_sectors);
-  const flag     = countryFlag(actor.country);
-  const accColor = attributionColor(actor.attribution);
-  const isActive = actor.status === 'active';
+  const aliases       = parseJsonArray(actor.aliases);
+  const ttps          = parseJsonArray(actor.ttps);
+  const sectors       = parseJsonArray(actor.target_sectors);
+  const flag          = countryFlag(actor.country);
+  const accColor      = attributionColor(actor.attribution);
+  const isActive      = actor.status === 'active';
+  const saasTechniques = saasTechniquesForTtps(ttps);
 
   return (
     <Card
@@ -193,6 +196,31 @@ function ActorCard({ actor, onClick }: { actor: ThreatActor; onClick: () => void
               color: 'var(--text-muted)', padding: '3px 4px',
             }}>
               +{ttps.length - 6}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* SaaS attack techniques (PushSecurity taxonomy) derived from actor TTPs */}
+      {saasTechniques.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+          {saasTechniques.slice(0, 4).map(t => (
+            <SaasTechniqueBadge
+              key={t.id}
+              techniqueId={t.id}
+              techniqueName={t.name}
+              phase={t.phase}
+              phaseLabel={t.phase_label}
+              severity={t.severity}
+              size="xs"
+            />
+          ))}
+          {saasTechniques.length > 4 && (
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)', padding: '3px 4px',
+            }}>
+              +{saasTechniques.length - 4}
             </span>
           )}
         </div>

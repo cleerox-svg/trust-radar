@@ -49,21 +49,32 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
                 t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
                 t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
                 t.first_seen, t.last_seen, t.created_at, t.lat, t.lng,
+                t.saas_technique_id,
+                st.name        AS saas_technique_name,
+                st.phase       AS saas_technique_phase,
+                st.phase_label AS saas_technique_phase_label,
+                st.severity    AS saas_technique_severity,
                 b.name AS brand_name,
                 (SELECT tai2.threat_actor_id FROM threat_actor_infrastructure tai2 WHERE tai2.asn = t.asn LIMIT 1) AS actor_id,
                 (SELECT ta2.name FROM threat_actors ta2 JOIN threat_actor_infrastructure tai3 ON tai3.threat_actor_id = ta2.id WHERE tai3.asn = t.asn LIMIT 1) AS actor_name
          FROM threats t
          LEFT JOIN brands b ON b.id = t.target_brand_id
+         LEFT JOIN saas_techniques st ON st.id = t.saas_technique_id
          ${where}
          ORDER BY t.created_at DESC LIMIT ? OFFSET ?`
       ).bind(...params).all();
     } catch {
-      // Fallback if threat_actor_infrastructure table doesn't exist
+      // Fallback if threat_actor_infrastructure or saas_techniques tables don't exist
       rows = await env.DB.prepare(
         `SELECT t.id, t.threat_type, t.severity, t.confidence_score, t.status, t.source_feed,
                 t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
                 t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
                 t.first_seen, t.last_seen, t.created_at, t.lat, t.lng,
+                NULL AS saas_technique_id,
+                NULL AS saas_technique_name,
+                NULL AS saas_technique_phase,
+                NULL AS saas_technique_phase_label,
+                NULL AS saas_technique_severity,
                 b.name AS brand_name,
                 NULL AS actor_id,
                 NULL AS actor_name
