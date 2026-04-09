@@ -13,11 +13,14 @@ import { Compass } from 'lucide-react';
 import {
   getArchitectAnalyses,
   getArchitectRun,
+  getArchitectSynthesis,
   isAnalysisInProgressError,
   isRunInProgressError,
+  isSynthesisInProgressError,
   listArchitectRuns,
   startArchitectAnalysis,
   startArchitectRun,
+  startArchitectSynthesis,
   type ArchitectAnalysisRow,
   type ArchitectRunStatus,
   type ArchitectRunSummary,
@@ -29,6 +32,7 @@ import { Badge, Button, Card, PageHeader } from '@/design-system/components';
 
 const POLL_INTERVAL_MS = 10_000;
 const POLL_ANALYSIS_INTERVAL_MS = 5_000;
+const POLL_SYNTHESIS_INTERVAL_MS = 5_000;
 const ANALYSIS_SECTIONS_REQUIRED = 3;
 
 type AnalysisState =
@@ -37,7 +41,13 @@ type AnalysisState =
   | { kind: 'ready'; analyses: ArchitectAnalysisRow[] }
   | { kind: 'error'; message: string };
 
-type ModalKind = 'bundle' | 'analysis';
+type SynthesisState =
+  | { kind: 'starting' }
+  | { kind: 'polling' }
+  | { kind: 'ready'; reportMd: string }
+  | { kind: 'error'; message: string };
+
+type ModalKind = 'bundle' | 'analysis' | 'synthesis';
 const TERMINAL: ReadonlySet<ArchitectRunStatus> = new Set<ArchitectRunStatus>([
   'complete',
   'failed',
@@ -128,6 +138,9 @@ export function Architect() {
   const [modalLoading, setModalLoading] = useState(false);
   const [analysisState, setAnalysisState] = useState<
     Record<string, AnalysisState>
+  >({});
+  const [synthesisState, setSynthesisState] = useState<
+    Record<string, SynthesisState>
   >({});
 
   const hasActiveRun = useMemo(
@@ -232,6 +245,13 @@ export function Architect() {
     [],
   );
 
+  const openSynthesis = useCallback((runId: string, reportMd: string) => {
+    setModalRunId(runId);
+    setModalKind('synthesis');
+    setModalContent(reportMd);
+    setModalLoading(false);
+  }, []);
+
   const closeBundle = useCallback(() => {
     setModalRunId(null);
     setModalContent(null);
@@ -335,6 +355,105 @@ export function Architect() {
     }, POLL_ANALYSIS_INTERVAL_MS);
     return () => clearInterval(id);
   }, [pollingKey]);
+
+  const handleStartSynthesis = useCallback(async (runId: string) => {
+    setSynthesisState((prev) => ({ ...prev, [runId]: { kind: 'starting' } }));
+    try {
+      await startArchitectSynthesis(runId);
+      setSynthesisState((prev) => ({
+        ...prev,
+        [runId]: { kind: 'polling' },
+      }));
+    } catch (err) {
+      if (isSynthesisInProgressError(err)) {
+        // Already running — just start polling.
+        setSynthesisState((prev) => ({
+          ...prev,
+          [runId]: { kind: 'polling' },
+        }));
+        return;
+      }
+      setSynthesisState((prev) => ({
+        ...prev,
+        [runId]: {
+          kind: 'error',
+          message:
+            err instanceof Error ? err.message : 'Failed to start synthesis',
+        },
+      }));
+    }
+  }, []);
+
+  // Derive a stable key for the set of runs currently being polled for
+  // synthesis, so the polling effect only re-runs when that set changes.
+  const synthesisPollingKey = useMemo(
+    () =>
+      Object.entries(synthesisState)
+        .filter(([, s]) => s.kind === 'polling')
+        .map(([runId]) => runId)
+        .sort()
+        .join(','),
+    [synthesisState],
+  );
+
+  // Poll every 5s while any synthesis is in flight. When a run's
+  // synthesis row returns status='complete' flip that run to 'ready'.
+  useEffect(() => {
+    if (!synthesisPollingKey) return;
+    const ids = synthesisPollingKey.split(',');
+    const poll = async () => {
+      for (const runId of ids) {
+        try {
+          const row = await getArchitectSynthesis(runId);
+          if (row.status === 'complete') {
+            setSynthesisState((prev) =>
+              prev[runId]?.kind === 'polling'
+                ? {
+                    ...prev,
+                    [runId]: {
+                      kind: 'ready',
+                      reportMd: row.report_md ?? '',
+                    },
+                  }
+                : prev,
+            );
+          } else if (row.status === 'failed') {
+            setSynthesisState((prev) =>
+              prev[runId]?.kind === 'polling'
+                ? {
+                    ...prev,
+                    [runId]: {
+                      kind: 'error',
+                      message: row.error_message ?? 'Synthesis failed',
+                    },
+                  }
+                : prev,
+            );
+          }
+          // else still pending/synthesizing — keep polling
+        } catch (err) {
+          setSynthesisState((prev) =>
+            prev[runId]?.kind === 'polling'
+              ? {
+                  ...prev,
+                  [runId]: {
+                    kind: 'error',
+                    message:
+                      err instanceof Error
+                        ? err.message
+                        : 'Failed to load synthesis',
+                  },
+                }
+              : prev,
+          );
+        }
+      }
+    };
+    const id = setInterval(() => {
+      void poll();
+    }, POLL_SYNTHESIS_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [synthesisPollingKey]);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -574,16 +693,86 @@ export function Architect() {
                               );
                             }
                             if (state.kind === 'ready') {
+                              const synth = synthesisState[run.run_id];
                               return (
-                                <button
-                                  onClick={() =>
-                                    openAnalysis(run.run_id, state.analyses)
-                                  }
-                                  className="font-mono text-[11px] underline-offset-2 hover:underline"
-                                  style={{ color: 'var(--green)' }}
-                                >
-                                  View Analysis
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() =>
+                                      openAnalysis(run.run_id, state.analyses)
+                                    }
+                                    className="font-mono text-[11px] underline-offset-2 hover:underline"
+                                    style={{ color: 'var(--green)' }}
+                                  >
+                                    View Analysis
+                                  </button>
+                                  {(() => {
+                                    if (!synth) {
+                                      return (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            void handleStartSynthesis(
+                                              run.run_id,
+                                            )
+                                          }
+                                        >
+                                          Synthesize
+                                        </Button>
+                                      );
+                                    }
+                                    if (synth.kind === 'starting') {
+                                      return (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          loading
+                                          disabled
+                                        >
+                                          Synthesize
+                                        </Button>
+                                      );
+                                    }
+                                    if (synth.kind === 'polling') {
+                                      return (
+                                        <span
+                                          className="font-mono text-[11px]"
+                                          style={{ color: 'var(--amber)' }}
+                                        >
+                                          Synthesizing…
+                                        </span>
+                                      );
+                                    }
+                                    if (synth.kind === 'ready') {
+                                      return (
+                                        <button
+                                          onClick={() =>
+                                            openSynthesis(
+                                              run.run_id,
+                                              synth.reportMd,
+                                            )
+                                          }
+                                          className="font-mono text-[11px] underline-offset-2 hover:underline"
+                                          style={{ color: 'var(--green)' }}
+                                        >
+                                          View Report
+                                        </button>
+                                      );
+                                    }
+                                    // error
+                                    return (
+                                      <span
+                                        className="font-mono text-[11px]"
+                                        style={{ color: 'var(--sev-critical)' }}
+                                        title={synth.message}
+                                      >
+                                        {synth.message.length > 40
+                                          ? `${synth.message.slice(0, 40)}…`
+                                          : synth.message}
+                                      </span>
+                                    );
+                                  })()}
+                                </>
                               );
                             }
                             // error
@@ -659,8 +848,12 @@ export function Architect() {
                     className="font-mono text-[11px] uppercase tracking-[0.18em]"
                     style={{ color: 'var(--amber)' }}
                   >
-                    {modalKind === 'analysis' ? 'Analysis' : 'Bundle'} ·{' '}
-                    {modalRunId.slice(0, 8)}…
+                    {modalKind === 'analysis'
+                      ? 'Analysis'
+                      : modalKind === 'synthesis'
+                        ? 'Report'
+                        : 'Bundle'}{' '}
+                    · {modalRunId.slice(0, 8)}…
                   </div>
                   <Button variant="ghost" size="sm" onClick={closeBundle}>
                     Close
@@ -672,7 +865,12 @@ export function Architect() {
                       className="p-8 text-center font-mono text-[11px]"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
-                      Loading {modalKind === 'analysis' ? 'analysis' : 'bundle'}
+                      Loading{' '}
+                      {modalKind === 'analysis'
+                        ? 'analysis'
+                        : modalKind === 'synthesis'
+                          ? 'report'
+                          : 'bundle'}
                       …
                     </div>
                   ) : (
@@ -683,7 +881,9 @@ export function Architect() {
                       {modalContent ??
                         (modalKind === 'analysis'
                           ? 'Analysis unavailable'
-                          : 'Bundle unavailable')}
+                          : modalKind === 'synthesis'
+                            ? 'Report unavailable'
+                            : 'Bundle unavailable')}
                     </pre>
                   )}
                 </div>
