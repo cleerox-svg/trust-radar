@@ -19,7 +19,11 @@
  */
 
 import type { Env } from "../../../types";
-import type { DataLayerInventory, TableInventory } from "../types";
+import type {
+  DataLayerInventory,
+  FeedRuntimeRow,
+  TableInventory,
+} from "../types";
 
 // ─── Query row shapes ─────────────────────────────────────────────
 
@@ -245,6 +249,106 @@ async function raceWithTimeout<T>(
 interface GrowthResult {
   rows: number | null;
   pct: number | null;
+}
+
+// ─── Feed runtime collector ───────────────────────────────────────
+//
+// Schedules and enabled flags live in the `feed_configs` D1 table,
+// not in the repo. The repo walker at collectors/repo-fs.ts cannot
+// see them by contract (it's a Node fs walker, no Worker runtime, no
+// D1). Without this extension the Phase 2 feeds analyzer sees 38
+// rows of `schedule: null` and — correctly — treats them as dormant.
+// That conclusion is wrong: the feeds are very much running, the
+// schedule just lives in D1.
+//
+// This collector joins `feed_configs` + `feed_status` and rolls up
+// pull counts from `feed_pull_history` over the last 7 days so the
+// feeds analyzer has a real "scheduled vs dormant vs disabled"
+// signal. See docs/architect/findings/feeds-schedule-investigation.md
+// for the full justification.
+//
+// Returns an empty array (never throws) when any of the feed tables
+// are missing, so unit tests / future schema cleanups don't break
+// the whole collector run.
+
+interface FeedRuntimeQueryRow {
+  feed_name: string;
+  enabled: number;
+  schedule_cron: string | null;
+  last_successful_pull: string | null;
+  last_attempted_pull: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+  pulls_7d: number;
+  successes_7d: number;
+}
+
+export async function collectFeedRuntime(
+  env: Env,
+): Promise<FeedRuntimeRow[]> {
+  // feed_pull_history stores `started_at` (TEXT, datetime('now')
+  // format). The 7-day and consecutive_failures subqueries compare
+  // lexicographically, which is correct for that format.
+  //
+  // consecutive_failures counts failed pulls since the most recent
+  // successful pull. If there has never been a success we fall back
+  // to the epoch so every failed pull counts, which matches the
+  // intuitive reading of "how many failures in a row is this feed
+  // currently riding".
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT
+         fc.feed_name,
+         fc.enabled,
+         fc.schedule_cron,
+         fs.last_successful_pull,
+         fs.last_error,
+         (SELECT MAX(started_at)
+            FROM feed_pull_history
+            WHERE feed_name = fc.feed_name) AS last_attempted_pull,
+         (SELECT COUNT(*)
+            FROM feed_pull_history
+            WHERE feed_name = fc.feed_name
+              AND status = 'failed'
+              AND started_at > COALESCE(
+                (SELECT MAX(started_at)
+                   FROM feed_pull_history
+                   WHERE feed_name = fc.feed_name
+                     AND status = 'success'),
+                '1970-01-01 00:00:00'
+              )) AS consecutive_failures,
+         (SELECT COUNT(*)
+            FROM feed_pull_history
+            WHERE feed_name = fc.feed_name
+              AND started_at > datetime('now','-7 days')) AS pulls_7d,
+         (SELECT COUNT(*)
+            FROM feed_pull_history
+            WHERE feed_name = fc.feed_name
+              AND started_at > datetime('now','-7 days')
+              AND status = 'success') AS successes_7d
+       FROM feed_configs fc
+       LEFT JOIN feed_status fs ON fc.feed_name = fs.feed_name
+       ORDER BY fc.feed_name`,
+    ).all<FeedRuntimeQueryRow>();
+
+    return (rows.results ?? []).map((r) => ({
+      feed_name: r.feed_name,
+      enabled: r.enabled ?? 0,
+      schedule_cron: r.schedule_cron ?? null,
+      last_successful_pull: r.last_successful_pull ?? null,
+      last_attempted_pull: r.last_attempted_pull ?? null,
+      last_error: r.last_error ?? null,
+      consecutive_failures: r.consecutive_failures ?? 0,
+      pulls_7d: r.pulls_7d ?? 0,
+      successes_7d: r.successes_7d ?? 0,
+    }));
+  } catch {
+    // Missing feed_configs / feed_status / feed_pull_history — treat
+    // as "no runtime signal" rather than failing the whole collector
+    // run. The feeds analyzer falls back to its repo-only view in
+    // this case, which is no worse than the pre-fix behaviour.
+    return [];
+  }
 }
 
 async function computeGrowth(

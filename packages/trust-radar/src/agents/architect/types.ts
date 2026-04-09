@@ -84,6 +84,45 @@ export interface DataLayerInventory {
   };
 }
 
+/**
+ * Runtime liveness row for one feed. Joins `feed_configs` (the
+ * runtime source of truth for per-feed schedule + enabled flag) with
+ * `feed_status` and recent rollups from `feed_pull_history`.
+ *
+ * This is the signal the Phase 2 feeds analyzer uses to decide if a
+ * feed is alive. `repo.feeds[].schedule` is always `null` because the
+ * TypeScript `FeedModule` interface does not declare a schedule —
+ * schedules live in the `feed_configs` D1 table so they can be
+ * hot-edited without a deploy. Do not use `repo.feeds[].schedule` as
+ * a liveness signal; use this row instead.
+ */
+export interface FeedRuntimeRow {
+  feed_name: string;
+  /** `1` = enabled in `feed_configs`, `0` = disabled. */
+  enabled: number;
+  /** Cron pattern from `feed_configs.schedule_cron`. */
+  schedule_cron: string | null;
+  /** Most recent successful pull timestamp from `feed_status`. */
+  last_successful_pull: string | null;
+  /**
+   * Most recent pull attempt (success or failure) from
+   * `feed_pull_history`. Null when the feed has never been attempted.
+   */
+  last_attempted_pull: string | null;
+  /** Last error message on `feed_status`, if any. */
+  last_error: string | null;
+  /**
+   * Consecutive failed pulls since the last success, computed from
+   * `feed_pull_history`. `0` means the most recent pull succeeded (or
+   * there are no pulls yet).
+   */
+  consecutive_failures: number;
+  /** Total pull attempts in the last 7 days. */
+  pulls_7d: number;
+  /** Successful pulls in the last 7 days. */
+  successes_7d: number;
+}
+
 export interface AgentTelemetry {
   agent_name: string;
   runs_7d: number;
@@ -123,10 +162,26 @@ export interface OpsTelemetry {
 }
 
 export interface ContextBundle {
-  bundle_version: 1;
+  /**
+   * Bundle schema version.
+   *
+   * - `1` — original shape (no `feed_runtime`).
+   * - `2` — added top-level `feed_runtime` array sourced from the
+   *   data-layer collector, so the feeds analyzer can see runtime
+   *   dispatch state that the repo walker cannot (schedules live in
+   *   the `feed_configs` D1 table, not in source). Phase 2 analyzers
+   *   must tolerate v1 bundles by defaulting `feed_runtime` to an
+   *   empty array.
+   */
+  bundle_version: 1 | 2;
   run_id: string;
   generated_at: string;
   repo: RepoInventory;
   data_layer: DataLayerInventory;
   ops: OpsTelemetry;
+  /**
+   * Present on v2 bundles. Omitted on v1 bundles — consumers must
+   * treat missing / undefined as an empty array.
+   */
+  feed_runtime?: FeedRuntimeRow[];
 }
