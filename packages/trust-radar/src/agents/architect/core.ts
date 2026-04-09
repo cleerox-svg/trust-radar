@@ -30,11 +30,12 @@ export type ArchitectRunEnv = Pick<Env, "DB" | "ARCHITECT_BUNDLES">;
 export interface RunCollectOptions {
   runType: RunType;
   /**
-   * Monorepo root for the filesystem-walking repo collector. Only
-   * meaningful in Node (CLI). Omitted in Worker runtime — repo
-   * inventory is stubbed in that case since Workers have no FS.
+   * Override the repo inventory. The CLI passes a freshly-walked
+   * inventory from the Node fs collector for local verification; Worker
+   * callers leave this undefined and the collector returns the build-
+   * time manifest committed at src/agents/architect/manifest.generated.ts.
    */
-  monorepoRoot?: string;
+  repoInventoryOverride?: RepoInventory;
   /**
    * Supply an already-inserted architect_reports row to skip the
    * insert step. Used by the HTTP route which inserts upfront so the
@@ -58,7 +59,7 @@ export interface RunCollectResult {
 
 export async function runCollect(
   env: ArchitectRunEnv,
-  { runType, monorepoRoot, existingRun }: RunCollectOptions,
+  { runType, repoInventoryOverride, existingRun }: RunCollectOptions,
 ): Promise<RunCollectResult> {
   if (!env.ARCHITECT_BUNDLES) {
     throw new Error(
@@ -80,15 +81,13 @@ export async function runCollect(
       reportRowInserted = true;
     }
 
-    // Step 1 — collectors in parallel. Repo collector needs filesystem
-    // access; when monorepoRoot is omitted we stub it with an empty
-    // inventory rather than crash.
-    const repoPromise: Promise<RepoInventory> = monorepoRoot
-      ? collectRepoInventory(monorepoRoot)
-      : Promise.resolve(emptyRepoInventory());
+    // Step 1 — collectors in parallel. The repo inventory is either a
+    // CLI-supplied live-walk result or the build-time manifest baked
+    // into the Worker bundle; either way it's synchronous here.
+    const repo: RepoInventory =
+      repoInventoryOverride ?? collectRepoInventory();
 
-    const [repo, dataLayer, ops] = await Promise.all([
-      repoPromise,
+    const [dataLayer, ops] = await Promise.all([
       collectDataLayerInventory(env as Env),
       collectOpsTelemetry(env as Env),
     ]);
@@ -128,19 +127,6 @@ export async function runCollect(
     }
     throw err;
   }
-}
-
-// ─── Repo inventory stub (Worker runtime has no FS) ───────────────
-
-function emptyRepoInventory(): RepoInventory {
-  return {
-    collected_at: new Date().toISOString(),
-    agents: [],
-    feeds: [],
-    crons: [],
-    workers: [],
-    totals: { agents: 0, feeds: 0, crons: 0, workers: 0 },
-  };
 }
 
 // ─── D1 writes ────────────────────────────────────────────────────
