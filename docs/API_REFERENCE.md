@@ -411,6 +411,9 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |
 | POST | `/api/admin/import-tranco` | SuperAdmin | Import Tranco top sites |
 | POST | `/api/admin/honeypot/generate` | SuperAdmin | Generate honeypot sites |
+| POST | `/api/admin/architect/collect` | SuperAdmin | Trigger ARCHITECT collection run (returns 202 + run_id; 409 if a run is already in flight) |
+| GET | `/api/admin/architect/runs` | SuperAdmin | List recent ARCHITECT runs (supports `?limit=20`) |
+| GET | `/api/admin/architect/runs/:run_id` | SuperAdmin | ARCHITECT run detail + bundle JSON if status=complete |
 
 ## WebSocket
 
