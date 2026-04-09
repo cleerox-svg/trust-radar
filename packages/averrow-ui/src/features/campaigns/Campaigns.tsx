@@ -781,7 +781,7 @@ export function Campaigns() {
         <StatCard
           label="Threat Types"
           value={opsStatsLoading ? '—' : (() => {
-            const raw = opsStats?.threat_types;
+            const raw: unknown = opsStats?.threat_types;
             if (raw == null) return '0';
             if (typeof raw === 'number') return raw.toLocaleString();
             if (typeof raw === 'string') return raw;

@@ -79,7 +79,7 @@ export function useThreatVolume(window = '30d') {
         const point = byDate.get(row.day)!;
         const key = row.threat_type as keyof Omit<VolumePoint, 'date'>;
         if (key in point) {
-          (point as Record<string, number>)[key] = row.count;
+          (point as unknown as Record<string, number>)[key] = row.count;
         }
       }
       return Array.from(byDate.values());
