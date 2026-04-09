@@ -7,6 +7,7 @@
  */
 
 import { resolveToIp, extractHostname } from "./domain-resolver";
+import type { Env } from "../types";
 
 // ── Canonical sector taxonomy ────────────────────────────────────
 // Consistent values across the platform. Anything Haiku returns that's
@@ -67,6 +68,7 @@ interface HqGeo {
 async function resolveHqGeo(
   domain: string,
   cache: KVNamespace,
+  env: Env,
 ): Promise<HqGeo | null> {
   const hostname = extractHostname(domain);
   if (!hostname) return null;
@@ -85,34 +87,31 @@ async function resolveHqGeo(
   const ip = await resolveToIp(hostname);
   if (!ip) return null;
 
-  // Use ipapi.co free tier (no key required) for the HQ lookup.
-  // This is separate from the main ipinfo pipeline so the threat-geo
-  // monthly budget stays intact.
+  // Use ipinfo.io with the existing token (same as the main threat-geo
+  // pipeline). The free ipapi.co tier was rate-limiting every call to
+  // null which caused brands to be marked enriched without any data.
+  const token = env.IPINFO_TOKEN ?? "";
+  const url = token
+    ? `https://ipinfo.io/${ip}/json?token=${token}`
+    : `https://ipinfo.io/${ip}/json`;
+
   try {
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, {
-      signal: AbortSignal.timeout(3000),
-    });
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
-
     const data = (await res.json()) as {
-      latitude?:     number;
-      longitude?:    number;
-      country_code?: string;
-      error?:        boolean;
+      loc?:     string;
+      country?: string;
+      error?:   boolean;
+      bogon?:   boolean;
     };
+    if (data.error || data.bogon || !data.loc) return null;
+    const parts = data.loc.split(",");
+    if (parts.length !== 2) return null;
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return null;
 
-    if (data.error || data.latitude == null || data.longitude == null) {
-      return null;
-    }
-
-    const result: HqGeo = {
-      ip,
-      lat:     data.latitude,
-      lng:     data.longitude,
-      country: data.country_code ?? "",
-    };
-
-    // Cache for 7 days
+    const result: HqGeo = { ip, lat, lng, country: data.country ?? "" };
     await cache.put(cacheKey, JSON.stringify(result), {
       expirationTtl: 604800,
     });
@@ -126,11 +125,12 @@ async function resolveHqGeo(
 export async function enrichBrand(
   domain: string,
   cache: KVNamespace,
+  env: Env,
 ): Promise<BrandEnrichmentResult> {
   // Run logo + geo in parallel
   const [logoResult, hqResult] = await Promise.allSettled([
     resolveLogoUrl(domain),
-    resolveHqGeo(domain, cache),
+    resolveHqGeo(domain, cache, env),
   ]);
 
   const logoUrl =

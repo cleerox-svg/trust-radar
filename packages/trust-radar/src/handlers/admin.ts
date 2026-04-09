@@ -595,7 +595,11 @@ export async function handleBackfillDomainGeo(
       }, 200, origin);
     }
 
-    // Fetch the next batch of unique unresolved domains
+    // Fetch the next batch of unique unresolved domains.
+    // Batch is intentionally 250 (down from 500): with parallel resolution
+    // we still stay well under the 1,000 subrequest worker limit
+    // (250 DoH + 250 update calls + 1 ipinfo batch + a few provider upserts).
+    // 24 hourly ticks × 250 ≈ 6,000 domains/day, draining 90K in ~15 days.
     const batch = await env.DB.prepare(`
       SELECT DISTINCT malicious_domain
       FROM threats
@@ -604,22 +608,31 @@ export async function handleBackfillDomainGeo(
         AND malicious_domain != ''
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
-      LIMIT 500
+      LIMIT 250
     `).all<{ malicious_domain: string }>();
 
     const domains = batch.results.map((r) => r.malicious_domain);
 
-    // ── Step 1: sequential DoH resolution (1 subrequest each) ──
+    // ── Step 1: parallel DoH resolution capped at 20 concurrent ──
+    // Sequential resolution couldn't keep up with the 90K backlog.
+    // 20 concurrent stays well under the 1,000 subrequest limit.
     const domainToIp = new Map<string, string>();
-    for (const domain of domains) {
-      const hostname = extractHostname(domain);
-      if (!hostname) continue;
-
-      const ip = await resolveToIp(hostname);
-      if (!ip) continue;
-
-      domainToIp.set(domain, ip);
+    const CONCURRENCY = 20;
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      while (cursor < domains.length) {
+        const i = cursor++;
+        const domain = domains[i];
+        if (!domain) continue;
+        const hostname = extractHostname(domain);
+        if (!hostname) continue;
+        const ip = await resolveToIp(hostname);
+        if (ip) domainToIp.set(domain, ip);
+      }
     }
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, domains.length) }, () => worker()),
+    );
     const resolved = domainToIp.size;
 
     // ── Step 2: batch geo lookup for the unique public IPs ──
@@ -722,10 +735,11 @@ export async function handleBackfillBrandEnrichment(
   try {
     const { enrichBrand } = await import("../lib/brand-enricher");
 
-    // Count remaining
+    // Count remaining (skip rows that have already failed 5 times)
     const totalRow = await env.DB.prepare(`
       SELECT COUNT(*) as n FROM brands
       WHERE enriched_at IS NULL
+        AND COALESCE(enrich_attempts, 0) < 5
         AND canonical_domain IS NOT NULL
         AND canonical_domain != ''
     `).first<{ n: number }>();
@@ -747,6 +761,7 @@ export async function handleBackfillBrandEnrichment(
     const batch = await env.DB.prepare(`
       SELECT id, canonical_domain FROM brands
       WHERE enriched_at IS NULL
+        AND COALESCE(enrich_attempts, 0) < 5
         AND canonical_domain IS NOT NULL
         AND canonical_domain != ''
       LIMIT 50
@@ -756,7 +771,24 @@ export async function handleBackfillBrandEnrichment(
 
     for (const brand of batch.results) {
       try {
-        const result = await enrichBrand(brand.canonical_domain, env.CACHE);
+        const result = await enrichBrand(brand.canonical_domain, env.CACHE, env);
+
+        // If every field came back null, treat this as a failed attempt:
+        // bump the attempt counter but DO NOT set enriched_at, so the
+        // next cron tick will retry until the row succeeds or hits 5.
+        const hasAnyData =
+          result.logo_url !== null ||
+          result.hq_lat !== null ||
+          result.hq_lng !== null ||
+          result.hq_country !== null ||
+          result.hq_ip !== null;
+
+        if (!hasAnyData) {
+          await env.DB.prepare(
+            `UPDATE brands SET enrich_attempts = COALESCE(enrich_attempts, 0) + 1 WHERE id = ?`,
+          ).bind(brand.id).run();
+          continue;
+        }
 
         await env.DB.prepare(`
           UPDATE brands SET
@@ -781,9 +813,10 @@ export async function handleBackfillBrandEnrichment(
         enriched++;
       } catch (err) {
         console.error(`[backfill-brand-enrichment] failed for ${brand.id}:`, err);
-        // Mark as attempted even on failure so we don't loop forever
+        // Bump attempt counter so we retry next tick instead of marking
+        // a permanently-broken row as enriched.
         await env.DB.prepare(
-          `UPDATE brands SET enriched_at = datetime('now') WHERE id = ?`,
+          `UPDATE brands SET enrich_attempts = COALESCE(enrich_attempts, 0) + 1 WHERE id = ?`,
         ).bind(brand.id).run();
       }
     }
@@ -824,10 +857,11 @@ export async function handleBackfillBrandSector(
       }, 500, origin);
     }
 
-    // Count remaining (no sector classification yet)
+    // Count remaining (skip rows that have already failed 5 times)
     const totalRow = await env.DB.prepare(`
       SELECT COUNT(*) as n FROM brands
       WHERE (sector IS NULL OR sector_classified_at IS NULL)
+        AND COALESCE(sector_attempts, 0) < 5
         AND canonical_domain IS NOT NULL
         AND canonical_domain != ''
     `).first<{ n: number }>();
@@ -848,6 +882,7 @@ export async function handleBackfillBrandSector(
     const batch = await env.DB.prepare(`
       SELECT id, name, canonical_domain FROM brands
       WHERE (sector IS NULL OR sector_classified_at IS NULL)
+        AND COALESCE(sector_attempts, 0) < 5
         AND canonical_domain IS NOT NULL
         AND canonical_domain != ''
       LIMIT 20
@@ -866,6 +901,23 @@ export async function handleBackfillBrandSector(
 
         const rdapData  = rdap.status === "fulfilled" ? rdap.value : null;
         const sectorVal = sector.status === "fulfilled" ? sector.value : null;
+
+        // If both RDAP and sector classification returned nothing,
+        // bump attempts counter and retry on the next tick instead of
+        // marking this row as "classified" with no actual data.
+        const hasAnyData =
+          sectorVal !== null ||
+          rdapData?.registrar != null ||
+          rdapData?.registered_at != null ||
+          rdapData?.expires_at != null ||
+          rdapData?.registrant_country != null;
+
+        if (!hasAnyData) {
+          await env.DB.prepare(
+            `UPDATE brands SET sector_attempts = COALESCE(sector_attempts, 0) + 1 WHERE id = ?`,
+          ).bind(brand.id).run();
+          continue;
+        }
 
         await env.DB.prepare(`
           UPDATE brands SET
@@ -888,9 +940,10 @@ export async function handleBackfillBrandSector(
         classified++;
       } catch (err) {
         console.error(`[backfill-brand-sector] failed for ${brand.id}:`, err);
-        // Mark attempted so we don't loop forever
+        // Bump attempt counter so we retry next tick instead of marking
+        // a permanently-broken row as classified.
         await env.DB.prepare(
-          `UPDATE brands SET sector_classified_at = datetime('now') WHERE id = ?`,
+          `UPDATE brands SET sector_attempts = COALESCE(sector_attempts, 0) + 1 WHERE id = ?`,
         ).bind(brand.id).run();
       }
     }
