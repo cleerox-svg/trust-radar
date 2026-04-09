@@ -35,6 +35,17 @@ export interface RunCollectOptions {
    * inventory is stubbed in that case since Workers have no FS.
    */
   monorepoRoot?: string;
+  /**
+   * Supply an already-inserted architect_reports row to skip the
+   * insert step. Used by the HTTP route which inserts upfront so the
+   * concurrency guard can see the new row before the background task
+   * actually kicks off.
+   */
+  existingRun?: {
+    runId: string;
+    reportId: string;
+    startedAtMs: number;
+  };
 }
 
 export interface RunCollectResult {
@@ -47,7 +58,7 @@ export interface RunCollectResult {
 
 export async function runCollect(
   env: ArchitectRunEnv,
-  { runType, monorepoRoot }: RunCollectOptions,
+  { runType, monorepoRoot, existingRun }: RunCollectOptions,
 ): Promise<RunCollectResult> {
   if (!env.ARCHITECT_BUNDLES) {
     throw new Error(
@@ -55,17 +66,19 @@ export async function runCollect(
     );
   }
 
-  const runId = crypto.randomUUID();
-  const reportId = `arc-${runId}`;
-  const startedAt = Date.now();
+  const runId = existingRun?.runId ?? crypto.randomUUID();
+  const reportId = existingRun?.reportId ?? `arc-${runId}`;
+  const startedAt = existingRun?.startedAtMs ?? Date.now();
 
   // Wrap the whole lifecycle so any failure after the initial insert
   // ends up with status=failed on the row. If the insert itself fails
   // there's no row to update, so the catch treats that as best-effort.
-  let reportRowInserted = false;
+  let reportRowInserted = existingRun !== undefined;
   try {
-    await insertReportRow(env.DB, reportId, runId, runType, startedAt);
-    reportRowInserted = true;
+    if (!existingRun) {
+      await insertReportRow(env.DB, reportId, runId, runType, startedAt);
+      reportRowInserted = true;
+    }
 
     // Step 1 — collectors in parallel. Repo collector needs filesystem
     // access; when monorepoRoot is omitted we stub it with an empty

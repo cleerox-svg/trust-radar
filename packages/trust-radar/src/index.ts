@@ -20,6 +20,7 @@ import { registerBrandRoutes } from "./routes/brands";
 import { registerThreatRoutes } from "./routes/threats";
 import { registerInvestigationRoutes } from "./routes/investigations";
 import { registerAdminRoutes } from "./routes/admin";
+import { registerArchitectRoutes } from "./routes/architect";
 import { registerTenantRoutes } from "./routes/tenant";
 import { registerAgentRoutes } from "./routes/agents";
 import { registerSpamTrapRoutes } from "./routes/spam-trap";
@@ -86,6 +87,7 @@ registerThreatActorRoutes(router);
 registerEmailSecurityRoutes(router);
 registerTenantRoutes(router);
 registerAdminRoutes(router);
+registerArchitectRoutes(router);
 // Public routes + SPA fallback must be last
 registerPublicRoutes(router);
 
