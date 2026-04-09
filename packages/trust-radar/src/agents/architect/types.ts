@@ -59,7 +59,14 @@ export interface RepoInventory {
 export interface TableInventory {
   name: string;
   rows: number;
-  est_bytes: number;
+  /**
+   * Estimated bytes-on-disk for the table, derived by sampling row size
+   * and extrapolating by row count. `null` means sampling was attempted
+   * and failed (timeout, permission error, empty schema) — consumers
+   * should treat this as "unknown" and distinguish it from `0`, which
+   * means the table really is empty.
+   */
+  est_bytes: number | null;
   has_indexes: boolean;
   index_count: number;
   growth_7d_rows: number | null;
@@ -72,6 +79,7 @@ export interface DataLayerInventory {
   totals: {
     table_count: number;
     total_rows: number;
+    /** Sum of known `est_bytes` values. Tables with `null` are excluded. */
     total_est_bytes: number;
   };
 }
