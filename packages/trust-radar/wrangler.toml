@@ -37,6 +37,31 @@ name = "nexus-run"
 binding = "NEXUS_RUN"
 class_name = "NexusWorkflow"
 
+# ─── Queues (ARCHITECT Phase 2 analyzer fan-out) ─────────────
+# One message per section (agents/feeds/data_layer) so each
+# analyzer call gets its own full Worker execution budget —
+# fixes the wall-clock budget exhaustion we were seeing when
+# three Haiku calls ran in parallel inside one isolate. Two
+# retries (max 3 attempts total) before the message lands in
+# the dead letter queue.
+#
+# NOTE: the queues themselves must be created in the Cloudflare
+# dashboard ONCE before the first deploy:
+#   Dashboard → Workers & Pages → Queues → Create Queue
+#     1) architect-analysis
+#     2) architect-analysis-dlq
+# Wrangler only binds them; it does not create them.
+[[queues.producers]]
+queue = "architect-analysis"
+binding = "ARCHITECT_ANALYSIS_QUEUE"
+
+[[queues.consumers]]
+queue = "architect-analysis"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "architect-analysis-dlq"
+
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
 binding = "DB"

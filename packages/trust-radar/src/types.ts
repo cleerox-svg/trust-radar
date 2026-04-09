@@ -1,5 +1,7 @@
 // Trust Radar v2 — Type Definitions
 
+import type { AnalysisJobMessage } from "./agents/architect/analysis/queue-types";
+
 // ─── Cloudflare Worker Environment Bindings ─────────────────────
 export interface Env {
   DB: D1Database;
@@ -12,6 +14,9 @@ export interface Env {
   NEXUS_RUN: Workflow;
   // ARCHITECT meta-agent — bundle storage (optional; only bound where needed)
   ARCHITECT_BUNDLES?: R2Bucket;
+  // ARCHITECT Phase 2 — per-section analyzer fan-out queue. Optional
+  // so dev envs that don't have the queue created yet still type-check.
+  ARCHITECT_ANALYSIS_QUEUE?: Queue<AnalysisJobMessage>;
   // Environment variables
   ENVIRONMENT: string;
   // Secrets
