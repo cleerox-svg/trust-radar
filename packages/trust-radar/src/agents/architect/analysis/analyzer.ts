@@ -37,6 +37,7 @@ import type { Env } from "../../../types";
 import type {
   ContextBundle,
   DataLayerInventory,
+  FeedRuntimeRow,
   OpsTelemetry,
   RepoInventory,
 } from "../types";
@@ -235,9 +236,41 @@ interface AgentsSlice {
   telemetry_window_days: number;
 }
 
+/**
+ * One feeds analyzer input row — a repo feed module joined to its
+ * runtime dispatch state. `schedule_cron` comes from feed_configs via
+ * feed_runtime; `repo.feeds[].schedule` is always null by design and
+ * is not forwarded.
+ */
+interface FeedWithRuntime {
+  name: string;
+  path: string;
+  source_type: string;
+  loc: number;
+  last_modified: string;
+  /** `true` when a feed_runtime row exists for this feed name. */
+  has_runtime: boolean;
+  /** `1` = enabled in feed_configs, `0` = disabled, `null` = no runtime row. */
+  enabled: number | null;
+  schedule_cron: string | null;
+  last_successful_pull: string | null;
+  last_attempted_pull: string | null;
+  last_error: string | null;
+  consecutive_failures: number | null;
+  pulls_7d: number | null;
+  successes_7d: number | null;
+}
+
 interface FeedsSlice {
   repo_totals: RepoInventory["totals"];
-  feeds: RepoInventory["feeds"];
+  /** Repo feed modules joined to their runtime dispatch state. */
+  feeds: FeedWithRuntime[];
+  /**
+   * Any feed_runtime rows whose feed_name does not match a repo feed
+   * module — typically legacy rows in feed_configs that no longer
+   * have code. Empty in the happy case.
+   */
+  orphan_runtime: FeedRuntimeRow[];
   crons: RepoInventory["crons"];
   queues_depth: OpsTelemetry["queues_depth"];
   telemetry_warnings: string[];
@@ -264,9 +297,45 @@ function buildAgentsSlice(bundle: ContextBundle): AgentsSlice {
 }
 
 function buildFeedsSlice(bundle: ContextBundle): FeedsSlice {
+  // v1 bundles (pre-feed_runtime) don't carry the field. Default to
+  // empty so the rest of the slice still builds cleanly — every feed
+  // will come out with has_runtime=false, which tells the model that
+  // there is no runtime signal to score on (not the same as dormant).
+  const runtime = bundle.feed_runtime ?? [];
+  const runtimeByName = new Map<string, FeedRuntimeRow>();
+  for (const row of runtime) {
+    runtimeByName.set(row.feed_name, row);
+  }
+
+  const feeds: FeedWithRuntime[] = bundle.repo.feeds.map((f) => {
+    const r = runtimeByName.get(f.name);
+    return {
+      name: f.name,
+      path: f.path,
+      source_type: f.source_type,
+      loc: f.loc,
+      last_modified: f.last_modified,
+      has_runtime: r !== undefined,
+      enabled: r ? r.enabled : null,
+      schedule_cron: r ? r.schedule_cron : null,
+      last_successful_pull: r ? r.last_successful_pull : null,
+      last_attempted_pull: r ? r.last_attempted_pull : null,
+      last_error: r ? r.last_error : null,
+      consecutive_failures: r ? r.consecutive_failures : null,
+      pulls_7d: r ? r.pulls_7d : null,
+      successes_7d: r ? r.successes_7d : null,
+    };
+  });
+
+  // Track feed_configs rows that have no matching repo module so
+  // legacy D1 config drift is still visible to the model.
+  const repoFeedNames = new Set(bundle.repo.feeds.map((f) => f.name));
+  const orphanRuntime = runtime.filter((r) => !repoFeedNames.has(r.feed_name));
+
   return {
     repo_totals: bundle.repo.totals,
-    feeds: bundle.repo.feeds,
+    feeds,
+    orphan_runtime: orphanRuntime,
     crons: bundle.repo.crons,
     queues_depth: bundle.ops.queues_depth,
     telemetry_warnings: bundle.ops.telemetry_warnings,
@@ -302,7 +371,21 @@ You are reviewing the AGENTS section. Cross-reference the repo agent list with 7
 
 const FEEDS_SYSTEM_PROMPT = `${SYSTEM_BASE}
 
-You are reviewing the FEEDS section. Evaluate each feed module against its schedule, LOC, and any queue depth / telemetry warnings. Flag feeds that duplicate coverage, have no schedule wired, or whose backing cron is missing.`;
+You are reviewing the FEEDS section. Each input row is a feed module joined to its runtime dispatch state from the feed_configs / feed_status / feed_pull_history tables.
+
+CRITICAL — DO NOT TREAT A MISSING SCHEDULE AS DORMANT. The repo-level feed TypeScript modules deliberately do not declare a schedule in code; schedules live in the feed_configs D1 table and are hot-edited without a deploy. You will notice the input rows have no repo schedule field at all — that is by design. Use schedule_cron (which comes from feed_configs) together with the runtime fields below to judge liveness. Never flag a feed as dormant for lack of a code-level schedule.
+
+Liveness must be judged from the runtime fields: enabled, pulls_7d, successes_7d, last_successful_pull, last_error, consecutive_failures.
+
+Severity rubric for this section:
+- has_runtime=false → amber, "no feed_configs row — orphan code or not registered in D1"
+- enabled=0 → amber, recommendation: kill or keep-with-justification
+- enabled=1 and pulls_7d=0 → red, truly dormant (scheduler isn't firing this feed at all)
+- enabled=1 and pulls_7d>0 and successes_7d=0 → red, failing (firing but every attempt errors — cite last_error)
+- consecutive_failures > 5 → amber at minimum (bump to red if it also matches a red rule above)
+- enabled=1 and successes_7d>0 → green baseline (healthy) — only downgrade if there is a separate concrete concern (e.g. duplicate coverage, queue backpressure in queues_depth, cost blowup)
+
+Evidence strings must cite runtime numbers: "pulls_7d=336, successes_7d=336, enabled=1" beats "feed is running". Cross-reference orphan_runtime entries as cross_cutting_concerns if present.`;
 
 const DATA_LAYER_SYSTEM_PROMPT = `${SYSTEM_BASE}
 
