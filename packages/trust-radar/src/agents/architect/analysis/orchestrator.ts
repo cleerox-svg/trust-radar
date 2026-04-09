@@ -1,61 +1,45 @@
 /**
- * ARCHITECT Phase 2 — analysis orchestrator.
+ * ARCHITECT Phase 2 — analysis orchestrator (producer).
  *
- * runAnalysis(runId, env) is the single entry point: it fetches the
- * ContextBundle for a given architect_reports row from R2, inserts
- * three architect_analyses rows (one per section) in status='pending',
- * then runs analyzeAgents / analyzeFeeds / analyzeDataLayer in
- * parallel with Promise.allSettled so one failure doesn't take the
- * others down with it.
+ * runAnalysis(runId, env) is now a thin producer: it validates
+ * the architect_reports row, inserts three architect_analyses
+ * rows in status='pending' (one per section), then enqueues
+ * three messages on ARCHITECT_ANALYSIS_QUEUE and returns.
  *
- * Structural guarantees (fixed after production stranded-row bug):
- * - Each analyzer call is raced against an ANALYZER_TIMEOUT_MS
- *   deadline (default 90s). Haiku tool calls should land in 5-15s,
- *   so 90s is generous but still prevents an unhandled hang from
- *   leaving a row `analyzing` forever.
- * - Every settled result — fulfilled or rejected — updates its row
- *   to `complete` or `failed` before the allSettled call returns.
- *   No row is ever left in `pending` or `analyzing` by the happy
- *   path.
- * - The entire runAnalysis body is wrapped in try/finally. The
- *   finally block force-transitions any rows still in
- *   `pending`/`analyzing` to `failed` with
- *   `orchestrator_exited_in_indeterminate_state` — the structural
- *   backstop in case something throws above the per-section update
- *   logic.
+ * Why this is a producer and not an in-process orchestrator:
+ * running all three Haiku calls inside a single Worker invocation
+ * via Promise.allSettled + ctx.waitUntil kept exceeding the wall
+ * clock — calls in flight were being killed by the runtime with
+ * no `finally` cleanup, leaving stranded `analyzing` rows. Each
+ * section now gets its own queue invocation (max_batch_size=1),
+ * which means its own full execution budget, plus Cloudflare
+ * Queues handles retries + DLQ for us.
+ *
+ * Structural guarantees preserved across the rewrite:
+ * - Every row this producer inserts lands in a terminal state
+ *   before runAnalysis returns — if sendBatch fails we mark all
+ *   three rows failed with 'enqueue_failed: <error>' so nothing
+ *   is left pending with no consumer coming for it. The consumer
+ *   is responsible for transitioning its row through analyzing →
+ *   complete/failed on its own invocation.
  * - Error messages persisted to `error_message` are truncated at
- *   500 chars; the raw error or response tail is what we actually
- *   want when debugging the next unexpected thing.
+ *   500 chars to fit the column.
  */
 
 import type { Env } from "../../../types";
-import type { ContextBundle } from "../types";
 
-import {
-  analyzeAgents,
-  analyzeDataLayer,
-  analyzeFeeds,
-  type AnalyzerEnv,
-} from "./analyzer";
-import { HAIKU_MODEL, MAX_COST_PER_RUN_USD } from "./pricing";
-import type {
-  AnalyzerResult,
-  SectionAnalysis,
-  SectionName,
-} from "./types";
+import { HAIKU_MODEL } from "./pricing";
+import type { AnalysisJobMessage } from "./queue-types";
+import type { SectionName } from "./types";
 
 /**
- * Env subset the orchestrator depends on. Anthropic credentials come
- * in via the analyzer env; R2 + D1 are needed here for bundle fetch
- * and row bookkeeping.
+ * Env subset the orchestrator depends on. The consumer pulls its
+ * own R2 + AI creds off the full Env when the message fires; the
+ * producer only needs D1 for bookkeeping and the queue binding.
  */
 export type OrchestratorEnv = Pick<
   Env,
-  | "DB"
-  | "ARCHITECT_BUNDLES"
-  | "ANTHROPIC_API_KEY"
-  | "LRX_API_KEY"
-  | "CF_ACCOUNT_ID"
+  "DB" | "ARCHITECT_BUNDLES" | "ARCHITECT_ANALYSIS_QUEUE"
 >;
 
 const SECTIONS: readonly SectionName[] = [
@@ -64,21 +48,8 @@ const SECTIONS: readonly SectionName[] = [
   "data_layer",
 ] as const;
 
-/** Default per-section analyzer deadline. Haiku tool calls finish in
- * 5-15s under normal load; 90s is the "something is wrong" backstop. */
-export const DEFAULT_ANALYZER_TIMEOUT_MS = 90_000;
-
 /** Max length of any persisted error_message. */
 const ERROR_MESSAGE_MAX_LEN = 500;
-
-export interface RunAnalysisOptions {
-  /**
-   * Override the per-section analyzer deadline. Used by tests to
-   * make the timeout race observable within the test's own window;
-   * do not use in production code.
-   */
-  analyzerTimeoutMs?: number;
-}
 
 interface ReportRow {
   run_id: string;
@@ -93,9 +64,9 @@ function truncateError(msg: string): string {
 }
 
 /**
- * Insert an id + row into architect_analyses in status='pending' so
- * concurrent callers can see the run is in flight and the UI can
- * render three placeholder rows immediately.
+ * Insert a pending row into architect_analyses so the concurrency
+ * guard and UI both see the run is in flight before the queue
+ * messages even leave the producer.
  */
 async function insertPendingRow(
   db: D1Database,
@@ -114,69 +85,40 @@ async function insertPendingRow(
     .run();
 }
 
-async function markAnalyzing(db: D1Database, id: string): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE architect_analyses
-          SET status = 'analyzing'
-        WHERE id = ?`,
-    )
-    .bind(id)
-    .run();
-}
-
-async function markComplete(
+/**
+ * Mark every pending/analyzing row for this run as failed with a
+ * shared error message. Used when the producer itself blows up
+ * (e.g. sendBatch rejects) so nothing is left pending with no
+ * consumer on the way.
+ */
+async function markRunFailed(
   db: D1Database,
-  id: string,
-  result: AnalyzerResult<SectionAnalysis>,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE architect_analyses
-          SET status = 'complete',
-              model = ?,
-              input_tokens = ?,
-              output_tokens = ?,
-              cost_usd = ?,
-              duration_ms = ?,
-              analysis_json = ?,
-              error_message = NULL
-        WHERE id = ?`,
-    )
-    .bind(
-      result.model,
-      result.input_tokens,
-      result.output_tokens,
-      result.cost_usd,
-      result.duration_ms,
-      JSON.stringify(result.analysis),
-      id,
-    )
-    .run();
-}
-
-async function markFailed(
-  db: D1Database,
-  id: string,
+  runId: string,
   errorMessage: string,
-  durationMs: number | null,
 ): Promise<void> {
   await db
     .prepare(
       `UPDATE architect_analyses
           SET status = 'failed',
-              error_message = ?,
-              duration_ms = COALESCE(?, duration_ms)
-        WHERE id = ?`,
+              error_message = ?
+        WHERE run_id = ?
+          AND status IN ('pending','analyzing')`,
     )
-    .bind(truncateError(errorMessage), durationMs, id)
+    .bind(truncateError(errorMessage), runId)
     .run();
 }
 
-async function fetchBundle(
+/**
+ * Fetch just the architect_reports metadata we need to enqueue —
+ * specifically the context_bundle_r2_key. The consumer will load
+ * the bundle from R2 itself; we don't materialise it here because
+ * the whole point of the queue is that producer and consumer are
+ * on different Worker invocations.
+ */
+async function fetchReport(
   env: OrchestratorEnv,
   runId: string,
-): Promise<ContextBundle> {
+): Promise<ReportRow> {
   if (!env.ARCHITECT_BUNDLES) {
     throw new Error(
       "ARCHITECT analysis: ARCHITECT_BUNDLES R2 binding is not configured",
@@ -193,7 +135,9 @@ async function fetchBundle(
     .first<ReportRow>();
 
   if (!report) {
-    throw new Error(`ARCHITECT analysis: run_id ${runId} not found in architect_reports`);
+    throw new Error(
+      `ARCHITECT analysis: run_id ${runId} not found in architect_reports`,
+    );
   }
   if (report.status !== "complete") {
     throw new Error(
@@ -206,88 +150,40 @@ async function fetchBundle(
     );
   }
 
-  const obj = await env.ARCHITECT_BUNDLES.get(report.context_bundle_r2_key);
-  if (!obj) {
-    throw new Error(
-      `ARCHITECT analysis: bundle object ${report.context_bundle_r2_key} missing from R2`,
-    );
-  }
-  const bundle = (await obj.json()) as ContextBundle;
-  if (!bundle || bundle.bundle_version !== 1) {
-    throw new Error(
-      `ARCHITECT analysis: unexpected bundle shape at ${report.context_bundle_r2_key}`,
-    );
-  }
-  return bundle;
-}
-
-/** Per-section dispatch — keeps the Promise.allSettled call readable. */
-function runSection(
-  section: SectionName,
-  bundle: ContextBundle,
-  env: AnalyzerEnv,
-): Promise<AnalyzerResult<SectionAnalysis>> {
-  switch (section) {
-    case "agents":
-      return analyzeAgents(bundle, env);
-    case "feeds":
-      return analyzeFeeds(bundle, env);
-    case "data_layer":
-      return analyzeDataLayer(bundle, env);
-  }
-}
-
-/**
- * Race an analyzer promise against a hard deadline. The timeout
- * rejects with a clearly-named error so the per-section `failed`
- * row says exactly what went wrong.
- */
-function raceWithTimeout<T>(
-  inner: Promise<T>,
-  section: SectionName,
-  timeoutMs: number,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      reject(
-        new Error(
-          `analyzer_timeout: section=${section} exceeded ${timeoutMs}ms`,
-        ),
-      );
-    }, timeoutMs);
-  });
-  return Promise.race([inner, timeout]).finally(() => {
-    if (timer !== undefined) clearTimeout(timer);
-  });
+  return report;
 }
 
 export interface RunAnalysisResult {
   run_id: string;
-  total_cost_usd: number;
-  sections: Array<{
-    section: SectionName;
-    row_id: string;
-    status: "complete" | "failed";
-    cost_usd: number;
-    duration_ms: number | null;
-    error_message: string | null;
-  }>;
+  /** row ids keyed by section — lets the caller (HTTP route / test) correlate. */
+  row_ids: Record<SectionName, string>;
+  /** Number of queue messages successfully enqueued (expected: 3). */
+  enqueued: number;
 }
 
+/**
+ * Producer entry point. Inserts three pending rows and enqueues
+ * three messages. Returns immediately — the HTTP route wraps this
+ * in a 202 Accepted response within milliseconds.
+ *
+ * Any failure here (bundle missing, sendBatch rejecting) flips all
+ * pending rows to failed before re-throwing so the caller can
+ * surface an error and nothing is left in limbo.
+ */
 export async function runAnalysis(
   runId: string,
   env: OrchestratorEnv,
-  options: RunAnalysisOptions = {},
 ): Promise<RunAnalysisResult> {
-  const analyzerTimeoutMs =
-    options.analyzerTimeoutMs ?? DEFAULT_ANALYZER_TIMEOUT_MS;
+  if (!env.ARCHITECT_ANALYSIS_QUEUE) {
+    throw new Error(
+      "ARCHITECT analysis: ARCHITECT_ANALYSIS_QUEUE binding is not configured",
+    );
+  }
 
-  // Fail fast if the bundle doesn't exist or isn't complete — no
-  // point inserting pending rows for a run we can't analyse. This
-  // runs BEFORE the try/finally because there are no rows to strand
-  // yet if the bundle fetch itself fails.
-  const bundle = await fetchBundle(env, runId);
+  // Validate the report row before inserting any analysis rows —
+  // no point creating pending rows we can't enqueue for.
+  const report = await fetchReport(env, runId);
+  const bundleR2Key = report.context_bundle_r2_key!;
 
   const createdAtMs = Date.now();
   const rowIds: Record<SectionName, string> = {
@@ -296,16 +192,9 @@ export async function runAnalysis(
     data_layer: crypto.randomUUID(),
   };
 
-  // Structural backstop: every row inserted below is guaranteed to
-  // land in a terminal state (`complete` or `failed`) before
-  // runAnalysis returns, even if something throws between the
-  // INSERT and the per-section updates. The finally block flips any
-  // stranded rows.
   try {
-    // Insert the three pending rows eagerly so the concurrency guard
-    // and UI both see the in-flight state before the slow Haiku calls
-    // start. Inside the try block so that a partial-insert failure
-    // still gets cleaned up by finally.
+    // Insert all three pending rows first. The UI sees them
+    // immediately; the concurrency guard sees them immediately.
     for (const section of SECTIONS) {
       await insertPendingRow(
         env.DB,
@@ -316,115 +205,38 @@ export async function runAnalysis(
       );
     }
 
-    const settled = await Promise.allSettled(
-      SECTIONS.map(async (section) => {
-        const id = rowIds[section];
-        const startedAt = Date.now();
-        try {
-          await markAnalyzing(env.DB, id);
-          const result = await raceWithTimeout(
-            runSection(section, bundle, env),
-            section,
-            analyzerTimeoutMs,
-          );
-          await markComplete(env.DB, id, result);
-          return {
-            section,
-            id,
-            status: "complete" as const,
-            cost_usd: result.cost_usd,
-            duration_ms: result.duration_ms,
-            error_message: null as string | null,
-          };
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          const durationMs = Date.now() - startedAt;
-          // Best effort — if markFailed itself throws (e.g. D1
-          // down), the outer finally is our last line of defence.
-          try {
-            await markFailed(env.DB, id, errMsg, durationMs);
-          } catch (markErr) {
-            console.error(
-              `[architect-analysis] markFailed threw for section=${section}:`,
-              markErr,
-            );
-          }
-          return {
-            section,
-            id,
-            status: "failed" as const,
-            cost_usd: 0,
-            duration_ms: durationMs,
-            error_message: truncateError(errMsg),
-          };
-        }
+    // Enqueue in a single sendBatch call — all-or-nothing so we
+    // don't end up with 1 of 3 in flight and the other 2 stranded.
+    const enqueuedAt = Date.now();
+    const messages: { body: AnalysisJobMessage }[] = SECTIONS.map(
+      (section) => ({
+        body: {
+          run_id: runId,
+          section,
+          bundle_r2_key: bundleR2Key,
+          enqueued_at: enqueuedAt,
+          attempt: 1,
+        },
       }),
     );
-
-    const sections: RunAnalysisResult["sections"] = [];
-    let totalCostUsd = 0;
-
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
-        const v = result.value;
-        totalCostUsd += v.cost_usd;
-        sections.push({
-          section: v.section,
-          row_id: v.id,
-          status: v.status,
-          cost_usd: v.cost_usd,
-          duration_ms: v.duration_ms,
-          error_message: v.error_message,
-        });
-      } else {
-        // The inner callback catches its own errors, so this branch
-        // should be unreachable. If we do land here, the finally
-        // backstop will flip the row to `failed`; surface a synthetic
-        // row so the caller still sees three results.
-        console.error(
-          "[architect-analysis] unexpected rejected settled result:",
-          result.reason,
-        );
-      }
-    }
-
-    // Per-run cost cap — trip after the fact so the user gets at
-    // least the analyses that already completed, but surface a
-    // hard error to the caller.
-    if (totalCostUsd > MAX_COST_PER_RUN_USD) {
-      throw new Error(
-        `ARCHITECT analysis: per-run cost cap exceeded: $${totalCostUsd.toFixed(4)} > $${MAX_COST_PER_RUN_USD.toFixed(2)}`,
-      );
-    }
+    await env.ARCHITECT_ANALYSIS_QUEUE.sendBatch(messages);
 
     return {
       run_id: runId,
-      total_cost_usd: totalCostUsd,
-      sections,
+      row_ids: rowIds,
+      enqueued: messages.length,
     };
-  } finally {
-    // Structural backstop — if anything above threw before the
-    // per-section update loop ran (or between markAnalyzing and
-    // markComplete/markFailed), any row still in
-    // pending/analyzing gets flipped to failed here. This is the
-    // last line of defence against a stranded row.
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
     try {
-      await env.DB.prepare(
-        `UPDATE architect_analyses
-            SET status = 'failed',
-                error_message = 'orchestrator_exited_in_indeterminate_state'
-          WHERE run_id = ?
-            AND status IN ('pending','analyzing')`,
-      )
-        .bind(runId)
-        .run();
-    } catch (cleanupErr) {
-      // Do NOT swallow the original error — just log and let the
-      // outer catch (if any) re-throw whatever was already in flight.
+      await markRunFailed(env.DB, runId, `enqueue_failed: ${errMsg}`);
+    } catch (markErr) {
+      // Best effort — surface the original error no matter what.
       console.error(
-        `[architect-analysis] finally cleanup failed for run_id=${runId}:`,
-        cleanupErr,
+        `[architect-analysis] markRunFailed threw for run_id=${runId}:`,
+        markErr,
       );
     }
+    throw err;
   }
 }
