@@ -7,6 +7,7 @@
 // the background worker finishing without a manual reload.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Compass } from 'lucide-react';
 
 import {
@@ -418,62 +419,65 @@ export function Architect() {
         )}
       </Card>
 
-      {/* Bundle viewer modal */}
-      {bundleRunId && (
-        <div
-          className="fixed inset-0 flex items-center justify-center p-4"
-          style={{
-            background: 'rgba(0,0,0,0.70)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-            zIndex: 'var(--z-modal)' as unknown as number,
-          }}
-          onClick={closeBundle}
-        >
+      {/* Bundle viewer modal — portaled to <body> so it escapes any parent
+          stacking context and covers the full viewport including the TopBar. */}
+      {bundleRunId &&
+        createPortal(
           <div
-            className="flex max-h-[85vh] min-h-0 w-full max-w-4xl flex-col"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{
+              background: 'rgba(0,0,0,0.70)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              zIndex: 'var(--z-modal)' as unknown as number,
+            }}
+            onClick={closeBundle}
           >
-            <Card
-              variant="elevated"
-              padding={0}
-              className="flex min-h-0 flex-1 flex-col"
+            <div
+              className="flex max-h-[85vh] min-h-0 w-full max-w-4xl flex-col"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div
-                className="flex flex-shrink-0 items-center justify-between px-5 py-3"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+              <Card
+                variant="elevated"
+                padding={0}
+                className="flex min-h-0 flex-1 flex-col"
               >
                 <div
-                  className="font-mono text-[11px] uppercase tracking-[0.18em]"
-                  style={{ color: 'var(--amber)' }}
+                  className="flex flex-shrink-0 items-center justify-between px-5 py-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
                 >
-                  Bundle · {bundleRunId.slice(0, 8)}…
-                </div>
-                <Button variant="ghost" size="sm" onClick={closeBundle}>
-                  Close
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-auto">
-                {bundleLoading ? (
                   <div
-                    className="p-8 text-center font-mono text-[11px]"
-                    style={{ color: 'var(--text-tertiary)' }}
+                    className="font-mono text-[11px] uppercase tracking-[0.18em]"
+                    style={{ color: 'var(--amber)' }}
                   >
-                    Loading bundle…
+                    Bundle · {bundleRunId.slice(0, 8)}…
                   </div>
-                ) : (
-                  <pre
-                    className="whitespace-pre-wrap break-all p-5 font-mono text-[11px]"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {bundleContent ?? 'Bundle unavailable'}
-                  </pre>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
+                  <Button variant="ghost" size="sm" onClick={closeBundle}>
+                    Close
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-auto">
+                  {bundleLoading ? (
+                    <div
+                      className="p-8 text-center font-mono text-[11px]"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      Loading bundle…
+                    </div>
+                  ) : (
+                    <pre
+                      className="whitespace-pre-wrap break-all p-5 font-mono text-[11px]"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {bundleContent ?? 'Bundle unavailable'}
+                    </pre>
+                  )}
+                </div>
+              </Card>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
