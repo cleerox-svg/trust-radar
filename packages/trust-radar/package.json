@@ -14,7 +14,8 @@
     "db:migrate:audit:local": "wrangler d1 migrations apply AUDIT_DB --local",
     "db:migrate:audit:prod": "wrangler d1 migrations apply AUDIT_DB --remote",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "architect:collect": "tsx src/agents/architect/cli.ts"
   },
   "dependencies": {
     "itty-router": "^5.0.18",
@@ -22,9 +23,11 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
+    "@types/node": "^22.10.0",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "eslint": "^9.18.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^4.0.18",
     "wrangler": "^4.78.0"
