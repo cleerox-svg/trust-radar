@@ -113,6 +113,13 @@ export interface OpsTelemetry {
     cache_hit_rate: number | null;
     model_mix: Record<string, number>;
   };
+  /**
+   * Human-readable gaps in the telemetry pipeline — e.g. "budget_ledger
+   * is empty because AI Gateway cost ingestion isn't wired yet". When
+   * populated these tell ARCHITECT that a zero-valued field means
+   * "missing signal", not "nothing to report". Empty array = healthy.
+   */
+  telemetry_warnings: string[];
 }
 
 export interface ContextBundle {
