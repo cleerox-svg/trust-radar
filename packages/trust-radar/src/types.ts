@@ -10,6 +10,8 @@ export interface Env {
   CERTSTREAM_MONITOR: DurableObjectNamespace;
   CARTOGRAPHER_BACKFILL: Workflow;
   NEXUS_RUN: Workflow;
+  // ARCHITECT meta-agent — bundle storage (optional; only bound where needed)
+  ARCHITECT_BUNDLES?: R2Bucket;
   // Environment variables
   ENVIRONMENT: string;
   // Secrets

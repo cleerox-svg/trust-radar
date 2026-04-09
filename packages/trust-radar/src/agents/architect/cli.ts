@@ -1,10 +1,10 @@
 /**
  * ARCHITECT — Phase 1 CLI entrypoint.
  *
- * Runs the three context collectors (repo, data-layer, ops), assembles a
- * ContextBundle, writes it to /tmp, uploads it to R2, and records the
- * run in architect_reports. No AI calls and no synthesis — those land
- * in Phase 2+.
+ * Thin wrapper around runCollect() in ./core.ts. The core lifecycle is
+ * runtime-agnostic and takes a Worker-style Env; the CLI side here
+ * builds that env from shims that shell out to the wrangler CLI, so the
+ * same code path runs from both local dev and the Worker HTTP route.
  *
  * Usage:
  *   pnpm --filter trust-radar architect:collect               # weekly run
@@ -19,25 +19,17 @@
  */
 
 import { execFile } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
-import type { Env } from "../../types";
-
-import { collectRepoInventory } from "./collectors/repo";
-import { collectDataLayerInventory } from "./collectors/data-layer";
-import { collectOpsTelemetry } from "./collectors/ops";
-import type {
-  ContextBundle,
-  DataLayerInventory,
-  OpsTelemetry,
-  RepoInventory,
-  RunType,
-} from "./types";
+import type { ArchitectRunEnv } from "./core";
+import { runCollect } from "./core";
+import type { RunType } from "./types";
 import { createD1Shim } from "./wrangler-shim";
+
+export { runCollect } from "./core";
 
 const execFileAsync = promisify(execFile);
 
@@ -84,17 +76,64 @@ function loadConfig(): CliConfig {
   };
 }
 
-// ─── Entrypoint ───────────────────────────────────────────────────
+// ─── CLI R2 shim ──────────────────────────────────────────────────
 
-export async function runCollect(): Promise<{
-  runId: string;
-  bundlePath: string;
-  r2Key: string;
-}> {
+/**
+ * Minimal R2Bucket stub that implements only `.put()` — enough for
+ * ARCHITECT. Uploads are delegated to `wrangler r2 object put`.
+ */
+function createR2Shim(args: {
+  bucket: string;
+  wranglerBin: string;
+  cwd: string;
+}): R2Bucket {
+  const stub: Partial<R2Bucket> = {
+    async put(key: string, value: unknown): Promise<R2Object> {
+      if (typeof value !== "string") {
+        throw new Error(
+          "CLI R2 shim only supports string values (bundle JSON)",
+        );
+      }
+      const dir = await mkdtemp(join(tmpdir(), "architect-r2-"));
+      const filePath = join(dir, "bundle.json");
+      try {
+        await writeFile(filePath, value, "utf8");
+        await execFileAsync(
+          args.wranglerBin,
+          [
+            "r2",
+            "object",
+            "put",
+            `${args.bucket}/${key}`,
+            "--remote",
+            "--file",
+            filePath,
+            "--content-type",
+            "application/json",
+          ],
+          {
+            cwd: args.cwd,
+            env: process.env,
+            maxBuffer: 16 * 1024 * 1024,
+          },
+        );
+      } finally {
+        await rm(dir, { recursive: true, force: true }).catch(() => {
+          /* best-effort cleanup */
+        });
+      }
+      // We don't need the returned R2Object — callers only check for
+      // throw/no-throw — so a minimal stub is fine.
+      return { key } as unknown as R2Object;
+    },
+  };
+  return stub as R2Bucket;
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
   const config = loadConfig();
-  const runId = randomUUID();
-  const startedAt = Date.now();
-  const reportId = `arc-${runId}`;
 
   const db: D1Database = createD1Shim({
     binding: config.d1Binding,
@@ -102,192 +141,44 @@ export async function runCollect(): Promise<{
     wranglerBin: config.wranglerBin,
     cwd: config.packageDir,
   });
+  const architectBundles: R2Bucket = createR2Shim({
+    bucket: config.r2Bucket,
+    wranglerBin: config.wranglerBin,
+    cwd: config.packageDir,
+  });
+
+  const env: ArchitectRunEnv = {
+    DB: db,
+    ARCHITECT_BUNDLES: architectBundles,
+  };
 
   console.log(
-    `[architect] run_id=${runId} run_type=${config.runType} target=${config.wranglerEnv ?? "default"}`,
+    `[architect] run_type=${config.runType} target=${config.wranglerEnv ?? "default"}`,
   );
 
-  // Wrap the whole lifecycle — insert, collect, upload, complete — in
-  // one try/catch so any failure (including the initial insert) ends up
-  // logged with an explicit status=failed line. If the insert itself
-  // fails there's no row to update, so the catch handler treats the
-  // update as best-effort.
-  let reportRowInserted = false;
   try {
-    await insertReportRow(db, reportId, runId, config.runType, startedAt);
-    reportRowInserted = true;
-
-    // Step 1 — collectors in parallel. repo is filesystem-only and doesn't
-    // touch env; data-layer + ops share the D1 shim.
-    const env = { DB: db } as unknown as Env;
-    const [repo, dataLayer, ops] = await Promise.all<
-      [
-        Promise<RepoInventory>,
-        Promise<DataLayerInventory>,
-        Promise<OpsTelemetry>,
-      ]
-    >([
-      collectRepoInventory(config.monorepoRoot),
-      collectDataLayerInventory(env),
-      collectOpsTelemetry(env),
-    ] as const);
-
-    console.log(
-      `[architect] collectors: repo=${repo.totals.agents}a/${repo.totals.feeds}f ` +
-        `data_layer=${dataLayer.totals.table_count}t/${dataLayer.totals.total_rows}r ` +
-        `ops=${ops.agents.length}a`,
-    );
-
-    // Step 2 — assemble bundle.
-    const bundle: ContextBundle = {
-      bundle_version: 1,
-      run_id: runId,
-      generated_at: new Date().toISOString(),
-      repo,
-      data_layer: dataLayer,
-      ops,
-    };
-
-    // Step 3 — write bundle to /tmp.
-    const bundlePath = join(tmpdir(), `architect-bundle-${runId}.json`);
-    await writeFile(bundlePath, JSON.stringify(bundle, null, 2), "utf8");
-    console.log(`[architect] bundle written: ${bundlePath}`);
-
-    // Step 4 — upload to R2.
-    const r2Key = `architect/bundles/${runId}.json`;
-    await uploadToR2({
-      wranglerBin: config.wranglerBin,
-      cwd: config.packageDir,
-      bucket: config.r2Bucket,
-      key: r2Key,
-      filePath: bundlePath,
+    const result = await runCollect(env, {
+      runType: config.runType,
+      monorepoRoot: config.monorepoRoot,
     });
-    console.log(`[architect] bundle uploaded: r2://${config.r2Bucket}/${r2Key}`);
-
-    // Step 5 — mark complete.
-    const durationMs = Date.now() - startedAt;
-    await markComplete(db, reportId, r2Key, durationMs);
-
     console.log(
-      `[architect] status=complete run_id=${runId} duration_ms=${durationMs}`,
+      `[architect] status=complete run_id=${result.runId} ` +
+        `duration_ms=${result.durationMs} ` +
+        `bundle=r2://${config.r2Bucket}/${result.r2Key} ` +
+        `bytes=${result.bundleBytes}`,
     );
-    return { runId, bundlePath, r2Key };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[architect] status=failed run_id=${runId} error=${errMsg}`);
-    if (reportRowInserted) {
-      const durationMs = Date.now() - startedAt;
-      // Best-effort — don't let a failure-path crash mask the original error.
-      try {
-        await markFailed(db, reportId, errMsg, durationMs);
-      } catch (markErr) {
-        console.error(
-          `[architect] additionally failed to mark run as failed: ${
-            markErr instanceof Error ? markErr.message : String(markErr)
-          }`,
-        );
-      }
-    } else {
-      console.error(
-        `[architect] report row was never inserted — no status update attempted`,
-      );
-    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[architect] status=failed error=${msg}`);
     throw err;
   }
 }
-
-// ─── D1 writes ────────────────────────────────────────────────────
-
-async function insertReportRow(
-  db: D1Database,
-  id: string,
-  runId: string,
-  runType: RunType,
-  createdAtMs: number,
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO architect_reports
-         (id, run_id, created_at, run_type, status)
-       VALUES (?, ?, ?, ?, 'collecting')`,
-    )
-    .bind(id, runId, createdAtMs, runType)
-    .run();
-}
-
-async function markComplete(
-  db: D1Database,
-  id: string,
-  r2Key: string,
-  durationMs: number,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE architect_reports
-          SET status = 'complete',
-              context_bundle_r2_key = ?,
-              duration_ms = ?
-        WHERE id = ?`,
-    )
-    .bind(r2Key, durationMs, id)
-    .run();
-}
-
-async function markFailed(
-  db: D1Database,
-  id: string,
-  errorMessage: string,
-  durationMs: number,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE architect_reports
-          SET status = 'failed',
-              error_message = ?,
-              duration_ms = ?
-        WHERE id = ?`,
-    )
-    .bind(errorMessage.slice(0, 4000), durationMs, id)
-    .run();
-}
-
-// ─── R2 upload via wrangler ───────────────────────────────────────
-
-interface R2UploadArgs {
-  wranglerBin: string;
-  cwd: string;
-  bucket: string;
-  key: string;
-  filePath: string;
-}
-
-async function uploadToR2(args: R2UploadArgs): Promise<void> {
-  const objectPath = `${args.bucket}/${args.key}`;
-  const cliArgs = [
-    "r2",
-    "object",
-    "put",
-    objectPath,
-    "--remote",
-    "--file",
-    args.filePath,
-    "--content-type",
-    "application/json",
-  ];
-  await execFileAsync(args.wranglerBin, cliArgs, {
-    cwd: args.cwd,
-    env: process.env,
-    maxBuffer: 16 * 1024 * 1024,
-  });
-}
-
-// ─── Bootstrap when invoked directly ──────────────────────────────
 
 // Allow `pnpm architect:collect` to invoke this module directly via tsx.
 // tsx transpiles this file as CommonJS (no "type": "module" in the
 // package), so `require.main === module` is the canonical check.
 if (require.main === module) {
-  runCollect().catch((err) => {
+  main().catch((err) => {
     console.error(err);
     process.exit(1);
   });
