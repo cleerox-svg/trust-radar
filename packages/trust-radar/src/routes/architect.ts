@@ -28,6 +28,41 @@ interface InProgressRow {
   status: string;
 }
 
+interface ArchitectReportRow {
+  id: string;
+  run_id: string;
+  created_at: number;
+  run_type: string;
+  status: string;
+  context_bundle_r2_key: string | null;
+  cost_usd: number | null;
+  error_message: string | null;
+  duration_ms: number | null;
+}
+
+function serializeRun(row: ArchitectReportRow): {
+  run_id: string;
+  run_type: string;
+  status: string;
+  created_at: string;
+  duration_ms: number | null;
+  cost_usd: number | null;
+  context_bundle_r2_key: string | null;
+  error_message: string | null;
+} {
+  return {
+    run_id: row.run_id,
+    run_type: row.run_type,
+    status: row.status,
+    // created_at is stored as epoch-ms integer.
+    created_at: new Date(row.created_at).toISOString(),
+    duration_ms: row.duration_ms,
+    cost_usd: row.cost_usd,
+    context_bundle_r2_key: row.context_bundle_r2_key,
+    error_message: row.error_message,
+  };
+}
+
 export function registerArchitectRoutes(router: RouterType<IRequest>): void {
   // ─── POST /api/admin/architect/collect ──────────────────────────
   router.post(
@@ -144,6 +179,107 @@ export function registerArchitectRoutes(router: RouterType<IRequest>): void {
           started_at: new Date(startedAtMs).toISOString(),
         },
         202,
+        origin,
+      );
+    },
+  );
+
+  // ─── GET /api/admin/architect/runs ──────────────────────────────
+  router.get(
+    "/api/admin/architect/runs",
+    async (request: Request, env: Env) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const url = new URL(request.url);
+      const limitRaw = parseInt(url.searchParams.get("limit") ?? "20", 10);
+      const limit = Number.isFinite(limitRaw)
+        ? Math.min(Math.max(limitRaw, 1), 100)
+        : 20;
+
+      const rows = await env.DB.prepare(
+        `SELECT id, run_id, created_at, run_type, status,
+                context_bundle_r2_key, cost_usd, error_message, duration_ms
+           FROM architect_reports
+          ORDER BY created_at DESC
+          LIMIT ?`,
+      )
+        .bind(limit)
+        .all<ArchitectReportRow>();
+
+      return json(
+        { success: true, runs: (rows.results ?? []).map(serializeRun) },
+        200,
+        origin,
+      );
+    },
+  );
+
+  // ─── GET /api/admin/architect/runs/:run_id ──────────────────────
+  router.get(
+    "/api/admin/architect/runs/:run_id",
+    async (
+      request: Request & { params: Record<string, string> },
+      env: Env,
+    ) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const runId = request.params["run_id"] ?? "";
+      if (!runId) {
+        return json(
+          { success: false, error: "Missing run_id" },
+          400,
+          origin,
+        );
+      }
+
+      const row = await env.DB.prepare(
+        `SELECT id, run_id, created_at, run_type, status,
+                context_bundle_r2_key, cost_usd, error_message, duration_ms
+           FROM architect_reports
+          WHERE run_id = ?
+          LIMIT 1`,
+      )
+        .bind(runId)
+        .first<ArchitectReportRow>();
+
+      if (!row) {
+        return json(
+          { success: false, error: "Run not found" },
+          404,
+          origin,
+        );
+      }
+
+      const serialized = serializeRun(row);
+
+      // When complete, hand the bundle back via a proxy fetch against
+      // the R2 binding. Presigned URLs would require an account-level
+      // token we don't want in the Worker, and the bundle is small.
+      let bundle: unknown = null;
+      if (
+        row.status === "complete" &&
+        row.context_bundle_r2_key &&
+        env.ARCHITECT_BUNDLES
+      ) {
+        try {
+          const obj = await env.ARCHITECT_BUNDLES.get(
+            row.context_bundle_r2_key,
+          );
+          if (obj) {
+            bundle = await obj.json();
+          }
+        } catch {
+          /* bundle fetch is best-effort — row metadata is the source of truth */
+        }
+      }
+
+      return json(
+        { success: true, run: serialized, bundle },
+        200,
         origin,
       );
     },
