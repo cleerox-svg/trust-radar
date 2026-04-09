@@ -234,18 +234,14 @@ function extractAgentTriggers(source: string): string[] {
 
 function extractReadTables(source: string): string[] {
   const out = new Set<string>();
-  // SELECT ... FROM <table>
-  const fromMatches = source.matchAll(
-    /\bFROM\s+([A-Za-z_][A-Za-z0-9_]*)/gi,
-  );
+  // Case-sensitive SQL verbs to avoid catching English "from" / "join"
+  // in comments and log strings. All SQL in this codebase is uppercase.
+  const fromMatches = source.matchAll(/\bFROM\s+([A-Za-z_][A-Za-z0-9_]*)/g);
   for (const m of fromMatches) {
     const name = m[1];
     if (name) out.add(name);
   }
-  // JOIN <table>
-  const joinMatches = source.matchAll(
-    /\bJOIN\s+([A-Za-z_][A-Za-z0-9_]*)/gi,
-  );
+  const joinMatches = source.matchAll(/\bJOIN\s+([A-Za-z_][A-Za-z0-9_]*)/g);
   for (const m of joinMatches) {
     const name = m[1];
     if (name) out.add(name);
@@ -260,22 +256,21 @@ function extractReadTables(source: string): string[] {
 
 function extractWriteTables(source: string): string[] {
   const out = new Set<string>();
+  // Case-sensitive — see extractReadTables for rationale.
   const insertMatches = source.matchAll(
-    /\bINSERT\s+(?:OR\s+\w+\s+)?INTO\s+([A-Za-z_][A-Za-z0-9_]*)/gi,
+    /\bINSERT\s+(?:OR\s+\w+\s+)?INTO\s+([A-Za-z_][A-Za-z0-9_]*)/g,
   );
   for (const m of insertMatches) {
     const name = m[1];
     if (name) out.add(name);
   }
-  const updateMatches = source.matchAll(
-    /\bUPDATE\s+([A-Za-z_][A-Za-z0-9_]*)/gi,
-  );
+  const updateMatches = source.matchAll(/\bUPDATE\s+([A-Za-z_][A-Za-z0-9_]*)/g);
   for (const m of updateMatches) {
     const name = m[1];
     if (name) out.add(name);
   }
   const deleteMatches = source.matchAll(
-    /\bDELETE\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)/gi,
+    /\bDELETE\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)/g,
   );
   for (const m of deleteMatches) {
     const name = m[1];
