@@ -421,8 +421,13 @@ export function Architect() {
       {/* Bundle viewer modal */}
       {bundleRunId && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.70)' }}
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            background: 'rgba(0,0,0,0.70)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 'var(--z-modal)' as unknown as number,
+          }}
           onClick={closeBundle}
         >
           <div
