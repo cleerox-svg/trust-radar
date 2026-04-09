@@ -1,7 +1,7 @@
 type BimiGrade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' | null;
 
 interface BIMIGradeBadgeProps {
-  grade: BimiGrade;
+  grade: BimiGrade | string | undefined;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   tooltip?: boolean;
