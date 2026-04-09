@@ -59,6 +59,19 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
+  // Enricher runs every cron tick — owns domain_geo, brand_logo_hq,
+  // brand_sector_rdap. Decoupled from feed ingest so its failures
+  // don't poison feeds and vice versa.
+  try {
+    const { runEnricher } = await import('./enricher');
+    const enricherResult = await runJob('enricher', () => runEnricher(env));
+    results.push(enricherResult);
+  } catch (err) {
+    logger.error('enricher_dispatch_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Every 6 hours (minute 0, hours 0/6/12/18): Social discovery + monitoring
   if (minute === 0 && hour % 6 === 0) {
     // Discovery first — so newly found handles get monitored in the same cycle
@@ -256,30 +269,10 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     logger.error('threat_feed_scan_geo_error', { error: e instanceof Error ? e.message : String(e) });
   }
 
-  // Resolve domain→IP for threats that have a domain but no IP
-  try {
-    const { handleBackfillDomainGeo } = await import('../handlers/admin');
-    const fakeReq = new Request('https://localhost/api/admin/backfill-domain-geo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const domainGeoRes = await handleBackfillDomainGeo(fakeReq, env);
-    const domainGeoData = await domainGeoRes.json() as {
-      success: boolean;
-      data?: { processed: number; resolved: number; enriched: number };
-    };
-    if (domainGeoData.success && domainGeoData.data?.resolved) {
-      logger.info('domain_geo_resolution', {
-        processed: domainGeoData.data.processed,
-        resolved:  domainGeoData.data.resolved,
-        enriched:  domainGeoData.data.enriched,
-      });
-    }
-  } catch (err) {
-    logger.error('domain_geo_resolution_error', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  // NOTE: domain→IP resolution moved to the dedicated Enricher job
+  // (cron/enricher.ts). Coupling it to feed ingest meant a feed
+  // failure could starve the enrichment pipeline. The Enricher now
+  // owns it, with full activity logging and stall detection.
 
   // Feed ingestion — wrapped in try/catch so enrichment/social still run on failure
   const { runAllFeeds, runAllEnrichmentFeeds } = await import('../lib/feedRunner');
@@ -733,42 +726,10 @@ async function runObserverBriefing(env: Env): Promise<void> {
     logger.error('observer_briefing_tranco_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
-  // Enrich new brands (logo, HQ geo, sector, RDAP)
-  // Run one batch per daily cycle — covers ~50 new brands/day
-  try {
-    const { handleBackfillBrandEnrichment, handleBackfillBrandSector } =
-      await import('../handlers/admin');
-
-    // Session A: logo + HQ geo
-    const enrichReq = new Request('https://localhost/api/admin/backfill-brand-enrichment', {
-      method: 'POST',
-    });
-    const enrichRes = await handleBackfillBrandEnrichment(enrichReq, env);
-    const enrichData = await enrichRes.json() as {
-      success: boolean;
-      data?: { processed: number; enriched: number; remaining: number };
-    };
-
-    if (enrichData.data?.remaining && enrichData.data.remaining > 0) {
-      // Run a second batch if backlog is large
-      await handleBackfillBrandEnrichment(enrichReq.clone(), env);
-    }
-
-    // Session B: sector + RDAP (separate, uses Haiku)
-    const sectorReq = new Request('https://localhost/api/admin/backfill-brand-sector', {
-      method: 'POST',
-    });
-    await handleBackfillBrandSector(sectorReq, env);
-
-    logger.info('brand_enrichment_cron', {
-      logo_enriched:     enrichData.data?.enriched ?? 0,
-      sector_remaining:  enrichData.data?.remaining ?? 0,
-    });
-  } catch (err) {
-    logger.error('brand_enrichment_cron_error', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  // NOTE: brand logo/HQ + sector/RDAP enrichment moved to the dedicated
+  // Enricher job (cron/enricher.ts). Running it once per day from inside
+  // Observer was a single point of failure with no observability and no
+  // retries. The Enricher now owns it on every cron tick.
 
   // Seed Strategist agent
   try {
