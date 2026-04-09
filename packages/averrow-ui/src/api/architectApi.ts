@@ -227,3 +227,102 @@ export function isAnalysisInProgressError(
     (cause as { error?: string }).error === 'architect_analysis_in_progress'
   );
 }
+
+/* ─── Phase 3: Synthesis ──────────────────────────────────────────── */
+
+export type ArchitectSynthesisStatus =
+  | 'pending'
+  | 'synthesizing'
+  | 'complete'
+  | 'failed';
+
+export interface ArchitectSynthesisRow {
+  id: string;
+  run_id: string;
+  created_at: string;           // ISO
+  status: ArchitectSynthesisStatus;
+  model: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  duration_ms: number | null;
+  report_md: string | null;
+  computed_scorecard: unknown | null;
+  error_message: string | null;
+}
+
+export interface StartSynthesisResponse {
+  success: true;
+  run_id: string;
+  status: 'pending';
+  started_at: string;           // ISO
+}
+
+export interface SynthesisInProgressError {
+  success: false;
+  error: 'architect_synthesis_in_progress';
+  run_id: string;
+  status: ArchitectSynthesisStatus;
+}
+
+export interface GetSynthesisResponse {
+  success: true;
+  synthesis: ArchitectSynthesisRow;
+}
+
+/**
+ * POST /api/admin/architect/synthesize/:run_id
+ *
+ * Kicks off the Sonnet synthesis for a run whose three inventory
+ * analyses are all complete. Returns the 202 success payload on a
+ * fresh start. Throws an Error whose `.cause` is a
+ * `SynthesisInProgressError` when the backend responds with 409 —
+ * callers should start polling immediately.
+ */
+export async function startArchitectSynthesis(
+  runId: string,
+): Promise<StartSynthesisResponse> {
+  const res = await api.post<StartSynthesisResponse>(
+    `/api/admin/architect/synthesize/${encodeURIComponent(runId)}`,
+  );
+  if (res.success === false) {
+    const err = new Error(
+      (res as unknown as { error?: string }).error ??
+        'Failed to start ARCHITECT synthesis',
+    );
+    (err as Error & { cause?: unknown }).cause =
+      res as unknown as SynthesisInProgressError;
+    throw err;
+  }
+  return res as unknown as StartSynthesisResponse;
+}
+
+/**
+ * GET /api/admin/architect/synthesis/:run_id
+ */
+export async function getArchitectSynthesis(
+  runId: string,
+): Promise<ArchitectSynthesisRow> {
+  const res = await api.get<GetSynthesisResponse>(
+    `/api/admin/architect/synthesis/${encodeURIComponent(runId)}`,
+  );
+  if (res.success === false) {
+    throw new Error(
+      (res as unknown as { error?: string }).error ??
+        'Failed to load ARCHITECT synthesis',
+    );
+  }
+  return (res as unknown as GetSynthesisResponse).synthesis;
+}
+
+export function isSynthesisInProgressError(
+  err: unknown,
+): err is Error & { cause: SynthesisInProgressError } {
+  if (!(err instanceof Error)) return false;
+  const cause = (err as Error & { cause?: unknown }).cause;
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    (cause as { error?: string }).error === 'architect_synthesis_in_progress'
+  );
+}
