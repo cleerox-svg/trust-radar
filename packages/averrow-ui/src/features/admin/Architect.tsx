@@ -11,10 +11,14 @@ import { createPortal } from 'react-dom';
 import { Compass } from 'lucide-react';
 
 import {
+  getArchitectAnalyses,
   getArchitectRun,
+  isAnalysisInProgressError,
   isRunInProgressError,
   listArchitectRuns,
+  startArchitectAnalysis,
   startArchitectRun,
+  type ArchitectAnalysisRow,
   type ArchitectRunStatus,
   type ArchitectRunSummary,
   type ArchitectRunType,
@@ -24,6 +28,16 @@ import { Badge, Button, Card, PageHeader } from '@/design-system/components';
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 
 const POLL_INTERVAL_MS = 10_000;
+const POLL_ANALYSIS_INTERVAL_MS = 5_000;
+const ANALYSIS_SECTIONS_REQUIRED = 3;
+
+type AnalysisState =
+  | { kind: 'starting' }
+  | { kind: 'polling' }
+  | { kind: 'ready'; analyses: ArchitectAnalysisRow[] }
+  | { kind: 'error'; message: string };
+
+type ModalKind = 'bundle' | 'analysis';
 const TERMINAL: ReadonlySet<ArchitectRunStatus> = new Set<ArchitectRunStatus>([
   'complete',
   'failed',
@@ -108,9 +122,13 @@ export function Architect() {
   const [starting, setStarting] = useState<ArchitectRunType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [bundleRunId, setBundleRunId] = useState<string | null>(null);
-  const [bundleContent, setBundleContent] = useState<string | null>(null);
-  const [bundleLoading, setBundleLoading] = useState(false);
+  const [modalRunId, setModalRunId] = useState<string | null>(null);
+  const [modalKind, setModalKind] = useState<ModalKind>('bundle');
+  const [modalContent, setModalContent] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [analysisState, setAnalysisState] = useState<
+    Record<string, AnalysisState>
+  >({});
 
   const hasActiveRun = useMemo(
     () => runs.some((r) => !isTerminal(r.status)),
@@ -173,25 +191,150 @@ export function Architect() {
   );
 
   const openBundle = useCallback(async (runId: string) => {
-    setBundleRunId(runId);
-    setBundleContent(null);
-    setBundleLoading(true);
+    setModalRunId(runId);
+    setModalKind('bundle');
+    setModalContent(null);
+    setModalLoading(true);
     try {
       const res = await getArchitectRun(runId);
-      setBundleContent(JSON.stringify(res.bundle, null, 2));
+      setModalContent(JSON.stringify(res.bundle, null, 2));
     } catch (err) {
-      setBundleContent(
+      setModalContent(
         `Failed to load bundle: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
-      setBundleLoading(false);
+      setModalLoading(false);
     }
   }, []);
 
+  const openAnalysis = useCallback(
+    (runId: string, analyses: ArchitectAnalysisRow[]) => {
+      // Reuse the bundle modal component — swap the data source to the
+      // parsed analysis_json for each section, pretty-printed.
+      setModalRunId(runId);
+      setModalKind('analysis');
+      setModalContent(
+        JSON.stringify(
+          analyses.map((a) => ({
+            section: a.section,
+            status: a.status,
+            model: a.model,
+            duration_ms: a.duration_ms,
+            cost_usd: a.cost_usd,
+            analysis: a.analysis,
+          })),
+          null,
+          2,
+        ),
+      );
+      setModalLoading(false);
+    },
+    [],
+  );
+
   const closeBundle = useCallback(() => {
-    setBundleRunId(null);
-    setBundleContent(null);
+    setModalRunId(null);
+    setModalContent(null);
   }, []);
+
+  const handleStartAnalysis = useCallback(async (runId: string) => {
+    setAnalysisState((prev) => ({ ...prev, [runId]: { kind: 'starting' } }));
+    try {
+      await startArchitectAnalysis(runId);
+      setAnalysisState((prev) => ({ ...prev, [runId]: { kind: 'polling' } }));
+    } catch (err) {
+      if (isAnalysisInProgressError(err)) {
+        // Already running — just start polling.
+        setAnalysisState((prev) => ({
+          ...prev,
+          [runId]: { kind: 'polling' },
+        }));
+        return;
+      }
+      setAnalysisState((prev) => ({
+        ...prev,
+        [runId]: {
+          kind: 'error',
+          message:
+            err instanceof Error ? err.message : 'Failed to start analysis',
+        },
+      }));
+    }
+  }, []);
+
+  // Derive a stable key for the set of runs currently being polled for
+  // analysis, so the polling effect only re-runs when that set changes.
+  const pollingKey = useMemo(
+    () =>
+      Object.entries(analysisState)
+        .filter(([, s]) => s.kind === 'polling')
+        .map(([runId]) => runId)
+        .sort()
+        .join(','),
+    [analysisState],
+  );
+
+  // Poll every 5s while any analysis is in flight. When all three
+  // sections for a run come back complete, flip that run to 'ready'.
+  useEffect(() => {
+    if (!pollingKey) return;
+    const ids = pollingKey.split(',');
+    const poll = async () => {
+      for (const runId of ids) {
+        try {
+          const res = await getArchitectAnalyses(runId);
+          const allComplete =
+            res.analyses.length >= ANALYSIS_SECTIONS_REQUIRED &&
+            res.analyses.every((a) => a.status === 'complete');
+          const anyFailed = res.analyses.some((a) => a.status === 'failed');
+          if (allComplete) {
+            setAnalysisState((prev) =>
+              prev[runId]?.kind === 'polling'
+                ? {
+                    ...prev,
+                    [runId]: { kind: 'ready', analyses: res.analyses },
+                  }
+                : prev,
+            );
+          } else if (anyFailed) {
+            const failed = res.analyses.find((a) => a.status === 'failed');
+            setAnalysisState((prev) =>
+              prev[runId]?.kind === 'polling'
+                ? {
+                    ...prev,
+                    [runId]: {
+                      kind: 'error',
+                      message:
+                        failed?.error_message ?? 'Analysis section failed',
+                    },
+                  }
+                : prev,
+            );
+          }
+          // else still pending/analyzing — keep polling
+        } catch (err) {
+          setAnalysisState((prev) =>
+            prev[runId]?.kind === 'polling'
+              ? {
+                  ...prev,
+                  [runId]: {
+                    kind: 'error',
+                    message:
+                      err instanceof Error
+                        ? err.message
+                        : 'Failed to load analyses',
+                  },
+                }
+              : prev,
+          );
+        }
+      }
+    };
+    const id = setInterval(() => {
+      void poll();
+    }, POLL_ANALYSIS_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [pollingKey]);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -385,13 +528,78 @@ export function Architect() {
                     </td>
                     <td className="px-5 py-3">
                       {run.status === 'complete' && run.context_bundle_r2_key ? (
-                        <button
-                          onClick={() => void openBundle(run.run_id)}
-                          className="font-mono text-[11px] underline-offset-2 hover:underline"
-                          style={{ color: 'var(--amber)' }}
-                        >
-                          view
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => void openBundle(run.run_id)}
+                            className="font-mono text-[11px] underline-offset-2 hover:underline"
+                            style={{ color: 'var(--amber)' }}
+                          >
+                            view
+                          </button>
+                          {(() => {
+                            const state = analysisState[run.run_id];
+                            if (!state) {
+                              return (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() =>
+                                    void handleStartAnalysis(run.run_id)
+                                  }
+                                >
+                                  Analyze
+                                </Button>
+                              );
+                            }
+                            if (state.kind === 'starting') {
+                              return (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  loading
+                                  disabled
+                                >
+                                  Analyze
+                                </Button>
+                              );
+                            }
+                            if (state.kind === 'polling') {
+                              return (
+                                <span
+                                  className="font-mono text-[11px]"
+                                  style={{ color: 'var(--amber)' }}
+                                >
+                                  Analysis started…
+                                </span>
+                              );
+                            }
+                            if (state.kind === 'ready') {
+                              return (
+                                <button
+                                  onClick={() =>
+                                    openAnalysis(run.run_id, state.analyses)
+                                  }
+                                  className="font-mono text-[11px] underline-offset-2 hover:underline"
+                                  style={{ color: 'var(--green)' }}
+                                >
+                                  View Analysis
+                                </button>
+                              );
+                            }
+                            // error
+                            return (
+                              <span
+                                className="font-mono text-[11px]"
+                                style={{ color: 'var(--sev-critical)' }}
+                                title={state.message}
+                              >
+                                {state.message.length > 40
+                                  ? `${state.message.slice(0, 40)}…`
+                                  : state.message}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       ) : run.status === 'failed' && run.error_message ? (
                         <span
                           className="font-mono text-[11px]"
@@ -419,9 +627,10 @@ export function Architect() {
         )}
       </Card>
 
-      {/* Bundle viewer modal — portaled to <body> so it escapes any parent
-          stacking context and covers the full viewport including the TopBar. */}
-      {bundleRunId &&
+      {/* Bundle / Analysis viewer modal — portaled to <body> so it escapes
+          any parent stacking context and covers the full viewport
+          including the TopBar. Reused verbatim for both data sources. */}
+      {modalRunId &&
         createPortal(
           <div
             className="fixed inset-0 flex items-center justify-center p-4"
@@ -450,26 +659,31 @@ export function Architect() {
                     className="font-mono text-[11px] uppercase tracking-[0.18em]"
                     style={{ color: 'var(--amber)' }}
                   >
-                    Bundle · {bundleRunId.slice(0, 8)}…
+                    {modalKind === 'analysis' ? 'Analysis' : 'Bundle'} ·{' '}
+                    {modalRunId.slice(0, 8)}…
                   </div>
                   <Button variant="ghost" size="sm" onClick={closeBundle}>
                     Close
                   </Button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-auto">
-                  {bundleLoading ? (
+                  {modalLoading ? (
                     <div
                       className="p-8 text-center font-mono text-[11px]"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
-                      Loading bundle…
+                      Loading {modalKind === 'analysis' ? 'analysis' : 'bundle'}
+                      …
                     </div>
                   ) : (
                     <pre
                       className="whitespace-pre-wrap break-all p-5 font-mono text-[11px]"
                       style={{ color: 'var(--text-primary)' }}
                     >
-                      {bundleContent ?? 'Bundle unavailable'}
+                      {modalContent ??
+                        (modalKind === 'analysis'
+                          ? 'Analysis unavailable'
+                          : 'Bundle unavailable')}
                     </pre>
                   )}
                 </div>

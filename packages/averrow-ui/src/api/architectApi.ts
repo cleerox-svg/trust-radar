@@ -124,3 +124,106 @@ export function isRunInProgressError(
     (cause as { error?: string }).error === 'architect_run_in_progress'
   );
 }
+
+/* ─── Phase 2: Analysis ───────────────────────────────────────────── */
+
+export type ArchitectAnalysisSection = 'agents' | 'feeds' | 'data_layer';
+
+export type ArchitectAnalysisStatus =
+  | 'pending'
+  | 'analyzing'
+  | 'complete'
+  | 'failed';
+
+export interface ArchitectAnalysisRow {
+  id: string;
+  run_id: string;
+  created_at: string;           // ISO
+  section: ArchitectAnalysisSection;
+  status: ArchitectAnalysisStatus;
+  model: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  duration_ms: number | null;
+  analysis: unknown | null;
+  error_message: string | null;
+}
+
+export interface StartAnalysisResponse {
+  success: true;
+  run_id: string;
+  status: 'pending';
+  started_at: string;           // ISO
+}
+
+export interface AnalysisInProgressError {
+  success: false;
+  error: 'architect_analysis_in_progress';
+  run_id: string;
+  section: ArchitectAnalysisSection;
+  status: ArchitectAnalysisStatus;
+}
+
+export interface GetAnalysesResponse {
+  success: true;
+  run_id: string;
+  total_cost_usd: number;
+  analyses: ArchitectAnalysisRow[];
+}
+
+/**
+ * POST /api/admin/architect/analyze/:run_id
+ *
+ * Kicks off the Haiku inventory analysis for an already-collected run.
+ * Returns the 202 success payload on a fresh start. Throws an Error
+ * whose `.cause` is an `AnalysisInProgressError` when the backend
+ * responds with 409 — callers should start polling immediately.
+ */
+export async function startArchitectAnalysis(
+  runId: string,
+): Promise<StartAnalysisResponse> {
+  const res = await api.post<StartAnalysisResponse>(
+    `/api/admin/architect/analyze/${encodeURIComponent(runId)}`,
+  );
+  if (res.success === false) {
+    const err = new Error(
+      (res as unknown as { error?: string }).error ??
+        'Failed to start ARCHITECT analysis',
+    );
+    (err as Error & { cause?: unknown }).cause =
+      res as unknown as AnalysisInProgressError;
+    throw err;
+  }
+  return res as unknown as StartAnalysisResponse;
+}
+
+/**
+ * GET /api/admin/architect/analyses/:run_id
+ */
+export async function getArchitectAnalyses(
+  runId: string,
+): Promise<GetAnalysesResponse> {
+  const res = await api.get<GetAnalysesResponse>(
+    `/api/admin/architect/analyses/${encodeURIComponent(runId)}`,
+  );
+  if (res.success === false) {
+    throw new Error(
+      (res as unknown as { error?: string }).error ??
+        'Failed to load ARCHITECT analyses',
+    );
+  }
+  return res as unknown as GetAnalysesResponse;
+}
+
+export function isAnalysisInProgressError(
+  err: unknown,
+): err is Error & { cause: AnalysisInProgressError } {
+  if (!(err instanceof Error)) return false;
+  const cause = (err as Error & { cause?: unknown }).cause;
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    (cause as { error?: string }).error === 'architect_analysis_in_progress'
+  );
+}
