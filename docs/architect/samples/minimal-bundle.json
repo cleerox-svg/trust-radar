@@ -1,0 +1,202 @@
+{
+  "bundle_version": 1,
+  "run_id": "test-run-0001",
+  "generated_at": "2026-04-01T00:00:00.000Z",
+  "repo": {
+    "collected_at": "2026-04-01T00:00:00.000Z",
+    "agents": [
+      {
+        "name": "sentinel",
+        "path": "src/agents/sentinel/index.ts",
+        "entrypoint": "runSentinel",
+        "triggers": ["cron"],
+        "reads": ["feed_sources"],
+        "writes": ["threats"],
+        "ai_models_referenced": [],
+        "loc": 420,
+        "last_modified": "2026-03-28T12:00:00.000Z"
+      },
+      {
+        "name": "cartographer",
+        "path": "src/agents/cartographer/index.ts",
+        "entrypoint": "runCartographer",
+        "triggers": ["cron", "queue"],
+        "reads": ["threats"],
+        "writes": ["threats"],
+        "ai_models_referenced": ["claude-haiku-4-5-20251001"],
+        "loc": 612,
+        "last_modified": "2026-03-30T09:00:00.000Z"
+      },
+      {
+        "name": "nexus",
+        "path": "src/agents/nexus/index.ts",
+        "entrypoint": "runNexus",
+        "triggers": ["cron"],
+        "reads": ["threats"],
+        "writes": ["campaigns"],
+        "ai_models_referenced": ["claude-haiku-4-5-20251001"],
+        "loc": 880,
+        "last_modified": "2026-03-25T17:30:00.000Z"
+      }
+    ],
+    "feeds": [
+      {
+        "name": "abuse-ch-urlhaus",
+        "path": "src/feeds/urlhaus.ts",
+        "source_type": "http",
+        "schedule": "*/30 * * * *",
+        "loc": 140,
+        "last_modified": "2026-03-12T10:00:00.000Z"
+      },
+      {
+        "name": "phishtank",
+        "path": "src/feeds/phishtank.ts",
+        "source_type": "http",
+        "schedule": null,
+        "loc": 95,
+        "last_modified": "2026-02-20T08:00:00.000Z"
+      }
+    ],
+    "crons": [
+      {
+        "pattern": "*/30 * * * *",
+        "handler_path": "src/cron/30min.ts",
+        "agents_invoked": ["sentinel"]
+      },
+      {
+        "pattern": "*/15 * * * *",
+        "handler_path": "src/cron/15min.ts",
+        "agents_invoked": ["cartographer"]
+      }
+    ],
+    "workers": [
+      {
+        "name": "trust-radar",
+        "path": "src/index.ts",
+        "bindings": ["DB", "CACHE"]
+      }
+    ],
+    "totals": {
+      "agents": 3,
+      "feeds": 2,
+      "crons": 2,
+      "workers": 1
+    }
+  },
+  "data_layer": {
+    "collected_at": "2026-04-01T00:00:00.000Z",
+    "tables": [
+      {
+        "name": "threats",
+        "rows": 113000,
+        "est_bytes": 45000000,
+        "has_indexes": true,
+        "index_count": 4,
+        "growth_7d_rows": 8200,
+        "growth_7d_pct": 7.8
+      },
+      {
+        "name": "agent_runs",
+        "rows": 42000,
+        "est_bytes": 3200000,
+        "has_indexes": true,
+        "index_count": 2,
+        "growth_7d_rows": 1400,
+        "growth_7d_pct": 3.4
+      },
+      {
+        "name": "agent_events",
+        "rows": 9800,
+        "est_bytes": 680000,
+        "has_indexes": false,
+        "index_count": 0,
+        "growth_7d_rows": 2200,
+        "growth_7d_pct": 29.0
+      },
+      {
+        "name": "brands",
+        "rows": 9652,
+        "est_bytes": 1800000,
+        "has_indexes": true,
+        "index_count": 3,
+        "growth_7d_rows": 12,
+        "growth_7d_pct": 0.1
+      },
+      {
+        "name": "alerts",
+        "rows": 540,
+        "est_bytes": 120000,
+        "has_indexes": true,
+        "index_count": 1,
+        "growth_7d_rows": 30,
+        "growth_7d_pct": 5.9
+      }
+    ],
+    "totals": {
+      "table_count": 5,
+      "total_rows": 174992,
+      "total_est_bytes": 50800000
+    }
+  },
+  "ops": {
+    "collected_at": "2026-04-01T00:00:00.000Z",
+    "window_days": 7,
+    "agents": [
+      {
+        "agent_name": "sentinel",
+        "runs_7d": 336,
+        "successes_7d": 336,
+        "failures_7d": 0,
+        "avg_duration_ms": 4200,
+        "ai_cost_usd_7d": 0,
+        "last_run_at": "2026-04-01T00:00:00.000Z",
+        "last_error": null
+      },
+      {
+        "agent_name": "cartographer",
+        "runs_7d": 672,
+        "successes_7d": 670,
+        "failures_7d": 2,
+        "avg_duration_ms": 9800,
+        "ai_cost_usd_7d": 0.42,
+        "last_run_at": "2026-04-01T00:00:00.000Z",
+        "last_error": null
+      },
+      {
+        "agent_name": "nexus",
+        "runs_7d": 42,
+        "successes_7d": 0,
+        "failures_7d": 42,
+        "avg_duration_ms": 28000,
+        "ai_cost_usd_7d": 1.2,
+        "last_run_at": "2026-04-01T00:00:00.000Z",
+        "last_error": "Worker exceeded CPU time limit"
+      }
+    ],
+    "crons": [
+      {
+        "pattern": "*/30 * * * *",
+        "runs_7d": 336,
+        "failures_7d": 0,
+        "last_status": "success"
+      },
+      {
+        "pattern": "*/15 * * * *",
+        "runs_7d": 672,
+        "failures_7d": 2,
+        "last_status": "success"
+      }
+    ],
+    "queues_depth": {
+      "threats-queue": 0
+    },
+    "ai_gateway": {
+      "total_cost_usd_7d": 1.62,
+      "cache_hit_rate": 0.18,
+      "model_mix": {
+        "claude-haiku-4-5-20251001": 1.62
+      }
+    },
+    "telemetry_warnings": []
+  }
+}

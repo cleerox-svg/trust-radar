@@ -284,12 +284,11 @@ export async function runAnalysis(
     options.analyzerTimeoutMs ?? DEFAULT_ANALYZER_TIMEOUT_MS;
 
   // Fail fast if the bundle doesn't exist or isn't complete — no
-  // point inserting pending rows for a run we can't analyse.
+  // point inserting pending rows for a run we can't analyse. This
+  // runs BEFORE the try/finally because there are no rows to strand
+  // yet if the bundle fetch itself fails.
   const bundle = await fetchBundle(env, runId);
 
-  // Insert the three pending rows eagerly so the concurrency guard
-  // and UI both see the in-flight state before the slow Haiku calls
-  // start. Each row gets its own UUID.
   const createdAtMs = Date.now();
   const rowIds: Record<SectionName, string> = {
     agents: crypto.randomUUID(),
@@ -297,14 +296,26 @@ export async function runAnalysis(
     data_layer: crypto.randomUUID(),
   };
 
-  for (const section of SECTIONS) {
-    await insertPendingRow(env.DB, rowIds[section], runId, section, createdAtMs);
-  }
-
-  // Structural backstop: no matter what happens inside the try,
-  // every row created above is guaranteed to land in a terminal
-  // state (`complete` or `failed`) before runAnalysis returns.
+  // Structural backstop: every row inserted below is guaranteed to
+  // land in a terminal state (`complete` or `failed`) before
+  // runAnalysis returns, even if something throws between the
+  // INSERT and the per-section updates. The finally block flips any
+  // stranded rows.
   try {
+    // Insert the three pending rows eagerly so the concurrency guard
+    // and UI both see the in-flight state before the slow Haiku calls
+    // start. Inside the try block so that a partial-insert failure
+    // still gets cleaned up by finally.
+    for (const section of SECTIONS) {
+      await insertPendingRow(
+        env.DB,
+        rowIds[section],
+        runId,
+        section,
+        createdAtMs,
+      );
+    }
+
     const settled = await Promise.allSettled(
       SECTIONS.map(async (section) => {
         const id = rowIds[section];
