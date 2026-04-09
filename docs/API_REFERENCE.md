@@ -414,6 +414,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/architect/collect` | SuperAdmin | Trigger ARCHITECT collection run (returns 202 + run_id; 409 if a run is already in flight) |
 | GET | `/api/admin/architect/runs` | SuperAdmin | List recent ARCHITECT runs (supports `?limit=20`) |
 | GET | `/api/admin/architect/runs/:run_id` | SuperAdmin | ARCHITECT run detail + bundle JSON if status=complete |
+| POST | `/api/admin/architect/analyze/:run_id` | SuperAdmin | Phase 2 — trigger Haiku inventory analysis against an already-complete run (returns 202; 409 if an analysis is already in flight for that run_id) |
+| GET | `/api/admin/architect/analyses/:run_id` | SuperAdmin | Phase 2 — return the three section rows (agents / feeds / data_layer) with parsed analysis JSON |
 
 ## WebSocket
 

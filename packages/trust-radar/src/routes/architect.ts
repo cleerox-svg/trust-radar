@@ -2,13 +2,21 @@
  * ARCHITECT — admin HTTP routes.
  *
  * Phase 1.5: one POST to trigger a collection run plus two GETs for the
- * runs list + detail view in the Averrow admin UI. All routes require
- * super_admin; runs execute in ctx.waitUntil so the HTTP response
- * returns fast while the collector finishes in the background.
+ * runs list + detail view in the Averrow admin UI.
+ *
+ * Phase 2: one POST to kick off a Haiku analysis pass against an
+ * already-collected run plus a GET to read the three section rows
+ * (agents / feeds / data_layer) back out of architect_analyses.
+ *
+ * All routes require super_admin; background work runs in
+ * ctx.waitUntil so the HTTP response returns fast while the
+ * collector / analyzer finishes.
  */
 
 import type { IRequest, RouterType } from "itty-router";
 
+import { runAnalysis } from "../agents/architect/analysis/orchestrator";
+import type { SectionName } from "../agents/architect/analysis/types";
 import { runCollect } from "../agents/architect/core";
 import type { RunType } from "../agents/architect/types";
 import { json } from "../lib/cors";
@@ -279,6 +287,232 @@ export function registerArchitectRoutes(router: RouterType<IRequest>): void {
 
       return json(
         { success: true, run: serialized, bundle },
+        200,
+        origin,
+      );
+    },
+  );
+
+  // ─── POST /api/admin/architect/analyze/:run_id ──────────────────
+  //
+  // Phase 2 — kicks off the Haiku inventory analysis for an already
+  // collected run. Inserts three architect_analyses rows in
+  // status='pending' immediately so concurrent callers / polling UIs
+  // see the in-flight state, then flips them to complete/failed from
+  // the background task. Returns 202 on a fresh start.
+  router.post(
+    "/api/admin/architect/analyze/:run_id",
+    async (
+      request: Request & { params: Record<string, string> },
+      env: Env,
+      ctx: ExecutionContext,
+    ) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const runId = request.params["run_id"] ?? "";
+      if (!runId) {
+        return json(
+          { success: false, error: "Missing run_id" },
+          400,
+          origin,
+        );
+      }
+
+      if (!env.ARCHITECT_BUNDLES) {
+        return json(
+          {
+            success: false,
+            error:
+              "ARCHITECT_BUNDLES R2 binding is not configured for this worker",
+          },
+          500,
+          origin,
+        );
+      }
+
+      // The run must exist and be in status='complete' — the
+      // analyzer cannot run against a collecting/failed row.
+      const report = await env.DB.prepare(
+        `SELECT run_id, status, context_bundle_r2_key
+           FROM architect_reports
+          WHERE run_id = ?
+          LIMIT 1`,
+      )
+        .bind(runId)
+        .first<{
+          run_id: string;
+          status: string;
+          context_bundle_r2_key: string | null;
+        }>();
+
+      if (!report) {
+        return json(
+          { success: false, error: "Run not found" },
+          404,
+          origin,
+        );
+      }
+      if (report.status !== "complete") {
+        return json(
+          {
+            success: false,
+            error: `run is in status '${report.status}', expected 'complete' before analysis`,
+          },
+          409,
+          origin,
+        );
+      }
+      if (!report.context_bundle_r2_key) {
+        return json(
+          {
+            success: false,
+            error: "run has no context_bundle_r2_key — nothing to analyse",
+          },
+          409,
+          origin,
+        );
+      }
+
+      // Concurrency guard — only one analysis per run_id at a time.
+      // Any existing pending/analyzing row for this run_id blocks.
+      const inFlight = await env.DB.prepare(
+        `SELECT id, section, status
+           FROM architect_analyses
+          WHERE run_id = ?
+            AND status IN ('pending','analyzing')
+          LIMIT 1`,
+      )
+        .bind(runId)
+        .first<{ id: string; section: string; status: string }>();
+
+      if (inFlight) {
+        return json(
+          {
+            success: false,
+            error: "architect_analysis_in_progress",
+            run_id: runId,
+            section: inFlight.section,
+            status: inFlight.status,
+          },
+          409,
+          origin,
+        );
+      }
+
+      // Background task — runAnalysis inserts its own pending rows
+      // and flips them to complete/failed. We catch here so the
+      // eventual error never escapes waitUntil unhandled.
+      ctx.waitUntil(
+        runAnalysis(runId, env).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(
+            `[architect-analysis] runAnalysis failed for ${runId}:`,
+            msg,
+          );
+        }),
+      );
+
+      return json(
+        {
+          success: true,
+          run_id: runId,
+          status: "pending",
+          started_at: new Date().toISOString(),
+        },
+        202,
+        origin,
+      );
+    },
+  );
+
+  // ─── GET /api/admin/architect/analyses/:run_id ──────────────────
+  //
+  // Returns all three architect_analyses rows for a run, with the
+  // parsed analysis_json inlined. Phases 3/5 (synthesis + UI) read
+  // this shape — no markdown, no rollup, just the raw section
+  // assessments.
+  router.get(
+    "/api/admin/architect/analyses/:run_id",
+    async (
+      request: Request & { params: Record<string, string> },
+      env: Env,
+    ) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const runId = request.params["run_id"] ?? "";
+      if (!runId) {
+        return json(
+          { success: false, error: "Missing run_id" },
+          400,
+          origin,
+        );
+      }
+
+      const rows = await env.DB.prepare(
+        `SELECT id, run_id, created_at, section, status, model,
+                input_tokens, output_tokens, cost_usd, duration_ms,
+                analysis_json, error_message
+           FROM architect_analyses
+          WHERE run_id = ?
+          ORDER BY section ASC`,
+      )
+        .bind(runId)
+        .all<{
+          id: string;
+          run_id: string;
+          created_at: number;
+          section: SectionName;
+          status: string;
+          model: string;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          duration_ms: number | null;
+          analysis_json: string | null;
+          error_message: string | null;
+        }>();
+
+      const analyses = (rows.results ?? []).map((row) => {
+        let parsed: unknown = null;
+        if (row.analysis_json) {
+          try {
+            parsed = JSON.parse(row.analysis_json);
+          } catch {
+            /* ignore — surface as null, row still has raw JSON string */
+          }
+        }
+        return {
+          id: row.id,
+          run_id: row.run_id,
+          created_at: new Date(row.created_at).toISOString(),
+          section: row.section,
+          status: row.status,
+          model: row.model,
+          input_tokens: row.input_tokens,
+          output_tokens: row.output_tokens,
+          cost_usd: row.cost_usd,
+          duration_ms: row.duration_ms,
+          analysis: parsed,
+          error_message: row.error_message,
+        };
+      });
+
+      const totalCostUsd = analyses.reduce(
+        (sum, a) => sum + (a.cost_usd ?? 0),
+        0,
+      );
+
+      return json(
+        {
+          success: true,
+          run_id: runId,
+          total_cost_usd: totalCostUsd,
+          analyses,
+        },
         200,
         origin,
       );
