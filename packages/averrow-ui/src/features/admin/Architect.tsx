@@ -426,12 +426,16 @@ export function Architect() {
           onClick={closeBundle}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden"
+            className="flex max-h-[85vh] min-h-0 w-full max-w-4xl flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <Card variant="elevated" padding={0}>
+            <Card
+              variant="elevated"
+              padding={0}
+              className="flex min-h-0 flex-1 flex-col"
+            >
               <div
-                className="flex items-center justify-between px-5 py-3"
+                className="flex flex-shrink-0 items-center justify-between px-5 py-3"
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <div
@@ -444,7 +448,7 @@ export function Architect() {
                   Close
                 </Button>
               </div>
-              <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
+              <div className="min-h-0 flex-1 overflow-auto">
                 {bundleLoading ? (
                   <div
                     className="p-8 text-center font-mono text-[11px]"
