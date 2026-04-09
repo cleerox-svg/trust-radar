@@ -458,7 +458,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
 
       const apiKey = env.ANTHROPIC_API_KEY;
       const [enrichRes, rdapRes, sectorRes] = await Promise.allSettled([
-        enrichBrand(domain, env.CACHE),
+        enrichBrand(domain, env.CACHE, env),
         fetchRdap(domain),
         apiKey
           ? classifySector(domain, brandName, apiKey)

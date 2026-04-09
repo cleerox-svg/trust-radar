@@ -470,6 +470,77 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
   backlog.domainGeoBacklog   = domainGeoRow?.n ?? 0;
   backlog.brandEnrichBacklog = brandEnrichRow?.n ?? 0;
 
+  // ── Persist backlog snapshots + run stall detection ────────────
+  // Flight Control used to log the backlog count every tick but had no
+  // memory of what it logged the previous tick. The Enricher could be
+  // dead and FC would still happily report "domain geo backlog: 90852"
+  // hour after hour with no alarm. Now we keep a 5-tick rolling history
+  // and emit a critical event whenever a backlog fails to strictly
+  // decrease over 4 ticks.
+  const TRACKED: Array<{ name: string; count: number }> = [
+    { name: 'domain_geo',    count: backlog.domainGeoBacklog },
+    { name: 'brand_enrich',  count: backlog.brandEnrichBacklog },
+    { name: 'cartographer',  count: backlog.cartographer },
+    { name: 'analyst',       count: backlog.analyst },
+    { name: 'surbl',         count: backlog.surblUnchecked },
+    { name: 'virustotal',    count: backlog.vtUnchecked },
+    { name: 'gsb',           count: backlog.gsbUnchecked },
+    { name: 'dbl',           count: backlog.dblUnchecked },
+    { name: 'abuseipdb',     count: backlog.abuseipdbUnchecked },
+    { name: 'pdns',          count: backlog.pdnsUnchecked },
+    { name: 'greynoise',     count: backlog.greynoiseUnchecked },
+    { name: 'seclookup',     count: backlog.seclookupUnchecked },
+  ];
+
+  for (const t of TRACKED) {
+    try {
+      await db.prepare(
+        `INSERT INTO backlog_history (backlog_name, count) VALUES (?, ?)`
+      ).bind(t.name, t.count).run();
+    } catch { /* never block FC on logging */ }
+  }
+
+  // Stall detection: compare the current count (just inserted) to the
+  // value from 4 ticks ago. If the backlog is non-zero, has 5+ samples
+  // (so it isn't brand new), and is not strictly decreasing, log a
+  // critical event.
+  for (const t of TRACKED) {
+    if (t.count === 0) continue;
+    try {
+      const history = await db.prepare(`
+        SELECT count FROM backlog_history
+        WHERE backlog_name = ?
+        ORDER BY recorded_at DESC
+        LIMIT 5
+      `).bind(t.name).all<{ count: number }>();
+
+      const samples = history.results ?? [];
+      if (samples.length < 5) continue; // need 5 (current + 4 history) to judge
+
+      const current = samples[0]?.count ?? 0;
+      const fourAgo = samples[4]?.count ?? 0;
+      const trend   = current - fourAgo; // negative = draining, positive/0 = stalled
+
+      if (trend >= 0) {
+        await db.prepare(`
+          INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity, created_at)
+          VALUES (?, 'flight_control', 'backlog_stalled', ?, ?, 'critical', datetime('now'))
+        `).bind(
+          crypto.randomUUID(),
+          `Backlog ${t.name} stalled at ${current} (4 ticks ago: ${fourAgo}, trend: ${trend >= 0 ? '+' : ''}${trend})`,
+          JSON.stringify({ backlog: t.name, current, four_ticks_ago: fourAgo, trend }),
+        ).run();
+      }
+    } catch { /* never block FC */ }
+  }
+
+  // Trim history to last 7 days (best effort, keeps the table small).
+  try {
+    await db.prepare(
+      `DELETE FROM backlog_history WHERE recorded_at < datetime('now', '-7 days')`
+    ).run();
+  } catch { /* ignore */ }
+
   return backlog;
 }
 
