@@ -19,8 +19,8 @@ function b64url(buf: ArrayBuffer): string {
     .replace(/=/g, "");
 }
 
-/** 15-minute access token */
-export const ACCESS_TOKEN_TTL = 60 * 15;
+/** 12-hour access token */
+export const ACCESS_TOKEN_TTL = 60 * 60 * 12;
 /** 7-day refresh token */
 export const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 7;
 /** 30-day absolute session limit */
