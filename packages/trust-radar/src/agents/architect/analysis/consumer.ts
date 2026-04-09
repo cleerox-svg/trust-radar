@@ -158,7 +158,10 @@ async function loadBundleFromR2(
     throw new Error(`ARCHITECT consumer: bundle object ${key} missing from R2`);
   }
   const bundle = (await obj.json()) as ContextBundle;
-  if (!bundle || bundle.bundle_version !== 1) {
+  // v1 bundles have no `feed_runtime`; v2 adds it. Both shapes are
+  // accepted so in-flight R2 bundles generated before the v2 bump
+  // still analyze cleanly.
+  if (!bundle || (bundle.bundle_version !== 1 && bundle.bundle_version !== 2)) {
     throw new Error(
       `ARCHITECT consumer: unexpected bundle shape at ${key}`,
     );

@@ -12,7 +12,10 @@
 
 import type { Env } from "../../types";
 
-import { collectDataLayerInventory } from "./collectors/data-layer";
+import {
+  collectDataLayerInventory,
+  collectFeedRuntime,
+} from "./collectors/data-layer";
 import { collectOpsTelemetry } from "./collectors/ops";
 import { collectRepoInventory } from "./collectors/repo";
 import type {
@@ -87,19 +90,25 @@ export async function runCollect(
     const repo: RepoInventory =
       repoInventoryOverride ?? collectRepoInventory();
 
-    const [dataLayer, ops] = await Promise.all([
+    const [dataLayer, ops, feedRuntime] = await Promise.all([
       collectDataLayerInventory(env as Env),
       collectOpsTelemetry(env as Env),
+      collectFeedRuntime(env as Env),
     ]);
 
     // Step 2 — assemble bundle.
+    // bundle_version=2 marks the addition of the top-level
+    // feed_runtime array. Phase 2 analyzers must tolerate v1 bundles
+    // (no feed_runtime field) by defaulting to an empty array so
+    // in-flight R2 bundles generated before this change still parse.
     const bundle: ContextBundle = {
-      bundle_version: 1,
+      bundle_version: 2,
       run_id: runId,
       generated_at: new Date().toISOString(),
       repo,
       data_layer: dataLayer,
       ops,
+      feed_runtime: feedRuntime,
     };
     const bundleJson = JSON.stringify(bundle, null, 2);
     const bundleBytes = bundleJson.length;
