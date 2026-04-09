@@ -5,8 +5,9 @@ scans the platform, builds a structured snapshot of how it's wired together,
 and (in later phases) uses Claude to produce a weekly architectural review
 that an engineer can action.
 
-The agent is built in phases. **This document describes Phase 1 only** —
-context collection. No AI calls, no report generation, no UI.
+The agent is built in phases. **This document covers Phase 1, 1.5, and 2.**
+No Sonnet synthesis, no report generation, no UI for the Phase 2 output yet
+— those land in Phase 3/5.
 
 ---
 
@@ -16,7 +17,7 @@ context collection. No AI calls, no report generation, no UI.
 | ----- | ------------------------ | --------- | --------------------------------------------------------------------- |
 | 1     | Context collectors       | **Done**  | Three pure collectors + CLI + R2 bundle storage                       |
 | 1.5   | Admin trigger + runs view| **Done**  | Super-admin HTTP routes + `/admin/architect` page to start runs & inspect bundles |
-| 2     | Haiku inventory pass     | Planned   | Per-file classification, deprecation flags, unused-code hints         |
+| 2     | Haiku inventory pass     | **Done**  | Three section analyzers (agents / feeds / data_layer) persisted to `architect_analyses` |
 | 3     | Sonnet synthesis         | Planned   | Cross-cutting narrative — what's drifting, what's expensive, what's risky |
 | 4     | Flight Control wiring    | Planned   | ARCHITECT becomes a scheduled agent with `agent_runs` + `agent_events` integration |
 | 5     | UI surface (full)        | Planned   | Operator dashboard with historical diffs, proposal review, approve/reject flow |
@@ -240,16 +241,183 @@ packages/averrow-ui/src/
 
 ---
 
-## Out of scope for Phase 1 / 1.5
+## Phase 2 — Haiku Analysis
+
+Phase 2 turns the raw ContextBundle from Phase 1 into three structured
+section assessments produced by `claude-haiku-4-5-20251001`. Every run
+lives in the `architect_analyses` table — one row per section, status
+transitions `pending → analyzing → complete | failed`, so the UI can
+poll and render partial progress.
+
+### Section analyzers
+
+The three analyzers each consume a focused slice of the bundle (no
+whole-bundle forwarding — tokens aren't free even with Haiku) and
+return a typed `SectionAnalysis`:
+
+| Analyzer           | Signature                                                              | Bundle slice consumed                                                         |
+| ------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `analyzeAgents`    | `(ContextBundle, AnalyzerEnv) => Promise<AnalyzerResult<AgentsAnalysis>>`    | `repo.agents`, `repo.crons`, `ops.agents`, `ops.crons`, `ops.ai_gateway`, `ops.telemetry_warnings` |
+| `analyzeFeeds`     | `(ContextBundle, AnalyzerEnv) => Promise<AnalyzerResult<FeedsAnalysis>>`     | `repo.feeds`, `repo.crons`, `ops.queues_depth`, `ops.telemetry_warnings`       |
+| `analyzeDataLayer` | `(ContextBundle, AnalyzerEnv) => Promise<AnalyzerResult<DataLayerAnalysis>>` | `data_layer.tables`, `data_layer.totals`, `ops.telemetry_warnings`             |
+
+The agents analyzer cross-references ops telemetry so evidence strings
+can cite real signals (failure counts, CPU timeouts in `last_error`,
+ghost rows where `runs_7d > 0 && successes_7d === 0`). `telemetry_warnings`
+is passed through verbatim so the model knows which zero values mean
+"missing signal" rather than "nothing happened".
+
+### Schema (one row per section)
+
+```ts
+interface SectionAnalysisBase {
+  section: "agents" | "feeds" | "data_layer";
+  summary: string;                              // 2-3 sentence exec summary
+  scorecard: { green: number; amber: number; red: number };
+  cross_cutting_concerns: string[];
+}
+
+interface AgentAssessment {
+  name: string;
+  severity: "green" | "amber" | "red";
+  recommendation: "keep" | "split" | "merge" | "kill" | "refactor";
+  rationale: string;          // 1-3 sentences, specific, evidence-backed
+  evidence: string[];         // concrete signals from the bundle
+  concerns: string[];
+  suggested_actions: string[];
+  merge_with?: string;        // only if recommendation === "merge"
+  split_into?: string[];      // only if recommendation === "split"
+}
+// FeedAssessment has the same shape minus merge_with / split_into.
+// TableAssessment adds scale_risk: "low" | "medium" | "high".
+
+interface DataLayerAnalysis extends SectionAnalysisBase {
+  section: "data_layer";
+  assessments: TableAssessment[];
+  hot_tables: string[];        // top 5 by bytes or 7-day growth
+  scale_bottlenecks: string[]; // tables that break at 10x scale
+}
+```
+
+Full TypeScript definitions live in
+[`packages/trust-radar/src/agents/architect/analysis/types.ts`](../../packages/trust-radar/src/agents/architect/analysis/types.ts),
+and the hand-rolled JSON validator is in
+[`schema.ts`](../../packages/trust-radar/src/agents/architect/analysis/schema.ts).
+The orchestrator throws on invalid JSON and the analyzer row flips to
+`failed` with a path-prefixed `SchemaError` message so debugging a bad
+model response is a one-grep affair.
+
+### Transport + cost governance
+
+- **AI Gateway when available.** If `env.CF_ACCOUNT_ID` is set the
+  analyzer routes through
+  `gateway.ai.cloudflare.com/v1/<acct>/averrow-ai-gateway/anthropic` so
+  re-runs against the same bundle get cache hits for free. Otherwise
+  calls go direct to `api.anthropic.com/v1/messages`.
+- **Model.** `claude-haiku-4-5-20251001`, max_tokens 4096, 60s timeout.
+- **Per-call cost cap.** $0.50, enforced in the analyzer after the
+  response comes back. Throws if exceeded; the row flips to `failed`
+  with the cap error.
+- **Per-run cost cap.** $2.00, enforced in the orchestrator after all
+  three section rows have been persisted. Trips the outer `runAnalysis`
+  throw but keeps the analyses that did complete.
+- **Pricing constants** live in
+  [`analysis/pricing.ts`](../../packages/trust-radar/src/agents/architect/analysis/pricing.ts)
+  — rate updates are a one-file edit.
+
+### Triggering an analysis
+
+```
+POST /api/admin/architect/analyze/:run_id
+```
+
+Super-admin JWT required. The route validates that the target
+`architect_reports` row is in status=`complete` with a non-null
+`context_bundle_r2_key`, refuses if an analysis is already in flight
+for the same `run_id` (409 `architect_analysis_in_progress`), then
+kicks `runAnalysis` in `ctx.waitUntil` and returns **202 Accepted**:
+
+```json
+{
+  "success": true,
+  "run_id": "…",
+  "status": "pending",
+  "started_at": "2026-04-09T12:34:56.000Z"
+}
+```
+
+`runAnalysis` inserts the three `architect_analyses` rows immediately
+(status=`pending`, section ∈ {agents, feeds, data_layer}) so the UI can
+render placeholders, then fires all three Haiku calls in parallel via
+`Promise.allSettled`. Each row transitions `pending → analyzing → complete`
+or `pending → analyzing → failed` independently — one failing section
+never kills the others.
+
+### Reading results
+
+```
+GET /api/admin/architect/analyses/:run_id
+```
+
+Returns the three section rows with `analysis_json` already parsed:
+
+```json
+{
+  "success": true,
+  "run_id": "…",
+  "total_cost_usd": 0.0123,
+  "analyses": [
+    {
+      "id": "…",
+      "section": "agents",
+      "status": "complete",
+      "model": "claude-haiku-4-5-20251001",
+      "input_tokens": 4012,
+      "output_tokens": 1487,
+      "cost_usd": 0.0114,
+      "duration_ms": 5320,
+      "analysis": { /* AgentsAnalysis */ },
+      "error_message": null
+    },
+    /* feeds */
+    /* data_layer */
+  ]
+}
+```
+
+### File map additions
+
+```
+packages/trust-radar/
+├── migrations/
+│   └── 0071_architect_analyses.sql           # architect_analyses table
+└── src/
+    └── agents/architect/
+        └── analysis/
+            ├── types.ts                      # AgentsAnalysis / FeedsAnalysis / DataLayerAnalysis
+            ├── pricing.ts                    # Haiku cost constants + computeCostUsd
+            ├── schema.ts                     # hand-rolled JSON validators (SchemaError)
+            ├── analyzer.ts                   # analyzeAgents / analyzeFeeds / analyzeDataLayer
+            └── orchestrator.ts               # runAnalysis(runId, env)
+```
+
+---
+
+## Out of scope for Phase 1 / 1.5 / 2
 
 These are intentionally **not** built yet and should not be added to the
 current phases:
 
-- AI calls of any kind (Haiku, Sonnet, embeddings)
-- Report generation / markdown synthesis
-- Cron wiring / scheduled execution
-- Approval workflow (the UI can trigger runs but cannot approve proposals)
+- Sonnet synthesis / cross-section narrative (Phase 3)
+- Markdown report generation / rollup
+- Cron wiring / scheduled execution (Phase 4)
+- UI surface for Phase 2 analyses (Phase 3/5 — `architect_analyses` is
+  already shaped for consumption by the UI, but the dashboard itself
+  lives in Phase 5)
+- Approval workflow / proposal review
+- AI Gateway cost ingestion back into `budget_ledger` (separate track
+  — `telemetry_warnings` still surfaces the gap)
 - Notifications / email / Slack
 
-Phase 2 is where the Haiku inventory pass lives. Start there when you're
-ready to make ARCHITECT more than a collector.
+Phase 3 is where the Sonnet synthesis lives. Start there when you're
+ready to turn the three section assessments into a single narrative.
