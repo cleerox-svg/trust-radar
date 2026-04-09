@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
+import { collectRepoInventoryFromFs } from "./collectors/repo-fs";
 import type { ArchitectRunEnv } from "./core";
 import { runCollect } from "./core";
 import type { RunType } from "./types";
@@ -156,10 +157,17 @@ async function main(): Promise<void> {
     `[architect] run_type=${config.runType} target=${config.wranglerEnv ?? "default"}`,
   );
 
+  // Local verification path: walk the live working tree rather than
+  // using the committed build-time manifest. Operators can regenerate
+  // bundles from a dirty checkout without a full build step first.
+  const repoInventoryOverride = await collectRepoInventoryFromFs(
+    config.monorepoRoot,
+  );
+
   try {
     const result = await runCollect(env, {
       runType: config.runType,
-      monorepoRoot: config.monorepoRoot,
+      repoInventoryOverride,
     });
     console.log(
       `[architect] status=complete run_id=${result.runId} ` +

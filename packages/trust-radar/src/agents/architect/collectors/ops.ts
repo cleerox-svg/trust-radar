@@ -50,6 +50,26 @@ export async function collectOpsTelemetry(env: Env): Promise<OpsTelemetry> {
   const windowDays = 7;
   const sinceIso = sevenDaysAgoIso();
 
+  const telemetryWarnings: string[] = [];
+
+  // budget_ledger is the source for AI cost metrics, but nothing writes
+  // to it today — BudgetManager.recordCost() exists but is never called
+  // from the AI Gateway wrapper. Detect the gap up front so the two
+  // cost-aggregating queries below return honest zeros and ARCHITECT
+  // knows to treat them as "missing", not "no spend".
+  //
+  // TODO(phase-4): wire budget_ledger writes from AI Gateway
+  const budgetLedgerHasRows = await ledgerHasRows(env);
+  if (!budgetLedgerHasRows) {
+    telemetryWarnings.push(
+      "budget_ledger is empty — AI cost metrics (ai_cost_usd_7d, " +
+        "ai_gateway.total_cost_usd_7d, ai_gateway.model_mix) are not " +
+        "being captured. BudgetManager.recordCost() is defined but no " +
+        "AI call site invokes it; wire it from the AI Gateway wrapper " +
+        "in phase 4.",
+    );
+  }
+
   const agents = await collectAgentTelemetry(env, sinceIso);
   const crons = await collectCronTelemetry(env, sinceIso);
 
@@ -66,7 +86,21 @@ export async function collectOpsTelemetry(env: Env): Promise<OpsTelemetry> {
     crons,
     queues_depth: queuesDepth,
     ai_gateway: aiGateway,
+    telemetry_warnings: telemetryWarnings,
   };
+}
+
+async function ledgerHasRows(env: Env): Promise<boolean> {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT 1 AS present FROM budget_ledger LIMIT 1`,
+    ).first<{ present: number }>();
+    return row !== null;
+  } catch {
+    // If the table doesn't exist at all, treat that as "no rows" so
+    // ARCHITECT still surfaces the warning rather than crashing.
+    return false;
+  }
 }
 
 // ─── Agent telemetry ──────────────────────────────────────────────

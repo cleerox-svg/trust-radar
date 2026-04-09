@@ -2,11 +2,20 @@
  * ARCHITECT — data-layer inventory collector.
  *
  * Queries D1 for every user table (sqlite_master), captures row counts +
- * estimated byte sizes + index counts, computes 7-day growth by comparing
- * to architect_table_snapshots, then writes a fresh snapshot row so the
- * next run has a delta baseline.
+ * sampled byte-size estimates + index counts, computes 7-day growth by
+ * comparing to architect_table_snapshots, then writes a fresh snapshot
+ * row so the next run has a delta baseline.
  *
- * Pure read-plus-append — never alters existing schema, never deletes rows.
+ * Pure read-plus-append — never alters existing schema, never deletes
+ * rows.
+ *
+ * Byte-size estimation: D1 does not compile in the `dbstat` virtual
+ * table, so a direct "how big is this table" query is impossible.
+ * Instead we sample at most 1000 rows per table, compute the average
+ * serialized length, and extrapolate to the row count. The sample is
+ * wrapped in a 100ms soft budget — if it doesn't return in time we set
+ * `est_bytes` to `null` so ARCHITECT can tell "unknown" apart from
+ * "empty" downstream.
  */
 
 import type { Env } from "../../../types";
@@ -26,26 +35,37 @@ interface IndexCountRow {
   c: number;
 }
 
-interface PragmaRow {
-  page_size?: number;
-  page_count?: number;
+interface ColumnInfoRow {
+  name: string | null;
 }
 
-interface DbstatRow {
-  bytes: number | null;
+interface SampleRow {
+  total_bytes: number | null;
+  n: number;
 }
 
 interface SnapshotRow {
   row_count: number;
 }
 
-// Valid SQLite identifier — used to whitelist table names pulled from
-// sqlite_master before interpolating them into COUNT(*) queries. D1
-// prepared statements can't bind table names, so we validate instead.
+// Valid SQLite identifier — used to whitelist table and column names
+// pulled from sqlite_master / PRAGMA output before interpolating them
+// into size-sampling queries. D1 prepared statements can't bind
+// identifiers, so we validate instead.
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 // Tables we skip entirely — internal SQLite bookkeeping.
 const SKIP_TABLES = new Set(["sqlite_sequence", "_cf_KV", "d1_migrations"]);
+
+// Soft wall-clock budget per sample query. D1 does not let us cancel a
+// running query, so this is really "how long we will wait before giving
+// up and returning null"; the query may still finish in the background.
+const SAMPLE_TIMEOUT_MS = 100;
+
+// Cap on sampled rows. Higher = more accurate average, but also more
+// I/O per ARCHITECT run. 1000 is a reasonable trade-off for tables up
+// to the 100K-row range.
+const SAMPLE_LIMIT = 1000;
 
 // ─── Public API ───────────────────────────────────────────────────
 
@@ -67,12 +87,6 @@ export async function collectDataLayerInventory(
     .map((r) => r.name)
     .filter((name) => IDENT_RE.test(name) && !SKIP_TABLES.has(name));
 
-  // dbstat is a virtual table that may or may not be compiled in. Probe once.
-  const dbstatAvailable = await probeDbstat(env);
-
-  // Page-based fallback needs the page size once.
-  const pageInfo = await readPageInfo(env);
-
   const tables: TableInventory[] = [];
   let totalRows = 0;
   let totalBytes = 0;
@@ -82,8 +96,10 @@ export async function collectDataLayerInventory(
     totalRows += rows;
 
     const indexCount = await countIndexes(env, name);
-    const estBytes = await estimateBytes(env, name, rows, dbstatAvailable, pageInfo);
-    totalBytes += estBytes;
+    const estBytes = await estimateBytes(env, name, rows);
+    if (estBytes !== null) {
+      totalBytes += estBytes;
+    }
 
     const growth = await computeGrowth(env, name, rows, sevenDaysAgoMs);
 
@@ -97,7 +113,8 @@ export async function collectDataLayerInventory(
       growth_7d_pct: growth.pct,
     });
 
-    // Append snapshot row for future delta computation.
+    // Append snapshot row for future delta computation. est_bytes is
+    // nullable in the schema so we can faithfully persist "unknown".
     await env.DB.prepare(
       `INSERT INTO architect_table_snapshots
          (captured_at, table_name, row_count, est_bytes)
@@ -120,32 +137,6 @@ export async function collectDataLayerInventory(
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-async function probeDbstat(env: Env): Promise<boolean> {
-  try {
-    await env.DB.prepare(
-      `SELECT SUM(pgsize) AS bytes FROM dbstat WHERE name = 'sqlite_master'`,
-    ).first<DbstatRow>();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readPageInfo(env: Env): Promise<PragmaRow> {
-  try {
-    const pageSize = await env.DB.prepare("PRAGMA page_size").first<PragmaRow>();
-    const pageCount = await env.DB.prepare(
-      "PRAGMA page_count",
-    ).first<PragmaRow>();
-    return {
-      page_size: pageSize?.page_size,
-      page_count: pageCount?.page_count,
-    };
-  } catch {
-    return {};
-  }
-}
-
 async function countRows(env: Env, table: string): Promise<number> {
   // Table name is whitelisted via IDENT_RE against sqlite_master output
   // above, so interpolation is safe here. D1 cannot bind identifiers.
@@ -165,35 +156,90 @@ async function countIndexes(env: Env, table: string): Promise<number> {
   return row?.c ?? 0;
 }
 
+/**
+ * Sampled size estimate. Returns:
+ *   - `0`    when the table is empty (truly zero bytes of row data)
+ *   - a positive number when sampling succeeded
+ *   - `null` when sampling failed (timeout, permission error, bad
+ *     schema response) — callers should treat this as "unknown"
+ */
 async function estimateBytes(
   env: Env,
   table: string,
   rows: number,
-  dbstatAvailable: boolean,
-  pageInfo: PragmaRow,
-): Promise<number> {
-  if (dbstatAvailable) {
-    try {
-      const row = await env.DB.prepare(
-        `SELECT SUM(pgsize) AS bytes FROM dbstat WHERE name = ?`,
-      )
-        .bind(table)
-        .first<DbstatRow>();
-      if (row?.bytes !== null && row?.bytes !== undefined) return row.bytes;
-    } catch {
-      // fall through to proportional fallback
-    }
+): Promise<number | null> {
+  if (rows === 0) return 0;
+
+  const columns = await listSampleableColumns(env, table);
+  if (columns.length === 0) return null;
+
+  // Build SUM(COALESCE(LENGTH("col1"),0) + COALESCE(LENGTH("col2"),0) + …)
+  // over the sample. LENGTH returns bytes for BLOB and characters for
+  // TEXT — not perfect for multi-byte text, but the order of magnitude
+  // is what ARCHITECT cares about. Row-size outside column data (page
+  // overhead, indexes, slack) is ignored — the Haiku pass is free to
+  // scale this later.
+  const lengthExpr = columns
+    .map((c) => `COALESCE(LENGTH("${c}"), 0)`)
+    .join(" + ");
+
+  const query =
+    `SELECT SUM(${lengthExpr}) AS total_bytes, COUNT(*) AS n ` +
+    `FROM (SELECT * FROM "${table}" LIMIT ${SAMPLE_LIMIT})`;
+
+  try {
+    const sample = await raceWithTimeout(
+      env.DB.prepare(query).first<SampleRow>(),
+      SAMPLE_TIMEOUT_MS,
+    );
+    if (!sample || !sample.n || sample.n === 0) return null;
+    const avgRowBytes = (sample.total_bytes ?? 0) / sample.n;
+    return Math.round(avgRowBytes * rows);
+  } catch {
+    // Timeout or SQL error — leave the caller with "unknown" so ARCHITECT
+    // can distinguish an estimation gap from an empty table.
+    return null;
   }
-  // Proportional page fallback — distribute total DB bytes by row share.
-  const pageSize = pageInfo.page_size ?? 0;
-  const pageCount = pageInfo.page_count ?? 0;
-  const totalBytes = pageSize * pageCount;
-  if (totalBytes === 0 || rows === 0) return 0;
-  // We don't know total rows here yet; use a rough 256 bytes/row baseline
-  // clamped to the db size. Honest lower bound; the Haiku pass is free to
-  // re-estimate with better signal later.
-  const estimate = rows * 256;
-  return Math.min(estimate, totalBytes);
+}
+
+async function listSampleableColumns(
+  env: Env,
+  table: string,
+): Promise<string[]> {
+  // PRAGMA statements don't accept bound parameters in D1. Table name
+  // is already whitelisted via IDENT_RE, and we re-validate column
+  // names below before interpolating them into the sample query.
+  try {
+    const result = await env.DB.prepare(
+      `PRAGMA table_info("${table}")`,
+    ).all<ColumnInfoRow>();
+    const out: string[] = [];
+    for (const row of result.results ?? []) {
+      const name = row.name;
+      if (name && IDENT_RE.test(name)) out.push(name);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function raceWithTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`sample timeout after ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 interface GrowthResult {
