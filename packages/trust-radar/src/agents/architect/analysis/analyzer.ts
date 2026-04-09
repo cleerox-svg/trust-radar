@@ -63,7 +63,7 @@ import type {
 
 const ANTHROPIC_API_VERSION = "2023-06-01";
 const DEFAULT_MAX_TOKENS = 16384;
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 120_000;
 
 // ─── Env subset the analyzers need ─────────────────────────────────
 
