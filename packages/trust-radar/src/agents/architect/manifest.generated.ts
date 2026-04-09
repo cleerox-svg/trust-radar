@@ -35,7 +35,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 769,
-      "last_modified": "2026-04-02T23:03:38.733Z"
+      "last_modified": "2026-04-09T18:00:39.763Z"
     },
     {
       "name": "cartographer",
@@ -67,7 +67,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 741,
-      "last_modified": "2026-04-02T23:03:38.734Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "curator",
@@ -89,7 +89,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 163,
-      "last_modified": "2026-04-02T23:03:38.734Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "flightControl",
@@ -117,7 +117,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 752,
-      "last_modified": "2026-04-09T13:51:37.432Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "narrator",
@@ -140,7 +140,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "claude-haiku-4-5-20251001"
       ],
       "loc": 323,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "nexus",
@@ -164,7 +164,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 281,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "observer",
@@ -197,7 +197,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 842,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "prospector",
@@ -224,7 +224,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "claude-haiku-4-5-20251001"
       ],
       "loc": 573,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
       "name": "seed-strategist",
@@ -248,7 +248,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "claude-haiku-4-5-20251001"
       ],
       "loc": 215,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     },
     {
       "name": "sentinel",
@@ -274,7 +274,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "claude-haiku-4-5-20251001"
       ],
       "loc": 519,
-      "last_modified": "2026-04-09T13:51:37.432Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     },
     {
       "name": "sparrow",
@@ -300,7 +300,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 417,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     },
     {
       "name": "strategist",
@@ -323,7 +323,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 477,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     },
     {
       "name": "trustbot",
@@ -341,7 +341,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 164,
-      "last_modified": "2026-04-02T23:03:38.735Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     },
     {
       "name": "watchdog",
@@ -363,7 +363,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "claude-haiku-4-5-20251001"
       ],
       "loc": 367,
-      "last_modified": "2026-04-02T23:03:38.739Z"
+      "last_modified": "2026-04-09T18:00:39.768Z"
     }
   ],
   "feeds": [
@@ -373,7 +373,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 242,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.781Z"
     },
     {
       "name": "blocklistde",
@@ -381,7 +381,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 98,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.781Z"
     },
     {
       "name": "c2intelfeeds",
@@ -389,7 +389,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 169,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.781Z"
     },
     {
       "name": "c2tracker",
@@ -397,7 +397,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 122,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "certstream",
@@ -405,7 +405,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 216,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "cins_army",
@@ -413,7 +413,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 103,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "circlPassiveDns",
@@ -421,7 +421,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 192,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "cisa_iran_iocs",
@@ -429,7 +429,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 194,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "cisa_kev",
@@ -437,7 +437,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 93,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "cloudflare_email",
@@ -445,7 +445,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 134,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "cloudflare_scanner",
@@ -453,7 +453,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 286,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "disposableEmail",
@@ -461,7 +461,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 97,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "dshield",
@@ -469,7 +469,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 64,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "emergingThreats",
@@ -477,7 +477,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 90,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "feodo",
@@ -485,7 +485,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 41,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "github",
@@ -493,7 +493,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 407,
-      "last_modified": "2026-04-02T23:03:38.751Z"
+      "last_modified": "2026-04-09T18:00:39.784Z"
     },
     {
       "name": "googleSafeBrowsing",
@@ -501,7 +501,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 271,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "greynoise",
@@ -509,7 +509,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 264,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "hibp",
@@ -517,7 +517,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 161,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "malwarebazaar",
@@ -525,7 +525,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 99,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "mastodon",
@@ -533,7 +533,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 330,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "nrd_hagezi",
@@ -541,7 +541,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 247,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "openphish",
@@ -549,7 +549,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 44,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "otx_alienvault",
@@ -557,7 +557,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 98,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "phishdestroy",
@@ -565,7 +565,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 48,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "phishtank",
@@ -573,7 +573,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 73,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "reddit",
@@ -581,7 +581,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 353,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "seclookup",
@@ -589,7 +589,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 270,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.788Z"
     },
     {
       "name": "spamhausDbl",
@@ -597,7 +597,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 254,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "spamhausDrop",
@@ -605,7 +605,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 144,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "sslbl",
@@ -613,7 +613,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 99,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "surbl",
@@ -621,7 +621,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 205,
-      "last_modified": "2026-04-02T23:03:38.755Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "telegram",
@@ -629,7 +629,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 406,
-      "last_modified": "2026-04-02T23:03:38.759Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "threatfox",
@@ -637,7 +637,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 98,
-      "last_modified": "2026-04-02T23:03:38.759Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "torExitNodes",
@@ -645,7 +645,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 88,
-      "last_modified": "2026-04-02T23:03:38.759Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "typosquat_scanner",
@@ -653,7 +653,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "http",
       "schedule": null,
       "loc": 219,
-      "last_modified": "2026-04-09T13:51:37.434Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "urlhaus",
@@ -661,7 +661,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "unknown",
       "schedule": null,
       "loc": 82,
-      "last_modified": "2026-04-02T23:03:38.759Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     },
     {
       "name": "virustotal",
@@ -669,7 +669,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 211,
-      "last_modified": "2026-04-02T23:03:38.759Z"
+      "last_modified": "2026-04-09T18:00:39.792Z"
     }
   ],
   "crons": [
@@ -694,6 +694,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "name": "trust-radar",
       "path": "packages/trust-radar/src/index.ts",
       "bindings": [
+        "ARCHITECT_ANALYSIS_QUEUE",
         "ARCHITECT_BUNDLES",
         "AUDIT_DB",
         "CACHE",
