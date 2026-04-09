@@ -32,8 +32,11 @@ import type {
 
 // ─── Constants ────────────────────────────────────────────────────
 
-const AGENT_DIR_SEGMENTS = ["src", "agents"];
-const FEED_DIR_SEGMENTS = ["src", "feeds"];
+// ARCHITECT's inventory is scoped to the trust-radar Worker package.
+// Other packages in the monorepo (imprsn8, averrow-ui, …) are separate
+// products and must never appear in this bundle.
+const TRUST_RADAR_PACKAGE_SEGMENTS = ["packages", "trust-radar"];
+
 const SKIP_DIRS = new Set([
   "node_modules",
   "dist",
@@ -43,6 +46,27 @@ const SKIP_DIRS = new Set([
   ".git",
 ]);
 const SKIP_FILES = new Set(["index.ts", "types.ts"]);
+
+// Known agents that are shipped in this Worker but whose top-level
+// export does not follow the `*Agent` naming convention. Any file
+// directly under src/agents/ must either export an `*Agent` symbol or
+// be explicitly listed here to be treated as an agent.
+const KNOWN_AGENT_NAMES = new Set<string>([
+  "analyst",
+  "cartographer",
+  "curator",
+  "flightControl",
+  "narrator",
+  "nexus",
+  "observer",
+  "prospector",
+  "seed-strategist",
+  "sentinel",
+  "sparrow",
+  "strategist",
+  "trustbot",
+  "watchdog",
+]);
 
 // Bindings we recognise as "reads/writes" targets at the Env level.
 // Table names are extracted separately from inline SQL.
@@ -64,9 +88,14 @@ export async function collectRepoInventoryFromFs(
 ): Promise<RepoInventory> {
   const collectedAt = new Date().toISOString();
 
-  const agentFilePaths = await findFilesUnder(rootDir, AGENT_DIR_SEGMENTS);
-  const feedFilePaths = await findFilesUnder(rootDir, FEED_DIR_SEGMENTS);
-  const wranglerPaths = await findWranglerTomls(rootDir);
+  // All discovery is scoped to the trust-radar package tree. Other
+  // packages (e.g. imprsn8) have their own Workers, crons, and agents
+  // and must not leak into the ARCHITECT bundle.
+  const packageRoot = join(rootDir, ...TRUST_RADAR_PACKAGE_SEGMENTS);
+
+  const agentFilePaths = await findAgentFiles(packageRoot);
+  const feedFilePaths = await findFeedFiles(packageRoot);
+  const wranglerPaths = await findWranglerTomls(packageRoot);
 
   const agents: AgentFile[] = [];
   for (const p of agentFilePaths) {
@@ -108,24 +137,56 @@ export async function collectRepoInventoryFromFs(
 
 // ─── Filesystem walking ───────────────────────────────────────────
 
-async function findFilesUnder(
-  rootDir: string,
-  dirSegments: string[],
-): Promise<string[]> {
+/**
+ * Return candidate agent files — top-level *.ts directly under
+ * packages/trust-radar/src/agents/. Subdirectories (notably
+ * `architect/`, which is ARCHITECT's own infra and NOT a runtime
+ * agent) are not walked at all. Files matching test/spec/shim/cli
+ * /generated naming patterns are also skipped.
+ */
+async function findAgentFiles(packageRoot: string): Promise<string[]> {
+  const agentsDir = join(packageRoot, "src", "agents");
+  let entries;
+  try {
+    entries = await readdir(agentsDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
   const out: string[] = [];
-  await walk(rootDir, async (absPath, isDir) => {
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (!isAgentCandidateFilename(entry.name)) continue;
+    out.push(join(agentsDir, entry.name));
+  }
+  return out;
+}
+
+function isAgentCandidateFilename(name: string): boolean {
+  if (!name.endsWith(".ts")) return false;
+  if (SKIP_FILES.has(name)) return false;
+  if (name === "cli.ts") return false;
+  if (name.endsWith(".generated.ts")) return false;
+  if (name.endsWith(".test.ts")) return false;
+  if (name.endsWith(".spec.ts")) return false;
+  if (name.endsWith("-shim.ts")) return false;
+  return true;
+}
+
+async function findFeedFiles(packageRoot: string): Promise<string[]> {
+  const feedsDir = join(packageRoot, "src", "feeds");
+  const out: string[] = [];
+  await walk(feedsDir, async (absPath, isDir) => {
     if (isDir) return;
     if (!absPath.endsWith(".ts")) return;
     if (SKIP_FILES.has(basenameOf(absPath))) return;
-    if (!containsSegmentSequence(absPath, dirSegments)) return;
     out.push(absPath);
   });
   return out;
 }
 
-async function findWranglerTomls(rootDir: string): Promise<string[]> {
+async function findWranglerTomls(packageRoot: string): Promise<string[]> {
   const out: string[] = [];
-  await walk(rootDir, async (absPath, isDir) => {
+  await walk(packageRoot, async (absPath, isDir) => {
     if (isDir) return;
     if (basenameOf(absPath) !== "wrangler.toml") return;
     out.push(absPath);
@@ -160,24 +221,6 @@ function basenameOf(p: string): string {
   return parts[parts.length - 1] ?? p;
 }
 
-function containsSegmentSequence(
-  absPath: string,
-  segments: string[],
-): boolean {
-  const parts = absPath.split(sep);
-  for (let i = 0; i <= parts.length - segments.length; i++) {
-    let match = true;
-    for (let j = 0; j < segments.length; j++) {
-      if (parts[i + j] !== segments[j]) {
-        match = false;
-        break;
-      }
-    }
-    if (match) return true;
-  }
-  return false;
-}
-
 // ─── Agent file scanning ──────────────────────────────────────────
 
 async function scanAgentFile(
@@ -188,15 +231,27 @@ async function scanAgentFile(
   const stats = await stat(absPath);
   const name = basenameOf(absPath).replace(/\.ts$/, "");
   const path = relative(rootDir, absPath).split(sep).join("/");
+  const isGenerated = absPath.endsWith(".generated.ts");
+
+  const entrypoint = extractAgentEntrypoint(source);
+  // A file is only treated as an agent if it either exports an
+  // `*Agent` symbol or is explicitly listed in KNOWN_AGENT_NAMES
+  // (e.g. narrator, whose entrypoint is `generateThreatNarrative`).
+  const hasAgentExport =
+    entrypoint !== null && /Agent$/.test(entrypoint);
+  const isKnownAgent = KNOWN_AGENT_NAMES.has(name);
+  if (!hasAgentExport && !isKnownAgent) {
+    return null;
+  }
 
   return {
     name,
     path,
-    entrypoint: extractAgentEntrypoint(source),
-    triggers: extractAgentTriggers(source),
+    entrypoint,
+    triggers: isGenerated ? [] : extractAgentTriggers(source),
     reads: extractReadTables(source),
     writes: extractWriteTables(source),
-    ai_models_referenced: extractAiModels(source),
+    ai_models_referenced: isGenerated ? [] : extractAiModels(source),
     loc: countLines(source),
     last_modified: stats.mtime.toISOString(),
   };
@@ -205,12 +260,17 @@ async function scanAgentFile(
 function extractAgentEntrypoint(source: string): string | null {
   // Matches `export const fooAgent: AgentModule = { ... }` or
   // `export const fooAgent = { ... }`.
+  //
+  // Anchored to line start (with optional leading whitespace) via the
+  // `m` flag so a quoted example inside a `//` or `/* */` comment —
+  // e.g. this very docblock — doesn't get picked up as an entrypoint.
+  // Real exports always start at column 0 after module-top indent.
   const m = source.match(
-    /export\s+const\s+([A-Za-z_][A-Za-z0-9_]*Agent)\b/,
+    /^[ \t]*export\s+const\s+([A-Za-z_][A-Za-z0-9_]*Agent)\b/m,
   );
   if (m && m[1]) return m[1];
   const fn = source.match(
-    /export\s+(?:async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)/,
+    /^[ \t]*export\s+(?:async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)/m,
   );
   if (fn && fn[1]) return fn[1];
   return null;
