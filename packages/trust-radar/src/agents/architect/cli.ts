@@ -107,9 +107,16 @@ export async function runCollect(): Promise<{
     `[architect] run_id=${runId} run_type=${config.runType} target=${config.wranglerEnv ?? "default"}`,
   );
 
-  await insertReportRow(db, reportId, runId, config.runType, startedAt);
-
+  // Wrap the whole lifecycle — insert, collect, upload, complete — in
+  // one try/catch so any failure (including the initial insert) ends up
+  // logged with an explicit status=failed line. If the insert itself
+  // fails there's no row to update, so the catch handler treats the
+  // update as best-effort.
+  let reportRowInserted = false;
   try {
+    await insertReportRow(db, reportId, runId, config.runType, startedAt);
+    reportRowInserted = true;
+
     // Step 1 — collectors in parallel. repo is filesystem-only and doesn't
     // touch env; data-layer + ops share the D1 shim.
     const env = { DB: db } as unknown as Env;
@@ -168,15 +175,21 @@ export async function runCollect(): Promise<{
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`[architect] status=failed run_id=${runId} error=${errMsg}`);
-    const durationMs = Date.now() - startedAt;
-    // Best-effort — don't let a failure-path crash mask the original error.
-    try {
-      await markFailed(db, reportId, errMsg, durationMs);
-    } catch (markErr) {
+    if (reportRowInserted) {
+      const durationMs = Date.now() - startedAt;
+      // Best-effort — don't let a failure-path crash mask the original error.
+      try {
+        await markFailed(db, reportId, errMsg, durationMs);
+      } catch (markErr) {
+        console.error(
+          `[architect] additionally failed to mark run as failed: ${
+            markErr instanceof Error ? markErr.message : String(markErr)
+          }`,
+        );
+      }
+    } else {
       console.error(
-        `[architect] additionally failed to mark run as failed: ${
-          markErr instanceof Error ? markErr.message : String(markErr)
-        }`,
+        `[architect] report row was never inserted — no status update attempted`,
       );
     }
     throw err;
