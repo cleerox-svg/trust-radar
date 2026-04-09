@@ -1,0 +1,528 @@
+/**
+ * ARCHITECT Phase 3 — Sonnet synthesis.
+ *
+ * synthesize(runId, env) loads all three Phase 2 architect_analyses
+ * rows for the given run, computes the ground-truth scorecard, pulls
+ * the original ContextBundle from R2 for totals, and asks Sonnet 4.5
+ * to emit a single markdown executive report that reconciles
+ * contradictions Haiku may have introduced (e.g. the feeds
+ * naming-split pattern where orphan code + healthy runtime reads as
+ * "reconcile naming," not "kill the code").
+ *
+ * The function mirrors the Phase 2 analyzer architecture:
+ * - Single tool_use call (`report_synthesis_markdown`) so the model
+ *   cannot drift into free prose or skip the required field.
+ * - Shared transport selection: Cloudflare AI Gateway when
+ *   CF_ACCOUNT_ID is set, direct api.anthropic.com otherwise.
+ * - Per-call cost cap ($1.00) enforced after the usage numbers come
+ *   back — Sonnet is more expensive than Haiku but still cheap for
+ *   one report (~$0.05-0.15 in practice).
+ * - stop_reason === 'tool_use' is the only happy path; anything else
+ *   (max_tokens, end_turn with no tool call, etc.) throws with the
+ *   actual reason in the error message so the synthesiser row can
+ *   surface it verbatim.
+ *
+ * This function does NOT persist the row. The HTTP route / route
+ * handler owns row bookkeeping — we return `{ report_md,
+ * computed_scorecard, usage }` and the caller writes it to
+ * architect_syntheses. Keeping persistence out of here makes the
+ * synthesizer trivially unit-testable without mocking D1 inside of
+ * it (the tests mock the row fetcher + the fetch call, that's it).
+ */
+
+import type { Env } from "../../../types";
+
+import type {
+  ArchitectAnalysisRow,
+  SectionName,
+} from "../analysis/types";
+import type { ContextBundle } from "../types";
+
+import { computeScorecard, type ComputedScorecard } from "./scorecard";
+
+// ─── Model + pricing constants ─────────────────────────────────────
+//
+// Sonnet 4.5 list pricing as of 2025-10. Input $3/Mtok, output
+// $15/Mtok. Centralised here so we only edit one place when
+// Anthropic bumps the rates — mirrors the pattern in
+// analysis/pricing.ts.
+
+export const SONNET_MODEL = "claude-sonnet-4-5-20250929";
+export const SONNET_INPUT_USD_PER_MTOK = 3.0;
+export const SONNET_OUTPUT_USD_PER_MTOK = 15.0;
+
+/**
+ * Hard cap per synthesis run. Sonnet 4.5 is ~5x Haiku's input rate
+ * and ~3x output rate, so a typical synthesis lands around
+ * $0.05–$0.15; $1.00 is the "something is catastrophically wrong"
+ * tripwire, not a soft budget.
+ */
+export const MAX_COST_PER_SYNTHESIS_USD = 1.0;
+
+const ANTHROPIC_API_VERSION = "2023-06-01";
+const DEFAULT_MAX_TOKENS = 20_480;
+const REQUEST_TIMEOUT_MS = 120_000;
+
+export function computeSonnetCostUsd(
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  const inputCost = (inputTokens / 1_000_000) * SONNET_INPUT_USD_PER_MTOK;
+  const outputCost = (outputTokens / 1_000_000) * SONNET_OUTPUT_USD_PER_MTOK;
+  return inputCost + outputCost;
+}
+
+// ─── Env subset ────────────────────────────────────────────────────
+
+/**
+ * Env subset the synthesiser needs: D1 to read the Phase 2 rows + the
+ * architect_reports row, R2 for the original bundle, and the
+ * Anthropic credentials used by the analyzer too.
+ */
+export type SynthesizerEnv = Pick<
+  Env,
+  | "DB"
+  | "ARCHITECT_BUNDLES"
+  | "ANTHROPIC_API_KEY"
+  | "LRX_API_KEY"
+  | "CF_ACCOUNT_ID"
+>;
+
+// ─── Tool schema ───────────────────────────────────────────────────
+//
+// Single-field tool. The whole point of tool_use here is that it
+// forces the model to fill a structured field with the markdown —
+// there's no way for Sonnet to respond in free prose, and the
+// `maxLength: 20000` cap stops token bloat at the source.
+
+export const REPORT_SYNTHESIS_MARKDOWN_TOOL = {
+  name: "report_synthesis_markdown",
+  description:
+    "Submit the final markdown executive report for the ARCHITECT audit.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["report_md"],
+    properties: {
+      report_md: {
+        type: "string",
+        maxLength: 20_000,
+        description:
+          "The full markdown report. Must follow the exact H1/H2 structure specified in the system prompt.",
+      },
+    },
+  },
+} as const;
+
+// ─── Anthropic response shape (tool_use mode) ──────────────────────
+
+interface AnthropicContentBlock {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: unknown;
+}
+
+interface AnthropicMessageResponse {
+  content: AnthropicContentBlock[];
+  model: string;
+  stop_reason: string | null;
+  usage: { input_tokens: number; output_tokens: number };
+}
+
+// ─── Transport + auth (shared with analyzer) ──────────────────────
+
+function resolveAnthropicBaseUrl(env: SynthesizerEnv): string {
+  if (env.CF_ACCOUNT_ID) {
+    return `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/averrow-ai-gateway/anthropic`;
+  }
+  return "https://api.anthropic.com";
+}
+
+function resolveApiKey(env: SynthesizerEnv): string {
+  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ARCHITECT synthesizer: no Anthropic API key configured (ANTHROPIC_API_KEY or LRX_API_KEY)",
+    );
+  }
+  if (apiKey.startsWith("lrx_")) {
+    throw new Error(
+      "ARCHITECT synthesizer: LRX_API_KEY is an LRX proxy key — set ANTHROPIC_API_KEY to a real Anthropic key (sk-ant-...)",
+    );
+  }
+  return apiKey;
+}
+
+// ─── Loading helpers ───────────────────────────────────────────────
+
+/**
+ * Fetch all three Phase 2 rows for a run. Throws with a stable error
+ * code (`analyses_not_ready`) when any section is missing or still
+ * not in status='complete' so the HTTP route / tests can pattern-match
+ * without parsing prose.
+ */
+async function loadAnalyses(
+  env: SynthesizerEnv,
+  runId: string,
+): Promise<ArchitectAnalysisRow[]> {
+  const result = await env.DB.prepare(
+    `SELECT id, run_id, created_at, section, status, model,
+            input_tokens, output_tokens, cost_usd, duration_ms,
+            analysis_json, error_message
+       FROM architect_analyses
+      WHERE run_id = ?
+      ORDER BY section ASC`,
+  )
+    .bind(runId)
+    .all<ArchitectAnalysisRow>();
+
+  const rows = (result.results ?? []) as ArchitectAnalysisRow[];
+  const requiredSections: readonly SectionName[] = [
+    "agents",
+    "feeds",
+    "data_layer",
+  ];
+
+  const bySection = new Map<SectionName, ArchitectAnalysisRow>();
+  for (const row of rows) {
+    bySection.set(row.section, row);
+  }
+
+  // Every section must be present AND in status='complete'. We only
+  // report the first problem we find — the route surfaces a single
+  // 409 to the caller.
+  for (const section of requiredSections) {
+    const row = bySection.get(section);
+    if (!row) {
+      throw new Error(
+        `analyses_not_ready: missing ${section} row for run_id ${runId}`,
+      );
+    }
+    if (row.status !== "complete") {
+      throw new Error(
+        `analyses_not_ready: ${section} row for run_id ${runId} is in status '${row.status}'`,
+      );
+    }
+    if (!row.analysis_json) {
+      throw new Error(
+        `analyses_not_ready: ${section} row for run_id ${runId} has no analysis_json`,
+      );
+    }
+  }
+
+  return requiredSections.map((section) => bySection.get(section)!);
+}
+
+/**
+ * Minimal totals we pull out of the original bundle for the executive
+ * summary. We deliberately don't forward the whole bundle into the
+ * Sonnet prompt — it's already been distilled by Phase 2 into the
+ * assessments arrays, and re-sending the raw rows would double the
+ * input token bill without adding information Sonnet can't already
+ * cite.
+ */
+interface BundleTotals {
+  repo_totals: ContextBundle["repo"]["totals"];
+  data_layer_totals: ContextBundle["data_layer"]["totals"];
+  ops_collected_at: string | null;
+  telemetry_warnings: string[];
+  generated_at: string | null;
+}
+
+async function loadBundleTotals(
+  env: SynthesizerEnv,
+  runId: string,
+): Promise<BundleTotals | null> {
+  if (!env.ARCHITECT_BUNDLES) return null;
+
+  const report = await env.DB.prepare(
+    `SELECT context_bundle_r2_key
+       FROM architect_reports
+      WHERE run_id = ?
+      LIMIT 1`,
+  )
+    .bind(runId)
+    .first<{ context_bundle_r2_key: string | null }>();
+
+  const key = report?.context_bundle_r2_key;
+  if (!key) return null;
+
+  try {
+    const obj = await env.ARCHITECT_BUNDLES.get(key);
+    if (!obj) return null;
+    const bundle = (await obj.json()) as ContextBundle;
+    return {
+      repo_totals: bundle.repo.totals,
+      data_layer_totals: bundle.data_layer.totals,
+      ops_collected_at: bundle.ops.collected_at ?? null,
+      telemetry_warnings: bundle.ops.telemetry_warnings ?? [],
+      generated_at: bundle.generated_at ?? null,
+    };
+  } catch {
+    // Best effort — a missing bundle does not block synthesis. The
+    // executive summary just gets slightly less context (no row
+    // counts). Row counts are nice-to-have; the Phase 2 assessments
+    // are the authoritative signal Sonnet reasons over.
+    return null;
+  }
+}
+
+// ─── Sonnet call ───────────────────────────────────────────────────
+
+interface SynthesisUsage {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  duration_ms: number;
+}
+
+interface CallResult {
+  report_md: string;
+  usage: SynthesisUsage;
+}
+
+async function callSonnetTool(
+  env: SynthesizerEnv,
+  systemPrompt: string,
+  userMessage: string,
+): Promise<CallResult> {
+  const apiKey = resolveApiKey(env);
+  const baseUrl = resolveAnthropicBaseUrl(env);
+
+  const body = {
+    model: SONNET_MODEL,
+    max_tokens: DEFAULT_MAX_TOKENS,
+    system: systemPrompt,
+    tools: [REPORT_SYNTHESIS_MARKDOWN_TOOL],
+    tool_choice: {
+      type: "tool",
+      name: REPORT_SYNTHESIS_MARKDOWN_TOOL.name,
+    },
+    messages: [{ role: "user", content: userMessage }],
+  };
+
+  const startedAt = Date.now();
+  const res = await fetch(`${baseUrl}/v1/messages`, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_API_VERSION,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  const responseText = await res.text();
+  const durationMs = Date.now() - startedAt;
+
+  if (!res.ok) {
+    throw new Error(
+      `ARCHITECT synthesizer: Anthropic HTTP ${res.status}: ${responseText.slice(0, 500)}`,
+    );
+  }
+
+  let apiResponse: AnthropicMessageResponse;
+  try {
+    apiResponse = JSON.parse(responseText) as AnthropicMessageResponse;
+  } catch (err) {
+    throw new Error(
+      `ARCHITECT synthesizer: failed to parse Anthropic response JSON: ${
+        err instanceof Error ? err.message : String(err)
+      }: ${responseText.slice(0, 500)}`,
+    );
+  }
+
+  // Same stop_reason guard as the analyzer. max_tokens is the
+  // classic bloat failure mode — catch it here with the actual
+  // reason + token counts in the error message so the row's
+  // error_message tells the operator exactly what happened without
+  // having to pull the raw response out of logs.
+  if (apiResponse.stop_reason !== "tool_use") {
+    throw new Error(
+      `ARCHITECT synthesizer: expected stop_reason='tool_use' but got '${apiResponse.stop_reason}' ` +
+        `(in=${apiResponse.usage?.input_tokens ?? "?"}, ` +
+        `out=${apiResponse.usage?.output_tokens ?? "?"}) — raw: ${responseText.slice(0, 500)}`,
+    );
+  }
+
+  const toolUse = apiResponse.content.find(
+    (b) =>
+      b.type === "tool_use" && b.name === REPORT_SYNTHESIS_MARKDOWN_TOOL.name,
+  );
+  if (!toolUse || toolUse.input === undefined) {
+    throw new Error(
+      `ARCHITECT synthesizer: no tool_use block for '${REPORT_SYNTHESIS_MARKDOWN_TOOL.name}' in response: ${responseText.slice(0, 500)}`,
+    );
+  }
+
+  const input = toolUse.input;
+  if (
+    input === null ||
+    typeof input !== "object" ||
+    Array.isArray(input) ||
+    typeof (input as { report_md?: unknown }).report_md !== "string"
+  ) {
+    throw new Error(
+      `ARCHITECT synthesizer: tool_use input missing report_md string: ${JSON.stringify(
+        input,
+      ).slice(0, 500)}`,
+    );
+  }
+
+  const reportMd = (input as { report_md: string }).report_md;
+
+  const inputTokens = apiResponse.usage.input_tokens;
+  const outputTokens = apiResponse.usage.output_tokens;
+  const costUsd = computeSonnetCostUsd(inputTokens, outputTokens);
+  if (costUsd > MAX_COST_PER_SYNTHESIS_USD) {
+    throw new Error(
+      `ARCHITECT synthesizer: per-synthesis cost cap exceeded: $${costUsd.toFixed(4)} > $${MAX_COST_PER_SYNTHESIS_USD.toFixed(2)} (in=${inputTokens}, out=${outputTokens})`,
+    );
+  }
+
+  return {
+    report_md: reportMd,
+    usage: {
+      model: apiResponse.model || SONNET_MODEL,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cost_usd: costUsd,
+      duration_ms: durationMs,
+    },
+  };
+}
+
+// ─── System prompt ─────────────────────────────────────────────────
+
+const SYNTHESIS_SYSTEM_PROMPT = `You are ARCHITECT, the meta-agent synthesising a cross-section audit of the Averrow threat intelligence platform. You have already run three Phase 2 analyses (agents, feeds, data_layer) via Haiku. Your job now is to read those three analyses together, reconcile contradictions Haiku may have introduced, and emit a single markdown executive report.
+
+Ground rules:
+- Every claim must trace to evidence in the Phase 2 analyses or the bundle totals provided. Do not invent metrics, agents, feeds, or table names.
+- The server has already computed the ground-truth scorecard from the raw assessments arrays. Use those numbers verbatim in the Scorecard table — do NOT re-count. They are authoritative.
+- Reframe "kill" recommendations that are actually reconcile situations. The canonical example: a feed module whose repo code has no matching feed_configs row AND whose runtime twin is pulling successfully under a slightly different name. That is NOT a kill — it is a naming reconcile. Haiku frequently gets this wrong; catch it here.
+- If two sections make claims that contradict each other, pick the claim best supported by concrete evidence (run counts, failure counts, telemetry warnings, last_error excerpts) and flag the contradiction in "Things ARCHITECT Got Wrong This Run."
+- Be honest about Haiku's mistakes. The self-correction section builds trust over time — do not hide errors.
+- Actionable > vague. Every Top-5 priority must have a concrete Claude Code prompt the user can paste directly into a new session.
+
+Claude Code prompt format (used in Top 5 Priorities). Every prompt you emit must follow the same shape we've been using all along:
+
+\`\`\`
+Job: <one-line objective>
+Scope: <which packages / directories / files>
+Path discipline: <explicit "do not touch" boundaries>
+Done means: <bulleted, verifiable success criteria>
+Out of scope: <bulleted, explicit exclusions>
+\`\`\`
+
+Output contract — you MUST call the report_synthesis_markdown tool with a single field \`report_md\` containing a markdown document with this EXACT structure:
+
+# ARCHITECT Audit — <YYYY-MM-DD>
+
+## Executive Summary
+<3-5 sentences. Headline findings only. What's burning, what's stable, what to do this week.>
+
+## Scorecard
+| Section | Green | Amber | Red | Total |
+|---|---|---|---|---|
+| Agents | ... | ... | ... | ... |
+| Feeds | ... | ... | ... | ... |
+| Data Layer | ... | ... | ... | ... |
+| **Overall** | ... | ... | ... | ... |
+
+## Top 5 Priorities (this week)
+For each: ### title, one-paragraph explanation, evidence bullets, then a ready-to-paste Claude Code prompt in a fenced \`\`\`text block following the format above.
+
+## All Findings by Section
+### Agents
+<bulleted findings, one line each, with a severity tag like [red]/[amber]/[green]>
+### Feeds
+<same>
+### Data Layer
+<same>
+
+## Cross-Cutting Patterns
+<patterns spanning sections — things that touch multiple areas and can't be fixed in one place>
+
+## Things ARCHITECT Got Wrong This Run
+<self-correction section. Flag Haiku misclassifications you noticed during synthesis. Builds trust over time.>
+
+## Suggested Next Audit Date
+<one line — pick a cadence matching severity>
+
+Use the server-computed scorecard numbers exactly as provided. Keep the report under 20,000 characters — the tool will reject anything longer.`;
+
+// ─── Public entry point ────────────────────────────────────────────
+
+export interface SynthesizeResult {
+  report_md: string;
+  computed_scorecard: ComputedScorecard;
+  usage: SynthesisUsage;
+}
+
+/**
+ * Run a full synthesis for a single architect_reports run.
+ *
+ * 1. Loads the three Phase 2 rows. Throws `analyses_not_ready: ...`
+ *    if any are missing or non-complete — the HTTP route translates
+ *    that into a 409 before ever calling this function, but the
+ *    guard stays here so mis-wired callers (and tests) get the same
+ *    behaviour.
+ * 2. Loads the original bundle from R2 for totals. Best effort — a
+ *    missing bundle doesn't block synthesis.
+ * 3. Computes the ground-truth scorecard from the assessments arrays.
+ * 4. Calls Sonnet via tool_use with the computed scorecard and the
+ *    three analyses inlined in the user message.
+ * 5. Returns the markdown + scorecard + usage. The caller persists
+ *    all three to architect_syntheses.
+ */
+export async function synthesize(
+  runId: string,
+  env: SynthesizerEnv,
+): Promise<SynthesizeResult> {
+  const analyses = await loadAnalyses(env, runId);
+  const bundleTotals = await loadBundleTotals(env, runId);
+  const computedScorecard = computeScorecard(analyses);
+
+  // Parse the analysis_json for each row so the prompt carries the
+  // structured assessments directly — re-serializing keeps the
+  // payload compact and strips any D1-side whitespace drift.
+  const structuredAnalyses = analyses.map((row) => ({
+    section: row.section,
+    status: row.status,
+    model: row.model,
+    cost_usd: row.cost_usd,
+    analysis: row.analysis_json ? JSON.parse(row.analysis_json) : null,
+  }));
+
+  const userPayload = {
+    run_id: runId,
+    generated_at: bundleTotals?.generated_at ?? null,
+    ops_collected_at: bundleTotals?.ops_collected_at ?? null,
+    repo_totals: bundleTotals?.repo_totals ?? null,
+    data_layer_totals: bundleTotals?.data_layer_totals ?? null,
+    telemetry_warnings: bundleTotals?.telemetry_warnings ?? [],
+    computed_scorecard: computedScorecard,
+    phase2_analyses: structuredAnalyses,
+  };
+
+  const userMessage =
+    `Synthesize the ARCHITECT audit for run_id=${runId}.\n\n` +
+    `INPUT — computed scorecard + three Phase 2 analyses:\n` +
+    `${JSON.stringify(userPayload, null, 2)}`;
+
+  const { report_md, usage } = await callSonnetTool(
+    env,
+    SYNTHESIS_SYSTEM_PROMPT,
+    userMessage,
+  );
+
+  return {
+    report_md,
+    computed_scorecard: computedScorecard,
+    usage,
+  };
+}
