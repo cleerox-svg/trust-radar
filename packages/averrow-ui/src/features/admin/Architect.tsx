@@ -6,7 +6,7 @@
 // while any row is still in a non-terminal status so the UI reflects
 // the background worker finishing without a manual reload.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Compass } from 'lucide-react';
 
@@ -173,6 +173,69 @@ export function Architect() {
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [hasActiveRun, refresh]);
+
+  // Track which run IDs we've already hydrated so we only fire the
+  // analysis + synthesis lookups once per run across refreshes.
+  const hydratedRunIds = useRef<Set<string>>(new Set());
+
+  // Stable key over the set of complete run IDs currently visible, so
+  // the hydration effect only re-runs when new complete runs appear.
+  const completeRunIdsKey = useMemo(
+    () =>
+      runs
+        .filter((r) => r.status === 'complete')
+        .map((r) => r.run_id)
+        .sort()
+        .join(','),
+    [runs],
+  );
+
+  // On mount and whenever the runs list refreshes, hydrate analysis
+  // and synthesis state for each newly-visible complete run. Both
+  // calls are best-effort — 404/error just leaves state unset so the
+  // user still sees the Analyze/Synthesize buttons. Uses
+  // Promise.allSettled to fan out without blocking the UI.
+  useEffect(() => {
+    if (!completeRunIdsKey) return;
+    const toHydrate = completeRunIdsKey
+      .split(',')
+      .filter((id) => !hydratedRunIds.current.has(id));
+    if (toHydrate.length === 0) return;
+    toHydrate.forEach((id) => hydratedRunIds.current.add(id));
+
+    void Promise.allSettled(
+      toHydrate.flatMap((runId) => [
+        getArchitectAnalyses(runId).then((res) => {
+          const allComplete =
+            res.analyses.length >= ANALYSIS_SECTIONS_REQUIRED &&
+            res.analyses.every((a) => a.status === 'complete');
+          if (!allComplete) return;
+          setAnalysisState((prev) =>
+            prev[runId]
+              ? prev
+              : {
+                  ...prev,
+                  [runId]: { kind: 'ready', analyses: res.analyses },
+                },
+          );
+        }),
+        getArchitectSynthesis(runId).then((row) => {
+          if (row.status !== 'complete') return;
+          setSynthesisState((prev) =>
+            prev[runId]
+              ? prev
+              : {
+                  ...prev,
+                  [runId]: {
+                    kind: 'ready',
+                    reportMd: row.report_md ?? '',
+                  },
+                },
+          );
+        }),
+      ]),
+    );
+  }, [completeRunIdsKey]);
 
   const handleStart = useCallback(
     async (runType: ArchitectRunType) => {
