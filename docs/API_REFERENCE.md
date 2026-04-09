@@ -416,6 +416,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/admin/architect/runs/:run_id` | SuperAdmin | ARCHITECT run detail + bundle JSON if status=complete |
 | POST | `/api/admin/architect/analyze/:run_id` | SuperAdmin | Phase 2 — trigger Haiku inventory analysis against an already-complete run (returns 202; 409 if an analysis is already in flight for that run_id) |
 | GET | `/api/admin/architect/analyses/:run_id` | SuperAdmin | Phase 2 — return the three section rows (agents / feeds / data_layer) with parsed analysis JSON |
+| POST | `/api/admin/architect/synthesize/:run_id` | SuperAdmin | Phase 3 — trigger Sonnet 4.5 synthesis pass (returns 202; 409 `analyses_not_ready` if the three Phase 2 rows aren't all complete, 409 `architect_synthesis_in_progress` if a synthesis is already in flight) |
+| GET | `/api/admin/architect/synthesis/:run_id` | SuperAdmin | Phase 3 — return the architect_syntheses row including `report_md` and `computed_scorecard` |
 
 ## WebSocket
 

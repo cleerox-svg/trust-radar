@@ -18,6 +18,7 @@ import type { IRequest, RouterType } from "itty-router";
 import { runAnalysis } from "../agents/architect/analysis/orchestrator";
 import type { SectionName } from "../agents/architect/analysis/types";
 import { runCollect } from "../agents/architect/core";
+import { synthesize } from "../agents/architect/synthesis/synthesizer";
 import type { RunType } from "../agents/architect/types";
 import { json } from "../lib/cors";
 import { isAuthContext, requireSuperAdmin } from "../middleware/auth";
@@ -512,6 +513,332 @@ export function registerArchitectRoutes(router: RouterType<IRequest>): void {
           run_id: runId,
           total_cost_usd: totalCostUsd,
           analyses,
+        },
+        200,
+        origin,
+      );
+    },
+  );
+
+  // ─── POST /api/admin/architect/synthesize/:run_id ──────────────
+  //
+  // Phase 3 — Sonnet synthesis. Requires all three
+  // architect_analyses rows for the run to be in status='complete'.
+  // Inserts / upserts an architect_syntheses row in status='pending'
+  // immediately so the concurrency guard and any polling UI see the
+  // in-flight state, then runs synthesize() in ctx.waitUntil and
+  // flips the row to complete/failed from the background task.
+  //
+  // Synthesis runs in-process (not on a Queue) because it's a
+  // single Sonnet call — ~10–30s wall-clock, well inside the Worker
+  // budget for a background task launched from a 202 response.
+  router.post(
+    "/api/admin/architect/synthesize/:run_id",
+    async (
+      request: Request & { params: Record<string, string> },
+      env: Env,
+      ctx: ExecutionContext,
+    ) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const runId = request.params["run_id"] ?? "";
+      if (!runId) {
+        return json(
+          { success: false, error: "Missing run_id" },
+          400,
+          origin,
+        );
+      }
+
+      // The architect_reports row must exist. We don't require the
+      // bundle to be loadable — loadBundleTotals() inside the
+      // synthesiser is best-effort — but the report row itself is
+      // the FK target for architect_syntheses.run_id, so a missing
+      // row is a hard 404.
+      const report = await env.DB.prepare(
+        `SELECT run_id, status FROM architect_reports WHERE run_id = ? LIMIT 1`,
+      )
+        .bind(runId)
+        .first<{ run_id: string; status: string }>();
+
+      if (!report) {
+        return json(
+          { success: false, error: "Run not found" },
+          404,
+          origin,
+        );
+      }
+
+      // All three architect_analyses rows must be in status='complete'
+      // before synthesis can run. We count the matching rows in D1
+      // and also surface the first non-complete status so the caller
+      // can tell which section isn't ready.
+      const completeRows = await env.DB.prepare(
+        `SELECT section, status
+           FROM architect_analyses
+          WHERE run_id = ?
+          ORDER BY section ASC`,
+      )
+        .bind(runId)
+        .all<{ section: SectionName; status: string }>();
+
+      const sections = completeRows.results ?? [];
+      const requiredSections: SectionName[] = ["agents", "feeds", "data_layer"];
+      const missing: string[] = [];
+      for (const required of requiredSections) {
+        const match = sections.find((s) => s.section === required);
+        if (!match) {
+          missing.push(`${required}:missing`);
+        } else if (match.status !== "complete") {
+          missing.push(`${required}:${match.status}`);
+        }
+      }
+      if (missing.length > 0) {
+        return json(
+          {
+            success: false,
+            error: "analyses_not_ready",
+            run_id: runId,
+            details: missing,
+          },
+          409,
+          origin,
+        );
+      }
+
+      // Concurrency guard — refuse if a synthesis for this run is
+      // already pending or in flight. architect_syntheses.run_id is
+      // UNIQUE so we also cannot insert a second pending row for
+      // the same run; this check just lets us return a clean 409
+      // instead of leaking an FK / UNIQUE error.
+      const existing = await env.DB.prepare(
+        `SELECT id, status FROM architect_syntheses WHERE run_id = ? LIMIT 1`,
+      )
+        .bind(runId)
+        .first<{ id: string; status: string }>();
+
+      if (
+        existing &&
+        (existing.status === "pending" || existing.status === "synthesizing")
+      ) {
+        return json(
+          {
+            success: false,
+            error: "architect_synthesis_in_progress",
+            run_id: runId,
+            status: existing.status,
+          },
+          409,
+          origin,
+        );
+      }
+
+      const synthesisId = existing?.id ?? `arcsyn-${runId}`;
+      const createdAtMs = Date.now();
+
+      // Either insert a fresh row or reset an existing terminal row
+      // (complete/failed) back to pending so the background task can
+      // overwrite it — this lets the caller re-run synthesis against
+      // the same run without manually deleting the prior row.
+      if (existing) {
+        await env.DB.prepare(
+          `UPDATE architect_syntheses
+              SET status = 'pending',
+                  created_at = ?,
+                  model = ?,
+                  input_tokens = NULL,
+                  output_tokens = NULL,
+                  cost_usd = NULL,
+                  duration_ms = NULL,
+                  report_md = NULL,
+                  computed_scorecard_json = NULL,
+                  error_message = NULL
+            WHERE run_id = ?`,
+        )
+          .bind(
+            createdAtMs,
+            "claude-sonnet-4-5-20250929",
+            runId,
+          )
+          .run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO architect_syntheses
+             (id, run_id, created_at, status, model)
+           VALUES (?, ?, ?, 'pending', ?)`,
+        )
+          .bind(synthesisId, runId, createdAtMs, "claude-sonnet-4-5-20250929")
+          .run();
+      }
+
+      // Background work — the synthesiser runs in waitUntil so the
+      // HTTP response returns immediately. We flip the row to
+      // 'synthesizing' just before the Sonnet call and to complete
+      // / failed in the same try/catch so nothing is left stranded.
+      ctx.waitUntil(
+        (async () => {
+          const startedAt = Date.now();
+          try {
+            await env.DB.prepare(
+              `UPDATE architect_syntheses
+                  SET status = 'synthesizing'
+                WHERE run_id = ?
+                  AND status = 'pending'`,
+            )
+              .bind(runId)
+              .run();
+
+            const result = await synthesize(runId, env);
+
+            await env.DB.prepare(
+              `UPDATE architect_syntheses
+                  SET status = 'complete',
+                      model = ?,
+                      input_tokens = ?,
+                      output_tokens = ?,
+                      cost_usd = ?,
+                      duration_ms = ?,
+                      report_md = ?,
+                      computed_scorecard_json = ?,
+                      error_message = NULL
+                WHERE run_id = ?`,
+            )
+              .bind(
+                result.usage.model,
+                result.usage.input_tokens,
+                result.usage.output_tokens,
+                result.usage.cost_usd,
+                result.usage.duration_ms,
+                result.report_md,
+                JSON.stringify(result.computed_scorecard),
+                runId,
+              )
+              .run();
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            const durationMs = Date.now() - startedAt;
+            try {
+              await env.DB.prepare(
+                `UPDATE architect_syntheses
+                    SET status = 'failed',
+                        duration_ms = ?,
+                        error_message = ?
+                  WHERE run_id = ?`,
+              )
+                .bind(
+                  durationMs,
+                  errMsg.length > 500 ? errMsg.slice(0, 500) : errMsg,
+                  runId,
+                )
+                .run();
+            } catch (markErr) {
+              console.error(
+                `[architect-synthesis] mark failed threw for ${runId}:`,
+                markErr,
+              );
+            }
+          }
+        })(),
+      );
+
+      return json(
+        {
+          success: true,
+          run_id: runId,
+          status: "pending",
+          started_at: new Date(createdAtMs).toISOString(),
+        },
+        202,
+        origin,
+      );
+    },
+  );
+
+  // ─── GET /api/admin/architect/synthesis/:run_id ────────────────
+  //
+  // Returns the architect_syntheses row for a run, with the parsed
+  // computed_scorecard_json inlined. Phase 5's report viewer reads
+  // this shape; Phase 3 exposes it so the admin can curl the
+  // endpoint for manual verification before the UI lands.
+  router.get(
+    "/api/admin/architect/synthesis/:run_id",
+    async (
+      request: Request & { params: Record<string, string> },
+      env: Env,
+    ) => {
+      const origin = request.headers.get("Origin");
+      const auth = await requireSuperAdmin(request, env);
+      if (!isAuthContext(auth)) return auth;
+
+      const runId = request.params["run_id"] ?? "";
+      if (!runId) {
+        return json(
+          { success: false, error: "Missing run_id" },
+          400,
+          origin,
+        );
+      }
+
+      const row = await env.DB.prepare(
+        `SELECT id, run_id, created_at, status, model,
+                input_tokens, output_tokens, cost_usd, duration_ms,
+                report_md, computed_scorecard_json, error_message
+           FROM architect_syntheses
+          WHERE run_id = ?
+          LIMIT 1`,
+      )
+        .bind(runId)
+        .first<{
+          id: string;
+          run_id: string;
+          created_at: number;
+          status: string;
+          model: string;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cost_usd: number | null;
+          duration_ms: number | null;
+          report_md: string | null;
+          computed_scorecard_json: string | null;
+          error_message: string | null;
+        }>();
+
+      if (!row) {
+        return json(
+          { success: false, error: "Synthesis not found" },
+          404,
+          origin,
+        );
+      }
+
+      let computedScorecard: unknown = null;
+      if (row.computed_scorecard_json) {
+        try {
+          computedScorecard = JSON.parse(row.computed_scorecard_json);
+        } catch {
+          /* leave null — raw string is still in the response below */
+        }
+      }
+
+      return json(
+        {
+          success: true,
+          synthesis: {
+            id: row.id,
+            run_id: row.run_id,
+            created_at: new Date(row.created_at).toISOString(),
+            status: row.status,
+            model: row.model,
+            input_tokens: row.input_tokens,
+            output_tokens: row.output_tokens,
+            cost_usd: row.cost_usd,
+            duration_ms: row.duration_ms,
+            report_md: row.report_md,
+            computed_scorecard: computedScorecard,
+            error_message: row.error_message,
+          },
         },
         200,
         origin,
