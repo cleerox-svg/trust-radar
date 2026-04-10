@@ -250,6 +250,12 @@ async function classifyWithHaiku(context: string, env: Env, runId: string | null
     return heuristicClassification(context);
   }
 
+  // Pre-filter: heuristic first. If confident, skip AI.
+  const heuristic = heuristicClassification(context);
+  if (heuristic.confidence >= 60 && heuristic.threat_type !== 'benign') {
+    return heuristic;
+  }
+
   const systemPrompt = `You are a brand threat intelligence analyst. Classify this social media mention for potential threats to the matched brand. Determine if this represents a genuine threat or is benign.
 
 Respond with JSON only:

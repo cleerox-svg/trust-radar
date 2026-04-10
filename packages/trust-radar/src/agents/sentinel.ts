@@ -118,34 +118,47 @@ export const sentinelAgent: AgentModule = {
     let model: string | undefined;
     let haikuSuccesses = 0;
     let haikuFailures = 0;
+    let aiSkippedByRules = 0;
 
     for (const threat of threats.results) {
       itemsProcessed++;
 
-      // Try Haiku classification
-      const result = await classifyThreat(env, callCtx, {
-        malicious_url: threat.malicious_url,
-        malicious_domain: threat.malicious_domain,
-        ip_address: threat.ip_address,
-        source_feed: threat.source_feed,
-        ioc_value: threat.ioc_value,
-      });
+      // Pre-filter: high-confidence feeds with known threat types skip AI
+      const ruleResult = ruleBasedClassify(threat.source_feed, threat.threat_type);
+      const skipAI = ruleResult.confidence >= 85 && threat.threat_type && threat.threat_type !== 'unknown';
 
       let confidence: number;
       let severity: string;
 
-      if (result.success && result.data) {
-        haikuSuccesses++;
-        confidence = result.data.confidence;
-        severity = result.data.severity;
-        if (result.tokens_used) totalTokens += result.tokens_used;
-        if (result.model) model = result.model;
+      if (skipAI) {
+        // High-confidence feed with known threat type — trust the feed
+        confidence = ruleResult.confidence;
+        severity = ruleResult.severity;
+        haikuSuccesses++; // count as success for stats
+        aiSkippedByRules++;
       } else {
-        haikuFailures++;
-        // Fallback: rule-based scoring with source-quality boosting
-        const fb = ruleBasedClassify(threat.source_feed, threat.threat_type);
-        confidence = fb.confidence;
-        severity = fb.severity;
+        // Try Haiku classification
+        const result = await classifyThreat(env, callCtx, {
+          malicious_url: threat.malicious_url,
+          malicious_domain: threat.malicious_domain,
+          ip_address: threat.ip_address,
+          source_feed: threat.source_feed,
+          ioc_value: threat.ioc_value,
+        });
+
+        if (result.success && result.data) {
+          haikuSuccesses++;
+          confidence = result.data.confidence;
+          severity = result.data.severity;
+          if (result.tokens_used) totalTokens += result.tokens_used;
+          if (result.model) model = result.model;
+        } else {
+          haikuFailures++;
+          // Fallback: rule-based scoring with source-quality boosting
+          const fb = ruleBasedClassify(threat.source_feed, threat.threat_type);
+          confidence = fb.confidence;
+          severity = fb.severity;
+        }
       }
 
       // Impersonation detection on domain
@@ -259,7 +272,7 @@ export const sentinelAgent: AgentModule = {
     outputs.push({
       type: "classification",
       summary: itemsProcessed > 0
-        ? `Sentinel classified ${itemsUpdated} threats (${itemsProcessed} processed, ${impersonationsFound} impersonations, haiku=${haikuSuccesses}/${haikuFailures})`
+        ? `Sentinel classified ${itemsUpdated} threats (${itemsProcessed} processed, ${impersonationsFound} impersonations, haiku=${haikuSuccesses}/${haikuFailures}, aiSkippedByRules=${aiSkippedByRules})`
         : `Sentinel found 0 unclassified threats (${totalCount?.n ?? 0} total in DB, ${nullCount?.n ?? 0} with NULL confidence)`,
       severity: "info",
       details: {
@@ -268,6 +281,7 @@ export const sentinelAgent: AgentModule = {
         impersonationsFound,
         haikuSuccesses,
         haikuFailures,
+        aiSkippedByRules,
         totalThreats: totalCount?.n ?? 0,
         nullConfidenceThreats: nullCount?.n ?? 0,
         anthropicApiConfigured: !!env.ANTHROPIC_API_KEY,

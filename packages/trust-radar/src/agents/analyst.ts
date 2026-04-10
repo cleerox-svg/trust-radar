@@ -71,11 +71,34 @@ export const analystAgent: AgentModule = {
       malicious_domain: string | null; source_feed: string; threat_type: string;
     }>();
 
-    // Load known brands for context
+    // Load known brands with their keyword/alias data for cheap pre-matching
     const brands = await env.DB.prepare(
-      "SELECT name FROM brands ORDER BY threat_count DESC LIMIT 100"
-    ).all<{ name: string }>();
+      "SELECT id, name, brand_keywords, aliases FROM brands ORDER BY threat_count DESC LIMIT 100"
+    ).all<{ id: string; name: string; brand_keywords: string | null; aliases: string | null }>();
     const brandNames = brands.results.map((b) => b.name);
+
+    // Build a flat keyword → brand_id map for substring matching.
+    // Keywords are typically lowercase, alphanumeric, ≥4 chars to avoid false positives.
+    const keywordToBrandId = new Map<string, string>();
+    for (const b of brands.results) {
+      const addKeyword = (kw: string) => {
+        const norm = kw.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (norm.length >= 4) keywordToBrandId.set(norm, b.id);
+      };
+      addKeyword(b.name);
+      if (b.brand_keywords) {
+        try {
+          const kws = JSON.parse(b.brand_keywords) as string[];
+          if (Array.isArray(kws)) kws.forEach(addKeyword);
+        } catch { /* ignore parse errors */ }
+      }
+      if (b.aliases) {
+        try {
+          const als = JSON.parse(b.aliases) as string[];
+          if (Array.isArray(als)) als.forEach(addKeyword);
+        } catch { /* ignore parse errors */ }
+      }
+    }
 
     // Load safe domains for allowlist filtering
     const safeSet = await loadSafeDomainSet(env.DB);
@@ -90,6 +113,8 @@ export const analystAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
 
     let safeSkipped = 0;
+    let keywordPreMatched = 0;
+    const matchedBrandIds = new Set<string>();
 
     for (const threat of threats.results) {
       itemsProcessed++;
@@ -100,6 +125,30 @@ export const analystAgent: AgentModule = {
         continue;
       }
 
+      // Pre-filter: substring match against brand keywords. Skip AI on confident matches.
+      const domainNorm = (threat.malicious_domain ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let preMatchedBrandId: string | null = null;
+      if (domainNorm) {
+        for (const [kw, brandId] of keywordToBrandId) {
+          if (domainNorm.includes(kw)) {
+            preMatchedBrandId = brandId;
+            break;
+          }
+        }
+      }
+
+      if (preMatchedBrandId) {
+        // High-confidence keyword match — assign brand directly, skip AI
+        keywordPreMatched++;
+        await env.DB.prepare(
+          `UPDATE threats SET target_brand_id = ?, brand_match_method = 'keyword' WHERE id = ?`
+        ).bind(preMatchedBrandId, threat.id).run();
+        matchedBrandIds.add(preMatchedBrandId);
+        itemsUpdated++;
+        continue; // skip to next threat
+      }
+
+      // No keyword match — fall through to existing AI inference
       const result = await inferBrand(
         env,
         callCtx,
@@ -305,7 +354,7 @@ export const analystAgent: AgentModule = {
 
     // ─── Phase 3: Brand threat correlation escalation ──────────
     // After processing threats, run correlation for brands with new matches
-    const matchedBrandIds = new Set<string>();
+    // (matchedBrandIds already populated by keyword pre-matches above)
     if (threats.results.length > 0) {
       const threatIds = threats.results.map(t => t.id);
       const brandRows = await env.DB.prepare(
@@ -768,7 +817,7 @@ export const analystAgent: AgentModule = {
     outputs.push({
       type: "classification",
       summary: itemsProcessed > 0
-        ? `Analyst matched ${itemsUpdated} threats to brands (${itemsProcessed} processed, haiku=${haikuSuccesses}/${haikuFailures}, low_conf=${lowConfidence})`
+        ? `Analyst matched ${itemsUpdated} threats to brands (${itemsProcessed} processed, haiku=${haikuSuccesses}/${haikuFailures}, low_conf=${lowConfidence}, keywordPreMatched=${keywordPreMatched})`
         : `Analyst found 0 unmatched threats to process`,
       severity: "info",
       details: {
@@ -777,6 +826,7 @@ export const analystAgent: AgentModule = {
         haikuSuccesses,
         haikuFailures,
         lowConfidence,
+        keywordPreMatched,
         knownBrands: brandNames.length,
         anthropicKeySource: keySource,
         anthropicApiConfigured: !!apiKey,
@@ -791,7 +841,7 @@ export const analystAgent: AgentModule = {
       itemsProcessed,
       itemsCreated: numberedVariantsFound,
       itemsUpdated,
-      output: { brandMatches: itemsUpdated },
+      output: { brandMatches: itemsUpdated, keywordPreMatched },
       model,
       tokensUsed: totalTokens,
       agentOutputs: outputs,
