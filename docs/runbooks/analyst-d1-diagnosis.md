@@ -222,13 +222,30 @@ SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='threats' OR
 
 ## Post-Phase-B: EXPLAIN with idx_threats_unlinked_recent
 
-> Captured after adding the partial index in Phase B.
+> Captured after adding the partial index in migration 0076.
 
 ### Query A plan (post-fix)
 
 ```
--- placeholder: filled in after Phase B migration
+SEARCH threats USING INDEX idx_threats_brand_created (target_brand_id=?)
 ```
+
+**Planner still prefers `idx_threats_brand_created` in local testing (5K rows, ANALYZE'd).**
+
+This is expected: SQLite's cost model sees `idx_threats_brand_created(target_brand_id, created_at DESC)`
+as providing both the equality filter AND the sort in one pass. It doesn't fully model the advantage
+of the partial index (zero wasted table lookups for the `malicious_domain IS NOT NULL` check).
+
+On production D1 with 140K rows and different selectivity (NULL-brand rows may have many
+IP-only threats without `malicious_domain`), the planner may choose the partial index. Even if
+it doesn't, the index is correct to add:
+- Write overhead is negligible (partial index only covers ~20% of rows)
+- It provides the optimal plan for this exact query pattern
+- D1's planner behavior may differ from stock SQLite
+- Future SQLite versions may improve partial index costing
+
+**Production verification needed:** After deploy, run `EXPLAIN QUERY PLAN` on remote D1 to
+confirm which index is selected with real data distribution.
 
 ---
 
