@@ -13,6 +13,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits } from "../lib/budgetManager";
+import { agentModules } from "./index";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -22,6 +23,11 @@ interface AgentHealth {
   last_run_status: string | null;
   avg_duration_ms: number;
   is_stalled: boolean;
+  circuit_state: 'closed' | 'tripped';
+  consecutive_failures: number;
+  paused_reason: string | null;
+  paused_after_n_failures: number | null;
+  paused_at: string | null;
 }
 
 interface Backlog {
@@ -63,6 +69,20 @@ interface AutoPausedFeed {
   last_error: string | null;
 }
 
+/**
+ * Auto-tripped agent — circuit breaker has flipped enabled=0 with
+ * paused_reason='auto:consecutive_failures'. Operationally distinct
+ * from degraded: a degraded agent is still running (just failing)
+ * whereas a tripped agent is skipped by executeAgent() until an
+ * admin resets its circuit breaker.
+ */
+interface TrippedAgent {
+  agent_id: string;
+  consecutive_failures: number;
+  paused_at: string | null;
+  paused_after_n_failures: number | null;
+}
+
 // Parallel instance thresholds per backlog level
 const SCALING = {
   cartographer: { low: 500, medium: 2000, high: 5000, max_parallel: 3 },
@@ -79,7 +99,8 @@ const STALL_THRESHOLDS: Record<string, number> = {
   sparrow:       120,
 };
 
-const AGENTS_TO_MONITOR = ['sentinel', 'cartographer', 'nexus', 'analyst', 'observer', 'sparrow'];
+/** Dynamically derived from the agent registry — all agents are monitored. */
+const AGENTS_TO_MONITOR = Object.keys(agentModules);
 
 // ─── Agent Module ────────────────────────────────────────────────
 
@@ -109,7 +130,7 @@ export const flightControlAgent: AgentModule = {
     }
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds] = await Promise.all([
+    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds, trippedAgents] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
       budgetMgr.getStatus(anthropicReported),
@@ -147,6 +168,19 @@ export const flightControlAgent: AgentModule = {
             AND fc.paused_reason = 'auto:consecutive_failures'
           ORDER BY fs.consecutive_failures DESC
       `).all<AutoPausedFeed>(),
+      // Auto-tripped agents — circuit breaker has flipped them to
+      // enabled=0 with paused_reason='auto:consecutive_failures'.
+      // Distinct from degraded (still running but failing).
+      db.prepare(`
+        SELECT agent_id,
+               consecutive_failures,
+               paused_at,
+               paused_after_n_failures
+          FROM agent_configs
+          WHERE enabled = 0
+            AND paused_reason = 'auto:consecutive_failures'
+          ORDER BY consecutive_failures DESC
+      `).all<TrippedAgent>(),
     ]);
 
     // Log emergency budget state
@@ -262,6 +296,18 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    // ── Auto-tripped agent surfacing ──────────────────────────────
+    // Same pattern as auto-paused feeds: a single roll-up log line
+    // per FC tick so the dashboard timeline shows the current count.
+    // The critical notification was already fired by executeAgent()
+    // at the moment of the transition.
+    if (trippedAgents.results.length > 0) {
+      await logActivity(db, 'flight_control', 'warning', 'agents_tripped',
+        `${trippedAgents.results.length} agent${trippedAgents.results.length === 1 ? '' : 's'} circuit-tripped: ${trippedAgents.results.map(a => a.agent_id).join(', ')}`,
+        { count: trippedAgents.results.length, agents: trippedAgents.results.map(a => ({ agent_id: a.agent_id, consecutive_failures: a.consecutive_failures })) }
+      );
+    }
+
     // ── C2 infrastructure overlap detection ────────────────────────
     try {
       const c2Overlap = await db.prepare(`
@@ -327,7 +373,9 @@ export const flightControlAgent: AgentModule = {
     }
 
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
-    const overallStatus = stalled.length > 0 ? 'degraded'
+    const tripped = health.filter(h => h.circuit_state === 'tripped').map(h => h.agent_id);
+    const healthyAgents = health.filter(h => !h.is_stalled && h.circuit_state === 'closed');
+    const overallStatus = tripped.length > 0 || stalled.length > 0 ? 'degraded'
       : Object.values(backlogs).some(b => b > 5000) ? 'busy'
       : 'healthy';
 
@@ -339,14 +387,16 @@ export const flightControlAgent: AgentModule = {
       overall_status: overallStatus,
       degraded_feeds: degradedFeeds.results,
       auto_paused_feeds: autoPausedFeeds.results,
+      tripped_agents: trippedAgents.results,
     };
 
     const feedHealthSummary = `${autoPausedFeeds.results.length} feeds auto-paused, ${degradedFeeds.results.length} degraded`;
+    const agentHealthSummary = `${tripped.length} tripped, ${stalled.length} degraded, ${healthyAgents.length} healthy`;
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
-      severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} agents=[${agentHealthSummary}] feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      severity: tripped.length > 0 || stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
 
@@ -596,8 +646,11 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
 // ─── Agent Health ────────────────────────────────────────────────
 
 async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
-  // Single query gets latest run per agent — no loop (2 queries instead of 12)
-  const [results, avgResults] = await Promise.all([
+  const agentIds = AGENTS_TO_MONITOR;
+  // Build a placeholder list for the IN clause
+  const placeholders = agentIds.map(() => '?').join(',');
+
+  const [results, avgResults, configResults] = await Promise.all([
     db.prepare(`
       SELECT
         agent_id,
@@ -609,23 +662,37 @@ async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
         SELECT MAX(started_at) FROM agent_runs ar2
         WHERE ar2.agent_id = ar1.agent_id
       )
-      AND agent_id IN ('sentinel','cartographer','nexus','analyst','observer','sparrow')
-    `).all<{ agent_id: string; last_run_status: string; last_run_at: string; duration_ms: number | null }>(),
+      AND agent_id IN (${placeholders})
+    `).bind(...agentIds).all<{ agent_id: string; last_run_status: string; last_run_at: string; duration_ms: number | null }>(),
 
     db.prepare(`
       SELECT agent_id, AVG(duration_ms) as avg_ms
       FROM agent_runs
       WHERE started_at >= datetime('now', '-24 hours')
         AND duration_ms IS NOT NULL
-        AND agent_id IN ('sentinel','cartographer','nexus','analyst','observer','sparrow')
+        AND agent_id IN (${placeholders})
       GROUP BY agent_id
-    `).all<{ agent_id: string; avg_ms: number | null }>(),
+    `).bind(...agentIds).all<{ agent_id: string; avg_ms: number | null }>(),
+
+    // LEFT JOIN agent_configs for circuit breaker state
+    db.prepare(`
+      SELECT agent_id, enabled, paused_reason, consecutive_failures,
+             paused_at, paused_after_n_failures
+      FROM agent_configs
+      WHERE agent_id IN (${placeholders})
+    `).bind(...agentIds).all<{
+      agent_id: string; enabled: number; paused_reason: string | null;
+      consecutive_failures: number; paused_at: string | null;
+      paused_after_n_failures: number | null;
+    }>(),
   ]);
 
   const avgMap = new Map(avgResults.results.map(r => [r.agent_id, r.avg_ms]));
+  const configMap = new Map(configResults.results.map(r => [r.agent_id, r]));
 
-  return AGENTS_TO_MONITOR.map(agentId => {
+  return agentIds.map(agentId => {
     const latest = results.results.find(r => r.agent_id === agentId);
+    const config = configMap.get(agentId);
     const thresholdMs = (STALL_THRESHOLDS[agentId] ?? 60) * 60 * 1000;
     const lastRunAge = latest?.last_run_at
       ? Date.now() - new Date(latest.last_run_at + 'Z').getTime()
@@ -633,12 +700,20 @@ async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
     const isStalled = lastRunAge > thresholdMs ||
       (latest?.last_run_status === 'partial' && lastRunAge > 45 * 60 * 1000);
 
+    // Derive circuit state from agent_configs
+    const isTripped = config?.enabled === 0 && config.paused_reason === 'auto:consecutive_failures';
+
     return {
       agent_id: agentId,
       last_run_at: latest?.last_run_at ?? null,
       last_run_status: latest?.last_run_status ?? null,
       avg_duration_ms: Math.round(avgMap.get(agentId) ?? 0),
       is_stalled: isStalled,
+      circuit_state: isTripped ? 'tripped' as const : 'closed' as const,
+      consecutive_failures: config?.consecutive_failures ?? 0,
+      paused_reason: config?.paused_reason ?? null,
+      paused_after_n_failures: config?.paused_after_n_failures ?? null,
+      paused_at: config?.paused_at ?? null,
     };
   });
 }
