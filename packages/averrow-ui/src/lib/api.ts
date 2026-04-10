@@ -10,6 +10,7 @@ interface ApiResponse<T = unknown> {
 class ApiClient {
   private token: string | null = null;
   private refreshToken: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
   private onUnauthorized: (() => void) | null = null;
 
   setTokens(access: string, refresh: string) {
@@ -106,20 +107,27 @@ class ApiClient {
   }
 
   private async tryRefresh(): Promise<boolean> {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: this.refreshToken }),
-      });
-      if (!response.ok) return false;
-      const data = await response.json() as { access_token: string; refresh_token: string };
-      this.token = data.access_token;
-      this.refreshToken = data.refresh_token;
-      return true;
-    } catch {
-      return false;
-    }
+    if (this.refreshPromise) return this.refreshPromise;
+
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: this.refreshToken }),
+        });
+        if (!response.ok) return false;
+        const data = await response.json() as { access_token: string; refresh_token: string };
+        this.setTokens(data.access_token, data.refresh_token);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
   }
 }
 
