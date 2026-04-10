@@ -287,6 +287,11 @@ export const cartographerAgent: AgentModule = {
               hp.avg_response_time, hp.trend_7d, hp.trend_30d
        FROM hosting_providers hp
        WHERE hp.total_threat_count > 0
+         AND (
+           hp.last_scored_at IS NULL
+           OR hp.last_scored_at < datetime('now', '-6 hours')
+           OR ABS(hp.active_threat_count - COALESCE(hp.last_score_threat_count, 0)) > 10
+         )
        ORDER BY hp.active_threat_count DESC LIMIT 50`
     ).all<{
       id: string; name: string; asn: string | null;
@@ -388,13 +393,15 @@ export const cartographerAgent: AgentModule = {
 
       try {
         await env.DB.prepare(
-          "UPDATE hosting_providers SET reputation_score = ? WHERE id = ?"
-        ).bind(reputationScore, provider.id).run();
+          "UPDATE hosting_providers SET reputation_score = ?, last_scored_at = datetime('now'), last_score = ?, last_score_threat_count = ? WHERE id = ?"
+        ).bind(reputationScore, reputationScore, provider.active_threat_count, provider.id).run();
         itemsUpdated++;
       } catch (err) {
         console.error(`[cartographer] update failed for ${provider.id}:`, err);
       }
     }
+
+    console.log(`[cartographer] phase2: ${providers.results.length} providers eligible for scoring (gate: 6h OR ±10 threat delta)`);
 
     // ─── Phase 3: Email security posture scans — 50 brands per cycle, oldest first ───
     let emailScanned = 0;
