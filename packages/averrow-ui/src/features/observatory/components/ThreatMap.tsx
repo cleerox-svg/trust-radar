@@ -279,7 +279,14 @@ function ThreatMapInner({
       }
       mapRef.current = map;
 
+      if (map.loaded()) {
+        setMapLoaded(true);
+      } else {
+        map.once('load', () => setMapLoaded(true));
+      }
+
       return () => {
+        setMapLoaded(false);
         map.remove();
         mapRef.current = null;
       };
@@ -515,31 +522,17 @@ function ThreatMapInner({
   // Track map loaded state to avoid race conditions
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (map.loaded()) {
-      setMapLoaded(true);
-    } else {
-      const onLoad = () => setMapLoaded(true);
-      map.on('load', onLoad);
-      return () => { map.off('load', onLoad); };
-    }
-  }, []);
-
   // Update overlay when data/settings change — only after map is loaded
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return;
 
-    if (deckRef.current) {
-      mapRef.current.removeControl(deckRef.current);
-      deckRef.current = null;
-    }
-
     const layers = buildBaseLayers();
     baseLayersRef.current = layers;
 
-    if (layers.length > 0) {
+    if (deckRef.current) {
+      // Update existing overlay in place — no remove/add thrash
+      deckRef.current.setProps({ layers });
+    } else if (layers.length > 0) {
       const overlay = new MapboxOverlay({ interleaved: true, layers });
       mapRef.current.addControl(overlay as any);
       deckRef.current = overlay;

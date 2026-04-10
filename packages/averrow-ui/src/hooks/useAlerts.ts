@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface Alert {
@@ -79,6 +79,7 @@ export function useAlerts(filters?: AlertFilters) {
         total: res.total ?? 0,
       };
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 }
@@ -90,6 +91,7 @@ export function useAlertStats() {
       const res = await api.get<AlertStats>('/api/alerts/stats');
       return (res.data ?? {}) as AlertStats;
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 }

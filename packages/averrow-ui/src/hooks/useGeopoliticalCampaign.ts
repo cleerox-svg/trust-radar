@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -109,6 +109,7 @@ export function useGeopoliticalCampaigns(status?: string) {
       const res = await api.get<GeopoliticalCampaign[]>(`/api/campaigns/geo${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -119,6 +120,7 @@ export function useGeopoliticalCampaign(slug: string) {
       const res = await api.get<GeopoliticalCampaign>(`/api/campaigns/geo/${slug}`);
       return res.data ?? null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }
@@ -130,6 +132,7 @@ export function useGeoCampaignStats(slug: string) {
       const res = await api.get<GeoCampaignStats>(`/api/campaigns/geo/${slug}/stats`);
       return res.data ?? null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
     refetchInterval: 60_000,
   });
@@ -144,6 +147,7 @@ export function useGeoCampaignThreats(slug: string, options?: { limit?: number; 
       const res = await api.get<{ threats: GeoCampaignThreat[]; total: number }>(`/api/campaigns/geo/${slug}/threats?${params}`);
       return res.data ?? { threats: [], total: 0 };
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }
@@ -155,6 +159,7 @@ export function useGeoCampaignTimeline(slug: string) {
       const res = await api.get<GeoCampaignTimeline>(`/api/campaigns/geo/${slug}/timeline`);
       return res.data ?? { labels: [], values: [], by_type: { phishing: [], credential_harvesting: [], malware: [], typosquatting: [], impersonation: [] } };
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }
@@ -166,6 +171,7 @@ export function useGeoCampaignBrands(slug: string) {
       const res = await api.get<GeoCampaignBrand[]>(`/api/campaigns/geo/${slug}/brands`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }
@@ -177,6 +183,7 @@ export function useGeoCampaignAsns(slug: string) {
       const res = await api.get<GeoCampaignAsn[]>(`/api/campaigns/geo/${slug}/asns`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }
@@ -188,6 +195,7 @@ export function useGeoCampaignAttackTypes(slug: string) {
       const res = await api.get<GeoCampaignAttackType[]>(`/api/campaigns/geo/${slug}/attack-types`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!slug,
   });
 }

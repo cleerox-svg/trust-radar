@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 /* ── Types ── */
@@ -51,6 +51,7 @@ export function useIntelligenceBriefings(limit = 6) {
       const res = await api.get<IntelligenceBriefing[]>(`/api/trends/intelligence?limit=${limit}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -84,6 +85,7 @@ export function useThreatVolume(window = '30d') {
       }
       return Array.from(byDate.values());
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -94,6 +96,7 @@ export function useBrandMomentum() {
       const res = await api.get<BrandMomentum[]>('/api/trends/brand-momentum');
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -104,6 +107,7 @@ export function useProviderMomentum() {
       const res = await api.get<ProviderMomentum[]>('/api/trends/provider-momentum');
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -114,5 +118,6 @@ export function useNexusActive() {
       const res = await api.get<NexusCluster[]>('/api/trends/nexus-active');
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }

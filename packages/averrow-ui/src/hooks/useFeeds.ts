@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface FeedOverview {
@@ -60,6 +60,7 @@ export function useFeeds() {
       const res = await api.get<FeedOverview[]>('/api/feeds/overview');
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -70,6 +71,7 @@ export function useFeedStats() {
       const res = await api.get<FeedAggregateStats>('/api/feeds/aggregate-stats');
       return res.data ?? { active: 0, disabled: 0, total_ingested: 0 };
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -80,6 +82,7 @@ export function useFeedHistory(feedName: string | null, limit = 20) {
       const res = await api.get<FeedPullRecord[]>(`/api/feeds/${feedName}/history?limit=${limit}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!feedName,
   });
 }

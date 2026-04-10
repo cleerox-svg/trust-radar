@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface Takedown {
@@ -79,6 +79,7 @@ export function useAdminTakedowns(options?: TakedownFilters) {
         statusCounts: body.status_counts ?? [],
       };
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 }
@@ -90,6 +91,7 @@ export function useTakedownEvidence(takedownId: string | null) {
       const res = await api.get<TakedownEvidence[]>(`/api/admin/sparrow/evidence/${takedownId}`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!takedownId,
   });
 }

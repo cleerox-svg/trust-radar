@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 interface SalesLead {
@@ -86,6 +86,7 @@ export function useLeads(options?: { status?: string; pitch_angle?: string }) {
       const data = res.data;
       return { data: data?.leads || [], total: data?.total || 0 };
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -97,6 +98,7 @@ export function useLead(id: string | null) {
       const res = await api.get<SalesLead>(`/api/admin/sales-leads/${id}`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!id,
   });
 }
@@ -108,6 +110,7 @@ export function useLeadStats() {
       const res = await api.get<LeadStats>('/api/admin/sales-leads/stats');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

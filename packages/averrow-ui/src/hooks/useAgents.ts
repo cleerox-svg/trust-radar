@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface Agent {
@@ -93,6 +93,7 @@ export function useAgents() {
       const res = await api.get<Agent[]>('/api/agents');
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 }
@@ -104,6 +105,7 @@ export function useAgentConfig() {
       const res = await api.get<AgentConfig>('/api/admin/agents/config');
       return res.data || {};
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -114,6 +116,7 @@ export function useApiUsage() {
       const res = await api.get<ApiUsage>('/api/admin/agents/api-usage');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
 }
@@ -125,6 +128,7 @@ export function useDashboardStats() {
       const res = await api.get<DashboardStats>('/api/admin/stats');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
 }
@@ -142,6 +146,7 @@ export function usePipelineStatus(agents: Agent[] | undefined) {
         schedule: a.schedule,
       })) as PipelineStatus[];
     },
+    placeholderData: keepPreviousData,
     enabled: !!agents,
   });
 }
@@ -247,6 +252,7 @@ export function useAgentDetail(agentName: string) {
       const res = await api.get<AgentDetailResponse>(`/api/agents/${agentName}`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!agentName,
     refetchInterval: 30_000,
   });
@@ -259,6 +265,7 @@ export function useAgentHealth(agentName: string) {
       const res = await api.get<AgentHealthResponse>(`/api/agents/${agentName}/health`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!agentName,
     refetchInterval: 30_000,
   });
@@ -297,6 +304,7 @@ export function useAgentRuns(params: AgentRunsParams) {
         total: (res as unknown as { total?: number }).total ?? 0,
       };
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 }
@@ -317,6 +325,7 @@ export function useAgentTokenUsage() {
       const res = await api.get<TokenUsageEntry[]>('/api/agents/token-usage');
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
 }
@@ -328,6 +337,7 @@ export function useAgentOutputsByName(agentName: string) {
       const res = await api.get<AgentOutput[]>(`/api/agents/${agentName}/outputs?limit=5`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!agentName,
   });
 }

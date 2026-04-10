@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface ThreatPoint {
@@ -52,6 +52,7 @@ export function useObservatoryThreats(options?: { period?: string; source?: stri
       const res = await api.get<ThreatPoint[]>(`/api/observatory/nodes?${params}`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 120_000,
   });
 }
@@ -63,11 +64,12 @@ export function useObservatoryStats(options?: { period?: string; source?: string
     queryKey: ['observatory-stats', period, source],
     queryFn: async () => {
       const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source });
-      const res = await api.get<any>(`/api/observatory/stats?${params}`);
-      // Handle double-wrapped response
-      const data = res.data?.data || res.data || res;
-      return data as ObservatoryStats;
+      const res = await api.get<ObservatoryStats>(`/api/observatory/stats?${params}`);
+      const data = res.data;
+      if (!data) throw new Error('observatory stats missing from response');
+      return data;
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 120_000,
   });
 }
@@ -82,6 +84,7 @@ export function useObservatoryArcs(options?: { period?: string; source?: string 
       const res = await api.get<ArcData[]>(`/api/observatory/arcs?${params}`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 120_000,
   });
 }
@@ -103,6 +106,7 @@ export function useObservatoryHeatmap(options?: { period?: string; limit?: numbe
       const res = await api.get<HeatmapPoint[]>(`/api/threats/heatmap?${params}`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 120_000,
   });
 }
