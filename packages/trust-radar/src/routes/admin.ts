@@ -10,6 +10,7 @@ import {
   handleBackfillSafeDomains, handleImportTranco, handleAdminListBrands,
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
   handleBackfillSocialConfig, handleBackfillSaasTechniques,
+  handleBudgetLedgerHealth,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -47,6 +48,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleSystemHealth(request, env);
+  });
+  router.get("/api/admin/budget/ledger-health", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleBudgetLedgerHealth(request, env);
   });
 
   // ─── Admin Users ──────────────────────────────────────────────────

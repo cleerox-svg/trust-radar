@@ -376,6 +376,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 |--------|------|------|-------------|
 | GET | `/api/admin/stats` | Admin | Platform statistics |
 | GET | `/api/admin/health` | Admin | System health |
+| GET | `/api/admin/budget/ledger-health` | Admin | Budget ledger fill diagnostic — surfaces per-call-site rows in the last 24h, flags any expected agentId that has not landed a row, and returns BudgetManager.getStatus() so operators can spot-check monthly_spend / throttle_level after the wrapper refactor. |
 | GET | `/api/admin/users` | Admin | List users |
 | PATCH | `/api/admin/users/:id` | Admin | Update user |
 | GET | `/api/admin/sessions` | Admin | Active sessions |

@@ -12,6 +12,128 @@ import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreats
 import { resolveToIp, extractHostname } from "../lib/domain-resolver";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
 import { classifySaasTechnique } from "../lib/saas-classifier";
+import { BudgetManager } from "../lib/budgetManager";
+
+// Every agentId the canonical Anthropic wrapper is supposed to attribute
+// to. Used by handleBudgetLedgerHealth to surface "this call site has
+// not landed a ledger row in the last N hours" gaps. Add new entries
+// here when adding a new AI call site so the diagnostic stays honest.
+const EXPECTED_LEDGER_AGENT_IDS = [
+  // Cron-driven agents
+  "sentinel",
+  "analyst",
+  "cartographer",
+  "strategist",
+  "observer",
+  "narrator",
+  "prospector",
+  "watchdog",
+  "seed_strategist",
+  "architect",
+  // Lib helpers + admin call sites
+  "admin-classify",
+  "ai-attribution",
+  "brand-analysis",
+  "brand-deep-scan",
+  "brand-enricher",
+  "brand-report",
+  "evidence-assembler",
+  "geo-campaign-assessment",
+  "honeypot-generator",
+  "lookalike-scanner",
+  "public-trust-check",
+  "scan-report",
+  "social-ai-assessor",
+  "url-scan",
+] as const;
+
+/**
+ * GET /api/admin/budget/ledger-health
+ *
+ * Phase 4 Step 2D diagnostic. Walks every agent_id the wrapper is
+ * supposed to attribute to and reports the most recent budget_ledger
+ * row for each, plus the per-agent 24h spend. If a call site stops
+ * landing rows here, the row is missing and the migration silently
+ * regressed.
+ *
+ * The handler also returns BudgetManager.getStatus() so operators
+ * can spot-check that monthly_spend, throttle_level, and projected
+ * burn match expectations after a migrated agent run.
+ */
+export async function handleBudgetLedgerHealth(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const budget = new BudgetManager(env.DB);
+    const [status, byAgent24h, totals24h] = await Promise.all([
+      budget.getStatus(),
+      env.DB.prepare(`
+        SELECT agent_id,
+               COUNT(*)             as calls,
+               SUM(input_tokens)    as input_tokens,
+               SUM(output_tokens)   as output_tokens,
+               SUM(cost_usd)        as cost_usd,
+               MAX(created_at)      as last_call_at
+        FROM budget_ledger
+        WHERE created_at >= datetime('now', '-1 day')
+        GROUP BY agent_id
+      `).all<{
+        agent_id: string;
+        calls: number;
+        input_tokens: number;
+        output_tokens: number;
+        cost_usd: number;
+        last_call_at: string;
+      }>(),
+      env.DB.prepare(`
+        SELECT COUNT(*) as calls,
+               COALESCE(SUM(cost_usd), 0) as cost_usd
+        FROM budget_ledger
+        WHERE created_at >= datetime('now', '-1 day')
+      `).first<{ calls: number; cost_usd: number }>(),
+    ]);
+
+    const byAgentMap = new Map(byAgent24h.results.map(r => [r.agent_id, r]));
+
+    const expected_agents = EXPECTED_LEDGER_AGENT_IDS.map(agentId => {
+      const row = byAgentMap.get(agentId);
+      return {
+        agent_id: agentId,
+        present_24h: row !== undefined,
+        calls_24h: row?.calls ?? 0,
+        cost_usd_24h: row?.cost_usd ?? 0,
+        last_call_at: row?.last_call_at ?? null,
+      };
+    });
+
+    const unexpected_agents = byAgent24h.results
+      .filter(r => !(EXPECTED_LEDGER_AGENT_IDS as readonly string[]).includes(r.agent_id))
+      .map(r => ({
+        agent_id: r.agent_id,
+        calls_24h: r.calls,
+        cost_usd_24h: r.cost_usd,
+        last_call_at: r.last_call_at,
+      }));
+
+    return json({
+      success: true,
+      data: {
+        ledger: {
+          calls_24h: totals24h?.calls ?? 0,
+          cost_usd_24h: totals24h?.cost_usd ?? 0,
+        },
+        budget: status,
+        expected_agents,
+        unexpected_agents,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    }, 500, origin);
+  }
+}
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
