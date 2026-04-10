@@ -328,18 +328,47 @@ negligibly higher I/O per page.
 
 ---
 
-## Post-fix verification
+## Post-fix verification (Phase E)
 
-> Captured in Phase E.
+### Changes made
 
-### Duration stats
+1. **Removed 3 diagnostic COUNT queries** (analyst.ts:75-77) that ran on every analyst invocation:
+   - `SELECT COUNT(*) as n FROM threats` — full covering-index scan of 140K+ rows
+   - `SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL` — partial index scan
+   - `SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL` — index + table lookup
+   These were informational log lines with zero functional value, contributing ~15-25% of analyst's D1 CPU.
 
-```
--- placeholder: filled in after Phase E
-```
+2. **Updated summary output** to not reference the removed variables. The summary now says
+   `"Analyst found 0 unmatched threats to process"` instead of interpolating the counts.
+
+### Duration stats (dev environment)
+
+> No remote D1 access available — manual verification against live D1 required post-deploy.
+>
+> Post-deploy verification query:
+> ```sql
+> SELECT
+>   COUNT(*) as run_count,
+>   AVG(duration_ms) as avg_duration_ms,
+>   MAX(duration_ms) as max_duration_ms,
+>   SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_count
+> FROM agent_runs
+> WHERE agent_id = 'analyst' AND started_at >= datetime('now', '-7 days');
+> ```
+
+### EXPLAIN plan comparison
+
+| Query | Baseline | Post-fix |
+|-------|----------|----------|
+| Query A (unlinked-threat lookup) | `SEARCH idx_threats_brand_created (target_brand_id=?)` | Same + `idx_threats_unlinked_recent` available (planner choice depends on data distribution) |
+| Query B (enrichment aggregate) | `SEARCH idx_threats_brand_status (...) + USE TEMP B-TREE FOR GROUP BY` | 7 subqueries, each: `SEARCH idx_threats_brand_status (...)` — no temp B-tree |
+| Diagnostic COUNT (total) | `SCAN threats USING COVERING INDEX` | **Removed** |
+| Diagnostic COUNT (no brand) | `SEARCH idx_threats_unmatched` | **Removed** |
+| Diagnostic COUNT (no brand + domain) | `SEARCH idx_threats_unmatched + table lookup` | **Removed** |
 
 ### Acceptance signals checklist
 
 - [ ] Zero auto-trips of analyst circuit breaker over 24h window post-deploy
 - [ ] `agent_runs.duration_ms` p95 for analyst under 30 seconds
 - [ ] D1 CPU per query in Cloudflare D1 query insights — no new bottleneck
+- [ ] Trigger analyst 3+ times in dev, observe each run completing under 30 seconds

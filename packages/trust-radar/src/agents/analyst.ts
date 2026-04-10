@@ -71,11 +71,6 @@ export const analystAgent: AgentModule = {
       malicious_domain: string | null; source_feed: string; threat_type: string;
     }>();
 
-    // Also check total threats for context
-    const totalCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>();
-    const noBrandCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL").first<{ n: number }>();
-    const noBrandWithDomain = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL").first<{ n: number }>();
-
     // Load known brands for context
     const brands = await env.DB.prepare(
       "SELECT name FROM brands ORDER BY threat_count DESC LIMIT 100"
@@ -774,7 +769,7 @@ export const analystAgent: AgentModule = {
       type: "classification",
       summary: itemsProcessed > 0
         ? `Analyst matched ${itemsUpdated} threats to brands (${itemsProcessed} processed, haiku=${haikuSuccesses}/${haikuFailures}, low_conf=${lowConfidence})`
-        : `Analyst found 0 unmatched threats (${totalCount?.n ?? 0} total, ${noBrandWithDomain?.n ?? 0} without brand+domain)`,
+        : `Analyst found 0 unmatched threats to process`,
       severity: "info",
       details: {
         processed: itemsProcessed,
@@ -782,9 +777,6 @@ export const analystAgent: AgentModule = {
         haikuSuccesses,
         haikuFailures,
         lowConfidence,
-        totalThreats: totalCount?.n ?? 0,
-        noBrandThreats: noBrandCount?.n ?? 0,
-        noBrandWithDomain: noBrandWithDomain?.n ?? 0,
         knownBrands: brandNames.length,
         anthropicKeySource: keySource,
         anthropicApiConfigured: !!apiKey,
