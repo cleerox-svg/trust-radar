@@ -11,6 +11,15 @@ interface CronJobResult {
 }
 
 export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  // ─── Fast tick: lightweight sub-hour cron (*/5 * * * *, 30s CPU ceiling) ───
+  // Must branch BEFORE any heavy work — Flight Control, CertStream, etc.
+  if (event.cron === '*/5 * * * *') {
+    const { runFastTick } = await import('./fast-tick');
+    return runFastTick(env, ctx);
+  }
+
+  // ─── Hourly tick: full agent mesh (0 * * * *, 15min CPU ceiling) ───
+
   // ─── Flight Control: autonomous supervisor runs first every tick ───
   try {
     const { flightControlAgent } = await import('../agents/flightControl');
