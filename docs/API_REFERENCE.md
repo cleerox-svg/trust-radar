@@ -130,6 +130,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | PATCH | `/api/feeds/:id` | Admin | Update feed config |
 | POST | `/api/feeds/:id/trigger` | Admin | Trigger single feed |
 | POST | `/api/feeds/:id/reset` | Admin | Reset feed state |
+| POST | `/api/feeds/:id/unpause` | Admin | Clear auto-pause: enabled=1, paused_reason=NULL, consecutive_failures=0, health_status='healthy' |
 | POST | `/api/feeds` | Admin | Create feed |
 | DELETE | `/api/feeds/:id` | Admin | Delete feed |
 | POST | `/api/feeds/trigger-all` | Admin | Trigger all feeds |

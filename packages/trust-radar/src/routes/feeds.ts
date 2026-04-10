@@ -7,7 +7,7 @@ import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
   handleTriggerAll, handleTriggerTier, handleFeedStats, handleIngestionJobs,
   handleResetCircuit, handleFeedQuota, handleFeedsOverview, handleFeedPullHistory,
-  handleFeedsAggregateStats,
+  handleFeedsAggregateStats, handleUnpauseFeed,
 } from "../handlers/feeds";
 
 export function registerFeedRoutes(router: RouterType<IRequest>): void {
@@ -68,6 +68,11 @@ export function registerFeedRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleResetCircuit(request, env, request.params["id"] ?? "");
+  });
+  router.post("/api/feeds/:id/unpause", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUnpauseFeed(request, env, request.params["id"] ?? "");
   });
   router.post("/api/feeds", async (request: Request, env: Env) => {
     const origin = request.headers.get("Origin");

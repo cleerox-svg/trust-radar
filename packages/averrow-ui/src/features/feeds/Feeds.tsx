@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ThreatAreaChart } from '@/components/ui/ThreatAreaChart';
 import { DataRow, SeverityDot } from '@/components/ui/DataRow';
 import { cn } from '@/lib/cn';
-import { RotateCw, Loader2, Check, X, Zap } from 'lucide-react';
+import { RotateCw, Loader2, Check, X, Zap, Play } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -79,6 +79,11 @@ function categorizeFeed(feed: FeedOverview): FeedCategory {
   if (!feed.enabled) return 'disabled';
   if (feed.total_ingested === 0) return 'attention';
   return 'healthy';
+}
+
+/** True when a feed was auto-paused by the feedRunner after N consecutive failures. */
+function isAutoPaused(feed: FeedOverview): boolean {
+  return feed.enabled === 0 && feed.paused_reason === 'auto:consecutive_failures';
 }
 
 function formatNumber(n: number): string {
@@ -218,6 +223,77 @@ function RetryButton({ feedName }: { feedName: string }) {
   );
 }
 
+function UnpauseButton({ feedName }: { feedName: string }) {
+  const queryClient = useQueryClient();
+  const action = useAdminAction(`/api/feeds/${feedName}/unpause`, () => {
+    setTimeout(() => queryClient.invalidateQueries({ queryKey: ['feeds-overview'] }), 500);
+  });
+
+  if (action.state === 'idle') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={(e) => { e.stopPropagation(); action.confirm(); }}
+        icon={<Play className="w-3 h-3" />}
+        style={{ color: 'var(--amber)' }}
+      >
+        Unpause
+      </Button>
+    );
+  }
+  if (action.state === 'confirming') {
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <span className="font-mono text-[10px] text-amber-400">Unpause?</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={action.execute}
+          icon={<Check className="w-3 h-3" />}
+          style={{ color: '#4ade80' }}
+        >
+          {''}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={action.cancel}
+          icon={<X className="w-3 h-3" />}
+        >
+          {''}
+        </Button>
+      </div>
+    );
+  }
+  if (action.state === 'loading') {
+    return (
+      <span
+        className="flex items-center gap-1 font-mono text-[9px]"
+        style={{ color: 'var(--amber)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Loader2 className="w-3 h-3 animate-spin" /> Unpausing
+      </span>
+    );
+  }
+  if (action.state === 'success') {
+    return (
+      <span className="flex items-center gap-1 font-mono text-[9px] text-green-400">
+        <Check className="w-3 h-3" /> Unpaused
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[9px] text-red-400" onClick={(e) => e.stopPropagation()}>
+      {action.error || 'Failed'}
+    </span>
+  );
+}
+
 /* ─── Components ─── */
 
 function HeaderStats({ feeds }: { feeds: FeedOverview[] }) {
@@ -305,28 +381,38 @@ function FeedCard({
 }) {
   const rate = successRate(feed);
   const issue = detectFeedIssue(feed);
+  const autoPaused = isAutoPaused(feed);
 
+  // Auto-paused feeds surface as critical-severity cards so they're visually
+  // distinguishable from plain manually-disabled ones.
   const cardVariant: 'base' | 'active' | 'critical' =
+    autoPaused ? 'critical' :
     category === 'attention' ? 'active' : 'base';
   const cardClass = cn(
     'cursor-pointer transition-all',
-    category === 'disabled' && 'opacity-60',
+    category === 'disabled' && !autoPaused && 'opacity-60',
   );
 
   const badgeClass = cn(
     'text-[9px] font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded border',
     category === 'healthy' && 'text-green-400 border-green-500/30 bg-green-900/30',
     category === 'attention' && 'text-amber-400 border-amber-500/30 bg-amber-900/30',
-    category === 'disabled' && 'text-white/40 border-white/10 bg-white/5',
+    autoPaused && 'text-red-400 border-red-500/40 bg-red-900/30',
+    category === 'disabled' && !autoPaused && 'text-white/40 border-white/10 bg-white/5',
   );
 
-  const badgeLabel = category === 'healthy' ? 'ACTIVE' : category === 'attention' ? 'WARNING' : 'DISABLED';
+  const badgeLabel =
+    category === 'healthy'   ? 'ACTIVE'
+  : category === 'attention' ? 'WARNING'
+  : autoPaused               ? `AUTO-PAUSED${feed.consecutive_failures ? ` · ${feed.consecutive_failures}✗` : ''}`
+  :                            'PAUSED';
 
   const dotClass = cn(
     'w-2.5 h-2.5 rounded-full flex-shrink-0',
     category === 'healthy' && 'bg-green-400',
     category === 'attention' && 'bg-amber-400 animate-pulse',
-    category === 'disabled' && 'border border-white/20',
+    autoPaused && 'bg-red-500 animate-pulse',
+    category === 'disabled' && !autoPaused && 'border border-white/20',
   );
 
   return (
@@ -426,8 +512,28 @@ function FeedCard({
           </div>
         )}
 
-        {category === 'disabled' && (
-          <div className="text-[10px] text-white/40 font-mono">Disabled</div>
+        {category === 'disabled' && !autoPaused && (
+          <div className="text-[10px] text-white/40 font-mono">
+            Paused{feed.paused_reason === 'manual' ? ' · manual' : ''}
+          </div>
+        )}
+
+        {autoPaused && (
+          <div className="space-y-2">
+            <div
+              className="text-[11px] font-mono flex items-start gap-1.5"
+              style={{ color: 'var(--sev-critical)' }}
+            >
+              <span>&#9888;</span>
+              <span>
+                Paused by system after {feed.consecutive_failures ?? 0} consecutive failures.
+                {feed.last_error ? ` Last error: ${feed.last_error.slice(0, 120)}${feed.last_error.length > 120 ? '…' : ''}` : ''}
+              </span>
+            </div>
+            <div className="flex items-center justify-end">
+              <UnpauseButton feedName={feed.feed_name} />
+            </div>
+          </div>
         )}
       </Card>
 

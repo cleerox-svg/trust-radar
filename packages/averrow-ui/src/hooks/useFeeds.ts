@@ -13,6 +13,19 @@ export interface FeedOverview {
   filters: string | null;
   retry_count: number | null;
   retry_delay_seconds: number | null;
+  /**
+   * Pause metadata:
+   * - null + enabled=1 → running
+   * - 'manual'                       → human-disabled
+   * - 'auto:consecutive_failures'    → flipped by feedRunner auto-pause
+   */
+  paused_reason: string | null;
+  /** Per-feed override; null → use system_config global default */
+  consecutive_failure_threshold: number | null;
+  /** Persistent counter from feed_status (since last successful pull) */
+  consecutive_failures: number | null;
+  /** Most recent error message, truncated to 500 chars server-side */
+  last_error: string | null;
   total_pulls: number;
   total_ingested: number;
   total_rejected: number;

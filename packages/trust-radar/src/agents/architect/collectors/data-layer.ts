@@ -287,14 +287,15 @@ export async function collectFeedRuntime(
   env: Env,
 ): Promise<FeedRuntimeRow[]> {
   // feed_pull_history stores `started_at` (TEXT, datetime('now')
-  // format). The 7-day and consecutive_failures subqueries compare
-  // lexicographically, which is correct for that format.
+  // format). The 7-day subquery compares lexicographically, which
+  // is correct for that format.
   //
-  // consecutive_failures counts failed pulls since the most recent
-  // successful pull. If there has never been a success we fall back
-  // to the epoch so every failed pull counts, which matches the
-  // intuitive reading of "how many failures in a row is this feed
-  // currently riding".
+  // consecutive_failures is now a persisted counter on feed_status
+  // (Phase 4 Step 3 — feed auto-pause). Prior to that migration this
+  // collector recomputed it from feed_pull_history on every read;
+  // that subquery has been removed and we simply COALESCE the
+  // column, since the feedRunner is now the single writer that
+  // increments on failure and resets to 0 on success.
   try {
     const rows = await env.DB.prepare(
       `SELECT
@@ -303,20 +304,10 @@ export async function collectFeedRuntime(
          fc.schedule_cron,
          fs.last_successful_pull,
          fs.last_error,
+         COALESCE(fs.consecutive_failures, 0) AS consecutive_failures,
          (SELECT MAX(started_at)
             FROM feed_pull_history
             WHERE feed_name = fc.feed_name) AS last_attempted_pull,
-         (SELECT COUNT(*)
-            FROM feed_pull_history
-            WHERE feed_name = fc.feed_name
-              AND status = 'failed'
-              AND started_at > COALESCE(
-                (SELECT MAX(started_at)
-                   FROM feed_pull_history
-                   WHERE feed_name = fc.feed_name
-                     AND status = 'success'),
-                '1970-01-01 00:00:00'
-              )) AS consecutive_failures,
          (SELECT COUNT(*)
             FROM feed_pull_history
             WHERE feed_name = fc.feed_name
