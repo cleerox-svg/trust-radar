@@ -48,6 +48,21 @@ interface DegradedFeed {
   health_status: string;
 }
 
+/**
+ * Auto-paused feed — disabled with paused_reason='auto:consecutive_failures'.
+ * Operationally distinct from DegradedFeed: a degraded feed is still running
+ * on its schedule (just returning errors) whereas an auto-paused feed has
+ * been flipped to enabled=0 by the feedRunner and will NOT run again until
+ * an admin unpauses it. The dashboard shows these as separate counts.
+ */
+interface AutoPausedFeed {
+  feed_name: string;
+  display_name: string;
+  consecutive_failures: number;
+  last_failure: string | null;
+  last_error: string | null;
+}
+
 // Parallel instance thresholds per backlog level
 const SCALING = {
   cartographer: { low: 500, medium: 2000, high: 5000, max_parallel: 3 },
@@ -94,7 +109,7 @@ export const flightControlAgent: AgentModule = {
     }
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds] = await Promise.all([
+    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
       budgetMgr.getStatus(anthropicReported),
@@ -108,11 +123,30 @@ export const flightControlAgent: AgentModule = {
         SELECT COUNT(*) as count FROM brands
         WHERE email_security_grade IS NULL
       `).first<{ count: number }>(),
+      // Degraded feeds are still enabled & running — they're just returning
+      // errors. Intentionally excludes auto-paused feeds via the enabled=1
+      // join so the two counts don't double-report the same feed.
       db.prepare(`
         SELECT feed_name, last_failure, health_status FROM feed_status
         WHERE health_status IN ('degraded', 'down')
           AND feed_name IN (SELECT feed_name FROM feed_configs WHERE enabled = 1)
       `).all<DegradedFeed>(),
+      // Auto-paused feeds are enabled=0 by the feedRunner's auto-pause
+      // guard. Operationally distinct from degraded — they will NOT run
+      // again until an admin unpauses them, so the dashboard surfaces
+      // them as a separate category.
+      db.prepare(`
+        SELECT fc.feed_name,
+               fc.display_name,
+               COALESCE(fs.consecutive_failures, 0) AS consecutive_failures,
+               fs.last_failure,
+               fs.last_error
+          FROM feed_configs fc
+          LEFT JOIN feed_status fs ON fs.feed_name = fc.feed_name
+          WHERE fc.enabled = 0
+            AND fc.paused_reason = 'auto:consecutive_failures'
+          ORDER BY fs.consecutive_failures DESC
+      `).all<AutoPausedFeed>(),
     ]);
 
     // Log emergency budget state
@@ -216,6 +250,18 @@ export const flightControlAgent: AgentModule = {
       }
     }
 
+    // ── Auto-paused feed surfacing ────────────────────────────────
+    // feedRunner already wrote a critical agent_activity_log row at the
+    // moment of the pause transition, so we don't need another
+    // per-feed critical entry here. Just log a single roll-up so the
+    // FC dashboard timeline shows the current count without spamming.
+    if (autoPausedFeeds.results.length > 0) {
+      await logActivity(db, 'flight_control', 'warning', 'feeds_auto_paused',
+        `${autoPausedFeeds.results.length} feed${autoPausedFeeds.results.length === 1 ? '' : 's'} currently auto-paused: ${autoPausedFeeds.results.map(f => f.feed_name).join(', ')}`,
+        { count: autoPausedFeeds.results.length, feeds: autoPausedFeeds.results.map(f => ({ feed_name: f.feed_name, consecutive_failures: f.consecutive_failures })) }
+      );
+    }
+
     // ── C2 infrastructure overlap detection ────────────────────────
     try {
       const c2Overlap = await db.prepare(`
@@ -292,11 +338,14 @@ export const flightControlAgent: AgentModule = {
       budget: budgetStatus,
       overall_status: overallStatus,
       degraded_feeds: degradedFeeds.results,
+      auto_paused_feeds: autoPausedFeeds.results,
     };
+
+    const feedHealthSummary = `${autoPausedFeeds.results.length} feeds auto-paused, ${degradedFeeds.results.length} degraded`;
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
