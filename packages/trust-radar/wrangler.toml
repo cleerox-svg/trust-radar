@@ -21,10 +21,11 @@ directory = "./public"
 binding = "ASSETS"
 not_found_handling = "404-page"
 
-# ─── Cron Triggers (automated feed ingestion) ────────────────
-# Hourly cron (15min CPU limit) — agents handle their own scheduling internally
+# ─── Cron Triggers ───────────────────────────────────────────
+# Hourly tick (15min CPU limit) — Flight Control + full agent mesh
+# Fast tick  (30s CPU limit)  — DNS backfill + lightweight maintenance
 [triggers]
-crons = ["0 * * * *"]
+crons = ["0 * * * *", "*/5 * * * *"]
 
 # ─── Workflows (durable multi-step processing) ──────────────
 [[workflows]]
