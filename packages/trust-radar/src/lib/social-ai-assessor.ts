@@ -10,8 +10,9 @@ import { checkCostGuard } from "./haiku";
 import { logger } from "./logger";
 import { callAnthropicJSON } from "./anthropic";
 import type { Env } from "../types";
+import { HOT_PATH_HAIKU } from "./ai-models";
 
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = HOT_PATH_HAIKU;
 
 // ─── Types ──────────────────────────────────────────────────────
 

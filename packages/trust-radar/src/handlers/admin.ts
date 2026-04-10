@@ -8,6 +8,7 @@ import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
 import { callAnthropicJSON } from "../lib/anthropic";
 import { estimateCost } from "../lib/budgetManager";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo, isPrivateIP, PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { resolveToIp, extractHostname } from "../lib/domain-resolver";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
@@ -1272,7 +1273,7 @@ export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
     }>>(env, {
       agentId: "ai-attribution",
       runId: null,
-      model: 'claude-haiku-4-5-20251001',
+      model: HOT_PATH_HAIKU,
       system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
       messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
       maxTokens: 2048,
@@ -1280,7 +1281,7 @@ export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
 
     result.calls++;
     result.costUsd = estimateCost(
-      response.model || 'claude-haiku-4-5-20251001',
+      response.model || HOT_PATH_HAIKU,
       response.usage?.input_tokens ?? 0,
       response.usage?.output_tokens ?? 0,
     );

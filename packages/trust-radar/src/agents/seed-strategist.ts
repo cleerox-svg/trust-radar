@@ -9,6 +9,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicText, AnthropicError } from "../lib/anthropic";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 export const seedStrategistAgent: AgentModule = {
   name: "seed_strategist",
@@ -112,7 +113,7 @@ Format your response as JSON:
       const { text } = await callAnthropicText(env, {
         agentId: "seed_strategist",
         runId,
-        model: "claude-haiku-4-5-20251001",
+        model: HOT_PATH_HAIKU,
         messages: [{ role: "user", content: prompt }],
         maxTokens: 1000,
       });

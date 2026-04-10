@@ -4,6 +4,7 @@ import { json } from "../lib/cors";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicText } from "../lib/anthropic";
 import type { Env } from "../types";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -545,7 +546,7 @@ Keep it concise — 4 short paragraphs maximum.`;
       const { text, response } = await callAnthropicText(env, {
         agentId: "geo-campaign-assessment",
         runId: null,
-        model: "claude-haiku-4-5-20251001",
+        model: HOT_PATH_HAIKU,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
         maxTokens: 1024,

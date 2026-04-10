@@ -16,8 +16,9 @@
 import type { Env } from "../types";
 import { callAnthropic, callAnthropicJSON, AnthropicError } from "./anthropic";
 import { BudgetManager } from "./budgetManager";
+import { HOT_PATH_HAIKU } from "./ai-models";
 
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+const HAIKU_MODEL = HOT_PATH_HAIKU;
 
 // ─── Caller context (used by every helper) ───────────────────────
 

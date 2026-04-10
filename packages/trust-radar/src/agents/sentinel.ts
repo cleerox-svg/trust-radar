@@ -15,6 +15,7 @@ import type { Env } from "../types";
 import { classifyThreat } from "../lib/haiku";
 import { callAnthropicJSON } from "../lib/anthropic";
 import { classifySaasTechnique } from "../lib/saas-classifier";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 // ─── Homoglyph & brand-squatting detection ──────────────────────
 
@@ -428,7 +429,7 @@ export async function runSentinelSocialAssessment(env: Env): Promise<void> {
         const { parsed: jsonParsed } = await callAnthropicJSON<SocialAssessmentAI>(env, {
           agentId: "sentinel",
           runId: null,
-          model: "claude-haiku-4-5-20251001",
+          model: HOT_PATH_HAIKU,
           system: systemPrompt,
           messages: [{ role: "user", content: userMessage }],
           maxTokens: 1024,
