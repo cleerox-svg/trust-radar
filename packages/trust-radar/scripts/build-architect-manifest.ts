@@ -54,8 +54,9 @@ async function main(): Promise<void> {
 function renderManifestModule(manifest: RepoInventory): string {
   // Zero the collected_at timestamp so build output stays deterministic
   // between runs on unchanged source — git noise otherwise. The real
-  // "when was this bundle produced" signal lives on architect_reports
-  // and ContextBundle.generated_at, not inside the inventory.
+  // "when was this bundle produced" signal lives on
+  // ContextBundle.generated_at and the architect agent_runs row, not
+  // inside the inventory.
   const stable: RepoInventory = { ...manifest, collected_at: "build-time" };
   const json = JSON.stringify(stable, null, 2);
 

@@ -35,6 +35,7 @@ const AGENT_SCHEDULES: Record<string, string> = {
   prospector: "weekly",
   sparrow: "every 6h",
   nexus: "every 4h",
+  architect: "manual",
 };
 
 // ─── List all agent definitions + their latest run ──────────────

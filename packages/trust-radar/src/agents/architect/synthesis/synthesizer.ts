@@ -1,15 +1,13 @@
 /**
  * ARCHITECT Phase 3 — Sonnet synthesis.
  *
- * synthesize(runId, env) loads all three Phase 2 architect_analyses
- * rows for the given run, computes the ground-truth scorecard, pulls
- * the original ContextBundle from R2 for totals, and asks Sonnet 4.5
- * to emit a single markdown executive report that reconciles
- * contradictions Haiku may have introduced (e.g. the feeds
- * naming-split pattern where orphan code + healthy runtime reads as
- * "reconcile naming," not "kill the code").
+ * synthesizeFromInputs(bundle, analyses, env) takes the in-memory
+ * ContextBundle and the three Phase 2 SectionAnalysis payloads
+ * directly, computes the ground-truth scorecard, and asks
+ * Sonnet 4.5 to emit a single markdown executive report that
+ * reconciles contradictions Haiku may have introduced.
  *
- * The function mirrors the Phase 2 analyzer architecture:
+ * The function:
  * - Single tool_use call (`report_synthesis_markdown`) so the model
  *   cannot drift into free prose or skip the required field.
  * - Shared transport selection: Cloudflare AI Gateway when
@@ -18,34 +16,22 @@
  *   back — Sonnet is more expensive than Haiku but still cheap for
  *   one report (~$0.05-0.15 in practice).
  * - stop_reason === 'tool_use' is the only happy path; anything else
- *   (max_tokens, end_turn with no tool call, etc.) throws with the
- *   actual reason in the error message so the synthesiser row can
- *   surface it verbatim.
+ *   throws with the actual reason in the error message so the agent
+ *   run row can surface it verbatim in error_message.
  *
- * This function does NOT persist the row. The HTTP route / route
- * handler owns row bookkeeping — we return `{ report_md,
- * computed_scorecard, usage }` and the caller writes it to
- * architect_syntheses. Keeping persistence out of here makes the
- * synthesizer trivially unit-testable without mocking D1 inside of
- * it (the tests mock the row fetcher + the fetch call, that's it).
+ * No D1 reads — the architect AgentModule passes the bundle and the
+ * already-computed analyses directly. Persistence is handled by the
+ * standard agentRunner machinery via agent_runs / agent_outputs.
  */
 
 import type { Env } from "../../../types";
 
-import type {
-  ArchitectAnalysisRow,
-  SectionName,
-} from "../analysis/types";
+import type { SectionAnalysis } from "../analysis/types";
 import type { ContextBundle } from "../types";
 
-import { computeScorecard, type ComputedScorecard } from "./scorecard";
+import { computeScorecardFromAnalyses, type ComputedScorecard } from "./scorecard";
 
 // ─── Model + pricing constants ─────────────────────────────────────
-//
-// Sonnet 4.5 list pricing as of 2025-10. Input $3/Mtok, output
-// $15/Mtok. Centralised here so we only edit one place when
-// Anthropic bumps the rates — mirrors the pattern in
-// analysis/pricing.ts.
 
 export const SONNET_MODEL = "claude-sonnet-4-5-20250929";
 export const SONNET_INPUT_USD_PER_MTOK = 3.0;
@@ -75,25 +61,16 @@ export function computeSonnetCostUsd(
 // ─── Env subset ────────────────────────────────────────────────────
 
 /**
- * Env subset the synthesiser needs: D1 to read the Phase 2 rows + the
- * architect_reports row, R2 for the original bundle, and the
- * Anthropic credentials used by the analyzer too.
+ * Env subset the synthesiser needs: just the Anthropic credentials
+ * used by the analyzer too. No D1, no R2 — the caller (the architect
+ * AgentModule) hands the bundle and analyses in directly.
  */
 export type SynthesizerEnv = Pick<
   Env,
-  | "DB"
-  | "ARCHITECT_BUNDLES"
-  | "ANTHROPIC_API_KEY"
-  | "LRX_API_KEY"
-  | "CF_ACCOUNT_ID"
+  "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID"
 >;
 
 // ─── Tool schema ───────────────────────────────────────────────────
-//
-// Single-field tool. The whole point of tool_use here is that it
-// forces the model to fill a structured field with the markdown —
-// there's no way for Sonnet to respond in free prose, and the
-// `maxLength: 20000` cap stops token bloat at the source.
 
 export const REPORT_SYNTHESIS_MARKDOWN_TOOL = {
   name: "report_synthesis_markdown",
@@ -153,120 +130,6 @@ function resolveApiKey(env: SynthesizerEnv): string {
     );
   }
   return apiKey;
-}
-
-// ─── Loading helpers ───────────────────────────────────────────────
-
-/**
- * Fetch all three Phase 2 rows for a run. Throws with a stable error
- * code (`analyses_not_ready`) when any section is missing or still
- * not in status='complete' so the HTTP route / tests can pattern-match
- * without parsing prose.
- */
-async function loadAnalyses(
-  env: SynthesizerEnv,
-  runId: string,
-): Promise<ArchitectAnalysisRow[]> {
-  const result = await env.DB.prepare(
-    `SELECT id, run_id, created_at, section, status, model,
-            input_tokens, output_tokens, cost_usd, duration_ms,
-            analysis_json, error_message
-       FROM architect_analyses
-      WHERE run_id = ?
-      ORDER BY section ASC`,
-  )
-    .bind(runId)
-    .all<ArchitectAnalysisRow>();
-
-  const rows = (result.results ?? []) as ArchitectAnalysisRow[];
-  const requiredSections: readonly SectionName[] = [
-    "agents",
-    "feeds",
-    "data_layer",
-  ];
-
-  const bySection = new Map<SectionName, ArchitectAnalysisRow>();
-  for (const row of rows) {
-    bySection.set(row.section, row);
-  }
-
-  // Every section must be present AND in status='complete'. We only
-  // report the first problem we find — the route surfaces a single
-  // 409 to the caller.
-  for (const section of requiredSections) {
-    const row = bySection.get(section);
-    if (!row) {
-      throw new Error(
-        `analyses_not_ready: missing ${section} row for run_id ${runId}`,
-      );
-    }
-    if (row.status !== "complete") {
-      throw new Error(
-        `analyses_not_ready: ${section} row for run_id ${runId} is in status '${row.status}'`,
-      );
-    }
-    if (!row.analysis_json) {
-      throw new Error(
-        `analyses_not_ready: ${section} row for run_id ${runId} has no analysis_json`,
-      );
-    }
-  }
-
-  return requiredSections.map((section) => bySection.get(section)!);
-}
-
-/**
- * Minimal totals we pull out of the original bundle for the executive
- * summary. We deliberately don't forward the whole bundle into the
- * Sonnet prompt — it's already been distilled by Phase 2 into the
- * assessments arrays, and re-sending the raw rows would double the
- * input token bill without adding information Sonnet can't already
- * cite.
- */
-interface BundleTotals {
-  repo_totals: ContextBundle["repo"]["totals"];
-  data_layer_totals: ContextBundle["data_layer"]["totals"];
-  ops_collected_at: string | null;
-  telemetry_warnings: string[];
-  generated_at: string | null;
-}
-
-async function loadBundleTotals(
-  env: SynthesizerEnv,
-  runId: string,
-): Promise<BundleTotals | null> {
-  if (!env.ARCHITECT_BUNDLES) return null;
-
-  const report = await env.DB.prepare(
-    `SELECT context_bundle_r2_key
-       FROM architect_reports
-      WHERE run_id = ?
-      LIMIT 1`,
-  )
-    .bind(runId)
-    .first<{ context_bundle_r2_key: string | null }>();
-
-  const key = report?.context_bundle_r2_key;
-  if (!key) return null;
-
-  try {
-    const obj = await env.ARCHITECT_BUNDLES.get(key);
-    if (!obj) return null;
-    const bundle = (await obj.json()) as ContextBundle;
-    return {
-      repo_totals: bundle.repo.totals,
-      data_layer_totals: bundle.data_layer.totals,
-      ops_collected_at: bundle.ops.collected_at ?? null,
-      telemetry_warnings: bundle.ops.telemetry_warnings ?? [],
-      generated_at: bundle.generated_at ?? null,
-    };
-  } catch {
-    // Best effort — a missing bundle does not block synthesis. The
-    // executive summary just gets slightly less context (no row
-    // counts). Row counts are nice-to-have; the Phase 2 assessments
-    // are the authoritative signal Sonnet reasons over.
-    return null;
-  }
 }
 
 // ─── Sonnet call ───────────────────────────────────────────────────
@@ -338,9 +201,9 @@ async function callSonnetTool(
 
   // Same stop_reason guard as the analyzer. max_tokens is the
   // classic bloat failure mode — catch it here with the actual
-  // reason + token counts in the error message so the row's
-  // error_message tells the operator exactly what happened without
-  // having to pull the raw response out of logs.
+  // reason + token counts so the run row's error_message tells the
+  // operator exactly what happened without having to pull the raw
+  // response out of logs.
   if (apiResponse.stop_reason !== "tool_use") {
     throw new Error(
       `ARCHITECT synthesizer: expected stop_reason='tool_use' but got '${apiResponse.stop_reason}' ` +
@@ -464,47 +327,35 @@ export interface SynthesizeResult {
 }
 
 /**
- * Run a full synthesis for a single architect_reports run.
+ * Run a full synthesis from in-memory inputs.
  *
- * 1. Loads the three Phase 2 rows. Throws `analyses_not_ready: ...`
- *    if any are missing or non-complete — the HTTP route translates
- *    that into a 409 before ever calling this function, but the
- *    guard stays here so mis-wired callers (and tests) get the same
- *    behaviour.
- * 2. Loads the original bundle from R2 for totals. Best effort — a
- *    missing bundle doesn't block synthesis.
- * 3. Computes the ground-truth scorecard from the assessments arrays.
- * 4. Calls Sonnet via tool_use with the computed scorecard and the
- *    three analyses inlined in the user message.
- * 5. Returns the markdown + scorecard + usage. The caller persists
- *    all three to architect_syntheses.
+ * 1. Compute the ground-truth scorecard from the assessments arrays.
+ * 2. Build the user payload from the bundle's totals + the three
+ *    structured analyses.
+ * 3. Call Sonnet via tool_use with the computed scorecard inlined.
+ * 4. Return the markdown + scorecard + usage so the caller can
+ *    persist them via standard agent_outputs storage.
  */
-export async function synthesize(
+export async function synthesizeFromInputs(
   runId: string,
+  bundle: ContextBundle,
+  analyses: SectionAnalysis[],
   env: SynthesizerEnv,
 ): Promise<SynthesizeResult> {
-  const analyses = await loadAnalyses(env, runId);
-  const bundleTotals = await loadBundleTotals(env, runId);
-  const computedScorecard = computeScorecard(analyses);
+  const computedScorecard = computeScorecardFromAnalyses(analyses);
 
-  // Parse the analysis_json for each row so the prompt carries the
-  // structured assessments directly — re-serializing keeps the
-  // payload compact and strips any D1-side whitespace drift.
-  const structuredAnalyses = analyses.map((row) => ({
-    section: row.section,
-    status: row.status,
-    model: row.model,
-    cost_usd: row.cost_usd,
-    analysis: row.analysis_json ? JSON.parse(row.analysis_json) : null,
+  const structuredAnalyses = analyses.map((analysis) => ({
+    section: analysis.section,
+    analysis,
   }));
 
   const userPayload = {
     run_id: runId,
-    generated_at: bundleTotals?.generated_at ?? null,
-    ops_collected_at: bundleTotals?.ops_collected_at ?? null,
-    repo_totals: bundleTotals?.repo_totals ?? null,
-    data_layer_totals: bundleTotals?.data_layer_totals ?? null,
-    telemetry_warnings: bundleTotals?.telemetry_warnings ?? [],
+    generated_at: bundle.generated_at,
+    ops_collected_at: bundle.ops.collected_at ?? null,
+    repo_totals: bundle.repo.totals,
+    data_layer_totals: bundle.data_layer.totals,
+    telemetry_warnings: bundle.ops.telemetry_warnings ?? [],
     computed_scorecard: computedScorecard,
     phase2_analyses: structuredAnalyses,
   };

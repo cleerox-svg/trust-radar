@@ -4,7 +4,7 @@
  * Each of the three analyzers emits a strongly-typed assessment built
  * from a slice of a Phase 1 ContextBundle. The shapes here are the
  * contract the model is asked to fill in (as JSON) and the contract
- * downstream phases / the UI read back out of architect_analyses.
+ * downstream synthesis + the UI read out of agent_outputs.details.
  */
 
 export type Recommendation = "keep" | "split" | "merge" | "kill" | "refactor";
@@ -90,28 +90,10 @@ export type SectionName = "agents" | "feeds" | "data_layer";
 export type SectionAnalysis = AgentsAnalysis | FeedsAnalysis | DataLayerAnalysis;
 
 /**
- * Row shape for architect_analyses — kept here so the orchestrator
- * and HTTP routes can reuse it without re-deriving the column list.
- */
-export interface ArchitectAnalysisRow {
-  id: string;
-  run_id: string;
-  created_at: number;
-  section: SectionName;
-  status: "pending" | "analyzing" | "complete" | "failed";
-  model: string;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  cost_usd: number | null;
-  duration_ms: number | null;
-  analysis_json: string | null;
-  error_message: string | null;
-}
-
-/**
- * Per-call result returned by the analyzer functions. The orchestrator
- * persists the contents to architect_analyses; nothing outside of the
- * analysis/ directory should need to touch this shape directly.
+ * Per-call result returned by the analyzer functions. The architect
+ * AgentModule aggregates these into a single agent_outputs row;
+ * nothing outside of the analysis/ + synthesis/ directories should
+ * need to touch this shape directly.
  */
 export interface AnalyzerResult<T extends SectionAnalysis> {
   analysis: T;

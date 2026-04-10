@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats } from '@/hooks/useAgents';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput } from '@/hooks/useAgents';
 import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
@@ -99,11 +100,18 @@ const AGENT_REGISTRY: Record<string, {
     schedule: 'Weekly (Sunday, FC-triggered)',
     trigger: 'event',
   },
+  architect: {
+    displayName: 'Architect',
+    description: 'Meta-agent — audits agents, feeds, and the data layer',
+    color: '#E5A832',
+    schedule: 'manual',
+    trigger: 'manual',
+  },
 };
 
 const AGENT_ORDER = [
   'sentinel', 'cartographer', 'nexus', 'analyst', 'observer',
-  'sparrow', 'prospector', 'strategist', 'curator',
+  'sparrow', 'prospector', 'strategist', 'curator', 'architect',
 ];
 
 // ─── Status helpers ─────────────────────────────────────────────────
@@ -599,6 +607,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
 // ─── Monitor View (existing content, wrapped) ─────────────────
 function MonitorView() {
   const { data: agents } = useAgents();
+  const navigate = useNavigate();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const flightControl = agents?.find(a => a.name === 'flight_control') ?? null;
@@ -661,9 +670,16 @@ function MonitorView() {
                 key={agent.agent_id}
                 agent={agent}
                 isSelected={selectedAgent === agent.name}
-                onSelect={() =>
-                  setSelectedAgent(prev => prev === agent.name ? null : agent.name)
-                }
+                onSelect={() => {
+                  // Architect has its own dedicated detail view (Run
+                  // button + report viewer); the rest use the inline
+                  // health panel.
+                  if (agent.name === 'architect') {
+                    navigate('/agents/architect');
+                    return;
+                  }
+                  setSelectedAgent(prev => prev === agent.name ? null : agent.name);
+                }}
               />
             ))}
 

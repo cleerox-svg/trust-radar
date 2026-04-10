@@ -15,8 +15,7 @@
     "db:migrate:audit:local": "wrangler d1 migrations apply AUDIT_DB --local",
     "db:migrate:audit:prod": "wrangler d1 migrations apply AUDIT_DB --remote",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "architect:collect": "tsx src/agents/architect/cli.ts"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "itty-router": "^5.0.18",

@@ -10,8 +10,6 @@ import { renderAdminPortalPage, renderInternalStaffPage } from "./templates/hone
 import { logHoneypotVisit } from "./lib/honeypot-visit-logger";
 import type { Env } from "./types";
 import { handleScheduled } from "./cron/orchestrator";
-import { handleAnalysisJob } from "./agents/architect/analysis/consumer";
-import type { AnalysisJobMessage } from "./agents/architect/analysis/queue-types";
 
 // ─── Route modules ──────────────────────────────────────────────────
 import { registerPublicRoutes } from "./routes/public";
@@ -22,7 +20,6 @@ import { registerBrandRoutes } from "./routes/brands";
 import { registerThreatRoutes } from "./routes/threats";
 import { registerInvestigationRoutes } from "./routes/investigations";
 import { registerAdminRoutes } from "./routes/admin";
-import { registerArchitectRoutes } from "./routes/architect";
 import { registerTenantRoutes } from "./routes/tenant";
 import { registerAgentRoutes } from "./routes/agents";
 import { registerSpamTrapRoutes } from "./routes/spam-trap";
@@ -89,7 +86,6 @@ registerThreatActorRoutes(router);
 registerEmailSecurityRoutes(router);
 registerTenantRoutes(router);
 registerAdminRoutes(router);
-registerArchitectRoutes(router);
 // Public routes + SPA fallback must be last
 registerPublicRoutes(router);
 
@@ -97,33 +93,23 @@ registerPublicRoutes(router);
 export default {
   scheduled: handleScheduled,
 
-  // ARCHITECT Phase 2 analyzer fan-out — one message per section,
-  // dispatched with max_batch_size=1 so each analyzer call gets its
-  // own full Worker execution budget. Route by batch.queue so future
-  // queues can plug into this same handler without stepping on the
-  // architect path.
+  // Legacy queue consumer drain. ARCHITECT was folded into the
+  // standard AgentModule pattern in Phase 4 Step 1; the
+  // architect-analysis queue is no longer enqueued to. This handler
+  // exists only so wrangler deploy doesn't trip on the consumer
+  // relationship Cloudflare still has registered between this worker
+  // and the queue. Every message is acked immediately so any stale
+  // in-flight messages drain to nothing instead of accumulating in
+  // the DLQ. Delete this handler + the [[queues.consumers]] block in
+  // wrangler.toml after the queue itself is removed via the
+  // wrangler queues delete commands listed in the toml comment.
   async queue(
     batch: MessageBatch<unknown>,
-    env: Env,
+    _env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
-    switch (batch.queue) {
-      case "architect-analysis": {
-        const architectBatch = batch as MessageBatch<AnalysisJobMessage>;
-        for (const msg of architectBatch.messages) {
-          await handleAnalysisJob(msg, env);
-        }
-        return;
-      }
-      default:
-        // Unknown queue — ack every message so it doesn't loop forever,
-        // and log loudly so the mis-wiring is easy to spot.
-        console.error(
-          `[worker.queue] received batch for unknown queue '${batch.queue}' — acking ${batch.messages.length} message(s)`,
-        );
-        for (const msg of batch.messages) {
-          msg.ack();
-        }
+    for (const msg of batch.messages) {
+      msg.ack();
     }
   },
 

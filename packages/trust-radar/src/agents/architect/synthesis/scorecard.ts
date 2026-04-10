@@ -10,14 +10,13 @@
  * severity + recommendation went through the tool_use schema and the
  * hand-rolled validator.
  *
- * This is deterministic, fast (microseconds on a fanned-out D1 row
- * set), and observable: the result is persisted alongside the Sonnet
- * markdown in `architect_syntheses.computed_scorecard_json` so UIs and
- * later audits can render counts without re-parsing the narrative.
+ * This is deterministic, fast (microseconds), and observable: the
+ * result is persisted alongside the Sonnet markdown inside the
+ * architect agent's `agent_outputs.details` payload so UIs and later
+ * audits can render counts without re-parsing the narrative.
  */
 
 import type {
-  ArchitectAnalysisRow,
   Recommendation,
   SectionAnalysis,
   SectionName,
@@ -64,29 +63,12 @@ interface AssessmentLike {
 }
 
 /**
- * Parse a row's analysis_json defensively. Rows that are not complete,
- * or whose analysis_json is missing / malformed, contribute zero —
- * computeScorecard never throws because the caller (synthesizer) has
- * already checked that all three rows are `complete`, but we stay
- * permissive so unit tests can feed in partial fixtures without
- * wiring up the full status machine.
+ * Pull validated severity + recommendation pairs out of one
+ * SectionAnalysis. Defensive — anything that doesn't match the enum
+ * contract is dropped silently so unit fixtures with partial shapes
+ * still flow through.
  */
-function parseAssessments(row: ArchitectAnalysisRow): AssessmentLike[] {
-  if (!row.analysis_json) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(row.analysis_json);
-  } catch {
-    return [];
-  }
-  if (
-    parsed === null ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
-    return [];
-  }
-  const analysis = parsed as Partial<SectionAnalysis>;
+function extractAssessments(analysis: SectionAnalysis): AssessmentLike[] {
   const assessments = (analysis as { assessments?: unknown }).assessments;
   if (!Array.isArray(assessments)) return [];
 
@@ -141,22 +123,17 @@ function countRecommendation(
 }
 
 /**
- * Compute the ground-truth scorecard for a synthesis run.
- *
- * Iterates the parsed assessments array in each of the three Phase 2
- * rows and tallies severities + recommendations. Missing sections
- * (e.g. a row with no analysis_json) contribute zeros rather than
- * throwing — the synthesizer's own preflight validates that all
- * three rows are present and `complete` before ever calling this.
+ * Compute the ground-truth scorecard from in-memory SectionAnalysis
+ * payloads. Iterates the assessments array in each of the three
+ * sections and tallies severities + recommendations. Missing
+ * sections contribute zeros rather than throwing.
  *
  * Overall counts are the column-wise sum of the three sections. If a
- * caller passes in multiple rows for the same section (shouldn't
- * happen — architect_analyses is keyed by (run_id, section)) we fold
- * them all into that section's tally; no dedup, because there's
- * nothing meaningful to dedup on at this layer.
+ * caller passes in multiple analyses for the same section (shouldn't
+ * happen) we fold them all into that section's tally; no dedup.
  */
-export function computeScorecard(
-  analyses: ArchitectAnalysisRow[],
+export function computeScorecardFromAnalyses(
+  analyses: SectionAnalysis[],
 ): ComputedScorecard {
   const perSection: Record<SectionName, AssessmentLike[]> = {
     agents: [],
@@ -164,18 +141,17 @@ export function computeScorecard(
     data_layer: [],
   };
 
-  for (const row of analyses) {
+  for (const analysis of analyses) {
     if (
-      row.section !== "agents" &&
-      row.section !== "feeds" &&
-      row.section !== "data_layer"
+      analysis.section !== "agents" &&
+      analysis.section !== "feeds" &&
+      analysis.section !== "data_layer"
     ) {
       // Ignore unknown sections — keeps us forward-compatible if a
-      // new section is added to the schema before Phase 3 catches up.
+      // new section is added before this counter catches up.
       continue;
     }
-    const parsed = parseAssessments(row);
-    perSection[row.section].push(...parsed);
+    perSection[analysis.section].push(...extractAssessments(analysis));
   }
 
   const agents = tallySection(perSection.agents);

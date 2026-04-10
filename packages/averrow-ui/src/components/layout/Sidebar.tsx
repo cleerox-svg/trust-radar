@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Globe, Shield, Server, Activity, TrendingUp, Crosshair,
   Gavel, Bell, Inbox, Target,
-  Cpu, Rss, LayoutDashboard, Users, ClipboardList, Building2, Compass,
+  Cpu, Rss, LayoutDashboard, Users, ClipboardList, Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -146,7 +146,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Team', path: '/admin/users',       icon: Users },
         ...(isSuperAdmin ? [{ label: 'Organizations', path: '/admin/organizations', icon: Building2 }] : []),
         { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
-        ...(isSuperAdmin ? [{ label: 'Architect',     path: '/admin/architect',     icon: Compass }] : []),
       ],
     },
   ];
