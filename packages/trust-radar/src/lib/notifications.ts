@@ -5,7 +5,7 @@
  * Respects per-user notification preferences.
  */
 
-type NotificationType = 'brand_threat' | 'campaign_escalation' | 'feed_health' | 'intelligence_digest' | 'agent_milestone' | 'email_security_change' | 'spam_trap_capture' | 'spam_trap_campaign';
+type NotificationType = 'brand_threat' | 'campaign_escalation' | 'feed_health' | 'intelligence_digest' | 'agent_milestone' | 'email_security_change' | 'spam_trap_capture' | 'spam_trap_campaign' | 'circuit_breaker_tripped';
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 interface CreateNotificationOpts {
@@ -28,6 +28,7 @@ const RATE_LIMITS: Record<NotificationType, string> = {
   email_security_change: '-6 hours',
   spam_trap_capture: '-1 hour',
   spam_trap_campaign: '-6 hours',
+  circuit_breaker_tripped: '-1 hour',
 };
 
 export async function createNotification(db: D1Database, opts: CreateNotificationOpts): Promise<number> {
@@ -81,5 +82,6 @@ function getRateKey(opts: CreateNotificationOpts): string | null {
   if (m.brand_id) return `"brand_id":"${m.brand_id}"`;
   if (m.campaign_id) return `"campaign_id":"${m.campaign_id}"`;
   if (m.feed_name) return `"feed_name":"${m.feed_name}"`;
+  if (m.agent_id) return `"agent_id":"${m.agent_id}"`;
   return null;
 }
