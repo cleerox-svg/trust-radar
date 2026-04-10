@@ -25,17 +25,20 @@
  */
 
 import type { Env } from "../../../types";
+import { estimateCost } from "../../../lib/budgetManager";
 
 import type { SectionAnalysis } from "../analysis/types";
 import type { ContextBundle } from "../types";
 
 import { computeScorecardFromAnalyses, type ComputedScorecard } from "./scorecard";
 
-// ─── Model + pricing constants ─────────────────────────────────────
+// ─── Model constants ───────────────────────────────────────────────
+//
+// Pricing lives in lib/budgetManager.ts COST_PER_MILLION — do not
+// re-declare per-module constants. The synthesiser just picks the
+// model ID and defers cost math to the canonical estimator.
 
 export const SONNET_MODEL = "claude-sonnet-4-5-20250929";
-export const SONNET_INPUT_USD_PER_MTOK = 3.0;
-export const SONNET_OUTPUT_USD_PER_MTOK = 15.0;
 
 /**
  * Hard cap per synthesis run. Sonnet 4.5 is ~5x Haiku's input rate
@@ -48,15 +51,6 @@ export const MAX_COST_PER_SYNTHESIS_USD = 1.0;
 const ANTHROPIC_API_VERSION = "2023-06-01";
 const DEFAULT_MAX_TOKENS = 20_480;
 const REQUEST_TIMEOUT_MS = 120_000;
-
-export function computeSonnetCostUsd(
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const inputCost = (inputTokens / 1_000_000) * SONNET_INPUT_USD_PER_MTOK;
-  const outputCost = (outputTokens / 1_000_000) * SONNET_OUTPUT_USD_PER_MTOK;
-  return inputCost + outputCost;
-}
 
 // ─── Env subset ────────────────────────────────────────────────────
 
@@ -240,7 +234,7 @@ async function callSonnetTool(
 
   const inputTokens = apiResponse.usage.input_tokens;
   const outputTokens = apiResponse.usage.output_tokens;
-  const costUsd = computeSonnetCostUsd(inputTokens, outputTokens);
+  const costUsd = estimateCost(apiResponse.model || SONNET_MODEL, inputTokens, outputTokens);
   if (costUsd > MAX_COST_PER_SYNTHESIS_USD) {
     throw new Error(
       `ARCHITECT synthesizer: per-synthesis cost cap exceeded: $${costUsd.toFixed(4)} > $${MAX_COST_PER_SYNTHESIS_USD.toFixed(2)} (in=${inputTokens}, out=${outputTokens})`,

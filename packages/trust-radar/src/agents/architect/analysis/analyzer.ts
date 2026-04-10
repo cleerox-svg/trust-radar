@@ -42,7 +42,23 @@ import type {
   RepoInventory,
 } from "../types";
 
-import { HAIKU_MODEL, MAX_COST_PER_CALL_USD, computeCostUsd } from "./pricing";
+import { estimateCost } from "../../../lib/budgetManager";
+
+export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+/**
+ * Hard cap per individual analyzer call. Haiku is cheap, but analyses
+ * take ~4-8k input tokens and 1-2k output tokens so a single call
+ * should land well under $0.05 — the $0.50 cap is the "something is
+ * catastrophically wrong" tripwire, not a soft budget.
+ */
+export const MAX_COST_PER_CALL_USD = 0.5;
+
+/**
+ * Hard cap for a full Phase 2 run (all three sections combined).
+ * Tripped by the orchestrator after each analyzer returns.
+ */
+export const MAX_COST_PER_RUN_USD = 2.0;
 import {
   parseAgentsAnalysis,
   parseDataLayerAnalysis,
@@ -200,7 +216,7 @@ async function callHaikuTool(
 
   const inputTokens = apiResponse.usage.input_tokens;
   const outputTokens = apiResponse.usage.output_tokens;
-  const costUsd = computeCostUsd(inputTokens, outputTokens);
+  const costUsd = estimateCost(apiResponse.model || HAIKU_MODEL, inputTokens, outputTokens);
   if (costUsd > MAX_COST_PER_CALL_USD) {
     throw new Error(
       `ARCHITECT analyzer: per-call cost cap exceeded: $${costUsd.toFixed(4)} > $${MAX_COST_PER_CALL_USD.toFixed(2)} (in=${inputTokens}, out=${outputTokens})`,
