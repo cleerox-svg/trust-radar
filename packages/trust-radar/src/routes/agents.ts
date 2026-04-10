@@ -7,6 +7,7 @@ import {
   handleAgentTokenUsage, handleListApprovals, handleResolveApproval, handleTrustBotChat,
   handleAgentStats, handleAgentOutputs, handleAgentOutputsByName, handleAgentHealth,
   handleAgentApiUsage, handleAgentConfig,
+  handleResetAgentCircuit, handleUpdateAgentThreshold, handleToggleAgent,
 } from "../handlers/agents";
 
 export function registerAgentRoutes(router: RouterType<IRequest>): void {
@@ -74,6 +75,21 @@ export function registerAgentRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTriggerAgent(request, env, request.params["name"] ?? "", ctx.userId);
+  });
+  router.post("/api/agents/:name/reset-circuit", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleResetAgentCircuit(request, env, request.params["name"] ?? "");
+  });
+  router.put("/api/agents/:name/threshold", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateAgentThreshold(request, env, request.params["name"] ?? "");
+  });
+  router.post("/api/agents/:name/toggle", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleToggleAgent(request, env, request.params["name"] ?? "");
   });
   router.post("/api/agents/approvals/:id/resolve", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAdmin(request, env);

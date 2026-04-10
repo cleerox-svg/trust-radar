@@ -1,5 +1,5 @@
 import { json } from "../lib/cors";
-import { executeAgent, resolveApproval } from "../lib/agentRunner";
+import { executeAgent, resolveApproval, PROTECTED_FROM_CIRCUIT_BREAKER } from "../lib/agentRunner";
 import type { AgentName, TriggerType } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
 import { BudgetManager } from "../lib/budgetManager";
@@ -40,7 +40,7 @@ const AGENT_SCHEDULES: Record<string, string> = {
 
 // ─── List all agent definitions + their latest run ──────────────
 export const handleListAgents = handler(async (_request, env, ctx) => {
-  const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations] = await Promise.all([
+  const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations, agentConfigs] = await Promise.all([
     env.DB.prepare(
       `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
        FROM agent_runs
@@ -89,6 +89,16 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
        WHERE status = 'success'
        GROUP BY agent_id`
     ).all<{ agent_id: string; avg_duration_ms: number }>(),
+
+    env.DB.prepare(
+      `SELECT agent_id, enabled, paused_reason, consecutive_failures,
+              consecutive_failure_threshold, paused_at, paused_after_n_failures
+       FROM agent_configs`
+    ).all<{
+      agent_id: string; enabled: number; paused_reason: string | null;
+      consecutive_failures: number; consecutive_failure_threshold: number | null;
+      paused_at: string | null; paused_after_n_failures: number | null;
+    }>(),
   ]);
 
   const latestRunMap = new Map(latestRuns.results.map((r) => [r.agent_id, r]));
@@ -96,6 +106,7 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
   const outputMap = new Map(outputStats24h.results.map((r) => [r.agent_id, r.outputs_24h]));
   const lastOutputMap = new Map(lastOutputTimes.results.map((r) => [r.agent_id, r.last_output_at]));
   const avgDurMap = new Map(avgDurations.results.map((r) => [r.agent_id, r.avg_duration_ms]));
+  const configMap = new Map(agentConfigs.results.map((r) => [r.agent_id, r]));
 
   const activityMap = new Map<string, number[]>();
   const currentHour = new Date().getUTCHours();
@@ -121,6 +132,8 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
   const agents = getAgentDefinitions().map((def) => {
     const stats = statsMap.get(def.name);
     const latestRun = latestRunMap.get(def.name);
+    const config = configMap.get(def.name);
+    const isTripped = config?.enabled === 0 && config.paused_reason === 'auto:consecutive_failures';
     return {
       agent_id: def.name,
       name: def.name,
@@ -141,6 +154,14 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
       last_run_error: latestRun?.error_message ?? null,
       last_output_at: lastOutputMap.get(def.name) ?? null,
       avg_duration_ms: avgDurMap.get(def.name) ?? null,
+      // Circuit breaker state
+      circuit_enabled: config?.enabled ?? 1,
+      circuit_state: isTripped ? 'tripped' : (config?.enabled === 0 ? 'manual_pause' : 'closed'),
+      paused_reason: config?.paused_reason ?? null,
+      consecutive_failures: config?.consecutive_failures ?? 0,
+      consecutive_failure_threshold: config?.consecutive_failure_threshold ?? null,
+      paused_at: config?.paused_at ?? null,
+      paused_after_n_failures: config?.paused_after_n_failures ?? null,
     };
   });
 
@@ -512,3 +533,94 @@ export const handleAgentStats = handler(async (_request, env, ctx) => {
     latestOutputs: latestOutputs.results,
   }, ctx.origin);
 });
+
+// ─── Reset agent circuit breaker ────────────────────────────────
+export async function handleResetAgentCircuit(
+  request: Request, env: Env, agentId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Verify agent exists in agentModules
+    if (!agentModules[agentId]) {
+      return error("Agent not found", 404, origin);
+    }
+
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE agent_configs SET
+           enabled = 1,
+           paused_reason = NULL,
+           consecutive_failures = 0,
+           paused_at = NULL,
+           paused_after_n_failures = NULL,
+           updated_at = datetime('now')
+         WHERE agent_id = ?`
+      ).bind(agentId),
+    ]);
+
+    return json({ success: true, data: { agent_id: agentId } }, 200, origin);
+  } catch (err) {
+    console.error(`[resetAgentCircuit] "${agentId}" threw:`, err);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── Update agent circuit breaker threshold ─────────────────────
+export async function handleUpdateAgentThreshold(
+  request: Request, env: Env, agentId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    if (!agentModules[agentId]) {
+      return error("Agent not found", 404, origin);
+    }
+
+    const body = await parseBody<{ threshold: number | null }>(request);
+    // NULL clears the per-agent override, reverting to the global default.
+    const threshold = body.threshold;
+    if (threshold !== null && (typeof threshold !== 'number' || threshold < 1)) {
+      return error("Threshold must be a positive integer or null", 400, origin);
+    }
+
+    await env.DB.prepare(
+      `UPDATE agent_configs SET consecutive_failure_threshold = ?, updated_at = datetime('now') WHERE agent_id = ?`
+    ).bind(threshold, agentId).run();
+
+    return json({ success: true, data: { agent_id: agentId, consecutive_failure_threshold: threshold } }, 200, origin);
+  } catch (err) {
+    console.error(`[updateAgentThreshold] "${agentId}" threw:`, err);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── Manually disable/enable an agent ───────────────────────────
+export async function handleToggleAgent(
+  request: Request, env: Env, agentId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    if (!agentModules[agentId]) {
+      return error("Agent not found", 404, origin);
+    }
+
+    const body = await parseBody<{ enabled: boolean }>(request);
+    const enabled = body.enabled ? 1 : 0;
+    const pausedReason = enabled ? null : 'manual';
+
+    await env.DB.prepare(
+      `UPDATE agent_configs SET
+         enabled = ?,
+         paused_reason = ?,
+         consecutive_failures = CASE WHEN ? = 1 THEN 0 ELSE consecutive_failures END,
+         paused_at = CASE WHEN ? = 0 THEN datetime('now') ELSE NULL END,
+         paused_after_n_failures = CASE WHEN ? = 1 THEN NULL ELSE paused_after_n_failures END,
+         updated_at = datetime('now')
+       WHERE agent_id = ?`
+    ).bind(enabled, pausedReason, enabled, enabled, enabled, agentId).run();
+
+    return json({ success: true, data: { agent_id: agentId, enabled: !!enabled } }, 200, origin);
+  } catch (err) {
+    console.error(`[toggleAgent] "${agentId}" threw:`, err);
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
