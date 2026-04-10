@@ -71,11 +71,6 @@ export const analystAgent: AgentModule = {
       malicious_domain: string | null; source_feed: string; threat_type: string;
     }>();
 
-    // Also check total threats for context
-    const totalCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>();
-    const noBrandCount = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL").first<{ n: number }>();
-    const noBrandWithDomain = await env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE target_brand_id IS NULL AND malicious_domain IS NOT NULL").first<{ n: number }>();
-
     // Load known brands for context
     const brands = await env.DB.prepare(
       "SELECT name FROM brands ORDER BY threat_count DESC LIMIT 100"
@@ -237,24 +232,40 @@ export const analystAgent: AgentModule = {
     }
 
     // ─── Phase 2.5: Enrichment validation context per brand ─────
-    // Query enrichment stats for brands that had threats matched this run
-    const enrichmentStats = await env.DB.prepare(`
-      SELECT
-        target_brand_id,
-        SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed,
-        SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged,
-        ROUND(AVG(CASE WHEN vt_malicious > 0 THEN vt_malicious ELSE NULL END), 1) as vt_avg_malicious,
-        SUM(CASE WHEN gsb_flagged = 1 THEN 1 ELSE 0 END) as gsb_confirmed,
-        SUM(CASE WHEN dbl_listed = 1 THEN 1 ELSE 0 END) as dbl_confirmed,
-        SUM(CASE WHEN greynoise_noise = 1 AND greynoise_classification = 'benign' THEN 1 ELSE 0 END) as noise_scanners,
-        SUM(CASE WHEN greynoise_noise = 0 AND greynoise_checked = 1 THEN 1 ELSE 0 END) as potentially_targeted,
-        SUM(CASE WHEN seclookup_risk_score >= 80 THEN 1 ELSE 0 END) as seclookup_high_risk
-      FROM threats
-      WHERE target_brand_id IS NOT NULL
-        AND status = 'active'
-        AND (surbl_listed = 1 OR vt_malicious > 0 OR gsb_flagged = 1 OR dbl_listed = 1 OR greynoise_checked = 1 OR seclookup_checked = 1)
-      GROUP BY target_brand_id
-    `).all<{
+    // Split into 6 small queries (one per enrichment signal) to avoid the
+    // single-query OR-over-six-columns that forces a full active-table scan.
+    // See docs/runbooks/analyst-d1-diagnosis.md for EXPLAIN plans.
+    const baseCond = "status = 'active' AND target_brand_id IS NOT NULL";
+    const [surblRows, vtRows, vtAvgRows, gsbRows, dblRows, greynoiseRows, seclookupRows] = await Promise.all([
+      env.DB.prepare(
+        `SELECT target_brand_id, COUNT(*) as cnt FROM threats WHERE ${baseCond} AND surbl_listed = 1 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; cnt: number }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id, COUNT(*) as cnt FROM threats WHERE ${baseCond} AND vt_malicious > 0 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; cnt: number }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id, ROUND(AVG(vt_malicious), 1) as avg_mal FROM threats WHERE ${baseCond} AND vt_malicious > 0 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; avg_mal: number | null }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id, COUNT(*) as cnt FROM threats WHERE ${baseCond} AND gsb_flagged = 1 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; cnt: number }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id, COUNT(*) as cnt FROM threats WHERE ${baseCond} AND dbl_listed = 1 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; cnt: number }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id,
+          SUM(CASE WHEN greynoise_noise = 1 AND greynoise_classification = 'benign' THEN 1 ELSE 0 END) as noise_scanners,
+          SUM(CASE WHEN greynoise_noise = 0 THEN 1 ELSE 0 END) as potentially_targeted
+        FROM threats WHERE ${baseCond} AND greynoise_checked = 1 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; noise_scanners: number; potentially_targeted: number }>(),
+      env.DB.prepare(
+        `SELECT target_brand_id, SUM(CASE WHEN seclookup_risk_score >= 80 THEN 1 ELSE 0 END) as high_risk
+        FROM threats WHERE ${baseCond} AND seclookup_checked = 1 GROUP BY target_brand_id`
+      ).all<{ target_brand_id: string; high_risk: number }>(),
+    ]);
+
+    // Pivot subquery results into the original per-brand shape
+    const enrichmentByBrand = new Map<string, {
       target_brand_id: string;
       surbl_confirmed: number;
       vt_flagged: number;
@@ -266,9 +277,31 @@ export const analystAgent: AgentModule = {
       seclookup_high_risk: number;
     }>();
 
-    const enrichmentByBrand = new Map(
-      enrichmentStats.results.map(r => [r.target_brand_id, r])
-    );
+    const getOrInit = (bid: string) => {
+      let entry = enrichmentByBrand.get(bid);
+      if (!entry) {
+        entry = {
+          target_brand_id: bid,
+          surbl_confirmed: 0, vt_flagged: 0, vt_avg_malicious: null,
+          gsb_confirmed: 0, dbl_confirmed: 0, noise_scanners: 0,
+          potentially_targeted: 0, seclookup_high_risk: 0,
+        };
+        enrichmentByBrand.set(bid, entry);
+      }
+      return entry;
+    };
+
+    for (const r of surblRows.results) getOrInit(r.target_brand_id).surbl_confirmed = r.cnt;
+    for (const r of vtRows.results) getOrInit(r.target_brand_id).vt_flagged = r.cnt;
+    for (const r of vtAvgRows.results) getOrInit(r.target_brand_id).vt_avg_malicious = r.avg_mal;
+    for (const r of gsbRows.results) getOrInit(r.target_brand_id).gsb_confirmed = r.cnt;
+    for (const r of dblRows.results) getOrInit(r.target_brand_id).dbl_confirmed = r.cnt;
+    for (const r of greynoiseRows.results) {
+      const e = getOrInit(r.target_brand_id);
+      e.noise_scanners = r.noise_scanners;
+      e.potentially_targeted = r.potentially_targeted;
+    }
+    for (const r of seclookupRows.results) getOrInit(r.target_brand_id).seclookup_high_risk = r.high_risk;
 
     // ─── Phase 3: Brand threat correlation escalation ──────────
     // After processing threats, run correlation for brands with new matches
@@ -736,7 +769,7 @@ export const analystAgent: AgentModule = {
       type: "classification",
       summary: itemsProcessed > 0
         ? `Analyst matched ${itemsUpdated} threats to brands (${itemsProcessed} processed, haiku=${haikuSuccesses}/${haikuFailures}, low_conf=${lowConfidence})`
-        : `Analyst found 0 unmatched threats (${totalCount?.n ?? 0} total, ${noBrandWithDomain?.n ?? 0} without brand+domain)`,
+        : `Analyst found 0 unmatched threats to process`,
       severity: "info",
       details: {
         processed: itemsProcessed,
@@ -744,9 +777,6 @@ export const analystAgent: AgentModule = {
         haikuSuccesses,
         haikuFailures,
         lowConfidence,
-        totalThreats: totalCount?.n ?? 0,
-        noBrandThreats: noBrandCount?.n ?? 0,
-        noBrandWithDomain: noBrandWithDomain?.n ?? 0,
         knownBrands: brandNames.length,
         anthropicKeySource: keySource,
         anthropicApiConfigured: !!apiKey,
