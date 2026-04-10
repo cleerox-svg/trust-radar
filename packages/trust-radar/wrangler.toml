@@ -37,6 +37,26 @@ name = "nexus-run"
 binding = "NEXUS_RUN"
 class_name = "NexusWorkflow"
 
+# ─── Queues (legacy ARCHITECT consumer — being deprecated) ────
+# Phase 4 Step 1 folded ARCHITECT into the standard AgentModule
+# pattern, so the worker no longer enqueues to architect-analysis.
+# We keep the consumer binding here as a no-op drain so wrangler
+# deploy doesn't trip on the still-registered consumer relationship
+# Cloudflare has between this worker and the queue. The matching
+# handler in src/index.ts ack()s every message it receives.
+#
+# Cleanup, after this lands and the queue has fully drained:
+#   1. wrangler queues consumer remove architect-analysis trust-radar
+#   2. wrangler queues delete architect-analysis
+#   3. wrangler queues delete architect-analysis-dlq
+#   4. Delete this block + the no-op handler in src/index.ts
+[[queues.consumers]]
+queue = "architect-analysis"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 0
+dead_letter_queue = "architect-analysis-dlq"
+
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]
 binding = "DB"
