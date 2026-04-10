@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -90,6 +90,7 @@ export function useProviderIntelligence() {
       const res = await api.get<IntelligenceStats>('/api/providers/intelligence');
       return res.data ?? null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -126,6 +127,7 @@ export function useProviders(options?: {
       const res = await api.get<Provider[]>(`/api/providers/v2?${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -138,6 +140,7 @@ export function useClusters() {
       const res = await api.get<Cluster[]>('/api/providers/clusters');
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -150,6 +153,7 @@ export function useProviderDetail(providerId: string | null) {
       const res = await api.get<ProviderDetail>(`/api/providers/${providerId}`);
       return res.data ?? null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!providerId,
   });
 }
@@ -166,6 +170,7 @@ export function useProviderThreats(providerId: string | null, options?: { limit?
       const res = await api.get<ProviderThreat[]>(`/api/providers/${providerId}/threats?${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!providerId,
   });
 }
@@ -179,6 +184,7 @@ export function useProviderTimeline(providerId: string | null) {
       const res = await api.get<TimelineData>(`/api/providers/${providerId}/timeline?period=30d`);
       return res.data ?? { labels: [], values: [] };
     },
+    placeholderData: keepPreviousData,
     enabled: !!providerId,
   });
 }
@@ -192,6 +198,7 @@ export function useProviderClusters(providerId: string | null) {
       const res = await api.get<Cluster[]>(`/api/providers/${providerId}/clusters`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!providerId,
   });
 }

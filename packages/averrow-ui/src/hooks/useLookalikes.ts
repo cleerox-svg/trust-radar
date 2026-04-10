@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface LookalikeDomain {
@@ -43,6 +43,7 @@ export function useLookalikes(brandId: string, params: LookalikesParams = {}) {
         total: res.total ?? 0,
       };
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }

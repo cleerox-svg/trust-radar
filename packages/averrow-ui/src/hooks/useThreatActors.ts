@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface ThreatActor {
@@ -63,6 +63,7 @@ export function useThreatActors(options?: { country?: string; status?: string; a
       const res = await api.get<ThreatActor[]>(`/api/threat-actors${qs ? `?${qs}` : ''}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -73,6 +74,7 @@ export function useThreatActorStats() {
       const res = await api.get<ThreatActorStats>('/api/threat-actors/stats');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -83,6 +85,7 @@ export function useThreatActorDetail(id: string) {
       const res = await api.get<ThreatActorDetail>(`/api/threat-actors/${id}`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!id,
   });
 }
@@ -94,6 +97,7 @@ export function useThreatActorsByBrand(brandId: string) {
       const res = await api.get<ThreatActor[]>(`/api/threat-actors/by-brand/${brandId}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }

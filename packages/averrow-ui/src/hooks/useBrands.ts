@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 interface BrandSocialProfile {
@@ -87,6 +87,7 @@ export function useBrands(options?: { view?: string; limit?: number; offset?: nu
       const res = await api.get<Brand[]>(`/api/brands?${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -97,6 +98,7 @@ export function useBrandStats() {
       const res = await api.get<BrandStats>('/api/brands/stats');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -107,6 +109,7 @@ export function useBrandDetail(brandId: string) {
       const res = await api.get<BrandDetail>(`/api/brands/${brandId}`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }
@@ -142,6 +145,7 @@ export function useBrandThreats(
       const res = await api.get<BrandThreatRow[]>(`/api/brands/${brandId}/threats?${params}`);
       return { rows: (res.data ?? []) as BrandThreatRow[], total: res.total ?? 0 };
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }
@@ -153,6 +157,7 @@ export function useBrandSocialProfiles(brandId: string) {
       const res = await api.get<SocialProfile[]>(`/api/brands/${brandId}/social`);
       return res.data || [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }
@@ -164,6 +169,7 @@ export function useBrandEmailSecurity(brandId: string) {
       const res = await api.get<unknown>(`/api/brands/${brandId}/email-security`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }

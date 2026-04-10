@@ -1,9 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export function useBrandFullDetail(brandId: string) {
   return useQuery({
     queryKey: ['brand-full', brandId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const [brand, threats, locations, providers, campaigns, timeline, analysis, safeDomains, emailSecurity, socialProfiles] = await Promise.all([
         api.get<any>(`/api/brands/${brandId}`).catch(() => ({ data: null })),
@@ -41,6 +42,7 @@ export function useBrandTimeline(brandId: string, period: string) {
       const res = await api.get<any>(`/api/brands/${brandId}/threats/timeline?period=${period}`);
       return res.data;
     },
+    placeholderData: keepPreviousData,
     enabled: !!brandId,
   });
 }

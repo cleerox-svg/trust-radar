@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ export function useOperations(options?: { status?: string; limit?: number; offse
       const res = await api.get<Operation[]>(`/api/v1/operations?${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -54,6 +55,7 @@ export function useOperationsStats() {
       const res = await api.get<OperationsStats>('/api/v1/operations/stats');
       return res.data ?? null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -64,6 +66,7 @@ export function useOperationTimeline(operationId: string | null) {
       const res = await api.get<TimelineData>(`/api/v1/operations/${operationId}/timeline`);
       return res.data ?? { labels: [], values: [] };
     },
+    placeholderData: keepPreviousData,
     enabled: !!operationId,
   });
 }
@@ -76,6 +79,7 @@ export function useOperationThreats(operationId: string | null, options?: { limi
       const res = await api.get<Array<Record<string, unknown>>>(`/api/v1/operations/${operationId}/threats?limit=${limit}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
     enabled: !!operationId,
   });
 }

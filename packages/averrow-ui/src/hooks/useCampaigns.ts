@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 interface Campaign {
@@ -39,6 +39,7 @@ export function useCampaigns(options?: { status?: string; limit?: number; offset
       const res = await api.get<Campaign[]>(`/api/campaigns?${params}`);
       return res.data ?? [];
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -49,6 +50,7 @@ export function useCampaignStats() {
       const res = await api.get<CampaignStats>('/api/campaigns/stats');
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -59,6 +61,7 @@ export function useCampaignDetail(campaignId: string) {
       const res = await api.get<CampaignDetail>(`/api/campaigns/${campaignId}`);
       return res.data || null;
     },
+    placeholderData: keepPreviousData,
     enabled: !!campaignId,
   });
 }
@@ -75,6 +78,7 @@ export function useCampaignTimeline(campaignId: string, period: '24h' | '7d' | '
       const res = await api.get<CampaignTimelineData>(`/api/campaigns/${campaignId}/timeline?period=${period}`);
       return res.data ?? { labels: [], values: [] };
     },
+    placeholderData: keepPreviousData,
     enabled: !!campaignId,
   });
 }
