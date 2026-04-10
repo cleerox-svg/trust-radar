@@ -96,6 +96,37 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M24 12L28.5 7.5" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
     </svg>
   ),
+  curator: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      <path d="M10 8L26 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M12 8V26C12 27.1 12.9 28 14 28H22C23.1 28 24 27.1 24 26V8" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M15 14H21" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+      <path d="M15 18H21" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+      <path d="M15 22H19" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+      <circle cx="26" cy="26" r="5" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M24.5 26L25.5 27L27.5 25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  architect: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      <circle cx="18" cy="18" r="13" stroke="currentColor" strokeWidth="1.2" opacity="0.3"/>
+      <path d="M18 5V31" stroke="currentColor" strokeWidth="1" opacity="0.2"/>
+      <path d="M5 18H31" stroke="currentColor" strokeWidth="1" opacity="0.2"/>
+      <path d="M18 8L24 14L18 20L12 14Z" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="18" cy="14" r="2" fill="currentColor" opacity="0.6"/>
+      <path d="M14 22L18 26L22 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="18" cy="26" r="1.5" fill="currentColor"/>
+    </svg>
+  ),
+  watchdog: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      <path d="M18 6L6 14V24L18 32L30 24V14Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M18 6V32" stroke="currentColor" strokeWidth="1" opacity="0.2"/>
+      <circle cx="18" cy="17" r="4" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="18" cy="17" r="1.5" fill="currentColor"/>
+      <path d="M14 23H22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {
