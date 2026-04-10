@@ -30,7 +30,7 @@ export async function resolveToIp(domain: string): Promise<string | null> {
       `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
       {
         headers: { Accept: "application/dns-json" },
-        signal: AbortSignal.timeout(3000), // 3s timeout
+        signal: AbortSignal.timeout(2000), // 2s timeout
       },
     );
 

@@ -23,6 +23,7 @@ export interface DnsBackfillResult {
   failed: number;
   enriched: number;
   durationMs: number;
+  softCapHit: boolean;
 }
 
 export interface DnsBackfillOpts {
@@ -34,7 +35,7 @@ export interface DnsBackfillOpts {
 
 const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_TIMEOUT_MS = 8000;
-const CONCURRENCY = 20;
+const CONCURRENCY = 25;
 
 /**
  * Resolve one batch of unresolved malicious_domain values, geo-enrich
@@ -50,7 +51,7 @@ export async function runDomainGeoBackfillBatch(
   const batchSize = opts?.batchSize ?? DEFAULT_BATCH_SIZE;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const empty: DnsBackfillResult = { processed: 0, resolved: 0, failed: 0, enriched: 0, durationMs: 0 };
+  const empty: DnsBackfillResult = { processed: 0, resolved: 0, failed: 0, enriched: 0, durationMs: 0, softCapHit: false };
 
   try {
     // ── Fetch next batch of unique unresolved domains ──
@@ -62,6 +63,8 @@ export async function runDomainGeoBackfillBatch(
         AND malicious_domain != ''
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
+        AND (attempted_resolve_at IS NULL
+             OR attempted_resolve_at < datetime('now', '-7 days'))
       LIMIT ?
     `).bind(batchSize).all<{ malicious_domain: string }>();
 
@@ -72,6 +75,7 @@ export async function runDomainGeoBackfillBatch(
 
     // ── Step 1: parallel DoH resolution, capped at CONCURRENCY ──
     const domainToIp = new Map<string, string>();
+    const attempted = new Set<string>();
     let cursor = 0;
 
     async function worker(): Promise<void> {
@@ -81,6 +85,7 @@ export async function runDomainGeoBackfillBatch(
         const i = cursor++;
         const domain = domains[i];
         if (!domain) continue;
+        attempted.add(domain);
         const hostname = extractHostname(domain);
         if (!hostname) continue;
         const ip = await resolveToIp(hostname);
@@ -92,12 +97,35 @@ export async function runDomainGeoBackfillBatch(
       Array.from({ length: Math.min(CONCURRENCY, domains.length) }, () => worker()),
     );
 
+    const softCapHit = Date.now() - start > timeoutMs;
     const resolved = domainToIp.size;
-    const failed = domains.length - resolved;
+    const failed = attempted.size - resolved;
+
+    // ── Step 1b: stamp attempted_resolve_at on ALL attempted domains ──
+    // Prevents re-resolving dead domains every tick (7-day cooldown).
+    if (attempted.size > 0) {
+      const STAMP_CHUNK = 50;
+      const attemptedArr = [...attempted];
+      for (let i = 0; i < attemptedArr.length; i += STAMP_CHUNK) {
+        if (Date.now() - start > timeoutMs) break;
+        const chunk = attemptedArr.slice(i, i + STAMP_CHUNK);
+        const placeholders = chunk.map(() => '?').join(',');
+        try {
+          await env.DB.prepare(`
+            UPDATE threats
+            SET attempted_resolve_at = datetime('now')
+            WHERE malicious_domain IN (${placeholders})
+              AND (ip_address IS NULL OR ip_address = '')
+          `).bind(...chunk).run();
+        } catch (err) {
+          console.error('[dns-backfill] attempted_resolve_at stamp failed:', err);
+        }
+      }
+    }
 
     // Bail early if we've burned through the timeout on resolution alone
-    if (Date.now() - start > timeoutMs) {
-      return { processed: domains.length, resolved, failed, enriched: 0, durationMs: Date.now() - start };
+    if (softCapHit) {
+      return { processed: attempted.size, resolved, failed, enriched: 0, durationMs: Date.now() - start, softCapHit };
     }
 
     // ── Step 2: batch geo lookup for unique public IPs ──
@@ -161,21 +189,29 @@ export async function runDomainGeoBackfillBatch(
       }
     }
 
-    // Keep provider counts in sync (best effort)
-    try {
-      await env.DB.prepare(`
-        UPDATE hosting_providers SET
-          active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
-          total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
-      `).run();
-    } catch { /* non-critical */ }
+    // Keep provider counts in sync — only for providers touched in this batch
+    const affectedProviderIds = [...new Set(
+      [...ipToProviderId.values()].filter((id): id is string => id !== null),
+    )];
+    if (affectedProviderIds.length > 0) {
+      try {
+        const placeholders = affectedProviderIds.map(() => '?').join(',');
+        await env.DB.prepare(`
+          UPDATE hosting_providers SET
+            active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
+            total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
+          WHERE id IN (${placeholders})
+        `).bind(...affectedProviderIds).run();
+      } catch { /* non-critical */ }
+    }
 
     return {
-      processed: domains.length,
+      processed: attempted.size,
       resolved,
       failed,
       enriched,
       durationMs: Date.now() - start,
+      softCapHit: false,
     };
   } catch (err) {
     console.error('[dns-backfill] Fatal error:', err);
