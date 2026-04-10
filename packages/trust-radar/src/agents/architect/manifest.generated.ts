@@ -694,7 +694,6 @@ export const REPO_MANIFEST: RepoInventory = {
       "name": "trust-radar",
       "path": "packages/trust-radar/src/index.ts",
       "bindings": [
-        "ARCHITECT_ANALYSIS_QUEUE",
         "ARCHITECT_BUNDLES",
         "AUDIT_DB",
         "CACHE",

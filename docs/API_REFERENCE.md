@@ -411,13 +411,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |
 | POST | `/api/admin/import-tranco` | SuperAdmin | Import Tranco top sites |
 | POST | `/api/admin/honeypot/generate` | SuperAdmin | Generate honeypot sites |
-| POST | `/api/admin/architect/collect` | SuperAdmin | Trigger ARCHITECT collection run (returns 202 + run_id; 409 if a run is already in flight) |
-| GET | `/api/admin/architect/runs` | SuperAdmin | List recent ARCHITECT runs (supports `?limit=20`) |
-| GET | `/api/admin/architect/runs/:run_id` | SuperAdmin | ARCHITECT run detail + bundle JSON if status=complete |
-| POST | `/api/admin/architect/analyze/:run_id` | SuperAdmin | Phase 2 — trigger Haiku inventory analysis against an already-complete run (returns 202; 409 if an analysis is already in flight for that run_id) |
-| GET | `/api/admin/architect/analyses/:run_id` | SuperAdmin | Phase 2 — return the three section rows (agents / feeds / data_layer) with parsed analysis JSON |
-| POST | `/api/admin/architect/synthesize/:run_id` | SuperAdmin | Phase 3 — trigger Sonnet 4.5 synthesis pass (returns 202; 409 `analyses_not_ready` if the three Phase 2 rows aren't all complete, 409 `architect_synthesis_in_progress` if a synthesis is already in flight) |
-| GET | `/api/admin/architect/synthesis/:run_id` | SuperAdmin | Phase 3 — return the architect_syntheses row including `report_md` and `computed_scorecard` |
+
+ARCHITECT is now a standard agent triggered via `POST /api/agents/architect/trigger` (Admin auth, see [Agents section](#agents)). The full audit pipeline (collect → analyze → synthesize) runs inline in one execute() call. The markdown report, computed scorecard, and per-section analyses are stored in the latest `agent_outputs.details` row for `agent_id='architect'`; read them via `GET /api/agents/architect/outputs?limit=5`.
 
 ## WebSocket
 

@@ -15,7 +15,7 @@ import { AdminDashboard } from '@/features/admin/AdminDashboard';
 import { Organization } from '@/features/settings/Organization';
 import { SuperAdminOrgs } from '@/features/admin/SuperAdminOrgs';
 import { AdminAudit } from '@/features/admin/AdminAudit';
-import { Architect } from '@/features/admin/Architect';
+import { ArchitectDetail } from '@/features/agents/ArchitectDetail';
 import { Providers } from '@/features/providers/Providers';
 import { ProviderDetail } from '@/features/providers/ProviderDetail';
 import { Campaigns } from '@/features/campaigns/Campaigns';
@@ -100,6 +100,7 @@ export default function App() {
         <Route path="threat-actors/:actorId" element={<ErrorBoundary><ThreatActorDetail /></ErrorBoundary>} />
         <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
         <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
+        <Route path="agents/architect" element={<ErrorBoundary><ArchitectDetail /></ErrorBoundary>} />
         <Route path="alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
         <Route path="leads" element={<ErrorBoundary><Leads /></ErrorBoundary>} />
         <Route path="feeds" element={<ErrorBoundary><Feeds /></ErrorBoundary>} />
@@ -109,7 +110,6 @@ export default function App() {
         <Route path="admin/users" element={<ErrorBoundary><Organization /></ErrorBoundary>} />
         <Route path="admin/organizations" element={<ErrorBoundary><SuperAdminOrgs /></ErrorBoundary>} />
         <Route path="admin/audit" element={<ErrorBoundary><AdminAudit /></ErrorBoundary>} />
-        <Route path="admin/architect" element={<ErrorBoundary><Architect /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         <Route path="notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
         <Route path="notifications/preferences" element={<ErrorBoundary><NotificationPreferences /></ErrorBoundary>} />

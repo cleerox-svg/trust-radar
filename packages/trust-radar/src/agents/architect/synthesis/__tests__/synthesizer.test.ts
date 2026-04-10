@@ -1,36 +1,35 @@
 /**
  * ARCHITECT Phase 3 — synthesiser regression tests.
  *
- * Three tests covering the three terminal paths through synthesize():
+ * Two tests covering the two terminal paths through
+ * synthesizeFromInputs():
  *
  * 1. Happy: fetch mock returns a canned tool_use response with valid
- *    markdown, all three Phase 2 rows are complete, the call resolves
- *    with { report_md, computed_scorecard, usage } and the scorecard
- *    is derived from the fixture assessments.
+ *    markdown, the call resolves with { report_md, computed_scorecard,
+ *    usage } and the scorecard is derived from the fixture assessments.
  * 2. max_tokens: fetch mock returns a response with
- *    stop_reason='max_tokens' — synthesize() throws with a clear
- *    error mentioning max_tokens so the HTTP route's catch block can
- *    write that verbatim to architect_syntheses.error_message.
- * 3. not-ready: one of the three rows is still in status='pending' —
- *    synthesize() throws with an error matching /analyses_not_ready/
- *    before ever calling the Sonnet API.
+ *    stop_reason='max_tokens' — synthesizeFromInputs() throws with a
+ *    clear error mentioning max_tokens so the standard agent_runs
+ *    error path can write that verbatim to the run row.
  *
- * We mock D1 directly (no module-level vi.doMock) and stub global
- * fetch so the synthesiser's transport layer is exercised end-to-end
- * except for the network hop. R2 is left null so loadBundleTotals()
- * takes its best-effort branch — the happy test doesn't need bundle
- * totals to assert the returned scorecard.
+ * We stub global fetch so the synthesiser's transport layer is
+ * exercised end-to-end except for the network hop. No D1 mocking is
+ * needed — the new API takes the bundle and analyses directly.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import type {
   AgentsAnalysis,
-  ArchitectAnalysisRow,
   DataLayerAnalysis,
   FeedsAnalysis,
+  SectionAnalysis,
 } from "../../analysis/types";
-import { synthesize, type SynthesizerEnv } from "../synthesizer";
+import type { ContextBundle } from "../../types";
+import {
+  synthesizeFromInputs,
+  type SynthesizerEnv,
+} from "../synthesizer";
 
 // ─── Shared fixtures ───────────────────────────────────────────────
 
@@ -70,8 +69,8 @@ const FEEDS_ANALYSIS: FeedsAnalysis = {
       name: "phishtank",
       severity: "green",
       recommendation: "keep",
-      rationale: "Healthy.",
-      evidence: ["enabled=1"],
+      rationale: "Pulling.",
+      evidence: ["successes_7d=168"],
       concerns: [],
       suggested_actions: [],
     },
@@ -81,91 +80,62 @@ const FEEDS_ANALYSIS: FeedsAnalysis = {
 
 const DATA_LAYER_ANALYSIS: DataLayerAnalysis = {
   section: "data_layer",
-  summary: "Data.",
+  summary: "Data layer.",
   scorecard: { green: 0, amber: 0, red: 0 },
   assessments: [
     {
       name: "threats",
       severity: "amber",
       recommendation: "refactor",
-      rationale: "Growing.",
+      rationale: "Big.",
       evidence: ["rows=113000"],
       concerns: [],
       suggested_actions: [],
-      scale_risk: "medium",
+      scale_risk: "high",
     },
   ],
-  hot_tables: [],
+  hot_tables: ["threats"],
   scale_bottlenecks: [],
   cross_cutting_concerns: [],
 };
 
-function asRow(
-  section: "agents" | "feeds" | "data_layer",
-  analysis: unknown,
-  status: ArchitectAnalysisRow["status"] = "complete",
-): ArchitectAnalysisRow {
+function makeBundle(): ContextBundle {
   return {
-    id: `row-${section}`,
+    bundle_version: 2,
     run_id: "test-run",
-    created_at: 1,
-    section,
-    status,
-    model: "claude-haiku-4-5-20251001",
-    input_tokens: 1,
-    output_tokens: 1,
-    cost_usd: 0.001,
-    duration_ms: 1,
-    analysis_json: JSON.stringify(analysis),
-    error_message: null,
+    generated_at: "2026-04-09T00:00:00.000Z",
+    repo: {
+      collected_at: "2026-04-09T00:00:00.000Z",
+      agents: [],
+      feeds: [],
+      crons: [],
+      workers: [],
+      totals: { agents: 0, feeds: 0, crons: 0, workers: 0 },
+    },
+    data_layer: {
+      collected_at: "2026-04-09T00:00:00.000Z",
+      tables: [],
+      totals: { table_count: 0, total_rows: 0, total_est_bytes: 0 },
+    },
+    ops: {
+      collected_at: "2026-04-09T00:00:00.000Z",
+      window_days: 7,
+      agents: [],
+      crons: [],
+      queues_depth: {},
+      ai_gateway: {
+        total_cost_usd_7d: 0,
+        cache_hit_rate: null,
+        model_mix: {},
+      },
+      telemetry_warnings: [],
+    },
+    feed_runtime: [],
   };
 }
 
-// ─── Mock D1 ───────────────────────────────────────────────────────
-//
-// Just enough surface area for the synthesiser: loadAnalyses() issues
-// an `all()` against architect_analyses with a WHERE run_id = ?, and
-// loadBundleTotals() issues a `first()` against architect_reports. We
-// return the seeded rows for the first and null for the second so
-// loadBundleTotals takes its "no bundle key" best-effort branch.
-
-function makeMockDb(rows: ArchitectAnalysisRow[]): D1Database {
-  function prepare(sql: string) {
-    return {
-      bind(..._params: unknown[]) {
-        return {
-          async first<T>(): Promise<T | null> {
-            if (sql.includes("FROM architect_reports")) {
-              // No bundle key — loadBundleTotals short-circuits and
-              // returns null, which is fine for these tests.
-              return null;
-            }
-            return null;
-          },
-          async all<T>(): Promise<{ results: T[]; success: true; meta: Record<string, unknown> }> {
-            if (sql.includes("FROM architect_analyses")) {
-              return {
-                results: rows as unknown as T[],
-                success: true,
-                meta: {},
-              };
-            }
-            return { results: [] as T[], success: true, meta: {} };
-          },
-          async run() {
-            return { success: true, meta: {} };
-          },
-        };
-      },
-    };
-  }
-  return { prepare } as unknown as D1Database;
-}
-
-function makeEnv(db: D1Database): SynthesizerEnv {
+function makeEnv(): SynthesizerEnv {
   return {
-    DB: db,
-    ARCHITECT_BUNDLES: undefined,
     ANTHROPIC_API_KEY: "sk-ant-test",
     LRX_API_KEY: undefined,
     CF_ACCOUNT_ID: undefined,
@@ -220,9 +190,9 @@ function maxTokensResponse() {
   };
 }
 
-// ─── Test fixtures reset between tests ────────────────────────────
+// ─── Tests ─────────────────────────────────────────────────────────
 
-describe("synthesize — happy path", () => {
+describe("synthesizeFromInputs — happy path", () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -233,21 +203,26 @@ describe("synthesize — happy path", () => {
   });
 
   it("returns { report_md, computed_scorecard, usage } when Sonnet returns a tool_use block", async () => {
-    const db = makeMockDb([
-      asRow("agents", AGENTS_ANALYSIS),
-      asRow("feeds", FEEDS_ANALYSIS),
-      asRow("data_layer", DATA_LAYER_ANALYSIS),
-    ]);
-    const env = makeEnv(db);
-
-    const fakeMarkdown = "# ARCHITECT Audit — 2026-04-09\n\n## Executive Summary\n\nAll good.";
+    const fakeMarkdown =
+      "# ARCHITECT Audit — 2026-04-09\n\n## Executive Summary\n\nAll good.";
     mockFetchOnce(toolUseResponse(fakeMarkdown));
 
-    const result = await synthesize("test-run", env);
+    const analyses: SectionAnalysis[] = [
+      AGENTS_ANALYSIS,
+      FEEDS_ANALYSIS,
+      DATA_LAYER_ANALYSIS,
+    ];
+
+    const result = await synthesizeFromInputs(
+      "test-run",
+      makeBundle(),
+      analyses,
+      makeEnv(),
+    );
 
     expect(result.report_md).toBe(fakeMarkdown);
 
-    // Scorecard matches the assessments above:
+    // Scorecard derived from the fixture assessments:
     // - agents: 1 green (sentinel) + 1 red (observer)
     // - feeds: 1 green (phishtank)
     // - data_layer: 1 amber (threats)
@@ -286,7 +261,7 @@ describe("synthesize — happy path", () => {
   });
 });
 
-describe("synthesize — max_tokens permanent failure", () => {
+describe("synthesizeFromInputs — max_tokens permanent failure", () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -297,49 +272,16 @@ describe("synthesize — max_tokens permanent failure", () => {
   });
 
   it("throws with a max_tokens-tagged error when Sonnet hits the output cap", async () => {
-    const db = makeMockDb([
-      asRow("agents", AGENTS_ANALYSIS),
-      asRow("feeds", FEEDS_ANALYSIS),
-      asRow("data_layer", DATA_LAYER_ANALYSIS),
-    ]);
-    const env = makeEnv(db);
-
     mockFetchOnce(maxTokensResponse());
 
-    await expect(synthesize("test-run", env)).rejects.toThrow(/max_tokens/);
-  });
-});
+    const analyses: SectionAnalysis[] = [
+      AGENTS_ANALYSIS,
+      FEEDS_ANALYSIS,
+      DATA_LAYER_ANALYSIS,
+    ];
 
-describe("synthesize — analyses_not_ready", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it("throws analyses_not_ready without calling the Sonnet API when a row is still pending", async () => {
-    const db = makeMockDb([
-      asRow("agents", AGENTS_ANALYSIS),
-      // Feeds row still pending — this is the blocker we want to
-      // catch before burning tokens on a half-ready run.
-      asRow("feeds", FEEDS_ANALYSIS, "pending"),
-      asRow("data_layer", DATA_LAYER_ANALYSIS),
-    ]);
-    const env = makeEnv(db);
-
-    // Pre-stub fetch so we can assert it was never called. If the
-    // preflight fires first, this mock should see zero invocations.
-    const fetchMock = vi.fn(async () => {
-      throw new Error("fetch should not be called when analyses are not ready");
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(synthesize("test-run", env)).rejects.toThrow(
-      /analyses_not_ready/,
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      synthesizeFromInputs("test-run", makeBundle(), analyses, makeEnv()),
+    ).rejects.toThrow(/max_tokens/);
   });
 });
