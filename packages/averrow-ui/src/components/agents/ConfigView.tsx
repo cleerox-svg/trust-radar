@@ -2,116 +2,77 @@ import { useState } from 'react';
 import { useAgents, useResetAgentCircuit, useUpdateAgentThreshold } from '@/hooks/useAgents';
 import type { Agent } from '@/hooks/useAgents';
 import { AgentIcon } from '@/components/brand/AgentIcon';
+import { AgentStatusBadge } from '@/components/AgentStatusBadge';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
-import { Badge } from '@/design-system/components';
+import { getAgentMetadata, AGENT_IDS } from '@/lib/agent-metadata';
+import type { AgentId } from '@/lib/agent-metadata';
 
-// ─── Agent config definitions ──────────────────────────────────
-interface AgentConfigDef {
-  name: string;
-  description: string;
+// ─── Config-specific details (model, scope, outputs) ──────────
+// Display name, subtitle, color, and order come from agent-metadata.ts.
+interface AgentConfigExtra {
   schedule: string;
   model: string;
   scope: string;
   outputs: string[];
-  icon: string;
-  color: string;
 }
 
-const AGENT_CONFIGS: Record<string, AgentConfigDef> = {
-  sentinel: {
-    name: 'Sentinel',
-    description: 'Certificate & Domain Surveillance',
-    schedule: 'Every hour via Flight Control',
-    model: 'claude-haiku-4-5',
-    scope: 'Monitors active brands via CT logs (crt.sh)',
-    outputs: ['agent_outputs (classification)', 'threats', 'notifications'],
-    icon: 'Target',
-    color: '#f87171',
-  },
-  analyst: {
-    name: 'Analyst / ASTRA',
-    description: 'Threat Classification & Brand Matching',
-    schedule: 'Every hour via Flight Control',
-    model: 'claude-haiku-4-5',
-    scope: 'Classifies unprocessed threats, matches to brands',
-    outputs: ['agent_outputs (classification)', 'threats (enriched)', 'notifications'],
-    icon: 'Diamond',
-    color: '#00D4FF',
-  },
-  cartographer: {
-    name: 'Cartographer / Navigator',
-    description: 'Geo Enrichment & Infrastructure Mapping',
-    schedule: 'Every hour via Flight Control, scaled by backlog',
-    model: 'claude-haiku-4-5',
-    scope: 'Enriches threats with geo/ASN/provider data',
-    outputs: ['threats (geo enriched)', 'hosting_providers', 'infrastructure_clusters'],
-    icon: 'Map',
-    color: '#fb923c',
-  },
-  observer: {
-    name: 'Observer',
-    description: 'Strategic Intel & Daily Briefings',
-    schedule: 'Every hour via Flight Control',
-    model: 'claude-sonnet-4-20250514',
-    scope: 'Generates daily threat briefings and trend analysis',
-    outputs: ['agent_outputs (briefing)', 'notifications (intel_digest)'],
-    icon: 'Eye',
-    color: '#4ADE80',
-  },
-  nexus: {
-    name: 'NEXUS',
-    description: 'Infrastructure Correlation & Clustering',
-    schedule: 'On-demand via NexusWorkflow Durable Object',
-    model: 'none (algorithmic)',
-    scope: 'Clusters threats by ASN/subnet/temporal patterns',
-    outputs: ['infrastructure_clusters', 'campaigns'],
-    icon: 'Network',
-    color: '#A78BFA',
-  },
+const AGENT_CONFIG_EXTRAS: Partial<Record<AgentId, AgentConfigExtra>> = {
   flight_control: {
-    name: 'Flight Control',
-    description: 'Autonomous Supervisor & Orchestrator',
     schedule: 'Every hour (Cloudflare Cron)',
     model: 'none (orchestration only)',
     scope: 'Schedules all agents, manages token budgets, recovers stalled runs',
     outputs: ['agent_events', 'agent_activity_log'],
-    icon: 'Cpu',
-    color: '#00D4FF',
+  },
+  sentinel: {
+    schedule: 'Every hour via Flight Control',
+    model: 'claude-haiku-4-5',
+    scope: 'Monitors active brands via CT logs (crt.sh)',
+    outputs: ['agent_outputs (classification)', 'threats', 'notifications'],
+  },
+  analyst: {
+    schedule: 'Every hour via Flight Control',
+    model: 'claude-haiku-4-5',
+    scope: 'Classifies unprocessed threats, matches to brands',
+    outputs: ['agent_outputs (classification)', 'threats (enriched)', 'notifications'],
+  },
+  cartographer: {
+    schedule: 'Every hour via Flight Control, scaled by backlog',
+    model: 'claude-haiku-4-5',
+    scope: 'Enriches threats with geo/ASN/provider data',
+    outputs: ['threats (geo enriched)', 'hosting_providers', 'infrastructure_clusters'],
+  },
+  observer: {
+    schedule: 'Every hour via Flight Control',
+    model: 'claude-sonnet-4-20250514',
+    scope: 'Generates daily threat briefings and trend analysis',
+    outputs: ['agent_outputs (briefing)', 'notifications (intel_digest)'],
+  },
+  nexus: {
+    schedule: 'On-demand via NexusWorkflow Durable Object',
+    model: 'none (algorithmic)',
+    scope: 'Clusters threats by ASN/subnet/temporal patterns',
+    outputs: ['infrastructure_clusters', 'campaigns'],
   },
   sparrow: {
-    name: 'Sparrow',
-    description: 'Automated Takedown Agent',
     schedule: 'Triggered by Flight Control on new threats',
     model: 'claude-haiku-4-5',
     scope: 'Generates takedown requests with evidence for active threats',
     outputs: ['takedown_requests', 'takedown_evidence'],
-    icon: 'Feather',
-    color: '#f87171',
   },
   strategist: {
-    name: 'Strategist',
-    description: 'Campaign Correlation & Clustering Intelligence',
     schedule: 'Periodic via Flight Control',
     model: 'claude-haiku-4-5',
     scope: 'Correlates campaigns, identifies attack patterns',
     outputs: ['campaigns', 'agent_outputs (campaign_analysis)'],
-    icon: 'GitMerge',
-    color: '#fb923c',
   },
   pathfinder: {
-    name: 'Pathfinder',
-    description: 'Sales Intelligence & Lead Generation',
     schedule: 'On-demand',
     model: 'claude-haiku-4-5',
     scope: 'Mines threat data for sales prospects',
     outputs: ['leads', 'agent_outputs (prospect)'],
-    icon: 'Compass',
-    color: '#fbbf24',
   },
   curator: {
-    name: 'Curator',
-    description: 'Platform Hygiene & Data Quality',
     schedule: 'Weekly (Sunday, FC-triggered)',
     model: 'none (algorithmic)',
     scope: 'Email security scanning, safe domain cleanup, social discovery',
@@ -121,35 +82,38 @@ const AGENT_CONFIGS: Record<string, AgentConfigDef> = {
       'social_profiles',
       'agent_outputs (hygiene_report)',
     ],
-    icon: 'Sparkles',
-    color: '#4ADE80',
+  },
+  architect: {
+    schedule: 'Manual trigger',
+    model: 'claude-haiku-4-5 (analysis) + claude-sonnet-4 (synthesis)',
+    scope: 'Audits agents, feeds, and the data layer — produces health scorecard',
+    outputs: ['agent_outputs (audit_report)'],
+  },
+  watchdog: {
+    schedule: 'Continuous',
+    model: 'none (algorithmic)',
+    scope: 'Monitors uptime and escalates alerts',
+    outputs: ['notifications'],
   },
 };
-
-const AGENT_ORDER = [
-  'flight_control', 'sentinel', 'analyst', 'cartographer',
-  'observer', 'nexus', 'sparrow', 'strategist', 'pathfinder', 'curator',
-];
 
 // ─── Config Card (accordion item) ──────────────────────────────
 function ConfigCard({
   agentId,
-  config,
   agentData,
   isOpen,
   onToggle,
 }: {
   agentId: string;
-  config: AgentConfigDef;
   agentData: Agent | undefined;
   isOpen: boolean;
   onToggle: () => void;
 }) {
-  const isActive = agentData?.status === 'active' || agentData?.status === 'degraded';
+  const meta = getAgentMetadata(agentId);
+  const extra = AGENT_CONFIG_EXTRAS[agentId as AgentId];
   const totalRuns = agentData?.jobs_24h ?? 0;
   const successCount = totalRuns - (agentData?.error_count_24h ?? 0);
-
-  // Derive all-time stats from agent data
+  const agentColor = meta?.color ?? '#78A0C8';
   const statusLabel = agentData?.status ?? 'unknown';
 
   return (
@@ -159,21 +123,19 @@ function ConfigCard({
         onClick={onToggle}
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors"
       >
-        <span className="shrink-0" style={{ color: config.color }}>
+        <span className="shrink-0" style={{ color: agentColor }}>
           <AgentIcon agent={agentId} size={28} />
         </span>
         <div className="flex-1 min-w-0">
           <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-            {config.name}
+            {meta?.displayName ?? agentId}
           </span>
           <span className="block font-mono text-[10px] text-white/40 mt-0.5">
-            {config.description}
+            {meta?.subtitle ?? ''}
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {isActive
-            ? <Badge status="active"   label={statusLabel} size="xs" pulse />
-            : <Badge status="inactive" label={statusLabel} size="xs" />}
+          <AgentStatusBadge status={statusLabel} />
           <svg
             className={cn('w-4 h-4 text-white/30 transition-transform', isOpen && 'rotate-180')}
             fill="none"
@@ -189,30 +151,40 @@ function ConfigCard({
       {/* Expanded content */}
       {isOpen && (
         <div className="px-5 pb-5 pt-1 border-t border-white/[0.06] space-y-4 animate-fade-in">
-          <ConfigSection label="Schedule">
-            <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{config.schedule}</span>
-          </ConfigSection>
+          {meta?.codename && (
+            <ConfigSection label="Codename">
+              <span className="font-mono text-[11px] font-bold" style={{ color: agentColor }}>{meta.codename}</span>
+            </ConfigSection>
+          )}
 
-          <ConfigSection label="Model">
-            <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{config.model}</span>
-          </ConfigSection>
+          {extra && (
+            <>
+              <ConfigSection label="Schedule">
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{extra.schedule}</span>
+              </ConfigSection>
 
-          <ConfigSection label="Scope">
-            <span className="font-mono text-[11px] text-white/70 leading-relaxed">{config.scope}</span>
-          </ConfigSection>
+              <ConfigSection label="Model">
+                <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>{extra.model}</span>
+              </ConfigSection>
 
-          <ConfigSection label="Outputs">
-            <div className="flex flex-wrap gap-1.5">
-              {config.outputs.map((output) => (
-                <span
-                  key={output}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] font-mono text-[10px] text-white/60"
-                >
-                  <span style={{ color: 'var(--amber)' }}>&rarr;</span> {output}
-                </span>
-              ))}
-            </div>
-          </ConfigSection>
+              <ConfigSection label="Scope">
+                <span className="font-mono text-[11px] text-white/70 leading-relaxed">{extra.scope}</span>
+              </ConfigSection>
+
+              <ConfigSection label="Outputs">
+                <div className="flex flex-wrap gap-1.5">
+                  {extra.outputs.map((output) => (
+                    <span
+                      key={output}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] font-mono text-[10px] text-white/60"
+                    >
+                      <span style={{ color: 'var(--amber)' }}>&rarr;</span> {output}
+                    </span>
+                  ))}
+                </div>
+              </ConfigSection>
+            </>
+          )}
 
           <ConfigSection label="Performance (24h)">
             <div className="flex gap-6">
@@ -415,20 +387,15 @@ export function ConfigView() {
       <div className="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-2">
         Agent Configuration (Read-Only)
       </div>
-      {AGENT_ORDER.map((agentId) => {
-        const config = AGENT_CONFIGS[agentId];
-        if (!config) return null;
-        return (
-          <ConfigCard
-            key={agentId}
-            agentId={agentId}
-            config={config}
-            agentData={agentMap.get(agentId)}
-            isOpen={openAgent === agentId}
-            onToggle={() => setOpenAgent(openAgent === agentId ? null : agentId)}
-          />
-        );
-      })}
+      {AGENT_IDS.map((agentId) => (
+        <ConfigCard
+          key={agentId}
+          agentId={agentId}
+          agentData={agentMap.get(agentId)}
+          isOpen={openAgent === agentId}
+          onToggle={() => setOpenAgent(openAgent === agentId ? null : agentId)}
+        />
+      ))}
     </div>
   );
 }

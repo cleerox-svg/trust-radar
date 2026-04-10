@@ -3,36 +3,7 @@ import { useAgentRuns, useAgentTokenUsage } from '@/hooks/useAgents';
 import type { AgentRun, TokenUsageEntry } from '@/hooks/useAgents';
 import { relativeTime } from '@/lib/time';
 import { Badge, Button, Input } from '@/design-system/components';
-
-// ─── Agent display metadata ────────────────────────────────────
-const AGENT_COLORS: Record<string, string> = {
-  sentinel: '#f87171',
-  analyst: '#00D4FF',
-  cartographer: '#fb923c',
-  observer: '#4ADE80',
-  nexus: '#A78BFA',
-  flight_control: '#22D3EE',
-  sparrow: '#f87171',
-  strategist: '#fb923c',
-  pathfinder: '#fbbf24',
-};
-
-const AGENT_NAMES: Record<string, string> = {
-  sentinel: 'Sentinel',
-  analyst: 'Analyst',
-  cartographer: 'Cartographer',
-  observer: 'Observer',
-  nexus: 'NEXUS',
-  flight_control: 'Flight Control',
-  sparrow: 'Sparrow',
-  strategist: 'Strategist',
-  pathfinder: 'Pathfinder',
-};
-
-const ALL_AGENTS = [
-  'sentinel', 'analyst', 'cartographer', 'observer',
-  'nexus', 'flight_control', 'sparrow', 'strategist', 'pathfinder',
-];
+import { getAgentMetadata, AGENT_IDS } from '@/lib/agent-metadata';
 
 const STATUS_OPTIONS = ['ALL', 'success', 'partial', 'failed'] as const;
 const WINDOW_OPTIONS = [
@@ -86,14 +57,16 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
         Token Usage (All Time)
       </div>
       <div className="space-y-3">
-        {data.map((entry) => (
+        {data.map((entry) => {
+          const meta = getAgentMetadata(entry.agent_id);
+          return (
           <div key={entry.agent_id} className="flex items-center gap-3">
             <div className="w-28 shrink-0">
               <span
                 className="font-mono text-[11px] font-medium"
-                style={{ color: AGENT_COLORS[entry.agent_id] ?? '#78A0C8' }}
+                style={{ color: meta?.color ?? '#78A0C8' }}
               >
-                {AGENT_NAMES[entry.agent_id] ?? entry.agent_id}
+                {meta?.displayName ?? entry.agent_id}
               </span>
             </div>
             <div
@@ -121,7 +94,8 @@ function TokenUsageSummary({ data }: { data: TokenUsageEntry[] }) {
               {entry.total_tokens.toLocaleString()}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-4 pt-3 border-t border-white/[0.06]">
         <span className="font-mono text-[10px] text-white/40">Total: </span>
@@ -265,8 +239,8 @@ export function HistoryView() {
           }}
         >
           <option value="">All Agents</option>
-          {ALL_AGENTS.map((a) => (
-            <option key={a} value={a}>{AGENT_NAMES[a] ?? a}</option>
+          {AGENT_IDS.map((a) => (
+            <option key={a} value={a}>{getAgentMetadata(a)?.displayName ?? a}</option>
           ))}
         </select>
         <select
@@ -346,12 +320,17 @@ export function HistoryView() {
                           {relativeTime(run.started_at)}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className="font-mono text-[10px] font-semibold uppercase tracking-wider"
-                            style={{ color: AGENT_COLORS[run.agent_id] ?? '#78A0C8' }}
-                          >
-                            {AGENT_NAMES[run.agent_id] ?? run.agent_id}
-                          </span>
+                          {(() => {
+                            const m = getAgentMetadata(run.agent_id);
+                            return (
+                              <span
+                                className="font-mono text-[10px] font-semibold uppercase tracking-wider"
+                                style={{ color: m?.color ?? '#78A0C8' }}
+                              >
+                                {m?.displayName ?? run.agent_id}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={run.status} />

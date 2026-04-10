@@ -16,126 +16,18 @@ import { HistoryView } from '@/components/agents/HistoryView';
 import { ConfigView } from '@/components/agents/ConfigView';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
+import { getAgentMetadata, AGENT_IDS } from '@/lib/agent-metadata';
+import { AgentStatusBadge } from '@/components/AgentStatusBadge';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 type AgentTab = 'MONITOR' | 'HISTORY' | 'CONFIG';
 
-// ─── Agent metadata registry ────────────────────────────────────────
-const AGENT_REGISTRY: Record<string, {
-  displayName: string;
-  description: string;
-  color: string;
-  schedule: string;
-  trigger: string;
-}> = {
-  sentinel: {
-    displayName: 'Sentinel',
-    description: 'Certificate & Domain Surveillance',
-    color: '#C83C3C',
-    schedule: 'every 30 min',
-    trigger: 'cron',
-  },
-  cartographer: {
-    displayName: 'Cartographer',
-    description: 'Geo Enrichment & Infrastructure Mapping',
-    color: '#78A0C8',
-    schedule: 'every 60 min + backfill workflow',
-    trigger: 'cron + workflow',
-  },
-  nexus: {
-    displayName: 'NEXUS',
-    description: 'Infrastructure correlation — clusters threats by ASN, subnet, and temporal patterns',
-    color: '#00D4FF',
-    schedule: 'every 4 hours + workflow',
-    trigger: 'cron + workflow',
-  },
-  analyst: {
-    displayName: 'Analyst',
-    description: 'Threat Classification & Brand Matching',
-    color: '#FB923C',
-    schedule: 'every 30 min',
-    trigger: 'cron',
-  },
-  observer: {
-    displayName: 'Observer',
-    description: 'Strategic Intel & Daily Briefings',
-    color: '#A78BFA',
-    schedule: 'daily',
-    trigger: 'cron',
-  },
-  flight_control: {
-    displayName: 'Flight Control',
-    description: 'Autonomous supervisor — parallel scaling, stall recovery, token budget enforcement',
-    color: '#22D3EE',
-    schedule: 'every 60 min',
-    trigger: 'cron',
-  },
-  sparrow: {
-    displayName: 'Sparrow',
-    description: 'Takedown Agent',
-    color: '#4ADE80',
-    schedule: 'every 2 hours',
-    trigger: 'cron',
-  },
-  pathfinder: {
-    displayName: 'Pathfinder',
-    description: 'Sales Intelligence & Lead Generation',
-    color: '#F97316',
-    schedule: 'daily',
-    trigger: 'cron',
-  },
-  strategist: {
-    displayName: 'Strategist',
-    description: 'Campaign Correlation & Clustering',
-    color: '#FB7185',
-    schedule: 'every 4 hours',
-    trigger: 'cron',
-  },
-  curator: {
-    displayName: 'Curator',
-    description: 'Platform Hygiene & Data Quality',
-    color: '#4ADE80',
-    schedule: 'Weekly (Sunday, FC-triggered)',
-    trigger: 'event',
-  },
-  architect: {
-    displayName: 'Architect',
-    description: 'Meta-agent — audits agents, feeds, and the data layer',
-    color: '#E5A832',
-    schedule: 'manual',
-    trigger: 'manual',
-  },
-};
-
-const AGENT_ORDER = [
-  'sentinel', 'cartographer', 'nexus', 'analyst', 'observer',
-  'sparrow', 'pathfinder', 'strategist', 'curator', 'architect',
-];
+// Grid order — flight_control is rendered separately as the supervisor card
+const AGENT_ORDER = AGENT_IDS.filter((id) => id !== 'flight_control');
 
 // ─── Status helpers ─────────────────────────────────────────────────
-const statusVariant: Record<string, 'success' | 'critical' | 'high' | 'default'> = {
-  active: 'success',
-  error: 'critical',
-  degraded: 'high',
-  idle: 'default',
-};
-
-function statusDotColor(agent: Agent): string {
-  if (agent.status === 'active') return '#4ADE80';
-  if (agent.status === 'error') return '#C83C3C';
-  if (agent.status === 'degraded') return '#FB923C';
-  return '#4B5563';
-}
-
-function statusDotClass(agent: Agent): string {
-  if (agent.status === 'active') return 'dot-pulse-green';
-  if (agent.status === 'error') return 'dot-pulse-red';
-  if (agent.status === 'degraded') return 'dot-pulse-amber';
-  return '';
-}
-
 function pipelineDotClass(status: string): string {
   if (status === 'active') return 'dot-pulse-green';
   if (status === 'error') return 'dot-pulse-red';
@@ -204,7 +96,7 @@ function AgentCard({
   isSelected: boolean;
   onSelect: () => void;
 }) {
-  const meta = AGENT_REGISTRY[agent.name];
+  const meta = getAgentMetadata(agent.name);
   const agentColor = meta?.color ?? agent.color;
 
   return (
@@ -227,14 +119,11 @@ function AgentCard({
             <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {meta?.displayName ?? agent.display_name}
             </span>
-            <span
-              className={cn('w-2 h-2 rounded-full shrink-0', statusDotClass(agent))}
-              style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
-            />
+            <AgentStatusBadge status={agent.status} />
             <CircuitBadge agent={agent} />
           </div>
           <div className="font-mono text-[10px] text-white/40 leading-relaxed line-clamp-2">
-            {meta?.description ?? agent.description}
+            {meta?.subtitle ?? agent.description}
           </div>
         </div>
       </div>
@@ -308,14 +197,10 @@ function FlightControlCard({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Flight Control</span>
-              <span
-                className={cn('w-2 h-2 rounded-full', statusDotClass(agent))}
-                style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
-              />
-              <Badge variant={statusVariant[agent.status] || 'default'}>{agent.status}</Badge>
+              <AgentStatusBadge status={agent.status} />
             </div>
             <div className="font-mono text-[10px] text-white/40 leading-relaxed">
-              Autonomous supervisor — parallel scaling, stall recovery, token budget enforcement
+              {getAgentMetadata('flight_control')?.subtitle}
             </div>
           </div>
         </div>
@@ -325,7 +210,7 @@ function FlightControlCard({
           <div className="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-3">Agent Mesh</div>
           <div className="flex flex-wrap gap-2">
             {allAgents.filter(a => a.name !== 'flight_control').map(a => {
-              const meta = AGENT_REGISTRY[a.name];
+              const m = getAgentMetadata(a.name);
               return (
                 <div
                   key={a.name}
@@ -335,12 +220,9 @@ function FlightControlCard({
                     border: '1px solid var(--border-base)',
                   }}
                 >
-                  <span
-                    className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusDotClass(a))}
-                    style={!statusDotClass(a) ? { backgroundColor: statusDotColor(a) } : undefined}
-                  />
-                  <span className="font-mono text-[10px] text-white/60" style={{ color: meta?.color ?? a.color }}>
-                    {meta?.displayName ?? a.display_name}
+                  <AgentStatusBadge status={a.status} />
+                  <span className="font-mono text-[10px] text-white/60" style={{ color: m?.color ?? a.color }}>
+                    {m?.displayName ?? a.display_name}
                   </span>
                 </div>
               );
@@ -398,7 +280,7 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
   const { data: detail } = useAgentDetail(agent.name);
   const { data: health } = useAgentHealth(agent.name);
   const { data: outputs } = useAgentOutputsByName(agent.name);
-  const meta = AGENT_REGISTRY[agent.name];
+  const meta = getAgentMetadata(agent.name);
   const agentColor = meta?.color ?? agent.color;
 
   const typedDetail = detail as AgentDetailResponse | null;
@@ -434,20 +316,20 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
                 {meta?.displayName ?? agent.display_name}
               </h3>
               <div className="font-mono text-[10px] text-white/40 mt-0.5">
-                {meta?.description ?? agent.description}
+                {meta?.subtitle ?? agent.description}
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <DetailRow label="Schedule" value={meta?.schedule ?? agent.schedule} />
+            <DetailRow label="Schedule" value={agent.schedule} />
             <DetailRow label="Avg Duration" value={formatDuration(agent.avg_duration_ms)} />
             <DetailRow
               label="Success Rate"
               value={successRate ? `${successRate}%` : '—'}
             />
             <DetailRow label="Status">
-              <Badge variant={statusVariant[agent.status] || 'default'}>{agent.status}</Badge>
+              <AgentStatusBadge status={agent.status} />
             </DetailRow>
           </div>
         </div>
@@ -642,7 +524,7 @@ function MonitorView() {
     return AGENT_ORDER
       .map(name => agents.find(a => a.name === name))
       .filter((a): a is Agent => !!a)
-      .concat(agents.filter(a => !AGENT_ORDER.includes(a.name) && a.name !== 'flight_control'));
+      .concat(agents.filter(a => !(AGENT_ORDER as readonly string[]).includes(a.name) && a.name !== 'flight_control'));
   }, [agents]);
 
   const operational = agents?.filter(a => a.status !== 'error').length ?? 0;
