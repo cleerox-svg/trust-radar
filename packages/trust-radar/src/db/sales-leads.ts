@@ -1,8 +1,8 @@
 /**
  * Data access layer — sales_leads table.
  *
- * Typed query functions for the Prospector agent pipeline.
- * Replaces inline INSERT/UPDATE/SELECT in agents/prospector.ts.
+ * Typed query functions for the Pathfinder agent pipeline.
+ * Replaces inline INSERT/UPDATE/SELECT in agents/pathfinder.ts.
  */
 
 import type { SalesLead, CreateLeadInput, EnrichLeadInput, Env } from "../types";
@@ -39,7 +39,7 @@ export async function createLead(env: Env, input: CreateLeadInput): Promise<numb
     input.composite_risk_score ?? null,
     input.pitch_angle ?? null,
     input.findings_summary ?? null,
-    input.identified_by ?? 'prospector_agent',
+    input.identified_by ?? 'pathfinder_agent',
   ).run();
   return result.meta?.last_row_id as number;
 }

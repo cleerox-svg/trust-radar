@@ -1,5 +1,5 @@
 /**
- * Pathfinder (Prospector) Agent — Sales intelligence & lead generation pipeline.
+ * Pathfinder Agent — Sales intelligence & lead generation pipeline.
  *
  * Two-phase architecture to prevent Worker timeouts:
  *
@@ -79,7 +79,7 @@ async function callHaikuJSON<T>(
 ): Promise<{ success: boolean; data?: T; error?: string; tokens_used?: number }> {
   try {
     const { parsed, response } = await callAnthropicJSON<T>(env, {
-      agentId: "prospector",
+      agentId: "pathfinder",
       runId,
       model: MODEL,
       system: systemPrompt,
@@ -115,18 +115,28 @@ export async function identifyAndCreate(env: Env): Promise<{
 
   try {
     emailGrades = await env.DB.prepare(`
-      SELECT b.id as brand_id, b.name as brand_name, b.canonical_domain as brand_domain,
-             b.tranco_rank,
-             ess.email_security_grade, ess.dmarc_policy
+      SELECT
+        b.id as brand_id,
+        b.name as brand_name,
+        b.canonical_domain as brand_domain,
+        b.tranco_rank,
+        ess.email_security_grade,
+        ess.dmarc_policy
       FROM brands b
       LEFT JOIN email_security_scans ess ON ess.brand_id = b.id
-        AND ess.id = (SELECT id FROM email_security_scans WHERE brand_id = b.id ORDER BY scanned_at DESC LIMIT 1)
+        AND ess.scanned_at = (
+          SELECT MAX(scanned_at) FROM email_security_scans
+          WHERE brand_id = b.id
+        )
       WHERE b.id NOT IN (SELECT brand_id FROM org_brands)
         AND b.id NOT IN (
           SELECT brand_id FROM sales_leads
           WHERE status IN ('sent', 'responded', 'meeting_booked', 'converted', 'declined')
              OR created_at > datetime('now', '-30 days')
         )
+        AND (b.threat_count > 0 OR b.tranco_rank <= 50000)
+      ORDER BY b.threat_count DESC, b.tranco_rank ASC
+      LIMIT 500
     `).all<{
       brand_id: string; brand_name: string; brand_domain: string;
       tranco_rank: number | null; email_security_grade: string | null; dmarc_policy: string | null;
@@ -216,8 +226,12 @@ export async function identifyAndCreate(env: Env): Promise<{
   const aiMap = new Map(aiPhishing.results.map(r => [r.brand_targeted, r.ai_count]));
   const campaignMap = new Map(campaignCounts.results.map(r => [r.brand_id, r.campaign_count]));
 
-  // Score each brand
-  const candidates: ProspectCandidate[] = [];
+  // Pass 1: score using only in-memory maps (cheap)
+  const initialCandidates: Array<{
+    brand: typeof emailGrades.results[number];
+    breakdown: Record<string, number>;
+    score: number;
+  }> = [];
 
   for (const brand of emailGrades.results) {
     const breakdown: Record<string, number> = {};
@@ -279,23 +293,41 @@ export async function identifyAndCreate(env: Env): Promise<{
       score += SCORING.recent_risk_spike;
     }
 
+    initialCandidates.push({ brand, breakdown, score });
+  }
+
+  // Sort and take top N for social intel enrichment (bounded D1 queries)
+  const SOCIAL_INTEL_BUDGET = 100;
+  initialCandidates.sort((a, b) => b.score - a.score);
+  const topForSocial = initialCandidates.slice(0, SOCIAL_INTEL_BUDGET);
+
+  // Pass 2: enrich top candidates with social intel
+  for (const candidate of topForSocial) {
     try {
-      const socialIntel = await getBrandSocialIntel({ DB: env.DB } as Env, brand.brand_id);
+      const socialIntel = await getBrandSocialIntel({ DB: env.DB } as Env, candidate.brand.brand_id);
       if (socialIntel.impersonationProfiles > 0) {
-        breakdown.social_impersonation = SCORING.social_impersonation;
-        score += SCORING.social_impersonation;
+        candidate.breakdown.social_impersonation = SCORING.social_impersonation;
+        candidate.score += SCORING.social_impersonation;
       }
       if (socialIntel.socialRiskScore && socialIntel.socialRiskScore >= 60) {
-        breakdown.social_high_risk = SCORING.social_high_risk;
-        score += SCORING.social_high_risk;
+        candidate.breakdown.social_high_risk = SCORING.social_high_risk;
+        candidate.score += SCORING.social_high_risk;
       }
       if (socialIntel.aiTakedownRecommendations > 0) {
-        breakdown.social_takedown_needed = SCORING.social_takedown_needed;
-        score += SCORING.social_takedown_needed;
+        candidate.breakdown.social_takedown_needed = SCORING.social_takedown_needed;
+        candidate.score += SCORING.social_takedown_needed;
       }
     } catch { /* social intel is best-effort */ }
+  }
 
-    if (score < MIN_SCORE) continue;
+  // Apply MIN_SCORE filter and build final candidates
+  const candidates: ProspectCandidate[] = [];
+
+  for (const item of initialCandidates) {
+    if (item.score < MIN_SCORE) continue;
+    const brand = item.brand;
+    const breakdown = item.breakdown;
+    const score = item.score;
 
     // Determine pitch angle from highest-weighted factor
     const emailScore = breakdown.email_grade_f_or_d ?? breakdown.email_grade_c ?? 0;
@@ -312,6 +344,11 @@ export async function identifyAndCreate(env: Env): Promise<{
     }
 
     // Template-based findings summary — no AI required
+    const dmarc = brand.dmarc_policy?.toLowerCase();
+    const grade = brand.email_security_grade?.toUpperCase();
+    const phishCount = phishMap.get(brand.brand_id) ?? 0;
+    const trapCount = trapMap.get(brand.brand_id) ?? 0;
+    const riskScore = riskMap.get(brand.brand_id);
     const recentThreats = threatMap.get(brand.brand_id)?.threat_count ?? 0;
     const emailGrade = brand.email_security_grade ?? 'unknown';
     const factors: string[] = [];
@@ -362,13 +399,15 @@ export async function identifyAndCreate(env: Env): Promise<{
         composite_risk_score: candidate.composite_risk_score,
         pitch_angle: candidate.pitch_angle,
         findings_summary: candidate.findings_summary,
-        identified_by: 'prospector_agent',
+        identified_by: 'pathfinder_agent',
       });
       leadsCreated++;
     } catch (err) {
       errors++;
     }
   }
+
+  console.log(`[pathfinder] funnel: ${emailGrades.results.length} brands → ${topForSocial.length} social-enriched → ${candidates.length} above MIN_SCORE → ${leadsCreated} leads created`);
 
   return { candidates_found: topCandidates.length, leads_created: leadsCreated, errors };
 }
@@ -492,8 +531,8 @@ async function run(env: Env): Promise<{
 
 // ─── Agent Module ────────────────────────────────────────────────
 
-export const prospectorAgent: AgentModule = {
-  name: "prospector",
+export const pathfinderAgent: AgentModule = {
+  name: "pathfinder",
   displayName: "Pathfinder",
   description: "Sales intelligence & lead generation",
   color: "#28A050",
@@ -505,7 +544,7 @@ export const prospectorAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
 
     // Check weekly throttle for Phase 1 (lead creation)
-    const lastRun = await env.CACHE.get("prospector:last_run");
+    const lastRun = await env.CACHE.get("pathfinder:last_run");
     const throttled = lastRun && Date.now() - parseInt(lastRun) < 7 * 24 * 60 * 60 * 1000;
 
     let phase1 = { candidates_found: 0, leads_created: 0, errors: 0 };
@@ -514,7 +553,7 @@ export const prospectorAgent: AgentModule = {
       // Phase 1 throttled — skip lead creation this tick
     } else {
       phase1 = await identifyAndCreate(env);
-      await env.CACHE.put("prospector:last_run", Date.now().toString());
+      await env.CACHE.put("pathfinder:last_run", Date.now().toString());
     }
 
     // Phase 2 always runs — enrich one lead on every cron tick

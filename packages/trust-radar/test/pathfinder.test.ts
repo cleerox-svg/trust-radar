@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { identifyAndCreate } from "../src/agents/prospector";
+import { identifyAndCreate } from "../src/agents/pathfinder";
 
 // Mock social-intel module
 vi.mock("../src/lib/social-intel", () => ({
@@ -29,7 +29,7 @@ vi.mock("../src/db/sales-leads", () => ({
 
 import { getBrandSocialIntel } from "../src/lib/social-intel";
 
-// ─── Scoring constants from prospector.ts ─────────────────────
+// ─── Scoring constants from pathfinder.ts ──────────────────────
 const SCORING = {
   email_grade_f_or_d: 30,
   email_grade_c: 15,
@@ -131,7 +131,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("Prospector scoring — identifyAndCreate", () => {
+describe("Pathfinder scoring — identifyAndCreate", () => {
   it("returns 0 candidates when no brands match", async () => {
     const env = createMockEnv({ brands: [] });
     const result = await identifyAndCreate(env);
@@ -408,7 +408,7 @@ describe("Prospector scoring — identifyAndCreate", () => {
   });
 });
 
-describe("Prospector scoring constants", () => {
+describe("Pathfinder scoring constants", () => {
   it("email_grade_f_or_d weight is 30", () => {
     expect(SCORING.email_grade_f_or_d).toBe(30);
   });

@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS sales_leads (
   next_follow_up_at TEXT,
 
   -- Meta
-  identified_by TEXT DEFAULT 'prospector_agent',
+  identified_by TEXT DEFAULT 'pathfinder_agent',
   reviewed_by INTEGER,
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now')),

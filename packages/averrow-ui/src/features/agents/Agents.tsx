@@ -79,7 +79,7 @@ const AGENT_REGISTRY: Record<string, {
     schedule: 'every 2 hours',
     trigger: 'cron',
   },
-  prospector: {
+  pathfinder: {
     displayName: 'Pathfinder',
     description: 'Sales Intelligence & Lead Generation',
     color: '#F97316',
@@ -111,7 +111,7 @@ const AGENT_REGISTRY: Record<string, {
 
 const AGENT_ORDER = [
   'sentinel', 'cartographer', 'nexus', 'analyst', 'observer',
-  'sparrow', 'prospector', 'strategist', 'curator', 'architect',
+  'sparrow', 'pathfinder', 'strategist', 'curator', 'architect',
 ];
 
 // ─── Status helpers ─────────────────────────────────────────────────

@@ -27,7 +27,7 @@ const EXPECTED_LEDGER_AGENT_IDS = [
   "strategist",
   "observer",
   "narrator",
-  "prospector",
+  "pathfinder",
   "watchdog",
   "seed_strategist",
   "architect",

@@ -49,7 +49,7 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <circle cx="18" cy="18" r="2" fill="currentColor"/>
     </svg>
   ),
-  prospector: (s) => (
+  pathfinder: (s) => (
     <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
       <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.4"/>
       <circle cx="26" cy="10" r="2" fill="currentColor" opacity="0.6"/>

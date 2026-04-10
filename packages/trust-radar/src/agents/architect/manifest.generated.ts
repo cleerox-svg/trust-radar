@@ -200,9 +200,9 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-09T18:00:39.766Z"
     },
     {
-      "name": "prospector",
-      "path": "packages/trust-radar/src/agents/prospector.ts",
-      "entrypoint": "prospectorAgent",
+      "name": "pathfinder",
+      "path": "packages/trust-radar/src/agents/pathfinder.ts",
+      "entrypoint": "pathfinderAgent",
       "triggers": [
         "cron"
       ],
@@ -682,7 +682,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "flightControl",
         "nexus",
         "observer",
-        "prospector",
+        "pathfinder",
         "seed-strategist",
         "sparrow",
         "strategist"

@@ -213,7 +213,7 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
   router.post("/api/admin/pathfinder-enrich", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    const { enrichLeadWithAI } = await import("../agents/prospector");
+    const { enrichLeadWithAI } = await import("../agents/pathfinder");
     const result = await enrichLeadWithAI(env);
     return json({ success: true, data: result });
   });
