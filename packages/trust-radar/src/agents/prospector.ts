@@ -18,6 +18,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
 import { getBrandSocialIntel } from "../lib/social-intel";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 import { createLead, getUnenrichedLead, enrichLead } from "../db/sales-leads";
 import { callAnthropicJSON, AnthropicError } from "../lib/anthropic";
 
@@ -57,7 +58,7 @@ const SCORING = {
   social_takedown_needed: 10,
 };
 
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = HOT_PATH_HAIKU;
 const MAX_IDENTIFIED = 20;
 const MIN_SCORE = 20;
 const AI_TIMEOUT_MS = 25000;

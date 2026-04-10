@@ -9,6 +9,7 @@
 
 import type { Env } from "./types";
 import { callAnthropicText } from "./lib/anthropic";
+import { HOT_PATH_HAIKU } from "./lib/ai-models";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -228,7 +229,7 @@ async function callHaiku(env: Env, systemPrompt: string, userMessage: string): P
   const { text } = await callAnthropicText(env, {
     agentId: "honeypot-generator",
     runId: null,
-    model: "claude-haiku-4-5-20251001",
+    model: HOT_PATH_HAIKU,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
     maxTokens: 4096,

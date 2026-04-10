@@ -8,6 +8,7 @@
 
 import type { Env, TakedownRequest } from "../types";
 import { callAnthropicJSON, AnthropicError } from "./anthropic";
+import { HOT_PATH_HAIKU } from "./ai-models";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ async function callHaiku(env: Env, prompt: string): Promise<AiReport> {
     const { parsed } = await callAnthropicJSON<AiReport>(env, {
       agentId: "evidence-assembler",
       runId: null,
-      model: "claude-haiku-4-5-20251001",
+      model: HOT_PATH_HAIKU,
       messages: [{ role: "user", content: prompt }],
       maxTokens: 2000,
       timeoutMs: 25_000,

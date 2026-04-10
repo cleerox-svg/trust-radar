@@ -9,6 +9,7 @@
 import { resolveToIp, extractHostname } from "./domain-resolver";
 import type { Env } from "../types";
 import { callAnthropicText, type AnthropicEnv } from "./anthropic";
+import { HOT_PATH_HAIKU } from "./ai-models";
 
 // ── Canonical sector taxonomy ────────────────────────────────────
 // Consistent values across the platform. Anything Haiku returns that's
@@ -296,7 +297,7 @@ Respond with ONLY the sector name, nothing else. Pick "other" if unsure.`;
     const { text } = await callAnthropicText(env, {
       agentId: "brand-enricher",
       runId: null,
-      model: "claude-haiku-4-5-20251001",
+      model: HOT_PATH_HAIKU,
       messages: [{ role: "user", content: prompt }],
       maxTokens: 20,
       timeoutMs: 8_000,

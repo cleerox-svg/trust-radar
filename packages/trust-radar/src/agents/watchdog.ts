@@ -14,6 +14,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import { extractDomain } from "../lib/domain-utils";
 import { callAnthropicJSON } from "../lib/anthropic";
 import type { Env } from "../types";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ Err on the side of caution — flag ambiguous cases as medium severity rather th
     const { parsed } = await callAnthropicJSON<Classification>(env, {
       agentId: "watchdog",
       runId,
-      model: "claude-haiku-4-5-20251001",
+      model: HOT_PATH_HAIKU,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
       maxTokens: 256,

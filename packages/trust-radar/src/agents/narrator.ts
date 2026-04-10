@@ -10,6 +10,7 @@ import type { Env } from "../types";
 import { createAlert } from "../lib/alerts";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicJSON } from "../lib/anthropic";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON):
   }>(env, {
     agentId: "narrator",
     runId: null,
-    model: "claude-haiku-4-5-20251001",
+    model: HOT_PATH_HAIKU,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
     maxTokens: 2048,
