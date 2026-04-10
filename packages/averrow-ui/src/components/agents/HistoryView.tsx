@@ -14,7 +14,7 @@ const AGENT_COLORS: Record<string, string> = {
   flight_control: '#22D3EE',
   sparrow: '#f87171',
   strategist: '#fb923c',
-  prospector: '#fbbf24',
+  pathfinder: '#fbbf24',
 };
 
 const AGENT_NAMES: Record<string, string> = {
@@ -26,12 +26,12 @@ const AGENT_NAMES: Record<string, string> = {
   flight_control: 'Flight Control',
   sparrow: 'Sparrow',
   strategist: 'Strategist',
-  prospector: 'Pathfinder',
+  pathfinder: 'Pathfinder',
 };
 
 const ALL_AGENTS = [
   'sentinel', 'analyst', 'cartographer', 'observer',
-  'nexus', 'flight_control', 'sparrow', 'strategist', 'prospector',
+  'nexus', 'flight_control', 'sparrow', 'strategist', 'pathfinder',
 ];
 
 const STATUS_OPTIONS = ['ALL', 'success', 'partial', 'failed'] as const;

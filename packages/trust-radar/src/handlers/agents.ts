@@ -32,7 +32,7 @@ const AGENT_SCHEDULES: Record<string, string> = {
   cartographer: "every 15m + Sentinel trigger",
   strategist: "every 6h",
   observer: "daily",
-  prospector: "weekly",
+  pathfinder: "weekly",
   sparrow: "every 6h",
   nexus: "every 4h",
   architect: "manual",

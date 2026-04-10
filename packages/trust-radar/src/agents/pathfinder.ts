@@ -1,5 +1,5 @@
 /**
- * Pathfinder (Prospector) Agent — Sales intelligence & lead generation pipeline.
+ * Pathfinder Agent — Sales intelligence & lead generation pipeline.
  *
  * Two-phase architecture to prevent Worker timeouts:
  *
@@ -79,7 +79,7 @@ async function callHaikuJSON<T>(
 ): Promise<{ success: boolean; data?: T; error?: string; tokens_used?: number }> {
   try {
     const { parsed, response } = await callAnthropicJSON<T>(env, {
-      agentId: "prospector",
+      agentId: "pathfinder",
       runId,
       model: MODEL,
       system: systemPrompt,
@@ -399,7 +399,7 @@ export async function identifyAndCreate(env: Env): Promise<{
         composite_risk_score: candidate.composite_risk_score,
         pitch_angle: candidate.pitch_angle,
         findings_summary: candidate.findings_summary,
-        identified_by: 'prospector_agent',
+        identified_by: 'pathfinder_agent',
       });
       leadsCreated++;
     } catch (err) {
@@ -407,7 +407,7 @@ export async function identifyAndCreate(env: Env): Promise<{
     }
   }
 
-  console.log(`[prospector] funnel: ${emailGrades.results.length} brands → ${topForSocial.length} social-enriched → ${candidates.length} above MIN_SCORE → ${leadsCreated} leads created`);
+  console.log(`[pathfinder] funnel: ${emailGrades.results.length} brands → ${topForSocial.length} social-enriched → ${candidates.length} above MIN_SCORE → ${leadsCreated} leads created`);
 
   return { candidates_found: topCandidates.length, leads_created: leadsCreated, errors };
 }
@@ -531,8 +531,8 @@ async function run(env: Env): Promise<{
 
 // ─── Agent Module ────────────────────────────────────────────────
 
-export const prospectorAgent: AgentModule = {
-  name: "prospector",
+export const pathfinderAgent: AgentModule = {
+  name: "pathfinder",
   displayName: "Pathfinder",
   description: "Sales intelligence & lead generation",
   color: "#28A050",
@@ -544,7 +544,7 @@ export const prospectorAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
 
     // Check weekly throttle for Phase 1 (lead creation)
-    const lastRun = await env.CACHE.get("prospector:last_run");
+    const lastRun = await env.CACHE.get("pathfinder:last_run");
     const throttled = lastRun && Date.now() - parseInt(lastRun) < 7 * 24 * 60 * 60 * 1000;
 
     let phase1 = { candidates_found: 0, leads_created: 0, errors: 0 };
@@ -553,7 +553,7 @@ export const prospectorAgent: AgentModule = {
       // Phase 1 throttled — skip lead creation this tick
     } else {
       phase1 = await identifyAndCreate(env);
-      await env.CACHE.put("prospector:last_run", Date.now().toString());
+      await env.CACHE.put("pathfinder:last_run", Date.now().toString());
     }
 
     // Phase 2 always runs — enrich one lead on every cron tick

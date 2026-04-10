@@ -17,7 +17,7 @@ export type AgentName =
   | "cartographer"
   | "strategist"
   | "observer"
-  | "prospector"
+  | "pathfinder"
   | "sparrow"
   | "nexus"
   | "trustbot"

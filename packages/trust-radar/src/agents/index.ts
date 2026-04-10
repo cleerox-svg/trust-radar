@@ -3,7 +3,7 @@
  *
  * Canonical agents:
  *   sentinel (5min/event), analyst (15min), cartographer (15min), strategist (6h),
- *   observer (daily), nexus (4h), prospector (weekly), sparrow (6h)
+ *   observer (daily), nexus (4h), pathfinder (weekly), sparrow (6h)
  */
 
 import type { AgentModule } from "../lib/agentRunner";
@@ -13,7 +13,7 @@ import { analystAgent } from "./analyst";
 import { cartographerAgent } from "./cartographer";
 import { strategistAgent } from "./strategist";
 import { observerAgent } from "./observer";
-import { prospectorAgent } from "./prospector";
+import { pathfinderAgent } from "./pathfinder";
 import { sparrowAgent } from "./sparrow";
 import { nexusAgent } from "./nexus";
 import { flightControlAgent } from "./flightControl";
@@ -30,7 +30,7 @@ export const agentModules: Record<string, AgentModule> = {
   "cartographer": cartographerAgent,
   "strategist": strategistAgent,
   "observer": observerAgent,
-  "prospector": prospectorAgent,
+  "pathfinder": pathfinderAgent,
   "sparrow": sparrowAgent,
   "nexus": nexusAgent,
   "flight_control": flightControlAgent,

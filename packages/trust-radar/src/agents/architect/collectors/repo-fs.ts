@@ -59,7 +59,7 @@ const KNOWN_AGENT_NAMES = new Set<string>([
   "narrator",
   "nexus",
   "observer",
-  "prospector",
+  "pathfinder",
   "seed-strategist",
   "sentinel",
   "sparrow",

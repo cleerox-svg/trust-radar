@@ -99,7 +99,7 @@ const AGENT_CONFIGS: Record<string, AgentConfigDef> = {
     icon: 'GitMerge',
     color: '#fb923c',
   },
-  prospector: {
+  pathfinder: {
     name: 'Pathfinder',
     description: 'Sales Intelligence & Lead Generation',
     schedule: 'On-demand',
@@ -128,7 +128,7 @@ const AGENT_CONFIGS: Record<string, AgentConfigDef> = {
 
 const AGENT_ORDER = [
   'flight_control', 'sentinel', 'analyst', 'cartographer',
-  'observer', 'nexus', 'sparrow', 'strategist', 'prospector', 'curator',
+  'observer', 'nexus', 'sparrow', 'strategist', 'pathfinder', 'curator',
 ];
 
 // ─── Config Card (accordion item) ──────────────────────────────

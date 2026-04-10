@@ -664,15 +664,15 @@ async function runThreatFeedScan(env: Env): Promise<void> {
     }
   }
 
-  // Prospector agent — daily at 03:00 UTC (KV throttle ensures once per 7 days)
+  // Pathfinder agent — daily at 03:00 UTC (KV throttle ensures once per 7 days)
   if (hour === 3 && minute < 5) {
     try {
-      const prospectorMod = allAgents["prospector"];
-      if (prospectorMod) {
-        await executeAgent(env, prospectorMod, {}, "cron", "scheduled");
+      const pathfinderMod = allAgents["pathfinder"];
+      if (pathfinderMod) {
+        await executeAgent(env, pathfinderMod, {}, "cron", "scheduled");
       }
     } catch (err) {
-      logger.error('threat_feed_scan_prospector_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_pathfinder_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
