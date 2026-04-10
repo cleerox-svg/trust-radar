@@ -679,15 +679,157 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
 
 // ─── Backfill: Resolve malicious domains → IP → geo + hosting provider ────
 //
-// POST /api/admin/backfill-domain-geo
+// Core logic lives in runDomainGeoBackfillBatch() so it can be called from
+// both the admin HTTP endpoint and cartographer's cron Phase 0.5.
 //
-// 91K+ threats have a malicious_domain but no ip_address. This endpoint
-// resolves up to 500 unique unresolved domains per call via Cloudflare DoH
+// Processes 250 distinct unresolved domains per call via Cloudflare DoH
 // (1.1.1.1), geo-enriches the resulting IPs via the existing ipinfo pipeline,
 // then bulk-updates every threat sharing each domain.
-//
-// One DoH subrequest per domain (500 < the 1,000 subrequest Worker limit).
-// The frontend loops this endpoint until remaining === 0.
+
+export interface DomainGeoBackfillResult {
+  processed: number;
+  resolved: number;
+  enriched: number;
+  remaining: number;
+}
+
+/**
+ * Resolve one batch of 250 unresolved domains → IP → geo + hosting provider.
+ * Callable from cron (cartographer Phase 0.5) or the admin HTTP endpoint.
+ */
+export async function runDomainGeoBackfillBatch(
+  env: Env,
+): Promise<DomainGeoBackfillResult> {
+  // Count remaining unique unresolved domains
+  const totalRow = await env.DB.prepare(`
+    SELECT COUNT(DISTINCT malicious_domain) AS n
+    FROM threats
+    WHERE (ip_address IS NULL OR ip_address = '')
+      AND malicious_domain IS NOT NULL
+      AND malicious_domain != ''
+      AND malicious_domain NOT LIKE '*%'
+      AND malicious_domain LIKE '%.%'
+  `).first<{ n: number }>();
+  const totalPending = totalRow?.n ?? 0;
+
+  if (totalPending === 0) {
+    return { processed: 0, resolved: 0, enriched: 0, remaining: 0 };
+  }
+
+  // Fetch the next batch of unique unresolved domains.
+  // Batch is intentionally 250 (down from 500): with parallel resolution
+  // we still stay well under the 1,000 subrequest worker limit
+  // (250 DoH + 250 update calls + 1 ipinfo batch + a few provider upserts).
+  const batch = await env.DB.prepare(`
+    SELECT DISTINCT malicious_domain
+    FROM threats
+    WHERE (ip_address IS NULL OR ip_address = '')
+      AND malicious_domain IS NOT NULL
+      AND malicious_domain != ''
+      AND malicious_domain NOT LIKE '*%'
+      AND malicious_domain LIKE '%.%'
+    LIMIT 250
+  `).all<{ malicious_domain: string }>();
+
+  const domains = batch.results.map((r) => r.malicious_domain);
+
+  // ── Step 1: parallel DoH resolution capped at 20 concurrent ──
+  const domainToIp = new Map<string, string>();
+  const CONCURRENCY = 20;
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < domains.length) {
+      const i = cursor++;
+      const domain = domains[i];
+      if (!domain) continue;
+      const hostname = extractHostname(domain);
+      if (!hostname) continue;
+      const ip = await resolveToIp(hostname);
+      if (ip) domainToIp.set(domain, ip);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, domains.length) }, () => worker()),
+  );
+  const resolved = domainToIp.size;
+
+  // ── Step 2: batch geo lookup for the unique public IPs ──
+  const uniqueIps = [...new Set(domainToIp.values())].filter((ip) => !isPrivateIP(ip));
+  const { results: geoMap } = await batchGeoLookup(
+    uniqueIps,
+    env.CACHE,
+    env.IPINFO_TOKEN,
+  );
+
+  // Resolve hosting provider IDs once per unique IP that came back with geo
+  const ipToProviderId = new Map<string, string | null>();
+  for (const [ip, geo] of geoMap) {
+    const providerName = normalizeProvider(geo.isp, geo.org);
+    if (!providerName) {
+      ipToProviderId.set(ip, null);
+      continue;
+    }
+    try {
+      const providerId = await upsertHostingProvider(
+        env.DB,
+        providerName,
+        geo.as,
+        geo.countryCode,
+      );
+      ipToProviderId.set(ip, providerId);
+    } catch {
+      ipToProviderId.set(ip, null);
+    }
+  }
+
+  // ── Step 3: bulk-update all threats sharing each resolved domain ──
+  let enriched = 0;
+  for (const [domain, ip] of domainToIp) {
+    const geo = geoMap.get(ip);
+    const providerId = ipToProviderId.get(ip) ?? null;
+    const countryCode = geo?.countryCode ?? null;
+    const lat = geo?.lat ?? null;
+    const lng = geo?.lng ?? null;
+    const asn = geo?.as ?? null;
+
+    try {
+      await env.DB.prepare(`
+        UPDATE threats
+        SET
+          ip_address = ?,
+          lat = COALESCE(?, lat),
+          lng = COALESCE(?, lng),
+          country_code = COALESCE(?, country_code),
+          asn = COALESCE(?, asn),
+          hosting_provider_id = COALESCE(?, hosting_provider_id)
+        WHERE malicious_domain = ?
+          AND (ip_address IS NULL OR ip_address = '')
+      `).bind(ip, lat, lng, countryCode, asn, providerId, domain).run();
+      enriched++;
+    } catch (err) {
+      console.error(`[backfill-domain-geo] update failed for ${domain}:`, err);
+    }
+  }
+
+  // Keep provider counts in sync (best effort — non-critical)
+  try {
+    await env.DB.prepare(`
+      UPDATE hosting_providers SET
+        active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
+        total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
+    `).run();
+  } catch { /* non-critical */ }
+
+  return {
+    processed: domains.length,
+    resolved,
+    enriched,
+    remaining: Math.max(0, totalPending - domains.length),
+  };
+}
+
+// POST /api/admin/backfill-domain-geo
+// Thin HTTP wrapper around runDomainGeoBackfillBatch for manual/admin use.
 export async function handleBackfillDomainGeo(
   request: Request,
   env: Env,
@@ -695,149 +837,8 @@ export async function handleBackfillDomainGeo(
   const origin = request.headers.get("Origin");
 
   try {
-    // Count remaining unique unresolved domains
-    const totalRow = await env.DB.prepare(`
-      SELECT COUNT(DISTINCT malicious_domain) AS n
-      FROM threats
-      WHERE (ip_address IS NULL OR ip_address = '')
-        AND malicious_domain IS NOT NULL
-        AND malicious_domain != ''
-        AND malicious_domain NOT LIKE '*%'
-        AND malicious_domain LIKE '%.%'
-    `).first<{ n: number }>();
-    const totalPending = totalRow?.n ?? 0;
-
-    if (totalPending === 0) {
-      return json({
-        success: true,
-        data: {
-          message: "No domains pending resolution",
-          processed: 0,
-          resolved: 0,
-          enriched: 0,
-          remaining: 0,
-        },
-      }, 200, origin);
-    }
-
-    // Fetch the next batch of unique unresolved domains.
-    // Batch is intentionally 250 (down from 500): with parallel resolution
-    // we still stay well under the 1,000 subrequest worker limit
-    // (250 DoH + 250 update calls + 1 ipinfo batch + a few provider upserts).
-    // 24 hourly ticks × 250 ≈ 6,000 domains/day, draining 90K in ~15 days.
-    const batch = await env.DB.prepare(`
-      SELECT DISTINCT malicious_domain
-      FROM threats
-      WHERE (ip_address IS NULL OR ip_address = '')
-        AND malicious_domain IS NOT NULL
-        AND malicious_domain != ''
-        AND malicious_domain NOT LIKE '*%'
-        AND malicious_domain LIKE '%.%'
-      LIMIT 250
-    `).all<{ malicious_domain: string }>();
-
-    const domains = batch.results.map((r) => r.malicious_domain);
-
-    // ── Step 1: parallel DoH resolution capped at 20 concurrent ──
-    // Sequential resolution couldn't keep up with the 90K backlog.
-    // 20 concurrent stays well under the 1,000 subrequest limit.
-    const domainToIp = new Map<string, string>();
-    const CONCURRENCY = 20;
-    let cursor = 0;
-    async function worker(): Promise<void> {
-      while (cursor < domains.length) {
-        const i = cursor++;
-        const domain = domains[i];
-        if (!domain) continue;
-        const hostname = extractHostname(domain);
-        if (!hostname) continue;
-        const ip = await resolveToIp(hostname);
-        if (ip) domainToIp.set(domain, ip);
-      }
-    }
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, domains.length) }, () => worker()),
-    );
-    const resolved = domainToIp.size;
-
-    // ── Step 2: batch geo lookup for the unique public IPs ──
-    // Reuse the existing ipinfo batch pipeline — it respects the monthly
-    // budget, filters bogons, and caps per cycle (50 with token, 5 without).
-    const uniqueIps = [...new Set(domainToIp.values())].filter((ip) => !isPrivateIP(ip));
-    const { results: geoMap } = await batchGeoLookup(
-      uniqueIps,
-      env.CACHE,
-      env.IPINFO_TOKEN,
-    );
-
-    // Resolve hosting provider IDs once per unique IP that came back with geo
-    const ipToProviderId = new Map<string, string | null>();
-    for (const [ip, geo] of geoMap) {
-      const providerName = normalizeProvider(geo.isp, geo.org);
-      if (!providerName) {
-        ipToProviderId.set(ip, null);
-        continue;
-      }
-      try {
-        const providerId = await upsertHostingProvider(
-          env.DB,
-          providerName,
-          geo.as,
-          geo.countryCode,
-        );
-        ipToProviderId.set(ip, providerId);
-      } catch {
-        ipToProviderId.set(ip, null);
-      }
-    }
-
-    // ── Step 3: bulk-update all threats sharing each resolved domain ──
-    let enriched = 0;
-    for (const [domain, ip] of domainToIp) {
-      const geo = geoMap.get(ip);
-      const providerId = ipToProviderId.get(ip) ?? null;
-      const countryCode = geo?.countryCode ?? null;
-      const lat = geo?.lat ?? null;
-      const lng = geo?.lng ?? null;
-      const asn = geo?.as ?? null;
-
-      try {
-        await env.DB.prepare(`
-          UPDATE threats
-          SET
-            ip_address = ?,
-            lat = COALESCE(?, lat),
-            lng = COALESCE(?, lng),
-            country_code = COALESCE(?, country_code),
-            asn = COALESCE(?, asn),
-            hosting_provider_id = COALESCE(?, hosting_provider_id)
-          WHERE malicious_domain = ?
-            AND (ip_address IS NULL OR ip_address = '')
-        `).bind(ip, lat, lng, countryCode, asn, providerId, domain).run();
-        enriched++;
-      } catch (err) {
-        console.error(`[backfill-domain-geo] update failed for ${domain}:`, err);
-      }
-    }
-
-    // Keep provider counts in sync (best effort — non-critical)
-    try {
-      await env.DB.prepare(`
-        UPDATE hosting_providers SET
-          active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
-          total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
-      `).run();
-    } catch { /* non-critical */ }
-
-    return json({
-      success: true,
-      data: {
-        processed: domains.length,
-        resolved,
-        enriched,
-        remaining: Math.max(0, totalPending - domains.length),
-      },
-    }, 200, origin);
+    const result = await runDomainGeoBackfillBatch(env);
+    return json({ success: true, data: result }, 200, origin);
   } catch (err) {
     console.error(`[backfill-domain-geo] Fatal error:`, err);
     return json({

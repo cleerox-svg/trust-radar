@@ -22,6 +22,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 import { createNotification } from "../lib/notifications";
+import { runDomainGeoBackfillBatch } from "../handlers/admin";
 
 // ─── ip-api.com batch types ───────────────────────────────────────
 
@@ -272,6 +273,35 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] ip-api batch enrichment error:", err);
     }
 
+    // ─── Phase 0.5: DNS resolution backfill for domain-only threats ───
+    // Drains the 65K+ unresolved-domain backlog at ~500 domains/tick.
+    //
+    // Subrequest budget (worst-case per batch of 250 domains):
+    //   250 DoH lookups + ~50 ipinfo calls + ~50 provider upserts + 250 D1 updates
+    //   ≈ 600 subrequests for 2 batches total.
+    // Phase 0 (ip-api): ~5 subrequests. Phase 1+: ~60 more.
+    // Total worst-case: ~665, safely under the 1,000 subrequest Worker limit.
+    //
+    // 2 batches × 250 = 500 domains/tick × 24 ticks/day = 12,000 domains/day.
+    // Full drain of 65K backlog in ~5.5 days (before April 16 demo).
+    let dnsBackfillTotal = { processed: 0, resolved: 0, enriched: 0, remaining: 0 };
+    try {
+      const DNS_BATCHES_PER_RUN = 2;
+      for (let i = 0; i < DNS_BATCHES_PER_RUN; i++) {
+        const result = await runDomainGeoBackfillBatch(env);
+        dnsBackfillTotal.processed += result.processed;
+        dnsBackfillTotal.resolved += result.resolved;
+        dnsBackfillTotal.enriched += result.enriched;
+        dnsBackfillTotal.remaining = result.remaining;
+        if (result.remaining === 0 || result.processed === 0) break;
+        // Brief pause between batches to be polite to DoH
+        if (i < DNS_BATCHES_PER_RUN - 1) await sleep(500);
+      }
+      console.log(`[cartographer] phase0.5 dns backfill: processed=${dnsBackfillTotal.processed}, resolved=${dnsBackfillTotal.resolved}, enriched=${dnsBackfillTotal.enriched}, remaining=${dnsBackfillTotal.remaining}`);
+    } catch (err) {
+      console.error('[cartographer] phase0.5 dns backfill error:', err);
+    }
+
     // ─── Phase 1: ipinfo.io fallback for threats still missing country_code ───
     try {
       const { enrichThreatsGeo } = await import("../lib/geoip");
@@ -512,11 +542,15 @@ export const cartographerAgent: AgentModule = {
     // Emit diagnostic output so cartographer never shows 0 outputs silently
     outputs.push({
       type: "diagnostic",
-      summary: `Cartographer: ${batchEnriched} ip-api enriched, ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      summary: `Cartographer: ${batchEnriched} ip-api enriched, ${dnsBackfillTotal.enriched} dns-resolved, ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
       severity: providers.results.length === 0 ? "medium" : "info",
       details: {
         ip_api_enriched: batchEnriched,
         rdap_enriched: rdapEnriched,
+        dns_backfill_processed: dnsBackfillTotal.processed,
+        dns_backfill_resolved: dnsBackfillTotal.resolved,
+        dns_backfill_enriched: dnsBackfillTotal.enriched,
+        dns_backfill_remaining: dnsBackfillTotal.remaining,
         providers_with_threats: providers.results.length,
         total_providers: totalProviders?.n ?? 0,
         haiku_scored: haikuSuccessCount,
