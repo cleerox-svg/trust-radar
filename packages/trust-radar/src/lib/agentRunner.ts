@@ -1,11 +1,13 @@
 /**
  * Agent Runner — Orchestrator for AI agent execution (v2).
  *
- * Uses v2 tables: agent_runs, agent_outputs.
- * Supports the 5 canonical agents: sentinel, analyst, cartographer, strategist, observer.
+ * Uses v2 tables: agent_runs, agent_outputs, agent_configs.
+ * Circuit breaker: auto-trips agents after N consecutive failures.
+ * flight_control and architect are protected from auto-trip.
  */
 
 import type { Env } from "../types";
+import { createNotification } from "./notifications";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -100,6 +102,24 @@ export interface AgentModule {
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }
 
+// ─── Circuit Breaker ────────────────────────────────────────────
+
+/** Agents that can still be manually disabled but are never auto-tripped. */
+export const PROTECTED_FROM_CIRCUIT_BREAKER = new Set(["flight_control", "architect"]);
+
+/** Default consecutive-failure threshold when system_config has no row. */
+const DEFAULT_AGENT_FAILURE_THRESHOLD = 3;
+
+export type CircuitState = "closed" | "tripped";
+
+export interface ExecuteAgentResult {
+  runId: string;
+  status: RunStatus | "circuit_open";
+  result: AgentResult | null;
+  error?: string;
+  reason?: string;
+}
+
 // ─── Run Execution ──────────────────────────────────────────────
 
 export async function executeAgent(
@@ -108,16 +128,49 @@ export async function executeAgent(
   input: Record<string, unknown> = {},
   triggeredBy: string | null = null,
   triggerType: TriggerType = "manual",
-): Promise<{ runId: string; status: RunStatus; result: AgentResult | null; error?: string }> {
+): Promise<ExecuteAgentResult> {
+  const agentId = agentModule.name;
+
+  // ── Circuit breaker gate ────────────────────────────────────
+  // Ensure the config row exists (zero-ceremony for agents added after migration).
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO agent_configs (agent_id) VALUES (?)"
+  ).bind(agentId).run();
+
+  const configRow = await env.DB.prepare(
+    "SELECT enabled, paused_reason FROM agent_configs WHERE agent_id = ?"
+  ).bind(agentId).first<{ enabled: number; paused_reason: string | null }>();
+
+  if (configRow && configRow.enabled === 0) {
+    const reason = configRow.paused_reason ?? "disabled";
+    console.log(`[agentRunner] ${agentId}: circuit open (${reason}) — skipping`);
+
+    // Log to agent_activity_log so FC dashboard can surface skips.
+    try {
+      await env.DB.prepare(
+        `INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity, created_at)
+         VALUES (?, ?, 'circuit_open_skip', ?, ?, 'info', datetime('now'))`
+      ).bind(
+        crypto.randomUUID(),
+        agentId,
+        `Agent ${agentId} skipped — circuit open (${reason})`,
+        JSON.stringify({ agent_id: agentId, paused_reason: reason }),
+      ).run();
+    } catch { /* never block on logging */ }
+
+    return { runId: "", status: "circuit_open", result: null, reason };
+  }
+
+  // ── Normal execution path ──────────────────────────────────
   const runId = crypto.randomUUID();
 
   // Create run record in v2 agent_runs table
   await env.DB.prepare(
     `INSERT INTO agent_runs (id, agent_id, started_at, status, records_processed, outputs_generated)
      VALUES (?, ?, datetime('now'), 'partial', 0, 0)`
-  ).bind(runId, agentModule.name).run();
+  ).bind(runId, agentId).run();
 
-  const ctx: AgentContext = { env, runId, agentName: agentModule.name, input, triggeredBy };
+  const ctx: AgentContext = { env, runId, agentName: agentId, input, triggeredBy };
   const start = Date.now();
 
   try {
@@ -134,7 +187,7 @@ export async function executeAgent(
             `INSERT INTO agent_outputs (id, agent_id, type, summary, severity, details, related_brand_ids, related_campaign_id, related_provider_ids, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
           ).bind(
-            outputId, agentModule.name, output.type, String(output.summary),
+            outputId, agentId, output.type, String(output.summary),
             output.severity ? String(output.severity) : null,
             output.details ? JSON.stringify(output.details) : null,
             output.relatedBrandIds ? JSON.stringify(output.relatedBrandIds) : null,
@@ -143,7 +196,7 @@ export async function executeAgent(
           ).run();
           outputsGenerated++;
         } catch (err) {
-          console.error(`[agentRunner] ${agentModule.name}: FAILED to persist output:`, err);
+          console.error(`[agentRunner] ${agentId}: FAILED to persist output:`, err);
         }
       }
     }
@@ -160,6 +213,11 @@ export async function executeAgent(
       outputsGenerated, result.tokensUsed ?? 0, runId,
     ).run();
 
+    // ── Circuit breaker: reset counter on success/partial ────
+    await env.DB.prepare(
+      "UPDATE agent_configs SET consecutive_failures = 0, updated_at = datetime('now') WHERE agent_id = ?"
+    ).bind(agentId).run();
+
     return { runId, status: finalStatus, result };
   } catch (err) {
     const durationMs = Date.now() - start;
@@ -169,7 +227,118 @@ export async function executeAgent(
       `UPDATE agent_runs SET status = 'failed', error_message = ?, duration_ms = ?, completed_at = datetime('now') WHERE id = ?`
     ).bind(errorMsg, durationMs, runId).run();
 
+    // ── Circuit breaker: increment counter + maybe trip ──────
+    try {
+      const prev = await env.DB.prepare(
+        "SELECT consecutive_failures FROM agent_configs WHERE agent_id = ?"
+      ).bind(agentId).first<{ consecutive_failures: number }>();
+      const newCount = (prev?.consecutive_failures ?? 0) + 1;
+
+      await env.DB.prepare(
+        "UPDATE agent_configs SET consecutive_failures = ?, updated_at = datetime('now') WHERE agent_id = ?"
+      ).bind(newCount, agentId).run();
+
+      await tripCircuitIfNeeded(env, agentId, newCount, errorMsg);
+    } catch (e) {
+      console.error(`[agentRunner] ${agentId}: circuit breaker bookkeeping failed:`, e);
+    }
+
     return { runId, status: "failed", result: null, error: errorMsg };
+  }
+}
+
+// ─── Circuit Breaker Trip Check ─────────────────────────────────
+
+async function tripCircuitIfNeeded(
+  env: Env,
+  agentId: string,
+  newCount: number,
+  lastError: string,
+): Promise<void> {
+  // Protected agents are never auto-tripped.
+  if (PROTECTED_FROM_CIRCUIT_BREAKER.has(agentId)) return;
+
+  // Resolve the effective threshold: per-agent override if non-NULL,
+  // else global default from system_config, else hardcoded fallback.
+  const perAgentRow = await env.DB.prepare(
+    "SELECT consecutive_failure_threshold FROM agent_configs WHERE agent_id = ?"
+  ).bind(agentId).first<{ consecutive_failure_threshold: number | null }>();
+
+  let threshold: number;
+  if (perAgentRow?.consecutive_failure_threshold != null && perAgentRow.consecutive_failure_threshold > 0) {
+    threshold = perAgentRow.consecutive_failure_threshold;
+  } else {
+    try {
+      const globalRow = await env.DB.prepare(
+        "SELECT value FROM system_config WHERE key = 'agent_consecutive_failure_threshold'"
+      ).first<{ value: string }>();
+      const parsed = globalRow?.value != null ? parseInt(globalRow.value, 10) : NaN;
+      threshold = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_AGENT_FAILURE_THRESHOLD;
+    } catch {
+      threshold = DEFAULT_AGENT_FAILURE_THRESHOLD;
+    }
+  }
+
+  if (newCount < threshold) return;
+
+  // Check if already tripped (concurrent run could beat us to it).
+  const current = await env.DB.prepare(
+    "SELECT enabled FROM agent_configs WHERE agent_id = ?"
+  ).bind(agentId).first<{ enabled: number }>();
+  if (!current || current.enabled === 0) return;
+
+  // Trip the circuit breaker.
+  await env.DB.prepare(
+    `UPDATE agent_configs SET
+       enabled = 0,
+       paused_reason = 'auto:consecutive_failures',
+       paused_at = datetime('now'),
+       paused_after_n_failures = ?,
+       updated_at = datetime('now')
+     WHERE agent_id = ? AND enabled = 1`
+  ).bind(newCount, agentId).run();
+
+  const truncatedError = lastError.slice(0, 500);
+
+  // Fire critical notification — one per transition (rate-limited via
+  // the agent_id metadata key in notifications.ts).
+  try {
+    await createNotification(env.DB, {
+      type: "circuit_breaker_tripped",
+      severity: "critical",
+      title: `Agent circuit breaker tripped: ${agentId}`,
+      message: `${agentId} was auto-paused after ${newCount} consecutive failures (threshold ${threshold}). Last error: ${truncatedError}`,
+      link: "/admin/agents",
+      metadata: {
+        agent_id: agentId,
+        auto_paused: true,
+        consecutive_failures: newCount,
+        threshold,
+        last_error: truncatedError,
+      },
+    });
+  } catch (e) {
+    console.error(`[agentRunner] ${agentId}: circuit breaker notification failed:`, e);
+  }
+
+  // Log to agent_activity_log.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity, created_at)
+       VALUES (?, ?, 'circuit_breaker_tripped', ?, ?, 'critical', datetime('now'))`
+    ).bind(
+      crypto.randomUUID(),
+      agentId,
+      `Agent ${agentId} auto-paused after ${newCount} consecutive failures (threshold ${threshold})`,
+      JSON.stringify({
+        agent_id: agentId,
+        consecutive_failures: newCount,
+        threshold,
+        last_error: truncatedError,
+      }),
+    ).run();
+  } catch (e) {
+    console.error(`[agentRunner] ${agentId}: circuit breaker activity log failed:`, e);
   }
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAgents } from '@/hooks/useAgents';
+import { useAgents, useResetAgentCircuit, useUpdateAgentThreshold } from '@/hooks/useAgents';
 import type { Agent } from '@/hooks/useAgents';
 import { AgentIcon } from '@/components/brand/AgentIcon';
 import { relativeTime } from '@/lib/time';
@@ -234,9 +234,163 @@ function ConfigCard({
               </div>
             </div>
           </ConfigSection>
+
+          {agentData && (
+            <CircuitBreakerSection agentId={agentId} agent={agentData} />
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// Protected agents that cannot be auto-tripped
+const PROTECTED_AGENTS = new Set(['flight_control', 'architect']);
+
+function CircuitBreakerSection({ agentId, agent }: { agentId: string; agent: Agent }) {
+  const resetMutation = useResetAgentCircuit();
+  const thresholdMutation = useUpdateAgentThreshold();
+  const [thresholdInput, setThresholdInput] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  const isProtected = PROTECTED_AGENTS.has(agentId);
+  const isTripped = agent.circuit_state === 'tripped';
+  const isManualPause = agent.circuit_state === 'manual_pause';
+
+  const handleReset = () => {
+    resetMutation.mutate(agentId);
+  };
+
+  const handleThresholdSave = () => {
+    const val = thresholdInput.trim();
+    const threshold = val === '' ? null : parseInt(val, 10);
+    if (threshold !== null && (isNaN(threshold) || threshold < 1)) return;
+    thresholdMutation.mutate({ agentId, threshold });
+    setEditing(false);
+  };
+
+  return (
+    <ConfigSection label="Circuit Breaker">
+      <div className="space-y-3">
+        {/* State row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-white/40">State:</span>
+            {isTripped ? (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase"
+                style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+              >
+                TRIPPED{agent.paused_after_n_failures ? ` \u00B7 ${agent.paused_after_n_failures}\u2717` : ''}
+              </span>
+            ) : isManualPause ? (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                Paused &middot; manual
+              </span>
+            ) : (
+              <span className="font-mono text-[11px]" style={{ color: '#4ade80' }}>Closed</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-white/40">Consecutive failures:</span>
+            <span
+              className="font-mono text-[11px] font-bold"
+              style={{ color: agent.consecutive_failures > 0 ? '#f87171' : 'var(--text-primary)' }}
+            >
+              {agent.consecutive_failures}
+            </span>
+          </div>
+        </div>
+
+        {/* Threshold row */}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-white/40">Threshold:</span>
+          {editing ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="1"
+                value={thresholdInput}
+                onChange={(e) => setThresholdInput(e.target.value)}
+                placeholder="global"
+                className="w-16 px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] font-mono text-[11px] text-white/80 outline-none focus:border-amber-500/50"
+              />
+              <button
+                onClick={handleThresholdSave}
+                disabled={thresholdMutation.isPending}
+                className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] font-mono text-[9px] text-green-400 hover:bg-white/[0.1]"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] font-mono text-[9px] text-white/40 hover:bg-white/[0.1]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>
+                {agent.consecutive_failure_threshold ?? '—'}
+              </span>
+              <span className="font-mono text-[9px] text-white/30">
+                {agent.consecutive_failure_threshold == null ? '(global default)' : '(override)'}
+              </span>
+              <button
+                onClick={() => {
+                  setThresholdInput(agent.consecutive_failure_threshold?.toString() ?? '');
+                  setEditing(true);
+                }}
+                className="px-1 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] font-mono text-[9px] text-white/40 hover:bg-white/[0.08] hover:text-white/60"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Paused-at info */}
+        {agent.paused_at && (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-white/40">Paused at:</span>
+            <span className="font-mono text-[11px] text-white/60">{relativeTime(agent.paused_at)}</span>
+          </div>
+        )}
+
+        {/* Reset button */}
+        {(isTripped || isManualPause) && (
+          <div className="pt-1">
+            {isProtected ? (
+              <span
+                className="inline-flex items-center gap-1 font-mono text-[9px] text-white/30"
+                title="Protected from auto-trip — manually disable from settings instead"
+              >
+                Protected from auto-trip
+              </span>
+            ) : (
+              <button
+                onClick={handleReset}
+                disabled={resetMutation.isPending}
+                className={cn(
+                  'px-3 py-1.5 rounded font-mono text-[10px] font-bold uppercase tracking-wide transition-colors',
+                  resetMutation.isPending
+                    ? 'bg-white/[0.04] text-white/30 cursor-wait'
+                    : resetMutation.isSuccess
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20',
+                )}
+              >
+                {resetMutation.isPending ? 'Resetting...' : resetMutation.isSuccess ? 'Reset!' : 'Reset Circuit'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </ConfigSection>
   );
 }
 

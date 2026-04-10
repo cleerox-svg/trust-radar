@@ -169,6 +169,31 @@ function RunStatusBlocks({ activity }: { activity: number[] }) {
   );
 }
 
+// ─── Circuit Breaker Badge ──────────────────────────────────────────
+function CircuitBadge({ agent }: { agent: Agent }) {
+  if (agent.circuit_state === 'tripped') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wide"
+        style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+      >
+        TRIPPED{agent.paused_after_n_failures ? ` \u00B7 ${agent.paused_after_n_failures}\u2717` : ''}
+      </span>
+    );
+  }
+  if (agent.circuit_state === 'manual_pause') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wide"
+        style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+      >
+        Paused &middot; manual
+      </span>
+    );
+  }
+  return null;
+}
+
 // ─── Agent Card ─────────────────────────────────────────────────────
 function AgentCard({
   agent,
@@ -184,7 +209,7 @@ function AgentCard({
 
   return (
     <Card
-      variant={agent.status === 'error' ? 'critical' : agent.status === 'active' ? 'active' : 'base'}
+      variant={agent.circuit_state === 'tripped' ? 'critical' : agent.status === 'error' ? 'critical' : agent.status === 'active' ? 'active' : 'base'}
       className={cn(
         'card-accent-top transition-all duration-200 group',
         isSelected && 'scale-[1.01]',
@@ -198,7 +223,7 @@ function AgentCard({
           <AgentIcon agent={agent.name} size={32} />
         </span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {meta?.displayName ?? agent.display_name}
             </span>
@@ -206,6 +231,7 @@ function AgentCard({
               className={cn('w-2 h-2 rounded-full shrink-0', statusDotClass(agent))}
               style={!statusDotClass(agent) ? { backgroundColor: statusDotColor(agent) } : undefined}
             />
+            <CircuitBadge agent={agent} />
           </div>
           <div className="font-mono text-[10px] text-white/40 leading-relaxed line-clamp-2">
             {meta?.description ?? agent.description}

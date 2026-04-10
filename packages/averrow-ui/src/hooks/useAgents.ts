@@ -19,6 +19,14 @@ export interface Agent {
   last_run_error: string | null;
   last_output_at: string | null;
   avg_duration_ms: number | null;
+  // Circuit breaker fields
+  circuit_enabled: number;
+  circuit_state: 'closed' | 'tripped' | 'manual_pause';
+  paused_reason: string | null;
+  consecutive_failures: number;
+  consecutive_failure_threshold: number | null;
+  paused_at: string | null;
+  paused_after_n_failures: number | null;
 }
 
 export interface AgentConfig {
@@ -143,6 +151,32 @@ export function useTriggerAgent() {
   return useMutation({
     mutationFn: async (agentId: string) => {
       const res = await api.post(`/api/agents/${agentId}/trigger`);
+      return res.data ?? null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+  });
+}
+
+export function useResetAgentCircuit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (agentId: string) => {
+      const res = await api.post(`/api/agents/${agentId}/reset-circuit`);
+      return res.data ?? null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+  });
+}
+
+export function useUpdateAgentThreshold() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ agentId, threshold }: { agentId: string; threshold: number | null }) => {
+      const res = await api.put(`/api/agents/${agentId}/threshold`, { threshold });
       return res.data ?? null;
     },
     onSuccess: () => {
