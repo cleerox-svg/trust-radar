@@ -286,9 +286,45 @@ eliminates the primary bottleneck (temp B-tree). Enrichment indexes are deferred
 
 ---
 
-## Index usage map
+## Index usage map (Phase D)
 
-> Built in Phase D.
+Built via `rg "FROM threats" packages/trust-radar/src` cross-referenced with each index's column(s).
+
+| # | Index name | Callers | Decision |
+|---|-----------|---------|----------|
+| 1 | `idx_threats_brand_status` | handlers/brands.ts, handlers/threats.ts, analyst.ts (enrichment subqueries), observer.ts, tenantData.ts, emailSecurity.ts, brand-scoring.ts | **KEEP** — primary composite for brand+status queries |
+| 2 | `idx_threats_provider` | handlers/providers.ts (heavy), handlers/dashboard.ts, cartographer.ts, snapshots.ts | **KEEP** |
+| 3 | `idx_threats_campaign` | handlers/campaigns.ts (heavy), strategist.ts, nexusRun.ts | **KEEP** |
+| 4 | `idx_threats_type` | db/threats.ts:73, handlers/threats.ts:150, reports.ts, campaigns.ts | **KEEP** |
+| 5 | `idx_threats_severity` | handlers/threats.ts:158, reports.ts, enrichment.ts:182 (`WHERE severity IN (...)`) | **KEEP** — independent filter |
+| 6 | `idx_threats_status` | All callers also have other WHERE conditions. Every status query is served equally by `idx_threats_status_created(status, created_at DESC)` | **DROP** — strict prefix subset of #16 |
+| 7 | `idx_threats_first_seen` | feeds/abuseipdb.ts, spamhausDbl.ts, greynoise.ts, circlPassiveDns.ts, googleSafeBrowsing.ts, seclookup.ts, dashboard.ts, operations.ts, trends.ts, nexusRun.ts | **KEEP** — many enrichment feeds use `first_seen >= datetime(...)` |
+| 8 | `idx_threats_last_seen` | observer.ts:143 (`WHERE last_seen >= datetime(...)`) | **KEEP** — one active caller |
+| 9 | `idx_threats_created_at` | db/threats.ts, handlers/threats.ts (ORDER BY), observer.ts, sentinel.ts, all dashboard/trend queries, analyst.ts Query A | **KEEP** — primary time-ordering index |
+| 10 | `idx_threats_domain` | handlers/threats.ts, enrichment.ts, virustotal.ts, analyst.ts, spamhausDbl.ts, provider-resolver.ts, url-scanner.ts, brands.ts, evidence-assembler.ts | **KEEP** — heavily used for lookups |
+| 11 | `idx_threats_ip` | feeds/abuseipdb.ts, greynoise.ts, strategist.ts, enrichment.ts, geoip.ts, brands.ts | **KEEP** — heavily used |
+| 12 | `idx_threats_ioc` | handlers/threats.ts:38 (search), brandScan.ts:203 | **KEEP** — used in search/filter |
+| 13 | `idx_threats_source` | handlers/threats.ts:154, reports.ts, flightControl.ts | **KEEP** |
+| 14 | `idx_threats_country` | handlers/threats.ts:162, reports.ts, providers.ts, observatory.ts | **KEEP** |
+| 15 | `idx_threats_cf_scan` | feeds/cloudflare_scanner.ts (submission + polling) | **KEEP** — critical for CF scanner workflow |
+| 16 | `idx_threats_status_created` | dashboard.ts, observatory.ts, agents (heavy), all "active threats in time window" queries | **KEEP** — primary composite, subsumes #6 |
+| 17 | `idx_threats_brand_created` | analyst.ts Query A, brands.ts, tenantData.ts | **KEEP** — planner's preferred for Query A |
+| 18 | `idx_threats_unmatched` | analyst.ts, orchestrator.ts, brandDetect.ts, enrichment.ts, admin.ts, flightControl.ts | **KEEP** — per task: do not drop |
+| 19 | `idx_threats_saas_technique` | handlers/threats.ts (JOIN), alerts.ts (JOIN), admin.ts (backfill WHERE/UPDATE) | **KEEP** — supports SaaS technique feature |
+| 20 | `idx_threats_unlinked_recent` *(new, Phase B)* | analyst.ts Query A | **KEEP** — added this session |
+
+### Drop justification: `idx_threats_status`
+
+`idx_threats_status(status)` is a strict prefix subset of `idx_threats_status_created(status, created_at DESC)`.
+Every query that filters on `status` can use the composite instead — the leading column `status` provides
+the same index seek behavior. Verified via grep: no query filters on `status` alone without other conditions
+that already have better indexes.
+
+The only marginal cost: `idx_threats_status` is slightly more compact for covering COUNT queries like
+`SELECT COUNT(*) FROM threats WHERE status = 'active'`. But the composite serves the same purpose with
+negligibly higher I/O per page.
+
+**Net index count after Phase D: 19** (19 original - 1 dropped + 1 added in Phase B = 19).
 
 ---
 
