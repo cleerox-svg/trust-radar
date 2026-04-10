@@ -1,7 +1,8 @@
 // Averrow — Geopolitical Campaign API Endpoints
 
 import { json } from "../lib/cors";
-import { setHaikuCategory, checkCostGuard } from "../lib/haiku";
+import { checkCostGuard } from "../lib/haiku";
+import { callAnthropicText } from "../lib/anthropic";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -447,7 +448,6 @@ export async function handleGeoCampaignAssessment(request: Request, env: Env, sl
     }
 
     // User-initiated assessment — bypass daily cost guard (critical=true)
-    setHaikuCategory("on_demand");
     const guardMsg = await checkCostGuard(env, true);
     if (guardMsg) {
       return json({ success: false, error: guardMsg }, 429, origin);
@@ -515,12 +515,6 @@ export async function handleGeoCampaignAssessment(request: Request, env: Env, sl
 
     const daysActive = Math.floor((Date.now() - new Date(campaign.start_date).getTime()) / (1000 * 60 * 60 * 24));
 
-    // Call Haiku for assessment
-    const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-    if (!apiKey || apiKey.startsWith("lrx_")) {
-      return json({ success: false, error: "No valid Anthropic API key configured" }, 500, origin);
-    }
-
     const systemPrompt = `You are a threat intelligence analyst at Averrow, a brand protection and threat intelligence platform. Generate a concise executive intelligence assessment (4 short paragraphs maximum) for the following active geopolitical cyber campaign. Be specific, cite the data, and write for a CISO audience.`;
 
     const userMessage = `Campaign: ${campaign.name}
@@ -547,45 +541,31 @@ Provide:
 
 Keep it concise — 4 short paragraphs maximum.`;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      const { text, response } = await callAnthropicText(env, {
+        agentId: "geo-campaign-assessment",
+        runId: null,
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
+        maxTokens: 1024,
+      });
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
-      return json({ success: false, error: `Anthropic API error: HTTP ${res.status}: ${errBody.slice(0, 200)}` }, 502, origin);
+      if (!text) {
+        return json({ success: false, error: "No text content in AI response" }, 502, origin);
+      }
+
+      return json({
+        success: true,
+        data: {
+          assessment: text,
+          tokens_used: (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0),
+          generated_at: new Date().toISOString(),
+        },
+      }, 200, origin);
+    } catch (callErr) {
+      return json({ success: false, error: callErr instanceof Error ? callErr.message : "Anthropic call failed" }, 502, origin);
     }
-
-    const apiResponse = await res.json() as {
-      content: Array<{ type: string; text: string }>;
-      usage: { input_tokens: number; output_tokens: number };
-    };
-
-    const textBlock = apiResponse.content.find((b) => b.type === "text");
-    if (!textBlock) {
-      return json({ success: false, error: "No text content in AI response" }, 502, origin);
-    }
-
-    return json({
-      success: true,
-      data: {
-        assessment: textBlock.text,
-        tokens_used: (apiResponse.usage?.input_tokens ?? 0) + (apiResponse.usage?.output_tokens ?? 0),
-        generated_at: new Date().toISOString(),
-      },
-    }, 200, origin);
   } catch {
     return json({ success: false, error: "Assessment generation failed" }, 500, origin);
   }

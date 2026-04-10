@@ -54,7 +54,8 @@ export const analystAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
+    const callCtx = { agentId: "analyst", runId };
 
     const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
     const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
@@ -106,6 +107,7 @@ export const analystAgent: AgentModule = {
 
       const result = await inferBrand(
         env,
+        callCtx,
         {
           malicious_url: threat.malicious_url,
           malicious_domain: threat.malicious_domain,

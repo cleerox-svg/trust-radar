@@ -1,15 +1,32 @@
 /**
- * Haiku Integration — Direct Anthropic Messages API client.
+ * Haiku helper functions — thin wrappers over the canonical
+ * Anthropic client at lib/anthropic.ts.
  *
- * Calls the Anthropic API directly using the Messages API format.
- * Uses claude-haiku-4-5-20251001 for fast, cheap threat analysis.
+ * After Phase 4 Step 2, this file has no transport code of its own:
+ * every helper here defers to callAnthropic / callAnthropicJSON, which
+ * write to budget_ledger automatically. The KV-based trackUsage path
+ * is gone — the ledger is the single source of truth for spend.
+ *
+ * Each public helper takes a `ctx` parameter so the wrapper can attribute
+ * the call to the right agent + run. Pass `{ agentId, runId }` from the
+ * AgentContext, or `{ agentId, runId: null }` from handlers / lib helpers
+ * without a run context.
  */
 
 import type { Env } from "../types";
+import { callAnthropic, callAnthropicJSON, AnthropicError } from "./anthropic";
+import { BudgetManager } from "./budgetManager";
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
-const MODEL = "claude-haiku-4-5-20251001";
+const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+// ─── Caller context (used by every helper) ───────────────────────
+
+export interface HaikuCallContext {
+  /** Agent / call site identifier for budget_ledger attribution. */
+  agentId: string;
+  /** agent_runs.id when invoked from an agent run, otherwise null. */
+  runId?: string | null;
+}
 
 // ─── Response types ──────────────────────────────────────────────
 
@@ -52,134 +69,61 @@ interface HaikuResponse<T> {
   tokens_used?: number;
 }
 
-// ─── Daily cost guard & usage tracking ───────────────────────────
+// ─── Cost guard (BudgetManager-backed) ───────────────────────────
 
-const DAILY_LIMIT = 500;
-
-interface DailyUsage {
-  calls: number;
-  input_tokens: number;
-  output_tokens: number;
-  agent_calls: number;
-  ondemand_calls: number;
-}
-
-function usageKey(date: string): string { return `haiku_usage_${date}`; }
-
-export async function getDailyUsage(env: Env, date?: string): Promise<DailyUsage> {
-  const d = date || new Date().toISOString().slice(0, 10);
-  const val = await env.CACHE.get(usageKey(d));
-  if (!val) return { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 };
-  try { return JSON.parse(val) as DailyUsage; } catch { return { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 }; }
-}
-
-async function trackUsage(
-  env: Env,
-  inputTokens: number,
-  outputTokens: number,
-  category: "agent" | "on_demand",
-): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-  const current = await getDailyUsage(env, today);
-  current.calls += 1;
-  current.input_tokens += inputTokens;
-  current.output_tokens += outputTokens;
-  if (category === "agent") current.agent_calls += 1;
-  else current.ondemand_calls += 1;
-  await env.CACHE.put(usageKey(today), JSON.stringify(current), { expirationTtl: 86400 * 31 });
-}
-
+/**
+ * Returns a string reason if non-critical AI calls should be paused
+ * due to budget throttle, or null to proceed. Backed by BudgetManager
+ * — same throttle ladder Flight Control uses.
+ */
 export async function checkCostGuard(env: Env, critical: boolean): Promise<string | null> {
-  const usage = await getDailyUsage(env);
-  if (usage.calls >= DAILY_LIMIT && !critical) {
-    console.warn(`[haiku] Daily limit reached (${usage.calls}/${DAILY_LIMIT}), non-critical call paused`);
-    return `Daily Haiku limit reached (${usage.calls}/${DAILY_LIMIT}), non-critical calls paused`;
+  try {
+    const budget = new BudgetManager(env.DB);
+    const status = await budget.getStatus();
+    if (status.throttle_level === "emergency") {
+      return critical ? null : `budget emergency throttle (${status.pct_used}% of $${status.config.monthly_limit_usd})`;
+    }
+    if (status.throttle_level === "hard") {
+      return critical ? null : `budget hard throttle (${status.pct_used}% of $${status.config.monthly_limit_usd})`;
+    }
+    return null;
+  } catch (err) {
+    console.warn(`[haiku] checkCostGuard: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
   }
-  return null;
 }
 
-// Current Haiku call category context — set by agents before calling
-let _currentCategory: "agent" | "on_demand" = "agent";
-export function setHaikuCategory(cat: "agent" | "on_demand"): void { _currentCategory = cat; }
+// ─── Internal call helpers ──────────────────────────────────────
 
-// ─── Core Anthropic API caller ──────────────────────────────────
-
-async function callAnthropic<T>(
+/**
+ * Convert thrown wrapper errors / parse failures into the legacy
+ * { success, data, error } envelope every public helper here returns.
+ */
+async function callJsonSafe<T>(
   env: Env,
+  ctx: HaikuCallContext,
   systemPrompt: string,
   userMessage: string,
+  maxTokens = 1024,
 ): Promise<HaikuResponse<T>> {
-  // Support both secret names: ANTHROPIC_API_KEY (preferred) or LRX_API_KEY (legacy)
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
-
-  if (!apiKey) {
-    console.error("[haiku] No API key found — set ANTHROPIC_API_KEY in Cloudflare secrets (wrangler secret put ANTHROPIC_API_KEY)");
-    return { success: false, error: "No Anthropic API key configured (checked ANTHROPIC_API_KEY and LRX_API_KEY)" };
-  }
-
-  if (apiKey.startsWith("lrx_")) {
-    console.error("[haiku] LRX_API_KEY contains an LRX proxy key (lrx_...) which does not work with api.anthropic.com. Set ANTHROPIC_API_KEY to a real Anthropic key (sk-ant-...)");
-    return { success: false, error: "LRX_API_KEY is an LRX proxy key — need an Anthropic API key (sk-ant-...). Run: wrangler secret put ANTHROPIC_API_KEY" };
-  }
-
-  const body = {
-    model: MODEL,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  };
-
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+    const { parsed, response } = await callAnthropicJSON<T>(env, {
+      agentId: ctx.agentId,
+      runId: ctx.runId ?? null,
+      model: HAIKU_MODEL,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      maxTokens,
     });
-
-    const responseText = await res.text();
-
-    if (!res.ok) {
-      console.error(`[haiku] API error: HTTP ${res.status}: ${responseText.slice(0, 500)}`);
-      return { success: false, error: `Anthropic HTTP ${res.status}: ${responseText.slice(0, 200)}` };
-    }
-
-    const apiResponse = JSON.parse(responseText) as {
-      content: Array<{ type: string; text: string }>;
-      model: string;
-      usage: { input_tokens: number; output_tokens: number };
-    };
-
-    const textBlock = apiResponse.content.find((b) => b.type === "text");
-    if (!textBlock) {
-      console.error("[haiku] No text block in response:", JSON.stringify(apiResponse.content).slice(0, 200));
-      return { success: false, error: "No text content in Anthropic response" };
-    }
-
-    // Parse the JSON from the response text
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[haiku] No JSON found in response text:", textBlock.text.slice(0, 200));
-      return { success: false, error: "No JSON in Anthropic response text" };
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as T;
-    await trackUsage(env, apiResponse.usage.input_tokens, apiResponse.usage.output_tokens, _currentCategory);
     return {
       success: true,
       data: parsed,
-      model: apiResponse.model,
-      tokens_used: apiResponse.usage.input_tokens + apiResponse.usage.output_tokens,
+      model: response.model,
+      tokens_used: response.usage.input_tokens + response.usage.output_tokens,
     };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[haiku] Request failed:`, errMsg);
-    return { success: false, error: errMsg };
+    const msg = err instanceof AnthropicError ? err.message : err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
   }
 }
 
@@ -187,35 +131,29 @@ async function callAnthropic<T>(
 
 export async function callHaikuRaw(
   env: Env,
+  ctx: HaikuCallContext,
   systemPrompt: string,
   userMessage: string,
+  maxTokens = 16,
 ): Promise<{ success: boolean; text?: string; error?: string; tokens_used?: number }> {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith("lrx_")) {
-    return { success: false, error: "No valid Anthropic API key" };
-  }
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 16,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-      signal: AbortSignal.timeout(15000),
+    const response = await callAnthropic(env, {
+      agentId: ctx.agentId,
+      runId: ctx.runId ?? null,
+      model: HAIKU_MODEL,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      maxTokens,
+      timeoutMs: 15_000,
     });
-    const data = await res.json() as { content: Array<{ type: string; text: string }>; usage: { input_tokens: number; output_tokens: number } };
-    const text = data.content?.find((b: { type: string }) => b.type === "text")?.text?.trim() ?? "";
-    await trackUsage(env, data.usage?.input_tokens ?? 0, data.usage?.output_tokens ?? 0, _currentCategory);
-    return { success: true, text, tokens_used: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
+    const textBlock = response.content.find((b) => b.type === "text");
+    return {
+      success: true,
+      text: textBlock?.text?.trim() ?? "",
+      tokens_used: (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0),
+    };
   } catch (err) {
-    return { success: false, error: String(err) };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -223,6 +161,7 @@ export async function callHaikuRaw(
 
 export async function classifyThreat(
   env: Env,
+  ctx: HaikuCallContext,
   threat: {
     malicious_url?: string | null;
     malicious_domain?: string | null;
@@ -246,13 +185,14 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) w
 - Source Feed: ${threat.source_feed}
 - IOC Value: ${threat.ioc_value ?? "N/A"}`;
 
-  return callAnthropic<HaikuClassification>(env, systemPrompt, userMessage);
+  return callJsonSafe<HaikuClassification>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Brand Inference ─────────────────────────────────────────────
 
 export async function inferBrand(
   env: Env,
+  ctx: HaikuCallContext,
   threat: {
     malicious_url?: string | null;
     malicious_domain?: string | null;
@@ -280,7 +220,7 @@ Identify the targeted brand for this threat:
 - Page Title: ${threat.page_title ?? "N/A"}
 - Source Feed: ${threat.source_feed}`;
 
-  return callAnthropic<HaikuBrandMatch>(env, systemPrompt, userMessage);
+  return callJsonSafe<HaikuBrandMatch>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Daily Insight Generation ────────────────────────────────────
@@ -295,6 +235,7 @@ export interface HaikuBriefingItem {
 
 export async function generateInsight(
   env: Env,
+  ctx: HaikuCallContext,
   context: {
     period: string;
     threats_summary: Record<string, unknown>;
@@ -331,12 +272,13 @@ Respond with ONLY a JSON object: {"items": [...]}`;
   const userMessage = `Generate intelligence briefing items from this ${context.period} data:
 ${JSON.stringify(context, null, 2)}`;
 
-  return callAnthropic<{ items: HaikuBriefingItem[] }>(env, systemPrompt, userMessage);
+  return callJsonSafe<{ items: HaikuBriefingItem[] }>(env, ctx, systemPrompt, userMessage);
 }
 
 // Legacy single-insight generation (kept for backward compatibility)
 export async function generateSingleInsight(
   env: Env,
+  ctx: HaikuCallContext,
   context: {
     period: string;
     threats_summary: Record<string, unknown>;
@@ -356,13 +298,14 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) w
   const userMessage = `Generate a ${context.period} threat intelligence briefing:
 ${JSON.stringify(context, null, 2)}`;
 
-  return callAnthropic<HaikuInsight>(env, systemPrompt, userMessage);
+  return callJsonSafe<HaikuInsight>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Provider Reputation Scoring ─────────────────────────────────
 
 export async function scoreProvider(
   env: Env,
+  ctx: HaikuCallContext,
   provider: {
     name: string;
     asn: string | null;
@@ -385,13 +328,14 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON) w
   const userMessage = `Score this hosting provider's reputation:
 ${JSON.stringify(provider, null, 2)}`;
 
-  return callAnthropic<HaikuProviderScore>(env, systemPrompt, userMessage);
+  return callJsonSafe<HaikuProviderScore>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Batch Classification ────────────────────────────────────────
 
 export async function batchClassify(
   env: Env,
+  ctx: HaikuCallContext,
   threats: Array<{
     id: string;
     malicious_url?: string | null;
@@ -408,17 +352,16 @@ Respond with ONLY a JSON array (no markdown) where each element has:
 
   const userMessage = `Classify these ${threats.length} threats:\n${JSON.stringify(threats, null, 2)}`;
 
-  // Wrap array response parsing
-  const result = await callAnthropic<Array<{ id: string; classification: HaikuClassification }>>(
-    env, systemPrompt, userMessage,
+  return callJsonSafe<Array<{ id: string; classification: HaikuClassification }>>(
+    env, ctx, systemPrompt, userMessage,
   );
-  return result;
 }
 
 // ─── Campaign Name Generation ────────────────────────────────────
 
 export async function generateCampaignName(
   env: Env,
+  ctx: HaikuCallContext,
   campaign: {
     domains?: string[];
     target_brands?: string[];
@@ -441,7 +384,7 @@ Respond with ONLY a JSON object: {"name": "Your Campaign Name Here"}`;
 - Threat count: ${campaign.threat_count ?? 0}
 - Unique IPs: ${campaign.ip_count ?? 1}`;
 
-  return callAnthropic<{ name: string }>(env, systemPrompt, userMessage);
+  return callJsonSafe<{ name: string }>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Brand Threat Analysis ───────────────────────────────────────
@@ -454,6 +397,7 @@ export interface HaikuBrandAnalysis {
 
 export async function analyzeBrandThreats(
   env: Env,
+  ctx: HaikuCallContext,
   context: {
     brand_name: string;
     threat_count: number;
@@ -472,13 +416,14 @@ Respond with ONLY a JSON object (no markdown) with these fields:
 
   const userMessage = `Analyze the threat landscape for ${context.brand_name}. Based on the data: ${context.threat_count} active phishing threats, hosted across ${context.providers.slice(0, 10).join(", ") || "unknown providers"}, targeting ${context.domains.slice(0, 5).join(", ") || "unknown domains"}. The primary attack types are ${types || "unknown"}. Campaigns: ${context.campaigns.slice(0, 5).join(", ") || "none identified"}. Write a 3-4 sentence threat assessment suitable for a brand protection briefing. Be specific about the attack methodology, infrastructure used, and risk level.`;
 
-  return callAnthropic<HaikuBrandAnalysis>(env, systemPrompt, userMessage);
+  return callJsonSafe<HaikuBrandAnalysis>(env, ctx, systemPrompt, userMessage);
 }
 
 // ─── Generic Analysis ────────────────────────────────────────────
 
 export async function analyzeWithHaiku(
   env: Env,
+  ctx: HaikuCallContext,
   prompt: string,
   context: Record<string, unknown>,
 ): Promise<HaikuResponse<{ response: string; structured?: Record<string, unknown> }>> {
@@ -488,5 +433,5 @@ export async function analyzeWithHaiku(
 
   const userMessage = `${prompt}\n\nContext:\n${JSON.stringify(context, null, 2)}`;
 
-  return callAnthropic(env, systemPrompt, userMessage);
+  return callJsonSafe(env, ctx, systemPrompt, userMessage);
 }

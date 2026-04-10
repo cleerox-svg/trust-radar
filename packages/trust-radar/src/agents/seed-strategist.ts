@@ -8,6 +8,7 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { checkCostGuard } from "../lib/haiku";
+import { callAnthropicText, AnthropicError } from "../lib/anthropic";
 
 export const seedStrategistAgent: AgentModule = {
   name: "seed_strategist",
@@ -18,7 +19,7 @@ export const seedStrategistAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
 
     const blocked = await checkCostGuard(env, false);
     if (blocked) {
@@ -67,13 +68,6 @@ export const seedStrategistAgent: AgentModule = {
       LIMIT 5
     `).all();
 
-    // Generate AI analysis and recommendations
-    const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-    if (!apiKey) {
-      console.warn("[SeedStrategist] No API key available");
-      return { itemsProcessed: 1, itemsCreated: 0, itemsUpdated: 0, output: { error: "no_api_key" } };
-    }
-
     const prompt = `You are the Seed Strategist agent for Averrow, a threat intelligence platform.
 
 Analyze spam trap performance and recommend new seeding actions.
@@ -113,22 +107,21 @@ Format your response as JSON:
   "retire": ["address1@domain.com"]
 }`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
+    let content = "";
+    try {
+      const { text } = await callAnthropicText(env, {
+        agentId: "seed_strategist",
+        runId,
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1000,
         messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    const aiResponse = await response.json() as { content?: Array<{ text: string }> };
-    const content = aiResponse.content?.[0]?.text || "";
+        maxTokens: 1000,
+      });
+      content = text;
+    } catch (callErr) {
+      const msg = callErr instanceof AnthropicError ? callErr.message : callErr instanceof Error ? callErr.message : String(callErr);
+      console.warn(`[SeedStrategist] AI call failed: ${msg}`);
+      return { itemsProcessed: 1, itemsCreated: 0, itemsUpdated: 0, output: { error: msg } };
+    }
 
     try {
       const plan = JSON.parse(content) as {

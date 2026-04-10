@@ -19,6 +19,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import type { Env } from "../types";
 import { getBrandSocialIntel } from "../lib/social-intel";
 import { createLead, getUnenrichedLead, enrichLead } from "../db/sales-leads";
+import { callAnthropicJSON, AnthropicError } from "../lib/anthropic";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -56,81 +57,44 @@ const SCORING = {
   social_takedown_needed: 10,
 };
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_IDENTIFIED = 20;
 const MIN_SCORE = 20;
 const AI_TIMEOUT_MS = 25000;
 
-// ─── Haiku API helper ────────────────────────────────────────────
+// ─── Haiku JSON helper ───────────────────────────────────────────
+// Thin envelope around the canonical Anthropic wrapper. Preserves
+// the legacy { success, data, error } shape used by the call sites
+// below so the rest of this file is unchanged. Cost attribution +
+// budget_ledger writes happen automatically inside callAnthropicJSON.
 
 async function callHaikuJSON<T>(
   env: Env,
+  runId: string | null,
   systemPrompt: string,
   userMessage: string,
   maxTokens = 1024,
   tools?: unknown[],
 ): Promise<{ success: boolean; data?: T; error?: string; tokens_used?: number }> {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith("lrx_")) {
-    return { success: false, error: "No valid Anthropic API key" };
-  }
-
-  const body: Record<string, unknown> = {
-    model: MODEL,
-    max_tokens: maxTokens,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  };
-  if (tools) body.tools = tools;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
+    const { parsed, response } = await callAnthropicJSON<T>(env, {
+      agentId: "prospector",
+      runId,
+      model: MODEL,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      maxTokens,
+      tools,
+      timeoutMs: AI_TIMEOUT_MS,
     });
-
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      const errText = await res.text();
-      return { success: false, error: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
-    }
-
-    const apiResponse = await res.json() as {
-      content: Array<{ type: string; text?: string }>;
-      usage: { input_tokens: number; output_tokens: number };
-    };
-
-    const textBlock = apiResponse.content.find((b) => b.type === "text");
-    if (!textBlock?.text) {
-      return { success: false, error: "No text content in response" };
-    }
-
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return { success: false, error: "No JSON in response" };
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as T;
     return {
       success: true,
       data: parsed,
-      tokens_used: apiResponse.usage.input_tokens + apiResponse.usage.output_tokens,
+      tokens_used: (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0),
     };
   } catch (err) {
-    clearTimeout(timer);
-    return { success: false, error: String(err) };
+    const msg = err instanceof AnthropicError ? err.message : err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
   }
 }
 
@@ -410,7 +374,7 @@ export async function identifyAndCreate(env: Env): Promise<{
 
 // ─── Phase 2: AI Enrichment ──────────────────────────────────────
 
-export async function enrichLeadWithAI(env: Env): Promise<{
+export async function enrichLeadWithAI(env: Env, runId: string | null = null): Promise<{
   enriched: boolean;
   lead_id?: number;
   company_name?: string;
@@ -427,6 +391,7 @@ export async function enrichLeadWithAI(env: Env): Promise<{
     // ── (a) Detailed findings summary ──────────────────────────
     const summaryResult = await callHaikuJSON<{ summary: string }>(
       env,
+      runId,
       `You are a concise threat intelligence writer for Averrow, a brand protection platform. Write a 2-3 sentence factual summary of security findings. Reference specific numbers. Output JSON: {"summary": "..."}`,
       `Brand: ${lead.company_name} (${lead.company_domain})
 Email security grade: ${lead.email_security_grade || 'Not scanned'}
@@ -448,6 +413,7 @@ Pitch angle: ${lead.pitch_angle ?? 'brand_protection'}`,
       variant_2_body: string;
     }>(
       env,
+      runId,
       `You are drafting outreach emails from Averrow to a security leader at a company. Be direct and professional.
 
 AVERROW FINDINGS (share at HIGH LEVEL only — do not reveal specific URLs, IPs, or detailed IOCs):
@@ -479,6 +445,7 @@ RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off a
       recent_security_news?: string | null;
     }>(
       env,
+      runId,
       `You are a sales intelligence researcher. Research the company and return a JSON profile. If you cannot find a field, return null — do NOT fabricate. Return ONLY valid JSON.`,
       `Research "${lead.company_name}" (${lead.company_domain}). Return JSON with: company_industry, company_size (startup/smb/mid-market/enterprise), company_hq, target_name (CISO or VP Security), target_title, security_maturity (high/medium/low), recent_security_news (one sentence or null).`,
       1024,
@@ -533,7 +500,7 @@ export const prospectorAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
     const outputs: AgentOutputEntry[] = [];
 
     // Check weekly throttle for Phase 1 (lead creation)
@@ -550,7 +517,7 @@ export const prospectorAgent: AgentModule = {
     }
 
     // Phase 2 always runs — enrich one lead on every cron tick
-    const phase2 = await enrichLeadWithAI(env);
+    const phase2 = await enrichLeadWithAI(env, runId);
 
     outputs.push({
       type: "insight",

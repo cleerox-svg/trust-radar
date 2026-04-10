@@ -8,6 +8,7 @@
 
 import { resolveToIp, extractHostname } from "./domain-resolver";
 import type { Env } from "../types";
+import { callAnthropicText, type AnthropicEnv } from "./anthropic";
 
 // ── Canonical sector taxonomy ────────────────────────────────────
 // Consistent values across the platform. Anything Haiku returns that's
@@ -258,11 +259,13 @@ export async function fetchRdap(domain: string): Promise<RdapResult> {
 // ── Sector classification via Claude Haiku ───────────────────────
 // One cheap Haiku call per brand. Fetches website <title> for extra
 // context (best-effort). Returns a canonical Sector, or null if the
-// call failed entirely.
+// call failed entirely. Uses the canonical Anthropic wrapper so the
+// call lands in budget_ledger automatically; pass the live Env binding
+// rather than just the bare API key.
 export async function classifySector(
+  env: AnthropicEnv,
   domain: string,
   brandName: string,
-  anthropicApiKey: string,
 ): Promise<Sector | null> {
   try {
     // Fetch website title for extra context (best-effort)
@@ -290,32 +293,16 @@ ${title ? `Website title: ${title}` : ""}
 
 Respond with ONLY the sector name, nothing else. Pick "other" if unsure.`;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type":      "application/json",
-        "x-api-key":         anthropicApiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
-        max_tokens: 20,
-        messages:   [{ role: "user", content: prompt }],
-      }),
-      signal: AbortSignal.timeout(8000),
+    const { text } = await callAnthropicText(env, {
+      agentId: "brand-enricher",
+      runId: null,
+      model: "claude-haiku-4-5-20251001",
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 20,
+      timeoutMs: 8_000,
     });
 
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      content: Array<{ type: string; text: string }>;
-    };
-
-    const raw =
-      data.content
-        .find(c => c.type === "text")
-        ?.text.trim()
-        .toLowerCase() ?? "";
-
+    const raw = text.trim().toLowerCase();
     // Validate it's a known sector; coerce anything unknown to "other"
     return SECTORS.includes(raw as Sector) ? (raw as Sector) : "other";
   } catch {

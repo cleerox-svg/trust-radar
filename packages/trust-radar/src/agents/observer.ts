@@ -20,7 +20,8 @@ export const observerAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
+    const callCtx = { agentId: "observer", runId };
 
     // Cost guard: observer is non-critical
     const blocked = await checkCostGuard(env, false);
@@ -468,7 +469,7 @@ export const observerAgent: AgentModule = {
     }
 
     // ─── Send to Haiku for intelligence briefing ─────────────────
-    const insightResult = await generateInsight(env, {
+    const insightResult = await generateInsight(env, callCtx, {
       period: "daily",
       threats_summary: {
         total_24h: totalNow,
@@ -755,7 +756,7 @@ export const observerAgent: AgentModule = {
           ).first<{ n: number }>();
 
           const { generateInsight: genInsight } = await import("../lib/haiku");
-          const weeklyResult = await genInsight(env, {
+          const weeklyResult = await genInsight(env, callCtx, {
             period: "weekly",
             threats_summary: {
               total_7d: weeklyThreats?.total ?? 0,

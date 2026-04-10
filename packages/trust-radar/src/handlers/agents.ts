@@ -2,7 +2,7 @@ import { json } from "../lib/cors";
 import { executeAgent, resolveApproval } from "../lib/agentRunner";
 import type { AgentName, TriggerType } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
-import { getDailyUsage } from "../lib/haiku";
+import { BudgetManager } from "../lib/budgetManager";
 import { handler, parsePagination, parseFilters, buildWhereClause, paginatedResponse, success, error, parseBody } from "../lib/handler-utils";
 import type { Env } from "../types";
 
@@ -417,33 +417,35 @@ export async function handleTrustBotChat(
   }
 }
 
-// ─── Haiku API usage (token tracking + cost estimation) ─────────
+// ─── Anthropic API usage (token + cost rollup, ledger-backed) ───
+//
+// Reads from budget_ledger — the canonical source of truth for spend
+// after the Phase 4 Step 2 wrapper refactor. The legacy KV
+// haiku_usage_* keys are gone, so this endpoint windows the ledger
+// directly via SQL aggregates.
 export const handleAgentApiUsage = handler(async (_request, env, ctx) => {
-  const INPUT_COST = 0.80 / 1_000_000;
-  const OUTPUT_COST = 4.0 / 1_000_000;
+  const window = async (days: number) => {
+    const row = await env.DB.prepare(
+      `SELECT
+         COUNT(*)             as calls,
+         COALESCE(SUM(input_tokens), 0)  as input_tokens,
+         COALESCE(SUM(output_tokens), 0) as output_tokens,
+         COALESCE(SUM(cost_usd), 0)      as cost_usd
+       FROM budget_ledger
+       WHERE created_at >= datetime('now', '-' || ? || ' days')`
+    ).bind(days).first<{
+      calls: number; input_tokens: number; output_tokens: number; cost_usd: number;
+    }>();
+    return row ?? { calls: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
+  };
 
-  const today = new Date();
-  const dailyData = await Promise.all(
-    Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(today);
-      d.setUTCDate(d.getUTCDate() - i);
-      return getDailyUsage(env, d.toISOString().slice(0, 10));
-    })
-  );
-
-  const sum = (days: number) => dailyData.slice(0, days).reduce((acc, d) => ({
-    calls: acc.calls + d.calls,
-    input_tokens: acc.input_tokens + d.input_tokens,
-    output_tokens: acc.output_tokens + d.output_tokens,
-    agent_calls: acc.agent_calls + d.agent_calls,
-    ondemand_calls: acc.ondemand_calls + d.ondemand_calls,
-  }), { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 });
-
-  const d1 = sum(1);
-  const d7 = sum(7);
-  const d30 = sum(30);
-
-  const cost = (s: typeof d1) => s.input_tokens * INPUT_COST + s.output_tokens * OUTPUT_COST;
+  const [d1, d7, d30, byAgent, status] = await Promise.all([
+    window(1),
+    window(7),
+    window(30),
+    new BudgetManager(env.DB).getSpendByAgent(),
+    new BudgetManager(env.DB).getStatus(),
+  ]);
 
   return success({
     tokens_24h: d1.input_tokens + d1.output_tokens,
@@ -455,15 +457,17 @@ export const handleAgentApiUsage = handler(async (_request, env, ctx) => {
     output_tokens_7d: d7.output_tokens,
     input_tokens_30d: d30.input_tokens,
     output_tokens_30d: d30.output_tokens,
-    estimated_cost_24h: `$${cost(d1).toFixed(2)}`,
-    estimated_cost_7d: `$${cost(d7).toFixed(2)}`,
-    estimated_cost_30d: `$${cost(d30).toFixed(2)}`,
-    agent_cost_30d: `$${(d30.agent_calls > 0 ? cost(d30) * d30.agent_calls / d30.calls : 0).toFixed(2)}`,
-    ondemand_cost_30d: `$${(d30.ondemand_calls > 0 ? cost(d30) * d30.ondemand_calls / d30.calls : 0).toFixed(2)}`,
+    estimated_cost_24h: `$${d1.cost_usd.toFixed(4)}`,
+    estimated_cost_7d: `$${d7.cost_usd.toFixed(4)}`,
+    estimated_cost_30d: `$${d30.cost_usd.toFixed(4)}`,
     calls_today: d1.calls,
-    daily_limit: 500,
-    agent_calls_30d: d30.agent_calls,
-    ondemand_calls_30d: d30.ondemand_calls,
+    calls_7d: d7.calls,
+    calls_30d: d30.calls,
+    monthly_spend: status.spent_this_month,
+    monthly_limit: status.config.monthly_limit_usd,
+    pct_used: status.pct_used,
+    throttle_level: status.throttle_level,
+    by_agent_30d: byAgent,
     api_key_configured: !!(env.ANTHROPIC_API_KEY || env.LRX_API_KEY),
   }, ctx.origin);
 });

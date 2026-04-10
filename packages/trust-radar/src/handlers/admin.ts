@@ -6,6 +6,8 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
+import { callAnthropicJSON } from "../lib/anthropic";
+import { estimateCost } from "../lib/budgetManager";
 import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo, isPrivateIP, PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { resolveToIp, extractHostname } from "../lib/domain-resolver";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
@@ -367,7 +369,7 @@ export async function handleBackfillClassifications(request: Request, env: Env):
       if (batch.results.length === 0) break;
 
       for (const threat of batch.results) {
-        const result = await classifyThreat(env, {
+        const result = await classifyThreat(env, { agentId: "admin-classify", runId: null }, {
           malicious_url: threat.malicious_url,
           malicious_domain: threat.malicious_domain,
           ip_address: threat.ip_address,
@@ -896,7 +898,7 @@ export async function handleBackfillBrandSector(
         // Run RDAP + sector classification in parallel
         const [rdap, sector] = await Promise.allSettled([
           fetchRdap(brand.canonical_domain),
-          classifySector(brand.canonical_domain, brand.name, apiKey),
+          classifySector(env, brand.canonical_domain, brand.name),
         ]);
 
         const rdapData  = rdap.status === "fulfilled" ? rdap.value : null;
@@ -1134,67 +1136,41 @@ export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
 
   if (uncachedSignals.length === 0) return result;
 
-  // Batch Haiku call
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith('lrx_')) return result;
-
   const signals = uncachedSignals.map((s, i) => ({
     id: i, signal: s.signal, full_url: s.url || s.signal,
   }));
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
-        messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
-      }),
-      signal: AbortSignal.timeout(30000),
+    // Routes through the canonical wrapper → automatic budget_ledger
+    // attribution against agentId="ai-attribution". Cost math + token
+    // counts both come from the wrapper / BudgetManager so the
+    // hand-rolled (inputTokens * 0.0000008) line is gone.
+    const { parsed: attributions, response } = await callAnthropicJSON<Array<{
+      id: number; brand: string; confidence: 'high' | 'medium'; reason: string;
+    }>>(env, {
+      agentId: "ai-attribution",
+      runId: null,
+      model: 'claude-haiku-4-5-20251001',
+      system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
+      messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
+      maxTokens: 2048,
     });
 
     result.calls++;
-    const apiRes = await res.json() as {
-      content: Array<{ type: string; text: string }>;
-      usage: { input_tokens: number; output_tokens: number };
-    };
+    result.costUsd = estimateCost(
+      response.model || 'claude-haiku-4-5-20251001',
+      response.usage?.input_tokens ?? 0,
+      response.usage?.output_tokens ?? 0,
+    );
 
-    // Estimate cost
-    const inputTokens = apiRes.usage?.input_tokens ?? 800;
-    const outputTokens = apiRes.usage?.output_tokens ?? 300;
-    result.costUsd = (inputTokens * 0.0000008 + outputTokens * 0.000004);
-
-    // Track usage in KV
-    const { getDailyUsage } = await import("../lib/haiku");
+    // Track attribution-specific call count for the cron Step 4 guard.
+    // The general per-day Haiku usage now lives in budget_ledger, but
+    // this specific counter is consumed by the cron flow and stays in
+    // KV for now (cron path lives in a different commit).
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await getDailyUsage(env, today);
-    usage.calls += 1;
-    usage.input_tokens += inputTokens;
-    usage.output_tokens += outputTokens;
-    usage.agent_calls += 1;
-    await env.CACHE.put(`haiku_usage_${today}`, JSON.stringify(usage), { expirationTtl: 86400 * 31 });
-
-    // Track attribution-specific calls separately (used by cron Step 4 guard)
     const attrKey = `ai_attr_calls_${today}`;
     const prevAttrCalls = parseInt(await env.CACHE.get(attrKey) || '0', 10);
     await env.CACHE.put(attrKey, String(prevAttrCalls + 1), { expirationTtl: 86400 * 2 });
-
-    const textBlock = apiRes.content?.find(b => b.type === 'text');
-    if (!textBlock) return result;
-
-    // Parse JSON array from response
-    const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return result;
-
-    const attributions = JSON.parse(jsonMatch[0]) as Array<{
-      id: number; brand: string; confidence: 'high' | 'medium'; reason: string;
-    }>;
 
     // Load all brands for matching
     const allBrands = await env.DB.prepare(

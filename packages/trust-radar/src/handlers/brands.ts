@@ -3,7 +3,7 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
-import { analyzeBrandThreats, callHaikuRaw, setHaikuCategory } from "../lib/haiku";
+import { analyzeBrandThreats, callHaikuRaw } from "../lib/haiku";
 import { discoverSocialProfiles } from "../lib/social-discovery";
 import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
@@ -461,7 +461,7 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
         enrichBrand(domain, env.CACHE, env),
         fetchRdap(domain),
         apiKey
-          ? classifySector(domain, brandName, apiKey)
+          ? classifySector(env, domain, brandName)
           : Promise.resolve(null),
       ]);
 
@@ -720,7 +720,6 @@ export async function handleGetBrandAnalysis(request: Request, env: Env, brandId
 // POST /api/brands/:id/analysis — generate or refresh AI analysis
 export async function handleGenerateBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
-  setHaikuCategory("on_demand");
   try {
     const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
@@ -759,7 +758,7 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
       }
     }
 
-    const result = await analyzeBrandThreats(env, {
+    const result = await analyzeBrandThreats(env, { agentId: "brand-analysis", runId: null }, {
       brand_name: brand.name,
       threat_count: stats?.total ?? 0,
       providers: providerRows.results.map(r => r.name),
@@ -790,7 +789,6 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
 // POST /api/brands/:id/deep-scan — AI-powered threat linking (user-triggered, costs tokens)
 export async function handleBrandDeepScan(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
-  setHaikuCategory("on_demand");
   try {
     const brand = await getBrandById(env, brandId);
     if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
@@ -818,7 +816,7 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
           const url = t.malicious_url || t.malicious_domain || "";
           if (!url) return { id: t.id, match: false };
           const userMsg = `Does this URL target or impersonate the brand ${brand.name} (${brand.canonical_domain})? Consider typosquatting, homoglyph attacks, subdomain abuse, and lookalike domains. URL: ${url}`;
-          const res = await callHaikuRaw(env, systemPrompt, userMsg);
+          const res = await callHaikuRaw(env, { agentId: "brand-deep-scan", runId: null }, systemPrompt, userMsg, 16);
           return { id: t.id, match: res.success && res.text?.toUpperCase().startsWith("YES") };
         })
       );

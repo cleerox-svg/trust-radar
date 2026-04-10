@@ -7,6 +7,7 @@
  */
 
 import type { Env, TakedownRequest } from "../types";
+import { callAnthropicJSON, AnthropicError } from "./anthropic";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -189,39 +190,23 @@ async function collectIntelligence(
 // ─── AI Report Generation ───────────────────────────────────────
 
 async function callHaiku(env: Env, prompt: string): Promise<AiReport> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": env.ANTHROPIC_API_KEY || "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      signal: controller.signal,
+    const { parsed } = await callAnthropicJSON<AiReport>(env, {
+      agentId: "evidence-assembler",
+      runId: null,
+      model: "claude-haiku-4-5-20251001",
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 2000,
+      timeoutMs: 25_000,
     });
-
-    const data = (await response.json()) as {
-      content: Array<{ text: string }>;
-    };
-    const aiText = data.content?.[0]?.text || "";
-
-    // Parse AI response — expect JSON
-    try {
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-      return jsonMatch ? JSON.parse(jsonMatch[0]) : { raw_text: aiText };
-    } catch {
-      return { raw_text: aiText };
+    return parsed;
+  } catch (err) {
+    // The wrapper throws AnthropicError on parse failure too. Fall back
+    // to raw_text so the caller still gets something usable.
+    if (err instanceof AnthropicError) {
+      return { raw_text: err.body ?? err.message };
     }
-  } finally {
-    clearTimeout(timeout);
+    return { raw_text: err instanceof Error ? err.message : String(err) };
   }
 }
 
