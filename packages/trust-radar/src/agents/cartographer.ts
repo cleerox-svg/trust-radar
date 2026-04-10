@@ -121,7 +121,8 @@ export const cartographerAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
+    const callCtx = { agentId: "cartographer", runId };
 
     let itemsProcessed = 0;
     let itemsUpdated = 0;
@@ -340,7 +341,7 @@ export const cartographerAgent: AgentModule = {
       const repeatOffender = campaignCount >= 3;
 
       // Try Haiku scoring
-      const result = await scoreProvider(env, {
+      const result = await scoreProvider(env, callCtx, {
         name: provider.name,
         asn: provider.asn,
         active_threats: provider.active_threat_count,

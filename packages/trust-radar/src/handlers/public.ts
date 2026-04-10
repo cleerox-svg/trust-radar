@@ -5,7 +5,7 @@
  */
 
 import { json } from "../lib/cors";
-import { setHaikuCategory, callHaikuRaw } from "../lib/haiku";
+import { callHaikuRaw } from "../lib/haiku";
 import type { Env } from "../types";
 
 // ─── GET /api/v1/public/stats ────────────────────────────────────
@@ -213,11 +213,12 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
 
     // Generate assessment text (AI if available, else rule-based)
     let assessmentText = "";
-    setHaikuCategory("on_demand");
     const aiResult = await callHaikuRaw(
       env,
+      { agentId: "public-trust-check", runId: null },
       "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Averrow by name.",
       `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}${spamTrapCount > 0 ? ` Our trap network intercepted ${spamTrapCount} spoofed emails impersonating this domain from ${spamTrapIps} unique IPs in the last 30 days.` : ""}`,
+      256,
     );
     if (aiResult.success && aiResult.text) {
       assessmentText = aiResult.text;

@@ -19,7 +19,8 @@ export const strategistAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
+    const callCtx = { agentId: "strategist", runId };
 
     // Cost guard: strategist naming is non-critical
     const blocked = await checkCostGuard(env, false);
@@ -111,7 +112,7 @@ export const strategistAgent: AgentModule = {
 
         // Generate AI name at creation time (fall back to technical ID if Haiku fails)
         let name = fallbackName;
-        const nameResult = await generateCampaignName(env, {
+        const nameResult = await generateCampaignName(env, callCtx, {
           domains: campDomains.results.map(d => d.malicious_domain),
           target_brands: campBrands.results.map(b => b.name),
           threat_types: cluster.types ? cluster.types.split(",") : [],
@@ -199,7 +200,7 @@ export const strategistAgent: AgentModule = {
       ).bind(cluster.registrar).all<{ name: string }>();
 
       let name = fallbackName;
-      const nameResult = await generateCampaignName(env, {
+      const nameResult = await generateCampaignName(env, callCtx, {
         domains: regDomains.results.map(d => d.malicious_domain),
         target_brands: regBrands.results.map(b => b.name),
         threat_types: [],
@@ -324,7 +325,7 @@ export const strategistAgent: AgentModule = {
       const campTypes = (techCampTypesMap.get(camp.id) ?? []).slice(0, 5);
       const campCount = techCampCountMap.get(camp.id) ?? 0;
 
-      const nameResult = await generateCampaignName(env, {
+      const nameResult = await generateCampaignName(env, callCtx, {
         domains: campDomains,
         target_brands: campBrands,
         threat_types: campTypes,
@@ -418,9 +419,10 @@ export const strategistAgent: AgentModule = {
           }));
 
           const { callHaikuRaw } = await import("../lib/haiku");
-          const coordResult = await callHaikuRaw(env,
+          const coordResult = await callHaikuRaw(env, callCtx,
             "You detect coordinated phishing attack patterns. Reply ONLY with valid JSON array, no markdown.",
-            `Given these active phishing campaigns with their target brands and hosting providers:\n${JSON.stringify(campaignSummary)}\nIdentify any that appear coordinated (same actor, infrastructure reuse, timing patterns). Reply JSON array: [{campaign_ids: string[], coordination_type: string, confidence: "high"|"medium", evidence: string}]. Empty array if none.`
+            `Given these active phishing campaigns with their target brands and hosting providers:\n${JSON.stringify(campaignSummary)}\nIdentify any that appear coordinated (same actor, infrastructure reuse, timing patterns). Reply JSON array: [{campaign_ids: string[], coordination_type: string, confidence: "high"|"medium", evidence: string}]. Empty array if none.`,
+            512,
           );
 
           if (coordResult.success && coordResult.text) {

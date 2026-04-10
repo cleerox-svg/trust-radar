@@ -1,9 +1,17 @@
 /**
  * BudgetManager — Real-time AI budget management with three-level throttle.
  *
- * Cost model (per 1M tokens):
- *   Haiku:  input $0.25 / output $1.25
- *   Sonnet: input $3.00 / output $15.00
+ * Canonical Anthropic pricing table for the whole worker. Every AI call
+ * site attributes cost through recordCost() — see lib/anthropic.ts for
+ * the canonical wrapper that enforces that contract.
+ *
+ * Current models in use (per 1M tokens):
+ *   claude-haiku-4-5-20251001    $1.00 in / $5.00 out
+ *   claude-sonnet-4-5-20250929   $3.00 in / $15.00 out
+ *
+ * Legacy Claude 3 / Sonnet 4 entries are kept so historical ledger
+ * rows (and the Anthropic Usage Report API verification path) still
+ * price correctly.
  *
  * Throttle levels:
  *   SOFT  (80%+)  — reduced batch sizes
@@ -13,19 +21,33 @@
 
 // ─── Cost Model ─────────────────────────────────────────────────
 
-const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
-  'claude-3-haiku-20240307':   { input: 0.25, output: 1.25 },
-  'claude-3-5-haiku-20241022': { input: 0.80, output: 4.00 },
-  'claude-3-sonnet-20240229':  { input: 3.00, output: 15.00 },
-  'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
-  'claude-sonnet-4-20250514':  { input: 3.00, output: 15.00 },
+export const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
+  // Current production models
+  'claude-haiku-4-5-20251001':   { input: 1.00, output: 5.00 },
+  'claude-sonnet-4-5-20250929':  { input: 3.00, output: 15.00 },
+  // Legacy models kept for historical ledger queries + usage reports
+  'claude-3-haiku-20240307':     { input: 0.25, output: 1.25 },
+  'claude-3-5-haiku-20241022':   { input: 0.80, output: 4.00 },
+  'claude-3-sonnet-20240229':    { input: 3.00, output: 15.00 },
+  'claude-3-5-sonnet-20241022':  { input: 3.00, output: 15.00 },
+  'claude-sonnet-4-20250514':    { input: 3.00, output: 15.00 },
 };
 
-// Default to Haiku pricing for unknown models
-const DEFAULT_COST = { input: 0.25, output: 1.25 };
-
+/**
+ * Compute the USD cost of a single Anthropic call. Throws on an unknown
+ * model rather than silently defaulting — a missing entry means the
+ * pricing table is stale and ledger numbers will be wrong, which is
+ * exactly the bug the wrapper refactor exists to fix. Callers inside
+ * the canonical wrapper should treat a throw here as a "catch and log
+ * loudly, don't write to the ledger" situation.
+ */
 export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const rates = COST_PER_MILLION[model] ?? DEFAULT_COST;
+  const rates = COST_PER_MILLION[model];
+  if (!rates) {
+    throw new Error(
+      `[budgetManager] estimateCost: unknown model "${model}" — add it to COST_PER_MILLION in lib/budgetManager.ts`,
+    );
+  }
   return (inputTokens / 1_000_000) * rates.input + (outputTokens / 1_000_000) * rates.output;
 }
 
@@ -246,11 +268,18 @@ export async function fetchAnthropicUsageReport(anthropicAdminKey: string | unde
     let totalCost = 0;
     for (const bucket of data.data ?? []) {
       for (const item of bucket.usage ?? []) {
-        totalCost += estimateCost(
-          item.model,
-          item.input_tokens ?? 0,
-          item.output_tokens ?? 0
-        );
+        try {
+          totalCost += estimateCost(
+            item.model,
+            item.input_tokens ?? 0,
+            item.output_tokens ?? 0,
+          );
+        } catch (err) {
+          // Anthropic may report legacy / future model IDs that aren't
+          // in our table yet. Log once and skip — verification-only
+          // path, never blocks primary ledger accounting.
+          console.warn(`[budgetManager] usage report skipped model: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
     }
     return totalCost;

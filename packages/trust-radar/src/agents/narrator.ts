@@ -9,6 +9,7 @@
 import type { Env } from "../types";
 import { createAlert } from "../lib/alerts";
 import { checkCostGuard } from "../lib/haiku";
+import { callAnthropicJSON } from "../lib/anthropic";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -36,11 +37,6 @@ export async function generateThreatNarrative(
   brandId: string,
   context: NarrativeContext,
 ): Promise<NarrativeResult> {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith("lrx_")) {
-    throw new Error("No valid Anthropic API key configured for narrative generation");
-  }
-
   const signalSummary = buildSignalSummary(context);
 
   const systemPrompt = `You are a senior threat intelligence analyst writing an internal threat narrative for a brand protection team.
@@ -68,50 +64,22 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON):
 
   const userMessage = `Analyze these threat signals for brand ${brandId} and generate a threat narrative:\n\n${signalSummary}`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
-
-  const responseText = await res.text();
-  if (!res.ok) {
-    throw new Error(`Anthropic API error: HTTP ${res.status}: ${responseText.slice(0, 300)}`);
-  }
-
-  const apiResponse = JSON.parse(responseText) as {
-    content: Array<{ type: string; text: string }>;
-    usage: { input_tokens: number; output_tokens: number };
-  };
-
-  const textBlock = apiResponse.content.find((b) => b.type === "text");
-  if (!textBlock) {
-    throw new Error("No text content in Anthropic response");
-  }
-
-  const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("No JSON found in narrative response");
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]) as {
+  const { parsed } = await callAnthropicJSON<{
     title: string;
     narrative: string;
     summary: string;
     severity: string;
     attack_stage: string;
     recommendations: string[];
-  };
+  }>(env, {
+    agentId: "narrator",
+    runId: null,
+    model: "claude-haiku-4-5-20251001",
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: 2048,
+    timeoutMs: 45_000,
+  });
 
   return {
     title: parsed.title,

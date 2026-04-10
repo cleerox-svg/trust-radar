@@ -276,7 +276,7 @@ export async function handleScan(
     try {
       const { analyzeWithHaiku } = await import("../lib/haiku");
       const insight = await Promise.race([
-        analyzeWithHaiku(env,
+        analyzeWithHaiku(env, { agentId: "url-scan", runId: null },
           `Analyze this URL scan and provide a brief security insight. Respond with JSON: { "summary": "...", "explanation": "...", "recommendations": ["..."] }`,
           { url, trust_score: scanData.trust_score, risk_level: scanData.risk_level, flags: scanData.flags },
         ),

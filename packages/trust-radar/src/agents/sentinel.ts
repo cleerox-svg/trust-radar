@@ -13,6 +13,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
 import { classifyThreat } from "../lib/haiku";
+import { callAnthropicJSON } from "../lib/anthropic";
 import { classifySaasTechnique } from "../lib/saas-classifier";
 
 // ─── Homoglyph & brand-squatting detection ──────────────────────
@@ -77,7 +78,8 @@ export const sentinelAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
+    const callCtx = { agentId: "sentinel", runId };
 
     // Load monitored brand keywords from DB, fall back to hardcoded list
     const monitoredBrands = await env.DB.prepare(
@@ -120,7 +122,7 @@ export const sentinelAgent: AgentModule = {
       itemsProcessed++;
 
       // Try Haiku classification
-      const result = await classifyThreat(env, {
+      const result = await classifyThreat(env, callCtx, {
         malicious_url: threat.malicious_url,
         malicious_domain: threat.malicious_domain,
         ip_address: threat.ip_address,
@@ -281,9 +283,10 @@ export const sentinelAgent: AgentModule = {
           .slice(0, 30);
         if (recentDomains.length >= 10) {
           const { callHaikuRaw } = await import("../lib/haiku");
-          const aptResult = await callHaikuRaw(env,
+          const aptResult = await callHaikuRaw(env, callCtx,
             "You detect state-sponsored phishing patterns. Reply ONLY with valid JSON array, no markdown.",
-            `Given these new threat domains: ${JSON.stringify(recentDomains)}. Do any match known state-sponsored phishing patterns (typosquats of government/military/financial domains)? Reply JSON: [{domain, apt_pattern, confidence: "high"|"medium"|"low", notes}]. Only include high/medium confidence. Empty array if none.`
+            `Given these new threat domains: ${JSON.stringify(recentDomains)}. Do any match known state-sponsored phishing patterns (typosquats of government/military/financial domains)? Reply JSON: [{domain, apt_pattern, confidence: "high"|"medium"|"low", notes}]. Only include high/medium confidence. Empty array if none.`,
+            512,
           );
           if (aptResult.success && aptResult.text) {
             if (aptResult.tokens_used) totalTokens += aptResult.tokens_used;
@@ -415,58 +418,27 @@ export async function runSentinelSocialAssessment(env: Env): Promise<void> {
       `  "evidence_summary": "one paragraph suitable for a platform abuse report, or null if dismiss"\n` +
       `}`;
 
-    // Use classifyThreat's underlying pattern: callAnthropic via the same
-    // Anthropic Messages API client with identical error handling
+    // Route through the canonical wrapper so the call lands in
+    // budget_ledger like every other Anthropic call. agentId stays
+    // "sentinel" for the per-agent spend roll-up; runId is null
+    // because this helper runs outside the standard agentRunner.
     try {
-      const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-      if (!apiKey || apiKey.startsWith("lrx_")) {
-        console.error("[sentinel-social] No valid Anthropic API key");
-        break;
-      }
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
+      let parsed: SocialAssessmentAI;
+      try {
+        const { parsed: jsonParsed } = await callAnthropicJSON<SocialAssessmentAI>(env, {
+          agentId: "sentinel",
+          runId: null,
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1024,
           system: systemPrompt,
           messages: [{ role: "user", content: userMessage }],
-        }),
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error(`[sentinel-social] Haiku HTTP ${res.status} for ${row.id}: ${errText.slice(0, 200)}`);
+          maxTokens: 1024,
+        });
+        parsed = jsonParsed;
+      } catch (callErr) {
+        console.error(`[sentinel-social] Haiku call failed for ${row.id}: ${callErr instanceof Error ? callErr.message : String(callErr)}`);
         failed++;
         continue;
       }
-
-      const apiResponse = await res.json() as {
-        content: Array<{ type: string; text: string }>;
-        usage: { input_tokens: number; output_tokens: number };
-      };
-
-      const textBlock = apiResponse.content.find((b) => b.type === "text");
-      if (!textBlock) {
-        console.error(`[sentinel-social] No text block for ${row.id}`);
-        failed++;
-        continue;
-      }
-
-      const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.error(`[sentinel-social] No JSON in response for ${row.id}: ${textBlock.text.slice(0, 200)}`);
-        failed++;
-        continue;
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]) as SocialAssessmentAI;
 
       // Store result into the four columns added by migration 0035
       await env.DB.prepare(`

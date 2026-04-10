@@ -12,6 +12,8 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { extractDomain } from "../lib/domain-utils";
+import { callAnthropicJSON } from "../lib/anthropic";
+import type { Env } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -55,7 +57,7 @@ export const watchdogAgent: AgentModule = {
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env } = ctx;
+    const { env, runId } = ctx;
     const db = env.DB;
     const outputs: AgentOutputEntry[] = [];
 
@@ -91,7 +93,7 @@ export const watchdogAgent: AgentModule = {
         const classificationContext = buildClassificationContext(mention);
 
         // 3. Call Haiku for classification
-        const classification = await classifyWithHaiku(classificationContext, env);
+        const classification = await classifyWithHaiku(classificationContext, env, runId);
 
         // 4. Update mention with classification
         await db.prepare(`
@@ -241,9 +243,8 @@ function buildClassificationContext(mention: SocialMentionRow): string {
 
 // ─── Haiku Classification ────────────────────────────────────────
 
-async function classifyWithHaiku(context: string, env: { ANTHROPIC_API_KEY?: string; CF_ACCOUNT_ID?: string; CF_API_TOKEN?: string }): Promise<Classification> {
-  const apiKey = env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+async function classifyWithHaiku(context: string, env: Env, runId: string | null): Promise<Classification> {
+  if (!env.ANTHROPIC_API_KEY) {
     // Fallback: heuristic classification when no API key
     return heuristicClassification(context);
   }
@@ -270,45 +271,16 @@ Classification guidelines:
 
 Err on the side of caution — flag ambiguous cases as medium severity rather than dismissing them.`;
 
-  // Route through Cloudflare AI Gateway if available, otherwise direct
-  const baseUrl = env.CF_ACCOUNT_ID
-    ? `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/averrow-ai-gateway/anthropic`
-    : 'https://api.anthropic.com';
-
   try {
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: context }],
-      }),
-      signal: AbortSignal.timeout(15000),
+    const { parsed } = await callAnthropicJSON<Classification>(env, {
+      agentId: "watchdog",
+      runId,
+      model: "claude-haiku-4-5-20251001",
+      system: systemPrompt,
+      messages: [{ role: "user", content: context }],
+      maxTokens: 256,
+      timeoutMs: 15_000,
     });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`Haiku API ${response.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await response.json() as {
-      content: Array<{ type: string; text?: string }>;
-    };
-
-    const text = data.content?.[0]?.text ?? '';
-    // Extract JSON from the response (handle markdown code blocks)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in Haiku response');
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as Classification;
 
     // Validate and clamp values
     const validTypes = ['impersonation', 'credential_leak', 'phishing_link', 'brand_abuse', 'code_leak', 'threat_actor_chatter', 'vulnerability_disclosure', 'benign'];

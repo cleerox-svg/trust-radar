@@ -19,11 +19,12 @@
  *   the tool; it can't respond in free text.
  *
  * Transport selection:
- * - If `env.CF_ACCOUNT_ID` is set we route through Cloudflare AI
- *   Gateway (`averrow-ai-gateway/anthropic`) so cache hits are free
- *   on re-runs against the same bundle. The gateway proxies the
- *   same `/v1/messages` endpoint; tool_use works identically.
- * - Otherwise we hit `api.anthropic.com/v1/messages` directly.
+ * - All calls go through the canonical Anthropic wrapper at
+ *   lib/anthropic.ts, which routes through Cloudflare AI Gateway
+ *   (`averrow-ai-gateway/anthropic`) when `env.CF_ACCOUNT_ID` is set
+ *   so cache hits are free on re-runs against the same bundle, and
+ *   falls back to the direct Anthropic Messages API otherwise. The
+ *   wrapper also writes a budget_ledger row per call automatically.
  *
  * Cost governance:
  * - Per-call hard cap: MAX_COST_PER_CALL_USD ($0.50). If a call is
@@ -42,7 +43,8 @@ import type {
   RepoInventory,
 } from "../types";
 
-import { HAIKU_MODEL, MAX_COST_PER_CALL_USD, computeCostUsd } from "./pricing";
+import { estimateCost } from "../../../lib/budgetManager";
+import { callAnthropic } from "../../../lib/anthropic";
 import {
   parseAgentsAnalysis,
   parseDataLayerAnalysis,
@@ -61,33 +63,35 @@ import type {
   SectionAnalysis,
 } from "./types";
 
-const ANTHROPIC_API_VERSION = "2023-06-01";
+export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+/**
+ * Hard cap per individual analyzer call. Haiku is cheap, but analyses
+ * take ~4-8k input tokens and 1-2k output tokens so a single call
+ * should land well under $0.05 — the $0.50 cap is the "something is
+ * catastrophically wrong" tripwire, not a soft budget.
+ */
+export const MAX_COST_PER_CALL_USD = 0.5;
+
+/**
+ * Hard cap for a full Phase 2 run (all three sections combined).
+ * Tripped by the orchestrator after each analyzer returns.
+ */
+export const MAX_COST_PER_RUN_USD = 2.0;
+
 const DEFAULT_MAX_TOKENS = 16384;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 // ─── Env subset the analyzers need ─────────────────────────────────
 
+// DB is included so the canonical Anthropic wrapper can write each
+// analyzer call to budget_ledger. The architect agent already runs
+// inside agentRunner with a full Env binding, so threading DB through
+// is free.
 export type AnalyzerEnv = Pick<
   Env,
-  "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID"
+  "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID" | "DB"
 >;
-
-// ─── Anthropic response shape (tool_use mode) ──────────────────────
-
-interface AnthropicContentBlock {
-  type: string;
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-}
-
-interface AnthropicMessageResponse {
-  content: AnthropicContentBlock[];
-  model: string;
-  stop_reason: string | null;
-  usage: { input_tokens: number; output_tokens: number };
-}
 
 // ─── Shared Haiku call ─────────────────────────────────────────────
 
@@ -105,77 +109,27 @@ type ToolSchema =
   | typeof REPORT_FEEDS_ANALYSIS_TOOL
   | typeof REPORT_DATA_LAYER_ANALYSIS_TOOL;
 
-function resolveAnthropicBaseUrl(env: AnalyzerEnv): string {
-  if (env.CF_ACCOUNT_ID) {
-    return `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/averrow-ai-gateway/anthropic`;
-  }
-  return "https://api.anthropic.com";
-}
-
-function resolveApiKey(env: AnalyzerEnv): string {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ARCHITECT analyzer: no Anthropic API key configured (ANTHROPIC_API_KEY or LRX_API_KEY)",
-    );
-  }
-  if (apiKey.startsWith("lrx_")) {
-    throw new Error(
-      "ARCHITECT analyzer: LRX_API_KEY is an LRX proxy key — set ANTHROPIC_API_KEY to a real Anthropic key (sk-ant-...)",
-    );
-  }
-  return apiKey;
-}
-
 async function callHaikuTool(
   env: AnalyzerEnv,
   systemPrompt: string,
   userMessage: string,
   tool: ToolSchema,
 ): Promise<CallResult> {
-  const apiKey = resolveApiKey(env);
-  const baseUrl = resolveAnthropicBaseUrl(env);
-
-  const body = {
-    model: HAIKU_MODEL,
-    max_tokens: DEFAULT_MAX_TOKENS,
-    system: systemPrompt,
-    tools: [tool],
-    tool_choice: { type: "tool", name: tool.name },
-    messages: [{ role: "user", content: userMessage }],
-  };
-
   const startedAt = Date.now();
-  const res = await fetch(`${baseUrl}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_API_VERSION,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+
+  const apiResponse = await callAnthropic(env, {
+    agentId: "architect",
+    runId: null,
+    model: HAIKU_MODEL,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: DEFAULT_MAX_TOKENS,
+    tools: [tool],
+    toolChoice: { type: "tool", name: tool.name },
+    timeoutMs: REQUEST_TIMEOUT_MS,
   });
 
-  const responseText = await res.text();
   const durationMs = Date.now() - startedAt;
-
-  if (!res.ok) {
-    throw new Error(
-      `ARCHITECT analyzer: Anthropic HTTP ${res.status}: ${responseText.slice(0, 500)}`,
-    );
-  }
-
-  let apiResponse: AnthropicMessageResponse;
-  try {
-    apiResponse = JSON.parse(responseText) as AnthropicMessageResponse;
-  } catch (err) {
-    throw new Error(
-      `ARCHITECT analyzer: failed to parse Anthropic response JSON: ${
-        err instanceof Error ? err.message : String(err)
-      }: ${responseText.slice(0, 500)}`,
-    );
-  }
 
   // Check stop_reason BEFORE reading content — catches the truncation
   // case explicitly instead of letting it cascade into a missing-tool
@@ -185,7 +139,7 @@ async function callHaikuTool(
     throw new Error(
       `ARCHITECT analyzer: expected stop_reason='tool_use' but got '${apiResponse.stop_reason}' ` +
         `(tool=${tool.name}, in=${apiResponse.usage?.input_tokens ?? "?"}, ` +
-        `out=${apiResponse.usage?.output_tokens ?? "?"}) — raw: ${responseText.slice(0, 500)}`,
+        `out=${apiResponse.usage?.output_tokens ?? "?"})`,
     );
   }
 
@@ -194,13 +148,13 @@ async function callHaikuTool(
   );
   if (!toolUse || toolUse.input === undefined) {
     throw new Error(
-      `ARCHITECT analyzer: no tool_use block for '${tool.name}' in response: ${responseText.slice(0, 500)}`,
+      `ARCHITECT analyzer: no tool_use block for '${tool.name}' in response`,
     );
   }
 
   const inputTokens = apiResponse.usage.input_tokens;
   const outputTokens = apiResponse.usage.output_tokens;
-  const costUsd = computeCostUsd(inputTokens, outputTokens);
+  const costUsd = estimateCost(apiResponse.model || HAIKU_MODEL, inputTokens, outputTokens);
   if (costUsd > MAX_COST_PER_CALL_USD) {
     throw new Error(
       `ARCHITECT analyzer: per-call cost cap exceeded: $${costUsd.toFixed(4)} > $${MAX_COST_PER_CALL_USD.toFixed(2)} (in=${inputTokens}, out=${outputTokens})`,

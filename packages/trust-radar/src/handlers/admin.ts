@@ -6,10 +6,134 @@ import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
 import { classifyThreat } from "../lib/haiku";
+import { callAnthropicJSON } from "../lib/anthropic";
+import { estimateCost } from "../lib/budgetManager";
 import { batchGeoLookup, normalizeProvider, upsertHostingProvider, enrichThreatsGeo, isPrivateIP, PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { resolveToIp, extractHostname } from "../lib/domain-resolver";
 import { fuzzyMatchBrand } from "../lib/brandDetect";
 import { classifySaasTechnique } from "../lib/saas-classifier";
+import { BudgetManager } from "../lib/budgetManager";
+
+// Every agentId the canonical Anthropic wrapper is supposed to attribute
+// to. Used by handleBudgetLedgerHealth to surface "this call site has
+// not landed a ledger row in the last N hours" gaps. Add new entries
+// here when adding a new AI call site so the diagnostic stays honest.
+const EXPECTED_LEDGER_AGENT_IDS = [
+  // Cron-driven agents
+  "sentinel",
+  "analyst",
+  "cartographer",
+  "strategist",
+  "observer",
+  "narrator",
+  "prospector",
+  "watchdog",
+  "seed_strategist",
+  "architect",
+  // Lib helpers + admin call sites
+  "admin-classify",
+  "ai-attribution",
+  "brand-analysis",
+  "brand-deep-scan",
+  "brand-enricher",
+  "brand-report",
+  "evidence-assembler",
+  "geo-campaign-assessment",
+  "honeypot-generator",
+  "lookalike-scanner",
+  "public-trust-check",
+  "scan-report",
+  "social-ai-assessor",
+  "url-scan",
+] as const;
+
+/**
+ * GET /api/admin/budget/ledger-health
+ *
+ * Phase 4 Step 2D diagnostic. Walks every agent_id the wrapper is
+ * supposed to attribute to and reports the most recent budget_ledger
+ * row for each, plus the per-agent 24h spend. If a call site stops
+ * landing rows here, the row is missing and the migration silently
+ * regressed.
+ *
+ * The handler also returns BudgetManager.getStatus() so operators
+ * can spot-check that monthly_spend, throttle_level, and projected
+ * burn match expectations after a migrated agent run.
+ */
+export async function handleBudgetLedgerHealth(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  try {
+    const budget = new BudgetManager(env.DB);
+    const [status, byAgent24h, totals24h] = await Promise.all([
+      budget.getStatus(),
+      env.DB.prepare(`
+        SELECT agent_id,
+               COUNT(*)             as calls,
+               SUM(input_tokens)    as input_tokens,
+               SUM(output_tokens)   as output_tokens,
+               SUM(cost_usd)        as cost_usd,
+               MAX(created_at)      as last_call_at
+        FROM budget_ledger
+        WHERE created_at >= datetime('now', '-1 day')
+        GROUP BY agent_id
+      `).all<{
+        agent_id: string;
+        calls: number;
+        input_tokens: number;
+        output_tokens: number;
+        cost_usd: number;
+        last_call_at: string;
+      }>(),
+      env.DB.prepare(`
+        SELECT COUNT(*) as calls,
+               COALESCE(SUM(cost_usd), 0) as cost_usd
+        FROM budget_ledger
+        WHERE created_at >= datetime('now', '-1 day')
+      `).first<{ calls: number; cost_usd: number }>(),
+    ]);
+
+    const byAgentMap = new Map(byAgent24h.results.map(r => [r.agent_id, r]));
+
+    const expected_agents = EXPECTED_LEDGER_AGENT_IDS.map(agentId => {
+      const row = byAgentMap.get(agentId);
+      return {
+        agent_id: agentId,
+        present_24h: row !== undefined,
+        calls_24h: row?.calls ?? 0,
+        cost_usd_24h: row?.cost_usd ?? 0,
+        last_call_at: row?.last_call_at ?? null,
+      };
+    });
+
+    const unexpected_agents = byAgent24h.results
+      .filter(r => !(EXPECTED_LEDGER_AGENT_IDS as readonly string[]).includes(r.agent_id))
+      .map(r => ({
+        agent_id: r.agent_id,
+        calls_24h: r.calls,
+        cost_usd_24h: r.cost_usd,
+        last_call_at: r.last_call_at,
+      }));
+
+    return json({
+      success: true,
+      data: {
+        ledger: {
+          calls_24h: totals24h?.calls ?? 0,
+          cost_usd_24h: totals24h?.cost_usd ?? 0,
+        },
+        budget: status,
+        expected_agents,
+        unexpected_agents,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    }, 500, origin);
+  }
+}
 
 export async function handleAdminHealth(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
@@ -367,7 +491,7 @@ export async function handleBackfillClassifications(request: Request, env: Env):
       if (batch.results.length === 0) break;
 
       for (const threat of batch.results) {
-        const result = await classifyThreat(env, {
+        const result = await classifyThreat(env, { agentId: "admin-classify", runId: null }, {
           malicious_url: threat.malicious_url,
           malicious_domain: threat.malicious_domain,
           ip_address: threat.ip_address,
@@ -896,7 +1020,7 @@ export async function handleBackfillBrandSector(
         // Run RDAP + sector classification in parallel
         const [rdap, sector] = await Promise.allSettled([
           fetchRdap(brand.canonical_domain),
-          classifySector(brand.canonical_domain, brand.name, apiKey),
+          classifySector(env, brand.canonical_domain, brand.name),
         ]);
 
         const rdapData  = rdap.status === "fulfilled" ? rdap.value : null;
@@ -1134,67 +1258,41 @@ export async function runAiAttribution(env: Env, maxBatch = 50): Promise<{
 
   if (uncachedSignals.length === 0) return result;
 
-  // Batch Haiku call
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith('lrx_')) return result;
-
   const signals = uncachedSignals.map((s, i) => ({
     id: i, signal: s.signal, full_url: s.url || s.signal,
   }));
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
-        messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
-      }),
-      signal: AbortSignal.timeout(30000),
+    // Routes through the canonical wrapper → automatic budget_ledger
+    // attribution against agentId="ai-attribution". Cost math + token
+    // counts both come from the wrapper / BudgetManager so the
+    // hand-rolled (inputTokens * 0.0000008) line is gone.
+    const { parsed: attributions, response } = await callAnthropicJSON<Array<{
+      id: number; brand: string; confidence: 'high' | 'medium'; reason: string;
+    }>>(env, {
+      agentId: "ai-attribution",
+      runId: null,
+      model: 'claude-haiku-4-5-20251001',
+      system: "You are a brand attribution engine for a cybersecurity platform. Given phishing domain signals, identify the real brand being impersonated. Be conservative — only attribute when genuinely confident. Reply ONLY with valid JSON, no markdown.",
+      messages: [{ role: 'user', content: `Attribute these phishing signals to real brands:\n${JSON.stringify(signals)}\nReply with JSON array, only include confident matches:\n[{id, brand, confidence: "high"|"medium", reason}]\nOmit entries where brand is null or confidence is low.` }],
+      maxTokens: 2048,
     });
 
     result.calls++;
-    const apiRes = await res.json() as {
-      content: Array<{ type: string; text: string }>;
-      usage: { input_tokens: number; output_tokens: number };
-    };
+    result.costUsd = estimateCost(
+      response.model || 'claude-haiku-4-5-20251001',
+      response.usage?.input_tokens ?? 0,
+      response.usage?.output_tokens ?? 0,
+    );
 
-    // Estimate cost
-    const inputTokens = apiRes.usage?.input_tokens ?? 800;
-    const outputTokens = apiRes.usage?.output_tokens ?? 300;
-    result.costUsd = (inputTokens * 0.0000008 + outputTokens * 0.000004);
-
-    // Track usage in KV
-    const { getDailyUsage } = await import("../lib/haiku");
+    // Track attribution-specific call count for the cron Step 4 guard.
+    // The general per-day Haiku usage now lives in budget_ledger, but
+    // this specific counter is consumed by the cron flow and stays in
+    // KV for now (cron path lives in a different commit).
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await getDailyUsage(env, today);
-    usage.calls += 1;
-    usage.input_tokens += inputTokens;
-    usage.output_tokens += outputTokens;
-    usage.agent_calls += 1;
-    await env.CACHE.put(`haiku_usage_${today}`, JSON.stringify(usage), { expirationTtl: 86400 * 31 });
-
-    // Track attribution-specific calls separately (used by cron Step 4 guard)
     const attrKey = `ai_attr_calls_${today}`;
     const prevAttrCalls = parseInt(await env.CACHE.get(attrKey) || '0', 10);
     await env.CACHE.put(attrKey, String(prevAttrCalls + 1), { expirationTtl: 86400 * 2 });
-
-    const textBlock = apiRes.content?.find(b => b.type === 'text');
-    if (!textBlock) return result;
-
-    // Parse JSON array from response
-    const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return result;
-
-    const attributions = JSON.parse(jsonMatch[0]) as Array<{
-      id: number; brand: string; confidence: 'high' | 'medium'; reason: string;
-    }>;
 
     // Load all brands for matching
     const allBrands = await env.DB.prepare(

@@ -145,7 +145,7 @@ async function generateAIAssessment(
 - Exposure Score: ${report.exposure_score}/100 (${report.risk_level})`;
 
   try {
-    const result = await callHaikuRaw(env, systemPrompt, userMessage);
+    const result = await callHaikuRaw(env, { agentId: "scan-report", runId: null }, systemPrompt, userMessage, 512);
     if (result.success && result.text) {
       return result.text;
     }

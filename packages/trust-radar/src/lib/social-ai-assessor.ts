@@ -8,10 +8,9 @@
 
 import { checkCostGuard } from "./haiku";
 import { logger } from "./logger";
+import { callAnthropicJSON } from "./anthropic";
 import type { Env } from "../types";
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-haiku-4-5-20251001";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -187,87 +186,23 @@ export async function assessSocialProfile(
     return fallbackAssessment(context);
   }
 
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith("lrx_")) {
-    logger.warn("social_ai_no_key", { message: "No valid Anthropic API key for social assessment" });
-    return fallbackAssessment(context);
-  }
-
   const userMessage = buildUserMessage(context);
 
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-      signal: AbortSignal.timeout(30000),
+    const { parsed } = await callAnthropicJSON<RawAIResponse>(env, {
+      agentId: "social-ai-assessor",
+      runId: null,
+      model: MODEL,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+      maxTokens: 1024,
     });
 
-    const responseText = await res.text();
-
-    if (!res.ok) {
-      logger.warn("social_ai_api_error", {
-        status: res.status,
-        body: responseText.slice(0, 200),
-        handle: context.handle,
-      });
-      return fallbackAssessment(context);
-    }
-
-    const apiResponse = JSON.parse(responseText) as {
-      content: Array<{ type: string; text: string }>;
-      usage: { input_tokens: number; output_tokens: number };
-    };
-
-    const textBlock = apiResponse.content?.find((b) => b.type === "text");
-    if (!textBlock) {
-      logger.warn("social_ai_no_text", { handle: context.handle });
-      return fallbackAssessment(context);
-    }
-
-    // Strip markdown fences if present
-    let jsonText = textBlock.text.trim();
-    jsonText = jsonText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-
-    // Extract JSON object
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      logger.warn("social_ai_no_json", { raw: jsonText.slice(0, 200), handle: context.handle });
-      return fallbackAssessment(context);
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as RawAIResponse;
     const assessment = validateAndNormalize(parsed);
-
     if (!assessment) {
       logger.warn("social_ai_invalid_response", { parsed, handle: context.handle });
       return fallbackAssessment(context);
     }
-
-    // Track usage via KV (same pattern as haiku.ts trackUsage)
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const usageKey = `haiku_usage_${today}`;
-      const val = await env.CACHE.get(usageKey);
-      const current = val ? JSON.parse(val) : { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 };
-      current.calls += 1;
-      current.input_tokens += apiResponse.usage?.input_tokens ?? 0;
-      current.output_tokens += apiResponse.usage?.output_tokens ?? 0;
-      current.agent_calls += 1; // social_assessment runs in agent/cron context
-      await env.CACHE.put(usageKey, JSON.stringify(current), { expirationTtl: 86400 * 31 });
-    } catch {
-      // Non-fatal — usage tracking failure shouldn't block assessment
-    }
-
     return assessment;
   } catch (err) {
     logger.warn("social_ai_assessment_error", {

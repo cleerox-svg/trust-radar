@@ -5,7 +5,7 @@
  */
 
 import { json } from "../lib/cors";
-import { analyzeWithHaiku, setHaikuCategory } from "../lib/haiku";
+import { analyzeWithHaiku } from "../lib/haiku";
 import type { Env } from "../types";
 
 interface EmailSecuritySection {
@@ -242,13 +242,13 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
 
     // Try AI generation (non-blocking — use defaults on failure)
     try {
-      setHaikuCategory("on_demand");
+      const reportCtx = { agentId: "brand-report", runId: null };
       const [summaryResult, recsResult] = await Promise.all([
-        analyzeWithHaiku(env,
+        analyzeWithHaiku(env, reportCtx,
           `You are a threat intelligence analyst writing an executive summary for a brand protection report. The brand is ${brand.name}. In the last ${days} days, ${totalThreats} threats were detected: ${typeBreakdown}. ${campaignsIdentified} campaigns were identified. ${remediatedThreats} threats were remediated. Write exactly 3 sentences summarizing the threat landscape, key risks, and trend direction. Be specific and data-driven. Return JSON: {"response": "your 3 sentences"}`,
           { brand: brand.name, threats: totalThreats, types: typeRows.results },
         ),
-        analyzeWithHaiku(env,
+        analyzeWithHaiku(env, reportCtx,
           `Based on the following threat data for ${brand.name}: threat types: ${typeBreakdown}, campaigns: ${campaignRows.results.map(c => c.name).join(", ") || "none"}, top providers: ${providerRows.results.map(p => p.name).join(", ") || "none"}. Generate 4 specific, actionable recommendations for the brand's security team. Be concise — one sentence each. Return JSON: {"response": "rec1\\nrec2\\nrec3\\nrec4"}`,
           { brand: brand.name, types: typeRows.results, providers: providerRows.results.map(p => p.name) },
         ),

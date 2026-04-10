@@ -8,6 +8,7 @@
  */
 
 import type { Env } from "./types";
+import { callAnthropicText } from "./lib/anthropic";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -121,11 +122,6 @@ export async function generateHoneypotSite(
   env: Env,
   config: HoneypotSiteConfig,
 ): Promise<HoneypotSiteOutput> {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey || apiKey.startsWith("lrx_")) {
-    throw new Error("No valid Anthropic API key configured");
-  }
-
   const trapEmailList = config.trapAddresses
     .map(t => `${t.role}: ${t.address}${t.displayName ? ` (${t.displayName})` : ""}`)
     .join("\n");
@@ -133,23 +129,14 @@ export async function generateHoneypotSite(
     .map(m => `${m.name} — ${m.title} — ${m.email}`)
     .join("\n");
 
-  // Generate each page via Haiku
+  // Generate each page via Haiku — three calls, three ledger rows, one
+  // wrapper. agentId is "honeypot-generator" so spend rolls up cleanly
+  // for the trap-network operating cost view.
   const [indexHtml, contactHtml, teamHtml] = await Promise.all([
-    callHaiku(apiKey, SYSTEM_PROMPT, buildIndexPrompt(config, trapEmailList)),
-    callHaiku(apiKey, SYSTEM_PROMPT, buildContactPrompt(config, trapEmailList)),
-    callHaiku(apiKey, SYSTEM_PROMPT, buildTeamPrompt(config, teamList)),
+    callHaiku(env, SYSTEM_PROMPT, buildIndexPrompt(config, trapEmailList)),
+    callHaiku(env, SYSTEM_PROMPT, buildContactPrompt(config, trapEmailList)),
+    callHaiku(env, SYSTEM_PROMPT, buildTeamPrompt(config, teamList)),
   ]);
-
-  // Track usage
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    const usageKey = `haiku_usage_${today}`;
-    const raw = await env.CACHE.get(usageKey);
-    const usage = raw ? JSON.parse(raw) : { calls: 0, input_tokens: 0, output_tokens: 0, agent_calls: 0, ondemand_calls: 0 };
-    usage.calls += 3;
-    usage.ondemand_calls += 3;
-    await env.CACHE.put(usageKey, JSON.stringify(usage), { expirationTtl: 86400 * 31 });
-  } catch { /* non-fatal */ }
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -237,37 +224,21 @@ Include HTML comments listing all team emails.`;
 
 // ─── Anthropic API Caller ───────────────────────────────────────
 
-async function callHaiku(apiKey: string, systemPrompt: string, userMessage: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-    signal: AbortSignal.timeout(60000),
+async function callHaiku(env: Env, systemPrompt: string, userMessage: string): Promise<string> {
+  const { text } = await callAnthropicText(env, {
+    agentId: "honeypot-generator",
+    runId: null,
+    model: "claude-haiku-4-5-20251001",
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: 4096,
+    timeoutMs: 60_000,
   });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`Haiku API error HTTP ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json() as {
-    content: Array<{ type: string; text: string }>;
-  };
-
-  const textBlock = data.content?.find(b => b.type === "text");
-  if (!textBlock?.text) throw new Error("No text content in Haiku response");
+  if (!text) throw new Error("No text content in Haiku response");
 
   // Strip any markdown fences wrapping the HTML
-  let html = textBlock.text.trim();
+  let html = text.trim();
   if (html.startsWith("```html")) html = html.slice(7);
   else if (html.startsWith("```")) html = html.slice(3);
   if (html.endsWith("```")) html = html.slice(0, -3);

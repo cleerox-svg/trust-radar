@@ -25,17 +25,21 @@
  */
 
 import type { Env } from "../../../types";
+import { estimateCost } from "../../../lib/budgetManager";
+import { callAnthropic } from "../../../lib/anthropic";
 
 import type { SectionAnalysis } from "../analysis/types";
 import type { ContextBundle } from "../types";
 
 import { computeScorecardFromAnalyses, type ComputedScorecard } from "./scorecard";
 
-// ─── Model + pricing constants ─────────────────────────────────────
+// ─── Model constants ───────────────────────────────────────────────
+//
+// Pricing lives in lib/budgetManager.ts COST_PER_MILLION — do not
+// re-declare per-module constants. The synthesiser just picks the
+// model ID and defers cost math to the canonical estimator.
 
 export const SONNET_MODEL = "claude-sonnet-4-5-20250929";
-export const SONNET_INPUT_USD_PER_MTOK = 3.0;
-export const SONNET_OUTPUT_USD_PER_MTOK = 15.0;
 
 /**
  * Hard cap per synthesis run. Sonnet 4.5 is ~5x Haiku's input rate
@@ -45,29 +49,20 @@ export const SONNET_OUTPUT_USD_PER_MTOK = 15.0;
  */
 export const MAX_COST_PER_SYNTHESIS_USD = 1.0;
 
-const ANTHROPIC_API_VERSION = "2023-06-01";
 const DEFAULT_MAX_TOKENS = 20_480;
 const REQUEST_TIMEOUT_MS = 120_000;
-
-export function computeSonnetCostUsd(
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const inputCost = (inputTokens / 1_000_000) * SONNET_INPUT_USD_PER_MTOK;
-  const outputCost = (outputTokens / 1_000_000) * SONNET_OUTPUT_USD_PER_MTOK;
-  return inputCost + outputCost;
-}
 
 // ─── Env subset ────────────────────────────────────────────────────
 
 /**
- * Env subset the synthesiser needs: just the Anthropic credentials
- * used by the analyzer too. No D1, no R2 — the caller (the architect
- * AgentModule) hands the bundle and analyses in directly.
+ * Env subset the synthesiser needs: Anthropic credentials + DB. The
+ * architect agent already runs inside agentRunner with a full Env
+ * binding, so DB is free; the canonical wrapper uses it to write the
+ * synthesis call to budget_ledger automatically.
  */
 export type SynthesizerEnv = Pick<
   Env,
-  "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID"
+  "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID" | "DB"
 >;
 
 // ─── Tool schema ───────────────────────────────────────────────────
@@ -91,47 +86,6 @@ export const REPORT_SYNTHESIS_MARKDOWN_TOOL = {
   },
 } as const;
 
-// ─── Anthropic response shape (tool_use mode) ──────────────────────
-
-interface AnthropicContentBlock {
-  type: string;
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-}
-
-interface AnthropicMessageResponse {
-  content: AnthropicContentBlock[];
-  model: string;
-  stop_reason: string | null;
-  usage: { input_tokens: number; output_tokens: number };
-}
-
-// ─── Transport + auth (shared with analyzer) ──────────────────────
-
-function resolveAnthropicBaseUrl(env: SynthesizerEnv): string {
-  if (env.CF_ACCOUNT_ID) {
-    return `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/averrow-ai-gateway/anthropic`;
-  }
-  return "https://api.anthropic.com";
-}
-
-function resolveApiKey(env: SynthesizerEnv): string {
-  const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ARCHITECT synthesizer: no Anthropic API key configured (ANTHROPIC_API_KEY or LRX_API_KEY)",
-    );
-  }
-  if (apiKey.startsWith("lrx_")) {
-    throw new Error(
-      "ARCHITECT synthesizer: LRX_API_KEY is an LRX proxy key — set ANTHROPIC_API_KEY to a real Anthropic key (sk-ant-...)",
-    );
-  }
-  return apiKey;
-}
-
 // ─── Sonnet call ───────────────────────────────────────────────────
 
 interface SynthesisUsage {
@@ -152,52 +106,21 @@ async function callSonnetTool(
   systemPrompt: string,
   userMessage: string,
 ): Promise<CallResult> {
-  const apiKey = resolveApiKey(env);
-  const baseUrl = resolveAnthropicBaseUrl(env);
-
-  const body = {
-    model: SONNET_MODEL,
-    max_tokens: DEFAULT_MAX_TOKENS,
-    system: systemPrompt,
-    tools: [REPORT_SYNTHESIS_MARKDOWN_TOOL],
-    tool_choice: {
-      type: "tool",
-      name: REPORT_SYNTHESIS_MARKDOWN_TOOL.name,
-    },
-    messages: [{ role: "user", content: userMessage }],
-  };
-
   const startedAt = Date.now();
-  const res = await fetch(`${baseUrl}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_API_VERSION,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+
+  const apiResponse = await callAnthropic(env, {
+    agentId: "architect",
+    runId: null,
+    model: SONNET_MODEL,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: DEFAULT_MAX_TOKENS,
+    tools: [REPORT_SYNTHESIS_MARKDOWN_TOOL],
+    toolChoice: { type: "tool", name: REPORT_SYNTHESIS_MARKDOWN_TOOL.name },
+    timeoutMs: REQUEST_TIMEOUT_MS,
   });
 
-  const responseText = await res.text();
   const durationMs = Date.now() - startedAt;
-
-  if (!res.ok) {
-    throw new Error(
-      `ARCHITECT synthesizer: Anthropic HTTP ${res.status}: ${responseText.slice(0, 500)}`,
-    );
-  }
-
-  let apiResponse: AnthropicMessageResponse;
-  try {
-    apiResponse = JSON.parse(responseText) as AnthropicMessageResponse;
-  } catch (err) {
-    throw new Error(
-      `ARCHITECT synthesizer: failed to parse Anthropic response JSON: ${
-        err instanceof Error ? err.message : String(err)
-      }: ${responseText.slice(0, 500)}`,
-    );
-  }
 
   // Same stop_reason guard as the analyzer. max_tokens is the
   // classic bloat failure mode — catch it here with the actual
@@ -208,7 +131,7 @@ async function callSonnetTool(
     throw new Error(
       `ARCHITECT synthesizer: expected stop_reason='tool_use' but got '${apiResponse.stop_reason}' ` +
         `(in=${apiResponse.usage?.input_tokens ?? "?"}, ` +
-        `out=${apiResponse.usage?.output_tokens ?? "?"}) — raw: ${responseText.slice(0, 500)}`,
+        `out=${apiResponse.usage?.output_tokens ?? "?"})`,
     );
   }
 
@@ -218,7 +141,7 @@ async function callSonnetTool(
   );
   if (!toolUse || toolUse.input === undefined) {
     throw new Error(
-      `ARCHITECT synthesizer: no tool_use block for '${REPORT_SYNTHESIS_MARKDOWN_TOOL.name}' in response: ${responseText.slice(0, 500)}`,
+      `ARCHITECT synthesizer: no tool_use block for '${REPORT_SYNTHESIS_MARKDOWN_TOOL.name}' in response`,
     );
   }
 
@@ -240,7 +163,7 @@ async function callSonnetTool(
 
   const inputTokens = apiResponse.usage.input_tokens;
   const outputTokens = apiResponse.usage.output_tokens;
-  const costUsd = computeSonnetCostUsd(inputTokens, outputTokens);
+  const costUsd = estimateCost(apiResponse.model || SONNET_MODEL, inputTokens, outputTokens);
   if (costUsd > MAX_COST_PER_SYNTHESIS_USD) {
     throw new Error(
       `ARCHITECT synthesizer: per-synthesis cost cap exceeded: $${costUsd.toFixed(4)} > $${MAX_COST_PER_SYNTHESIS_USD.toFixed(2)} (in=${inputTokens}, out=${outputTokens})`,
