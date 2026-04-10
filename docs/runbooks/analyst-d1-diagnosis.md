@@ -251,13 +251,38 @@ confirm which index is selected with real data distribution.
 
 ## Post-Phase-C: EXPLAIN for UNION ALL subqueries
 
-> Captured after rewriting Query B in Phase C.
+> Captured after rewriting Query B into 7 individual queries (Phase C).
 
 ### Subquery plans
 
+All 7 subqueries produce the same plan:
+
 ```
--- placeholder: filled in after Phase C rewrite
+SEARCH threats USING INDEX idx_threats_brand_status (ANY(target_brand_id) AND status=?)
 ```
+
+**No `USE TEMP B-TREE FOR GROUP BY` in any subquery** (vs. the original single query which required it).
+
+The `idx_threats_brand_status(target_brand_id, status)` index provides rows in
+`target_brand_id` order, satisfying the GROUP BY without a temp sort. The original
+single-query version needed the temp B-tree because the 6-column OR filter disrupted
+the index's grouping guarantee.
+
+### Key wins
+
+1. **Eliminated temp B-tree GROUP BY** — the most expensive step in the original query.
+2. **Simpler per-query filter** — each subquery checks one enrichment column instead of OR-of-6.
+3. **Promise.all concurrency** — all 7 queries run in parallel via D1's batch capability.
+4. **Lower per-query CPU** — 7 small queries spread D1 CPU budget more evenly than 1 complex query.
+
+### Missing enrichment indexes (flagged for Phase D)
+
+None of the enrichment columns (`surbl_listed`, `vt_malicious`, `gsb_flagged`, `dbl_listed`,
+`greynoise_checked`, `seclookup_checked`) have indexes. Each subquery falls through to
+`idx_threats_brand_status` and post-filters the enrichment column. Adding indexes on these
+columns would allow the planner to use a more selective path, but the current rewrite already
+eliminates the primary bottleneck (temp B-tree). Enrichment indexes are deferred — they'd add
+6 more indexes to an already-heavy table (19 indexes) for marginal gain.
 
 ---
 
