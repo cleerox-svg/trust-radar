@@ -13,7 +13,6 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits } from "../lib/budgetManager";
-import { agentModules } from "./index";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -99,8 +98,17 @@ const STALL_THRESHOLDS: Record<string, number> = {
   sparrow:       120,
 };
 
-/** Dynamically derived from the agent registry — all agents are monitored. */
-const AGENTS_TO_MONITOR = Object.keys(agentModules);
+/**
+ * Dynamically derived from the agent registry — all agents are monitored.
+ * Must be resolved via dynamic import (not a top-level const) because
+ * agents/index.ts imports flightControl.ts, creating a circular dependency.
+ * A top-level static import of agentModules would resolve to undefined
+ * at module load time.
+ */
+async function getAgentsToMonitor(): Promise<string[]> {
+  const { agentModules: mods } = await import("./index");
+  return Object.keys(mods);
+}
 
 // ─── Agent Module ────────────────────────────────────────────────
 
@@ -646,7 +654,7 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
 // ─── Agent Health ────────────────────────────────────────────────
 
 async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
-  const agentIds = AGENTS_TO_MONITOR;
+  const agentIds = await getAgentsToMonitor();
   // Build a placeholder list for the IN clause
   const placeholders = agentIds.map(() => '?').join(',');
 
