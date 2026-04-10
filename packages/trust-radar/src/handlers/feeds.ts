@@ -92,6 +92,15 @@ export async function handleUpdateFeed(request: Request, env: Env, feedName: str
     if (body.enabled != null) {
       updates.push("enabled = ?");
       values.push(body.enabled ? 1 : 0);
+      // Mirror the new pause metadata so manual vs auto-pause stays
+      // distinguishable from now on. Disabling via this endpoint is
+      // by definition a human action → 'manual'. Re-enabling clears
+      // the marker.
+      if (body.enabled) {
+        updates.push("paused_reason = NULL");
+      } else {
+        updates.push("paused_reason = 'manual'");
+      }
     }
     if (body.display_name) {
       updates.push("display_name = ?");
@@ -268,6 +277,10 @@ export async function handleFeedsOverview(request: Request, env: Env): Promise<R
         fc.filters,
         fc.retry_count,
         fc.retry_delay_seconds,
+        fc.paused_reason,
+        fc.consecutive_failure_threshold,
+        fs.consecutive_failures,
+        fs.last_error,
         COUNT(fph.id) as total_pulls,
         COALESCE(SUM(fph.records_ingested), 0) as total_ingested,
         COALESCE(SUM(fph.records_rejected), 0) as total_rejected,
@@ -276,6 +289,7 @@ export async function handleFeedsOverview(request: Request, env: Env): Promise<R
         MAX(fph.started_at) as last_run,
         MAX(fph.completed_at) as last_completed
       FROM feed_configs fc
+      LEFT JOIN feed_status fs ON fs.feed_name = fc.feed_name
       LEFT JOIN feed_pull_history fph ON fph.feed_name = fc.feed_name
       GROUP BY fc.feed_name
       ORDER BY total_ingested DESC
@@ -283,6 +297,52 @@ export async function handleFeedsOverview(request: Request, env: Env): Promise<R
 
     return json({ success: true, data: rows.results }, 200, origin);
   } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── Unpause a feed (manual or auto-paused) ─────────────────────
+//
+// Single server-side call that clears all three fields in one
+// logical transaction:
+//   1. feed_configs: enabled = 1, paused_reason = NULL
+//   2. feed_status:  consecutive_failures = 0,
+//                    health_status = 'healthy',
+//                    last_error = NULL
+//
+// D1 doesn't expose multi-statement transactions to Workers, but
+// env.DB.batch([...]) runs the statements atomically from the
+// caller's point of view. If any statement fails the whole batch
+// is rejected.
+export async function handleUnpauseFeed(request: Request, env: Env, feedName: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Sanity check: feed must exist
+    const existing = await env.DB.prepare(
+      "SELECT feed_name FROM feed_configs WHERE feed_name = ?"
+    ).bind(feedName).first();
+    if (!existing) return json({ success: false, error: "Feed not found" }, 404, origin);
+
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE feed_configs
+           SET enabled = 1,
+               paused_reason = NULL,
+               updated_at = datetime('now')
+           WHERE feed_name = ?`
+      ).bind(feedName),
+      env.DB.prepare(
+        `UPDATE feed_status
+           SET consecutive_failures = 0,
+               health_status = 'healthy',
+               last_error = NULL
+           WHERE feed_name = ?`
+      ).bind(feedName),
+    ]);
+
+    return json({ success: true, data: { feed_name: feedName } }, 200, origin);
+  } catch (err) {
+    console.error(`[unpauseFeed] "${feedName}" threw:`, err);
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
