@@ -1,0 +1,78 @@
+-- Threats index audit (Fix 7 of the 2026-04 perf assessment).
+--
+-- The platform was running slowly and one hypothesis was that the threats
+-- table (113K+ rows, very high write volume from sentinel/cartographer/
+-- nexus/observer) had accumulated dead-weight indexes. Every INSERT/UPDATE
+-- to threats has to write all of its indexes, so a redundant index taxes
+-- every write.
+--
+-- This migration is intentionally a NO-OP: it exists to record the audit
+-- finding so the next engineer doesn't redo the work. Of the 19 indexes
+-- currently on threats (after 0077 dropped idx_threats_status), every
+-- single one is reachable from at least one production query path that
+-- was verified by code search across packages/trust-radar/src.
+--
+-- Audit method: for each index, grep for queries against `threats` (and
+-- `threats t` aliases) and match the WHERE / ORDER BY columns to the
+-- index definition. Conservative rule: if any code path benefits, keep
+-- the index. Risk asymmetry — a wrong DROP turns a query into a 113K-row
+-- table scan, far worse than carrying an index that's only used once a day.
+--
+-- Verdicts (file:line citations confirmed during audit):
+--
+--   idx_threats_brand_status         KEEP — handlers/threats.ts, brands.ts,
+--                                           campaigns.ts: target_brand_id+status
+--   idx_threats_provider             KEEP — handlers/dashboard.ts, observer.ts
+--                                           (provider GROUP BY)
+--   idx_threats_campaign             KEEP — handlers/campaigns.ts (filter)
+--   idx_threats_type                 KEEP — db/threats.ts, sentinel, nexus
+--   idx_threats_severity             KEEP — handlers/dashboard.ts, threats.ts
+--   idx_threats_first_seen           KEEP — handlers/operations.ts:191
+--                                           ORDER BY t.first_seen DESC,
+--                                           handlers/briefing.ts:431,
+--                                           agents/observer.ts (range scan)
+--   idx_threats_last_seen            KEEP — agents/observer.ts:105 range scan
+--                                           on last_seen + status
+--   idx_threats_created_at           KEEP — handlers/threats.ts:66, dashboard,
+--                                           campaigns, observer, analyst —
+--                                           heaviest single index by query count
+--   idx_threats_domain               KEEP — handlers/threats.ts LIKE search,
+--                                           agents/analyst.ts:67 NOT NULL filter
+--   idx_threats_ip                   KEEP — handlers/threats.ts search,
+--                                           handlers/campaigns.ts:152 GROUP BY
+--   idx_threats_ioc                  KEEP — handlers/threats.ts search,
+--                                           campaigns COUNT DISTINCT
+--   idx_threats_source               KEEP — handlers/dashboard.ts:151 GROUP BY
+--   idx_threats_country              KEEP — handlers/dashboard.ts:157 GROUP BY,
+--                                           handlers/threats.ts geo clusters
+--   idx_threats_cf_scan              KEEP — feeds/cloudflare_scanner.ts:204-207
+--                                           Phase 2 polling needs partial index
+--                                           to avoid scanning 113K rows
+--   idx_threats_status_created       KEEP — composite, hot path on dashboard +
+--                                           observer
+--   idx_threats_brand_created        KEEP — composite, agents/analyst.ts,
+--                                           db/threats.ts brand-scoped reads
+--   idx_threats_unmatched            KEEP — analyst.ts brand-match backfill
+--   idx_threats_saas_technique       KEEP — handlers/threats.ts:62 LEFT JOIN
+--   idx_threats_unlinked_recent      KEEP — analyst.ts unlinked-domain query
+--                                           (justified in 0076 comments)
+--   idx_threats_unresolved_pending   KEEP — lib/dns-backfill.ts 5-min loop
+--                                           (justified in 0082 comments)
+--
+-- Conclusion: write amplification on threats is real, but it's not coming
+-- from dead indexes — every one earns its place. The actual write-hot-path
+-- wins were captured in fixes 1 (Cartographer batch writes) and elsewhere.
+--
+-- If a future engineer wants to push this further, the next two steps are:
+--   (a) Build a write-load profile per agent and see whether any of the
+--       columns (severity, threat_type, source_feed) churn enough during
+--       enrichment passes that their indexes are paying for updates whose
+--       value isn't justified by the read-side gain.
+--   (b) Consider replacing idx_threats_cf_scan with a tighter
+--       (cf_scan_id) WHERE cf_scan_id IS NOT NULL AND cf_verdict IS NULL
+--       partial index to make the Phase 2 poll an exact match instead of
+--       a partial-index scan with residual filter.
+--
+-- No DDL changes in this migration — recording the audit only.
+
+SELECT 'threats index audit complete' AS migration_note;
