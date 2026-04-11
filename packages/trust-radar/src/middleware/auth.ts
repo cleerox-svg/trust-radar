@@ -10,6 +10,13 @@ export interface AuthContext {
   role: UserRole;
   orgId: string | null;
   orgRole: string | null;
+  /**
+   * Pre-resolved org scope from the JWT payload, if present.
+   * `undefined` means the token predates Fix 4 and getOrgScope() must
+   * fall back to a DB lookup. `null` is reserved for super_admins via
+   * the role check inside getOrgScope().
+   */
+  embeddedScope: { org_id: number; brand_ids: string[] } | undefined;
 }
 
 /**
@@ -58,6 +65,7 @@ export async function requireAuth(
     role: payload.role,
     orgId: payload.org_id ?? null,
     orgRole: payload.org_role ?? null,
+    embeddedScope: payload.org_scope,
   };
 }
 
@@ -119,6 +127,11 @@ export interface OrgScope {
 /**
  * Resolve the org scope for the authenticated user.
  * Super admins get null (no filter). Brand admins get their org's brand_ids.
+ *
+ * Hot-path optimization: if the JWT carries org_scope (issued via
+ * loadOrgScopeForToken at login/refresh), we return it immediately with
+ * zero D1 queries. Older tokens fall back to the DB lookup so this
+ * change is safe to roll out without invalidating existing sessions.
  */
 export async function getOrgScope(
   ctx: AuthContext,
@@ -126,10 +139,48 @@ export async function getOrgScope(
 ): Promise<OrgScope | null> {
   if (ctx.role === "super_admin") return null;
 
-  // Look up org membership
+  // Fast path: JWT-embedded scope (zero D1 queries).
+  if (ctx.embeddedScope !== undefined) {
+    return ctx.embeddedScope;
+  }
+
+  // Legacy fallback: 2 D1 queries. Removed once all tokens have rotated
+  // through a refresh after Fix 4 ships (max 12h for access tokens,
+  // 7 days for refresh tokens).
   const membership = await db.prepare(
     "SELECT org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1"
   ).bind(ctx.userId).first<{ org_id: number }>();
+
+  if (!membership) return { org_id: 0, brand_ids: [] };
+
+  const brands = await db.prepare(
+    "SELECT brand_id FROM org_brands WHERE org_id = ?"
+  ).bind(membership.org_id).all<{ brand_id: string }>();
+
+  return {
+    org_id: membership.org_id,
+    brand_ids: brands.results.map((b) => b.brand_id),
+  };
+}
+
+/**
+ * Compute the org scope for embedding in a freshly-issued JWT.
+ * Called only at login and refresh — not on the request hot path.
+ *
+ * Returns null for super_admins (whose scope is implicit by role) and
+ * undefined when the user has no active org membership (so the JWT omits
+ * the field, matching the legacy code path).
+ */
+export async function loadOrgScopeForToken(
+  db: D1Database,
+  userId: string,
+  role: UserRole,
+): Promise<{ org_id: number; brand_ids: string[] } | undefined> {
+  if (role === "super_admin") return undefined;
+
+  const membership = await db.prepare(
+    "SELECT org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1"
+  ).bind(userId).first<{ org_id: number }>();
 
   if (!membership) return { org_id: 0, brand_ids: [] };
 

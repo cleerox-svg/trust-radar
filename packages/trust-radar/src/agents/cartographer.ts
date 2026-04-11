@@ -165,36 +165,47 @@ export const cartographerAgent: AgentModule = {
           .filter((ip): ip is string => ip != null && ip !== '');
         const geoResults = ips.length > 0 ? await enrichIpBatch([...new Set(ips)]) : new Map<string, IpGeoResult>();
 
-        // Update each threat
+        // Collect all writes for this batch and flush via D1 batch() once at the end.
+        // This reduces D1 writer hold time from ~1500 sequential awaits per run
+        // (3 writes × 500 threats) to a small number of batched round-trips, freeing
+        // the writer for user-facing reads.
+        const pendingWrites: D1PreparedStatement[] = [];
+        // Track provider upserts within this batch so we don't queue duplicates
+        // for threats that share the same ASN.
+        const queuedProviderIds = new Set<string>();
+
+        // Pre-load geopolitical campaigns once per batch (cached after first call)
+        const activeCampaigns = await getActiveGeoCampaigns(env.DB);
+
+        // Build all writes for this batch
         for (const threat of unenriched.results) {
           const geo = threat.ip_address ? geoResults.get(threat.ip_address) : null;
 
-          // Match or create hosting provider from ASN
+          // Match or create hosting provider from ASN — queue upsert, don't await
           let providerId = threat.hosting_provider_id;
           if (!providerId && geo?.as) {
             const asn = geo.as.split(' ')[0]; // "AS4837"
             const providerName = geo.as.replace(/^AS\d+\s*/, '').trim() || geo.isp || geo.org;
 
             if (providerName) {
-              // Upsert hosting provider by ASN
               const hpId = `hp_${providerName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
-              try {
-                await env.DB.prepare(`
+              providerId = hpId;
+              if (!queuedProviderIds.has(hpId)) {
+                queuedProviderIds.add(hpId);
+                pendingWrites.push(env.DB.prepare(`
                   INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
                   VALUES (?, ?, ?, ?, datetime('now'))
                   ON CONFLICT(id) DO UPDATE SET
                     last_enriched = datetime('now'),
                     asn = COALESCE(hosting_providers.asn, excluded.asn),
                     country = COALESCE(hosting_providers.country, excluded.country)
-                `).bind(hpId, providerName, asn, geo.countryCode).run();
-                providerId = hpId;
-              } catch (err) {
-                console.error('[cartographer] provider upsert error:', err);
+                `).bind(hpId, providerName, asn, geo.countryCode));
               }
             }
           }
 
-          // RDAP for domain (throttled — max 10 per run to avoid overload)
+          // RDAP for domain (throttled — max 10 per run to avoid overload).
+          // This stays sequential because it's network-bound and rate-limited.
           let registrar: string | null = null;
           let registration_date: string | null = null;
           if (threat.malicious_domain && rdapEnriched < 10) {
@@ -204,40 +215,51 @@ export const cartographerAgent: AgentModule = {
             if (registrar || registration_date) rdapEnriched++;
           }
 
-          // Update threat with enriched data
-          try {
-            await env.DB.prepare(`
-              UPDATE threats SET
-                lat = COALESCE(lat, ?),
-                lng = COALESCE(lng, ?),
-                country_code = COALESCE(country_code, ?),
-                asn = COALESCE(asn, ?),
-                hosting_provider_id = COALESCE(hosting_provider_id, ?),
-                registrar = COALESCE(registrar, ?),
-                registration_date = COALESCE(registration_date, ?),
-                enriched_at = datetime('now')
-              WHERE id = ?
-            `).bind(
-              geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
-              geo?.as?.split(' ')[0] ?? null, providerId,
-              registrar, registration_date, threat.id
-            ).run();
-            batchEnriched++;
-            itemsUpdated++;
+          // Queue threat update — flushed in batch below
+          pendingWrites.push(env.DB.prepare(`
+            UPDATE threats SET
+              lat = COALESCE(lat, ?),
+              lng = COALESCE(lng, ?),
+              country_code = COALESCE(country_code, ?),
+              asn = COALESCE(asn, ?),
+              hosting_provider_id = COALESCE(hosting_provider_id, ?),
+              registrar = COALESCE(registrar, ?),
+              registration_date = COALESCE(registration_date, ?),
+              enriched_at = datetime('now')
+            WHERE id = ?
+          `).bind(
+            geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
+            geo?.as?.split(' ')[0] ?? null, providerId,
+            registrar, registration_date, threat.id
+          ));
+          batchEnriched++;
+          itemsUpdated++;
 
-            // ─── Geopolitical campaign escalation ───
-            // Check if enriched country/ASN matches active geopolitical campaigns
-            const threatCountryCode = geo?.countryCode ?? null;
-            const threatAsn = geo?.as?.split(' ')[0] ?? null;
-            if (threatCountryCode || threatAsn) {
-              try {
-                await escalateGeopoliticalThreat(env.DB, threat.id, threatCountryCode, threatAsn);
-              } catch (escErr) {
-                console.error(`[cartographer] geopolitical escalation error for ${threat.id}:`, escErr);
-              }
+          // ─── Geopolitical campaign escalation ───
+          // Build escalation statements from cached campaigns (no DB read).
+          const threatCountryCode = geo?.countryCode ?? null;
+          const threatAsn = geo?.as?.split(' ')[0] ?? null;
+          if (threatCountryCode || threatAsn) {
+            const escStmts = buildGeopoliticalEscalationStatements(
+              env.DB, activeCampaigns, threat.id, threatCountryCode, threatAsn,
+            );
+            for (const stmt of escStmts) pendingWrites.push(stmt);
+          }
+        }
+
+        // Flush all writes for this batch in one round-trip.
+        // D1 batch() executes statements in a single transaction; failures
+        // roll back the whole batch, so we chunk to keep failures localized
+        // and to stay under any per-batch size limits.
+        if (pendingWrites.length > 0) {
+          const FLUSH_CHUNK = 100;
+          for (let i = 0; i < pendingWrites.length; i += FLUSH_CHUNK) {
+            const slice = pendingWrites.slice(i, i + FLUSH_CHUNK);
+            try {
+              await env.DB.batch(slice);
+            } catch (err) {
+              console.error(`[cartographer] batch flush error (chunk ${i}-${i + slice.length}):`, err);
             }
-          } catch (err) {
-            console.error(`[cartographer] threat update error for ${threat.id}:`, err);
           }
         }
 
@@ -596,13 +618,20 @@ async function getActiveGeoCampaigns(db: D1Database): Promise<GeoCampaign[]> {
   return _geoCampaignCache;
 }
 
-async function escalateGeopoliticalThreat(
+/**
+ * Build the prepared statements for a single geopolitical escalation without
+ * executing them. The caller queues the returned statements into a D1 batch.
+ *
+ * Pure function — no DB I/O. Campaigns must be passed in (cached by the caller).
+ */
+function buildGeopoliticalEscalationStatements(
   db: D1Database,
+  campaigns: GeoCampaign[],
   threatId: string,
   countryCode: string | null,
   asn: string | null,
-): Promise<void> {
-  const campaigns = await getActiveGeoCampaigns(db);
+): D1PreparedStatement[] {
+  const stmts: D1PreparedStatement[] = [];
 
   for (const campaign of campaigns) {
     const adversaryCountries: string[] = JSON.parse(campaign.adversary_countries || '[]');
@@ -613,15 +642,15 @@ async function escalateGeopoliticalThreat(
 
     if (countryMatch || asnMatch) {
       // Auto-escalate severity and link to campaign
-      await db.prepare(
+      stmts.push(db.prepare(
         `UPDATE threats SET severity = 'critical',
            campaign_id = COALESCE(campaign_id, (SELECT campaign_id FROM geopolitical_campaign_links WHERE geopolitical_campaign_id = ? LIMIT 1)),
            confidence_score = MAX(COALESCE(confidence_score, 0), 90)
          WHERE id = ?`
-      ).bind(campaign.id, threatId).run();
+      ).bind(campaign.id, threatId));
 
       // Create geopolitical alert
-      await db.prepare(
+      stmts.push(db.prepare(
         `INSERT INTO alerts (id, brand_id, user_id, alert_type, severity, title, summary, source_type, source_id, created_at, updated_at)
          VALUES (?, '__system__', '__system__', 'geopolitical_threat', 'CRITICAL', ?, ?, 'geopolitical_campaign', ?, datetime('now'), datetime('now'))`
       ).bind(
@@ -629,11 +658,13 @@ async function escalateGeopoliticalThreat(
         `Nation-state threat: ${campaign.name}`,
         `Threat from ${countryCode ?? 'unknown'} infrastructure (ASN: ${asn ?? 'unknown'}) detected. Campaign: ${campaign.conflict}`,
         campaign.id,
-      ).run();
+      ));
 
       break; // One escalation per threat is sufficient
     }
   }
+
+  return stmts;
 }
 
 /**
@@ -697,6 +728,8 @@ async function aggregateProviderStats(env: { DB: D1Database }): Promise<number> 
       }
     }
 
+    // Build all upserts for this period and flush in one batch.
+    const periodWrites: D1PreparedStatement[] = [];
     for (const row of providerRows.results) {
       const priorCount = priorMap.get(row.hosting_provider_id) ?? 0;
       let trendDirection = "stable";
@@ -716,30 +749,34 @@ async function aggregateProviderStats(env: { DB: D1Database }): Promise<number> 
       const providerName = providerNameMap.get(row.hosting_provider_id) ?? row.hosting_provider_id;
 
       const id = crypto.randomUUID();
+      periodWrites.push(db.prepare(`
+        INSERT INTO provider_threat_stats
+          (id, provider_name, period, threat_count, critical_count, high_count, phishing_count, malware_count, top_countries, trend_direction, trend_pct, computed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(provider_name, period) DO UPDATE SET
+          threat_count = excluded.threat_count,
+          critical_count = excluded.critical_count,
+          high_count = excluded.high_count,
+          phishing_count = excluded.phishing_count,
+          malware_count = excluded.malware_count,
+          top_countries = excluded.top_countries,
+          trend_direction = excluded.trend_direction,
+          trend_pct = excluded.trend_pct,
+          computed_at = excluded.computed_at
+      `).bind(
+        id, providerName, period.key,
+        row.threat_count, row.critical_count, row.high_count,
+        row.phishing_count, row.malware_count,
+        JSON.stringify(topCountries), trendDirection, Math.round(trendPct * 10) / 10,
+      ));
+    }
+
+    if (periodWrites.length > 0) {
       try {
-        await db.prepare(`
-          INSERT INTO provider_threat_stats
-            (id, provider_name, period, threat_count, critical_count, high_count, phishing_count, malware_count, top_countries, trend_direction, trend_pct, computed_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-          ON CONFLICT(provider_name, period) DO UPDATE SET
-            threat_count = excluded.threat_count,
-            critical_count = excluded.critical_count,
-            high_count = excluded.high_count,
-            phishing_count = excluded.phishing_count,
-            malware_count = excluded.malware_count,
-            top_countries = excluded.top_countries,
-            trend_direction = excluded.trend_direction,
-            trend_pct = excluded.trend_pct,
-            computed_at = excluded.computed_at
-        `).bind(
-          id, providerName, period.key,
-          row.threat_count, row.critical_count, row.high_count,
-          row.phishing_count, row.malware_count,
-          JSON.stringify(topCountries), trendDirection, Math.round(trendPct * 10) / 10,
-        ).run();
-        totalEntries++;
+        await db.batch(periodWrites);
+        totalEntries += periodWrites.length;
       } catch (err) {
-        console.error(`[cartographer] stats upsert failed for ${providerName}/${period.key}:`, err);
+        console.error(`[cartographer] stats batch failed for period ${period.key}:`, err);
       }
     }
   }

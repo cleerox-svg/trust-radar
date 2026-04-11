@@ -10,8 +10,15 @@ import '@/index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60_000,  // 5 minutes — data stays fresh between page visits
-      gcTime:    10 * 60_000, // 10 minutes — keep in cache even when not displayed
+      // 30-minute staleTime means tab-switching between pages doesn't trigger
+      // a refetch storm. Threat intel changes on a 15-min cron at the fastest,
+      // so 5 minutes was needlessly aggressive — every nav was hitting D1
+      // again for data the user had loaded seconds earlier. With 30 minutes,
+      // a typical session of cross-navigation between Brands/Threats/Campaigns
+      // touches the network once per resource per half-hour. Mutations still
+      // invalidate their relevant keys explicitly, so write paths stay correct.
+      staleTime: 30 * 60_000, // 30 minutes
+      gcTime:    60 * 60_000, // 60 minutes — keep in cache even when not displayed
       retry: (failureCount, error: any) => {
         // Don't retry 4xx errors — only retry network/5xx errors
         if (error?.status >= 400 && error?.status < 500) return false;

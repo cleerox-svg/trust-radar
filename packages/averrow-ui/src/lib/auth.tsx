@@ -30,9 +30,42 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+const USER_CACHE_KEY = 'averrow-user';
+
+function loadCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedUser(user: User | null) {
+  try {
+    if (user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    else localStorage.removeItem(USER_CACHE_KEY);
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Hydrate from cache so the shell can render without a blank screen.
+  // The cached user is validated in the background via /api/auth/me.
+  // If validation fails the api.onAuthError handler clears state and redirects.
+  const [user, setUserState] = useState<User | null>(() => {
+    const cached = loadCachedUser();
+    return cached && api.getToken() ? cached : null;
+  });
+  const [loading, setLoading] = useState(() => {
+    // Skip the blocking loading screen if we already have something to show
+    return !(loadCachedUser() && api.getToken());
+  });
+
+  const setUser = useCallback((u: User | null) => {
+    setUserState(u);
+    saveCachedUser(u);
+  }, []);
 
   const checkAuth = useCallback(async () => {
     // Check URL for OAuth callback tokens (hash fragment from server redirect)
@@ -58,14 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.history.replaceState({}, '', window.location.pathname);
     }
 
-    // If no token from hash, try localStorage (persisted from previous session)
+    // If no token from hash, try cookie-based refresh — but with a hard
+    // timeout so a slow backend can't blank the screen indefinitely.
     if (!api.getToken()) {
-      // Try cookie-based refresh
       try {
         const refreshRes = await fetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(3000),
         });
         if (refreshRes.ok) {
           const data = await refreshRes.json() as any;
@@ -77,21 +111,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!api.getToken()) {
+      setUser(null);
       setLoading(false);
       return;
     }
 
+    // We have a token. If we already hydrated from cache, the shell is
+    // already painting — this just refreshes the user record in the
+    // background. If we did not hydrate from cache, this is the first
+    // time we'll have a user object, so loading must clear after.
     try {
       const res = await api.get<User>('/api/auth/me');
       if (res.success && res.data) {
         setUser(res.data);
+      } else {
+        setUser(null);
+        api.clearTokens();
       }
     } catch {
-      api.clearTokens();
+      // api.onAuthError already handles 401 cleanup; swallow other errors
+      // so a transient network blip doesn't log the user out.
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     api.onAuthError(() => {
@@ -99,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       api.clearTokens();
     });
     checkAuth();
-  }, [checkAuth]);
+  }, [checkAuth, setUser]);
 
   const login = () => {
     window.location.href = '/api/auth/login?return_to=/v2/observatory';
@@ -108,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     api.clearTokens();
     setUser(null);
+    saveCachedUser(null);
     window.location.href = '/';
   };
 
