@@ -2,6 +2,7 @@ import { logger } from '../lib/logger';
 import { feedModules, enrichmentModules, socialModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
 import { runParityChecker } from '../agents/parity-checker';
+import { runCubeHealer } from '../agents/cube-healer';
 import type { Env } from '../types';
 
 interface CronJobResult {
@@ -23,6 +24,15 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // Decoupled from the hourly mesh so a hanging agent there can't block it.
   if (event.cron === '30 * * * *') {
     await runParityChecker(env, ctx);
+    return;
+  }
+
+  // ─── Cube healer tick: full 30-day bulk rebuild (*/10 * * * *) ───
+  // Heals retroactive enrichment drift that fast_tick's current+prev-hour
+  // refresh can't catch. Overlaps "prev hour" with fast_tick — safe because
+  // INSERT OR REPLACE is idempotent.
+  if (event.cron === '*/10 * * * *') {
+    await runCubeHealer(env, ctx);
     return;
   }
 
