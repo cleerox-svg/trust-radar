@@ -13,7 +13,7 @@ import { EventTicker } from './components/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
-import { X, ChevronDown, Activity } from 'lucide-react';
+import { X, ChevronDown, Activity, Loader2, RefreshCw } from 'lucide-react';
 import { ObservatoryOverlay } from './components/ObservatoryOverlay';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useQuery } from '@tanstack/react-query';
@@ -85,11 +85,14 @@ export function Observatory() {
   const [clickedArc, setClickedArc] = useState<{ arc: ArcData; x: number; y: number } | null>(null);
   const [clickedCluster, setClickedCluster] = useState<{ cluster: Operation; x: number; y: number } | null>(null);
 
-  const { data: threats = [] } = useObservatoryThreats({ period, source });
+  const { data: threatsRaw, isRefreshing, error: threatsError, refetch } = useObservatoryThreats({ period, source });
+  const threats = threatsRaw ?? [];
   const { data: stats } = useObservatoryStats({ period, source });
-  const { data: arcs = [] } = useObservatoryArcs({ period, source });
+  const { data: arcs } = useObservatoryArcs({ period, source });
+  const arcsResolved = arcs ?? [];
   const { data: operations = [] } = useOperations({ status: 'active', limit: 50 });
-  const { data: heatmapData = [] } = useObservatoryHeatmap({ period });
+  const { data: heatmapRaw } = useObservatoryHeatmap({ period });
+  const heatmapData = heatmapRaw ?? [];
 
   // Close click cards on Escape or click elsewhere
   useEffect(() => {
@@ -146,7 +149,7 @@ export function Observatory() {
       <div className={cn('absolute inset-0', isMobile ? 'bottom-[108px]' : 'bottom-[84px]')}>
         <ThreatMap
           threats={threats}
-          arcs={arcs}
+          arcs={arcsResolved}
           showBeams={showBeams}
           showParticles={showParticles}
           showNodes={showNodes}
@@ -398,11 +401,40 @@ export function Observatory() {
         </div>
       )}
 
-      {/* Bottom-right: LIVE indicator */}
-      <div className={cn('absolute right-4 z-10', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
+      {/* Bottom-right: LIVE indicator + refreshing state */}
+      <div className={cn('absolute right-4 z-10 flex flex-col items-end gap-1.5', isMobile ? 'bottom-[120px]' : 'bottom-[100px]')}>
+        {threatsError && (
+          <Card variant="critical" style={{ borderRadius: 10, padding: '6px 12px' }}>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px]" style={{ color: 'var(--sev-critical)' }}>
+                Load failed
+              </span>
+              <button
+                onClick={() => refetch()}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--border-base)',
+                  borderRadius: 6,
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <RefreshCw className="w-3 h-3" style={{ color: 'var(--text-secondary)' }} />
+                <span className="font-mono text-[10px]" style={{ color: 'var(--text-secondary)' }}>Retry</span>
+              </button>
+            </div>
+          </Card>
+        )}
         <Card style={{ borderRadius: 10, padding: '6px 12px' }}>
           <div className="flex items-center gap-2">
-            <LiveIndicator />
+            {isRefreshing ? (
+              <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--amber)' }} />
+            ) : (
+              <LiveIndicator />
+            )}
             <span
               className="font-mono text-[10px] tabular-nums"
               style={{ color: 'var(--text-secondary)' }}
