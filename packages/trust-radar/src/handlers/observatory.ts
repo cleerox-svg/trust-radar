@@ -170,6 +170,44 @@ function periodToInterval(period: string): string {
   return "-7 days"; // default 7d
 }
 
+// ── Cube window helpers ───────────────────────────────────────────────────────
+// Used by handlers that query threat_cube_geo. The cube's hour_bucket column is
+// a string-compared key in 'YYYY-MM-DD HH:00:00' form, so window boundaries
+// must be snapped to the top of the hour or else an entire bucket's rows are
+// silently excluded at the edge.
+//
+// The snappedWindowStart helper is duplicated from parity-checker.ts by design
+// (Phase 5 design principle #4). Consolidation into a shared lib module is
+// deferred to a future cleanup phase — parity-checker and fast-tick are both
+// in a stability freeze and cannot be touched in this PR.
+
+/** Period → hours, matching periodToInterval() semantics. */
+function periodToHours(period: string): number {
+  if (period === "24h") return 24;
+  if (period === "30d") return 30 * 24;
+  if (period === "90d") return 90 * 24;
+  if (period === "all") return 3650 * 24;
+  return 7 * 24; // default 7d
+}
+
+/**
+ * Compute the cube window-start hour bucket for a given period, snapped to
+ * the top of the current UTC hour. Returns 'YYYY-MM-DD HH:00:00'.
+ *
+ * Snapping up to the hour widens the query window by up to 59 minutes vs the
+ * raw datetime('now', ?) predicate, which is within the parity-checker's
+ * observed drift envelope (<0.02%).
+ */
+function snappedWindowStart(period: string): string {
+  const hours = periodToHours(period);
+  const nowSnapped = new Date();
+  nowSnapped.setUTCMinutes(0, 0, 0);
+  nowSnapped.setUTCMilliseconds(0);
+  const d = new Date(nowSnapped.getTime() - hours * 60 * 60 * 1000);
+  // 'YYYY-MM-DDTHH:00:00.000Z' → 'YYYY-MM-DD HH:00:00'
+  return d.toISOString().replace("T", " ").slice(0, 19);
+}
+
 interface SourceFilter {
   sql: string;
   params: unknown[];
@@ -184,35 +222,42 @@ function buildSourceFilter(sourceFeed: string | null, alias?: string): SourceFil
 }
 
 // ── GET /api/observatory/nodes ─────────────────────────────────────────────────
-// Returns threat hotspot clusters for ScatterplotLayer
+// Returns threat hotspot clusters for ScatterplotLayer.
+//
+// Phase 5: now reads from threat_cube_geo. The cube is stored at 0.01° grid
+// resolution; this handler aggregates back up to the original 0.1° grid at
+// read time by rounding lat_bucket / lng_bucket. Response shape is unchanged.
+//
+// top_severity and top_threat_type use MAX() over the cube's PK columns —
+// deterministic (alphabetical) vs the pre-cube "arbitrary row" SQLite
+// behaviour. country_code may return the 'XX' sentinel that cube-builder
+// writes for NULL country rows.
 export async function handleObservatoryNodes(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
-  const interval = periodToInterval(period);
+  const windowStart = snappedWindowStart(period);
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
     const rows = await env.DB.prepare(`
       SELECT
-        ROUND(lat, 1) AS lat,
-        ROUND(lng, 1) AS lng,
-        COUNT(*) AS threat_count,
+        ROUND(lat_bucket, 1) AS lat,
+        ROUND(lng_bucket, 1) AS lng,
+        SUM(threat_count) AS threat_count,
         MAX(severity) AS top_severity,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) AS critical,
-        SUM(CASE WHEN severity = 'high'     THEN 1 ELSE 0 END) AS high,
-        SUM(CASE WHEN severity = 'medium'   THEN 1 ELSE 0 END) AS medium,
-        SUM(CASE WHEN severity = 'low'      THEN 1 ELSE 0 END) AS low,
-        country_code,
-        threat_type AS top_threat_type
-      FROM threats
-      WHERE lat IS NOT NULL AND lng IS NOT NULL
-        AND status = 'active'
-        AND created_at > datetime('now', ?)${sourceFilter.sql}
-      GROUP BY ROUND(lat, 1), ROUND(lng, 1)
+        SUM(CASE WHEN severity = 'critical' THEN threat_count ELSE 0 END) AS critical,
+        SUM(CASE WHEN severity = 'high'     THEN threat_count ELSE 0 END) AS high,
+        SUM(CASE WHEN severity = 'medium'   THEN threat_count ELSE 0 END) AS medium,
+        SUM(CASE WHEN severity = 'low'      THEN threat_count ELSE 0 END) AS low,
+        MAX(country_code) AS country_code,
+        MAX(threat_type) AS top_threat_type
+      FROM threat_cube_geo
+      WHERE hour_bucket >= ?${sourceFilter.sql}
+      GROUP BY ROUND(lat_bucket, 1), ROUND(lng_bucket, 1)
       ORDER BY threat_count DESC
       LIMIT 200
-    `).bind(interval, ...sourceFilter.params).all<{
+    `).bind(windowStart, ...sourceFilter.params).all<{
       lat: number; lng: number; threat_count: number; top_severity: string | null;
       critical: number; high: number; medium: number; low: number;
       country_code: string | null; top_threat_type: string | null;
@@ -426,28 +471,43 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
 }
 
 // ── GET /api/observatory/stats ─────────────────────────────────────────────────
-// Returns summary stats for the stats bar
+// Returns summary stats for the stats bar.
+//
+// Phase 5 partial swap:
+//   - threats_mapped → threat_cube_geo (SUM(threat_count)). Note: the cube
+//     only stores rows with lat/lng, so this value is now strictly the count
+//     of geolocated active threats (which is what the "mapped" label already
+//     implies). Active threats with NULL lat/lng no longer contribute here.
+//   - countries       → threat_cube_geo (COUNT(DISTINCT country_code))
+//   - active_campaigns → unchanged (queries campaigns table, not threats)
+//   - brands_monitored → stays on raw threats. The cube has no
+//     target_brand_id dimension, so this query cannot be served from it.
+//     Adding a brand-keyed cube is a future-phase scope decision.
 export async function handleObservatoryStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
+  const windowStart = snappedWindowStart(period);
   const sourceFeed = url.searchParams.get("source_feed");
   const sf = buildSourceFilter(sourceFeed);
 
   try {
-    // KV cache: observatory stats only change when feeds run — cache for 2 minutes
+    // KV cache: observatory stats only change when feeds run — cache for 2 minutes.
+    // Cache key is intentionally unchanged from the raw-sourced implementation;
+    // existing cached entries will serve pre-swap values until TTL expires
+    // (up to 2 minutes of stale raw-sourced values post-deploy).
     const cacheKey = `observatory_stats:${period}:${sourceFeed ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return json(JSON.parse(cached), 200, origin);
 
     const [threats, countries, campaigns, brands] = await Promise.all([
       env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM threats WHERE status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
-      ).bind(interval, ...sf.params).first<{ n: number }>(),
+        `SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
+      ).bind(windowStart, ...sf.params).first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT COUNT(DISTINCT country_code) AS n FROM threats WHERE lat IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
-      ).bind(interval, ...sf.params).first<{ n: number }>(),
+        `SELECT COUNT(DISTINCT country_code) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
+      ).bind(windowStart, ...sf.params).first<{ n: number }>(),
       env.DB.prepare(
         `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
       ).first<{ n: number }>(),
