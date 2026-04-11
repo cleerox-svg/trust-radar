@@ -285,37 +285,39 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
-    const rows = await session.prepare(`
-      SELECT
-        ROUND(t.lat, 1) AS source_lat,
-        ROUND(t.lng, 1) AS source_lng,
-        t.threat_type,
-        t.severity,
-        t.country_code AS source_country,
-        b.name AS target_brand,
-        b.canonical_domain AS target_domain,
-        b.sector AS target_sector,
-        COUNT(*) AS volume
-      FROM threats t
-      JOIN brands b ON b.id = t.target_brand_id
-      WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
-        AND t.target_brand_id IS NOT NULL
-        AND t.status = 'active'
-        AND t.created_at > datetime('now', ?)${sourceFilter.sql}
-      GROUP BY t.country_code, t.target_brand_id, t.threat_type
-      ORDER BY volume DESC
-      LIMIT ?
-    `).bind(interval, ...sourceFilter.params, limit).all<{
-      source_lat: number; source_lng: number; threat_type: string;
-      severity: string | null; source_country: string | null;
-      target_brand: string | null; target_domain: string | null;
-      target_sector: string | null; volume: number;
-    }>();
-
-    // Fallback: if filtered result is too sparse, re-query without time filter
-    let resultRows = rows.results ?? [];
-    if (resultRows.length < 5) {
-      const fallbackRows = await session.prepare(`
+    // Fire both queries in parallel — the time-filtered query and the unfiltered
+    // fallback. If filtered results are sufficient (≥5), we use them; otherwise
+    // we fall back to the broader result. Both queries are cheap JOINs on indexed
+    // columns, so running both concurrently costs one extra query on full data days
+    // but eliminates an entire round-trip latency on sparse-data days.
+    const [rows, fallbackRows] = await Promise.all([
+      session.prepare(`
+        SELECT
+          ROUND(t.lat, 1) AS source_lat,
+          ROUND(t.lng, 1) AS source_lng,
+          t.threat_type,
+          t.severity,
+          t.country_code AS source_country,
+          b.name AS target_brand,
+          b.canonical_domain AS target_domain,
+          b.sector AS target_sector,
+          COUNT(*) AS volume
+        FROM threats t
+        JOIN brands b ON b.id = t.target_brand_id
+        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+          AND t.target_brand_id IS NOT NULL
+          AND t.status = 'active'
+          AND t.created_at > datetime('now', ?)${sourceFilter.sql}
+        GROUP BY t.country_code, t.target_brand_id, t.threat_type
+        ORDER BY volume DESC
+        LIMIT ?
+      `).bind(interval, ...sourceFilter.params, limit).all<{
+        source_lat: number; source_lng: number; threat_type: string;
+        severity: string | null; source_country: string | null;
+        target_brand: string | null; target_domain: string | null;
+        target_sector: string | null; volume: number;
+      }>(),
+      session.prepare(`
         SELECT
           ROUND(t.lat, 1) AS source_lat,
           ROUND(t.lng, 1) AS source_lng,
@@ -339,9 +341,10 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         severity: string | null; source_country: string | null;
         target_brand: string | null; target_domain: string | null;
         target_sector: string | null; volume: number;
-      }>();
-      resultRows = fallbackRows.results ?? [];
-    }
+      }>(),
+    ]);
+
+    const resultRows = (rows.results?.length ?? 0) >= 5 ? rows.results ?? [] : fallbackRows.results ?? [];
 
     const arcs = resultRows
       .map(row => {

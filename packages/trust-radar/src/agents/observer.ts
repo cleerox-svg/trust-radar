@@ -33,50 +33,79 @@ export const observerAgent: AgentModule = {
     let model: string | undefined;
     const outputs: AgentOutputEntry[] = [];
 
-    // ─── Gather threat summary (last 24h) ────────────────────────
-    const summary = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as total_24h,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
-        COUNT(DISTINCT source_feed) as feed_count,
-        COUNT(DISTINCT threat_type) as type_count,
-        COUNT(DISTINCT country_code) as country_count
-      FROM threats WHERE created_at >= datetime('now', '-24 hours')
-    `).first<{
-      total_24h: number; critical: number; high: number;
-      feed_count: number; type_count: number; country_count: number;
-    }>();
-
-    // ─── Enrichment validation summary (SURBL + VT + GSB + DBL + GreyNoise + SecLookup, last 24h) ────
-    const enrichmentSummary = await env.DB.prepare(`
-      SELECT
-        SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed_today,
-        SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged_today,
-        SUM(CASE WHEN vt_malicious > 5 THEN 1 ELSE 0 END) as vt_critical_today,
-        SUM(CASE WHEN gsb_flagged = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as gsb_24h,
-        SUM(CASE WHEN dbl_listed = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as dbl_24h,
-        SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 1 AND greynoise_classification = 'benign' THEN 1 ELSE 0 END) as greynoise_benign_24h,
-        SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 1 AND greynoise_classification = 'malicious' THEN 1 ELSE 0 END) as greynoise_malicious_24h,
-        SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 0 THEN 1 ELSE 0 END) as greynoise_targeted_24h,
-        SUM(CASE WHEN greynoise_riot = 1 THEN 1 ELSE 0 END) as greynoise_riot_24h,
-        SUM(CASE WHEN seclookup_checked = 1 AND seclookup_risk_score >= 80 THEN 1 ELSE 0 END) as seclookup_high_risk_24h,
-        SUM(CASE WHEN seclookup_checked = 1 THEN 1 ELSE 0 END) as seclookup_checked_24h
-      FROM threats
-      WHERE first_seen >= datetime('now', '-24 hours')
-    `).first<{
-      surbl_confirmed_today: number;
-      vt_flagged_today: number;
-      vt_critical_today: number;
-      gsb_24h: number;
-      dbl_24h: number;
-      greynoise_benign_24h: number;
-      greynoise_malicious_24h: number;
-      greynoise_targeted_24h: number;
-      greynoise_riot_24h: number;
-      seclookup_high_risk_24h: number;
-      seclookup_checked_24h: number;
-    }>();
+    // ─── Gather all independent aggregate queries in parallel ────
+    const [
+      summary, enrichmentSummary, topBrands, topProviders,
+      typeBreakdown, prevSummary, recentCampaigns,
+    ] = await Promise.all([
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) as total_24h,
+          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
+          COUNT(DISTINCT source_feed) as feed_count,
+          COUNT(DISTINCT threat_type) as type_count,
+          COUNT(DISTINCT country_code) as country_count
+        FROM threats WHERE created_at >= datetime('now', '-24 hours')
+      `).first<{
+        total_24h: number; critical: number; high: number;
+        feed_count: number; type_count: number; country_count: number;
+      }>(),
+      // ─── Enrichment validation summary (SURBL + VT + GSB + DBL + GreyNoise + SecLookup, last 24h) ────
+      env.DB.prepare(`
+        SELECT
+          SUM(CASE WHEN surbl_listed = 1 THEN 1 ELSE 0 END) as surbl_confirmed_today,
+          SUM(CASE WHEN vt_malicious > 0 THEN 1 ELSE 0 END) as vt_flagged_today,
+          SUM(CASE WHEN vt_malicious > 5 THEN 1 ELSE 0 END) as vt_critical_today,
+          SUM(CASE WHEN gsb_flagged = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as gsb_24h,
+          SUM(CASE WHEN dbl_listed = 1 AND first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as dbl_24h,
+          SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 1 AND greynoise_classification = 'benign' THEN 1 ELSE 0 END) as greynoise_benign_24h,
+          SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 1 AND greynoise_classification = 'malicious' THEN 1 ELSE 0 END) as greynoise_malicious_24h,
+          SUM(CASE WHEN greynoise_checked = 1 AND greynoise_noise = 0 THEN 1 ELSE 0 END) as greynoise_targeted_24h,
+          SUM(CASE WHEN greynoise_riot = 1 THEN 1 ELSE 0 END) as greynoise_riot_24h,
+          SUM(CASE WHEN seclookup_checked = 1 AND seclookup_risk_score >= 80 THEN 1 ELSE 0 END) as seclookup_high_risk_24h,
+          SUM(CASE WHEN seclookup_checked = 1 THEN 1 ELSE 0 END) as seclookup_checked_24h
+        FROM threats
+        WHERE first_seen >= datetime('now', '-24 hours')
+      `).first<{
+        surbl_confirmed_today: number; vt_flagged_today: number; vt_critical_today: number;
+        gsb_24h: number; dbl_24h: number;
+        greynoise_benign_24h: number; greynoise_malicious_24h: number;
+        greynoise_targeted_24h: number; greynoise_riot_24h: number;
+        seclookup_high_risk_24h: number; seclookup_checked_24h: number;
+      }>(),
+      // ─── Top targeted brands (with IDs for linking) ──────────────
+      env.DB.prepare(`
+        SELECT b.id, b.name, COUNT(*) as count
+        FROM threats t JOIN brands b ON t.target_brand_id = b.id
+        WHERE t.created_at >= datetime('now', '-24 hours')
+        GROUP BY b.id ORDER BY count DESC LIMIT 10
+      `).all<{ id: string; name: string; count: number }>(),
+      // ─── Top hosting providers ───────────────────────────────────
+      env.DB.prepare(`
+        SELECT hp.name, COUNT(*) as count
+        FROM threats t JOIN hosting_providers hp ON t.hosting_provider_id = hp.id
+        WHERE t.created_at >= datetime('now', '-24 hours')
+        GROUP BY hp.name ORDER BY count DESC LIMIT 10
+      `).all<{ name: string; count: number }>(),
+      // ─── Threat type distribution ────────────────────────────────
+      env.DB.prepare(`
+        SELECT threat_type, COUNT(*) as count
+        FROM threats WHERE created_at >= datetime('now', '-24 hours')
+        GROUP BY threat_type ORDER BY count DESC
+      `).all<{ threat_type: string; count: number }>(),
+      // ─── Compare with previous day ───────────────────────────────
+      env.DB.prepare(`
+        SELECT COUNT(*) as total_prev
+        FROM threats WHERE created_at >= datetime('now', '-48 hours') AND created_at < datetime('now', '-24 hours')
+      `).first<{ total_prev: number }>(),
+      // ─── Recent campaigns ────────────────────────────────────────
+      env.DB.prepare(
+        `SELECT id, name, threat_count FROM campaigns
+         WHERE last_seen >= datetime('now', '-48 hours') AND status = 'active'
+         ORDER BY threat_count DESC LIMIT 10`
+      ).all<{ id: string; name: string; threat_count: number }>(),
+    ]);
 
     const surblConfirmed = enrichmentSummary?.surbl_confirmed_today ?? 0;
     const vtFlagged = enrichmentSummary?.vt_flagged_today ?? 0;
@@ -104,45 +133,9 @@ export const observerAgent: AgentModule = {
       ? `External validation: ${enrichmentParts.join(', ')}.`
       : '';
 
-    // ─── Top targeted brands (with IDs for linking) ──────────────
-    const topBrands = await env.DB.prepare(`
-      SELECT b.id, b.name, COUNT(*) as count
-      FROM threats t JOIN brands b ON t.target_brand_id = b.id
-      WHERE t.created_at >= datetime('now', '-24 hours')
-      GROUP BY b.id ORDER BY count DESC LIMIT 10
-    `).all<{ id: string; name: string; count: number }>();
-
-    // ─── Top hosting providers ───────────────────────────────────
-    const topProviders = await env.DB.prepare(`
-      SELECT hp.name, COUNT(*) as count
-      FROM threats t JOIN hosting_providers hp ON t.hosting_provider_id = hp.id
-      WHERE t.created_at >= datetime('now', '-24 hours')
-      GROUP BY hp.name ORDER BY count DESC LIMIT 10
-    `).all<{ name: string; count: number }>();
-
-    // ─── Threat type distribution ────────────────────────────────
-    const typeBreakdown = await env.DB.prepare(`
-      SELECT threat_type, COUNT(*) as count
-      FROM threats WHERE created_at >= datetime('now', '-24 hours')
-      GROUP BY threat_type ORDER BY count DESC
-    `).all<{ threat_type: string; count: number }>();
-
-    // ─── Compare with previous day ───────────────────────────────
-    const prevSummary = await env.DB.prepare(`
-      SELECT COUNT(*) as total_prev
-      FROM threats WHERE created_at >= datetime('now', '-48 hours') AND created_at < datetime('now', '-24 hours')
-    `).first<{ total_prev: number }>();
-
     const totalNow = summary?.total_24h ?? 0;
     const totalPrev = prevSummary?.total_prev ?? 0;
     const changePercent = totalPrev > 0 ? Math.round(((totalNow - totalPrev) / totalPrev) * 100) : 0;
-
-    // ─── Recent campaigns ────────────────────────────────────────
-    const recentCampaigns = await env.DB.prepare(
-      `SELECT id, name, threat_count FROM campaigns
-       WHERE last_seen >= datetime('now', '-48 hours') AND status = 'active'
-       ORDER BY threat_count DESC LIMIT 10`
-    ).all<{ id: string; name: string; threat_count: number }>();
 
     // ─── Active geopolitical campaigns ─────────────────────────────
     let geopoliticalContext = "";

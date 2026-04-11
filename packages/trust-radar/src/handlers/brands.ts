@@ -105,17 +105,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
              MAX(t.created_at) AS last_threat_seen,
              CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count,
-             (
-               SELECT json_group_array(daily_count)
-               FROM (
-                 SELECT COUNT(*) as daily_count
-                 FROM threats t2
-                 WHERE t2.target_brand_id = b.id
-                   AND t2.created_at >= datetime('now', '-14 days')
-                 GROUP BY date(t2.created_at)
-                 ORDER BY date(t2.created_at) ASC
-               )
-             ) as threat_history_json
+             th.threat_history_json
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
       LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
@@ -130,6 +120,17 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         WHERE classification = 'impersonation' AND status = 'active'
         GROUP BY brand_id
       ) sp_imp ON sp_imp.brand_id = b.id
+      LEFT JOIN (
+        SELECT target_brand_id, json_group_array(daily_count) AS threat_history_json
+        FROM (
+          SELECT target_brand_id, COUNT(*) AS daily_count, date(created_at) AS day
+          FROM threats
+          WHERE created_at >= datetime('now', '-14 days')
+          GROUP BY target_brand_id, day
+          ORDER BY target_brand_id, day ASC
+        )
+        GROUP BY target_brand_id
+      ) th ON th.target_brand_id = b.id
       ${where}
       GROUP BY b.id
       ORDER BY ${sortClause}

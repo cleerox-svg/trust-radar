@@ -50,6 +50,54 @@ export const strategistAgent: AgentModule = {
       sources: string; types: string;
     }>();
 
+    // ── Pre-batch context for all IP clusters ──────────────────────
+    // Fetch domains, brands, and providers for all cluster IPs in 3 queries
+    // instead of 3 queries × N clusters inside the loop.
+    const allClusterIps = ipClusters.results.map(c => c.ip_address);
+    const ipPlaceholders = allClusterIps.map(() => '?').join(',');
+
+    // Initialize maps empty; only populate when there are IPs to query.
+    // Avoids type-assertion hacks: maps remain empty [] on zero-IP runs.
+    const ipDomainsMap = new Map<string, string[]>();
+    const ipBrandsMap = new Map<string, string[]>();
+    const ipProvidersMap = new Map<string, string[]>();
+
+    if (allClusterIps.length > 0) {
+      const [domainsRes, brandsRes, providersRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT ip_address, malicious_domain FROM threats
+           WHERE ip_address IN (${ipPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
+           GROUP BY ip_address, malicious_domain`
+        ).bind(...allClusterIps).all<{ ip_address: string; malicious_domain: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.ip_address, b.name FROM threats t
+           JOIN brands b ON b.id = t.target_brand_id
+           WHERE t.ip_address IN (${ipPlaceholders}) AND t.status = 'active'`
+        ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.ip_address, COALESCE(hp.name, t.hosting_provider_id) AS name
+           FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+           WHERE t.ip_address IN (${ipPlaceholders}) AND t.hosting_provider_id IS NOT NULL`
+        ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
+      ]);
+
+      for (const r of domainsRes.results) {
+        const arr = ipDomainsMap.get(r.ip_address) ?? [];
+        arr.push(r.malicious_domain);
+        ipDomainsMap.set(r.ip_address, arr);
+      }
+      for (const r of brandsRes.results) {
+        const arr = ipBrandsMap.get(r.ip_address) ?? [];
+        arr.push(r.name);
+        ipBrandsMap.set(r.ip_address, arr);
+      }
+      for (const r of providersRes.results) {
+        const arr = ipProvidersMap.get(r.ip_address) ?? [];
+        arr.push(r.name);
+        ipProvidersMap.set(r.ip_address, arr);
+      }
+    }
+
     for (const cluster of ipClusters.results) {
       itemsProcessed++;
 
@@ -95,28 +143,21 @@ export const strategistAgent: AgentModule = {
           }
         }
       } else {
-        // Create new campaign
+        // Create new campaign — use pre-fetched context maps (no per-IP DB calls)
         campaignId = crypto.randomUUID();
         const fallbackName = `IP-cluster-${cluster.ip_address.replace(/\./g, "-")}`;
 
-        // Fetch campaign context for AI naming
-        const campDomains = await env.DB.prepare(
-          `SELECT DISTINCT malicious_domain FROM threats WHERE ip_address = ? AND status = 'active' AND malicious_domain IS NOT NULL LIMIT 10`
-        ).bind(cluster.ip_address).all<{ malicious_domain: string }>();
-        const campBrands = await env.DB.prepare(
-          `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.ip_address = ? AND t.status = 'active' LIMIT 5`
-        ).bind(cluster.ip_address).all<{ name: string }>();
-        const campProviders = await env.DB.prepare(
-          `SELECT DISTINCT COALESCE(hp.name, t.hosting_provider_id) AS name FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id WHERE t.ip_address = ? AND t.hosting_provider_id IS NOT NULL LIMIT 3`
-        ).bind(cluster.ip_address).all<{ name: string }>();
+        const campDomainsList = (ipDomainsMap.get(cluster.ip_address) ?? []).slice(0, 10);
+        const campBrandsList  = (ipBrandsMap.get(cluster.ip_address) ?? []).slice(0, 5);
+        const campProvidersList = (ipProvidersMap.get(cluster.ip_address) ?? []).slice(0, 3);
 
         // Generate AI name at creation time (fall back to technical ID if Haiku fails)
         let name = fallbackName;
         const nameResult = await generateCampaignName(env, callCtx, {
-          domains: campDomains.results.map(d => d.malicious_domain),
-          target_brands: campBrands.results.map(b => b.name),
+          domains: campDomainsList,
+          target_brands: campBrandsList,
           threat_types: cluster.types ? cluster.types.split(",") : [],
-          providers: campProviders.results.map(p => p.name),
+          providers: campProvidersList,
           threat_count: cluster.threat_count,
           ip_count: 1,
         });
@@ -185,24 +226,54 @@ export const strategistAgent: AgentModule = {
        ORDER BY threat_count DESC LIMIT 10`
     ).all<{ registrar: string; threat_count: number }>();
 
+    // ── Pre-batch context for all registrar clusters ───────────────
+    const allRegistrars = registrarClusters.results.map(c => c.registrar);
+    const regPlaceholders = allRegistrars.map(() => '?').join(',');
+
+    const regDomainsMap = new Map<string, string[]>();
+    const regBrandsMap = new Map<string, string[]>();
+
+    if (allRegistrars.length > 0) {
+      const [regDomainsRes, regBrandsRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT DISTINCT registrar, malicious_domain FROM threats
+           WHERE registrar IN (${regPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
+             AND created_at >= datetime('now', '-7 days')`
+        ).bind(...allRegistrars).all<{ registrar: string; malicious_domain: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.registrar, b.name FROM threats t
+           JOIN brands b ON b.id = t.target_brand_id
+           WHERE t.registrar IN (${regPlaceholders}) AND t.status = 'active'
+             AND t.created_at >= datetime('now', '-7 days')`
+        ).bind(...allRegistrars).all<{ registrar: string; name: string }>(),
+      ]);
+
+      for (const r of regDomainsRes.results) {
+        const arr = regDomainsMap.get(r.registrar) ?? [];
+        arr.push(r.malicious_domain);
+        regDomainsMap.set(r.registrar, arr);
+      }
+      for (const r of regBrandsRes.results) {
+        const arr = regBrandsMap.get(r.registrar) ?? [];
+        arr.push(r.name);
+        regBrandsMap.set(r.registrar, arr);
+      }
+    }
+
     for (const cluster of registrarClusters.results) {
       itemsProcessed++;
 
       const campaignId = crypto.randomUUID();
       const fallbackName = `Registrar-cluster-${cluster.registrar.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}`;
 
-      // Fetch context for AI naming
-      const regDomains = await env.DB.prepare(
-        `SELECT DISTINCT malicious_domain FROM threats WHERE registrar = ? AND status = 'active' AND malicious_domain IS NOT NULL AND created_at >= datetime('now', '-7 days') LIMIT 10`
-      ).bind(cluster.registrar).all<{ malicious_domain: string }>();
-      const regBrands = await env.DB.prepare(
-        `SELECT DISTINCT b.name FROM threats t JOIN brands b ON b.id = t.target_brand_id WHERE t.registrar = ? AND t.status = 'active' AND t.created_at >= datetime('now', '-7 days') LIMIT 5`
-      ).bind(cluster.registrar).all<{ name: string }>();
+      // Use pre-fetched context maps (no per-registrar DB calls)
+      const regDomainsList = (regDomainsMap.get(cluster.registrar) ?? []).slice(0, 10);
+      const regBrandsList  = (regBrandsMap.get(cluster.registrar) ?? []).slice(0, 5);
 
       let name = fallbackName;
       const nameResult = await generateCampaignName(env, callCtx, {
-        domains: regDomains.results.map(d => d.malicious_domain),
-        target_brands: regBrands.results.map(b => b.name),
+        domains: regDomainsList,
+        target_brands: regBrandsList,
         threat_types: [],
         providers: [cluster.registrar],
         threat_count: cluster.threat_count,

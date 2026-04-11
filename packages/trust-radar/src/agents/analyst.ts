@@ -116,6 +116,14 @@ export const analystAgent: AgentModule = {
     let keywordPreMatched = 0;
     const matchedBrandIds = new Set<string>();
 
+    // Collect keyword-match updates to batch in one D1 request after the loop
+    const keywordMatchBatch: { threatId: string; brandId: string }[] = [];
+    // Collect AI-match updates similarly
+    const aiMatchUpdates: {
+      threatId: string; brandId: string; brandName: string; threatType: string;
+      attackVector: string; targetAudience: string; sophistication: string;
+    }[] = [];
+
     for (const threat of threats.results) {
       itemsProcessed++;
 
@@ -138,11 +146,9 @@ export const analystAgent: AgentModule = {
       }
 
       if (preMatchedBrandId) {
-        // High-confidence keyword match — assign brand directly, skip AI
+        // High-confidence keyword match — collect for batch write below
         keywordPreMatched++;
-        await env.DB.prepare(
-          `UPDATE threats SET target_brand_id = ?, brand_match_method = 'keyword' WHERE id = ?`
-        ).bind(preMatchedBrandId, threat.id).run();
+        keywordMatchBatch.push({ threatId: threat.id, brandId: preMatchedBrandId });
         matchedBrandIds.add(preMatchedBrandId);
         itemsUpdated++;
         continue; // skip to next threat
@@ -242,41 +248,93 @@ export const analystAgent: AgentModule = {
         }
       }
 
+      // Collect for batch DB write after the loop
+      aiMatchUpdates.push({
+        threatId: threat.id,
+        brandId: brandId.id,
+        brandName: matchedBrand,
+        threatType: threat.threat_type,
+        attackVector,
+        targetAudience,
+        sophistication,
+      });
+      matchedBrandIds.add(brandId.id);
+      itemsUpdated++;
+    }
+
+    // ─── Batch flush keyword-match updates ────────────────────────
+    // Send all keyword-matched threat updates in a single D1 batch request.
+    if (keywordMatchBatch.length > 0) {
       try {
-        await env.DB.prepare(
-          "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL"
-        ).bind(brandId.id, threat.id).run();
-        await incrementBrandThreatCount(env, brandId.id);
-        itemsUpdated++;
-
-        // Factor email security into risk: escalate phishing to CRITICAL when brand has weak email security
-        const emailSec = await env.DB.prepare(
-          'SELECT email_security_grade, email_security_score FROM brands WHERE id = ?'
-        ).bind(brandId.id).first<{ email_security_grade: string | null; email_security_score: number | null }>();
-
-        if (emailSec?.email_security_grade && ['F', 'D'].includes(emailSec.email_security_grade)) {
-          if (threat.threat_type === 'phishing') {
-            await env.DB.prepare(
-              "UPDATE threats SET severity = 'critical' WHERE id = ?"
-            ).bind(threat.id).run();
-          }
-          outputs.push({
-            type: 'classification',
-            summary: `**Email Security Risk** — ${matchedBrand} has grade ${emailSec.email_security_grade}: weak spoofing protection increases phishing effectiveness. ${threat.threat_type === 'phishing' ? 'Threat escalated to CRITICAL.' : ''}`,
-            severity: 'high',
-            details: {
-              brand: matchedBrand,
-              email_security_grade: emailSec.email_security_grade,
-              threat_type: threat.threat_type,
-              attack_vector: attackVector,
-              target_audience: targetAudience,
-              sophistication,
-            },
-            relatedBrandIds: [brandId.id],
-          });
-        }
+        await env.DB.batch(
+          keywordMatchBatch.map(({ threatId, brandId }) =>
+            env.DB.prepare(
+              `UPDATE threats SET target_brand_id = ?, brand_match_method = 'keyword' WHERE id = ?`
+            ).bind(brandId, threatId)
+          )
+        );
       } catch (err) {
-        console.error(`[analyst] update failed for ${threat.id}:`, err);
+        console.error('[analyst] keyword batch update failed:', err);
+      }
+    }
+
+    // ─── Batch flush AI-match updates + email security escalations ──
+    if (aiMatchUpdates.length > 0) {
+      // Write brand assignments in one batch
+      try {
+        await env.DB.batch(
+          aiMatchUpdates.map(({ threatId, brandId }) =>
+            env.DB.prepare(
+              "UPDATE threats SET target_brand_id = ? WHERE id = ? AND target_brand_id IS NULL"
+            ).bind(brandId, threatId)
+          )
+        );
+      } catch (err) {
+        console.error('[analyst] AI-match batch update failed:', err);
+      }
+
+      // Bulk-increment threat counts for all matched brands
+      const uniqueAiMatchedBrands = [...new Set(aiMatchUpdates.map(u => u.brandId))];
+      for (const bId of uniqueAiMatchedBrands) {
+        try { await incrementBrandThreatCount(env, bId); } catch { /* non-fatal */ }
+      }
+
+      // Fetch email security for all matched brands in one query, then process escalations
+      if (uniqueAiMatchedBrands.length > 0) {
+        const emailPlaceholders = uniqueAiMatchedBrands.map(() => '?').join(',');
+        const emailSecRows = await env.DB.prepare(
+          `SELECT id, email_security_grade FROM brands WHERE id IN (${emailPlaceholders})`
+        ).bind(...uniqueAiMatchedBrands).all<{ id: string; email_security_grade: string | null }>();
+        const emailSecMap = new Map(emailSecRows.results.map(r => [r.id, r.email_security_grade]));
+
+        const severityEscalations: D1PreparedStatement[] = [];
+        for (const update of aiMatchUpdates) {
+          const grade = emailSecMap.get(update.brandId);
+          if (grade && ['F', 'D'].includes(grade)) {
+            if (update.threatType === 'phishing') {
+              severityEscalations.push(
+                env.DB.prepare("UPDATE threats SET severity = 'critical' WHERE id = ?").bind(update.threatId)
+              );
+            }
+            outputs.push({
+              type: 'classification',
+              summary: `**Email Security Risk** — ${update.brandName} has grade ${grade}: weak spoofing protection increases phishing effectiveness. ${update.threatType === 'phishing' ? 'Threat escalated to CRITICAL.' : ''}`,
+              severity: 'high',
+              details: {
+                brand: update.brandName,
+                email_security_grade: grade,
+                threat_type: update.threatType,
+                attack_vector: update.attackVector,
+                target_audience: update.targetAudience,
+                sophistication: update.sophistication,
+              },
+              relatedBrandIds: [update.brandId],
+            });
+          }
+        }
+        if (severityEscalations.length > 0) {
+          try { await env.DB.batch(severityEscalations); } catch { /* non-fatal */ }
+        }
       }
     }
 

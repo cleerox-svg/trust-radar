@@ -55,11 +55,13 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
                 st.phase_label AS saas_technique_phase_label,
                 st.severity    AS saas_technique_severity,
                 b.name AS brand_name,
-                (SELECT tai2.threat_actor_id FROM threat_actor_infrastructure tai2 WHERE tai2.asn = t.asn LIMIT 1) AS actor_id,
-                (SELECT ta2.name FROM threat_actors ta2 JOIN threat_actor_infrastructure tai3 ON tai3.threat_actor_id = ta2.id WHERE tai3.asn = t.asn LIMIT 1) AS actor_name
+                tai.threat_actor_id AS actor_id,
+                ta.name AS actor_name
          FROM threats t
          LEFT JOIN brands b ON b.id = t.target_brand_id
          LEFT JOIN saas_techniques st ON st.id = t.saas_technique_id
+         LEFT JOIN (SELECT asn, threat_actor_id FROM threat_actor_infrastructure GROUP BY asn) tai ON tai.asn = t.asn
+         LEFT JOIN threat_actors ta ON ta.id = tai.threat_actor_id
          ${where}
          ORDER BY t.created_at DESC LIMIT ? OFFSET ?`
       ).bind(...params).all();
@@ -100,82 +102,72 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
 export async function handleThreatStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const summary = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
-        SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium,
-        SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN status = 'remediated' THEN 1 ELSE 0 END) as remediated,
-        COUNT(DISTINCT source_feed) as sources,
-        COUNT(DISTINCT threat_type) as types
-      FROM threats
-    `).first();
-
-    const last24h = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
-      FROM threats WHERE created_at >= datetime('now', '-24 hours')
-    `).first();
-
-    const today = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as threats_flagged,
-        COUNT(DISTINCT country_code) as countries_active,
-        SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical_today,
-        SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today
-      FROM threats WHERE created_at >= date('now', 'start of day')
-    `).first<{
-      threats_flagged: number; countries_active: number;
-      critical_today: number; high_today: number;
-    }>();
-
-    const yesterday = await env.DB.prepare(`
-      SELECT
-        COUNT(*) as threats_flagged,
-        COUNT(DISTINCT country_code) as countries_active
-      FROM threats WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')
-    `).first<{ threats_flagged: number; countries_active: number }>();
-
-    // Feed ingestion counts for today (v2 table)
-    const feedIngestionsToday = await env.DB.prepare(
-      "SELECT COALESCE(SUM(records_ingested), 0) as items_today FROM feed_pull_history WHERE started_at >= date('now', 'start of day') AND status = 'success'"
-    ).first<{ items_today: number }>();
-
-    const byType = await env.DB.prepare(
-      "SELECT threat_type, COUNT(*) as count FROM threats GROUP BY threat_type ORDER BY count DESC LIMIT 10"
-    ).all();
-
-    const bySource = await env.DB.prepare(
-      "SELECT source_feed, COUNT(*) as count FROM threats GROUP BY source_feed ORDER BY count DESC LIMIT 10"
-    ).all();
-
-    const bySeverity = await env.DB.prepare(
-      "SELECT severity, COUNT(*) as count FROM threats GROUP BY severity"
-    ).all();
-
-    const byCountry = await env.DB.prepare(
-      "SELECT country_code, COUNT(*) as count FROM threats WHERE country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 30"
-    ).all();
-
-    // Recent threats for live feed
-    const recentThreats = await env.DB.prepare(`
-      SELECT id, threat_type, severity, source_feed, malicious_domain, ioc_value,
-             ip_address, country_code, lat, lng, created_at
-      FROM threats ORDER BY created_at DESC LIMIT 20
-    `).all();
-
-    // Top origin countries (by threat count today)
-    const topOriginsToday = await env.DB.prepare(`
-      SELECT country_code, COUNT(*) as count
-      FROM threats
-      WHERE country_code IS NOT NULL AND created_at >= date('now', 'start of day')
-      GROUP BY country_code ORDER BY count DESC LIMIT 10
-    `).all();
+    const [
+      summary, last24h, today, yesterday,
+      feedIngestionsToday, byType, bySource, bySeverity,
+      byCountry, recentThreats, topOriginsToday,
+    ] = await Promise.all([
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high,
+          SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium,
+          SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'remediated' THEN 1 ELSE 0 END) as remediated,
+          COUNT(DISTINCT source_feed) as sources,
+          COUNT(DISTINCT threat_type) as types
+        FROM threats
+      `).first(),
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
+        FROM threats WHERE created_at >= datetime('now', '-24 hours')
+      `).first(),
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) as threats_flagged,
+          COUNT(DISTINCT country_code) as countries_active,
+          SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical_today,
+          SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today
+        FROM threats WHERE created_at >= date('now', 'start of day')
+      `).first<{ threats_flagged: number; countries_active: number; critical_today: number; high_today: number }>(),
+      env.DB.prepare(`
+        SELECT
+          COUNT(*) as threats_flagged,
+          COUNT(DISTINCT country_code) as countries_active
+        FROM threats WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')
+      `).first<{ threats_flagged: number; countries_active: number }>(),
+      env.DB.prepare(
+        "SELECT COALESCE(SUM(records_ingested), 0) as items_today FROM feed_pull_history WHERE started_at >= date('now', 'start of day') AND status = 'success'"
+      ).first<{ items_today: number }>(),
+      env.DB.prepare(
+        "SELECT threat_type, COUNT(*) as count FROM threats GROUP BY threat_type ORDER BY count DESC LIMIT 10"
+      ).all(),
+      env.DB.prepare(
+        "SELECT source_feed, COUNT(*) as count FROM threats GROUP BY source_feed ORDER BY count DESC LIMIT 10"
+      ).all(),
+      env.DB.prepare(
+        "SELECT severity, COUNT(*) as count FROM threats GROUP BY severity"
+      ).all(),
+      env.DB.prepare(
+        "SELECT country_code, COUNT(*) as count FROM threats WHERE country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 30"
+      ).all(),
+      env.DB.prepare(`
+        SELECT id, threat_type, severity, source_feed, malicious_domain, ioc_value,
+               ip_address, country_code, lat, lng, created_at
+        FROM threats ORDER BY created_at DESC LIMIT 20
+      `).all(),
+      env.DB.prepare(`
+        SELECT country_code, COUNT(*) as count
+        FROM threats
+        WHERE country_code IS NOT NULL AND created_at >= date('now', 'start of day')
+        GROUP BY country_code ORDER BY count DESC LIMIT 10
+      `).all(),
+    ]);
 
     // Hosting provider breakdown (v2: join hosting_providers)
     let byProvider: unknown[] = [];
@@ -346,20 +338,27 @@ export async function handleGeoClusters(request: Request, env: Env): Promise<Res
       LIMIT 50
     `).all();
 
+    // Pre-fetch top threat_type per country in a single query (avoids N+1)
+    const topTypeRows = await env.DB.prepare(`
+      SELECT country_code, threat_type
+      FROM (
+        SELECT country_code, threat_type, COUNT(*) AS cnt
+        FROM threats
+        WHERE country_code IS NOT NULL
+        GROUP BY country_code, threat_type
+        ORDER BY country_code, cnt DESC
+      )
+      GROUP BY country_code
+    `).all<{ country_code: string; threat_type: string }>();
+    const topTypeByCountry = new Map(topTypeRows.results.map(r => [r.country_code, r.threat_type]));
+
     // Add computed intensity and top_threat_type
     const maxCount = Math.max(...rows.results.map((r: Record<string, unknown>) => (r.threat_count as number) || 1), 1);
-    const enriched = await Promise.all(rows.results.map(async (r: Record<string, unknown>) => {
-      const topType = await env.DB.prepare(
-        `SELECT threat_type, COUNT(*) AS cnt FROM threats
-         WHERE country_code = ? GROUP BY threat_type ORDER BY cnt DESC LIMIT 1`
-      ).bind(r.country_code).first<{ threat_type: string }>();
-
-      return {
-        ...r,
-        intensity: Math.min(1, (r.threat_count as number) / maxCount),
-        top_threat_type: topType?.threat_type || null,
-        country: r.country_code,
-      };
+    const enriched = rows.results.map((r: Record<string, unknown>) => ({
+      ...r,
+      intensity: Math.min(1, (r.threat_count as number) / maxCount),
+      top_threat_type: topTypeByCountry.get(r.country_code as string) ?? null,
+      country: r.country_code,
     }));
 
     return json({ success: true, data: enriched }, 200, origin);

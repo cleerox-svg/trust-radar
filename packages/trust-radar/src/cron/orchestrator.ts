@@ -118,10 +118,14 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     const result = await runJob('social_monitor', () => runSocialMonitor(env));
     results.push(result);
 
-    // After social monitor batch completes, run AI assessment on new findings
+    // Run Sentinel AI assessment in the background — it doesn't need to block the
+    // cron mesh, and moving it to waitUntil frees up the hourly CPU ceiling for
+    // other jobs (CT monitor, lookalike check, etc.).
     const { runSentinelSocialAssessment } = await import('../agents/sentinel');
-    await runSentinelSocialAssessment(env).catch(err =>
-      logger.error('cron_sentinel_social_failed', { error: String(err) })
+    ctx.waitUntil(
+      runSentinelSocialAssessment(env).catch(err =>
+        logger.error('cron_sentinel_social_failed', { error: String(err) })
+      )
     );
   }
 
