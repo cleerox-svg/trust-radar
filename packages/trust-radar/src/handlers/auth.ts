@@ -6,6 +6,7 @@ import { signJWT, ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL, ABSOLUTE_SESSION_TTL } fr
 import { hashToken, generateRefreshToken } from "../lib/hash";
 import { buildGoogleAuthURL, exchangeCodeForTokens, fetchGoogleUserInfo, getRedirectUri, CANONICAL_ORIGIN } from "../lib/oauth";
 import { audit } from "../lib/audit";
+import { loadOrgScopeForToken } from "../middleware/auth";
 import type { Env, UserRole } from "../types";
 
 // ─── OAuth: initiate login ──────────────────────────────────────
@@ -217,6 +218,10 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
     LIMIT 1
   `).bind(session.user_id).first<{ org_id: number; org_role: string }>();
 
+  // Resolve scope once and embed in the JWT so the request hot path
+  // never has to look it up again (saves 2 D1 queries per request).
+  const orgScope = await loadOrgScopeForToken(env.DB, session.user_id, session.role as UserRole);
+
   // Issue new access token
   const accessToken = await signJWT(
     {
@@ -225,6 +230,7 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
       role: session.role as UserRole,
       org_id: membership?.org_id?.toString() ?? undefined,
       org_role: membership?.org_role ?? undefined,
+      org_scope: orgScope,
     },
     env.JWT_SECRET,
     ACCESS_TOKEN_TTL,
@@ -393,6 +399,10 @@ async function issueSession(
     LIMIT 1
   `).bind(userId).first<{ org_id: number; org_role: string; org_slug: string; org_name: string }>();
 
+  // Resolve scope once and embed in the JWT so the request hot path
+  // never has to look it up again (saves 2 D1 queries per request).
+  const orgScope = await loadOrgScopeForToken(env.DB, userId, role);
+
   // Generate tokens
   const jwtPayload: Omit<import("../types").JWTPayload, "iat" | "exp"> = {
     sub: userId,
@@ -400,6 +410,7 @@ async function issueSession(
     role,
     org_id: membership?.org_id?.toString() ?? undefined,
     org_role: membership?.org_role ?? undefined,
+    org_scope: orgScope,
   };
   const accessToken = await signJWT(jwtPayload, env.JWT_SECRET, ACCESS_TOKEN_TTL);
   const refreshToken = generateRefreshToken();

@@ -186,6 +186,13 @@ export interface JWTPayload {
   role: UserRole;
   org_id?: string;    // organization ID (null for superadmin/internal users)
   org_role?: string;  // role within the org (owner, admin, analyst, viewer)
+  /**
+   * Pre-resolved org scope so getOrgScope() doesn't need 2 D1 queries on
+   * every authenticated request. Optional so tokens issued before this field
+   * still verify — older tokens fall back to a DB lookup at request time.
+   * For super_admins this is always omitted; their scope is null by role.
+   */
+  org_scope?: { org_id: number; brand_ids: string[] };
   plan?: UserPlan;    // v1 compat — remove when v1 auth handlers are replaced
   iat: number;
   exp: number;
