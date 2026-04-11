@@ -4,43 +4,68 @@ import { useAuth } from '@/lib/auth';
 import { Shell } from '@/components/layout/Shell';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Login } from '@/pages/Login';
-import { Brands } from '@/features/brands/Brands';
-import { BrandDetail } from '@/features/brands/BrandDetail';
-import { Agents } from '@/features/agents/Agents';
-import { Takedowns } from '@/features/takedowns/Takedowns';
-import { SpamTrap } from '@/features/spam-trap/SpamTrap';
-import { Alerts } from '@/features/alerts/Alerts';
-import { Feeds } from '@/features/feeds/Feeds';
-import { AdminDashboard } from '@/features/admin/AdminDashboard';
-import { Organization } from '@/features/settings/Organization';
-import { SuperAdminOrgs } from '@/features/admin/SuperAdminOrgs';
-import { AdminAudit } from '@/features/admin/AdminAudit';
-import { ArchitectDetail } from '@/features/agents/ArchitectDetail';
-import { Providers } from '@/features/providers/Providers';
-import { ProviderDetail } from '@/features/providers/ProviderDetail';
-import { Campaigns } from '@/features/campaigns/Campaigns';
-import { CampaignDetail } from '@/features/campaigns/CampaignDetail';
-import { GeopoliticalCampaignDashboard } from '@/features/campaigns/GeopoliticalCampaignDashboard';
-import { Trends } from '@/features/trends/Trends';
-import { ThreatActors } from '@/features/threat-actors/ThreatActors';
-import { ThreatActorDetail } from '@/features/threat-actors/ThreatActorDetail';
-import { Leads } from '@/features/leads/Leads';
 import { NotFound } from '@/pages/NotFound';
-import { Home } from '@/pages/Home';
-import { BrandAdminDashboard } from '@/features/admin/BrandAdminDashboard';
-import { Threats } from '@/features/threats/Threats';
-import { Profile } from '@/features/settings/Profile';
-import { Notifications } from '@/features/settings/Notifications';
-import { NotificationPreferences } from '@/features/settings/NotificationPreferences';
 
-// Lazy-load Observatory to prevent deck.gl/WebGL from initializing on all pages
+// All feature routes are lazy-loaded so a cold visit to any single page
+// doesn't pull every other feature's bundle (recharts, framer-motion,
+// route-specific components). Observatory's deck.gl/maplibre stay isolated
+// to that route. Login and NotFound stay eager because they're tiny and
+// needed immediately at startup.
+const Brands = React.lazy(() => import('@/features/brands/Brands').then(m => ({ default: m.Brands })));
+const BrandDetail = React.lazy(() => import('@/features/brands/BrandDetail').then(m => ({ default: m.BrandDetail })));
+const Agents = React.lazy(() => import('@/features/agents/Agents').then(m => ({ default: m.Agents })));
+const Takedowns = React.lazy(() => import('@/features/takedowns/Takedowns').then(m => ({ default: m.Takedowns })));
+const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m => ({ default: m.SpamTrap })));
+const Alerts = React.lazy(() => import('@/features/alerts/Alerts').then(m => ({ default: m.Alerts })));
+const Feeds = React.lazy(() => import('@/features/feeds/Feeds').then(m => ({ default: m.Feeds })));
+const AdminDashboard = React.lazy(() => import('@/features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const Organization = React.lazy(() => import('@/features/settings/Organization').then(m => ({ default: m.Organization })));
+const SuperAdminOrgs = React.lazy(() => import('@/features/admin/SuperAdminOrgs').then(m => ({ default: m.SuperAdminOrgs })));
+const AdminAudit = React.lazy(() => import('@/features/admin/AdminAudit').then(m => ({ default: m.AdminAudit })));
+const ArchitectDetail = React.lazy(() => import('@/features/agents/ArchitectDetail').then(m => ({ default: m.ArchitectDetail })));
+const Providers = React.lazy(() => import('@/features/providers/Providers').then(m => ({ default: m.Providers })));
+const ProviderDetail = React.lazy(() => import('@/features/providers/ProviderDetail').then(m => ({ default: m.ProviderDetail })));
+const Campaigns = React.lazy(() => import('@/features/campaigns/Campaigns').then(m => ({ default: m.Campaigns })));
+const CampaignDetail = React.lazy(() => import('@/features/campaigns/CampaignDetail').then(m => ({ default: m.CampaignDetail })));
+const GeopoliticalCampaignDashboard = React.lazy(() => import('@/features/campaigns/GeopoliticalCampaignDashboard').then(m => ({ default: m.GeopoliticalCampaignDashboard })));
+const Trends = React.lazy(() => import('@/features/trends/Trends').then(m => ({ default: m.Trends })));
+const ThreatActors = React.lazy(() => import('@/features/threat-actors/ThreatActors').then(m => ({ default: m.ThreatActors })));
+const ThreatActorDetail = React.lazy(() => import('@/features/threat-actors/ThreatActorDetail').then(m => ({ default: m.ThreatActorDetail })));
+const Leads = React.lazy(() => import('@/features/leads/Leads').then(m => ({ default: m.Leads })));
+const Home = React.lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })));
+const BrandAdminDashboard = React.lazy(() => import('@/features/admin/BrandAdminDashboard').then(m => ({ default: m.BrandAdminDashboard })));
+const Threats = React.lazy(() => import('@/features/threats/Threats').then(m => ({ default: m.Threats })));
+const Profile = React.lazy(() => import('@/features/settings/Profile').then(m => ({ default: m.Profile })));
+const Notifications = React.lazy(() => import('@/features/settings/Notifications').then(m => ({ default: m.Notifications })));
+const NotificationPreferences = React.lazy(() => import('@/features/settings/NotificationPreferences').then(m => ({ default: m.NotificationPreferences })));
 const Observatory = React.lazy(() => import('@/features/observatory/Observatory').then(m => ({ default: m.Observatory })));
+
+function RouteLoader() {
+  return (
+    <div className="flex items-center justify-center h-full min-h-[40vh]" style={{ background: 'var(--bg-page)' }}>
+      <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</div>
+    </div>
+  );
+}
 
 function ObservatoryLoader() {
   return (
     <div className="flex items-center justify-center h-full" style={{ background: 'var(--bg-page)' }}>
       <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>Loading Observatory...</div>
     </div>
+  );
+}
+
+/**
+ * Wrap a lazy-loaded route element in Suspense + ErrorBoundary.
+ * Keeps the route table readable and ensures every lazy module
+ * has a graceful fallback while its chunk loads.
+ */
+function lazyRoute(node: React.ReactNode, fallback: React.ReactNode = <RouteLoader />) {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={fallback}>{node}</Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -86,33 +111,33 @@ export default function App() {
           <Shell />
         </ProtectedRoute>
       }>
-        <Route index element={<ErrorBoundary><RoleAwareHome /></ErrorBoundary>} />
-        <Route path="observatory" element={<ErrorBoundary><Suspense fallback={<ObservatoryLoader />}><Observatory /></Suspense></ErrorBoundary>} />
-        <Route path="brands" element={<ErrorBoundary><Brands /></ErrorBoundary>} />
-        <Route path="brands/:brandId" element={<ErrorBoundary><BrandDetail /></ErrorBoundary>} />
-        <Route path="threats" element={<ErrorBoundary><Threats /></ErrorBoundary>} />
-        <Route path="providers" element={<ErrorBoundary><Providers /></ErrorBoundary>} />
-        <Route path="providers/:providerId" element={<ErrorBoundary><ProviderDetail /></ErrorBoundary>} />
-        <Route path="campaigns" element={<ErrorBoundary><Campaigns /></ErrorBoundary>} />
-        <Route path="campaigns/geo/:slug" element={<ErrorBoundary><GeopoliticalCampaignDashboard /></ErrorBoundary>} />
-        <Route path="campaigns/:campaignId" element={<ErrorBoundary><CampaignDetail /></ErrorBoundary>} />
-        <Route path="threat-actors" element={<ErrorBoundary><ThreatActors /></ErrorBoundary>} />
-        <Route path="threat-actors/:actorId" element={<ErrorBoundary><ThreatActorDetail /></ErrorBoundary>} />
-        <Route path="trends" element={<ErrorBoundary><Trends /></ErrorBoundary>} />
-        <Route path="agents" element={<ErrorBoundary><Agents /></ErrorBoundary>} />
-        <Route path="agents/architect" element={<ErrorBoundary><ArchitectDetail /></ErrorBoundary>} />
-        <Route path="alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
-        <Route path="leads" element={<ErrorBoundary><Leads /></ErrorBoundary>} />
-        <Route path="feeds" element={<ErrorBoundary><Feeds /></ErrorBoundary>} />
-        <Route path="admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-        <Route path="admin/takedowns" element={<ErrorBoundary><Takedowns /></ErrorBoundary>} />
-        <Route path="admin/spam-trap" element={<ErrorBoundary><SpamTrap /></ErrorBoundary>} />
-        <Route path="admin/users" element={<ErrorBoundary><Organization /></ErrorBoundary>} />
-        <Route path="admin/organizations" element={<ErrorBoundary><SuperAdminOrgs /></ErrorBoundary>} />
-        <Route path="admin/audit" element={<ErrorBoundary><AdminAudit /></ErrorBoundary>} />
-        <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
-        <Route path="notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
-        <Route path="notifications/preferences" element={<ErrorBoundary><NotificationPreferences /></ErrorBoundary>} />
+        <Route index element={lazyRoute(<RoleAwareHome />)} />
+        <Route path="observatory" element={lazyRoute(<Observatory />, <ObservatoryLoader />)} />
+        <Route path="brands" element={lazyRoute(<Brands />)} />
+        <Route path="brands/:brandId" element={lazyRoute(<BrandDetail />)} />
+        <Route path="threats" element={lazyRoute(<Threats />)} />
+        <Route path="providers" element={lazyRoute(<Providers />)} />
+        <Route path="providers/:providerId" element={lazyRoute(<ProviderDetail />)} />
+        <Route path="campaigns" element={lazyRoute(<Campaigns />)} />
+        <Route path="campaigns/geo/:slug" element={lazyRoute(<GeopoliticalCampaignDashboard />)} />
+        <Route path="campaigns/:campaignId" element={lazyRoute(<CampaignDetail />)} />
+        <Route path="threat-actors" element={lazyRoute(<ThreatActors />)} />
+        <Route path="threat-actors/:actorId" element={lazyRoute(<ThreatActorDetail />)} />
+        <Route path="trends" element={lazyRoute(<Trends />)} />
+        <Route path="agents" element={lazyRoute(<Agents />)} />
+        <Route path="agents/architect" element={lazyRoute(<ArchitectDetail />)} />
+        <Route path="alerts" element={lazyRoute(<Alerts />)} />
+        <Route path="leads" element={lazyRoute(<Leads />)} />
+        <Route path="feeds" element={lazyRoute(<Feeds />)} />
+        <Route path="admin" element={lazyRoute(<AdminDashboard />)} />
+        <Route path="admin/takedowns" element={lazyRoute(<Takedowns />)} />
+        <Route path="admin/spam-trap" element={lazyRoute(<SpamTrap />)} />
+        <Route path="admin/users" element={lazyRoute(<Organization />)} />
+        <Route path="admin/organizations" element={lazyRoute(<SuperAdminOrgs />)} />
+        <Route path="admin/audit" element={lazyRoute(<AdminAudit />)} />
+        <Route path="profile" element={lazyRoute(<Profile />)} />
+        <Route path="notifications" element={lazyRoute(<Notifications />)} />
+        <Route path="notifications/preferences" element={lazyRoute(<NotificationPreferences />)} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
