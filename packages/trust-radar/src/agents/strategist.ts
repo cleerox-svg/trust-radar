@@ -56,48 +56,46 @@ export const strategistAgent: AgentModule = {
     const allClusterIps = ipClusters.results.map(c => c.ip_address);
     const ipPlaceholders = allClusterIps.map(() => '?').join(',');
 
-    const [preFetchedDomains, preFetchedBrands, preFetchedProviders] = allClusterIps.length > 0
-      ? await Promise.all([
-          env.DB.prepare(
-            `SELECT ip_address, malicious_domain FROM threats
-             WHERE ip_address IN (${ipPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
-             GROUP BY ip_address, malicious_domain`
-          ).bind(...allClusterIps).all<{ ip_address: string; malicious_domain: string }>(),
-          env.DB.prepare(
-            `SELECT DISTINCT t.ip_address, b.name FROM threats t
-             JOIN brands b ON b.id = t.target_brand_id
-             WHERE t.ip_address IN (${ipPlaceholders}) AND t.status = 'active'`
-          ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
-          env.DB.prepare(
-            `SELECT DISTINCT t.ip_address, COALESCE(hp.name, t.hosting_provider_id) AS name
-             FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
-             WHERE t.ip_address IN (${ipPlaceholders}) AND t.hosting_provider_id IS NOT NULL`
-          ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
-        ])
-      : [{ results: [] }, { results: [] }, { results: [] }] as [
-          D1Result<{ ip_address: string; malicious_domain: string }>,
-          D1Result<{ ip_address: string; name: string }>,
-          D1Result<{ ip_address: string; name: string }>,
-        ];
-
-    // Build ip → [] maps for O(1) lookup inside the loop
+    // Initialize maps empty; only populate when there are IPs to query.
+    // Avoids type-assertion hacks: maps remain empty [] on zero-IP runs.
     const ipDomainsMap = new Map<string, string[]>();
     const ipBrandsMap = new Map<string, string[]>();
     const ipProvidersMap = new Map<string, string[]>();
-    for (const r of preFetchedDomains.results) {
-      const arr = ipDomainsMap.get(r.ip_address) ?? [];
-      arr.push(r.malicious_domain);
-      ipDomainsMap.set(r.ip_address, arr);
-    }
-    for (const r of preFetchedBrands.results) {
-      const arr = ipBrandsMap.get(r.ip_address) ?? [];
-      arr.push(r.name);
-      ipBrandsMap.set(r.ip_address, arr);
-    }
-    for (const r of preFetchedProviders.results) {
-      const arr = ipProvidersMap.get(r.ip_address) ?? [];
-      arr.push(r.name);
-      ipProvidersMap.set(r.ip_address, arr);
+
+    if (allClusterIps.length > 0) {
+      const [domainsRes, brandsRes, providersRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT ip_address, malicious_domain FROM threats
+           WHERE ip_address IN (${ipPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
+           GROUP BY ip_address, malicious_domain`
+        ).bind(...allClusterIps).all<{ ip_address: string; malicious_domain: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.ip_address, b.name FROM threats t
+           JOIN brands b ON b.id = t.target_brand_id
+           WHERE t.ip_address IN (${ipPlaceholders}) AND t.status = 'active'`
+        ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.ip_address, COALESCE(hp.name, t.hosting_provider_id) AS name
+           FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+           WHERE t.ip_address IN (${ipPlaceholders}) AND t.hosting_provider_id IS NOT NULL`
+        ).bind(...allClusterIps).all<{ ip_address: string; name: string }>(),
+      ]);
+
+      for (const r of domainsRes.results) {
+        const arr = ipDomainsMap.get(r.ip_address) ?? [];
+        arr.push(r.malicious_domain);
+        ipDomainsMap.set(r.ip_address, arr);
+      }
+      for (const r of brandsRes.results) {
+        const arr = ipBrandsMap.get(r.ip_address) ?? [];
+        arr.push(r.name);
+        ipBrandsMap.set(r.ip_address, arr);
+      }
+      for (const r of providersRes.results) {
+        const arr = ipProvidersMap.get(r.ip_address) ?? [];
+        arr.push(r.name);
+        ipProvidersMap.set(r.ip_address, arr);
+      }
     }
 
     for (const cluster of ipClusters.results) {
@@ -232,36 +230,34 @@ export const strategistAgent: AgentModule = {
     const allRegistrars = registrarClusters.results.map(c => c.registrar);
     const regPlaceholders = allRegistrars.map(() => '?').join(',');
 
-    const [preFetchedRegDomains, preFetchedRegBrands] = allRegistrars.length > 0
-      ? await Promise.all([
-          env.DB.prepare(
-            `SELECT DISTINCT registrar, malicious_domain FROM threats
-             WHERE registrar IN (${regPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
-               AND created_at >= datetime('now', '-7 days')`
-          ).bind(...allRegistrars).all<{ registrar: string; malicious_domain: string }>(),
-          env.DB.prepare(
-            `SELECT DISTINCT t.registrar, b.name FROM threats t
-             JOIN brands b ON b.id = t.target_brand_id
-             WHERE t.registrar IN (${regPlaceholders}) AND t.status = 'active'
-               AND t.created_at >= datetime('now', '-7 days')`
-          ).bind(...allRegistrars).all<{ registrar: string; name: string }>(),
-        ])
-      : [{ results: [] }, { results: [] }] as [
-          D1Result<{ registrar: string; malicious_domain: string }>,
-          D1Result<{ registrar: string; name: string }>,
-        ];
-
     const regDomainsMap = new Map<string, string[]>();
     const regBrandsMap = new Map<string, string[]>();
-    for (const r of preFetchedRegDomains.results) {
-      const arr = regDomainsMap.get(r.registrar) ?? [];
-      arr.push(r.malicious_domain);
-      regDomainsMap.set(r.registrar, arr);
-    }
-    for (const r of preFetchedRegBrands.results) {
-      const arr = regBrandsMap.get(r.registrar) ?? [];
-      arr.push(r.name);
-      regBrandsMap.set(r.registrar, arr);
+
+    if (allRegistrars.length > 0) {
+      const [regDomainsRes, regBrandsRes] = await Promise.all([
+        env.DB.prepare(
+          `SELECT DISTINCT registrar, malicious_domain FROM threats
+           WHERE registrar IN (${regPlaceholders}) AND status = 'active' AND malicious_domain IS NOT NULL
+             AND created_at >= datetime('now', '-7 days')`
+        ).bind(...allRegistrars).all<{ registrar: string; malicious_domain: string }>(),
+        env.DB.prepare(
+          `SELECT DISTINCT t.registrar, b.name FROM threats t
+           JOIN brands b ON b.id = t.target_brand_id
+           WHERE t.registrar IN (${regPlaceholders}) AND t.status = 'active'
+             AND t.created_at >= datetime('now', '-7 days')`
+        ).bind(...allRegistrars).all<{ registrar: string; name: string }>(),
+      ]);
+
+      for (const r of regDomainsRes.results) {
+        const arr = regDomainsMap.get(r.registrar) ?? [];
+        arr.push(r.malicious_domain);
+        regDomainsMap.set(r.registrar, arr);
+      }
+      for (const r of regBrandsRes.results) {
+        const arr = regBrandsMap.get(r.registrar) ?? [];
+        arr.push(r.name);
+        regBrandsMap.set(r.registrar, arr);
+      }
     }
 
     for (const cluster of registrarClusters.results) {

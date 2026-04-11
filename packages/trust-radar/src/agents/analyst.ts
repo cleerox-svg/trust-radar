@@ -307,7 +307,7 @@ export const analystAgent: AgentModule = {
         ).bind(...uniqueAiMatchedBrands).all<{ id: string; email_security_grade: string | null }>();
         const emailSecMap = new Map(emailSecRows.results.map(r => [r.id, r.email_security_grade]));
 
-        const severityEscalations: ReturnType<typeof env.DB.prepare>[] = [];
+        const severityEscalations: D1PreparedStatement[] = [];
         for (const update of aiMatchUpdates) {
           const grade = emailSecMap.get(update.brandId);
           if (grade && ['F', 'D'].includes(grade)) {
