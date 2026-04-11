@@ -1,5 +1,5 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useObservatoryQuery } from './useObservatoryQuery';
+import type { UseObservatoryQueryResult } from './useObservatoryQuery';
 
 export interface ThreatPoint {
   lat: number;
@@ -33,62 +33,6 @@ export interface ArcData {
   volume: number;
 }
 
-interface CountryCluster {
-  country_code: string;
-  country_name: string;
-  lat: number;
-  lng: number;
-  threat_count: number;
-  top_type: string;
-}
-
-export function useObservatoryThreats(options?: { period?: string; source?: string; limit?: number }) {
-  const { period = '7d', source = 'all', limit = 2000 } = options || {};
-
-  return useQuery({
-    queryKey: ['observatory-threats', period, source, limit],
-    queryFn: async () => {
-      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source, limit: String(limit) });
-      const res = await api.get<ThreatPoint[]>(`/api/observatory/nodes?${params}`);
-      return res.data || [];
-    },
-    placeholderData: keepPreviousData,
-    refetchInterval: 120_000,
-  });
-}
-
-export function useObservatoryStats(options?: { period?: string; source?: string }) {
-  const { period = '7d', source = 'all' } = options || {};
-
-  return useQuery({
-    queryKey: ['observatory-stats', period, source],
-    queryFn: async () => {
-      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source });
-      const res = await api.get<ObservatoryStats>(`/api/observatory/stats?${params}`);
-      const data = res.data;
-      if (!data) throw new Error('observatory stats missing from response');
-      return data;
-    },
-    placeholderData: keepPreviousData,
-    refetchInterval: 120_000,
-  });
-}
-
-export function useObservatoryArcs(options?: { period?: string; source?: string }) {
-  const { period = '7d', source = 'all' } = options || {};
-
-  return useQuery({
-    queryKey: ['observatory-arcs', period, source],
-    queryFn: async () => {
-      const params = new URLSearchParams({ period, source_feed: source === 'all' ? '' : source });
-      const res = await api.get<ArcData[]>(`/api/observatory/arcs?${params}`);
-      return res.data || [];
-    },
-    placeholderData: keepPreviousData,
-    refetchInterval: 120_000,
-  });
-}
-
 export interface HeatmapPoint {
   lat: number;
   lng: number;
@@ -96,17 +40,50 @@ export interface HeatmapPoint {
   threat_type: string;
 }
 
-export function useObservatoryHeatmap(options?: { period?: string; limit?: number }) {
+export function useObservatoryThreats(
+  options?: { period?: string; source?: string; limit?: number }
+): UseObservatoryQueryResult<ThreatPoint[]> {
+  const { period = '7d', source = 'all', limit = 2000 } = options || {};
+
+  return useObservatoryQuery<ThreatPoint[]>(
+    '/api/observatory/nodes',
+    { period, source_feed: source === 'all' ? '' : source, limit },
+    { refetchInterval: 120_000 },
+  );
+}
+
+export function useObservatoryStats(
+  options?: { period?: string; source?: string }
+): UseObservatoryQueryResult<ObservatoryStats> {
+  const { period = '7d', source = 'all' } = options || {};
+
+  return useObservatoryQuery<ObservatoryStats>(
+    '/api/observatory/stats',
+    { period, source_feed: source === 'all' ? '' : source },
+    { refetchInterval: 120_000 },
+  );
+}
+
+export function useObservatoryArcs(
+  options?: { period?: string; source?: string }
+): UseObservatoryQueryResult<ArcData[]> {
+  const { period = '7d', source = 'all' } = options || {};
+
+  return useObservatoryQuery<ArcData[]>(
+    '/api/observatory/arcs',
+    { period, source_feed: source === 'all' ? '' : source },
+    { refetchInterval: 120_000 },
+  );
+}
+
+export function useObservatoryHeatmap(
+  options?: { period?: string; limit?: number }
+): UseObservatoryQueryResult<HeatmapPoint[]> {
   const { period = '7d', limit = 10000 } = options || {};
 
-  return useQuery({
-    queryKey: ['observatory-heatmap', period, limit],
-    queryFn: async () => {
-      const params = new URLSearchParams({ period, limit: String(limit) });
-      const res = await api.get<HeatmapPoint[]>(`/api/threats/heatmap?${params}`);
-      return res.data || [];
-    },
-    placeholderData: keepPreviousData,
-    refetchInterval: 120_000,
-  });
+  return useObservatoryQuery<HeatmapPoint[]>(
+    '/api/threats/heatmap',
+    { period, limit },
+    { refetchInterval: 120_000 },
+  );
 }
