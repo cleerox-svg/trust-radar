@@ -26,7 +26,7 @@ export async function runFastTick(
   console.log(`[fast-tick] start ${new Date().toISOString()}`);
 
   let eventsDrained = 0;
-  let dnsResult = { processed: 0, resolved: 0, failed: 0, enriched: 0, durationMs: 0, softCapHit: false };
+  let dnsResult = { processed: 0, resolved: 0, enriched: 0, durationMs: 0, softCapHit: false };
   let status: 'success' | 'partial' | 'failed' = 'success';
   let errorMessage: string | undefined;
 
@@ -61,10 +61,10 @@ export async function runFastTick(
     });
 
     console.log(
-      `[fast-tick] dns-backfill: attempted=${dnsResult.processed} resolved=${dnsResult.resolved} failed=${dnsResult.failed} enriched=${dnsResult.enriched} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
+      `[fast-tick] dns-backfill: processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
     );
 
-    if (dnsResult.softCapHit) {
+    if (dnsResult.softCapHit || dnsResult.enriched < dnsResult.resolved) {
       status = 'partial';
     }
   } catch (err) {
@@ -84,7 +84,7 @@ export async function runFastTick(
       Math.round(durationMs / 1000),
       durationMs,
       status,
-      dnsResult.resolved + eventsDrained,
+      dnsResult.enriched + eventsDrained,
       errorMessage ?? null,
     ).run();
   } catch (err) {
