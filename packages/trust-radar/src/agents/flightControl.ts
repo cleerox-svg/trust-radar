@@ -273,8 +273,9 @@ export const flightControlAgent: AgentModule = {
       const { executeAgent } = await import('../lib/agentRunner');
       const watchdogMod = allAgents['watchdog'];
       if (watchdogMod) {
-        executeAgent(env, watchdogMod, { trigger: 'flight_control_backlog', backlog: backlogs.watchdog }, 'flight_control', 'event')
-          .catch(() => { /* logged by agentRunner */ });
+        try {
+          await executeAgent(env, watchdogMod, { trigger: 'flight_control_backlog', backlog: backlogs.watchdog }, 'flight_control', 'event');
+        } catch { /* logged by agentRunner */ }
         await logActivity(db, 'flight_control', 'info', 'scaling',
           `Triggered extra Watchdog run — backlog: ${backlogs.watchdog} unclassified social mentions`,
           { agent: 'watchdog', backlog: backlogs.watchdog }
@@ -370,8 +371,9 @@ export const flightControlAgent: AgentModule = {
     if ((daysSinceCuratorRun > 6 || (unscannedEmails?.count ?? 0) > 5000) && !agentLimits.skip_curator) {
       const { curatorAgent } = await import('./curator');
       const { executeAgent } = await import('../lib/agentRunner');
-      executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event')
-        .catch(() => { /* logged by agentRunner */ });
+      try {
+        await executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event');
+      } catch { /* logged by agentRunner */ }
 
       await logActivity(db, 'flight_control', 'info', 'scheduling',
         'Triggered Curator weekly hygiene run', {
@@ -752,9 +754,12 @@ async function scaleAgents(
     const cartMod = agentModules['cartographer'];
     if (cartMod) {
       for (let i = 0; i < instances; i++) {
-        // Pass offset so parallel instances work on different slices
-        executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * 500 }, 'flight_control', 'event')
-          .catch(() => { /* logged by agentRunner */ });
+        // Pass offset so sequential instances work on different slices.
+        // Sequential await: each cartographer run completes before the next starts,
+        // preventing simultaneous D1 writer contention.
+        try {
+          await executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * 500 }, 'flight_control', 'event');
+        } catch { /* logged by agentRunner */ }
         actions++;
       }
     }
@@ -772,8 +777,9 @@ async function scaleAgents(
   if (backlogs.totalNoGeo > 5000 && cartBacklog === 0) {
     const cartMod2 = agentModules['cartographer'];
     if (cartMod2) {
-      executeAgent(env, cartMod2, { trigger: 'flight_control', mode: 'geo_backlog', priority: 'low' }, 'flight_control', 'event')
-        .catch(() => { /* logged by agentRunner */ });
+      try {
+        await executeAgent(env, cartMod2, { trigger: 'flight_control', mode: 'geo_backlog', priority: 'low' }, 'flight_control', 'event');
+      } catch { /* logged by agentRunner */ }
       actions++;
 
       await logActivity(db, 'flight_control', 'info', 'scaling',
@@ -788,22 +794,29 @@ async function scaleAgents(
   const analystBacklog = backlogs.analyst;
   const totalUnlinked = backlogs.totalUnlinked;
   if ((analystBacklog > 0 || totalUnlinked > 0) && !limits.pause_all_ai) {
-    // If total unlinked > 50k, max scale; > 10k, scale to 2; else use recent backlog
-    const instances = totalUnlinked > 50000 ? 3
+    // If total unlinked > 50k, max scale; > 10k, scale to 2; else use recent backlog.
+    // Always cap at SCALING.analyst.max_parallel — the hardcoded 3/2 values above
+    // previously bypassed it, making the config change in Phase 0.5d Stage 1 a no-op.
+    const rawInstances = totalUnlinked > 50000 ? 3
       : totalUnlinked > 10000 ? 2
       : analystBacklog >= SCALING.analyst.high ? SCALING.analyst.max_parallel
       : analystBacklog >= SCALING.analyst.medium ? 2
       : analystBacklog > 0 ? 1
       : 0;
+    const instances = Math.min(rawInstances, SCALING.analyst.max_parallel);
 
     const analystMod = agentModules['analyst'];
     if (analystMod) {
       for (let i = 0; i < instances; i++) {
-        executeAgent(env, analystMod, {
-          trigger: 'flight_control',
-          budget_batch_limit: limits.analyst_batch,
-        }, 'flight_control', 'event')
-          .catch(() => { /* logged by agentRunner */ });
+        // Sequential await: analyst runs one at a time.
+        // max_parallel=1 (SCALING.analyst.max_parallel) means this loop
+        // fires exactly once in normal production conditions.
+        try {
+          await executeAgent(env, analystMod, {
+            trigger: 'flight_control',
+            budget_batch_limit: limits.analyst_batch,
+          }, 'flight_control', 'event');
+        } catch { /* logged by agentRunner */ }
         actions++;
       }
     }
@@ -852,8 +865,9 @@ async function recoverStalledAgents(
       { agent: agent.agent_id, last_run: agent.last_run_at, status: agent.last_run_status }
     );
 
-    executeAgent(env, mod, { trigger: 'flight_control_recovery' }, 'flight_control', 'event')
-      .catch(() => { /* logged by agentRunner */ });
+    try {
+      await executeAgent(env, mod, { trigger: 'flight_control_recovery' }, 'flight_control', 'event');
+    } catch { /* logged by agentRunner */ }
     recoveries++;
   }
 

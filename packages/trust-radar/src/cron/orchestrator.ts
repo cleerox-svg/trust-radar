@@ -37,6 +37,16 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   }
 
   // ─── Hourly tick: full agent mesh (0 * * * *, 15min CPU ceiling) ───
+  // Guard: Cloudflare can delay a 0 * * * * invocation by up to ~30 minutes.
+  // When that happens the late invocation arrives at :30 and event.cron is
+  // still '0 * * * *', but if Cloudflare ever delivers it with a different
+  // cron string (observed in Phase 0.5d post-deploy) it would collide with
+  // the */5 fast_tick and 30 * * * * parity_checker that own the :30 slot.
+  // Reject anything that is not explicitly the hourly trigger.
+  if (event.cron !== '0 * * * *') {
+    console.log(`[cron] Unexpected cron in hourly fall-through: ${event.cron} — skipping mesh`);
+    return;
+  }
 
   // ─── Flight Control: autonomous supervisor runs first every tick ───
   try {
