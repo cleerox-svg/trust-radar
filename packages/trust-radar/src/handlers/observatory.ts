@@ -10,6 +10,7 @@
 //   GET /api/observatory/stats      — Summary stats bar
 
 import { json } from "../lib/cors";
+import { getDbContext, getReadSession, attachBookmark } from '../lib/db';
 import type { Env } from "../types";
 
 // ── Brand HQ coordinates — real locations ────────────────────────────────────
@@ -234,13 +235,15 @@ function buildSourceFilter(sourceFeed: string | null, alias?: string): SourceFil
 // writes for NULL country rows.
 export async function handleObservatoryNodes(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const windowStart = snappedWindowStart(period);
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT
         ROUND(lat_bucket, 1) AS lat,
         ROUND(lng_bucket, 1) AS lng,
@@ -263,9 +266,9 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
       country_code: string | null; top_threat_type: string | null;
     }>();
 
-    return json({ success: true, data: rows.results ?? [] }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -273,6 +276,8 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
 // Returns attack corridors for ArcLayer
 export async function handleObservatoryArcs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -280,7 +285,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT
         ROUND(t.lat, 1) AS source_lat,
         ROUND(t.lng, 1) AS source_lng,
@@ -310,7 +315,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     // Fallback: if filtered result is too sparse, re-query without time filter
     let resultRows = rows.results ?? [];
     if (resultRows.length < 5) {
-      const fallbackRows = await env.DB.prepare(`
+      const fallbackRows = await session.prepare(`
         SELECT
           ROUND(t.lat, 1) AS source_lat,
           ROUND(t.lng, 1) AS source_lng,
@@ -358,9 +363,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       })
       .filter((a): a is NonNullable<typeof a> => a !== null);
 
-    return json({ success: true, data: arcs }, 200, origin);
+    return attachBookmark(json({ success: true, data: arcs }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -368,12 +373,14 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 // Returns 20 most recent active threats with full geo data
 export async function handleObservatoryLive(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
   const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT
         t.id,
         t.malicious_domain,
@@ -399,9 +406,9 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       created_at: string; target_brand: string | null;
     }>();
 
-    return json({ success: true, data: rows.results ?? [] }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -409,24 +416,26 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
 // Returns arcs targeting a specific brand
 export async function handleObservatoryBrandArcs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const brandId = url.searchParams.get("brand_id");
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
 
   if (!brandId) {
-    return json({ success: false, error: "brand_id required" }, 400, origin);
+    return attachBookmark(json({ success: false, error: "brand_id required" }, 400, origin), session);
   }
 
   try {
     // Get brand name + domain for coordinate lookup
-    const brand = await env.DB.prepare(
+    const brand = await session.prepare(
       "SELECT id, name, canonical_domain FROM brands WHERE id = ? LIMIT 1"
     ).bind(brandId).first<{ id: string; name: string; canonical_domain: string | null }>();
 
     const targetCoords = getBrandCoords(brand?.name ?? null, brand?.canonical_domain) ?? [-74.0, 40.7];
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT
         ROUND(t.lat, 1) AS source_lat,
         ROUND(t.lng, 1) AS source_lng,
@@ -460,13 +469,13 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       country_code: row.source_country,
     }));
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: arcs,
       brand: brand ? { id: brand.id, name: brand.name } : null,
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -485,6 +494,8 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
 //     Adding a brand-keyed cube is a future-phase scope decision.
 export async function handleObservatoryStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const interval = periodToInterval(period);
@@ -499,19 +510,19 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
     // (up to 2 minutes of stale raw-sourced values post-deploy).
     const cacheKey = `observatory_stats:${period}:${sourceFeed ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return json(JSON.parse(cached), 200, origin);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
     const [threats, countries, campaigns, brands] = await Promise.all([
-      env.DB.prepare(
+      session.prepare(
         `SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
       ).bind(windowStart, ...sf.params).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(DISTINCT country_code) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
       ).bind(windowStart, ...sf.params).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
       ).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
       ).bind(interval, ...sf.params).first<{ n: number }>(),
     ]);
@@ -528,9 +539,9 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
     };
 
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
-    return json(data, 200, origin);
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -538,6 +549,8 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
 // Lightweight unauthenticated operations list for the Observatory sidebar
 export async function handleObservatoryOperations(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
@@ -554,7 +567,7 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit);
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT ic.id, ic.cluster_name, ic.threat_count,
              ic.status, ic.confidence_score, ic.agent_notes,
              ic.countries
@@ -570,8 +583,8 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
       LIMIT ?
     `).bind(...params).all();
 
-    return json({ success: true, data: rows.results ?? [] }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
