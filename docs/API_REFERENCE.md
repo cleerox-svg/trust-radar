@@ -413,6 +413,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |
 | POST | `/api/admin/import-tranco` | SuperAdmin | Import Tranco top sites |
 | POST | `/api/admin/honeypot/generate` | SuperAdmin | Generate honeypot sites |
+| POST | `/api/admin/cube-backfill` | Admin | Backfill `threat_cube_geo` / `threat_cube_provider` OLAP tables via streaming NDJSON. Query params: `cube=geo\|provider\|both` (required), `days=1..365` (default 30), `dry_run=true\|false`, `resume_from=<hour_bucket>`. Returns one NDJSON line per hour plus a summary line with `resume_from` if the 25s budget is hit. |
 
 ARCHITECT is now a standard agent triggered via `POST /api/agents/architect/trigger` (Admin auth, see [Agents section](#agents)). The full audit pipeline (collect → analyze → synthesize) runs inline in one execute() call. The markdown report, computed scorecard, and per-section analyses are stored in the latest `agent_outputs.details` row for `agent_id='architect'`; read them via `GET /api/agents/architect/outputs?limit=5`.
 
