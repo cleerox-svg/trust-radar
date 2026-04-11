@@ -19,6 +19,13 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return runFastTick(env, ctx);
   }
 
+  // ─── Parity tick: isolated read-only audit (30 * * * *, runs at :30) ───
+  // Decoupled from the hourly mesh so a hanging agent there can't block it.
+  if (event.cron === '30 * * * *') {
+    await runParityChecker(env, ctx);
+    return;
+  }
+
   // ─── Hourly tick: full agent mesh (0 * * * *, 15min CPU ceiling) ───
 
   // ─── Flight Control: autonomous supervisor runs first every tick ───
@@ -157,7 +164,6 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
-  if (minute === 0) await runParityChecker(env, ctx);
   // Log summary
   logger.info('cron_complete', {
     jobs_run: results.length,
