@@ -1,6 +1,7 @@
 import { logger } from '../lib/logger';
 import { feedModules, enrichmentModules, socialModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
+import { runParityChecker } from '../agents/parity-checker';
 import type { Env } from '../types';
 
 interface CronJobResult {
@@ -156,6 +157,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(result);
   }
 
+  if (minute === 0) await runParityChecker(env, ctx);
   // Log summary
   logger.info('cron_complete', {
     jobs_run: results.length,
