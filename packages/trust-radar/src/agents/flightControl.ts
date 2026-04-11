@@ -85,7 +85,7 @@ interface TrippedAgent {
 // Parallel instance thresholds per backlog level
 const SCALING = {
   cartographer: { low: 500, medium: 2000, high: 5000, max_parallel: 3 },
-  analyst:      { low: 50,  medium: 200,  high: 500,  max_parallel: 3 },
+  analyst:      { low: 50,  medium: 200,  high: 500,  max_parallel: 1 },
 } as const;
 
 // Minutes before an agent is considered stalled
@@ -841,6 +841,11 @@ async function recoverStalledAgents(
 
     const mod = agentModules[agent.agent_id];
     if (!mod) continue;
+
+    // TEMP DISABLED — Anthropic timeout, re-enable after fix (Phase 0.5d)
+    // architect times out on every Anthropic call; stall-recovery was spawning it
+    // every hour producing zero output while consuming 200-300 sec of D1 time.
+    if (agent.agent_id === 'architect') continue;
 
     await logActivity(db, 'flight_control', 'warning', 'recovery',
       `Recovering stalled agent: ${agent.agent_id} (last run: ${agent.last_run_at ?? 'never'})`,

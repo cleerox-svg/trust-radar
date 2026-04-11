@@ -25,7 +25,7 @@ not_found_handling = "404-page"
 # Hourly tick (15min CPU limit) — Flight Control + full agent mesh
 # Fast tick  (30s CPU limit)  — DNS backfill + lightweight maintenance
 [triggers]
-crons = ["0 * * * *", "*/5 * * * *", "30 * * * *", "*/10 * * * *"]
+crons = ["0 * * * *", "*/5 * * * *", "30 * * * *", "*/20 * * * *"]
 
 # ─── Workflows (durable multi-step processing) ──────────────
 [[workflows]]
