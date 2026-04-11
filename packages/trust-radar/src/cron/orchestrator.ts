@@ -31,7 +31,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // Heals retroactive enrichment drift that fast_tick's current+prev-hour
   // refresh can't catch. Overlaps "prev hour" with fast_tick — safe because
   // INSERT OR REPLACE is idempotent.
-  if (event.cron === '*/10 * * * *') {
+  if (event.cron === '*/20 * * * *') {
     await runCubeHealer(env, ctx);
     return;
   }
