@@ -11,8 +11,12 @@
  *     current in-progress hour.
  *
  * Tolerance rules:
- *   - Window checks: must match EXACTLY (drift_abs == 0). Windows are snapped
- *     to the top of the hour so sub-hour cube lag never causes false positives.
+ *   - Window checks (Phase 4.3): drift is tolerable when
+ *       drift_abs <= max(WINDOW_DRIFT_TOLERANCE_MIN, raw_total * WINDOW_DRIFT_TOLERANCE_PCT)
+ *     This absorbs the small natural baseline drift (3-10 rows on 14d/30d)
+ *     caused by cartographer retroactive enrichment accumulating between
+ *     cube_healer runs. Windows are still snapped to the top of the hour so
+ *     sub-hour cube lag never causes false positives.
  *   - Hourly H-1 check (the most recently-closed hour): drift_abs <= 5 is
  *     considered tolerable, to account for cartographer retroactive updates
  *     landing between fast_tick refreshes.
@@ -74,6 +78,26 @@ const WINDOW_HOURS: Record<string, number> = {
   '14 days': 336,
   '30 days': 720,
 };
+
+// ─── Tolerance constants ─────────────────────────────────────────
+//
+// Hourly H-1 tolerance stays as a 5-row inline literal below (H-2+ exact).
+//
+// Window tolerance (new in Phase 4.3): drift is tolerable when
+//   drift_abs <= max(WINDOW_DRIFT_TOLERANCE_MIN, raw_total * WINDOW_DRIFT_TOLERANCE_PCT)
+//
+// The 10-row floor matches the worst-case natural drift we observed between
+// cube_healer runs (up to 10 min of cartographer retroactive enrichment). The
+// 0.1% scaling handles wider windows proportionally so a 30d window with ~2M
+// rows gets ~2000 rows of tolerance, not a fixed 10.
+const WINDOW_DRIFT_TOLERANCE_PCT = 0.001; // 0.1%
+const WINDOW_DRIFT_TOLERANCE_MIN = 10; // minimum 10 rows regardless of window size
+
+function isWindowDriftTolerable(driftAbs: number, rawTotal: number): boolean {
+  const pctTolerance = rawTotal * WINDOW_DRIFT_TOLERANCE_PCT;
+  const tolerance = Math.max(WINDOW_DRIFT_TOLERANCE_MIN, pctTolerance);
+  return driftAbs <= tolerance;
+}
 
 /**
  * Format a Date as a 'YYYY-MM-DD HH:00:00' UTC hour bucket string, matching
@@ -179,7 +203,7 @@ async function checkWindow(
     rawTotal,
     driftAbs,
     driftPct: computeDriftPct(cubeTotal, rawTotal),
-    isTolerable: driftAbs === 0,
+    isTolerable: isWindowDriftTolerable(driftAbs, rawTotal),
   };
 }
 
@@ -368,24 +392,31 @@ export async function runParityChecker(
     }
 
     // ── Build summary + update agent_runs row ───────────────────
+    //
+    // status='success' if zero critical drifts (tolerable drifts are logged
+    // to error_message for visibility but do NOT trigger the partial alarm).
+    // status='partial' if any critical drift.
+    //
+    // `worstDrift` above is already scoped to critical drifts only — the
+    // counting block only updates it inside the criticalDrift++ branch.
     const durationMs = Date.now() - startMs;
-    const anyDrift = criticalDrift > 0 || tolerableDrift > 0;
     const finalStatus: 'success' | 'partial' = criticalDrift > 0 ? 'partial' : 'success';
 
     let summary: string;
     let errorMessage: string | null = null;
     if (criticalDrift > 0 && worstDrift !== null) {
       const diff = worstDrift.cubeTotal - worstDrift.rawTotal;
-      summary =
-        `CRITICAL DRIFT: ${criticalDrift} ${worstDrift.checkType === 'window' ? 'window' : 'hour'}${criticalDrift === 1 ? '' : 's'}, ` +
-        `${worstDrift.cubeName} cube. Worst: ${worstDrift.checkType === 'window' ? 'window' : 'hour'} ${worstDrift.windowLabel} ` +
-        `cube=${worstDrift.cubeTotal} raw=${worstDrift.rawTotal} diff=${diff >= 0 ? '+' : ''}${diff}`;
-      errorMessage = summary;
-    } else if (anyDrift) {
+      const worstDriftDescription =
+        `${worstDrift.checkType === 'window' ? 'window' : 'hour'} ${worstDrift.windowLabel} ` +
+        `(${worstDrift.cubeName}) cube=${worstDrift.cubeTotal} raw=${worstDrift.rawTotal} ` +
+        `diff=${diff >= 0 ? '+' : ''}${diff}`;
+      errorMessage =
+        `${criticalDrift} critical drift(s), ${tolerableDrift} tolerable. Worst: ${worstDriftDescription}`;
+      summary = `CRITICAL DRIFT: ${errorMessage}`;
+    } else if (tolerableDrift > 0) {
+      errorMessage = `${tolerableDrift} tolerable drift(s), no critical`;
       summary =
         `Parity OK (${exactMatches}/${totalChecks} exact, ${tolerableDrift} tolerable drift, 0 critical)`;
-      // Tolerable drift is not an alarm, but surface it on the run row for visibility.
-      errorMessage = `Tolerable drift on ${tolerableDrift} check(s) (within H-1 5-row tolerance). No critical drift.`;
     } else {
       summary = `Parity OK: ${exactMatches}/${totalChecks} checks exact, 0 drift`;
     }
