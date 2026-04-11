@@ -248,8 +248,8 @@ function ThreatMapInner({
   const particlesRef = useRef<Array<{ arc: number; t: number; speed: number }>>([]);
   const animFrameRef = useRef<number | null>(null);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
-
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -519,9 +519,6 @@ function ThreatMapInner({
     return layers;
   }, [threats, arcs, showBeams, showNodes, colorBy, mapMode, operations, heatmapData, onArcClick, onClusterClick]);
 
-  // Track map loaded state to avoid race conditions
-  const [mapLoaded, setMapLoaded] = useState(false);
-
   // Update overlay when data/settings change — only after map is loaded
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return;
@@ -541,6 +538,11 @@ function ThreatMapInner({
 
   // Particle animation (only in global mode)
   useEffect(() => {
+    // TEMPORARILY DISABLED — particle animation causes WebGL context leak.
+    // See ThreatMap.tsx particle effect issue. Re-enable after rewriting
+    // to use shader-based animation instead of per-frame layer recreation.
+    return;
+
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
