@@ -11,6 +11,7 @@ import {
   handleBulkMonitor, handleBulkDeleteBrands, handleBackfillAiAttribution,
   handleBackfillSocialConfig, handleBackfillSaasTechniques,
   handleBudgetLedgerHealth,
+  handleCubeBackfill,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -285,6 +286,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBackfillSocialConfig(request, env);
+  });
+  router.post("/api/admin/cube-backfill", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleCubeBackfill(request, env);
   });
 
   // ─── Brand Administration ─────────────────────────────────────────
