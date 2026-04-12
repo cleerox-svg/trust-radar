@@ -20,6 +20,11 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
+    // KV cache: brand stats rarely change — cache for 2 minutes
+    const cacheKey = "brand_stats";
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const total = await session.prepare("SELECT COUNT(*) AS n FROM brands").first<{ n: number }>();
 
     const newThisWeek = await session.prepare(
@@ -38,7 +43,7 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
       FROM threats GROUP BY threat_type ORDER BY cnt DESC LIMIT 1
     `).first<{ threat_type: string; cnt: number; pct: number }>();
 
-    return attachBookmark(json({
+    const data = {
       success: true,
       data: {
         total_tracked: total?.n ?? 0,
@@ -48,7 +53,9 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
         top_threat_type: topType?.threat_type ?? null,
         top_threat_type_pct: topType?.pct ?? 0,
       },
-    }, 200, origin), session);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
@@ -67,6 +74,13 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     const sector = url.searchParams.get("sector");
     const tab = url.searchParams.get("tab") ?? "all";
     const sort = url.searchParams.get("sort") ?? "threats";
+
+    // KV cache: brand list is the heaviest query (5 JOINs + 14-day sparkline subquery).
+    // Cache for 2 minutes, keyed by all query params + scope hash.
+    const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
+    const cacheKey = `brand_list:${tab}:${sort}:${limit}:${offset}:${search ?? ""}:${sector ?? ""}:${scopeHash}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -189,7 +203,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       threat_history_json: undefined,
     }));
 
-    return attachBookmark(json({
+    const result = {
       success: true,
       data,
       total: total?.n ?? 0,
@@ -198,7 +212,9 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         watchlist: watchlistCount?.n ?? 0,
         all: allCount?.n ?? 0,
       },
-    }, 200, origin), session);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 120 });
+    return attachBookmark(json(result, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }

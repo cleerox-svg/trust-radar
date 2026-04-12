@@ -48,7 +48,7 @@ export function useObservatoryThreats(
   return useObservatoryQuery<ThreatPoint[]>(
     '/api/observatory/nodes',
     { period, source_feed: source === 'all' ? '' : source, limit },
-    { refetchInterval: 120_000 },
+    { refetchInterval: 300_000 },
   );
 }
 
@@ -60,7 +60,7 @@ export function useObservatoryStats(
   return useObservatoryQuery<ObservatoryStats>(
     '/api/observatory/stats',
     { period, source_feed: source === 'all' ? '' : source },
-    { refetchInterval: 120_000 },
+    { refetchInterval: 300_000 },
   );
 }
 
@@ -72,7 +72,7 @@ export function useObservatoryArcs(
   return useObservatoryQuery<ArcData[]>(
     '/api/observatory/arcs',
     { period, source_feed: source === 'all' ? '' : source },
-    { refetchInterval: 120_000 },
+    { refetchInterval: 300_000 },
   );
 }
 
@@ -84,6 +84,6 @@ export function useObservatoryHeatmap(
   return useObservatoryQuery<HeatmapPoint[]>(
     '/api/threats/heatmap',
     { period, limit },
-    { refetchInterval: 120_000 },
+    { refetchInterval: 300_000 },
   );
 }
