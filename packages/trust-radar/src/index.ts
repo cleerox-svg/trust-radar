@@ -1,3 +1,4 @@
+// Averrow Trust Radar — Cloudflare Worker entry point
 import { Router } from "itty-router";
 import { handleOptions } from "./lib/cors";
 import { applySecurityHeaders } from "./middleware/security";
