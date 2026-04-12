@@ -17,9 +17,12 @@ import { runDomainGeoBackfillBatch } from '../lib/dns-backfill';
 import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
 import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
-import { handleDashboardOverview } from '../handlers/dashboard';
+import { handleDashboardOverview, handleDashboardTopBrands } from '../handlers/dashboard';
 import { handleListAgents } from '../handlers/agents';
 import { handleListOperations, handleOperationsStats } from '../handlers/operations';
+import { handleListBrands, handleBrandStats } from '../handlers/brands';
+import { handleListThreatActors, handleThreatActorStats } from '../handlers/threatActors';
+import { handleListBreaches, handleListATOEvents, handleListEmailAuth, handleListCloudIncidents } from '../handlers/intel';
 
 /** How many agent_events to drain per tick. */
 const EVENT_DRAIN_LIMIT = 50;
@@ -222,15 +225,44 @@ export async function runFastTick(
       ]);
       cacheWarmed += obsResults.filter(r => r.status === 'fulfilled').length;
 
-      // Phase B: Other heavy pages (if still under cap)
+      // Phase A2: Observatory alternate periods (24h/30d) so toggles hit warm cache
+      if (!isOverCap()) {
+        const altResults = await Promise.allSettled([
+          handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=24h'), env),
+          handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=24h'), env),
+          handleObservatoryStats(fakeReq('/api/observatory/stats?period=24h'), env),
+          handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=30d'), env),
+          handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=30d'), env),
+          handleObservatoryStats(fakeReq('/api/observatory/stats?period=30d'), env),
+        ]);
+        cacheWarmed += altResults.filter(r => r.status === 'fulfilled').length;
+      }
+
+      // Phase B: Dashboard + agents + operations (if still under cap)
       if (!isOverCap()) {
         const pageResults = await Promise.allSettled([
           handleDashboardOverview(fakeReq('/api/dashboard/overview'), env),
+          handleDashboardTopBrands(fakeReq('/api/dashboard/top-brands'), env),
           handleListAgents(fakeReq('/api/agents'), env),
           handleListOperations(fakeReq('/api/v1/operations'), env),
           handleOperationsStats(fakeReq('/api/v1/operations/stats'), env),
         ]);
         cacheWarmed += pageResults.filter(r => r.status === 'fulfilled').length;
+      }
+
+      // Phase C: Brands, Threat Actors, Intelligence (if still under cap)
+      if (!isOverCap()) {
+        const moduleResults = await Promise.allSettled([
+          handleListBrands(fakeReq('/api/brands?limit=50&sort=threats'), env),
+          handleBrandStats(fakeReq('/api/brands/stats'), env),
+          handleListThreatActors(fakeReq('/api/threat-actors?limit=50'), env),
+          handleThreatActorStats(fakeReq('/api/threat-actors/stats'), env),
+          handleListBreaches(fakeReq('/api/breaches?limit=50'), env),
+          handleListATOEvents(fakeReq('/api/ato-events?limit=50'), env),
+          handleListEmailAuth(fakeReq('/api/email-auth?limit=50'), env),
+          handleListCloudIncidents(fakeReq('/api/cloud-incidents?limit=50'), env),
+        ]);
+        cacheWarmed += moduleResults.filter(r => r.status === 'fulfilled').length;
       }
 
       console.log(`[fast-tick] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms`);
