@@ -287,76 +287,45 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const session = getReadSession(env, ctx);
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
-  const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
   const interval = periodToInterval(period);
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
-    // KV cache: arcs queries hit raw threats table (3-7s) — cache for 2 minutes.
-    const cacheKey = `observatory_arcs:${period}:${limit}:${url.searchParams.get("source_feed") ?? "all"}`;
+    // KV cache: arcs queries hit raw threats table — cache for 2 minutes.
+    const cacheKey = `observatory_arcs:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
-    // Fire both queries in parallel — the time-filtered query and the unfiltered
-    // fallback. If filtered results are sufficient (≥5), we use them; otherwise
-    // we fall back to the broader result. Both queries are cheap JOINs on indexed
-    // columns, so running both concurrently costs one extra query on full data days
-    // but eliminates an entire round-trip latency on sparse-data days.
-    const [rows, fallbackRows] = await Promise.all([
-      session.prepare(`
-        SELECT
-          ROUND(t.lat, 1) AS source_lat,
-          ROUND(t.lng, 1) AS source_lng,
-          t.threat_type,
-          t.severity,
-          t.country_code AS source_country,
-          b.name AS target_brand,
-          b.canonical_domain AS target_domain,
-          b.sector AS target_sector,
-          COUNT(*) AS volume
-        FROM threats t
-        JOIN brands b ON b.id = t.target_brand_id
-        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
-          AND t.target_brand_id IS NOT NULL
-          AND t.status = 'active'
-          AND t.created_at > datetime('now', ?)${sourceFilter.sql}
-        GROUP BY t.country_code, t.target_brand_id, t.threat_type
-        ORDER BY volume DESC
-        LIMIT ?
-      `).bind(interval, ...sourceFilter.params, limit).all<{
-        source_lat: number; source_lng: number; threat_type: string;
-        severity: string | null; source_country: string | null;
-        target_brand: string | null; target_domain: string | null;
-        target_sector: string | null; volume: number;
-      }>(),
-      session.prepare(`
-        SELECT
-          ROUND(t.lat, 1) AS source_lat,
-          ROUND(t.lng, 1) AS source_lng,
-          t.threat_type,
-          t.severity,
-          t.country_code AS source_country,
-          b.name AS target_brand,
-          b.canonical_domain AS target_domain,
-          b.sector AS target_sector,
-          COUNT(*) AS volume
-        FROM threats t
-        JOIN brands b ON b.id = t.target_brand_id
-        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
-          AND t.target_brand_id IS NOT NULL
-          AND t.status = 'active'${sourceFilter.sql}
-        GROUP BY t.country_code, t.target_brand_id, t.threat_type
-        ORDER BY volume DESC
-        LIMIT 50
-      `).bind(...sourceFilter.params).all<{
-        source_lat: number; source_lng: number; threat_type: string;
-        severity: string | null; source_country: string | null;
-        target_brand: string | null; target_domain: string | null;
-        target_sector: string | null; volume: number;
-      }>(),
-    ]);
+    // Single time-filtered query — no fallback, no LIMIT. Return the truth of the
+    // data for the selected period. If 24H has zero arcs, the globe shows zero arcs.
+    // If 30D has 15,000 arcs, the globe shows 15,000 arcs.
+    const rows = await session.prepare(`
+      SELECT
+        ROUND(t.lat, 1) AS source_lat,
+        ROUND(t.lng, 1) AS source_lng,
+        t.threat_type,
+        t.severity,
+        t.country_code AS source_country,
+        b.name AS target_brand,
+        b.canonical_domain AS target_domain,
+        b.sector AS target_sector,
+        COUNT(*) AS volume
+      FROM threats t
+      JOIN brands b ON b.id = t.target_brand_id
+      WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+        AND t.target_brand_id IS NOT NULL
+        AND t.status = 'active'
+        AND t.created_at > datetime('now', ?)${sourceFilter.sql}
+      GROUP BY t.country_code, t.target_brand_id, t.threat_type
+      ORDER BY volume DESC
+    `).bind(interval, ...sourceFilter.params).all<{
+      source_lat: number; source_lng: number; threat_type: string;
+      severity: string | null; source_country: string | null;
+      target_brand: string | null; target_domain: string | null;
+      target_sector: string | null; volume: number;
+    }>();
 
-    const resultRows = (rows.results?.length ?? 0) >= 5 ? rows.results ?? [] : fallbackRows.results ?? [];
+    const resultRows = rows.results ?? [];
 
     const arcs = resultRows
       .map(row => {

@@ -109,17 +109,18 @@ export function useProviders(options?: {
 }) {
   const {
     limit = 50, offset = 0, sort = 'active_threats',
-    country, status, search, clusterId,
+    timeRange, country, status, search, clusterId,
   } = options || {};
 
   return useQuery({
-    queryKey: ['providers-v2', limit, offset, sort, country, status, search, clusterId],
+    queryKey: ['providers-v2', limit, offset, sort, timeRange, country, status, search, clusterId],
     queryFn: async () => {
       const params = new URLSearchParams({
         limit: String(limit),
         offset: String(offset),
         sort,
       });
+      if (timeRange) params.set('range', timeRange);
       if (country) params.set('country', country);
       if (status) params.set('status', status);
       if (search) params.set('q', search);
