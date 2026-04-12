@@ -46,15 +46,23 @@ name = "nexus-run"
 binding = "NEXUS_RUN"
 class_name = "NexusWorkflow"
 
-# ─── Queues ──────────────────────────────────────────────────────
-# architect-analysis queue removed in Wave 1C. The queue consumer
-# was a no-op drain (all messages acked immediately) since Phase 4
-# Step 1 folded ARCHITECT into the standard AgentModule pattern.
+# ─── Queues (legacy ARCHITECT consumer — kept until CLI cleanup) ──
+# The architect-analysis queue is no longer enqueued to (Phase 4 Step 1).
+# The consumer binding MUST stay here until the Cloudflare-side consumer
+# relationship is deregistered via CLI — removing it before that causes
+# wrangler deploy to fail.
 #
-# Post-deploy cleanup (run once from CLI):
-#   wrangler queues consumer remove architect-analysis trust-radar
-#   wrangler queues delete architect-analysis
-#   wrangler queues delete architect-analysis-dlq
+# Cleanup order (run from CLI, then delete this block + index.ts handler):
+#   1. wrangler queues consumer remove architect-analysis trust-radar
+#   2. wrangler queues delete architect-analysis
+#   3. wrangler queues delete architect-analysis-dlq
+#   4. Remove [[queues.consumers]] block below + no-op handler in index.ts
+[[queues.consumers]]
+queue = "architect-analysis"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 0
+dead_letter_queue = "architect-analysis-dlq"
 
 # ─── D1 Databases (v2 — fresh databases) ─────────────────────
 [[d1_databases]]

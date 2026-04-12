@@ -93,8 +93,17 @@ registerPublicRoutes(router);
 export default {
   scheduled: handleScheduled,
 
-  // architect-analysis queue consumer removed in Wave 1C.
-  // Run post-deploy cleanup: see wrangler.toml comments.
+  // Legacy queue consumer drain — kept until Cloudflare-side consumer
+  // relationship is deregistered via CLI (see wrangler.toml comments).
+  async queue(
+    batch: MessageBatch<unknown>,
+    _env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<void> {
+    for (const msg of batch.messages) {
+      msg.ack();
+    }
+  },
 
   async email(message: { from: string; to: string; headers: Headers; raw: ReadableStream<Uint8Array>; rawSize: number; setReject(r: string): void; forward(to: string, headers?: Headers): Promise<void> }, env: Env, ctx: ExecutionContext): Promise<void> {
     // Accept ALL emails — never reject/bounce (Google/Microsoft stop sending on bounces)
