@@ -232,31 +232,35 @@ cube-healer:  12 */6 * * *  (every 6 hours at :12 — 30-day bulk cube rebuild)
 
 ### Agent dispatch (inside orchestrator hourly tick):
 All agents below are dispatched from `runThreatFeedScan()` inside the orchestrator.
-Time gates use `event.scheduledTime` (minute=7 for the `7 * * * *` cron).
+Time gates use `event.scheduledTime` hour-only — **no minute gates** (see cron-audit rule below).
 
 ```
-Always (no gate):     Flight Control, CertStream health, Enricher, agent_events consumer
-Feed ingestion:       inside runThreatFeedScan (minute gate must match :07)
+Always (every tick):  Flight Control, CertStream health, Enricher, agent_events consumer
+Always (every tick):  Feed ingestion, brand match, email security, Cartographer, Analyst
 Sentinel:             after feed ingestion if totalNew > 0 (inline await)
 Cartographer:         after Sentinel OR as fallback (dispatched as Workflow)
-Analyst:              minute % 15 < 5 window (ctx.waitUntil)
-Strategist:           hour % 6 === 0, minute [5,10) (ctx.waitUntil)
-NEXUS:                hour % 4 === 0, minute === 0 (dispatched as Workflow)
-Sparrow:              hour % 6 === 0, minute [15,20) (ctx.waitUntil)
-Observer:             hour === 0, minute < 5 (inline await)
-Pathfinder:           hour === 3, minute < 5 (inline await)
-CT monitor:           minute % 5 === 0 (inline await, in handleScheduled)
-Lookalike check:      minute === 15 (inline await, in handleScheduled)
-Social discovery:     minute === 0, hour % 6 === 0 (in handleScheduled)
+Analyst:              every tick (ctx.waitUntil)
+Strategist:           hour % 6 === 0 (ctx.waitUntil)
+NEXUS:                hour % 4 === 0 (dispatched as Workflow)
+Sparrow:              hour % 6 === 0 (ctx.waitUntil)
+Observer:             hour === 0 (inline await)
+Pathfinder:           hour === 3 (inline await, KV throttle ensures once per 7 days)
+CT monitor:           every tick (inline await, in handleScheduled)
+Lookalike check:      every tick (inline await, in handleScheduled)
+Social discovery:     hour % 6 === 0 (in handleScheduled)
+Daily snapshots:      hour === 0, or if none exist today (inline await)
 ```
 
-**⚠️ KNOWN BUG:** The orchestrator was shifted from `:00` to `:07` in Wave 1A but
-the minute gates inside were NOT updated. `runThreatFeedScan()` is gated by
-`minute === 0 || minute === 30` which is never true when minute=7. This means
-feed ingestion and ALL agents inside that function are dead. Only Flight Control,
-CertStream, Enricher, and agent_events processing actually fire. Fix is tracked.
-
 **Parity-checker:** Removed in Wave 6. No longer runs anywhere. Do not reference.
+
+### Cron-audit rule (MANDATORY):
+When changing cron schedules in `wrangler.toml`, you MUST audit every time gate
+in the affected handler for minute-based assumptions. The cron fires at ONE
+specific minute — any `minute === X` check that doesn't match that minute is
+dead code. This rule exists because Wave 1A shifted the orchestrator from `:00`
+to `:07` without updating minute gates, silently killing the entire agent mesh
+for 22 hours. All orchestrator gates now use hour-only checks. If sub-hourly
+scheduling is needed, use fast-tick (`*/5`) or add a dedicated cron trigger.
 
 ### Execution patterns:
 - **Workflow dispatch:** Cartographer and NEXUS run as Cloudflare Workflows (durable, no CPU ceiling)
