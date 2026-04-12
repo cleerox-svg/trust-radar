@@ -853,10 +853,11 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
 
       const matchedIds = results.filter(r => r.match).map(r => r.id);
       if (matchedIds.length > 0) {
-        // Batch update matched threats
-        for (const id of matchedIds) {
-          await env.DB.prepare("UPDATE threats SET target_brand_id = ? WHERE id = ?").bind(brandId, id).run();
-        }
+        // Batch update matched threats — single statement instead of N+1
+        const placeholders = matchedIds.map(() => '?').join(',');
+        await env.DB.prepare(
+          `UPDATE threats SET target_brand_id = ? WHERE id IN (${placeholders})`
+        ).bind(brandId, ...matchedIds).run();
         newlyLinked += matchedIds.length;
       }
     }
@@ -889,17 +890,19 @@ export async function handleCleanFalsePositives(request: Request, env: Env, bran
        WHERE target_brand_id = ? AND status = 'active' AND malicious_domain IS NOT NULL`,
     ).bind(brandId).all<{ id: string; malicious_domain: string }>();
 
-    let cleaned = 0;
-    for (const t of threats.results) {
-      if (isSafeDomain(t.malicious_domain, safeSet)) {
-        await env.DB.prepare(
-          "UPDATE threats SET status = 'remediated', confidence_score = 0 WHERE id = ?",
-        ).bind(t.id).run();
-        cleaned++;
-      }
+    // Collect IDs of safe-domain threats, then batch update in one statement.
+    const safeIds = threats.results
+      .filter(t => isSafeDomain(t.malicious_domain, safeSet))
+      .map(t => t.id);
+
+    if (safeIds.length > 0) {
+      const placeholders = safeIds.map(() => '?').join(',');
+      await env.DB.prepare(
+        `UPDATE threats SET status = 'remediated', confidence_score = 0 WHERE id IN (${placeholders})`
+      ).bind(...safeIds).run();
     }
 
-    return json({ success: true, data: { cleaned, checked: threats.results.length } }, 200, origin);
+    return json({ success: true, data: { cleaned: safeIds.length, checked: threats.results.length } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
