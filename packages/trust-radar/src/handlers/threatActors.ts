@@ -1,10 +1,11 @@
 // Averrow — Threat Actor API Handlers
 
 import { json } from "../lib/cors";
+import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
 import type { Env } from "../types";
 
 // Helper: safely query a table that may not exist, returning a fallback
-async function safeQuery<T>(db: D1Database, stmt: D1PreparedStatement, fallback: T): Promise<T> {
+async function safeQuery<T>(session: D1Database, stmt: D1PreparedStatement, fallback: T): Promise<T> {
   try {
     const result = await stmt.first<T>();
     return result ?? fallback;
@@ -24,6 +25,8 @@ async function safeQueryAll(_db: D1Database, stmt: D1PreparedStatement): Promise
 // GET /api/threat-actors?country=IR&status=active&attribution=IRGC&limit=50&offset=0
 export async function handleListThreatActors(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -32,6 +35,11 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     const status = url.searchParams.get("status");
     const attribution = url.searchParams.get("affiliation") ?? url.searchParams.get("attribution");
     const search = url.searchParams.get("q");
+
+    // KV cache — 5 min TTL. Key includes all filter dimensions.
+    const cacheKey = `threat_actors:${limit}:${offset}:${country ?? ""}:${status ?? ""}:${attribution ?? ""}:${search ?? ""}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -56,10 +64,6 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const countResult = await env.DB.prepare(
-      `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
-    ).bind(...params).first<{ total: number }>();
-
     // Column names match actual DB schema
     const selectCols = `ta.id, ta.name, ta.aliases,
           ta.attribution,
@@ -76,10 +80,15 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
           ta.name`;
 
+    // Run count + list in parallel
+    const countPromise = session.prepare(
+      `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
+    ).bind(...params).first<{ total: number }>();
+
     // Try query with join table counts first; fall back to basic query if tables missing
-    let rows: D1Result;
+    let rowsPromise: Promise<D1Result>;
     try {
-      rows = await env.DB.prepare(`
+      rowsPromise = session.prepare(`
         SELECT ${selectCols},
           (SELECT COUNT(*) FROM threat_actor_infrastructure tai WHERE tai.threat_actor_id = ta.id) AS infra_count,
           (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count
@@ -89,8 +98,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
         LIMIT ? OFFSET ?
       `).bind(...params, limit, offset).all();
     } catch {
-      // Join tables don't exist — query threat_actors alone
-      rows = await env.DB.prepare(`
+      rowsPromise = session.prepare(`
         SELECT ${selectCols}, 0 AS infra_count, 0 AS target_count
         FROM threat_actors ta
         ${where}
@@ -99,48 +107,61 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       `).bind(...params, limit, offset).all();
     }
 
-    return json({
+    const [countResult, rows] = await Promise.all([countPromise, rowsPromise]);
+
+    const data = {
       success: true,
       data: rows.results,
       total: countResult?.total ?? 0,
-    }, 200, origin);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "Failed to list threat actors" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "Failed to list threat actors" }, 500, origin), session);
   }
 }
 
 // GET /api/threat-actors/stats
 export async function handleThreatActorStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>();
-    const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>();
-    const byCountry = await env.DB.prepare(`
-      SELECT country, COUNT(*) AS count
-      FROM threat_actors
-      GROUP BY country
-      ORDER BY count DESC
-      LIMIT 10
-    `).all();
-    const byAttribution = await env.DB.prepare(`
-      SELECT attribution, COUNT(*) AS count
-      FROM threat_actors
-      WHERE attribution IS NOT NULL
-      GROUP BY attribution
-      ORDER BY count DESC
-    `).all();
+    // KV cache — 5 min TTL.
+    const cacheKey = "threat_actor_stats";
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
-    // These tables may not exist if migration 0063 partially failed
-    const totalInfra = await safeQuery(env.DB,
-      env.DB.prepare("SELECT COUNT(*) AS n FROM threat_actor_infrastructure"),
-      { n: 0 }
-    );
-    const totalTargets = await safeQuery(env.DB,
-      env.DB.prepare("SELECT COUNT(DISTINCT brand_id) AS n FROM threat_actor_targets WHERE brand_id IS NOT NULL"),
-      { n: 0 }
-    );
+    // Run all 6 queries in parallel
+    const [total, active, byCountry, byAttribution, totalInfra, totalTargets] = await Promise.all([
+      session.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>(),
+      session.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>(),
+      session.prepare(`
+        SELECT country, COUNT(*) AS count
+        FROM threat_actors
+        GROUP BY country
+        ORDER BY count DESC
+        LIMIT 10
+      `).all(),
+      session.prepare(`
+        SELECT attribution, COUNT(*) AS count
+        FROM threat_actors
+        WHERE attribution IS NOT NULL
+        GROUP BY attribution
+        ORDER BY count DESC
+      `).all(),
+      // These tables may not exist if migration 0063 partially failed
+      safeQuery(session as unknown as D1Database,
+        session.prepare("SELECT COUNT(*) AS n FROM threat_actor_infrastructure"),
+        { n: 0 }
+      ),
+      safeQuery(session as unknown as D1Database,
+        session.prepare("SELECT COUNT(DISTINCT brand_id) AS n FROM threat_actor_targets WHERE brand_id IS NOT NULL"),
+        { n: 0 }
+      ),
+    ]);
 
-    return json({
+    const data = {
       success: true,
       data: {
         total: total?.n ?? 0,
@@ -150,9 +171,11 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
         tracked_infrastructure: totalInfra.n ?? 0,
         targeted_brands: totalTargets.n ?? 0,
       },
-    }, 200, origin);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "Failed to get threat actor stats" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "Failed to get threat actor stats" }, 500, origin), session);
   }
 }
 

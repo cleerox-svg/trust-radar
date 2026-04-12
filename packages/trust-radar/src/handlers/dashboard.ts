@@ -97,6 +97,13 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
     const url = new URL(request.url);
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "10", 10));
 
+    const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
+
+    // KV cache — 5 min TTL
+    const cacheKey = `dashboard_top_brands:${limit}:${scopeHash}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const brandFilter = scope && scope.brand_ids.length > 0
       ? { clause: `WHERE b.id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: [...scope.brand_ids, limit] }
       : { clause: "", params: [limit] };
@@ -120,7 +127,9 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
       LIMIT ?
     `).bind(...brandFilter.params).all();
 
-    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
+    const data = { success: true, data: rows.results };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
