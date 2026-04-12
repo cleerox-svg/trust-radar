@@ -97,7 +97,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
 
     // Tab filtering
     if (tab === "under_attack") {
-      conditions.push("t_active.active_count > 0");
+      conditions.push("EXISTS (SELECT 1 FROM threats WHERE target_brand_id = b.id AND status = 'active' LIMIT 1)");
     } else if (tab === "watchlist") {
       conditions.push("mb.brand_id IS NOT NULL");
     }
@@ -108,30 +108,26 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const sortClause = sort === "name" ? "b.name ASC" :
-      sort === "recent" ? "last_threat_seen DESC NULLS LAST" :
-      "threat_count DESC";
+      sort === "recent" ? "b.last_threat_seen DESC NULLS LAST" :
+      "b.threat_count DESC";
 
     params.push(limit, offset);
 
+    // Use pre-computed columns on brands table instead of JOINing 113K threats.
+    // brands.threat_count and brands.last_threat_seen are maintained by
+    // cartographer, handleAddMonitoredBrand, and handleBrandDeepScan.
     const rows = await session.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
              b.official_handles, b.email_security_grade,
              b.exposure_score,
              b.social_risk_score,
              b.logo_url,
-             COUNT(t.id) AS threat_count,
-             SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
-             MAX(t.created_at) AS last_threat_seen,
+             b.threat_count,
+             b.last_threat_seen,
              CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored,
              COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
-      LEFT JOIN threats t ON t.target_brand_id = b.id
       LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
-      LEFT JOIN (
-        SELECT target_brand_id, COUNT(*) AS active_count
-        FROM threats WHERE status = 'active'
-        GROUP BY target_brand_id
-      ) t_active ON t_active.target_brand_id = b.id
       LEFT JOIN (
         SELECT brand_id, COUNT(*) AS imp_count
         FROM social_profiles
@@ -139,28 +135,11 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         GROUP BY brand_id
       ) sp_imp ON sp_imp.brand_id = b.id
       ${where}
-      GROUP BY b.id
       ORDER BY ${sortClause}
       LIMIT ? OFFSET ?
     `).bind(...params).all();
 
-    // Total count for pagination
-    const totalQuery = `
-      SELECT COUNT(DISTINCT b.id) AS n
-      FROM brands b
-      LEFT JOIN threats t ON t.target_brand_id = b.id
-      LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
-      LEFT JOIN (
-        SELECT target_brand_id, COUNT(*) AS active_count
-        FROM threats WHERE status = 'active'
-        GROUP BY target_brand_id
-      ) t_active ON t_active.target_brand_id = b.id
-      ${where}
-    `;
-    const total = await session.prepare(totalQuery)
-      .bind(...params.slice(0, -2)).first<{ n: number }>();
-
-    // Tab counts for the UI badges (scoped when applicable)
+    // Total count + tab counts — run in parallel
     const scopeFilter = scope && scope.brand_ids.length > 0
       ? { clause: `AND target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
       : { clause: "", params: [] as string[] };
@@ -182,6 +161,8 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         `SELECT COUNT(*) AS n FROM brands ${brandScopeFilter.clause}`
       ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
+
+    const total = allCount;
 
     const result = {
       success: true,
