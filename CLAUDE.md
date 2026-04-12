@@ -225,7 +225,7 @@ Analyst       → [scores_updated]     → Pathfinder (new high-value leads)
 
 ### Cron schedule (wrangler.toml):
 ```
-fast-tick:    */5 * * * *    (every 5 min — DNS backfill, cube refresh, cache warming)
+fast-tick:    */5 * * * *    (every 5 min — DNS backfill, cube refresh, cache warming of 24 endpoints)
 orchestrator: 7 * * * *     (hourly at :07 — feeds, agent dispatch, Workflows)
 cube-healer:  12 */6 * * *  (every 6 hours at :12 — 30-day bulk cube rebuild)
 ```
@@ -319,9 +319,15 @@ scheduling is needed, use fast-tick (`*/5`) or add a dedicated cron trigger.
 
 ### KV Cache on page-load endpoints
 - Check `env.CACHE.get(cacheKey)` before querying D1 on any page-load GET endpoint
-- Store results with `env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 })`
-- fast-tick pre-warms caches every 5 min so users rarely hit cold cache
+- Store results with `env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 })` — 5-min TTL standard
+- fast-tick pre-warms 24 endpoints every 5 min across 3 phases:
+  - **A**: Observatory (7d/24h/30d nodes, arcs, stats + live + operations)
+  - **B**: Dashboard overview + top-brands, Agents, Operations list + stats
+  - **C**: Brands list + stats, Threat Actors list + stats, Breaches, ATO, Email Auth, Cloud Incidents
 - Cache keys must encode all query parameters for correctness
+- Default page loads (no search/filter, page 1) use reduced-dimension cache keys for higher hit rate
+- Use read replicas (`getReadSession`) for all read-heavy list/stats handlers
+- Parallelize list + stats queries in the same handler via `Promise.all()`
 
 ### Key tables:
 ```
