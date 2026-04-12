@@ -81,6 +81,28 @@ export async function enrichLead(
   ).run();
 }
 
+/**
+ * Reject a lead post-enrichment with a reason. Sets status to 'rejected'
+ * and stores the rejection_reason for auditability.
+ */
+export async function rejectLead(
+  env: Env,
+  leadId: number,
+  reason: string,
+  researchJson: string | null = null,
+): Promise<void> {
+  await env.DB.prepare(`
+    UPDATE sales_leads SET
+      status = 'rejected',
+      rejection_reason = ?,
+      research_json = COALESCE(?, research_json),
+      ai_enriched = 1,
+      ai_enriched_at = datetime('now'),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).bind(reason, researchJson, leadId).run();
+}
+
 export async function getLeadById(env: Env, id: number): Promise<SalesLead | null> {
   return env.DB.prepare("SELECT * FROM sales_leads WHERE id = ?")
     .bind(id)
