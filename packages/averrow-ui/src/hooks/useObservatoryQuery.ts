@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 
 interface UseObservatoryQueryOptions {
-  staleTime?: number;       // ms; data older than this triggers background refetch (default 60s)
+  staleTime?: number;       // ms; data older than this triggers background refetch (default 5min)
   enabled?: boolean;        // gate the fetch (default true)
   refetchInterval?: number; // ms; auto-refetch interval (optional)
 }
@@ -38,7 +38,7 @@ export function useObservatoryQuery<T>(
   params: Record<string, string | number>,
   options: UseObservatoryQueryOptions = {}
 ): UseObservatoryQueryResult<T> {
-  const { staleTime = 60_000, enabled = true, refetchInterval } = options;
+  const { staleTime = 300_000, enabled = true, refetchInterval } = options;
 
   const cacheKey = buildCacheKey(endpoint, params);
 

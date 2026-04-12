@@ -57,9 +57,23 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const url = new URL(request.url);
     const period = url.searchParams.get("period") || "7d";
     const limit = Math.min(Number(url.searchParams.get("limit") || "10000"), 10000);
+    const origin = request.headers.get("Origin") || "*";
+
+    // KV cache: heatmap returns up to 10K rows from raw threats — cache for 2 minutes.
+    const cacheKey = `threats_heatmap:${period}:${limit}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) {
+      return new Response(cached, {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": origin },
+      });
+    }
+
+    const { getDbContext, getReadSession } = await import("../lib/db");
+    const dbCtx = getDbContext(request);
+    const session = getReadSession(env, dbCtx);
     const dayMap: Record<string, string> = { "24h": "-1 days", "7d": "-7 days", "30d": "-30 days", "90d": "-90 days" };
     const interval = dayMap[period] || "-7 days";
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT lat, lng, severity, threat_type
       FROM threats
       WHERE lat IS NOT NULL AND lng IS NOT NULL
@@ -67,8 +81,10 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
         AND created_at >= datetime('now', ?)
       LIMIT ?
     `).bind(interval, limit).all();
-    return new Response(JSON.stringify({ data: rows.results }), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": request.headers.get("Origin") || "*" },
+    const body = JSON.stringify({ data: rows.results });
+    await env.CACHE.put(cacheKey, body, { expirationTtl: 120 });
+    return new Response(body, {
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": origin },
     });
   });
   router.get("/api/threats/geo-clusters", async (request: Request, env: Env) => {
