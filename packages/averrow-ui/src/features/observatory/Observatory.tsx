@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
 import { useObservatoryThreats, useObservatoryStats, useObservatoryArcs, useObservatoryHeatmap } from '@/hooks/useObservatory';
 import type { ArcData } from '@/hooks/useObservatory';
 import { ThreatMap } from './components/ThreatMap';
@@ -873,7 +873,7 @@ function LegendItem({ color, label, compact }: { color: string; label: string; c
   );
 }
 
-function OperationsClusterList({ operations, onSelect }: { operations: Operation[]; onSelect: (op: Operation) => void }) {
+const OperationsClusterList = memo(function OperationsClusterList({ operations, onSelect }: { operations: Operation[]; onSelect: (op: Operation) => void }) {
   if (operations.length === 0) {
     return (
       <EmptyState
@@ -930,9 +930,9 @@ function OperationsClusterList({ operations, onSelect }: { operations: Operation
       })}
     </div>
   );
-}
+});
 
-function TopBrandsList({ period }: { period: string }) {
+const TopBrandsList = memo(function TopBrandsList({ period }: { period: string }) {
   const { data: brands = [] } = useBrands({ view: 'top', limit: 10, timeRange: period });
 
   return (
@@ -964,9 +964,9 @@ function TopBrandsList({ period }: { period: string }) {
       ))}
     </div>
   );
-}
+});
 
-function MobileTopBrandsList({ period }: { period: string }) {
+const MobileTopBrandsList = memo(function MobileTopBrandsList({ period }: { period: string }) {
   const { data: brands = [] } = useBrands({ view: 'top', limit: 8, timeRange: period });
 
   if (brands.length === 0) {
@@ -999,9 +999,9 @@ function MobileTopBrandsList({ period }: { period: string }) {
       ))}
     </div>
   );
-}
+});
 
-function TopProvidersList({ period }: { period: string }) {
+const TopProvidersList = memo(function TopProvidersList({ period }: { period: string }) {
   const { data } = useProviders({ view: 'worst', limit: 5, timeRange: period });
   const providers = data || [];
 
@@ -1028,14 +1028,17 @@ function TopProvidersList({ period }: { period: string }) {
       ))}
     </div>
   );
-}
+});
 
-function AgentIntelFeed() {
+const AgentIntelFeed = memo(function AgentIntelFeed() {
   const { data: agents } = useAgents();
-  const recentOutputs = (agents || [])
-    .filter(a => a.last_output_at)
-    .sort((a, b) => new Date(b.last_output_at!).getTime() - new Date(a.last_output_at!).getTime())
-    .slice(0, 5);
+  const recentOutputs = useMemo(
+    () => (agents || [])
+      .filter(a => a.last_output_at)
+      .sort((a, b) => new Date(b.last_output_at!).getTime() - new Date(a.last_output_at!).getTime())
+      .slice(0, 5),
+    [agents],
+  );
 
   return (
     <div className="space-y-3">
@@ -1056,9 +1059,9 @@ function AgentIntelFeed() {
       ))}
     </div>
   );
-}
+});
 
-function ActiveOperationsPanel() {
+const ActiveOperationsPanel = memo(function ActiveOperationsPanel() {
   const { data: operations = [] } = useQuery({
     queryKey: ['observatory-operations'],
     queryFn: async () => {
@@ -1107,7 +1110,7 @@ function ActiveOperationsPanel() {
       ))}
     </div>
   );
-}
+});
 
 interface LiveThreatEntry {
   id: string;
@@ -1125,7 +1128,7 @@ const SEVERITY_DOT_COLORS: Record<string, string> = {
   low: 'dot-pulse-teal',
 };
 
-function LiveThreatFeed() {
+const LiveThreatFeed = memo(function LiveThreatFeed() {
   const { data: entries = [] } = useQuery({
     queryKey: ['observatory-live-feed'],
     queryFn: async () => {
@@ -1160,5 +1163,5 @@ function LiveThreatFeed() {
       ))}
     </div>
   );
-}
+});
 
