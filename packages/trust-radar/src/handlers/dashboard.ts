@@ -1,13 +1,17 @@
 // TODO: Refactor to use handler-utils (Phase 6 continuation)
 // Averrow — Dashboard API Endpoints
+// Wave 2A: migrated to D1 Sessions API (read replicas)
 
 import { json } from "../lib/cors";
+import { getDbContext, getReadSession, attachBookmark } from '../lib/db';
 import type { Env } from "../types";
 import type { OrgScope } from "../middleware/auth";
 
 // GET /api/dashboard/overview
 export async function handleDashboardOverview(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     // Build scope-aware threat filter
     const threatScope = scope && scope.brand_ids.length > 0
@@ -22,28 +26,28 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
 
     // If scoped with no brands, return empty
     if (scope && scope.brand_ids.length === 0) {
-      return json({ success: true, data: { active_threats: 0, threats_24h: 0, brands_tracked: 0, brands_new: 0, providers_tracked: 0, active_campaigns: 0, campaigns_new: 0, feed_health: { active: 0, total: 0, degraded: 0, down: 0 } } }, 200, origin);
+      return attachBookmark(json({ success: true, data: { active_threats: 0, threats_24h: 0, brands_tracked: 0, brands_new: 0, providers_tracked: 0, active_campaigns: 0, campaigns_new: 0, feed_health: { active: 0, total: 0, degraded: 0, down: 0 } } }, 200, origin), session);
     }
 
     const [threatCount, threatActive, threat24h, brands, providers, campaigns, feeds] = await Promise.all([
-      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats ${threatScope.clause}`).bind(...threatScope.params).first<{ n: number }>(),
-      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats WHERE status = 'active' ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
-      env.DB.prepare(`SELECT COUNT(*) AS n FROM threats WHERE created_at >= datetime('now', '-1 day') ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
-      env.DB.prepare(`
+      session.prepare(`SELECT COUNT(*) AS n FROM threats ${threatScope.clause}`).bind(...threatScope.params).first<{ n: number }>(),
+      session.prepare(`SELECT COUNT(*) AS n FROM threats WHERE status = 'active' ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
+      session.prepare(`SELECT COUNT(*) AS n FROM threats WHERE created_at >= datetime('now', '-1 day') ${threatScopeAnd.clause}`).bind(...threatScopeAnd.params).first<{ n: number }>().catch(() => ({ n: 0 })),
+      session.prepare(`
         SELECT COUNT(*) AS tracked,
                SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
         FROM brands ${brandScope.clause}
       `).bind(...brandScope.params).first<{ tracked: number; new_7d: number }>().catch(() => ({ tracked: 0, new_7d: 0 })),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT COUNT(DISTINCT hosting_provider_id) AS tracked
         FROM threats WHERE hosting_provider_id IS NOT NULL ${threatScopeAnd.clause}
       `).bind(...threatScopeAnd.params).first<{ tracked: number }>().catch(() => ({ tracked: 0 })),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT COUNT(*) AS active,
                SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
         FROM campaigns
       `).first<{ active: number; new_7d: number }>().catch(() => ({ active: 0, new_7d: 0 })),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT COUNT(*) AS total,
                SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) AS active
         FROM feed_configs
@@ -53,7 +57,7 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
     // Use active count if available, otherwise total count (threats may not have status='active')
     const activeThreats = (threatActive?.n ?? 0) > 0 ? (threatActive?.n ?? 0) : (threatCount?.n ?? 0);
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: {
         active_threats: activeThreats,
@@ -70,15 +74,17 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
           down: 0,
         },
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/dashboard/top-brands
 export async function handleDashboardTopBrands(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "10", 10));
@@ -88,10 +94,10 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
       : { clause: "", params: [limit] };
 
     if (scope && scope.brand_ids.length === 0) {
-      return json({ success: true, data: [] }, 200, origin);
+      return attachBookmark(json({ success: true, data: [] }, 200, origin), session);
     }
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT b.id AS brand_id, b.name, b.sector,
              COUNT(t.id) AS threat_count,
              ROUND(
@@ -106,15 +112,17 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
       LIMIT ?
     `).bind(...brandFilter.params).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/dashboard/providers
 export async function handleDashboardProviders(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "10", 10));
@@ -122,7 +130,7 @@ export async function handleDashboardProviders(request: Request, env: Env): Prom
 
     if (sort === "improving") {
       // Return providers with decreasing threat counts (recent < previous period)
-      const rows = await env.DB.prepare(`
+      const rows = await session.prepare(`
         SELECT t.hosting_provider_id AS provider_id,
                COALESCE(hp.name, t.hosting_provider_id) AS name,
                hp.asn,
@@ -142,11 +150,11 @@ export async function handleDashboardProviders(request: Request, env: Env): Prom
         LIMIT ?
       `).bind(limit).all();
 
-      return json({ success: true, data: rows.results }, 200, origin);
+      return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
     }
 
     // Default: worst actors (highest threat count)
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT t.hosting_provider_id AS provider_id,
              COALESCE(hp.name, t.hosting_provider_id) AS name,
              hp.asn,
@@ -163,8 +171,8 @@ export async function handleDashboardProviders(request: Request, env: Env): Prom
       LIMIT ?
     `).bind(limit).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }

@@ -10,32 +10,35 @@ import { logger } from "../lib/logger";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
 import { generateBrandKeywords } from "../lib/brand-utils";
 import { getBrandById, getBrandByDomain, getBrandThreatCount } from "../db/brands";
+import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
 import type { Env } from "../types";
 import type { OrgScope } from "../middleware/auth";
 
 // GET /api/brands/stats
 export async function handleBrandStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM brands").first<{ n: number }>();
+    const total = await session.prepare("SELECT COUNT(*) AS n FROM brands").first<{ n: number }>();
 
-    const newThisWeek = await env.DB.prepare(
+    const newThisWeek = await session.prepare(
       "SELECT COUNT(*) AS n FROM brands WHERE first_seen >= datetime('now', '-7 days')"
     ).first<{ n: number }>();
 
-    const fastestRising = await env.DB.prepare(`
+    const fastestRising = await session.prepare(`
       SELECT b.name, COUNT(t.id) AS cnt
       FROM brands b
       JOIN threats t ON t.target_brand_id = b.id AND t.created_at >= datetime('now', '-1 day')
       GROUP BY b.id ORDER BY cnt DESC LIMIT 1
     `).first<{ name: string; cnt: number }>();
 
-    const topType = await env.DB.prepare(`
+    const topType = await session.prepare(`
       SELECT threat_type, COUNT(*) AS cnt, ROUND(COUNT(*) * 100.0 / MAX(1, (SELECT COUNT(*) FROM threats)), 1) AS pct
       FROM threats GROUP BY threat_type ORDER BY cnt DESC LIMIT 1
     `).first<{ threat_type: string; cnt: number; pct: number }>();
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: {
         total_tracked: total?.n ?? 0,
@@ -45,15 +48,17 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
         top_threat_type: topType?.threat_type ?? null,
         top_threat_type_pct: topType?.pct ?? 0,
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands?tab=under_attack|watchlist|all&q=search&sort=threats|name|recent&limit=50&offset=0
 export async function handleListBrands(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -69,7 +74,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     // Org scope filtering — only show brands assigned to the user's org
     if (scope) {
       if (scope.brand_ids.length === 0) {
-        return json({ success: true, data: [], total: 0, tabs: { under_attack: 0, watchlist: 0, all: 0 } }, 200, origin);
+        return attachBookmark(json({ success: true, data: [], total: 0, tabs: { under_attack: 0, watchlist: 0, all: 0 } }, 200, origin), session);
       }
       const placeholders = scope.brand_ids.map(() => "?").join(", ");
       conditions.push(`b.id IN (${placeholders})`);
@@ -94,7 +99,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
 
     params.push(limit, offset);
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
              b.official_handles, b.email_security_grade,
              b.exposure_score,
@@ -150,7 +155,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       ) t_active ON t_active.target_brand_id = b.id
       ${where}
     `;
-    const total = await env.DB.prepare(totalQuery)
+    const total = await session.prepare(totalQuery)
       .bind(...params.slice(0, -2)).first<{ n: number }>();
 
     // Tab counts for the UI badges (scoped when applicable)
@@ -165,13 +170,13 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       : { clause: "", params: [] as string[] };
 
     const [underAttackCount, watchlistCount, allCount] = await Promise.all([
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE status = 'active' AND target_brand_id IS NOT NULL ${scopeFilter.clause}`
       ).bind(...scopeFilter.params).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(*) AS n FROM monitored_brands ${mbScopeFilter.clause}`
       ).bind(...mbScopeFilter.params).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(*) AS n FROM brands ${brandScopeFilter.clause}`
       ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
@@ -184,7 +189,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       threat_history_json: undefined,
     }));
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data,
       total: total?.n ?? 0,
@@ -193,15 +198,17 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         watchlist: watchlistCount?.n ?? 0,
         all: allCount?.n ?? 0,
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/top-targeted
 export async function handleTopTargetedBrands(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(20, parseInt(url.searchParams.get("limit") ?? "10", 10));
@@ -212,7 +219,7 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
     else if (period === "90d") since = "datetime('now', '-90 days')";
     else if (period === "1y") since = "datetime('now', '-1 year')";
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT b.id, b.name, b.sector, b.canonical_domain,
              b.official_handles, b.email_security_grade,
              b.exposure_score,
@@ -232,17 +239,19 @@ export async function handleTopTargetedBrands(request: Request, env: Env): Promi
       LIMIT ?
     `).bind(limit).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/monitored
 export async function handleMonitoredBrands(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.first_seen,
              b.official_handles, b.email_security_grade,
              b.exposure_score,
@@ -263,9 +272,9 @@ export async function handleMonitoredBrands(request: Request, env: Env): Promise
       ORDER BY threat_count DESC
     `).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -523,12 +532,14 @@ export async function handleRemoveMonitoredBrand(request: Request, env: Env, bra
 // GET /api/brands/:id
 export async function handleGetBrand(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const brand = await getBrandById(env, brandId);
-    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+    if (!brand) return attachBookmark(json({ success: false, error: "Brand not found" }, 404, origin), session);
 
     const [stats, providers] = await Promise.all([
-      env.DB.prepare(`
+      session.prepare(`
         SELECT COUNT(*) AS total_threats,
                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats,
                SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) AS phishing,
@@ -539,22 +550,24 @@ export async function handleGetBrand(request: Request, env: Env, brandId: string
                COUNT(DISTINCT hosting_provider_id) AS provider_count
         FROM threats WHERE target_brand_id = ?
       `).bind(brandId).first(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT hosting_provider_id AS provider_id, COUNT(*) AS count
         FROM threats WHERE target_brand_id = ? AND hosting_provider_id IS NOT NULL
         GROUP BY hosting_provider_id ORDER BY count DESC LIMIT 10
       `).bind(brandId).all(),
     ]);
 
-    return json({ success: true, data: { ...brand, stats, top_providers: providers.results } }, 200, origin);
+    return attachBookmark(json({ success: true, data: { ...brand, stats, top_providers: providers.results } }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/threats
 export async function handleBrandThreats(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -563,7 +576,7 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
     const typeClause = threatType ? " AND threat_type = ?" : "";
     const typeBind: unknown[] = threatType ? [threatType] : [];
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT id, threat_type, severity, status, malicious_domain, malicious_url,
              ip_address, country_code, hosting_provider_id, campaign_id,
              source_feed, confidence_score,
@@ -575,23 +588,25 @@ export async function handleBrandThreats(request: Request, env: Env, brandId: st
     `).bind(brandId, brandId, ...typeBind, limit, offset).all();
 
     // TODO: migrate to getThreatsByBrand() from db/threats.ts when safe-domain filtering is supported there
-    const total = await env.DB.prepare(
+    const total = await session.prepare(
       `SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ?
          AND malicious_domain NOT IN (SELECT domain FROM brand_safe_domains WHERE brand_id = ?)
          ${typeClause}`
     ).bind(brandId, brandId, ...typeBind).first<{ n: number }>();
 
-    return json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results, total: total?.n ?? 0 }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/threats/locations
 export async function handleBrandThreatLocations(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT country_code, COUNT(*) AS count,
              AVG(CAST(lat AS REAL)) AS lat, AVG(CAST(lng AS REAL)) AS lng
       FROM threats
@@ -604,15 +619,17 @@ export async function handleBrandThreatLocations(request: Request, env: Env, bra
     const mappable = rows.results.filter((r: Record<string, unknown>) => r.lat != null && r.lng != null);
     const totalCountries = rows.results.length;
 
-    return json({ success: true, data: mappable, totalCountries }, 200, origin);
+    return attachBookmark(json({ success: true, data: mappable, totalCountries }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/threats/timeline
 export async function handleBrandThreatTimeline(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const period = url.searchParams.get("period") ?? "7d";
@@ -623,7 +640,7 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
     else if (period === "30d") { since = "datetime('now', '-30 days')"; bucket = "date(created_at)"; }
     else if (period === "90d") { since = "datetime('now', '-90 days')"; bucket = "date(created_at)"; }
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT ${bucket} AS period, COUNT(*) AS count,
              SUM(CASE WHEN threat_type = 'phishing' THEN 1 ELSE 0 END) AS phishing,
              SUM(CASE WHEN threat_type = 'typosquatting' THEN 1 ELSE 0 END) AS typosquatting,
@@ -637,7 +654,7 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
     const labels = results.map(r => r.period);
     const values = results.map(r => r.count);
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: {
         labels,
@@ -648,17 +665,19 @@ export async function handleBrandThreatTimeline(request: Request, env: Env, bran
           { name: "Impersonation", values: results.map(r => r.impersonation) },
         ],
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/providers
 export async function handleBrandProviders(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT t.hosting_provider_id AS provider_id,
              COALESCE(hp.name, t.hosting_provider_id) AS name,
              COUNT(*) AS threat_count,
@@ -669,17 +688,19 @@ export async function handleBrandProviders(request: Request, env: Env, brandId: 
       GROUP BY t.hosting_provider_id ORDER BY threat_count DESC LIMIT 20
     `).bind(brandId).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/campaigns
 export async function handleBrandCampaigns(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT DISTINCT c.id, c.name, c.status, c.threat_count, c.first_seen, c.last_seen
       FROM campaigns c
       JOIN threats t ON t.campaign_id = c.id
@@ -687,34 +708,36 @@ export async function handleBrandCampaigns(request: Request, env: Env, brandId: 
       ORDER BY c.last_seen DESC
     `).bind(brandId).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // GET /api/brands/:id/analysis
 export async function handleGetBrandAnalysis(request: Request, env: Env, brandId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const brand = await getBrandById(env, brandId);
-    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+    if (!brand) return attachBookmark(json({ success: false, error: "Brand not found" }, 404, origin), session);
 
     // Return cached analysis if fresh (< 6 hours old)
     if (brand.threat_analysis && brand.analysis_updated_at) {
       const age = Date.now() - new Date(brand.analysis_updated_at).getTime();
       if (age < 6 * 60 * 60 * 1000) {
         const parsed = JSON.parse(brand.threat_analysis);
-        return json({ success: true, data: { ...parsed, cached: true, updated_at: brand.analysis_updated_at } }, 200, origin);
+        return attachBookmark(json({ success: true, data: { ...parsed, cached: true, updated_at: brand.analysis_updated_at } }, 200, origin), session);
       }
     }
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: brand.threat_analysis ? { ...JSON.parse(brand.threat_analysis), cached: true, stale: true, updated_at: brand.analysis_updated_at } : null,
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -1010,8 +1033,10 @@ export async function handleGetBrandSocialConfig(
   request: Request, env: Env, brandId: string, userId: string
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const brand = await env.DB.prepare(
+    const brand = await session.prepare(
       `SELECT id, name, canonical_domain, official_handles, aliases, brand_keywords,
               executive_names, logo_url, website_url, monitoring_tier, monitoring_status,
               social_risk_score, domain_risk_score, email_grade, exposure_score,
@@ -1019,28 +1044,28 @@ export async function handleGetBrandSocialConfig(
        FROM brands WHERE id = ?`
     ).bind(brandId).first();
 
-    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+    if (!brand) return attachBookmark(json({ success: false, error: "Brand not found" }, 404, origin), session);
 
     // Fetch social_profiles for this brand
-    const profiles = await env.DB.prepare(
+    const profiles = await session.prepare(
       "SELECT * FROM social_profiles WHERE brand_id = ? ORDER BY platform, handle"
     ).bind(brandId).all();
 
     // Fetch brand_monitor_schedule entries
-    const schedule = await env.DB.prepare(
+    const schedule = await session.prepare(
       "SELECT * FROM brand_monitor_schedule WHERE brand_id = ? ORDER BY monitor_type, platform"
     ).bind(brandId).all();
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: {
         ...brand,
         social_profiles: profiles.results,
         schedule: schedule.results,
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -1050,9 +1075,11 @@ export async function handleGetBrandSocialProfiles(
   request: Request, env: Env, brandId: string, userId: string
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const brand = await getBrandById(env, brandId);
-    if (!brand) return json({ success: false, error: "Brand not found" }, 404, origin);
+    if (!brand) return attachBookmark(json({ success: false, error: "Brand not found" }, 404, origin), session);
 
     const url = new URL(request.url);
     const platform = url.searchParams.get("platform");
@@ -1069,20 +1096,20 @@ export async function handleGetBrandSocialProfiles(
     if (status) { where += " AND status = ?"; params.push(status); }
 
     const [rows, countRow, classificationCounts, severityCounts] = await Promise.all([
-      env.DB.prepare(`
+      session.prepare(`
         SELECT * FROM social_profiles ${where}
         ORDER BY
           CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 END,
           created_at DESC
         LIMIT ? OFFSET ?
       `).bind(...params, limit, offset).all(),
-      env.DB.prepare(
+      session.prepare(
         `SELECT COUNT(*) AS n FROM social_profiles ${where}`
       ).bind(...params).first<{ n: number }>(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT classification, COUNT(*) AS count FROM social_profiles WHERE brand_id = ? GROUP BY classification"
       ).bind(brandId).all(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT severity, COUNT(*) AS count FROM social_profiles WHERE brand_id = ? AND status = 'active' GROUP BY severity"
       ).bind(brandId).all(),
     ]);
@@ -1096,7 +1123,7 @@ export async function handleGetBrandSocialProfiles(
       severityMap[r.severity as string] = r.count as number;
     }
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: rows.results,
       total: countRow?.n ?? 0,
@@ -1104,9 +1131,9 @@ export async function handleGetBrandSocialProfiles(
         by_classification: classificationMap,
         by_severity: severityMap,
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
