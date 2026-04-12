@@ -743,6 +743,18 @@ async function scaleAgents(
   const { executeAgent } = await import('../lib/agentRunner');
   let actions = 0;
 
+  // ── Wave 1B: fire-and-forget scaling via ctx.waitUntil ──────────
+  // Previously, scaleAgents awaited each cartographer/analyst run
+  // sequentially, blocking the hourly cron for ~50-150s and holding the
+  // D1 writer the entire time. Now we fire them via ExecutionContext
+  // .waitUntil() — the agent runs continue in the background while FC
+  // returns and the cron proceeds with its remaining jobs.
+  //
+  // The ExecutionContext is passed from the cron handler via
+  // ctx.input._executionCtx. If absent (manual trigger), fall back to
+  // the old await behavior for backward compatibility.
+  const execCtx = ctx.input._executionCtx as ExecutionContext | undefined;
+
   // Scale Cartographer (geo enrichment is non-AI, but AI classification may be throttled)
   const cartBacklog = backlogs.cartographer;
   if (cartBacklog > 0 && !limits.pause_all_ai) {
@@ -754,19 +766,21 @@ async function scaleAgents(
     const cartMod = agentModules['cartographer'];
     if (cartMod) {
       for (let i = 0; i < instances; i++) {
-        // Pass offset so sequential instances work on different slices.
-        // Sequential await: each cartographer run completes before the next starts,
-        // preventing simultaneous D1 writer contention.
-        try {
-          await executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * 500 }, 'flight_control', 'event');
-        } catch { /* logged by agentRunner */ }
+        const promise = executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * 500 }, 'flight_control', 'event');
+        if (execCtx) {
+          // Fire-and-forget: cron keeps running, cartographer runs in background
+          execCtx.waitUntil(promise.catch(() => { /* logged by agentRunner */ }));
+        } else {
+          // Fallback for manual triggers: await as before
+          try { await promise; } catch { /* logged by agentRunner */ }
+        }
         actions++;
       }
     }
 
     if (instances > 1) {
       await logActivity(db, 'flight_control', 'info', 'scaling',
-        `Scaling Cartographer to ${instances} parallel instances (backlog: ${cartBacklog})`,
+        `Scaling Cartographer to ${instances} background instances (backlog: ${cartBacklog})`,
         { agent: 'cartographer', instances, backlog: cartBacklog }
       );
     }
@@ -777,9 +791,12 @@ async function scaleAgents(
   if (backlogs.totalNoGeo > 5000 && cartBacklog === 0) {
     const cartMod2 = agentModules['cartographer'];
     if (cartMod2) {
-      try {
-        await executeAgent(env, cartMod2, { trigger: 'flight_control', mode: 'geo_backlog', priority: 'low' }, 'flight_control', 'event');
-      } catch { /* logged by agentRunner */ }
+      const promise = executeAgent(env, cartMod2, { trigger: 'flight_control', mode: 'geo_backlog', priority: 'low' }, 'flight_control', 'event');
+      if (execCtx) {
+        execCtx.waitUntil(promise.catch(() => {}));
+      } else {
+        try { await promise; } catch { /* logged by agentRunner */ }
+      }
       actions++;
 
       await logActivity(db, 'flight_control', 'info', 'scaling',
@@ -794,9 +811,6 @@ async function scaleAgents(
   const analystBacklog = backlogs.analyst;
   const totalUnlinked = backlogs.totalUnlinked;
   if ((analystBacklog > 0 || totalUnlinked > 0) && !limits.pause_all_ai) {
-    // If total unlinked > 50k, max scale; > 10k, scale to 2; else use recent backlog.
-    // Always cap at SCALING.analyst.max_parallel — the hardcoded 3/2 values above
-    // previously bypassed it, making the config change in Phase 0.5d Stage 1 a no-op.
     const rawInstances = totalUnlinked > 50000 ? 3
       : totalUnlinked > 10000 ? 2
       : analystBacklog >= SCALING.analyst.high ? SCALING.analyst.max_parallel
@@ -808,22 +822,22 @@ async function scaleAgents(
     const analystMod = agentModules['analyst'];
     if (analystMod) {
       for (let i = 0; i < instances; i++) {
-        // Sequential await: analyst runs one at a time.
-        // max_parallel=1 (SCALING.analyst.max_parallel) means this loop
-        // fires exactly once in normal production conditions.
-        try {
-          await executeAgent(env, analystMod, {
-            trigger: 'flight_control',
-            budget_batch_limit: limits.analyst_batch,
-          }, 'flight_control', 'event');
-        } catch { /* logged by agentRunner */ }
+        const promise = executeAgent(env, analystMod, {
+          trigger: 'flight_control',
+          budget_batch_limit: limits.analyst_batch,
+        }, 'flight_control', 'event');
+        if (execCtx) {
+          execCtx.waitUntil(promise.catch(() => { /* logged by agentRunner */ }));
+        } else {
+          try { await promise; } catch { /* logged by agentRunner */ }
+        }
         actions++;
       }
     }
 
     if (instances > 1) {
       await logActivity(db, 'flight_control', 'info', 'scaling',
-        `Scaling Analyst to ${instances} parallel instances (backlog: ${analystBacklog}, unlinked: ${totalUnlinked}, batch limit: ${limits.analyst_batch})`,
+        `Scaling Analyst to ${instances} background instances (backlog: ${analystBacklog}, unlinked: ${totalUnlinked}, batch limit: ${limits.analyst_batch})`,
         { agent: 'analyst', instances, backlog: analystBacklog, total_unlinked: totalUnlinked, batch_limit: limits.analyst_batch }
       );
     }
