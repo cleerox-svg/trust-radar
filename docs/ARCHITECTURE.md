@@ -97,7 +97,7 @@ Trust Radar uses two D1 databases:
 
 ### D1 Sessions API (Read Replicas)
 
-Read-heavy endpoints use the D1 Sessions API to route queries to read replicas, reducing latency and offloading the primary. The implementation lives in `packages/trust-radar/src/lib/db-context.ts`:
+Read-heavy endpoints use the D1 Sessions API to route queries to read replicas, reducing latency and offloading the primary. The implementation lives in `packages/trust-radar/src/lib/db.ts`:
 
 - `getDbContext(request)` — returns a session-aware DB handle from the incoming request's `x-d1-bookmark` header
 - `getReadSession(env, ctx)` — returns a read-only session for cron/agent contexts without an HTTP request

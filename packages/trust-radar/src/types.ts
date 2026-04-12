@@ -318,6 +318,7 @@ export interface SalesLead {
   outreach_sent_at: string | null;
   outreach_channel: string | null;
   identified_by: string | null;
+  rejection_reason: string | null;
   ai_enriched: number;
   ai_enriched_at: string | null;
   created_at: string;

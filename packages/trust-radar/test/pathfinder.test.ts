@@ -46,7 +46,7 @@ const SCORING = {
   social_takedown_needed: 10,
 };
 
-const MIN_SCORE = 20;
+const MIN_SCORE = 35;
 
 // ─── Mock DB helper ──────────────────────────────────────────────
 
@@ -140,24 +140,24 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     expect(result.leads_created).toBe(0);
   });
 
-  it("scores brand with DMARC missing → +20 points", async () => {
+  it("scores brand with DMARC missing → +20 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: null })],
     });
     const result = await identifyAndCreate(env);
 
-    // dmarc_none_or_missing = 20, which >= MIN_SCORE (20)
-    expect(result.candidates_found).toBe(1);
-    expect(result.leads_created).toBe(1);
+    // dmarc_none_or_missing = 20, which < MIN_SCORE (35) — needs a second signal
+    expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with DMARC 'none' → +20 points", async () => {
+  it("scores brand with DMARC 'none' → +20 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: "none" })],
     });
     const result = await identifyAndCreate(env);
 
-    expect(result.candidates_found).toBe(1);
+    // dmarc_none_or_missing = 20, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
   it("scores brand with DMARC 'reject' → no DMARC points", async () => {
@@ -171,23 +171,24 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with email grade F → +30 points", async () => {
+  it("scores brand with email grade F → +30 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ email_security_grade: "F", dmarc_policy: "reject" })],
     });
     const result = await identifyAndCreate(env);
 
-    // email_grade_f_or_d = 30, >= MIN_SCORE
-    expect(result.candidates_found).toBe(1);
+    // email_grade_f_or_d = 30, < MIN_SCORE (35) — needs a second signal
+    expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with email grade D → +30 points", async () => {
+  it("scores brand with email grade D → +30 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ email_security_grade: "D", dmarc_policy: "reject" })],
     });
     const result = await identifyAndCreate(env);
 
-    expect(result.candidates_found).toBe(1);
+    // email_grade_f_or_d = 30, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
   it("scores brand with email grade C → +15 points (below MIN_SCORE alone)", async () => {
@@ -200,26 +201,26 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with active phishing URLs → +25 points", async () => {
+  it("scores brand with active phishing URLs → +25 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: "reject" })],
       phishingSignals: [{ brand_match_id: "brand-1", signal_count: 5 }],
     });
     const result = await identifyAndCreate(env);
 
-    // active_phishing_urls = 25, >= MIN_SCORE
-    expect(result.candidates_found).toBe(1);
+    // active_phishing_urls = 25, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with spam trap catches → +20 points", async () => {
+  it("scores brand with spam trap catches → +20 points (below MIN_SCORE alone)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: "reject" })],
       trapCatches: [{ spoofed_brand_id: "brand-1", catch_count: 3 }],
     });
     const result = await identifyAndCreate(env);
 
-    // spam_trap_catches = 20, >= MIN_SCORE
-    expect(result.candidates_found).toBe(1);
+    // spam_trap_catches = 20, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
   it("scores brand with high risk score (>60) → +15 points", async () => {
@@ -244,7 +245,7 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with recent risk spike (>=20 increase) → +10 points", async () => {
+  it("scores brand with recent risk spike (>=20 increase) → +10 points (below MIN_SCORE with just risk)", async () => {
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: "reject" })],
       riskScores: [{ brand_id: "brand-1", composite_risk_score: 80 }],
@@ -252,8 +253,8 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     });
     const result = await identifyAndCreate(env);
 
-    // high_risk_score (15) + recent_risk_spike (10) = 25, >= MIN_SCORE
-    expect(result.candidates_found).toBe(1);
+    // high_risk_score (15) + recent_risk_spike (10) = 25, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
   it("scores brand with Tranco top 10K → +10 points", async () => {
@@ -282,7 +283,7 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     expect(result.candidates_found).toBe(0);
   });
 
-  it("scores brand with social high risk (>=60) → +10 points", async () => {
+  it("scores brand with social high risk (>=60) → +10 points (below MIN_SCORE with just social)", async () => {
     (getBrandSocialIntel as Mock).mockResolvedValueOnce({
       impersonationProfiles: 1,
       socialRiskScore: 75,
@@ -294,8 +295,8 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     });
     const result = await identifyAndCreate(env);
 
-    // social_impersonation (15) + social_high_risk (10) = 25, >= MIN_SCORE
-    expect(result.candidates_found).toBe(1);
+    // social_impersonation (15) + social_high_risk (10) = 25, < MIN_SCORE (35)
+    expect(result.candidates_found).toBe(0);
   });
 
   it("combined maximum score uses all scoring factors", async () => {
@@ -340,13 +341,15 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
   });
 
   it("caps candidates at MAX_IDENTIFIED (20)", async () => {
-    // Create 25 qualifying brands
+    // Create 25 qualifying brands. Each needs score >= 35.
+    // dmarc_null (20) + email_grade_F (30) = 50 each.
     const brands = Array.from({ length: 25 }, (_, i) =>
       makeBrand({
         brand_id: `brand-${i}`,
         brand_name: `Corp ${i}`,
         brand_domain: `corp${i}.com`,
-        dmarc_policy: null, // +20 each
+        dmarc_policy: null,
+        email_security_grade: "F",
       }),
     );
 
@@ -360,17 +363,26 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
   it("sorts candidates by score descending (highest first)", async () => {
     const { createLead } = await import("../src/db/sales-leads");
 
+    // Both brands need score >= 35 to qualify.
+    // "low": dmarc_null (20) + phishing (25) = 45
+    // "high": dmarc_null (20) + email_grade_F (30) + phishing (25) = 75
     const brands = [
-      makeBrand({ brand_id: "low", brand_name: "Low", dmarc_policy: null }), // score=20
+      makeBrand({ brand_id: "low", brand_name: "Low", dmarc_policy: null }),
       makeBrand({
         brand_id: "high",
         brand_name: "High",
         dmarc_policy: null,
         email_security_grade: "F",
-      }), // score=50
+      }),
     ];
 
-    const env = createMockEnv({ brands });
+    const env = createMockEnv({
+      brands,
+      phishingSignals: [
+        { brand_match_id: "low", signal_count: 2 },
+        { brand_match_id: "high", signal_count: 5 },
+      ],
+    });
     await identifyAndCreate(env);
 
     // First createLead call should be for the higher-scored brand
@@ -386,8 +398,10 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
     const { createLead } = await import("../src/db/sales-leads");
     (createLead as Mock).mockRejectedValueOnce(new Error("DB error"));
 
+    // Needs score >= 35: dmarc_none_or_missing (20) + active_phishing_urls (25) = 45
     const env = createMockEnv({
       brands: [makeBrand({ dmarc_policy: null })],
+      phishingSignals: [{ brand_match_id: "brand-1", signal_count: 3 }],
     });
     const result = await identifyAndCreate(env);
 
@@ -398,12 +412,14 @@ describe("Pathfinder scoring — identifyAndCreate", () => {
   it("continues processing after social intel throws", async () => {
     (getBrandSocialIntel as Mock).mockRejectedValueOnce(new Error("Social DB error"));
 
+    // Needs score >= 35: dmarc_none_or_missing (20) + active_phishing_urls (25) = 45
     const env = createMockEnv({
-      brands: [makeBrand({ dmarc_policy: null })], // score=20 from DMARC alone
+      brands: [makeBrand({ dmarc_policy: null })],
+      phishingSignals: [{ brand_match_id: "brand-1", signal_count: 3 }],
     });
     const result = await identifyAndCreate(env);
 
-    // Social error is caught, brand should still qualify with DMARC score
+    // Social error is caught, brand should still qualify with DMARC + phishing score
     expect(result.candidates_found).toBe(1);
   });
 });
@@ -429,8 +445,8 @@ describe("Pathfinder scoring constants", () => {
     expect(SCORING.spam_trap_catches).toBe(20);
   });
 
-  it("MIN_SCORE threshold is 20", () => {
-    expect(MIN_SCORE).toBe(20);
+  it("MIN_SCORE threshold is 35", () => {
+    expect(MIN_SCORE).toBe(35);
   });
 
   it("total maximum possible score sums all weights", () => {

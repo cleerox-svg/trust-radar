@@ -126,7 +126,7 @@ Configured in `wrangler.toml` under `[[workflows]]`.
 | `DB` | Primary database (users, brands, threats, scans) |
 | `AUDIT_DB` | Audit log (data mutations) |
 
-Read-heavy endpoints use the D1 Sessions API to route queries to read replicas. The implementation is in `src/lib/db-context.ts`. Write operations always use the primary `env.DB` handle.
+Read-heavy endpoints use the D1 Sessions API to route queries to read replicas. The implementation is in `src/lib/db.ts`. Write operations always use the primary `env.DB` handle.
 
 ## Domains
 

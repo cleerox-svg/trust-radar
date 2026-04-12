@@ -19,7 +19,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import type { Env } from "../types";
 import { getBrandSocialIntel } from "../lib/social-intel";
 import { HOT_PATH_HAIKU } from "../lib/ai-models";
-import { createLead, getUnenrichedLead, enrichLead } from "../db/sales-leads";
+import { createLead, getUnenrichedLead, enrichLead, rejectLead } from "../db/sales-leads";
 import { callAnthropicJSON, AnthropicError } from "../lib/anthropic";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -60,8 +60,50 @@ const SCORING = {
 
 const MODEL = HOT_PATH_HAIKU;
 const MAX_IDENTIFIED = 20;
-const MIN_SCORE = 20;
+const MIN_SCORE = 35;
 const AI_TIMEOUT_MS = 25000;
+
+/**
+ * Tranco rank boundaries for targeting. Brands ranked higher than
+ * MIN_TRANCO_RANK are Fortune-100 caliber enterprises with massive
+ * security teams — they won't procure from a startup. Brands ranked
+ * lower than MAX_TRANCO_RANK already appear in the SQL WHERE clause.
+ */
+const MIN_TRANCO_RANK = 500;
+
+/**
+ * Domains belonging to hosting providers, CDNs, registrars, and
+ * infrastructure companies. These are entities we *track* as providers
+ * in the platform, not companies we sell to.
+ */
+const SERVICE_PROVIDER_DOMAINS = new Set([
+  // Cloud / hosting
+  "cloudflare.com", "amazonaws.com", "aws.amazon.com", "azure.microsoft.com",
+  "cloud.google.com", "digitalocean.com", "linode.com", "vultr.com",
+  "hetzner.com", "ovh.com", "ovhcloud.com", "ionos.com", "hostinger.com",
+  "bluehost.com", "siteground.com", "dreamhost.com", "a2hosting.com",
+  "inmotionhosting.com", "hostgator.com", "liquidweb.com", "rackspace.com",
+  "kamatera.com", "contabo.com", "scaleway.com", "upcloud.com",
+  // CDN / edge
+  "akamai.com", "fastly.com", "cdn77.com", "stackpath.com", "bunny.net",
+  "cloudfront.net", "keycdn.com",
+  // Registrars
+  "godaddy.com", "namecheap.com", "name.com", "enom.com", "tucows.com",
+  "epik.com", "dynadot.com", "porkbun.com", "hover.com", "gandi.net",
+  "register.com", "networksolutions.com",
+  // Security / cybersecurity vendors
+  "crowdstrike.com", "paloaltonetworks.com", "fortinet.com", "zscaler.com",
+  "sentinelone.com", "trellix.com", "sophos.com", "kaspersky.com",
+  "bitdefender.com", "malwarebytes.com", "nortonlifelock.com", "mcafee.com",
+  "proofpoint.com", "mimecast.com", "barracuda.com", "knowbe4.com",
+  "rapid7.com", "qualys.com", "tenable.com", "cyberark.com",
+  // DNS / domain services
+  "dnsimple.com", "dnsmadeeasy.com", "cloudns.net", "ns1.com",
+  // Mega-tech (security teams too large, won't procure)
+  "google.com", "microsoft.com", "apple.com", "amazon.com", "meta.com",
+  "facebook.com", "netflix.com", "oracle.com", "ibm.com", "cisco.com",
+  "intel.com", "nvidia.com", "salesforce.com", "adobe.com", "vmware.com",
+]);
 
 // ─── Haiku JSON helper ───────────────────────────────────────────
 // Thin envelope around the canonical Anthropic wrapper. Preserves
@@ -135,6 +177,7 @@ export async function identifyAndCreate(env: Env): Promise<{
              OR created_at > datetime('now', '-30 days')
         )
         AND (b.threat_count > 0 OR b.tranco_rank <= 50000)
+        AND (b.tranco_rank IS NULL OR b.tranco_rank > ${MIN_TRANCO_RANK})
       ORDER BY b.threat_count DESC, b.tranco_rank ASC
       LIMIT 500
     `).all<{
@@ -148,6 +191,14 @@ export async function identifyAndCreate(env: Env): Promise<{
   if (!emailGrades.results.length) {
     return { candidates_found: 0, leads_created: 0, errors: 0 };
   }
+
+  // Filter out service providers, hosting companies, and mega-tech
+  const filteredBrands = emailGrades.results.filter(b => {
+    const domain = b.brand_domain?.toLowerCase();
+    if (!domain) return true; // keep brands without domain for scoring
+    return !SERVICE_PROVIDER_DOMAINS.has(domain);
+  });
+  emailGrades.results = filteredBrands;
 
   // Parallel lookups for scoring signals
   const [threatCounts, phishingSignals, trapCatches, riskScores, prevRiskScores, aiPhishing, campaignCounts] =
@@ -419,6 +470,7 @@ export async function enrichLeadWithAI(env: Env, runId: string | null = null): P
   lead_id?: number;
   company_name?: string;
   error?: string;
+  rejected?: string;
 }> {
   // Pick the highest-scored unenriched lead
   const lead = await getUnenrichedLead(env);
@@ -479,6 +531,7 @@ RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off a
       company_industry?: string | null;
       company_size?: string | null;
       company_hq?: string | null;
+      is_service_provider?: boolean | null;
       target_name?: string | null;
       target_title?: string | null;
       security_maturity?: string | null;
@@ -487,12 +540,44 @@ RULES: Professional, direct tone. No buzzwords. No exclamation marks. Sign off a
       env,
       runId,
       `You are a sales intelligence researcher. Research the company and return a JSON profile. If you cannot find a field, return null — do NOT fabricate. Return ONLY valid JSON.`,
-      `Research "${lead.company_name}" (${lead.company_domain}). Return JSON with: company_industry, company_size (startup/smb/mid-market/enterprise), company_hq, target_name (CISO or VP Security), target_title, security_maturity (high/medium/low), recent_security_news (one sentence or null).`,
+      `Research "${lead.company_name}" (${lead.company_domain}). Return JSON with:
+- company_industry: the company's primary industry sector
+- company_size: MUST reflect actual employee headcount — "startup" (<50 employees), "smb" (50-500), "mid-market" (500-5000), "enterprise" (5000+). If uncertain, return null.
+- company_hq: city and country of headquarters
+- is_service_provider: true if the company is a hosting provider, CDN, registrar, DNS provider, cloud infrastructure vendor, or cybersecurity vendor. false otherwise.
+- target_name: name of the CISO, VP Security, or Head of Security
+- target_title: their job title
+- security_maturity: "high", "medium", or "low" based on public security posture
+- recent_security_news: one sentence about recent security incidents or news, or null`,
       1024,
       [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
     );
 
     const research = researchResult.data ?? {};
+
+    // ── Post-enrichment rejection gates ─────────────────────────
+    // Reject enterprises (5000+ employees) — they won't procure from a startup
+    const companySize = research.company_size?.toLowerCase();
+    if (companySize === 'enterprise') {
+      await rejectLead(env, lead.id, 'enterprise_too_large', JSON.stringify(research));
+      return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined, rejected: 'enterprise_too_large' };
+    }
+
+    // Reject service providers / infrastructure companies
+    if (research.is_service_provider === true) {
+      await rejectLead(env, lead.id, 'service_provider', JSON.stringify(research));
+      return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined, rejected: 'service_provider' };
+    }
+
+    // Reject cybersecurity / hosting / cloud infrastructure industry
+    const industry = research.company_industry?.toLowerCase() ?? '';
+    const EXCLUDED_INDUSTRIES = ['cybersecurity', 'cyber security', 'information security', 'network security',
+      'hosting', 'web hosting', 'cloud hosting', 'cloud infrastructure', 'cloud computing',
+      'cdn', 'content delivery', 'domain registrar', 'dns'];
+    if (EXCLUDED_INDUSTRIES.some(ex => industry.includes(ex))) {
+      await rejectLead(env, lead.id, `excluded_industry:${research.company_industry}`, JSON.stringify(research));
+      return { enriched: true, lead_id: lead.id, company_name: lead.company_name ?? undefined, rejected: 'excluded_industry' };
+    }
 
     // ── Update the lead ─────────────────────────────────────────
     await enrichLead(env, lead.id, {
@@ -559,11 +644,17 @@ export const pathfinderAgent: AgentModule = {
     // Phase 2 always runs — enrich one lead on every cron tick
     const phase2 = await enrichLeadWithAI(env, runId);
 
+    const enrichStatus = phase2.rejected
+      ? `Rejected lead ${phase2.lead_id} (${phase2.company_name}) — ${phase2.rejected}.`
+      : phase2.enriched
+        ? `AI-enriched lead ${phase2.lead_id} (${phase2.company_name}).`
+        : "No unenriched leads to process.";
+
     outputs.push({
       type: "insight",
       summary: throttled
-        ? `Pathfinder: lead creation throttled. Enriched ${phase2.enriched ? `lead ${phase2.lead_id} (${phase2.company_name})` : "no leads (none pending)"}.`
-        : `Pathfinder created ${phase1.leads_created} leads from ${phase1.candidates_found} candidates. ${phase2.enriched ? `AI-enriched lead ${phase2.lead_id} (${phase2.company_name}).` : "No unenriched leads to process."}`,
+        ? `Pathfinder: lead creation throttled. ${enrichStatus}`
+        : `Pathfinder created ${phase1.leads_created} leads from ${phase1.candidates_found} candidates. ${enrichStatus}`,
       severity: phase1.leads_created > 0 || phase2.enriched ? "medium" : "info",
       details: { phase1, phase2, throttled: !!throttled },
     });

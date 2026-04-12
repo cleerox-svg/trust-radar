@@ -223,19 +223,40 @@ Analyst       → [scores_updated]     → Pathfinder (new high-value leads)
 - **NEVER** use AI for what SQL `GROUP BY` can do in 50ms
 - All AI calls go through Cloudflare AI Gateway
 
-### Cron schedule:
+### Cron schedule (wrangler.toml):
 ```
-fast-tick:    */5 * * * *    (every 5 min — cube refresh, cache warming, parity check)
-orchestrator: */15 * * * *   (feeds, agent dispatch, Cartographer/NEXUS Workflows)
-cube-healer:  12 */6 * * *   (every 6 hours — 30-day bulk cube rebuild)
+fast-tick:    */5 * * * *    (every 5 min — DNS backfill, cube refresh, cache warming)
+orchestrator: 7 * * * *     (hourly at :07 — feeds, agent dispatch, Workflows)
+cube-healer:  12 */6 * * *  (every 6 hours at :12 — 30-day bulk cube rebuild)
+```
 
-Sentinel:     every feed run   (inline with feed ingestion)
-Cartographer: */15 * * * *     (dispatched as CartographerBackfillWorkflow)
-Nexus:        0 */4 * * *      (dispatched as NexusWorkflow)
-Analyst:      */30 * * * *     (via ctx.waitUntil — non-blocking)
-Strategist:   every 6 hours    (via ctx.waitUntil — non-blocking)
-Observer:     0 0 * * *        (daily 00:00)
+### Agent dispatch (inside orchestrator hourly tick):
+All agents below are dispatched from `runThreatFeedScan()` inside the orchestrator.
+Time gates use `event.scheduledTime` (minute=7 for the `7 * * * *` cron).
+
 ```
+Always (no gate):     Flight Control, CertStream health, Enricher, agent_events consumer
+Feed ingestion:       inside runThreatFeedScan (minute gate must match :07)
+Sentinel:             after feed ingestion if totalNew > 0 (inline await)
+Cartographer:         after Sentinel OR as fallback (dispatched as Workflow)
+Analyst:              minute % 15 < 5 window (ctx.waitUntil)
+Strategist:           hour % 6 === 0, minute [5,10) (ctx.waitUntil)
+NEXUS:                hour % 4 === 0, minute === 0 (dispatched as Workflow)
+Sparrow:              hour % 6 === 0, minute [15,20) (ctx.waitUntil)
+Observer:             hour === 0, minute < 5 (inline await)
+Pathfinder:           hour === 3, minute < 5 (inline await)
+CT monitor:           minute % 5 === 0 (inline await, in handleScheduled)
+Lookalike check:      minute === 15 (inline await, in handleScheduled)
+Social discovery:     minute === 0, hour % 6 === 0 (in handleScheduled)
+```
+
+**⚠️ KNOWN BUG:** The orchestrator was shifted from `:00` to `:07` in Wave 1A but
+the minute gates inside were NOT updated. `runThreatFeedScan()` is gated by
+`minute === 0 || minute === 30` which is never true when minute=7. This means
+feed ingestion and ALL agents inside that function are dead. Only Flight Control,
+CertStream, Enricher, and agent_events processing actually fire. Fix is tracked.
+
+**Parity-checker:** Removed in Wave 6. No longer runs anywhere. Do not reference.
 
 ### Execution patterns:
 - **Workflow dispatch:** Cartographer and NEXUS run as Cloudflare Workflows (durable, no CPU ceiling)
@@ -274,7 +295,7 @@ Observer:     0 0 * * *        (daily 00:00)
 - Use `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE` — never SELECT then INSERT
 
 ### D1 Sessions API (Read Replicas)
-- Read-heavy handlers use `getDbContext(request)` from `src/lib/db-context.ts` to route to read replicas
+- Read-heavy handlers use `getDbContext(request)` from `src/lib/db.ts` to route to read replicas
 - Cron/agent contexts use `getReadSession(env, ctx)` for read-only sessions
 - **Write operations always use `env.DB` directly** — never write through a read session
 - Attach bookmarks to responses via `attachBookmark(response, session)` for session continuity
@@ -371,6 +392,8 @@ docs(claude): update standing instructions for restructure
 - [ ] `RESTRUCTURE_SPEC.md` updated if architecture decisions were made
 - [ ] Commit message follows `type(scope): description` format
 - [ ] Pushed to feature branch (not master directly)
+- [ ] When docs reference files, verified the files exist at the stated path
+- [ ] When a task assumes current-state behavior, verified it in code (grep for the function, check cron schedule against wrangler.toml, confirm the agent actually runs)
 
 ---
 
