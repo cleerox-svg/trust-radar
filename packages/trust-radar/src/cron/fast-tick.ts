@@ -215,7 +215,7 @@ export async function runFastTick(
       // Run the 5 Observatory queries in parallel for maximum throughput.
       const obsResults = await Promise.allSettled([
         handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=7d'), env),
-        handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=7d&limit=50'), env),
+        handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=7d'), env),
         handleObservatoryStats(fakeReq('/api/observatory/stats?period=7d'), env),
         handleObservatoryLive(fakeReq('/api/observatory/live?limit=20'), env),
         handleObservatoryOperations(fakeReq('/api/observatory/operations?limit=5'), env),
