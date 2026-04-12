@@ -68,7 +68,7 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
       });
     }
 
-    const { getDbContext, getReadSession } = await import("../lib/db");
+    const { getDbContext, getReadSession, attachBookmark } = await import("../lib/db");
     const dbCtx = getDbContext(request);
     const session = getReadSession(env, dbCtx);
     const dayMap: Record<string, string> = { "24h": "-1 days", "7d": "-7 days", "30d": "-30 days", "90d": "-90 days" };
@@ -83,9 +83,10 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     `).bind(interval, limit).all();
     const body = JSON.stringify({ data: rows.results });
     await env.CACHE.put(cacheKey, body, { expirationTtl: 300 });
-    return new Response(body, {
+    const resp = new Response(body, {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": origin },
     });
+    return attachBookmark(resp, session);
   });
   router.get("/api/threats/geo-clusters", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
