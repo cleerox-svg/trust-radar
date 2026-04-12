@@ -85,20 +85,38 @@ npx wrangler deploy --env staging  # Deploy to staging
 Configured in `wrangler.toml`:
 ```toml
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["*/5 * * * *", "*/15 * * * *", "12 */6 * * *"]
 ```
 
-The cron orchestrator (`src/cron/orchestrator.ts`) routes jobs by time:
-- Every 30 min: Threat feed scan
-- Every 6 hours: Social monitoring
+Three cron schedules:
+
+| Schedule | Handler | Purpose |
+|----------|---------|---------|
+| `*/5 * * * *` | fast-tick | OLAP cube refresh, KV cache pre-warming, parity checks |
+| `*/15 * * * *` | orchestrator | Feed scans, agent scheduling, Workflow dispatch |
+| `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
+
+The orchestrator (`src/cron/orchestrator.ts`) routes jobs by time:
+- Every 15 min: Threat feed scan (Sentinel) + Cartographer (via Workflow)
+- Every 30 min: Analyst brand attribution (via ctx.waitUntil)
+- Every 4 hours: NEXUS clustering (via Workflow)
+- Every 6 hours: Strategist campaign correlation (via ctx.waitUntil)
 - Daily 06:00 UTC: Observer briefing
-- Every hour: Lookalike domain checks
+- Weekly: Prospector sales intelligence
+
+### Cloudflare Workflows
+
+Heavy agents run as durable Workflows (not inline in cron):
+- `CartographerBackfillWorkflow` — enrichment with retry/checkpointing
+- `NexusWorkflow` — clustering with durable execution
+
+Configured in `wrangler.toml` under `[[workflows]]`.
 
 ## KV Namespaces
 
 | Binding | Purpose |
 |---------|---------|
-| `CACHE` | Rate limiting, scan result caching, cron status |
+| `CACHE` | Rate limiting, scan result caching, cron status, page-load endpoint caching (300s TTL, pre-warmed by fast-tick) |
 | `SESSIONS` | Session storage |
 
 ## D1 Databases
@@ -107,6 +125,8 @@ The cron orchestrator (`src/cron/orchestrator.ts`) routes jobs by time:
 |---------|---------|
 | `DB` | Primary database (users, brands, threats, scans) |
 | `AUDIT_DB` | Audit log (data mutations) |
+
+Read-heavy endpoints use the D1 Sessions API to route queries to read replicas. The implementation is in `src/lib/db-context.ts`. Write operations always use the primary `env.DB` handle.
 
 ## Domains
 

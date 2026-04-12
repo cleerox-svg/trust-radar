@@ -153,6 +153,9 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/agents/approvals/:id/resolve` | Admin | Resolve approval |
 | GET | `/api/admin/agents/api-usage` | Admin | AI API usage stats |
 | GET | `/api/admin/agents/config` | Admin | Agent configuration |
+| GET | `/api/agents/token-usage` | User | Agent token usage breakdown |
+| POST | `/api/agents/:name/toggle` | Admin | Enable/disable agent |
+| POST | `/api/agents/:name/reset-circuit` | Admin | Reset agent circuit breaker |
 
 ## Trustbot
 
@@ -181,6 +184,15 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/campaigns/:id/brands` | User | Brands targeted by campaign |
 | GET | `/api/campaigns/:id/timeline` | User | Campaign timeline |
 
+## Operations (NEXUS Clusters)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/operations` | User | List active NEXUS operations/clusters |
+| GET | `/api/v1/operations/stats` | User | Operations statistics |
+| GET | `/api/v1/operations/:id/timeline` | User | Operation event timeline |
+| GET | `/api/v1/operations/:id/threats` | User | Threats in operation cluster |
+
 ## Geopolitical Campaigns
 
 | Method | Path | Auth | Description |
@@ -207,6 +219,14 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/providers/:id/brands` | User | Brands affected by provider |
 | GET | `/api/providers/:id/timeline` | User | Provider timeline |
 | GET | `/api/providers/:id/locations` | User | Provider locations |
+
+### Provider Endpoints v2
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/providers/v2` | User | Providers list with pre-computed columns (replaces v1 JOIN-based query) |
+| GET | `/api/providers/intelligence` | User | Provider intelligence summary |
+| GET | `/api/providers/clusters` | User | Provider infrastructure clusters |
 
 ## Email Security
 
@@ -413,7 +433,10 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/admin/backfill-ai-attribution` | SuperAdmin | Backfill AI attribution |
 | POST | `/api/admin/import-tranco` | SuperAdmin | Import Tranco top sites |
 | POST | `/api/admin/honeypot/generate` | SuperAdmin | Generate honeypot sites |
-| POST | `/api/admin/cube-backfill` | Admin | Backfill `threat_cube_geo` / `threat_cube_provider` OLAP tables via streaming NDJSON. Query params: `cube=geo\|provider\|both` (required), `days=1..365` (default 30), `dry_run=true\|false`, `resume_from=<hour_bucket>`. Returns one NDJSON line per hour plus a summary line with `resume_from` if the 25s budget is hit. |
+| POST | `/api/admin/cube-backfill` | Admin | Backfill `threat_cube_geo` / `threat_cube_provider` OLAP tables via streaming NDJSON. Query params: `cube=geo\|provider\|brand\|all` (required), `days=1..365` (default 30), `dry_run=true\|false`, `resume_from=<hour_bucket>`. Returns one NDJSON line per hour plus a summary line with `resume_from` if the 25s budget is hit. |
+| GET | `/api/admin/system-health` | Admin | System health dashboard |
+| GET | `/api/admin/budget/status` | Admin | AI budget status and spend |
+| GET | `/api/admin/budget/breakdown` | Admin | Budget breakdown by agent |
 
 ARCHITECT is now a standard agent triggered via `POST /api/agents/architect/trigger` (Admin auth, see [Agents section](#agents)). The full audit pipeline (collect → analyze → synthesize) runs inline in one execute() call. The markdown report, computed scorecard, and per-section analyses are stored in the latest `agent_outputs.details` row for `agent_id='architect'`; read them via `GET /api/agents/architect/outputs?limit=5`.
 

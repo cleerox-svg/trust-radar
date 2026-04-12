@@ -225,12 +225,22 @@ Analyst       → [scores_updated]     → Pathfinder (new high-value leads)
 
 ### Cron schedule:
 ```
-Sentinel:     */30 * * * *   (every 30 min)
-Cartographer: */15 * * * *   (every 15 min)
-Nexus:        0 */4 * * *    (every 4 hours)
-Analyst:      */30 * * * *   (every 30 min)
-Observer:     0 0 * * *      (daily 00:00)
+fast-tick:    */5 * * * *    (every 5 min — cube refresh, cache warming, parity check)
+orchestrator: */15 * * * *   (feeds, agent dispatch, Cartographer/NEXUS Workflows)
+cube-healer:  12 */6 * * *   (every 6 hours — 30-day bulk cube rebuild)
+
+Sentinel:     every feed run   (inline with feed ingestion)
+Cartographer: */15 * * * *     (dispatched as CartographerBackfillWorkflow)
+Nexus:        0 */4 * * *      (dispatched as NexusWorkflow)
+Analyst:      */30 * * * *     (via ctx.waitUntil — non-blocking)
+Strategist:   every 6 hours    (via ctx.waitUntil — non-blocking)
+Observer:     0 0 * * *        (daily 00:00)
 ```
+
+### Execution patterns:
+- **Workflow dispatch:** Cartographer and NEXUS run as Cloudflare Workflows (durable, no CPU ceiling)
+- **ctx.waitUntil:** Analyst, Strategist, Sparrow run in parallel without blocking the cron mesh
+- **Inline await:** Observer, Pathfinder run sequentially (quiet times, fast execution)
 
 ---
 
@@ -263,17 +273,47 @@ Observer:     0 0 * * *      (daily 00:00)
 - Always use prepared statements — never string interpolation
 - Use `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE` — never SELECT then INSERT
 
+### D1 Sessions API (Read Replicas)
+- Read-heavy handlers use `getDbContext(request)` from `src/lib/db-context.ts` to route to read replicas
+- Cron/agent contexts use `getReadSession(env, ctx)` for read-only sessions
+- **Write operations always use `env.DB` directly** — never write through a read session
+- Attach bookmarks to responses via `attachBookmark(response, session)` for session continuity
+
+### OLAP Cubes — query cubes, not raw threats
+- **threat_cube_geo** — geographic aggregates by hour (country, threat_type, severity, source_feed)
+- **threat_cube_provider** — provider aggregates by hour (hosting_provider_id, threat_type, severity, source_feed)
+- **threat_cube_brand** — brand aggregates by hour (target_brand_id, threat_type, severity, source_feed)
+- For aggregate counts (by country, provider, brand, severity, type) **always query cubes instead of raw threats table**
+- Cubes are rebuilt every 5 min (current + prev hour) by fast-tick, and full 30-day rebuild every 6 hours by cube-healer
+- Cube builder: `src/lib/cube-builder.ts` — `buildGeoCubeForHour()`, `buildProviderCubeForHour()`, `buildBrandCubeForHour()`
+
+### Pre-computed columns — use them, don't re-derive
+- `brands.threat_count`, `brands.last_threat_seen` — use instead of `COUNT(*) FROM threats WHERE target_brand_id = ?`
+- `hosting_providers.active_threat_count`, `hosting_providers.total_threat_count` — use instead of JOIN to threats
+- `hosting_providers.trend_7d`, `hosting_providers.trend_30d` — use instead of 14-day window GROUP BY
+
+### KV Cache on page-load endpoints
+- Check `env.CACHE.get(cacheKey)` before querying D1 on any page-load GET endpoint
+- Store results with `env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 })`
+- fast-tick pre-warms caches every 5 min so users rarely hit cold cache
+- Cache keys must encode all query parameters for correctness
+
 ### Key tables:
 ```
 brands                    ← Brand registry (9,652+ brands)
 brand_profiles            ← User-created brand profiles
 threats                   ← Core threat intelligence (113K+ rows)
+threat_cube_geo           ← OLAP cube: hourly geo aggregates
+threat_cube_provider      ← OLAP cube: hourly provider aggregates
+threat_cube_brand         ← OLAP cube: hourly brand aggregates
+hosting_providers         ← Provider registry with pre-computed threat counts
 lookalike_domains         ← Typosquat scanner results
 alerts                    ← Platform alerts
 agent_runs                ← Agent execution log
 agent_events              ← Inter-agent event queue
 agent_outputs             ← AI-generated insights
 campaigns                 ← Threat campaign groupings
+infrastructure_clusters   ← NEXUS operation clusters
 organizations             ← Multi-tenant org layer
 org_members               ← Org membership + roles
 ```
