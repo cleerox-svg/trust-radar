@@ -16,8 +16,10 @@ import { BudgetManager } from "../lib/budgetManager";
 import {
   buildGeoCubeForHour,
   buildProviderCubeForHour,
+  buildBrandCubeForHour,
   countGeoCubeForHour,
   countProviderCubeForHour,
+  countBrandCubeForHour,
 } from "../lib/cube-builder";
 
 // Every agentId the canonical Anthropic wrapper is supposed to attribute
@@ -1800,12 +1802,15 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
 
   // ── Parse + validate query params ──
   const cube = url.searchParams.get("cube");
-  if (cube !== "geo" && cube !== "provider" && cube !== "both") {
+  if (cube !== "geo" && cube !== "provider" && cube !== "brand" && cube !== "both" && cube !== "all") {
     return json({
       success: false,
-      error: "cube query param is required and must be 'geo' | 'provider' | 'both'",
+      error: "cube query param is required and must be 'geo' | 'provider' | 'brand' | 'both' | 'all'",
     }, 400, origin);
   }
+  const buildGeo = cube === "geo" || cube === "both" || cube === "all";
+  const buildProvider = cube === "provider" || cube === "both" || cube === "all";
+  const buildBrand = cube === "brand" || cube === "all";
 
   const daysRaw = parseInt(url.searchParams.get("days") ?? "30", 10);
   const days = Math.min(Math.max(Number.isFinite(daysRaw) ? daysRaw : 30, 1), 365);
@@ -1861,30 +1866,41 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
           const hourStart = Date.now();
           let geoRows = 0;
           let providerRows = 0;
+          let brandRows = 0;
           const errParts: string[] = [];
 
           try {
             if (dryRun) {
-              if (cube === "geo" || cube === "both") {
+              if (buildGeo) {
                 const r = await countGeoCubeForHour(env, hour);
                 geoRows = r.groupedRows;
                 if (r.error) errParts.push(`geo: ${r.error}`);
               }
-              if (cube === "provider" || cube === "both") {
+              if (buildProvider) {
                 const r = await countProviderCubeForHour(env, hour);
                 providerRows = r.groupedRows;
                 if (r.error) errParts.push(`provider: ${r.error}`);
               }
+              if (buildBrand) {
+                const r = await countBrandCubeForHour(env, hour);
+                brandRows = r.groupedRows;
+                if (r.error) errParts.push(`brand: ${r.error}`);
+              }
             } else {
-              if (cube === "geo" || cube === "both") {
+              if (buildGeo) {
                 const r = await buildGeoCubeForHour(env, hour);
                 geoRows = r.rowsWritten;
                 if (r.error) errParts.push(`geo: ${r.error}`);
               }
-              if (cube === "provider" || cube === "both") {
+              if (buildProvider) {
                 const r = await buildProviderCubeForHour(env, hour);
                 providerRows = r.rowsWritten;
                 if (r.error) errParts.push(`provider: ${r.error}`);
+              }
+              if (buildBrand) {
+                const r = await buildBrandCubeForHour(env, hour);
+                brandRows = r.rowsWritten;
+                if (r.error) errParts.push(`brand: ${r.error}`);
               }
             }
           } catch (err) {
@@ -1892,7 +1908,7 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
           }
 
           const errMsg = errParts.length > 0 ? errParts.join("; ") : null;
-          totalRows += geoRows + providerRows;
+          totalRows += geoRows + providerRows + brandRows;
           processed++;
           // Advance cursor regardless of error so we don't infinite-loop on a single
           // poison hour. The error is surfaced per-line so operators can see it.
@@ -1902,6 +1918,7 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
             hour,
             geo_rows: geoRows,
             provider_rows: providerRows,
+            brand_rows: brandRows,
             ms: Date.now() - hourStart,
             error: errMsg,
             dry_run: dryRun,

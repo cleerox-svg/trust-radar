@@ -257,3 +257,96 @@ export async function countProviderCubeForHour(
     };
   }
 }
+
+/**
+ * Build (or rebuild) a single hour of the brand cube.
+ *
+ * Window: [hourBucket, hourBucket + 1 hour)
+ * Source: threats WHERE status='active' AND target_brand_id IS NOT NULL
+ * Grain : (hour, target_brand_id, threat_type, severity, source_feed)
+ *
+ * Rows with NULL target_brand_id are dropped entirely (not useful for
+ * brand analytics). Other nullable columns fall into the 'unknown' bucket.
+ */
+export async function buildBrandCubeForHour(
+  env: Env,
+  hourBucket: string,
+): Promise<CubeBuildResult> {
+  const start = Date.now();
+  try {
+    const windowEnd = nextHour(hourBucket);
+    const result = await env.DB.prepare(`
+      INSERT OR REPLACE INTO threat_cube_brand
+        (hour_bucket, target_brand_id, threat_type, severity, source_feed,
+         threat_count, updated_at)
+      SELECT
+        ?1,
+        target_brand_id,
+        COALESCE(threat_type, 'unknown'),
+        COALESCE(severity, 'unknown'),
+        COALESCE(source_feed, 'unknown'),
+        COUNT(*),
+        datetime('now')
+      FROM threats
+      WHERE created_at >= ?2
+        AND created_at < ?3
+        AND status = 'active'
+        AND target_brand_id IS NOT NULL
+      GROUP BY 2, 3, 4, 5
+    `).bind(hourBucket, hourBucket, windowEnd).run();
+
+    return {
+      rowsWritten: extractRowsWritten(result.meta),
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Dry-run equivalent of buildBrandCubeForHour — see countGeoCubeForHour.
+ */
+export async function countBrandCubeForHour(
+  env: Env,
+  hourBucket: string,
+): Promise<CubeBuildResult & { groupedRows: number }> {
+  const start = Date.now();
+  try {
+    const windowEnd = nextHour(hourBucket);
+    const row = await env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM (
+        SELECT 1
+        FROM threats
+        WHERE created_at >= ?1
+          AND created_at < ?2
+          AND status = 'active'
+          AND target_brand_id IS NOT NULL
+        GROUP BY
+          target_brand_id,
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown')
+      )
+    `).bind(hourBucket, windowEnd).first<{ n: number }>();
+
+    return {
+      rowsWritten: 0,
+      groupedRows: row?.n ?? 0,
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      groupedRows: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
