@@ -538,11 +538,6 @@ function ThreatMapInner({
 
   // Particle animation (only in global mode)
   useEffect(() => {
-    // TEMPORARILY DISABLED — particle animation causes WebGL context leak.
-    // See ThreatMap.tsx particle effect issue. Re-enable after rewriting
-    // to use shader-based animation instead of per-frame layer recreation.
-    return;
-
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
