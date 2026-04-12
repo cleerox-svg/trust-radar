@@ -16,6 +16,10 @@ import type { Env } from '../types';
 import { runDomainGeoBackfillBatch } from '../lib/dns-backfill';
 import { buildGeoCubeForHour, buildProviderCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
+import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
+import { handleDashboardOverview } from '../handlers/dashboard';
+import { handleListAgents } from '../handlers/agents';
+import { handleListOperations, handleOperationsStats } from '../handlers/operations';
 
 /** How many agent_events to drain per tick. */
 const EVENT_DRAIN_LIMIT = 50;
@@ -176,7 +180,49 @@ export async function runFastTick(
     }
   }
 
-  // ── 4. Log to agent_runs ──
+  // ── 4. Cache pre-warming ──
+  // Call handler functions with synthetic requests to populate KV caches.
+  // Each handler checks KV (miss on first call after TTL), runs DB queries,
+  // stores result in KV, returns response (discarded here). Next real user
+  // request hits warm KV cache instead of cold DB queries.
+  //
+  // Targets: Observatory (nodes, arcs, stats, live, operations) + dashboard
+  // overview + agents list + operations list/stats. These cover the 8 requests
+  // Observatory fires on mount and the heaviest page-load queries.
+  let cacheWarmed = 0;
+  if (!isOverCap() && status !== 'failed') {
+    const warmStart = Date.now();
+    const fakeReq = (path: string) => new Request(`https://averrow.com${path}`);
+    try {
+      // Phase A: Observatory endpoints (highest impact — 10-15s cold load)
+      // Run the 5 Observatory queries in parallel for maximum throughput.
+      const obsResults = await Promise.allSettled([
+        handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=7d'), env),
+        handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=7d&limit=50'), env),
+        handleObservatoryStats(fakeReq('/api/observatory/stats?period=7d'), env),
+        handleObservatoryLive(fakeReq('/api/observatory/live?limit=20'), env),
+        handleObservatoryOperations(fakeReq('/api/observatory/operations?limit=5'), env),
+      ]);
+      cacheWarmed += obsResults.filter(r => r.status === 'fulfilled').length;
+
+      // Phase B: Other heavy pages (if still under cap)
+      if (!isOverCap()) {
+        const pageResults = await Promise.allSettled([
+          handleDashboardOverview(fakeReq('/api/dashboard/overview'), env),
+          handleListAgents(fakeReq('/api/agents'), env),
+          handleListOperations(fakeReq('/api/v1/operations'), env),
+          handleOperationsStats(fakeReq('/api/v1/operations/stats'), env),
+        ]);
+        cacheWarmed += pageResults.filter(r => r.status === 'fulfilled').length;
+      }
+
+      console.log(`[fast-tick] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms`);
+    } catch (e) {
+      console.error('[fast-tick] cache-warm error:', e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  // ── 5. Log to agent_runs ──
   const durationMs = Date.now() - start;
 
   // Concatenate DNS + cube errors into error_message so they surface in the
@@ -206,6 +252,6 @@ export async function runFastTick(
   }
 
   console.log(
-    `[fast-tick] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
+    `[fast-tick] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
   );
 }

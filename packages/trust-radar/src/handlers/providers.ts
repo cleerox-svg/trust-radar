@@ -287,6 +287,11 @@ export async function handleProviderTimeline(request: Request, env: Env, provide
 export async function handleProviderIntelligence(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // KV cache: provider intelligence stats — cache for 5 minutes.
+    const cacheKey = 'providers_intelligence';
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const [providerStats, clusterStats] = await Promise.all([
       env.DB.prepare(`
         SELECT
@@ -303,7 +308,7 @@ export async function handleProviderIntelligence(request: Request, env: Env): Pr
       `).first(),
     ]);
 
-    return json({
+    const responseData = {
       success: true,
       data: {
         total_providers: providerStats?.total_providers ?? 0,
@@ -313,7 +318,9 @@ export async function handleProviderIntelligence(request: Request, env: Env): Pr
         total_clusters: clusterStats?.total_clusters ?? 0,
         active_clusters: clusterStats?.active_clusters ?? 0,
       },
-    }, 200, origin);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
@@ -380,6 +387,11 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
 
     params.push(limit, offset);
 
+    // KV cache: provider list with 14-day sparkline subquery — cache for 5 minutes.
+    const cacheKey = `providers_v2:${search ?? ""}:${country ?? ""}:${status ?? ""}:${sort}:${clusterId ?? ""}:${limit}:${offset}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const rows = await env.DB.prepare(`
       SELECT hp.id, hp.name, hp.asn, hp.country,
              hp.active_threat_count, hp.total_threat_count,
@@ -421,7 +433,9 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
       threat_history_json: undefined,
     }));
 
-    return json({ success: true, data, meta: { total, limit, offset } }, 200, origin);
+    const responseData = { success: true, data, meta: { total, limit, offset } };
+    await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

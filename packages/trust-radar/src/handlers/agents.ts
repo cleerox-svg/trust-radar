@@ -40,6 +40,11 @@ const AGENT_SCHEDULES: Record<string, string> = {
 
 // ─── List all agent definitions + their latest run ──────────────
 export const handleListAgents = handler(async (_request, env, ctx) => {
+  // KV cache: 7 parallel queries — cache for 5 minutes.
+  const cacheKey = 'agents_list';
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, ctx.origin);
+
   const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations, agentConfigs] = await Promise.all([
     env.DB.prepare(
       `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
@@ -165,7 +170,9 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     };
   });
 
-  return success(agents, ctx.origin);
+  const responseData = { success: true, data: agents };
+  await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+  return json(responseData, 200, ctx.origin);
 });
 
 // ─── Get agent detail with run history ──────────────────────────
