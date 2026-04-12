@@ -76,15 +76,14 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
 
   // Use scheduledTime (the intended cron fire time) — NOT new Date().
   // Pre-work (Flight Control, CertStream, event processing) can push
-  // wall-clock past :00, making minute !== 0 and skipping every job.
+  // wall-clock past the scheduled minute and skipping every job.
   const now = new Date(event.scheduledTime);
-  const minute = now.getUTCMinutes();
   const hour = now.getUTCHours();
   const results: CronJobResult[] = [];
 
-  // Every 30 minutes (minute 0 or 30): Threat feed scan
-  if (minute === 0 || minute === 30) {
-    const result = await runJob('threat_feed_scan', () => runThreatFeedScan(env, ctx));
+  // Threat feed scan + full agent mesh — runs every hourly tick.
+  {
+    const result = await runJob('threat_feed_scan', () => runThreatFeedScan(env, ctx, now));
     results.push(result);
   }
 
@@ -101,8 +100,8 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     });
   }
 
-  // Every 6 hours (minute 0, hours 0/6/12/18): Social discovery + monitoring
-  if (minute === 0 && hour % 6 === 0) {
+  // Every 6 hours (hours 0/6/12/18): Social discovery + monitoring
+  if (hour % 6 === 0) {
     // Discovery first — so newly found handles get monitored in the same cycle
     const discoveryResult = await runJob('social_discovery', () => runSocialDiscovery(env));
     results.push(discoveryResult);
@@ -122,7 +121,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   }
 
   // Daily at 06:00 UTC: Observer briefing + threat narratives
-  if (minute === 0 && hour === 6) {
+  if (hour === 6) {
     const result = await runJob('observer_briefing', () => runObserverBriefing(env));
     results.push(result);
 
@@ -133,7 +132,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
 
   // Daily at 13:00 UTC (9 AM ET): Generate + email daily briefing
   // NOTE: hour 13 avoids collision with social ops (hour % 6 === 0 runs at 0/6/12/18)
-  if (minute === 0 && hour === 13) {
+  if (hour === 13) {
     console.log('[CRON] 13:00 UTC — starting daily briefing generation');
     const emailResult = await runJob('briefing_email', async () => {
       // Dedup: only skip if a cron briefing already exists for today (manual ones don't count)
@@ -168,14 +167,14 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(emailResult);
   }
 
-  // Every 5 minutes: CT certificate monitoring (lightweight — polls crt.sh)
-  if (minute % 5 === 0) {
+  // CT certificate monitoring — runs every hourly tick (was every 5 min when cron was */15)
+  {
     const result = await runJob('ct_monitor', () => runCTMonitor(env));
     results.push(result);
   }
 
-  // Every hour (minute 15): Lookalike domain checks
-  if (minute === 15) {
+  // Lookalike domain checks — runs every hourly tick (was staggered to minute 15)
+  {
     const result = await runJob('lookalike_check', () => runLookalikeDomainCheck(env));
     results.push(result);
   }
@@ -289,10 +288,29 @@ async function runJob(name: string, fn: () => Promise<void>): Promise<CronJobRes
 
 // ─── Job Implementations ──────────────────────────────────────
 
-async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void> {
-  const now = new Date();
-  const hour = now.getUTCHours();
-  const minute = now.getUTCMinutes();
+/**
+ * Called from handleScheduled() on the hourly orchestrator cron (7 * * * *).
+ *
+ * IMPORTANT: All time gates inside this function use hour-only checks.
+ * Do NOT add minute-based gates — the cron fires at a single minute per hour
+ * and any minute check that doesn't match that exact value silently kills
+ * the gated code. If sub-hourly scheduling is needed, use fast-tick
+ * (every 5 min cron) or add a dedicated cron trigger.
+ *
+ * Bug history: The orchestrator was created with cron `0 * * * *` (hourly at :00).
+ * On 2026-04-12 Wave 1A moved it to `7 * * * *` to decollide with fast-tick.
+ * The outer `minute === 0 || minute === 30` gate was not updated, silently
+ * killing this function for ~22 hours until caught by static analysis.
+ * Fix: all minute gates removed, hour-only gates retained (2026-04-12).
+ *
+ * Side effects of the fix: two pre-existing bugs were corrected at the same
+ * time. The `minute === 15` lookalike check gate had been dead since the
+ * original `0 * * * *` cron (never fired in production). The `minute % 5 === 0`
+ * CT monitor gate was aspirational (it was hourly in practice because
+ * 0 % 5 === 0 on the original cron). Both now run cleanly on the hourly cadence.
+ */
+async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime: Date): Promise<void> {
+  const hour = scheduledTime.getUTCHours();
 
   // Geo enrichment
   try {
@@ -545,7 +563,7 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
     ).first<{ n: number }>();
     const unmatched = unmatchedCount?.n ?? 0;
     if (unmatched > 500) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = scheduledTime.toISOString().slice(0, 10);
       const attrCallsToday = parseInt(await env.CACHE.get(`ai_attr_calls_${today}`) || '0', 10);
       if (attrCallsToday < 20) {
         const { runAiAttribution } = await import('../handlers/admin');
@@ -610,9 +628,9 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
     }
   }
 
-  // Analyst agent — runs every 15 minutes (checked within 30-min window).
+  // Analyst agent — runs every hourly tick.
   // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
-  if (minute % 15 < 5) {
+  {
     try {
       const mod = allAgents["analyst"];
       if (mod) {
@@ -641,9 +659,9 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
     }
   }
 
-  // Strategist — every 6 hours, minute 5-10 (staggered).
+  // Strategist — every 6 hours (0, 6, 12, 18).
   // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
-  if (hour % 6 === 0 && minute >= 5 && minute < 10) {
+  if (hour % 6 === 0) {
     try {
       const mod = allAgents["strategist"];
       if (mod) {
@@ -658,22 +676,22 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
     }
   }
 
-  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), at minute 0.
+  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20).
   // Dispatched as a durable workflow — runs outside the cron CPU ceiling
   // with automatic retry on failure.
-  if (hour % 4 === 0 && minute === 0) {
+  if (hour % 4 === 0) {
     try {
       const id = crypto.randomUUID();
       const instance = await env.NEXUS_RUN.create({ id, params: {} });
-      logger.info('nexus_workflow_dispatched', { instanceId: instance.id, hour, minute });
+      logger.info('nexus_workflow_dispatched', { instanceId: instance.id, hour });
     } catch (err) {
       logger.error('nexus_workflow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // Sparrow (takedown agent) — every 6 hours, minute 15-20 (staggered).
+  // Sparrow (takedown agent) — every 6 hours (0, 6, 12, 18).
   // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
-  if (hour % 6 === 0 && minute >= 15 && minute < 20) {
+  if (hour % 6 === 0) {
     try {
       const mod = allAgents["sparrow"];
       if (mod) {
@@ -689,7 +707,7 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
   }
 
   // Observer + daily assessments — daily at midnight UTC
-  if (hour === 0 && minute < 5) {
+  if (hour === 0) {
     try {
       const mod = allAgents["observer"];
       if (mod) {
@@ -713,7 +731,7 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
   }
 
   // Pathfinder agent — daily at 03:00 UTC (KV throttle ensures once per 7 days)
-  if (hour === 3 && minute < 5) {
+  if (hour === 3) {
     try {
       const pathfinderMod = allAgents["pathfinder"];
       if (pathfinderMod) {
@@ -727,11 +745,11 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void>
   // Daily snapshots — generate if none exist today
   try {
     const { generateDailySnapshots } = await import('../lib/snapshots');
-    const today = new Date().toISOString().slice(0, 10);
+    const today = scheduledTime.toISOString().slice(0, 10);
     const hasSnapshotToday = await env.DB.prepare(
       "SELECT COUNT(*) as n FROM daily_snapshots WHERE date = ?"
     ).bind(today).first<{ n: number }>();
-    if ((hour === 0 && minute < 5) || (hasSnapshotToday?.n ?? 0) === 0) {
+    if (hour === 0 || (hasSnapshotToday?.n ?? 0) === 0) {
       await generateDailySnapshots(env.DB, today);
     }
   } catch (err) {
