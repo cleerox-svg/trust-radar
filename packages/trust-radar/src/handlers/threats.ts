@@ -21,6 +21,12 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
     const source = url.searchParams.get("source");
     const search = url.searchParams.get("q");
 
+    // KV cache: threats list with complex JOINs — cache for 5 minutes.
+    const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
+    const cacheKey = `threats_list:${severity ?? ""}:${type ?? ""}:${status ?? ""}:${source ?? ""}:${search ?? ""}:${limit}:${offset}:${scopeHash}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const conditions: string[] = [];
     const params: unknown[] = [];
 
@@ -96,7 +102,9 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
       `SELECT COUNT(*) as cnt FROM threats t ${where}`
     ).bind(...countParams).first<{ cnt: number }>();
 
-    return attachBookmark(json({ success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } }, 200, origin), session);
+    const data = { success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
@@ -108,6 +116,10 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
+    // KV cache: threat stats fires 11+ parallel queries — cache for 5 minutes.
+    const cacheKey = "threat_stats";
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
     const [
       summary, last24h, today, yesterday,
       feedIngestionsToday, byType, bySource, bySeverity,
@@ -198,7 +210,7 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       countriesYesterday: yesterday?.countries_active ?? 0,
     };
 
-    return attachBookmark(json({
+    const data = {
       success: true,
       data: {
         summary, last24h, dailyStats,
@@ -208,7 +220,9 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
         recentThreats: recentThreats.results,
         topOriginsToday: topOriginsToday.results,
       },
-    }, 200, origin), session);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }

@@ -13,6 +13,12 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
+    // KV cache: dashboard overview fires 7 parallel queries — cache for 5 minutes.
+    const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
+    const cacheKey = `dashboard_overview:${scopeHash}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     // Build scope-aware threat filter
     const threatScope = scope && scope.brand_ids.length > 0
       ? { clause: `WHERE target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
@@ -57,7 +63,7 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
     // Use active count if available, otherwise total count (threats may not have status='active')
     const activeThreats = (threatActive?.n ?? 0) > 0 ? (threatActive?.n ?? 0) : (threatCount?.n ?? 0);
 
-    return attachBookmark(json({
+    const data = {
       success: true,
       data: {
         active_threats: activeThreats,
@@ -74,7 +80,9 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
           down: 0,
         },
       },
-    }, 200, origin), session);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
