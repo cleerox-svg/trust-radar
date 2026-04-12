@@ -82,7 +82,7 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
       LIMIT ?
     `).bind(interval, limit).all();
     const body = JSON.stringify({ data: rows.results });
-    await env.CACHE.put(cacheKey, body, { expirationTtl: 120 });
+    await env.CACHE.put(cacheKey, body, { expirationTtl: 300 });
     return new Response(body, {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": origin },
     });

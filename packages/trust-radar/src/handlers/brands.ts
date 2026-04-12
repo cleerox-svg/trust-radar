@@ -54,7 +54,7 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
         top_threat_type_pct: topType?.pct ?? 0,
       },
     };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -123,8 +123,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              MAX(t.created_at) AS last_threat_seen,
              CASE WHEN mb.brand_id IS NOT NULL THEN 1 ELSE 0 END AS is_monitored,
-             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count,
-             th.threat_history_json
+             COALESCE(sp_imp.imp_count, 0) AS social_impersonation_count
       FROM brands b
       LEFT JOIN threats t ON t.target_brand_id = b.id
       LEFT JOIN monitored_brands mb ON mb.brand_id = b.id
@@ -139,17 +138,6 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         WHERE classification = 'impersonation' AND status = 'active'
         GROUP BY brand_id
       ) sp_imp ON sp_imp.brand_id = b.id
-      LEFT JOIN (
-        SELECT target_brand_id, json_group_array(daily_count) AS threat_history_json
-        FROM (
-          SELECT target_brand_id, COUNT(*) AS daily_count, date(created_at) AS day
-          FROM threats
-          WHERE created_at >= datetime('now', '-14 days')
-          GROUP BY target_brand_id, day
-          ORDER BY target_brand_id, day ASC
-        )
-        GROUP BY target_brand_id
-      ) th ON th.target_brand_id = b.id
       ${where}
       GROUP BY b.id
       ORDER BY ${sortClause}
@@ -195,17 +183,9 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
 
-    const data = rows.results.map((row: Record<string, unknown>) => ({
-      ...row,
-      threat_history: row.threat_history_json
-        ? JSON.parse(row.threat_history_json as string)
-        : undefined,
-      threat_history_json: undefined,
-    }));
-
     const result = {
       success: true,
-      data,
+      data: rows.results,
       total: total?.n ?? 0,
       tabs: {
         under_attack: underAttackCount?.n ?? 0,
@@ -213,7 +193,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         all: allCount?.n ?? 0,
       },
     };
-    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 120 });
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 300 });
     return attachBookmark(json(result, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);

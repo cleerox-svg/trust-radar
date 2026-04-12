@@ -372,7 +372,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       .filter((a): a is NonNullable<typeof a> => a !== null);
 
     const data = { success: true, data: arcs };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -548,7 +548,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
       },
     };
 
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
