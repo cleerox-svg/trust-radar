@@ -353,15 +353,25 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/erasures` | User | Create erasure request |
 | PATCH | `/api/erasures/:id` | User | Update erasure status |
 
+## Threat Actors
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/threat-actors` | User | List threat actors (KV cached, read replicas, parallel count+list) |
+| GET | `/api/threat-actors/stats` | User | Threat actor statistics (KV cached, read replicas, parallel 6-query aggregation) |
+| GET | `/api/threat-actors/:id` | User | Get threat actor detail with infrastructure + targets |
+| GET | `/api/threat-actors/by-brand/:brandId` | User | Threat actors targeting a specific brand |
+| GET | `/api/threat-actors/:id/threats` | User | Threats linked to actor's known infrastructure |
+
 ## Intel
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/breaches` | User | Breach check data |
-| GET | `/api/ato-events` | User | Account takeover events |
+| GET | `/api/breaches` | User | Breach check data (KV cached, read replicas) |
+| GET | `/api/ato-events` | User | Account takeover events (KV cached, read replicas) |
 | PATCH | `/api/ato-events/:id` | User | Update ATO event |
-| GET | `/api/email-auth` | User | Email auth reports |
-| GET | `/api/cloud-incidents` | User | Cloud security incidents |
+| GET | `/api/email-auth` | User | Email auth reports (KV cached, read replicas) |
+| GET | `/api/cloud-incidents` | User | Cloud security incidents (KV cached, read replicas) |
 | GET | `/api/trust-scores` | User | Trust score history |
 | GET | `/api/social-iocs` | User | Social IOCs |
 

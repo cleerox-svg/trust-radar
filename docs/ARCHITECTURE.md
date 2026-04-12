@@ -177,28 +177,40 @@ KV namespace bound as `CACHE` is used for:
 
 ### KV Cache Strategy (Page-Load Endpoints)
 
-All high-traffic page-load endpoints check KV before querying D1. Cache keys encode query parameters for proper invalidation. TTLs are tuned per endpoint:
+All high-traffic page-load endpoints check KV before querying D1. Cache keys encode query parameters for proper invalidation. Standard TTL is 300s (5 min). All cached read endpoints use D1 read replicas via `getReadSession()` and parallelize list + stats queries via `Promise.all()`.
 
 | Cache Key Pattern | TTL | Endpoint |
 |-------------------|-----|----------|
 | `observatory_nodes:{period}:{source}` | 300s | Observatory nodes |
-| `observatory_arcs:{period}:{source}` | 300s | Observatory arcs |
+| `observatory_arcs:{period}:{source}` | 300s | Observatory arcs (single time-filtered query, no fallback) |
 | `observatory_stats:{period}:{source}` | 300s | Observatory stats |
 | `observatory_live:{source}:{limit}` | 120s | Observatory live feed |
 | `observatory_operations:{status}:{limit}` | 300s | Observatory operations |
-| `dashboard_overview` | 300s | Dashboard overview |
+| `dashboard_overview:{scopeHash}` | 300s | Dashboard overview |
+| `dashboard_top_brands:{limit}:{scopeHash}` | 300s | Dashboard top brands |
 | `agents_list` | 300s | Agents list |
 | `operations_list:{status}:{limit}:{offset}` | 300s | Operations list |
 | `operations_stats` | 300s | Operations stats |
-| `providers_v2:{params...}` | 300s | Providers v2 list |
+| `brand_list:{tab}:{sort}:{limit}:{scopeHash}` | 300s | Brands list (default view, reduced-cardinality key) |
+| `brand_stats:{scopeHash}` | 300s | Brand stats |
+| `providers_v2:{country}:{status}:{sort}:{limit}` | 300s | Providers v2 list (default view, reduced-cardinality key) |
 | `providers_intelligence` | 300s | Provider intelligence |
+| `threat_actors:{limit}:{offset}:{filters...}` | 300s | Threat actors list (read replicas, parallel queries) |
+| `threat_actor_stats` | 300s | Threat actor stats (parallel 6-query aggregation) |
+| `breaches:{limit}:{q}` | 300s | Breach checks (read replicas, parallel queries) |
+| `ato_events:{limit}:{status}` | 300s | ATO events (read replicas, parallel queries) |
+| `email_auth:{limit}:{domain}` | 300s | Email auth reports (read replicas, parallel queries) |
+| `cloud_incidents:{limit}:{provider}:{active}` | 300s | Cloud incidents (read replicas, parallel queries) |
+
+Default page loads (no search, no filter, page 1) use reduced-dimension cache keys for higher hit rates. Filtered/paginated views use full-dimension keys.
 
 ### Cache Pre-Warming (fast-tick)
 
-The fast-tick cron (every 5 minutes) pre-warms KV caches by calling handler functions with synthetic requests. This ensures users never hit a cold cache on the most critical pages:
+The fast-tick cron (every 5 minutes) pre-warms KV caches by calling handler functions with synthetic requests. This ensures users never hit a cold cache on the most critical pages (24 endpoints across 3 phases):
 
-- **Phase A** (always): Observatory nodes, arcs, stats, live, operations (5 endpoints)
-- **Phase B** (if CPU budget allows): Dashboard overview, Agents list, Operations list, Operations stats
+- **Phase A** (always): Observatory nodes, arcs, stats for all 3 periods (7d, 24h, 30d) + live + operations (11 endpoints)
+- **Phase B** (if CPU budget allows): Dashboard overview + top-brands, Agents list, Operations list + stats (5 endpoints)
+- **Phase C** (if CPU budget allows): Brands list + stats, Threat Actors list + stats, Breaches, ATO events, Email auth, Cloud incidents (8 endpoints)
 
 ## SPA Frontend Serving
 
@@ -224,7 +236,7 @@ The Worker has multiple cron triggers configured in `wrangler.toml`:
 
 | Cron | Handler | Purpose |
 |------|---------|---------|
-| `*/5 * * * *` | `fast-tick` | OLAP cube refresh (current + prev hour for geo, provider, brand), KV cache pre-warming, parity checks |
+| `*/5 * * * *` | `fast-tick` | DNS geo-backfill (200 domains), OLAP cube refresh (6 cubes), KV cache pre-warming (24 endpoints) |
 | `*/15 * * * *` | `orchestrator` | Threat feed scan, Cartographer enrichment (dispatched as Workflow), agent scheduling |
 | `12 */6 * * *` | `cube-healer` | Full 30-day bulk rebuild of all 3 cube tables to fix retroactive drift |
 
@@ -241,11 +253,12 @@ Routes jobs by time of day:
 
 ### fast-tick (`src/cron/fast-tick.ts`)
 
-Runs every 5 minutes with 4 phases:
-1. **Cube refresh** — Rebuilds current + previous hour for `threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand` (6 builds total)
-2. **Parity check** — Validates cube accuracy against raw threats (sampled)
-3. **Stats refresh** — Updates `hosting_providers` pre-computed columns
-4. **Cache pre-warming** — Calls handler functions to populate KV for Observatory, Dashboard, Agents, Operations
+Runs every 5 minutes with 5 phases:
+1. **Event drain** — Marks stale pending `agent_events` (>5 min old) as done (up to 50 events)
+2. **DNS backfill** — Runs domain geo-enrichment batch (200 domains, 8s timeout)
+3. **Cube refresh** — Rebuilds current + previous hour for `threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand` (6 builds total)
+4. **Cache pre-warming** — Phase A (Observatory 3 periods), Phase B (Dashboard/Agents/Operations), Phase C (Brands/Threat Actors/Intel) — 24 endpoints total
+5. **Logging** — Writes `agent_runs` record with timing, cube row counts, and error summary
 
 ### Cloudflare Workflows
 
