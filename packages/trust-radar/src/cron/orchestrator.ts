@@ -84,7 +84,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
 
   // Every 30 minutes (minute 0 or 30): Threat feed scan
   if (minute === 0 || minute === 30) {
-    const result = await runJob('threat_feed_scan', () => runThreatFeedScan(env));
+    const result = await runJob('threat_feed_scan', () => runThreatFeedScan(env, ctx));
     results.push(result);
   }
 
@@ -289,7 +289,7 @@ async function runJob(name: string, fn: () => Promise<void>): Promise<CronJobRes
 
 // ─── Job Implementations ──────────────────────────────────────
 
-async function runThreatFeedScan(env: Env): Promise<void> {
+async function runThreatFeedScan(env: Env, ctx: ExecutionContext): Promise<void> {
   const now = new Date();
   const hour = now.getUTCHours();
   const minute = now.getUTCMinutes();
@@ -598,78 +598,93 @@ async function runThreatFeedScan(env: Env): Promise<void> {
       logger.error('sentinel_event_write_error', { error: err instanceof Error ? err.message : String(err) });
     }
 
-    // After Sentinel feed pull, trigger Cartographer immediately to enrich new threats
+    // After Sentinel feed pull, dispatch Cartographer as a durable workflow.
+    // Runs outside the cron CPU ceiling — retries automatically on failure.
     try {
-      const cartographerMod = allAgents["cartographer"];
-      if (cartographerMod) {
-        await executeAgent(env, cartographerMod, { trigger: 'sentinel', newItems: feedResult.totalNew }, "cron", "event");
-        logger.info('sentinel_triggered_cartographer', { newItems: feedResult.totalNew });
-      }
+      const instance = await env.CARTOGRAPHER_BACKFILL.create({
+        params: { batchSize: 500, startOffset: 0 }
+      });
+      logger.info('sentinel_triggered_cartographer_workflow', { instanceId: instance.id, newItems: feedResult.totalNew });
     } catch (err) {
-      logger.error('sentinel_cartographer_trigger_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('sentinel_cartographer_workflow_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // Analyst agent — runs every 15 minutes (checked within 30-min window)
+  // Analyst agent — runs every 15 minutes (checked within 30-min window).
+  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
   if (minute % 15 < 5) {
     try {
       const mod = allAgents["analyst"];
       if (mod) {
-        await executeAgent(env, mod, {}, "cron", "scheduled");
+        ctx.waitUntil(
+          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
+            logger.error('threat_feed_scan_analyst_error', { error: err instanceof Error ? err.message : String(err) })
+          )
+        );
       }
     } catch (err) {
-      logger.error('threat_feed_scan_analyst_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_analyst_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // Cartographer — every 15 minutes to clear enrichment backlog
-  // (also triggered above after Sentinel, but this ensures it runs even without new feeds)
-  // Runs at every cron tick (*/15) — stagger by checking we didn't just run via Sentinel trigger
+  // Cartographer — every 15 minutes to clear enrichment backlog.
+  // Dispatched as a durable workflow — runs outside the cron CPU ceiling.
+  // Skip if Sentinel already triggered a workflow above.
   if (!(feedResult.totalNew > 0)) {
     try {
-      const mod = allAgents["cartographer"];
-      if (mod) {
-        await executeAgent(env, mod, { trigger: 'scheduled' }, "cron", "scheduled");
-      }
+      const instance = await env.CARTOGRAPHER_BACKFILL.create({
+        params: { batchSize: 500, startOffset: 0 }
+      });
+      logger.info('cartographer_workflow_dispatched', { instanceId: instance.id, trigger: 'scheduled' });
     } catch (err) {
-      logger.error('threat_feed_scan_cartographer_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('cartographer_workflow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // Strategist — every 6 hours, minute 5-10 (staggered)
+  // Strategist — every 6 hours, minute 5-10 (staggered).
+  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
   if (hour % 6 === 0 && minute >= 5 && minute < 10) {
     try {
       const mod = allAgents["strategist"];
       if (mod) {
-        await executeAgent(env, mod, {}, "cron", "scheduled");
+        ctx.waitUntil(
+          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
+            logger.error('threat_feed_scan_strategist_error', { error: err instanceof Error ? err.message : String(err) })
+          )
+        );
       }
     } catch (err) {
-      logger.error('threat_feed_scan_strategist_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_strategist_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), at minute 0
+  // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20), at minute 0.
+  // Dispatched as a durable workflow — runs outside the cron CPU ceiling
+  // with automatic retry on failure.
   if (hour % 4 === 0 && minute === 0) {
     try {
-      const mod = allAgents["nexus"];
-      if (mod) {
-        await executeAgent(env, mod, {}, "cron", "scheduled");
-        logger.info('nexus_scheduled_run', { hour, minute });
-      }
+      const id = crypto.randomUUID();
+      const instance = await env.NEXUS_RUN.create({ id, params: {} });
+      logger.info('nexus_workflow_dispatched', { instanceId: instance.id, hour, minute });
     } catch (err) {
-      logger.error('cron_nexus_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('nexus_workflow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  // Sparrow (takedown agent) — every 6 hours, minute 15-20 (staggered after cartographer)
+  // Sparrow (takedown agent) — every 6 hours, minute 15-20 (staggered).
+  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
   if (hour % 6 === 0 && minute >= 15 && minute < 20) {
     try {
       const mod = allAgents["sparrow"];
       if (mod) {
-        await executeAgent(env, mod, {}, "cron", "scheduled");
+        ctx.waitUntil(
+          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
+            logger.error('cron_sparrow_error', { error: err instanceof Error ? err.message : String(err) })
+          )
+        );
       }
     } catch (err) {
-      logger.error('cron_sparrow_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('cron_sparrow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
