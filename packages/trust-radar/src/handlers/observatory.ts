@@ -243,6 +243,11 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
+    // KV cache: nodes query aggregates threat_cube_geo — cache for 5 minutes.
+    const cacheKey = `observatory_nodes:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const rows = await session.prepare(`
       SELECT
         ROUND(lat_bucket, 1) AS lat,
@@ -266,7 +271,9 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
       country_code: string | null; top_threat_type: string | null;
     }>();
 
-    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
+    const data = { success: true, data: rows.results ?? [] };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
@@ -390,6 +397,11 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
   const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
   try {
+    // KV cache: live feed query — cache for 2 minutes (data changes frequently).
+    const cacheKey = `observatory_live:${url.searchParams.get("source_feed") ?? "all"}:${limit}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const rows = await session.prepare(`
       SELECT
         t.id,
@@ -416,7 +428,9 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       created_at: string; target_brand: string | null;
     }>();
 
-    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
+    const data = { success: true, data: rows.results ?? [] };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
@@ -577,6 +591,11 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit);
 
+    // KV cache: lightweight query but fires on every Observatory mount — cache for 5 minutes.
+    const cacheKey = `observatory_operations:${status ?? "all"}:${limit}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     const rows = await session.prepare(`
       SELECT ic.id, ic.cluster_name, ic.threat_count,
              ic.status, ic.confidence_score, ic.agent_notes,
@@ -593,7 +612,9 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
       LIMIT ?
     `).bind(...params).all();
 
-    return attachBookmark(json({ success: true, data: rows.results ?? [] }, 200, origin), session);
+    const data = { success: true, data: rows.results ?? [] };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }

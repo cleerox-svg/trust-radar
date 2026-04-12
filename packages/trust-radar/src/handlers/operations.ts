@@ -23,6 +23,11 @@ export async function handleListOperations(request: Request, env: Env): Promise<
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit, offset);
 
+    // KV cache: operations list with 14-day subquery — cache for 5 minutes.
+    const cacheKey = `operations_list:${status ?? "all"}:${limit}:${offset}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const rows = await env.DB.prepare(`
       SELECT ic.id, ic.cluster_name, ic.asns, ic.countries, ic.threat_count,
              ic.status, ic.confidence_score, ic.agent_notes,
@@ -62,7 +67,9 @@ export async function handleListOperations(request: Request, env: Env): Promise<
       threat_history_json: undefined,
     }));
 
-    return json({ success: true, data, total: total?.n ?? 0 }, 200, origin);
+    const responseData = { success: true, data, total: total?.n ?? 0 };
+    await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
@@ -72,6 +79,11 @@ export async function handleListOperations(request: Request, env: Env): Promise<
 export async function handleOperationsStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // KV cache: 4 parallel queries — cache for 5 minutes.
+    const cacheKey = 'operations_stats';
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return json(JSON.parse(cached), 200, origin);
+
     const [clusterStats, campaignStats, brandStats, typeStats] = await Promise.all([
       env.DB.prepare(`
         SELECT COUNT(*) AS total,
@@ -90,7 +102,7 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
       `).first<{ threat_types: number }>(),
     ]);
 
-    return json({
+    const responseData = {
       success: true,
       data: {
         active_operations: clusterStats?.active ?? 0,
@@ -100,7 +112,9 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
         brands_targeted: brandStats?.brands_targeted ?? 0,
         threat_types: typeStats?.threat_types ?? 0,
       },
-    }, 200, origin);
+    };
+    await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
