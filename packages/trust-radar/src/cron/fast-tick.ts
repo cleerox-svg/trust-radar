@@ -6,15 +6,15 @@
 // Current responsibilities:
 //   1. Drain pending agent_events (mark done, no routing — just housekeeping)
 //   2. Run one DNS backfill batch (200 domains, 8s soft cap)
-//   3. Refresh the two OLAP cubes (geo + provider) for the current and
-//      previous UTC hour — catches retroactive cartographer enrichment and
-//      keeps Observatory aggregates in sync with raw threats.
+//   3. Refresh the three OLAP cubes (geo + provider + brand) for the current
+//      and previous UTC hour — catches retroactive cartographer enrichment
+//      and keeps Observatory aggregates in sync with raw threats.
 //
 // Budget: ~15s typical (DNS 13-18s + cube <1s), well under the 30s hard ceiling.
 
 import type { Env } from '../types';
 import { runDomainGeoBackfillBatch } from '../lib/dns-backfill';
-import { buildGeoCubeForHour, buildProviderCubeForHour } from '../lib/cube-builder';
+import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
 import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
 import { handleDashboardOverview } from '../handlers/dashboard';
@@ -114,14 +114,14 @@ export async function runFastTick(
   // the outer try is purely defensive. A cube failure never fails fast_tick
   // overall — it just downgrades status from 'success' to 'partial'.
   const cubeResults: {
-    currentHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null };
-    prevHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null };
+    currentHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null };
+    prevHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null };
     totalRows: number;
     totalMs: number;
     errors: string[];
   } = {
-    currentHour: { geo: null, provider: null },
-    prevHour: { geo: null, provider: null },
+    currentHour: { geo: null, provider: null, brand: null },
+    prevHour: { geo: null, provider: null, brand: null },
     totalRows: 0,
     totalMs: 0,
     errors: [],
@@ -149,6 +149,14 @@ export async function runFastTick(
           if (r.error) cubeResults.errors.push(`provider ${currentHourBucket}: ${r.error}`);
           else cubeResults.totalRows += r.rowsWritten;
         }
+        // Current hour — brand
+        if (!isOverCap()) {
+          const r = await buildBrandCubeForHour(env, currentHourBucket);
+          cubeResults.currentHour.brand = r;
+          cubeResults.totalMs += r.durationMs;
+          if (r.error) cubeResults.errors.push(`brand ${currentHourBucket}: ${r.error}`);
+          else cubeResults.totalRows += r.rowsWritten;
+        }
         // Previous hour — geo
         if (!isOverCap()) {
           const r = await buildGeoCubeForHour(env, prevHourBucket);
@@ -163,6 +171,14 @@ export async function runFastTick(
           cubeResults.prevHour.provider = r;
           cubeResults.totalMs += r.durationMs;
           if (r.error) cubeResults.errors.push(`provider ${prevHourBucket}: ${r.error}`);
+          else cubeResults.totalRows += r.rowsWritten;
+        }
+        // Previous hour — brand
+        if (!isOverCap()) {
+          const r = await buildBrandCubeForHour(env, prevHourBucket);
+          cubeResults.prevHour.brand = r;
+          cubeResults.totalMs += r.durationMs;
+          if (r.error) cubeResults.errors.push(`brand ${prevHourBucket}: ${r.error}`);
           else cubeResults.totalRows += r.rowsWritten;
         }
       } else {

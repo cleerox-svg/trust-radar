@@ -69,18 +69,7 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
              SUM(CASE WHEN t.status = 'active' THEN 1 ELSE 0 END) AS active_threats,
              SUM(CASE WHEN t.severity IN ('critical','high') THEN 1 ELSE 0 END) AS high_sev,
              MIN(t.created_at) AS first_seen,
-             MAX(t.created_at) AS last_seen,
-             (
-               SELECT json_group_array(daily_count)
-               FROM (
-                 SELECT COUNT(*) as daily_count
-                 FROM threats t2
-                 WHERE t2.hosting_provider_id = t.hosting_provider_id
-                   AND t2.created_at >= datetime('now', '-14 days')
-                 GROUP BY date(t2.created_at)
-                 ORDER BY date(t2.created_at) ASC
-               )
-             ) as threat_history_json
+             MAX(t.created_at) AS last_seen
       FROM threats t
       LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
       ${where}
@@ -88,12 +77,29 @@ export async function handleListProviders(request: Request, env: Env): Promise<R
       ORDER BY threat_count DESC LIMIT ? OFFSET ?
     `).bind(...params).all();
 
-    const data = rows.results.map((row: Record<string, unknown>) => ({
-      ...row,
-      threat_history: row.threat_history_json
-        ? JSON.parse(row.threat_history_json as string)
-        : undefined,
-      threat_history_json: undefined,
+    // Sparklines via provider cube — single bulk query instead of N correlated subqueries.
+    const provIds = (rows.results as Array<{ id: string }>).map(r => r.id);
+    const sparkMap = new Map<string, number[]>();
+    if (provIds.length > 0) {
+      try {
+        const ph = provIds.map(() => '?').join(',');
+        const sparkRows = await env.DB.prepare(`
+          SELECT hosting_provider_id, date(hour_bucket) as day, SUM(threat_count) as daily_count
+          FROM threat_cube_provider
+          WHERE hour_bucket >= datetime('now', '-14 days')
+            AND hosting_provider_id IN (${ph})
+          GROUP BY hosting_provider_id, date(hour_bucket)
+          ORDER BY hosting_provider_id, day ASC
+        `).bind(...provIds).all<{ hosting_provider_id: string; day: string; daily_count: number }>();
+        for (const row of sparkRows.results) {
+          if (!sparkMap.has(row.hosting_provider_id)) sparkMap.set(row.hosting_provider_id, []);
+          sparkMap.get(row.hosting_provider_id)!.push(row.daily_count);
+        }
+      } catch { /* cube may not be populated */ }
+    }
+    const data = (rows.results as Array<Record<string, unknown>>).map(r => ({
+      ...r,
+      threat_history: sparkMap.get(r.id as string) ?? [],
     }));
     return json({ success: true, data }, 200, origin);
   } catch (err) {
@@ -392,29 +398,15 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return json(JSON.parse(cached), 200, origin);
 
+    // Use pre-computed columns on hosting_providers — no threats JOIN needed.
     const rows = await env.DB.prepare(`
       SELECT hp.id, hp.name, hp.asn, hp.country,
              hp.active_threat_count, hp.total_threat_count,
              hp.trend_7d, hp.trend_30d,
              hp.reputation_score, hp.avg_response_time,
-             hp.is_bulletproof,
-             MIN(t.created_at) AS first_threat,
-             MAX(t.created_at) AS last_threat,
-             (
-               SELECT json_group_array(daily_count)
-               FROM (
-                 SELECT COUNT(*) as daily_count
-                 FROM threats t2
-                 WHERE t2.hosting_provider_id = hp.id
-                   AND t2.created_at >= datetime('now', '-14 days')
-                 GROUP BY date(t2.created_at)
-                 ORDER BY date(t2.created_at) ASC
-               )
-             ) as threat_history_json
+             hp.is_bulletproof
       FROM hosting_providers hp
-      LEFT JOIN threats t ON t.hosting_provider_id = hp.id
       ${where}
-      GROUP BY hp.id
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `).bind(...params).all();
@@ -425,12 +417,31 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
     `).bind(...params.slice(0, params.length - 2)).all();
     const total = (countResult.results[0] as Record<string, unknown>)?.total ?? 0;
 
-    const data = rows.results.map((row: Record<string, unknown>) => ({
-      ...row,
-      threat_history: row.threat_history_json
-        ? JSON.parse(row.threat_history_json as string)
-        : undefined,
-      threat_history_json: undefined,
+    // Sparklines via provider cube — single bulk query instead of N correlated subqueries.
+    const providerIds = (rows.results as Array<{ id: string }>).map(r => r.id);
+    const sparkMap = new Map<string, number[]>();
+    if (providerIds.length > 0) {
+      try {
+        const placeholders = providerIds.map(() => '?').join(',');
+        const sparkRows = await env.DB.prepare(`
+          SELECT hosting_provider_id, date(hour_bucket) as day, SUM(threat_count) as daily_count
+          FROM threat_cube_provider
+          WHERE hour_bucket >= datetime('now', '-14 days')
+            AND hosting_provider_id IN (${placeholders})
+          GROUP BY hosting_provider_id, date(hour_bucket)
+          ORDER BY hosting_provider_id, day ASC
+        `).bind(...providerIds).all<{ hosting_provider_id: string; day: string; daily_count: number }>();
+        for (const row of sparkRows.results) {
+          if (!sparkMap.has(row.hosting_provider_id)) sparkMap.set(row.hosting_provider_id, []);
+          sparkMap.get(row.hosting_provider_id)!.push(row.daily_count);
+        }
+      } catch {
+        // Cube table may not be populated yet — degrade gracefully
+      }
+    }
+    const data = (rows.results as Array<Record<string, unknown>>).map(r => ({
+      ...r,
+      threat_history: sparkMap.get(r.id as string) ?? [],
     }));
 
     const responseData = { success: true, data, meta: { total, limit, offset } };

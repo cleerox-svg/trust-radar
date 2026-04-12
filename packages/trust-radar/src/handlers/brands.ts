@@ -139,6 +139,35 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       LIMIT ? OFFSET ?
     `).bind(...params).all();
 
+    // Sparklines via brand cube — single bulk query instead of N correlated subqueries.
+    // Fetches 14-day daily counts for all returned brand IDs from threat_cube_brand,
+    // then merges into each result row as threat_history: number[].
+    const brandIds = (rows.results as Array<{ id: string }>).map(r => r.id);
+    const sparkMap = new Map<string, number[]>();
+    if (brandIds.length > 0) {
+      try {
+        const placeholders = brandIds.map(() => '?').join(',');
+        const sparkRows = await session.prepare(`
+          SELECT target_brand_id, date(hour_bucket) as day, SUM(threat_count) as daily_count
+          FROM threat_cube_brand
+          WHERE hour_bucket >= datetime('now', '-14 days')
+            AND target_brand_id IN (${placeholders})
+          GROUP BY target_brand_id, date(hour_bucket)
+          ORDER BY target_brand_id, day ASC
+        `).bind(...brandIds).all<{ target_brand_id: string; day: string; daily_count: number }>();
+        for (const row of sparkRows.results) {
+          if (!sparkMap.has(row.target_brand_id)) sparkMap.set(row.target_brand_id, []);
+          sparkMap.get(row.target_brand_id)!.push(row.daily_count);
+        }
+      } catch {
+        // Cube table may not exist yet (pre-migration) — degrade gracefully
+      }
+    }
+    const resultsWithSparklines = (rows.results as Array<Record<string, unknown>>).map(r => ({
+      ...r,
+      threat_history: sparkMap.get(r.id as string) ?? [],
+    }));
+
     // Total count + tab counts — run in parallel
     const scopeFilter = scope && scope.brand_ids.length > 0
       ? { clause: `AND target_brand_id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: scope.brand_ids }
@@ -166,7 +195,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
 
     const result = {
       success: true,
-      data: rows.results,
+      data: resultsWithSparklines,
       total: total?.n ?? 0,
       tabs: {
         under_attack: underAttackCount?.n ?? 0,
