@@ -95,9 +95,46 @@ Trust Radar uses two D1 databases:
 | `DB` | `trust-radar-v2` | Primary data (threats, brands, feeds, users, agents) |
 | `AUDIT_DB` | `trust-radar-v2-audit` | Audit log (admin actions, session events) |
 
+### D1 Sessions API (Read Replicas)
+
+Read-heavy endpoints use the D1 Sessions API to route queries to read replicas, reducing latency and offloading the primary. The implementation lives in `packages/trust-radar/src/lib/db-context.ts`:
+
+- `getDbContext(request)` — returns a session-aware DB handle from the incoming request's `x-d1-bookmark` header
+- `getReadSession(env, ctx)` — returns a read-only session for cron/agent contexts without an HTTP request
+- `attachBookmark(response, session)` — attaches the session bookmark to the response for client-side session continuity
+
+Endpoints using read replicas: Dashboard overview, Brands list, Providers list/v2, Observatory (all 5 endpoints), Threats list, Operations list, Agents list.
+
+Write operations (threat ingestion, agent runs, brand monitoring) always use the primary `env.DB` handle directly.
+
+### OLAP Cube Tables
+
+Three pre-aggregated cube tables accelerate UI queries that would otherwise require full `GROUP BY` scans on the 113K+ row `threats` table:
+
+| Table | Primary Key | Purpose |
+|-------|-------------|---------|
+| `threat_cube_geo` | `(hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity, source_feed)` | Geographic aggregates |
+| `threat_cube_provider` | `(hour_bucket, hosting_provider_id, threat_type, severity, source_feed)` | Provider aggregates |
+| `threat_cube_brand` | `(hour_bucket, target_brand_id, threat_type, severity, source_feed)` | Brand aggregates |
+
+Each cube stores `threat_count` and `updated_at` per dimension combination per hour bucket. Cubes are maintained by:
+
+1. **fast-tick cron** (every 5 min) — rebuilds current + previous hour via `INSERT OR REPLACE ... SELECT ... GROUP BY`
+2. **cube-healer agent** (every 6 hours) — full 30-day bulk rebuild to fix retroactive enrichment drift
+3. **admin cube-backfill** endpoint — manual backfill for new cubes or recovery
+
+Cubes use `INSERT OR REPLACE` which is idempotent — overlapping rebuilds are safe.
+
+### Pre-computed Columns
+
+Key tables carry denormalized aggregate columns to avoid JOINs to `threats`:
+
+- `brands.threat_count`, `brands.last_threat_seen` — maintained by feed ingestion and brand-match backfill
+- `hosting_providers.active_threat_count`, `hosting_providers.total_threat_count`, `hosting_providers.trend_7d`, `hosting_providers.trend_30d` — maintained by provider stats refresh
+
 ### Schema Overview
 
-Migrations are in `packages/trust-radar/migrations/` (35+ migration files). Key tables:
+Migrations are in `packages/trust-radar/migrations/` (88+ migration files). Key tables:
 
 - `threats` — Core threat intelligence records (URL, domain, IP, severity, source)
 - `brands` — Monitored brands with canonical domains and threat counts
@@ -119,10 +156,13 @@ Migrations are in `packages/trust-radar/migrations/` (35+ migration files). Key 
 - `contact_submissions` — Inbound contact form submissions
 - `alerts` — Alert rules and delivery tracking
 - `organizations` — Multi-tenant organization records
+- `threat_cube_geo` — OLAP cube: hourly geo-aggregated threat counts
+- `threat_cube_provider` — OLAP cube: hourly provider-aggregated threat counts
+- `threat_cube_brand` — OLAP cube: hourly brand-aggregated threat counts
 
 ### Migration Naming
 
-Migrations follow the pattern `XXXX_description.sql` with sequential numbering (0001 through 0035+).
+Migrations follow the pattern `XXXX_description.sql` with sequential numbering (0001 through 0088+).
 
 ## Caching: Cloudflare KV
 
@@ -133,6 +173,32 @@ KV namespace bound as `CACHE` is used for:
 - **Rate limiting** — Per-IP counters for API rate limiting
 - **Honeypot site content** — `honeypot-site:{hostname}:{page}` stores generated honeypot HTML
 - **Session invalidation** — Forced logout flags checked during auth
+- **Page-load endpoint caching** — JSON responses for heavy page-load endpoints, pre-warmed by fast-tick cron every 5 minutes
+
+### KV Cache Strategy (Page-Load Endpoints)
+
+All high-traffic page-load endpoints check KV before querying D1. Cache keys encode query parameters for proper invalidation. TTLs are tuned per endpoint:
+
+| Cache Key Pattern | TTL | Endpoint |
+|-------------------|-----|----------|
+| `observatory_nodes:{period}:{source}` | 300s | Observatory nodes |
+| `observatory_arcs:{period}:{source}` | 300s | Observatory arcs |
+| `observatory_stats:{period}:{source}` | 300s | Observatory stats |
+| `observatory_live:{source}:{limit}` | 120s | Observatory live feed |
+| `observatory_operations:{status}:{limit}` | 300s | Observatory operations |
+| `dashboard_overview` | 300s | Dashboard overview |
+| `agents_list` | 300s | Agents list |
+| `operations_list:{status}:{limit}:{offset}` | 300s | Operations list |
+| `operations_stats` | 300s | Operations stats |
+| `providers_v2:{params...}` | 300s | Providers v2 list |
+| `providers_intelligence` | 300s | Provider intelligence |
+
+### Cache Pre-Warming (fast-tick)
+
+The fast-tick cron (every 5 minutes) pre-warms KV caches by calling handler functions with synthetic requests. This ensures users never hit a cold cache on the most critical pages:
+
+- **Phase A** (always): Observatory nodes, arcs, stats, live, operations (5 endpoints)
+- **Phase B** (if CPU budget allows): Dashboard overview, Agents list, Operations list, Operations stats
 
 ## SPA Frontend Serving
 
@@ -154,12 +220,41 @@ The `ThreatPushHub` Durable Object (`packages/trust-radar/src/durableObjects/Thr
 
 ## Cron Triggers
 
-The Worker has a cron trigger configured at `*/5 * * * *` (every 5 minutes). The `scheduled` handler in `index.ts` runs the feed ingestion pipeline via `runAllFeeds()`, which:
+The Worker has multiple cron triggers configured in `wrangler.toml`:
 
-1. Reads `feed_configs` from D1 to determine which feeds are due
-2. Executes each feed module's `ingest()` function
-3. Records results in `feed_pull_history`
-4. Updates `feed_status` with health information
+| Cron | Handler | Purpose |
+|------|---------|---------|
+| `*/5 * * * *` | `fast-tick` | OLAP cube refresh (current + prev hour for geo, provider, brand), KV cache pre-warming, parity checks |
+| `*/15 * * * *` | `orchestrator` | Threat feed scan, Cartographer enrichment (dispatched as Workflow), agent scheduling |
+| `12 */6 * * *` | `cube-healer` | Full 30-day bulk rebuild of all 3 cube tables to fix retroactive drift |
+
+### Orchestrator (`src/cron/orchestrator.ts`)
+
+Routes jobs by time of day:
+- Every 15 min: Threat feed scan (Sentinel)
+- Every 15 min: Cartographer enrichment (dispatched as `CartographerBackfillWorkflow`)
+- Every 4 hours: NEXUS clustering (dispatched as `NexusWorkflow`)
+- Every 30 min: Analyst brand attribution (via `ctx.waitUntil`)
+- Every 6 hours: Strategist campaign correlation (via `ctx.waitUntil`)
+- Daily: Observer briefings, Pathfinder lead generation
+- Weekly: Prospector sales intelligence
+
+### fast-tick (`src/cron/fast-tick.ts`)
+
+Runs every 5 minutes with 4 phases:
+1. **Cube refresh** — Rebuilds current + previous hour for `threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand` (6 builds total)
+2. **Parity check** — Validates cube accuracy against raw threats (sampled)
+3. **Stats refresh** — Updates `hosting_providers` pre-computed columns
+4. **Cache pre-warming** — Calls handler functions to populate KV for Observatory, Dashboard, Agents, Operations
+
+### Cloudflare Workflows
+
+Heavy agents are dispatched as durable Workflows to avoid blocking the cron mesh:
+
+- `CartographerBackfillWorkflow` — Multi-step enrichment with retry and checkpointing
+- `NexusWorkflow` — Clustering analysis with durable execution context
+
+Workflows run in their own execution context with no CPU time ceiling, unlike cron which shares the 30s Worker limit.
 
 ## Email Handling
 

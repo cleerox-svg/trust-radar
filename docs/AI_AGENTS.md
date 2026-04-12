@@ -1,6 +1,6 @@
 # AI Agents
 
-Trust Radar uses a system of 8 AI agents powered by Claude Haiku via the Anthropic API. Agents are defined as modules in `packages/trust-radar/src/agents/` and orchestrated by the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`.
+Trust Radar uses a system of 8 AI agents plus 2 infrastructure agents powered by Claude Haiku via the Anthropic API. Agents are defined as modules in `packages/trust-radar/src/agents/` and orchestrated by the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`.
 
 ## Agent Infrastructure
 
@@ -214,6 +214,40 @@ The Seed Strategist analyzes spam trap performance and identifies coverage gaps:
 
 ---
 
+### Cube Healer
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/cube-healer.ts` |
+| **Trigger** | Scheduled — every 6 hours (`12 */6 * * *`) |
+| **Purpose** | Retroactive drift remediation for OLAP cube tables |
+
+The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube tables (`threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand`) via `INSERT OR REPLACE ... SELECT ... GROUP BY`. This bounds drift from Cartographer's retroactive enrichment to ≤6 hours.
+
+- **Scope** — Excludes the current partial hour (fast-tick's territory). The previous hour overlap is intentional and safe because `INSERT OR REPLACE` is idempotent.
+- **Status semantics** — All cubes succeed → `success`; some fail → `partial`; first cube throws → `failed`
+- **agent_runs lifecycle** — Inserts a `partial` row at start (crash-safe), updates to final status on completion
+
+**Inputs:** Raw `threats` table (30-day window, active status)
+**Outputs:** Rebuilt rows in `threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand`
+
+---
+
+### Parity Checker
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/parity-checker.ts` |
+| **Trigger** | Called by fast-tick cron (every 5 minutes) |
+| **Purpose** | Validate OLAP cube accuracy against raw threats table |
+
+The Parity Checker compares cube row counts against raw `threats` aggregates for the same time window. It reports drift percentage and logs results to `agent_runs`. If drift exceeds thresholds, the cube-healer's next run will correct it.
+
+**Inputs:** `threat_cube_geo`, `threat_cube_provider` row counts vs raw threats aggregates
+**Outputs:** Drift percentages logged to `agent_runs`
+
+---
+
 ## Agent Scheduling Summary
 
 | Agent | Frequency | Cost Guard | Approval Required |
@@ -226,3 +260,28 @@ The Seed Strategist analyzes spam trap performance and identifies coverage gaps:
 | Prospector | Weekly | No | No |
 | Trustbot | On demand | No | No |
 | Seed Strategist | Daily | Yes | No |
+| Nexus | Every 4 hours | No | No |
+| Cube Healer | Every 6 hours | No | No |
+| Parity Checker | Every 5 min (via fast-tick) | No | No |
+
+---
+
+## Infrastructure Agents
+
+In addition to the AI-powered agents above, two infrastructure agents maintain the OLAP cube layer:
+
+### fast-tick (`src/cron/fast-tick.ts`)
+
+Runs every 5 minutes. Not an AI agent — pure SQL. Responsibilities:
+1. Rebuild current + previous hour for all 3 cube tables (6 cube builds)
+2. Run parity checker to validate cube accuracy
+3. Refresh `hosting_providers` pre-computed columns
+4. Pre-warm KV caches for Observatory, Dashboard, Agents, Operations pages
+
+### Cloudflare Workflows
+
+Heavy agents are dispatched as durable Workflows instead of running inline in the cron handler:
+- **CartographerBackfillWorkflow** — dispatched by orchestrator for Cartographer enrichment
+- **NexusWorkflow** — dispatched by orchestrator for NEXUS clustering
+
+This prevents long-running agents from blocking the cron mesh or hitting the 30s Worker CPU limit.
