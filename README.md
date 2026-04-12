@@ -1,45 +1,50 @@
-# Trust Radar
+# Averrow
 
-**AI-Powered Brand Threat Intelligence**
+**Threat Actor Intelligence Platform**
 
-See your brand the way attackers do. Trust Radar monitors the internet for brand impersonation, phishing infrastructure, email security vulnerabilities, and social media abuse — delivering actionable intelligence through AI-powered agents.
+See your brand the way attackers do. Averrow monitors the internet for brand impersonation, phishing infrastructure, email security vulnerabilities, and social media abuse — then correlates signals to identify who is attacking, how they operate, and where they'll move next.
 
-> Built by [LRX Enterprises Inc.](https://trustradar.ca) 🇨🇦
+> Built by [LRX Enterprises Inc.](https://averrow.com) | Canadian-incorporated, globally deployed
 
 ## What It Does
 
+- **Threat Actor Profiling** — Correlate shared infrastructure, registrars, and hosting patterns to identify the operators behind attacks, not just the attacks themselves
+- **AI Threat Intelligence** — 8+ AI agents powered by Claude Haiku that classify threats, attribute brands, cluster campaigns, and generate human-readable briefings
 - **Brand Exposure Scoring** — Composite risk score combining email security, active threats, domain lookalikes, social impersonation, and phishing activity
-- **AI Threat Intelligence** — 8 AI agents powered by Claude Haiku correlate signals and generate human-readable threat narratives and daily briefings
 - **Email Security Posture** — Outside-in SPF/DKIM/DMARC analysis with report card grading (A+ through F)
 - **Social Brand Monitoring** — Detect impersonation accounts, handle squatting, and brand abuse across Twitter/X, LinkedIn, Instagram, TikTok, GitHub, and YouTube
-- **Threat Feed Integration** — PhishTank, URLhaus, OpenPhish, Certificate Transparency logs, Cloudflare Radar, NRD feeds
+- **Threat Feed Integration** — 25+ feeds including PhishTank, URLhaus, OpenPhish, ThreatFox, Certificate Transparency logs, Cloudflare Radar, NRD feeds, CISA KEV, and more
 - **Lookalike Domain Detection** — Automated permutation generation and DNS monitoring for typosquatting, homoglyph, and combosquatting attacks
 - **Spam Trap Network** — Honeypot-based phishing email capture and AI analysis
-- **Free Brand Exposure Report** — One-click public domain scan at trustradar.ca
+- **OLAP Cubes** — Pre-aggregated hourly cubes for geographic, provider, and brand threat analytics
+- **Free Brand Exposure Report** — One-click public domain scan at [averrow.com](https://averrow.com)
 
 ## Architecture
 
 ```
 trust-radar/
 ├── packages/
-│   ├── trust-radar/  → Cloudflare Worker (TypeScript) + D1 + KV
-│   └── imprsn8/      → Independent social brand protection Worker + D1
-├── prototypes/        → UI design specifications (HTML)
-└── docs/              → Platform documentation
+│   ├── trust-radar/   → Cloudflare Worker (TypeScript) + D1 + KV + Durable Objects
+│   ├── averrow-ui/    → React frontend (Vite + TanStack Router)
+│   └── imprsn8/       → Independent social brand protection Worker + D1
+├── prototypes/         → UI design specifications (HTML)
+└── docs/               → Platform documentation
 ```
 
-Trust Radar runs entirely on Cloudflare's edge network. There is no traditional backend server.
+Averrow runs entirely on Cloudflare's edge network. There is no traditional backend server.
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
 | Compute | Cloudflare Workers (TypeScript) |
-| Database | Cloudflare D1 (SQLite at the edge) |
-| Cache | Cloudflare KV |
-| Real-time | Durable Objects (WebSocket push) |
-| AI | Claude Haiku (Anthropic API) |
+| Database | Cloudflare D1 (SQLite at the edge, read replicas via Sessions API) |
+| Cache | Cloudflare KV (dedup, rate limiting, page-load caching) |
+| Real-time | Durable Objects (WebSocket push via ThreatPushHub) |
+| Workflows | Cloudflare Workflows (Cartographer, NEXUS — durable execution) |
+| AI | Claude Haiku via Cloudflare AI Gateway |
 | DNS | Cloudflare DoH for DNS lookups |
+| Frontend | React + Vite + TanStack Router + Tailwind CSS |
 | Monorepo | Turborepo + pnpm |
 | CI/CD | GitHub Actions (path-filtered auto-deploy) |
 
@@ -47,14 +52,24 @@ Trust Radar runs entirely on Cloudflare's edge network. There is no traditional 
 
 | Agent | Role | Schedule |
 |-------|------|----------|
-| **Sentinel** | Threat classification, homoglyph/brand squatting detection | Every feed cycle |
-| **Analyst** | AI brand attribution for unlinked threats | Every 15 min |
+| **Flight Control** | Autonomous supervisor — load, budget, priority management | Every cron tick |
+| **Sentinel** | Threat classification, homoglyph/brand squatting detection | After feed ingestion |
+| **Cartographer** | Geo enrichment, hosting provider scoring (Workflow) | Every cron tick |
+| **Analyst** | AI brand attribution for unlinked threats | Every cron tick |
+| **NEXUS** | Infrastructure clustering and campaign detection (Workflow) | Every 4 hours |
+| **Strategist** | Campaign correlation from shared infrastructure | Every 6 hours |
+| **Sparrow** | Automated takedown request generation | Every 6 hours |
 | **Observer** | Daily intelligence briefings and trend analysis | Daily |
-| **Strategist** | Campaign clustering from shared infrastructure | Every 6 hours |
-| **Cartographer** | Geo enrichment and hosting provider scoring | Every 6 hours |
-| **Prospector** | Sales intelligence and lead generation | Weekly |
-| **Trustbot** | Interactive threat intelligence copilot | On demand |
+| **Pathfinder** | Sales intelligence and lead generation | Weekly (KV-throttled) |
 | **Seed Strategist** | Spam trap seeding strategy | Daily |
+
+## Cron Triggers
+
+| Schedule | Handler | Purpose |
+|----------|---------|---------|
+| `*/5 * * * *` | fast-tick | OLAP cube refresh, KV cache pre-warming, provider stats |
+| `7 * * * *` | orchestrator | Feed ingestion, agent dispatch, Workflow triggers |
+| `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
 
 ## Development
 
@@ -62,9 +77,12 @@ Trust Radar runs entirely on Cloudflare's edge network. There is no traditional 
 pnpm install
 pnpm dev            # Start worker locally via wrangler dev
 pnpm typecheck      # Type check all packages
+pnpm test           # Run test suite
 ```
 
 ### Database Migrations
+
+88+ migration files in `packages/trust-radar/migrations/`.
 
 ```bash
 # Run locally
@@ -73,8 +91,6 @@ npx wrangler d1 execute trust-radar-v2 --local --file=migrations/XXXX_name.sql
 # Run in production
 npx wrangler d1 execute trust-radar-v2 --file=migrations/XXXX_name.sql
 ```
-
-Migrations are in `packages/trust-radar/migrations/` (35+ files, sequential).
 
 ### Deploy
 
@@ -89,18 +105,19 @@ cd packages/trust-radar && npx wrangler deploy
 
 | Domain | Purpose |
 |--------|---------|
-| trustradar.ca | Production |
-| www.trustradar.ca | Production (alias) |
-| staging.trustradar.ca | Staging |
+| `averrow.com` | Production (primary) |
+| `averrow.ca` | Canadian market (301 → averrow.com) |
+| `trustradar.ca` | Legacy domain (301 → averrow.com) |
+| `staging.averrow.com` | Staging |
 
 ## Pricing
 
-| Tier | Price | Brands | Scan |
-|------|-------|--------|------|
-| Free | — | — | One-time report |
-| Professional | $799/mo | 1 brand | — |
-| Business | $1,999/mo | Up to 10 brands | — |
-| Enterprise | Starting $4,999/mo | Custom | — |
+| Tier | Price | Brands |
+|------|-------|--------|
+| Free | — | One-time report |
+| Professional | $1,499/mo | 1 brand |
+| Business | $3,999/mo | Up to 10 brands |
+| Enterprise | Custom | Custom |
 
 ## Documentation
 
@@ -116,8 +133,8 @@ See `docs/` for detailed documentation:
 
 ## Security
 
-Report security vulnerabilities to [security@trustradar.ca](mailto:security@trustradar.ca).
+Report security vulnerabilities to [security@averrow.com](mailto:security@averrow.com).
 
 ## License
 
-Proprietary — © 2026 LRX Enterprises Inc. All rights reserved.
+Proprietary — LRX Enterprises Inc. All rights reserved.

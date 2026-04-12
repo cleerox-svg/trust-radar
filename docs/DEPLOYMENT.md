@@ -132,9 +132,11 @@ Read-heavy endpoints use the D1 Sessions API to route queries to read replicas. 
 
 | Domain | Environment |
 |--------|-------------|
-| `trustradar.ca` | Production |
-| `www.trustradar.ca` | Redirects to trustradar.ca |
-| `staging.trustradar.ca` | Staging |
+| `averrow.com` | Production (primary) |
+| `averrow.ca` | Canadian market (301 → averrow.com) |
+| `trustradar.ca` | Legacy domain (301 → averrow.com) |
+| `staging.averrow.com` | Staging |
+| `staging.trustradar.ca` | Staging (legacy, 301 → staging.averrow.com) |
 
 ## Rollback
 
