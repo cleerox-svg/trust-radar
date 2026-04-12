@@ -1,10 +1,11 @@
 /**
  * Cube Healer Agent — Phase 4.2 retroactive drift remediation.
  *
- * Runs every 10 minutes via the "*\/10 * * * *" cron. Performs a full 30-day
- * bulk rebuild of threat_cube_geo and threat_cube_provider via
- * INSERT OR REPLACE ... SELECT ... GROUP BY, bounding drift from cartographer's
- * retroactive enrichment to ≤10 minutes of back-fill (~5-10 rows worst case).
+ * Runs 6-hourly via the "12 *\/6 * * *" cron. Performs a full 30-day
+ * bulk rebuild of threat_cube_geo, threat_cube_provider, and
+ * threat_cube_brand via INSERT OR REPLACE ... SELECT ... GROUP BY,
+ * bounding drift from cartographer's retroactive enrichment to ≤6 hours
+ * of back-fill.
  *
  * Why this exists:
  *   Cartographer's candidate query has no time filter — it enriches threats
@@ -20,9 +21,9 @@
  * proved exact parity against the raw threats table.
  *
  * Status semantics:
- *   - Both queries succeed          → 'success', rowsWritten = geo + provider
- *   - Geo succeeds, provider throws → 'partial', rowsWritten = geo, err captured
- *   - Geo throws (provider skipped) → 'failed',  rowsWritten = 0
+ *   - All queries succeed              → 'success', rowsWritten = geo + provider + brand
+ *   - Some succeed, some fail          → 'partial', rowsWritten = successful cubes
+ *   - First query throws (rest skipped)→ 'failed',  rowsWritten = 0
  *
  * agent_runs lifecycle mirrors parity-checker.ts: insert a row with
  * status='partial' and NULL duration_ms at start, so a crashed run stays
@@ -83,6 +84,26 @@ const PROVIDER_HEAL_SQL = `
     AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
     AND status = 'active'
     AND hosting_provider_id IS NOT NULL
+  GROUP BY 1, 2, 3, 4, 5
+`;
+
+const BRAND_HEAL_SQL = `
+  INSERT OR REPLACE INTO threat_cube_brand
+    (hour_bucket, target_brand_id, threat_type, severity, source_feed,
+     threat_count, updated_at)
+  SELECT
+    strftime('%Y-%m-%d %H:00:00', created_at),
+    target_brand_id,
+    COALESCE(threat_type, 'unknown'),
+    COALESCE(severity, 'unknown'),
+    COALESCE(source_feed, 'unknown'),
+    COUNT(*),
+    datetime('now')
+  FROM threats
+  WHERE created_at >= datetime('now', '-30 days')
+    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+    AND status = 'active'
+    AND target_brand_id IS NOT NULL
   GROUP BY 1, 2, 3, 4, 5
 `;
 
@@ -161,6 +182,20 @@ export async function runCubeHealer(
     finalStatus = 'partial';
     errorMessage =
       `cube_healer provider heal failed (geo succeeded, ${rowsWritten} rows): ${errMsg}`;
+  }
+
+  // ── Brand heal ──────────────────────────────────────────────
+  // Same pattern as provider: if brand throws after geo+provider succeeded,
+  // report 'partial' and capture the error.
+  try {
+    const brandResult = await env.DB.prepare(BRAND_HEAL_SQL).run();
+    const brandChanges = brandResult.meta?.changes ?? 0;
+    rowsWritten += brandChanges;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (finalStatus === 'success') finalStatus = 'partial';
+    const prevError = errorMessage ? `${errorMessage} | ` : '';
+    errorMessage = `${prevError}cube_healer brand heal failed (${rowsWritten} rows so far): ${errMsg}`;
   }
 
   // ── Finalize agent_runs row ─────────────────────────────────
