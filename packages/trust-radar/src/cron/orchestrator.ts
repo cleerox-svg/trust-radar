@@ -16,7 +16,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // Must branch BEFORE any heavy work — Flight Control, CertStream, etc.
   if (event.cron === '*/5 * * * *') {
     const { runFastTick } = await import('./fast-tick');
-    return runFastTick(env, ctx);
+    return runFastTick(env, ctx, new Date(event.scheduledTime));
   }
 
   // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───

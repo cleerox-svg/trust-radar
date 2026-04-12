@@ -51,10 +51,11 @@ function formatHourBucketUTC(d: Date): string {
 export async function runFastTick(
   env: Env,
   _ctx: ExecutionContext,
+  scheduledTime: Date,
 ): Promise<void> {
   const start = Date.now();
   const isOverCap = () => Date.now() - start > FAST_TICK_SOFT_CAP_MS;
-  console.log(`[fast-tick] start ${new Date().toISOString()}`);
+  console.log(`[fast-tick] start ${scheduledTime.toISOString()}`);
 
   let eventsDrained = 0;
   let dnsResult = { processed: 0, resolved: 0, enriched: 0, durationMs: 0, softCapHit: false };
@@ -130,8 +131,8 @@ export async function runFastTick(
   if (status !== 'failed') {
     try {
       if (!isOverCap()) {
-        const currentHourBucket = formatHourBucketUTC(new Date());
-        const prevHourBucket = formatHourBucketUTC(new Date(Date.now() - 60 * 60 * 1000));
+        const currentHourBucket = formatHourBucketUTC(scheduledTime);
+        const prevHourBucket = formatHourBucketUTC(new Date(scheduledTime.getTime() - 60 * 60 * 1000));
 
         // Current hour — geo
         if (!isOverCap()) {
