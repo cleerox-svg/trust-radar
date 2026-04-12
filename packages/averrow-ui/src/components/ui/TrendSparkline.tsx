@@ -3,7 +3,7 @@
 // SVG-based, no external dependency.
 // Gradient fill + glowing line + animated on mount.
 
-import { useMemo } from 'react';
+import { memo, useId, useMemo } from 'react';
 
 export interface TrendSparklineProps {
   data:     number[];
@@ -13,13 +13,15 @@ export interface TrendSparklineProps {
   animate?: boolean;
 }
 
-export function TrendSparkline({
+export const TrendSparkline = memo(function TrendSparkline({
   data,
   width   = 80,
   height  = 28,
   color   = 'var(--amber)',
   animate = true,
 }: TrendSparklineProps) {
+  const gradId = useId();
+
   const points = useMemo(() => {
     if (!data || data.length < 2) return null;
     const min = Math.min(...data);
@@ -47,8 +49,6 @@ export function TrendSparkline({
     `L ${points[0].x.toFixed(1)} ${height}`,
     'Z',
   ].join(' ');
-
-  const gradId = `sg-${Math.random().toString(36).slice(2, 7)}`;
 
   return (
     <svg
@@ -105,4 +105,4 @@ export function TrendSparkline({
       />
     </svg>
   );
-}
+});
