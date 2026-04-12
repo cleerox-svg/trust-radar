@@ -1,5 +1,10 @@
 const API_BASE = '';
 
+// D1 Sessions API bookmark — tracks latest write position for read-after-write consistency.
+// The backend sends x-d1-bookmark on every response; we send it back so D1 routes
+// reads to replicas that are caught up to at least this point.
+let lastBookmark: string | null = null;
+
 interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -54,6 +59,9 @@ class ApiClient {
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
+    if (lastBookmark) {
+      headers['x-d1-bookmark'] = lastBookmark;
+    }
 
     const response = await fetch(`${API_BASE}${path}`, {
       ...options,
@@ -67,12 +75,17 @@ class ApiClient {
         if (refreshed) {
           headers['Authorization'] = `Bearer ${this.token}`;
           const retryResponse = await fetch(`${API_BASE}${path}`, { ...options, headers });
+          const retryBookmark = retryResponse.headers.get('x-d1-bookmark');
+          if (retryBookmark) lastBookmark = retryBookmark;
           return retryResponse.json() as Promise<ApiResponse<T>>;
         }
       }
       this.onUnauthorized?.();
       throw new Error('Unauthorized');
     }
+
+    const bookmark = response.headers.get('x-d1-bookmark');
+    if (bookmark) lastBookmark = bookmark;
 
     return response.json() as Promise<ApiResponse<T>>;
   }

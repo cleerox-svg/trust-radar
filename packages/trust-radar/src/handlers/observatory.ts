@@ -285,6 +285,11 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
+    // KV cache: arcs queries hit raw threats table (3-7s) — cache for 2 minutes.
+    const cacheKey = `observatory_arcs:${period}:${limit}:${url.searchParams.get("source_feed") ?? "all"}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     // Fire both queries in parallel — the time-filtered query and the unfiltered
     // fallback. If filtered results are sufficient (≥5), we use them; otherwise
     // we fall back to the broader result. Both queries are cheap JOINs on indexed
@@ -366,7 +371,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       })
       .filter((a): a is NonNullable<typeof a> => a !== null);
 
-    return attachBookmark(json({ success: true, data: arcs }, 200, origin), session);
+    const data = { success: true, data: arcs };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }

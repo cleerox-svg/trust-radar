@@ -1,5 +1,7 @@
 // TODO: Refactor to use handler-utils (Phase 6 continuation)
+// Wave 2A: migrated read handlers to D1 Sessions API (read replicas)
 import { json } from "../lib/cors";
+import { getDbContext, getReadSession, attachBookmark } from '../lib/db';
 import { enrichThreatsGeo } from "../lib/geoip";
 import type { Env, UpdateThreatBody } from "../types";
 import type { OrgScope } from "../middleware/auth";
@@ -7,6 +9,8 @@ import type { OrgScope } from "../middleware/auth";
 // ─── List threats with filtering ────────────────────────────────
 export async function handleListThreats(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -23,7 +27,7 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
     // Org scope filtering — use t. prefix for aliased query
     if (scope) {
       if (scope.brand_ids.length === 0) {
-        return json({ success: true, data: { threats: [], total: 0 } }, 200, origin);
+        return attachBookmark(json({ success: true, data: { threats: [], total: 0 } }, 200, origin), session);
       }
       const placeholders = scope.brand_ids.map(() => "?").join(", ");
       conditions.push(`t.target_brand_id IN (${placeholders})`);
@@ -44,7 +48,7 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
 
     let rows: D1Result;
     try {
-      rows = await env.DB.prepare(
+      rows = await session.prepare(
         `SELECT t.id, t.threat_type, t.severity, t.confidence_score, t.status, t.source_feed,
                 t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
                 t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
@@ -67,7 +71,7 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
       ).bind(...params).all();
     } catch {
       // Fallback if threat_actor_infrastructure or saas_techniques tables don't exist
-      rows = await env.DB.prepare(
+      rows = await session.prepare(
         `SELECT t.id, t.threat_type, t.severity, t.confidence_score, t.status, t.source_feed,
                 t.ioc_value, t.malicious_domain, t.malicious_url, t.ip_address, t.asn,
                 t.country_code, t.target_brand_id, t.hosting_provider_id, t.campaign_id,
@@ -88,26 +92,28 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
     }
 
     const countParams = params.slice(0, -2);
-    const total = await env.DB.prepare(
+    const total = await session.prepare(
       `SELECT COUNT(*) as cnt FROM threats t ${where}`
     ).bind(...countParams).first<{ cnt: number }>();
 
-    return json({ success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } }, 200, origin);
+    return attachBookmark(json({ success: true, data: { threats: rows.results, total: total?.cnt ?? 0 } }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // ─── Threat stats for dashboard ─────────────────────────────────
 export async function handleThreatStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const [
       summary, last24h, today, yesterday,
       feedIngestionsToday, byType, bySource, bySeverity,
       byCountry, recentThreats, topOriginsToday,
     ] = await Promise.all([
-      env.DB.prepare(`
+      session.prepare(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
@@ -120,14 +126,14 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
           COUNT(DISTINCT threat_type) as types
         FROM threats
       `).first(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
           SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high
         FROM threats WHERE created_at >= datetime('now', '-24 hours')
       `).first(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT
           COUNT(*) as threats_flagged,
           COUNT(DISTINCT country_code) as countries_active,
@@ -135,33 +141,33 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
           SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_today
         FROM threats WHERE created_at >= date('now', 'start of day')
       `).first<{ threats_flagged: number; countries_active: number; critical_today: number; high_today: number }>(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT
           COUNT(*) as threats_flagged,
           COUNT(DISTINCT country_code) as countries_active
         FROM threats WHERE created_at >= date('now', '-1 day', 'start of day') AND created_at < date('now', 'start of day')
       `).first<{ threats_flagged: number; countries_active: number }>(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT COALESCE(SUM(records_ingested), 0) as items_today FROM feed_pull_history WHERE started_at >= date('now', 'start of day') AND status = 'success'"
       ).first<{ items_today: number }>(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT threat_type, COUNT(*) as count FROM threats GROUP BY threat_type ORDER BY count DESC LIMIT 10"
       ).all(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT source_feed, COUNT(*) as count FROM threats GROUP BY source_feed ORDER BY count DESC LIMIT 10"
       ).all(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT severity, COUNT(*) as count FROM threats GROUP BY severity"
       ).all(),
-      env.DB.prepare(
+      session.prepare(
         "SELECT country_code, COUNT(*) as count FROM threats WHERE country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 30"
       ).all(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT id, threat_type, severity, source_feed, malicious_domain, ioc_value,
                ip_address, country_code, lat, lng, created_at
         FROM threats ORDER BY created_at DESC LIMIT 20
       `).all(),
-      env.DB.prepare(`
+      session.prepare(`
         SELECT country_code, COUNT(*) as count
         FROM threats
         WHERE country_code IS NOT NULL AND created_at >= date('now', 'start of day')
@@ -172,7 +178,7 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
     // Hosting provider breakdown (v2: join hosting_providers)
     let byProvider: unknown[] = [];
     try {
-      const providerRows = await env.DB.prepare(`
+      const providerRows = await session.prepare(`
         SELECT hp.name as hosting_provider, COUNT(*) as count,
           SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) as critical,
           SUM(CASE WHEN t.severity = 'high' THEN 1 ELSE 0 END) as high
@@ -192,7 +198,7 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
       countriesYesterday: yesterday?.countries_active ?? 0,
     };
 
-    return json({
+    return attachBookmark(json({
       success: true,
       data: {
         summary, last24h, dailyStats,
@@ -202,21 +208,23 @@ export async function handleThreatStats(request: Request, env: Env): Promise<Res
         recentThreats: recentThreats.results,
         topOriginsToday: topOriginsToday.results,
       },
-    }, 200, origin);
+    }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // ─── Get single threat ──────────────────────────────────────────
 export async function handleGetThreat(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const threat = await env.DB.prepare("SELECT * FROM threats WHERE id = ?").bind(id).first();
-    if (!threat) return json({ success: false, error: "Threat not found" }, 404, origin);
-    return json({ success: true, data: threat }, 200, origin);
+    const threat = await session.prepare("SELECT * FROM threats WHERE id = ?").bind(id).first();
+    if (!threat) return attachBookmark(json({ success: false, error: "Threat not found" }, 404, origin), session);
+    return attachBookmark(json({ success: true, data: threat }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -247,33 +255,39 @@ export async function handleUpdateThreat(request: Request, env: Env, id: string)
 // ─── List briefings (v1 compat stub) ────────────────────────────
 export async function handleListBriefings(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(
+    const rows = await session.prepare(
       `SELECT id, type, report_date, report_data, generated_at, trigger, emailed
        FROM threat_briefings ORDER BY generated_at DESC LIMIT 20`
     ).all();
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch {
     // Table may not exist in v2
-    return json({ success: true, data: [] }, 200, origin);
+    return attachBookmark(json({ success: true, data: [] }, 200, origin), session);
   }
 }
 
 // ─── Get briefing detail (v1 compat stub) ───────────────────────
 export async function handleGetBriefing(request: Request, env: Env, id: string): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const briefing = await env.DB.prepare("SELECT * FROM threat_briefings WHERE id = ?").bind(id).first();
-    if (!briefing) return json({ success: false, error: "Briefing not found" }, 404, origin);
-    return json({ success: true, data: briefing }, 200, origin);
+    const briefing = await session.prepare("SELECT * FROM threat_briefings WHERE id = ?").bind(id).first();
+    if (!briefing) return attachBookmark(json({ success: false, error: "Briefing not found" }, 404, origin), session);
+    return attachBookmark(json({ success: true, data: briefing }, 200, origin), session);
   } catch {
-    return json({ success: false, error: "Not available in v2" }, 410, origin);
+    return attachBookmark(json({ success: false, error: "Not available in v2" }, 410, origin), session);
   }
 }
 
 // ─── Social IOCs (v1 compat stub) ───────────────────────────────
 export async function handleListSocialIOCs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
@@ -286,10 +300,10 @@ export async function handleListSocialIOCs(request: Request, env: Env): Promise<
     query += " ORDER BY created_at DESC LIMIT ?";
     params.push(limit);
 
-    const rows = await env.DB.prepare(query).bind(...params).all();
-    return json({ success: true, data: { iocs: rows.results, stats: {} } }, 200, origin);
+    const rows = await session.prepare(query).bind(...params).all();
+    return attachBookmark(json({ success: true, data: { iocs: rows.results, stats: {} } }, 200, origin), session);
   } catch {
-    return json({ success: true, data: { iocs: [], stats: {} } }, 200, origin);
+    return attachBookmark(json({ success: true, data: { iocs: [], stats: {} } }, 200, origin), session);
   }
 }
 
@@ -319,8 +333,10 @@ export async function handleEnrichAll(request: Request, env: Env): Promise<Respo
 // ─── Geo clusters for Observatory map ─────────────────────────
 export async function handleGeoClusters(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT country_code, COUNT(*) AS threat_count,
              AVG(lat) AS lat, AVG(lng) AS lng,
              COUNT(DISTINCT target_brand_id) AS brands_targeted,
@@ -339,7 +355,7 @@ export async function handleGeoClusters(request: Request, env: Env): Promise<Res
     `).all();
 
     // Pre-fetch top threat_type per country in a single query (avoids N+1)
-    const topTypeRows = await env.DB.prepare(`
+    const topTypeRows = await session.prepare(`
       SELECT country_code, threat_type
       FROM (
         SELECT country_code, threat_type, COUNT(*) AS cnt
@@ -361,9 +377,9 @@ export async function handleGeoClusters(request: Request, env: Env): Promise<Res
       country: r.country_code,
     }));
 
-    return json({ success: true, data: enriched }, 200, origin);
+    return attachBookmark(json({ success: true, data: enriched }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
@@ -421,11 +437,13 @@ function getFlowBrandHQ(domain: string | null, brandName?: string | null): [numb
 // ─── Attack flows for Observatory arc overlay ─────────────────
 export async function handleAttackFlows(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT t.country_code AS origin_country,
              t.lat AS origin_lat, t.lng AS origin_lng,
              t.threat_type,
@@ -471,20 +489,22 @@ export async function handleAttackFlows(request: Request, env: Env): Promise<Res
       })
       .filter(Boolean);
 
-    return json({ success: true, data: flows }, 200, origin);
+    return attachBookmark(json({ success: true, data: flows }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
 // ─── Recent threats for live polling ──────────────────────────
 export async function handleRecentThreats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
     const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "20", 10));
 
-    const rows = await env.DB.prepare(`
+    const rows = await session.prepare(`
       SELECT id, threat_type, severity, source_feed, malicious_domain,
              ip_address, country_code, lat, lng, created_at
       FROM threats
@@ -493,9 +513,9 @@ export async function handleRecentThreats(request: Request, env: Env): Promise<R
       LIMIT ?
     `).bind(limit).all();
 
-    return json({ success: true, data: rows.results }, 200, origin);
+    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
   } catch (err) {
-    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }
 }
 
