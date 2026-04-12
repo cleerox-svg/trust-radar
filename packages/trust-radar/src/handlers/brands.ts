@@ -75,10 +75,15 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     const tab = url.searchParams.get("tab") ?? "all";
     const sort = url.searchParams.get("sort") ?? "threats";
 
-    // KV cache: brand list is the heaviest query (5 JOINs + 14-day sparkline subquery).
-    // Cache for 2 minutes, keyed by all query params + scope hash.
+    // KV cache: brand list is the heaviest query (JOINs + sparkline subquery).
+    // Cache for 5 minutes. Default page loads (no search, no sector filter, page 1)
+    // use a short cache key that fast-tick pre-warms. Filtered/paginated views use a
+    // full-dimension key — cache hit rate is lower but still avoids repeated cold queries.
     const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
-    const cacheKey = `brand_list:${tab}:${sort}:${limit}:${offset}:${search ?? ""}:${sector ?? ""}:${scopeHash}`;
+    const isDefaultView = !search && !sector && offset === 0;
+    const cacheKey = isDefaultView
+      ? `brand_list:${tab}:${sort}:${limit}:${scopeHash}`
+      : `brand_list:${tab}:${sort}:${limit}:${offset}:${search ?? ""}:${sector ?? ""}:${scopeHash}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 

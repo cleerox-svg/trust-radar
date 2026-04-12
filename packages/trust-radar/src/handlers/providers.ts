@@ -394,7 +394,12 @@ export async function handleListProvidersV2(request: Request, env: Env): Promise
     params.push(limit, offset);
 
     // KV cache: provider list with 14-day sparkline subquery — cache for 5 minutes.
-    const cacheKey = `providers_v2:${search ?? ""}:${country ?? ""}:${status ?? ""}:${sort}:${clusterId ?? ""}:${limit}:${offset}`;
+    // Default page loads (no search, no cluster filter, page 1) use a short cache key
+    // for better hit rate. Filtered/paginated views use a full-dimension key.
+    const isDefaultView = !search && !clusterId && offset === 0;
+    const cacheKey = isDefaultView
+      ? `providers_v2:${country ?? ""}:${status ?? ""}:${sort}:${limit}`
+      : `providers_v2:${search ?? ""}:${country ?? ""}:${status ?? ""}:${sort}:${clusterId ?? ""}:${limit}:${offset}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return json(JSON.parse(cached), 200, origin);
 
