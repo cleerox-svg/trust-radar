@@ -93,16 +93,8 @@ registerPublicRoutes(router);
 export default {
   scheduled: handleScheduled,
 
-  // Legacy queue consumer drain. ARCHITECT was folded into the
-  // standard AgentModule pattern in Phase 4 Step 1; the
-  // architect-analysis queue is no longer enqueued to. This handler
-  // exists only so wrangler deploy doesn't trip on the consumer
-  // relationship Cloudflare still has registered between this worker
-  // and the queue. Every message is acked immediately so any stale
-  // in-flight messages drain to nothing instead of accumulating in
-  // the DLQ. Delete this handler + the [[queues.consumers]] block in
-  // wrangler.toml after the queue itself is removed via the
-  // wrangler queues delete commands listed in the toml comment.
+  // Legacy queue consumer drain — kept until Cloudflare-side consumer
+  // relationship is deregistered via CLI (see wrangler.toml comments).
   async queue(
     batch: MessageBatch<unknown>,
     _env: Env,

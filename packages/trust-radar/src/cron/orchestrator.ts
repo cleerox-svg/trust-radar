@@ -1,7 +1,6 @@
 import { logger } from '../lib/logger';
 import { feedModules, enrichmentModules, socialModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
-import { runParityChecker } from '../agents/parity-checker';
 import { runCubeHealer } from '../agents/cube-healer';
 import type { Env } from '../types';
 
@@ -20,39 +19,32 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return runFastTick(env, ctx);
   }
 
-  // ─── Parity tick: isolated read-only audit (30 * * * *, runs at :30) ───
-  // Decoupled from the hourly mesh so a hanging agent there can't block it.
-  if (event.cron === '30 * * * *') {
-    await runParityChecker(env, ctx);
-    return;
-  }
-
-  // ─── Cube healer tick: full 30-day bulk rebuild (*/10 * * * *) ───
+  // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───
   // Heals retroactive enrichment drift that fast_tick's current+prev-hour
-  // refresh can't catch. Overlaps "prev hour" with fast_tick — safe because
+  // refresh can't catch. Demoted from */20 to 6-hourly in Wave 1A to reduce
+  // D1 writer contention. Overlaps "prev hour" with fast_tick — safe because
   // INSERT OR REPLACE is idempotent.
-  if (event.cron === '*/20 * * * *') {
+  if (event.cron === '12 */6 * * *') {
     await runCubeHealer(env, ctx);
     return;
   }
 
-  // ─── Hourly tick: full agent mesh (0 * * * *, 15min CPU ceiling) ───
-  // Guard: Cloudflare can delay a 0 * * * * invocation by up to ~30 minutes.
-  // When that happens the late invocation arrives at :30 and event.cron is
-  // still '0 * * * *', but if Cloudflare ever delivers it with a different
-  // cron string (observed in Phase 0.5d post-deploy) it would collide with
-  // the */5 fast_tick and 30 * * * * parity_checker that own the :30 slot.
-  // Reject anything that is not explicitly the hourly trigger.
-  if (event.cron !== '0 * * * *') {
+  // ─── Hourly tick: full agent mesh (7 * * * *, 15min CPU ceiling) ───
+  // Shifted from :00 to :07 in Wave 1A so the hourly mesh no longer collides
+  // with the */5 fast-tick that fires at :00. Parity-checker was removed as a
+  // dedicated cron (demoted to daily in Wave 6); it no longer runs here.
+  if (event.cron !== '7 * * * *') {
     console.log(`[cron] Unexpected cron in hourly fall-through: ${event.cron} — skipping mesh`);
     return;
   }
 
   // ─── Flight Control: autonomous supervisor runs first every tick ───
+  // Pass ExecutionContext via input so FC can ctx.waitUntil() scaled agent
+  // runs instead of blocking the cron mesh for minutes (Wave 1B).
   try {
     const { flightControlAgent } = await import('../agents/flightControl');
     const { executeAgent } = await import('../lib/agentRunner');
-    await executeAgent(env, flightControlAgent, {}, 'cron', 'scheduled');
+    await executeAgent(env, flightControlAgent, { _executionCtx: ctx }, 'cron', 'scheduled');
   } catch (err) {
     logger.error('flight_control_error', { error: err instanceof Error ? err.message : String(err) });
   }

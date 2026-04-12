@@ -22,10 +22,18 @@ binding = "ASSETS"
 not_found_handling = "404-page"
 
 # ─── Cron Triggers ───────────────────────────────────────────
-# Hourly tick (15min CPU limit) — Flight Control + full agent mesh
-# Fast tick  (30s CPU limit)  — DNS backfill + lightweight maintenance
+# Hourly tick  (15min CPU limit) — Flight Control + full agent mesh
+# Fast tick    (30s CPU limit)   — DNS backfill + cube refresh
+# Cube healer  (30s CPU limit)   — 30-day retroactive cube rebuild (6-hourly)
+#
+# Wave 1A: staggered to eliminate the :00 collision where hourly + fast-tick +
+# cube-healer all fired simultaneously, saturating the D1 writer and blocking
+# user reads for 3-10s every hour.
+#
+# Schedule:     :00 fast-tick | :07 hourly mesh | :12/:18/... cube-healer (6-hourly)
+# Eliminated:   parity-checker dedicated cron (demoted to daily in Wave 6)
 [triggers]
-crons = ["0 * * * *", "*/5 * * * *", "30 * * * *", "*/20 * * * *"]
+crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *"]
 
 # ─── Workflows (durable multi-step processing) ──────────────
 [[workflows]]
@@ -38,19 +46,17 @@ name = "nexus-run"
 binding = "NEXUS_RUN"
 class_name = "NexusWorkflow"
 
-# ─── Queues (legacy ARCHITECT consumer — being deprecated) ────
-# Phase 4 Step 1 folded ARCHITECT into the standard AgentModule
-# pattern, so the worker no longer enqueues to architect-analysis.
-# We keep the consumer binding here as a no-op drain so wrangler
-# deploy doesn't trip on the still-registered consumer relationship
-# Cloudflare has between this worker and the queue. The matching
-# handler in src/index.ts ack()s every message it receives.
+# ─── Queues (legacy ARCHITECT consumer — kept until CLI cleanup) ──
+# The architect-analysis queue is no longer enqueued to (Phase 4 Step 1).
+# The consumer binding MUST stay here until the Cloudflare-side consumer
+# relationship is deregistered via CLI — removing it before that causes
+# wrangler deploy to fail.
 #
-# Cleanup, after this lands and the queue has fully drained:
+# Cleanup order (run from CLI, then delete this block + index.ts handler):
 #   1. wrangler queues consumer remove architect-analysis trust-radar
 #   2. wrangler queues delete architect-analysis
 #   3. wrangler queues delete architect-analysis-dlq
-#   4. Delete this block + the no-op handler in src/index.ts
+#   4. Remove [[queues.consumers]] block below + no-op handler in index.ts
 [[queues.consumers]]
 queue = "architect-analysis"
 max_batch_size = 1
