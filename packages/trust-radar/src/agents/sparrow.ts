@@ -226,10 +226,85 @@ export const sparrowAgent: AgentModule = {
       });
     }
 
+    // ── Phase F: Verify taken-down domains are still down ─────────
+    let domainsVerified = 0;
+    let domainsResurrected = 0;
+    try {
+      const { checkDomain } = await import("../lib/domain-checker");
+      const { createAlert } = await import("../lib/alerts");
+
+      const takenDown = await env.DB.prepare(`
+        SELECT id, target_value, brand_id
+        FROM takedown_requests
+        WHERE status = 'taken_down'
+          AND target_type IN ('domain', 'url')
+          AND (last_verified_at IS NULL
+               OR last_verified_at < datetime('now', '-7 days'))
+        ORDER BY last_verified_at ASC NULLS FIRST
+        LIMIT 20
+      `).all<{ id: string; target_value: string; brand_id: string }>();
+
+      // Process in batches of 5 concurrent checks
+      const CONCURRENCY = 5;
+      for (let i = 0; i < takenDown.results.length; i += CONCURRENCY) {
+        const batch = takenDown.results.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async (td) => {
+          try {
+            const result = await checkDomain(td.target_value);
+            domainsVerified++;
+
+            const isAlive = result.registered && result.hasWeb;
+            await env.DB.prepare(`
+              UPDATE takedown_requests
+              SET last_verified_at = datetime('now'),
+                  verification_status = ?,
+                  updated_at = datetime('now')
+              WHERE id = ?
+            `).bind(isAlive ? 'alive' : 'down', td.id).run();
+
+            if (isAlive) {
+              domainsResurrected++;
+              // Create high-severity alert
+              await createAlert(env.DB, {
+                brandId: td.brand_id,
+                userId: 'system',
+                alertType: 'takedown_resurrected',
+                severity: 'HIGH',
+                title: `Taken-down domain resurrected: ${td.target_value}`,
+                summary: `Domain ${td.target_value} was previously taken down but is now resolving (IP: ${result.ip ?? 'unknown'}) and serving web content. A new takedown may be required.`,
+                details: {
+                  domain: td.target_value,
+                  ip: result.ip,
+                  has_mx: result.hasMx,
+                  has_web: result.hasWeb,
+                  takedown_id: td.id,
+                },
+                sourceType: 'takedown',
+                sourceId: td.id,
+              });
+            }
+          } catch (err) {
+            console.error(`[Sparrow] Phase F verify failed for ${td.target_value}: ${err}`);
+          }
+        }));
+      }
+    } catch (err) {
+      console.error('[Sparrow] Phase F error:', err instanceof Error ? err.message : String(err));
+    }
+
+    if (domainsVerified > 0) {
+      outputs.push({
+        type: domainsResurrected > 0 ? "insight" : "diagnostic",
+        summary: `Verified ${domainsVerified} taken-down domains: ${domainsResurrected} resurrected, ${domainsVerified - domainsResurrected} still down`,
+        severity: domainsResurrected > 0 ? "high" : "info",
+        details: { domains_verified: domainsVerified, domains_resurrected: domainsResurrected },
+      });
+    }
+
     return {
       itemsProcessed,
       itemsCreated: itemsCreated + socialEvidenceAttached,
-      itemsUpdated: providersResolved,
+      itemsUpdated: providersResolved + domainsVerified,
       output: {
         captures_scanned: scanResults.captures_processed,
         urls_scanned: scanResults.urls_scanned,
@@ -239,6 +314,8 @@ export const sparrowAgent: AgentModule = {
         evidence_assembled: evidenceAssembled,
         social_evidence_attached: socialEvidenceAttached,
         providers_resolved: providersResolved,
+        takedown_domains_verified: domainsVerified,
+        takedown_domains_resurrected: domainsResurrected,
       },
       agentOutputs: outputs,
     };
