@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats } from '@/hooks/useAgents';
-import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput } from '@/hooks/useAgents';
+import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus } from '@/hooks/useAgents';
+import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, PipelineEntry } from '@/hooks/useAgents';
 import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -443,70 +443,98 @@ function DetailRow({ label, value, children }: { label: string; value?: string; 
 }
 
 // ─── Pipeline Automation Strip ──────────────────────────────────────
-function PipelineStrip({ agents }: { agents: Agent[] }) {
-  const { data: dashStats } = useDashboardStats();
 
-  const pipelines = [
-    {
-      label: 'Geo Enrichment',
-      count: dashStats?.agent_backlogs?.cartographer ?? 0,
-      suffix: 'remaining',
-      schedule: 'auto',
-      status: agents.find(a => a.name === 'cartographer')?.status ?? 'idle',
-    },
-    {
-      label: 'Brand Matching',
-      count: dashStats?.agent_backlogs?.analyst ?? 0,
-      suffix: 'pending',
-      schedule: 'auto',
-      status: agents.find(a => a.name === 'analyst')?.status ?? 'idle',
-    },
-    {
-      label: 'AI Attribution',
-      count: dashStats?.ai_attribution_pending ?? 0,
-      suffix: 'remaining',
-      schedule: 'daily',
-      status: 'active',
-    },
-    {
-      label: 'Tranco Brands',
-      count: dashStats?.tranco_brand_count ?? 0,
-      suffix: 'brands',
-      schedule: 'daily',
-      status: 'active',
-    },
-    {
-      label: 'Sentinel Queue',
-      count: dashStats?.agent_backlogs?.sentinel ?? 0,
-      suffix: 'remaining',
-      schedule: 'auto',
-      status: agents.find(a => a.name === 'sentinel')?.status ?? 'idle',
-    },
-  ];
+function trendArrow(dir: string): string {
+  if (dir === 'down') return '↓';
+  if (dir === 'up') return '↑';
+  if (dir === 'flat') return '→';
+  return '';
+}
+
+function trendColor(dir: string): string {
+  if (dir === 'down') return 'var(--green)';
+  if (dir === 'up') return 'var(--sev-critical)';
+  if (dir === 'flat') return 'var(--text-muted)';
+  return 'var(--text-muted)';
+}
+
+function PipelineStrip({ agents }: { agents: Agent[] }) {
+  const { data: pipelines } = usePipelineStatus(agents);
+
+  const items = Array.isArray(pipelines) ? pipelines : [];
+
+  if (items.length === 0) {
+    return (
+      <Card style={{ padding: '16px' }}>
+        <div className="section-label font-mono font-bold mb-3">Pipeline Automation</div>
+        <div className="font-mono text-[10px] text-white/30">Loading pipeline data...</div>
+      </Card>
+    );
+  }
 
   return (
     <Card style={{ padding: '16px' }}>
-      <div className="section-label font-mono font-bold mb-3">
-        Pipeline Automation
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {pipelines.map(p => (
-          <div key={p.label} className="space-y-1">
-            <div className="font-mono text-[10px] text-white/50">{p.label}</div>
-            <div className="font-display text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-              {p.count.toLocaleString()} <span className="font-mono text-[9px] text-white/50 font-normal">{p.suffix}</span>
+      <div className="section-label font-mono font-bold mb-3">Pipeline Automation</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {items.map((p: PipelineEntry) => {
+          const agentData = agents.find(a => a.name === p.agent);
+          const agentStatus = agentData?.status ?? p.agent_last_status ?? 'idle';
+
+          return (
+            <div
+              key={p.id}
+              className="rounded-lg p-3"
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {/* Header: label + status dot */}
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono text-[10px] text-white/50 truncate">{p.label}</span>
+                <span
+                  className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', pipelineDotClass(agentStatus))}
+                  style={!pipelineDotClass(agentStatus) ? { backgroundColor: '#4B5563' } : undefined}
+                />
+              </div>
+
+              {/* Count + trend */}
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="font-display text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {p.count.toLocaleString()}
+                </span>
+                {p.trend !== null && p.trend !== 0 && (
+                  <span
+                    className="font-mono text-[10px] font-bold"
+                    style={{ color: trendColor(p.trend_direction) }}
+                  >
+                    {trendArrow(p.trend_direction)} {Math.abs(p.trend).toLocaleString()}
+                  </span>
+                )}
+                {p.trend === 0 && (
+                  <span className="font-mono text-[9px]" style={{ color: 'var(--text-muted)' }}>→ steady</span>
+                )}
+              </div>
+
+              {/* Agent + schedule */}
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="font-mono text-[8px] text-white/40 uppercase">{p.agent}</span>
+                <span className="font-mono text-[8px] text-white/25">·</span>
+                <span className="font-mono text-[8px] text-white/40 uppercase">{p.schedule}</span>
+              </div>
+
+              {/* Last run */}
+              {p.agent_last_run_at && (
+                <div className="font-mono text-[8px] text-white/25">
+                  Last: {relativeTime(p.agent_last_run_at)}
+                  {p.agent_records_processed != null && p.agent_records_processed > 0 && (
+                    <> · {p.agent_records_processed} processed</>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[8px] text-white/50 uppercase">{p.schedule}</span>
-              <span
-                className={cn('w-1.5 h-1.5 rounded-full', pipelineDotClass(p.status))}
-                style={!pipelineDotClass(p.status) ? {
-                  backgroundColor: '#4B5563',
-                } : undefined}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );

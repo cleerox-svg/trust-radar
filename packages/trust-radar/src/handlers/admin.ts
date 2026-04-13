@@ -374,6 +374,93 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
   return json(data, 200, origin);
 }
 
+// ─── Pipeline Status (reads pre-computed data only — no COUNT queries) ───
+
+// Maps backlog_history names to display labels and owning agents
+const PIPELINE_META: Record<string, { label: string; agent: string; schedule: string }> = {
+  cartographer:  { label: 'Geo Enrichment',     agent: 'cartographer', schedule: 'hourly' },
+  analyst:       { label: 'Brand Matching',      agent: 'analyst',     schedule: 'hourly' },
+  domain_geo:    { label: 'DNS Resolution',      agent: 'fast-tick',   schedule: '5 min' },
+  brand_enrich:  { label: 'Brand Enrichment',    agent: 'enricher',    schedule: 'hourly' },
+  surbl:         { label: 'SURBL',               agent: 'surbl',       schedule: 'hourly' },
+  virustotal:    { label: 'VirusTotal',          agent: 'virustotal',  schedule: 'hourly' },
+  gsb:           { label: 'Safe Browsing',       agent: 'gsb',         schedule: 'hourly' },
+  dbl:           { label: 'Spamhaus DBL',        agent: 'dbl',         schedule: 'hourly' },
+  abuseipdb:     { label: 'AbuseIPDB',           agent: 'abuseipdb',   schedule: 'hourly' },
+  pdns:          { label: 'Passive DNS',         agent: 'pdns',        schedule: 'hourly' },
+  greynoise:     { label: 'GreyNoise',           agent: 'greynoise',   schedule: 'hourly' },
+  seclookup:     { label: 'SecLookup',           agent: 'seclookup',   schedule: 'hourly' },
+};
+
+export async function handlePipelineStatus(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const cacheKey = "pipeline_status_v2";
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  // Read latest 2 snapshots per backlog from backlog_history (pre-computed by FC).
+  // This gives us current count + previous count for trend, with zero COUNT queries.
+  const [historyRows, agentRuns] = await Promise.all([
+    env.DB.prepare(`
+      SELECT backlog_name, count, recorded_at,
+             ROW_NUMBER() OVER (PARTITION BY backlog_name ORDER BY recorded_at DESC) AS rn
+      FROM backlog_history
+      WHERE recorded_at > datetime('now', '-6 hours')
+    `).all<{ backlog_name: string; count: number; recorded_at: string; rn: number }>(),
+
+    // Last run per agent for "last processed" timestamp and throughput
+    env.DB.prepare(`
+      SELECT agent_id, MAX(completed_at) AS last_run_at,
+             records_processed, duration_ms, status
+      FROM agent_runs
+      WHERE completed_at > datetime('now', '-24 hours')
+      GROUP BY agent_id
+    `).all<{ agent_id: string; last_run_at: string; records_processed: number; duration_ms: number; status: string }>(),
+  ]);
+
+  // Build latest + previous per backlog
+  const latestByName = new Map<string, { count: number; recorded_at: string }>();
+  const previousByName = new Map<string, { count: number; recorded_at: string }>();
+  for (const row of historyRows.results) {
+    if (row.rn === 1) latestByName.set(row.backlog_name, { count: row.count, recorded_at: row.recorded_at });
+    if (row.rn === 2) previousByName.set(row.backlog_name, { count: row.count, recorded_at: row.recorded_at });
+  }
+
+  // Build agent last-run map
+  const agentLastRun = new Map(agentRuns.results.map(r => [r.agent_id, r]));
+
+  // Assemble pipeline entries
+  const pipelines = Object.entries(PIPELINE_META).map(([name, meta]) => {
+    const latest = latestByName.get(name);
+    const previous = previousByName.get(name);
+    const agentRun = agentLastRun.get(meta.agent);
+
+    const count = latest?.count ?? 0;
+    const prevCount = previous?.count ?? null;
+    const trend = prevCount !== null ? count - prevCount : null;
+
+    return {
+      id: name,
+      label: meta.label,
+      agent: meta.agent,
+      schedule: meta.schedule,
+      count,
+      prev_count: prevCount,
+      trend,                               // negative = draining, positive = growing, null = no data
+      trend_direction: trend === null ? 'unknown' : trend < 0 ? 'down' : trend > 0 ? 'up' : 'flat',
+      last_measured_at: latest?.recorded_at ?? null,
+      agent_last_run_at: agentRun?.last_run_at ?? null,
+      agent_last_status: agentRun?.status ?? null,
+      agent_records_processed: agentRun?.records_processed ?? null,
+    };
+  });
+
+  const data = { success: true, data: pipelines };
+  await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+  return json(data, 200, origin);
+}
+
 export async function handleAdminListUsers(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);
