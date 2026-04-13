@@ -15,9 +15,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer, PathLayer } from '@deck.gl/layers';
-import { TripsLayer as TripsLayerClass } from '@deck.gl/geo-layers';
-// deck.gl v9 geo-layers has a constructor typing issue — cast to any for new()
-const TripsLayer = TripsLayerClass as any;
+import { TripsLayer } from '@/lib/trips-layer';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import type { ThreatPoint, ArcData, HeatmapPoint } from '@/hooks/useObservatory';
 import type { Operation } from '@/hooks/useOperations';
