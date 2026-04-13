@@ -2,8 +2,9 @@
 // Small inline sparkline for use inside cards.
 // SVG-based, no external dependency.
 // Gradient fill + glowing line + animated on mount.
+// Supports fluid width (fill=true) for responsive layouts.
 
-import { memo, useId, useMemo } from 'react';
+import { memo, useId, useMemo, useRef, useState, useEffect } from 'react';
 
 export interface TrendSparklineProps {
   data:     number[];
@@ -11,15 +12,32 @@ export interface TrendSparklineProps {
   height?:  number;
   color?:   string;    // line + fill color, defaults to amber
   animate?: boolean;
+  fill?:    boolean;   // fill container width (ignores width prop)
 }
 
 export const TrendSparkline = memo(function TrendSparkline({
   data,
-  width   = 80,
+  width:  widthProp = 80,
   height  = 28,
   color   = 'var(--amber)',
   animate = true,
+  fill    = false,
 }: TrendSparklineProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [measuredWidth, setMeasuredWidth] = useState(widthProp);
+
+  useEffect(() => {
+    if (!fill || !containerRef.current) return;
+    const measure = () => {
+      if (containerRef.current) setMeasuredWidth(containerRef.current.clientWidth);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, [fill]);
+
+  const width = fill ? measuredWidth : widthProp;
   const gradId = useId();
 
   const points = useMemo(() => {
@@ -50,7 +68,7 @@ export const TrendSparkline = memo(function TrendSparkline({
     'Z',
   ].join(' ');
 
-  return (
+  const svg = (
     <svg
       width={width}
       height={height}
@@ -58,6 +76,7 @@ export const TrendSparkline = memo(function TrendSparkline({
       style={{
         overflow: 'visible',
         flexShrink: 0,
+        display: 'block',
         animation: animate ? 'trend-sparkline-fade 600ms ease-out' : undefined,
       }}
     >
@@ -105,4 +124,9 @@ export const TrendSparkline = memo(function TrendSparkline({
       />
     </svg>
   );
+
+  if (fill) {
+    return <div ref={containerRef} style={{ width: '100%' }}>{svg}</div>;
+  }
+  return svg;
 });

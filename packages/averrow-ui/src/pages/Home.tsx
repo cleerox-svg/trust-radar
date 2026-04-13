@@ -163,7 +163,7 @@ function HomeDashboard() {
           accentColor="#E5A832"
         />
         <StatCard
-          label="Threats Mapped"
+          label="Threats Mapped · 7d"
           value={obsStats?.threats_mapped ?? 0}
           sublabel={`${obsStats?.countries ?? 0} countries`}
           accentColor="#C83C3C"
@@ -171,13 +171,13 @@ function HomeDashboard() {
         <StatCard
           label="Active Alerts"
           value={alertStats?.total ?? 0}
-          sublabel={`${alertStats?.critical ?? 0} critical`}
+          sublabel={`${alertStats?.critical ?? 0} critical · ${alertStats?.new_count ?? 0} new`}
           accentColor="#fb923c"
         />
         <StatCard
           label="Agents Running"
           value={`${agentsOnline}/${safeAgents.length || 11}`}
-          sublabel="All healthy"
+          sublabel={`${safeAgents.filter(a => a.jobs_24h > 0).length} active · 24h`}
           accentColor="#0A8AB5"
         />
       </div>
