@@ -19,7 +19,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
       const result = await this.env.DB.prepare(`
         SELECT COUNT(*) as count FROM threats
         WHERE enriched_at IS NULL
-          AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+          AND ip_address IS NOT NULL AND ip_address != ''
       `).first<{ count: number }>();
       return result?.count ?? 0;
     });
@@ -59,7 +59,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
             SELECT id, ip_address, malicious_domain, hosting_provider_id, registration_date
             FROM threats
             WHERE enriched_at IS NULL
-              AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+              AND ip_address IS NOT NULL AND ip_address != ''
             LIMIT ?
           `).bind(BATCH_SIZE).all();
 
@@ -127,6 +127,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
             }
 
             // Update threat with enriched data
+            // Only stamp enriched_at when geo data was actually obtained.
             await this.env.DB.prepare(`
               UPDATE threats SET
                 lat = COALESCE(lat, ?),
@@ -134,7 +135,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
                 country_code = COALESCE(country_code, ?),
                 asn = COALESCE(asn, ?),
                 hosting_provider_id = COALESCE(hosting_provider_id, ?),
-                enriched_at = datetime('now')
+                enriched_at = CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE enriched_at END
               WHERE id = ?
             `).bind(
               geo?.lat as number ?? null,
@@ -142,6 +143,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
               geo?.countryCode as string ?? null,
               geoAs?.split(' ')[0] ?? null,
               providerId,
+              geo?.countryCode as string ?? null,
               t.id as string
             ).run();
 

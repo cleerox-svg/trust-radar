@@ -147,7 +147,7 @@ export const cartographerAgent: AgentModule = {
           SELECT id, ip_address, malicious_domain, malicious_url, hosting_provider_id
           FROM threats
           WHERE enriched_at IS NULL
-            AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+            AND ip_address IS NOT NULL AND ip_address != ''
           LIMIT ? OFFSET ?
         `).bind(BATCH_SIZE, currentOffset).all<{
           id: string;
@@ -216,6 +216,9 @@ export const cartographerAgent: AgentModule = {
           }
 
           // Queue threat update — flushed in batch below
+          // Only stamp enriched_at when geo data was actually obtained.
+          // Threats where ip-api.com returned no data keep enriched_at IS NULL
+          // so they can be retried on the next run.
           pendingWrites.push(env.DB.prepare(`
             UPDATE threats SET
               lat = COALESCE(lat, ?),
@@ -225,12 +228,14 @@ export const cartographerAgent: AgentModule = {
               hosting_provider_id = COALESCE(hosting_provider_id, ?),
               registrar = COALESCE(registrar, ?),
               registration_date = COALESCE(registration_date, ?),
-              enriched_at = datetime('now')
+              enriched_at = CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE enriched_at END
             WHERE id = ?
           `).bind(
             geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
             geo?.as?.split(' ')[0] ?? null, providerId,
-            registrar, registration_date, threat.id
+            registrar, registration_date,
+            geo?.countryCode ?? null,
+            threat.id
           ));
           batchEnriched++;
           itemsUpdated++;
