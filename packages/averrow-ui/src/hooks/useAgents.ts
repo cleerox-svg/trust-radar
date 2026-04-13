@@ -86,6 +86,21 @@ export interface PipelineStatus {
   schedule: string;
 }
 
+export interface PipelineEntry {
+  id: string;
+  label: string;
+  agent: string;
+  schedule: string;
+  count: number;
+  prev_count: number | null;
+  trend: number | null;
+  trend_direction: 'up' | 'down' | 'flat' | 'unknown';
+  last_measured_at: string | null;
+  agent_last_run_at: string | null;
+  agent_last_status: string | null;
+  agent_records_processed: number | null;
+}
+
 export function useAgents() {
   return useQuery({
     queryKey: ['agents'],
@@ -133,21 +148,15 @@ export function useDashboardStats() {
   });
 }
 
-export function usePipelineStatus(agents: Agent[] | undefined) {
+export function usePipelineStatus(_agents?: Agent[] | undefined) {
   return useQuery({
-    queryKey: ['pipeline-status', agents?.map(a => `${a.name}:${a.status}`).join(',')],
+    queryKey: ['pipeline-status-v2'],
     queryFn: async () => {
-      // Derive pipeline data from agent backlogs — /api/admin/pipeline does not exist
-      if (!agents) return [];
-      return agents.map((a) => ({
-        name: a.display_name,
-        pending: a.jobs_24h,
-        status: a.status === 'error' ? 'error' : a.status === 'degraded' ? 'degraded' : 'healthy',
-        schedule: a.schedule,
-      })) as PipelineStatus[];
+      const res = await api.get<PipelineEntry[]>('/api/admin/pipeline-status');
+      return res.data ?? [];
     },
     placeholderData: keepPreviousData,
-    enabled: !!agents,
+    refetchInterval: 300_000,
   });
 }
 

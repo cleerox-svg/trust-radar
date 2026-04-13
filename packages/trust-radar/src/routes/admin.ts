@@ -12,6 +12,7 @@ import {
   handleBackfillSocialConfig, handleBackfillSaasTechniques,
   handleBudgetLedgerHealth,
   handleCubeBackfill,
+  handlePipelineStatus,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -39,6 +40,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAdminStats(request, env);
+  });
+  router.get("/api/admin/pipeline-status", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handlePipelineStatus(request, env);
   });
   router.get("/api/admin/health", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
