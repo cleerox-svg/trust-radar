@@ -92,7 +92,7 @@ export function useAlertStats() {
       return (res.data ?? {}) as AlertStats;
     },
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000,
+    refetchInterval: 300_000,
   });
 }
 

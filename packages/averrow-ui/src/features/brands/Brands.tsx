@@ -733,13 +733,21 @@ function BrandCard({
 
       {/* ── SPARKLINE ────────────────────────────────────────── */}
       {sparkData.length > 1 ? (
-        <TrendSparkline
-          data={sparkData}
-          width={310}
-          height={36}
-          color={accent}
-          animate={false}
-        />
+        <div style={{ position: 'relative' }}>
+          <TrendSparkline
+            data={sparkData}
+            fill
+            height={36}
+            color={accent}
+            animate={false}
+          />
+          <span style={{
+            position: 'absolute', bottom: 2, right: 4,
+            fontSize: 8, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', letterSpacing: '0.10em',
+            opacity: 0.6,
+          }}>14d</span>
+        </div>
       ) : (
         <div style={{
           height: 36,

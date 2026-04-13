@@ -148,8 +148,8 @@ export function MobileCommandCenter() {
         {/* STAT GRID */}
         <div style={{ padding:'14px 20px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           <StatTile label="Brands"  value={brandStats?.total_tracked ?? 0}  sub={`${brandStats?.new_this_week ?? 0} new this week`} accent={M.AMBER} onClick={() => navigate('/brands')} />
-          <StatTile label="Threats" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/threats')} />
-          <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/alerts')} />
+          <StatTile label="Threats · 7d" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/threats')} />
+          <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical · ${alertStats?.new_count ?? 0} new`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/alerts')} />
           <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/agents')} />
           <StatTile label="Feeds"   value={feedStats?.active ?? 0}           sub={`of ${((feedStats?.active ?? 0) + (feedStats?.disabled ?? 0)) || 34} active`}             accent={M.GREEN} onClick={() => navigate('/feeds')} />
           <StatTile label="Campaigns" value={0} sub="active ops" accent={M.BLUE} onClick={() => navigate('/campaigns')} />

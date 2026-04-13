@@ -232,15 +232,24 @@ function ProviderCard({
       {/* Sparkline bar */}
       <div className="mt-2">
         {sparkData.length >= 2 ? (
-          <TrendSparkline
-            data={sparkData}
-            height={32}
-            color={
-              (provider.reputation_score ?? 50) < 30 ? 'var(--sev-critical)' :
-              (provider.reputation_score ?? 50) < 60 ? 'var(--sev-high)' :
-              'var(--text-muted)'
-            }
-          />
+          <div style={{ position: 'relative' }}>
+            <TrendSparkline
+              data={sparkData}
+              fill
+              height={32}
+              color={
+                (provider.reputation_score ?? 50) < 30 ? 'var(--sev-critical)' :
+                (provider.reputation_score ?? 50) < 60 ? 'var(--sev-high)' :
+                'var(--text-muted)'
+              }
+            />
+            <span style={{
+              position: 'absolute', bottom: 1, right: 4,
+              fontSize: 8, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)', letterSpacing: '0.10em',
+              opacity: 0.6,
+            }}>14d</span>
+          </div>
         ) : (
           <div style={{
             height: 32,
