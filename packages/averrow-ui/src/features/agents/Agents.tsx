@@ -452,10 +452,24 @@ function trendArrow(dir: string): string {
 }
 
 function trendColor(dir: string): string {
-  if (dir === 'down') return 'var(--green)';
+  if (dir === 'down') return 'var(--sev-info)';
   if (dir === 'up') return 'var(--sev-critical)';
-  if (dir === 'flat') return 'var(--text-muted)';
+  if (dir === 'flat') return 'var(--sev-medium)';
   return 'var(--text-muted)';
+}
+
+function trendBorderColor(dir: string): string {
+  if (dir === 'down') return 'var(--sev-info-border)';
+  if (dir === 'up') return 'var(--sev-critical-border)';
+  if (dir === 'flat') return 'var(--sev-medium-border)';
+  return 'var(--border-base)';
+}
+
+function agentStatusLabel(status: string): 'active' | 'failed' | 'degraded' | 'inactive' {
+  if (status === 'active') return 'active';
+  if (status === 'error') return 'failed';
+  if (status === 'degraded') return 'degraded';
+  return 'inactive';
 }
 
 function PipelineStrip({ agents }: { agents: Agent[] }) {
@@ -479,59 +493,76 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
         {items.map((p: PipelineEntry) => {
           const agentData = agents.find(a => a.name === p.agent);
           const agentStatus = agentData?.status ?? p.agent_last_status ?? 'idle';
+          const borderColor = p.count === 0
+            ? 'var(--border-base)'
+            : trendBorderColor(p.trend_direction);
+          const topBorderColor = p.count === 0
+            ? 'var(--border-base)'
+            : trendColor(p.trend_direction);
 
           return (
             <div
               key={p.id}
-              className="rounded-lg p-3"
+              className="rounded-lg overflow-hidden"
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: 'rgba(22,30,48,0.50)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: `1px solid ${borderColor}`,
+                borderTop: `3px solid ${topBorderColor}`,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.40)',
               }}
             >
-              {/* Header: label + status dot */}
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono text-[10px] text-white/50 truncate">{p.label}</span>
-                <span
-                  className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', pipelineDotClass(agentStatus))}
-                  style={!pipelineDotClass(agentStatus) ? { backgroundColor: '#4B5563' } : undefined}
-                />
-              </div>
-
-              {/* Count + trend */}
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="font-display text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-                  {p.count.toLocaleString()}
-                </span>
-                {p.trend !== null && p.trend !== 0 && (
-                  <span
-                    className="font-mono text-[10px] font-bold"
-                    style={{ color: trendColor(p.trend_direction) }}
-                  >
-                    {trendArrow(p.trend_direction)} {Math.abs(p.trend).toLocaleString()}
+              <div className="p-3">
+                {/* Header: label + agent badge */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[10px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                    {p.label}
                   </span>
-                )}
-                {p.trend === 0 && (
-                  <span className="font-mono text-[9px]" style={{ color: 'var(--text-muted)' }}>→ steady</span>
-                )}
-              </div>
+                  <Badge
+                    status={agentStatusLabel(agentStatus)}
+                    label={p.agent}
+                    size="xs"
+                    pulse={agentStatus === 'active'}
+                  />
+                </div>
 
-              {/* Agent + schedule */}
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="font-mono text-[8px] text-white/40 uppercase">{p.agent}</span>
-                <span className="font-mono text-[8px] text-white/25">·</span>
-                <span className="font-mono text-[8px] text-white/40 uppercase">{p.schedule}</span>
-              </div>
-
-              {/* Last run */}
-              {p.agent_last_run_at && (
-                <div className="font-mono text-[8px] text-white/25">
-                  Last: {relativeTime(p.agent_last_run_at)}
-                  {p.agent_records_processed != null && p.agent_records_processed > 0 && (
-                    <> · {p.agent_records_processed} processed</>
+                {/* Count + trend */}
+                <div className="flex items-baseline gap-2 mb-1.5">
+                  <span
+                    className="font-display text-lg font-bold"
+                    style={{ color: 'var(--text-primary)', lineHeight: 1 }}
+                  >
+                    {p.count.toLocaleString()}
+                  </span>
+                  {p.trend !== null && p.trend !== 0 && (
+                    <span
+                      className="font-mono text-[10px] font-bold"
+                      style={{ color: trendColor(p.trend_direction) }}
+                    >
+                      {trendArrow(p.trend_direction)} {Math.abs(p.trend).toLocaleString()}
+                    </span>
+                  )}
+                  {p.trend === 0 && (
+                    <span className="font-mono text-[9px]" style={{ color: 'var(--sev-medium)' }}>
+                      → steady
+                    </span>
                   )}
                 </div>
-              )}
+
+                {/* Schedule + last run */}
+                <div className="font-mono text-[8px] space-y-0.5" style={{ color: 'var(--text-muted)' }}>
+                  <div className="uppercase tracking-wider">{p.schedule}</div>
+                  {p.agent_last_run_at && (
+                    <div>
+                      {relativeTime(p.agent_last_run_at)}
+                      {p.agent_records_processed != null && p.agent_records_processed > 0 && (
+                        <> · {p.agent_records_processed} rec</>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
