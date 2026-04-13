@@ -203,3 +203,26 @@ export function useProviderClusters(providerId: string | null) {
     enabled: !!providerId,
   });
 }
+
+// ─── Dashboard provider trends (worst / improving) ──────────
+
+export interface DashboardProvider {
+  provider_id: string;
+  name: string;
+  asn: string | null;
+  threat_count: number;
+  recent?: number;
+  previous?: number;
+  trend_7d_pct: number | null;
+}
+
+export function useDashboardProviders(sort: 'worst' | 'improving', limit = 2) {
+  return useQuery({
+    queryKey: ['dashboard-providers', sort, limit],
+    queryFn: async () => {
+      const res = await api.get<DashboardProvider[]>(`/api/dashboard/providers?sort=${sort}&limit=${limit}`);
+      return res.data ?? [];
+    },
+    placeholderData: keepPreviousData,
+  });
+}

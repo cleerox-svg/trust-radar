@@ -121,6 +121,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       label: 'INTELLIGENCE',
       items: [
         { label: 'Observatory',  path: '/observatory',  icon: Globe },
+        { label: 'Observatory v3', path: '/observatory-v3', icon: Globe },
         { label: 'Brands',       path: '/brands',       icon: Shield },
         { label: 'Providers',    path: '/providers',     icon: Server },
         { label: 'Operations',   path: '/campaigns',     icon: Activity },
