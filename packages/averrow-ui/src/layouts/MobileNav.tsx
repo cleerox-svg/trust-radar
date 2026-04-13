@@ -31,6 +31,7 @@ const MORE_SECTIONS = [
     label: 'Intelligence',
     items: [
       { icon: '🌐', label: 'Observatory',   path: '/observatory' },
+      { icon: '🌐', label: 'Observatory v3', path: '/observatory-v3' },
       { icon: '🛡', label: 'Brands',        path: '/brands' },
       { icon: '⚡', label: 'Threats',       path: '/threats' },
       { icon: '🏭', label: 'Providers',     path: '/providers' },
