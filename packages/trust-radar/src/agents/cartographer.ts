@@ -22,6 +22,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 import { createNotification } from "../lib/notifications";
+import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 
 // ─── ip-api.com batch types ───────────────────────────────────────
 
@@ -148,6 +149,7 @@ export const cartographerAgent: AgentModule = {
           FROM threats
           WHERE enriched_at IS NULL
             AND ip_address IS NOT NULL AND ip_address != ''
+            ${PRIVATE_IP_SQL_FILTER}
           LIMIT ? OFFSET ?
         `).bind(BATCH_SIZE, currentOffset).all<{
           id: string;
