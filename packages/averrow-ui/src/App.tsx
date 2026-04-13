@@ -39,6 +39,7 @@ const Profile = React.lazy(() => import('@/features/settings/Profile').then(m =>
 const Notifications = React.lazy(() => import('@/features/settings/Notifications').then(m => ({ default: m.Notifications })));
 const NotificationPreferences = React.lazy(() => import('@/features/settings/NotificationPreferences').then(m => ({ default: m.NotificationPreferences })));
 const Observatory = React.lazy(() => import('@/features/observatory/Observatory').then(m => ({ default: m.Observatory })));
+const ObservatoryV3 = React.lazy(() => import('@/features/observatory-v3/ObservatoryV3').then(m => ({ default: m.ObservatoryV3 })));
 
 function RouteLoader() {
   return (
@@ -113,6 +114,7 @@ export default function App() {
       }>
         <Route index element={lazyRoute(<RoleAwareHome />)} />
         <Route path="observatory" element={lazyRoute(<Observatory />, <ObservatoryLoader />)} />
+        <Route path="observatory-v3" element={lazyRoute(<ObservatoryV3 />, <ObservatoryLoader />)} />
         <Route path="brands" element={lazyRoute(<Brands />)} />
         <Route path="brands/:brandId" element={lazyRoute(<BrandDetail />)} />
         <Route path="threats" element={lazyRoute(<Threats />)} />
