@@ -10,6 +10,7 @@ import { generatePermutations } from '../lib/dnstwist';
 import { createAlert } from '../lib/alerts';
 import { analyzeWithHaiku } from '../lib/haiku';
 import { checkBIMIExists } from '../email-security';
+import { checkDomain } from '../lib/domain-checker';
 import { logger } from '../lib/logger';
 import type { Env } from '../types';
 
@@ -279,83 +280,4 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
   });
 }
 
-// ─── DNS Check Helper ────────────────────────────────────────────
-
-async function checkDomain(domain: string): Promise<{
-  registered: boolean;
-  ip?: string;
-  hasMx: boolean;
-  hasWeb: boolean;
-}> {
-  let ip: string | undefined;
-  let registered = false;
-  let hasMx = false;
-  let hasWeb = false;
-
-  // A record check via Cloudflare DoH
-  try {
-    const aRes = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`,
-      {
-        headers: { Accept: 'application/dns-json' },
-        signal: AbortSignal.timeout(3000),
-      },
-    );
-    if (aRes.ok) {
-      const data = (await aRes.json()) as { Answer?: Array<{ data: string }> };
-      if (data.Answer && data.Answer.length > 0) {
-        registered = true;
-        ip = data.Answer[0]?.data;
-      }
-    }
-  } catch {
-    // DNS timeout or network error — treat as not registered
-  }
-
-  // MX record check via Cloudflare DoH
-  try {
-    const mxRes = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=MX`,
-      {
-        headers: { Accept: 'application/dns-json' },
-        signal: AbortSignal.timeout(3000),
-      },
-    );
-    if (mxRes.ok) {
-      const data = (await mxRes.json()) as { Answer?: Array<{ data: string }> };
-      if (data.Answer && data.Answer.length > 0) {
-        hasMx = true;
-        if (!registered) registered = true;
-      }
-    }
-  } catch {
-    // MX check failed — leave hasMx as false
-  }
-
-  // Web check: HEAD request with 3s timeout
-  if (registered) {
-    try {
-      const webRes = await fetch(`https://${domain}`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(3000),
-        redirect: 'manual',
-      });
-      // Any response (including redirects) means there's a web server
-      hasWeb = webRes.status > 0;
-    } catch {
-      // Try HTTP as fallback
-      try {
-        const httpRes = await fetch(`http://${domain}`, {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(3000),
-          redirect: 'manual',
-        });
-        hasWeb = httpRes.status > 0;
-      } catch {
-        // No web server
-      }
-    }
-  }
-
-  return { registered, ip, hasMx, hasWeb };
-}
+// checkDomain() moved to lib/domain-checker.ts for shared use with Sparrow Phase F

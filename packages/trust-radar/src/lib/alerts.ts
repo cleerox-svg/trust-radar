@@ -16,7 +16,8 @@ export type AlertType =
   | 'bimi_removed'
   | 'dmarc_downgraded'
   | 'vmc_expiring'
-  | 'typosquat_bimi';
+  | 'typosquat_bimi'
+  | 'takedown_resurrected';
 
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
