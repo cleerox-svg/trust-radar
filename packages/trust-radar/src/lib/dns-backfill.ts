@@ -66,7 +66,8 @@ export async function runDomainGeoBackfillBatch(
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
         AND (attempted_resolve_at IS NULL
-             OR attempted_resolve_at < datetime('now', '-7 days'))
+             OR (attempted_resolve_at < datetime('now', '-7 days')
+                 AND attempted_resolve_at > datetime('now', '-30 days')))
       LIMIT ?
     `).bind(batchSize).all<{ malicious_domain: string }>();
 
