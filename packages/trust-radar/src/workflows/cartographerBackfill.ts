@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
+import { PRIVATE_IP_SQL_FILTER } from '../lib/geoip';
 
 interface BackfillParams {
   batchSize: number;
@@ -20,6 +21,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
         SELECT COUNT(*) as count FROM threats
         WHERE enriched_at IS NULL
           AND ip_address IS NOT NULL AND ip_address != ''
+          ${PRIVATE_IP_SQL_FILTER}
       `).first<{ count: number }>();
       return result?.count ?? 0;
     });
@@ -60,6 +62,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
             FROM threats
             WHERE enriched_at IS NULL
               AND ip_address IS NOT NULL AND ip_address != ''
+              ${PRIVATE_IP_SQL_FILTER}
             LIMIT ?
           `).bind(BATCH_SIZE).all();
 
