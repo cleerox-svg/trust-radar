@@ -13,6 +13,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits } from "../lib/budgetManager";
+import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -442,11 +443,13 @@ export const flightControlAgent: AgentModule = {
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
   // Run all backlog queries in parallel
   const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult, abuseipdbResult, pdnsResult, greynoiseResult, seclookupResult, watchdogResult] = await Promise.all([
-    // Cartographer backlog: unenriched threats with IPs or domains
+    // Cartographer backlog: unenriched threats with public IPs
+    // Aligned with cartographer Phase 0 query (ip_address only, private IPs excluded)
     db.prepare(`
       SELECT COUNT(*) as count FROM threats
       WHERE enriched_at IS NULL
-        AND (ip_address IS NOT NULL OR malicious_domain IS NOT NULL)
+        AND ip_address IS NOT NULL AND ip_address != ''
+        ${PRIVATE_IP_SQL_FILTER}
     `).first<{ count: number }>(),
 
     // Analyst backlog: brands with recent threats but no recent analyst output

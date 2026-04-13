@@ -239,7 +239,7 @@ export const cartographerAgent: AgentModule = {
             geo?.countryCode ?? null,
             threat.id
           ));
-          batchEnriched++;
+          if (geo) batchEnriched++;
           itemsUpdated++;
 
           // ─── Geopolitical campaign escalation ───
