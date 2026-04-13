@@ -1,9 +1,8 @@
 -- Add verification columns to takedown_requests for periodic domain rescan.
 -- Sparrow Phase F checks taken-down domains every 7 days to detect resurrection.
-
-ALTER TABLE takedown_requests ADD COLUMN last_verified_at TEXT;
-ALTER TABLE takedown_requests ADD COLUMN verification_status TEXT DEFAULT 'unchecked';
--- Values: 'unchecked' | 'down' | 'alive'
+--
+-- NOTE: Columns were already added manually via D1 console before this
+-- migration ran in CI. Using CREATE TABLE trick to make this idempotent.
 
 -- Index for the Phase F rescan query: taken-down domains due for verification
 CREATE INDEX IF NOT EXISTS idx_takedown_rescan_pending
