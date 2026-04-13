@@ -10,6 +10,7 @@ import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
 import { useAgents } from '@/hooks/useAgents';
 import { useFeedStats } from '@/hooks/useFeeds';
+import { useOperationsStats } from '@/hooks/useOperations';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationBell } from '@/components/NotificationBell';
 
@@ -37,6 +38,7 @@ export function MobileCommandCenter() {
   const { data: alertStats }  = useAlertStats();
   const { data: agentData }   = useAgents();
   const { data: feedStats }   = useFeedStats();
+  const { data: opsStats }    = useOperationsStats();
   const { data: brandsData }  = useBrands({ view: 'top', limit: 10 });
   const { data: notifData }   = useNotifications(true);
 
@@ -150,9 +152,9 @@ export function MobileCommandCenter() {
           <StatTile label="Brands"  value={brandStats?.total_tracked ?? 0}  sub={`${brandStats?.new_this_week ?? 0} new this week`} accent={M.AMBER} onClick={() => navigate('/brands')} />
           <StatTile label="Threats · 7d" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/threats')} />
           <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical · ${alertStats?.new_count ?? 0} new`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/alerts')} />
-          <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/agents')} />
+          <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running' || a.status === 'active').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/agents')} />
           <StatTile label="Feeds"   value={feedStats?.active ?? 0}           sub={`of ${((feedStats?.active ?? 0) + (feedStats?.disabled ?? 0)) || 34} active`}             accent={M.GREEN} onClick={() => navigate('/feeds')} />
-          <StatTile label="Campaigns" value={0} sub="active ops" accent={M.BLUE} onClick={() => navigate('/campaigns')} />
+          <StatTile label="Campaigns" value={opsStats?.active_operations ?? 0} sub={`${opsStats?.campaigns_tracked ?? 0} tracked`} accent={M.BLUE} onClick={() => navigate('/campaigns')} />
         </div>
 
         {/* BRANDS AT RISK */}
