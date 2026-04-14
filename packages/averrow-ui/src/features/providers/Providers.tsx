@@ -9,6 +9,8 @@ import {
   EmptyState,
   Skeleton,
   Badge,
+  EntityCard,
+  MetricTile,
 } from '@/design-system/components';
 import { TrendSparkline } from '@/components/ui/TrendSparkline';
 import { Globe } from 'lucide-react';
@@ -22,6 +24,25 @@ import {
   useProviderClusters,
 } from '@/hooks/useProviders';
 import type { Provider, Cluster } from '@/hooks/useProviders';
+import { useCardStyle } from '@/hooks/useCardStyle';
+
+// ─── Severity helpers (mirror Brands card styling) ───────────
+
+function providerSeverity(count: number): 'critical' | 'high' | 'medium' | 'low' {
+  if (count > 2000) return 'critical';
+  if (count > 500) return 'high';
+  if (count > 100) return 'medium';
+  return 'low';
+}
+
+function providerAccent(sev: string): string {
+  switch (sev) {
+    case 'critical': return '#E24B4A';
+    case 'high':     return '#BA7517';
+    case 'medium':   return '#E5A832';
+    default:         return '#639922';
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -158,9 +179,165 @@ function ClusterPanel({
   );
 }
 
-// ─── Provider Card ───────────────────────────────────────────
+// ─── Provider Card (dispatcher: unified vs classic) ──────────
 
-function ProviderCard({
+function ProviderCard(props: {
+  provider: Provider;
+  clusters: Cluster[];
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const style = useCardStyle();
+  return style === 'classic'
+    ? <ProviderCardClassic {...props} />
+    : <ProviderCardUnified {...props} />;
+}
+
+// ─── Provider Card (UNIFIED — matches Brands architecture) ───
+
+function ProviderCardUnified({
+  provider,
+  clusters,
+  isSelected,
+  onSelect,
+}: {
+  provider: Provider;
+  clusters: Cluster[];
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const status = getProviderStatus(provider);
+  const nexusLinked = hasNexusLink(provider, clusters);
+  const t7 = provider.trend_7d ?? 0;
+  const t30 = provider.trend_30d ?? 0;
+  const activeCount = provider.active_threat_count ?? 0;
+  const sparkData = provider.threat_history ?? [];
+
+  const sev = providerSeverity(activeCount);
+  const accent = providerAccent(sev);
+
+  return (
+    <EntityCard
+      accent={accent}
+      onClick={() => onSelect(provider.id)}
+      style={isSelected ? { outline: `1px solid ${accent}60`, outlineOffset: -1 } : undefined}
+    >
+      {/* ── HEADER: flag + name/asn + active threat count ────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        {/* Flag avatar (parallels Brands favicon) */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid var(--border-base)',
+            fontSize: 20, lineHeight: 1,
+          }}>
+            {countryFlag(provider.country) || <Globe size={18} style={{ color: 'var(--text-muted)' }} />}
+          </div>
+          <div style={{
+            position: 'absolute', bottom: -2, right: -2,
+            width: 10, height: 10, borderRadius: '50%',
+            background: accent, border: '2px solid var(--bg-page)',
+            boxShadow: `0 0 6px ${accent}80`,
+          }} />
+        </div>
+
+        {/* Name + ASN */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, fontWeight: 700, color: 'var(--text-primary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {provider.name}
+          </div>
+          <div style={{
+            fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+            marginTop: 2,
+          }}>
+            {provider.asn || 'No ASN'}{provider.country ? ` \u00B7 ${provider.country}` : ''}
+          </div>
+        </div>
+
+        {/* Badges stack (NEXUS + status) */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+          {nexusLinked && <Badge status="running" label="NEXUS" size="xs" />}
+          <StatusBadge status={status} />
+        </div>
+      </div>
+
+      {/* ── METRIC TILES ────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
+        <MetricTile
+          label="Active"
+          value={activeCount}
+          color={accent}
+          glow
+        />
+        <MetricTile
+          label="7d Trend"
+          value={t7}
+          color={t7 > 0 ? 'var(--sev-high)' : 'var(--text-secondary)'}
+        />
+        <MetricTile
+          label="30d Trend"
+          value={t30}
+          color={t30 > 0 ? 'var(--sev-high)' : 'var(--text-secondary)'}
+        />
+      </div>
+
+      {/* ── SPARKLINE ───────────────────────────────────────── */}
+      {sparkData.length > 1 ? (
+        <div style={{ position: 'relative' }}>
+          <TrendSparkline
+            data={sparkData}
+            fill
+            height={36}
+            color={accent}
+            animate={false}
+          />
+          <span style={{
+            position: 'absolute', bottom: 2, right: 4,
+            fontSize: 8, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', letterSpacing: '0.10em',
+            opacity: 0.6,
+          }}>14d</span>
+        </div>
+      ) : (
+        <div style={{
+          height: 36, background: 'rgba(255,255,255,0.02)', borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            no trend data
+          </span>
+        </div>
+      )}
+
+      {/* ── STATUS ALERT (below sparkline, compact) ─────────── */}
+      {status === 'accelerating' && (
+        <div style={{
+          marginTop: 8, fontSize: 10, fontFamily: 'var(--font-mono)',
+          color: 'var(--sev-high)', letterSpacing: '0.05em',
+        }}>
+          {'\u26A0'} ACCELERATING — activity up &gt;50% vs prior week
+        </div>
+      )}
+      {status === 'pivot' && (
+        <div style={{
+          marginTop: 8, fontSize: 10, fontFamily: 'var(--font-mono)',
+          color: 'var(--blue)', letterSpacing: '0.05em',
+        }}>
+          {'\u2192'} PIVOT DETECTED — went silent recently
+        </div>
+      )}
+    </EntityCard>
+  );
+}
+
+// ─── Provider Card (CLASSIC — preserved for rollback) ────────
+
+function ProviderCardClassic({
   provider,
   clusters,
   isSelected,
