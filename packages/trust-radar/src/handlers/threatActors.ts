@@ -45,7 +45,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     const params: unknown[] = [];
 
     if (country) {
-      conditions.push("ta.country = ?");
+      conditions.push("ta.country_code = ?");
       params.push(country.toUpperCase());
     }
     if (status) {
@@ -53,7 +53,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       params.push(status);
     }
     if (attribution) {
-      conditions.push("ta.attribution = ?");
+      conditions.push("ta.affiliation = ?");
       params.push(attribution);
     }
     if (search) {
@@ -64,23 +64,26 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    // Column names match actual DB schema
+    // Column names from actual DB schema (migration 0063), aliased to the
+    // shape the frontend expects. target_sectors and active_campaigns are
+    // derived/NULL for now (not stored as columns).
     const selectCols = `ta.id, ta.name, ta.aliases,
-          ta.attribution,
-          ta.country,
-          ta.ttps,
+          ta.affiliation AS attribution,
+          ta.country_code AS country,
+          ta.primary_ttps AS ttps,
+          ta.capability,
           ta.description,
-          ta.target_sectors,
-          ta.active_campaigns,
           ta.first_seen, ta.last_seen,
-          ta.status,
-          ta.created_at, ta.updated_at`;
+          ta.status, ta.attribution_confidence,
+          ta.created_at, ta.updated_at,
+          NULL AS target_sectors,
+          NULL AS active_campaigns`;
 
     const orderBy = `ORDER BY
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
           ta.name`;
 
-    // Run count + list in parallel
+    // Run count + list + sparkline data in parallel
     const countPromise = session.prepare(
       `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
     ).bind(...params).first<{ total: number }>();
@@ -107,11 +110,48 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       `).bind(...params, limit, offset).all();
     }
 
-    const [countResult, rows] = await Promise.all([countPromise, rowsPromise]);
+    // Sparkline: 14-day daily threat counts per actor via ASN infrastructure join.
+    // Cheap: bounded by 7 actors × 14 days = ~98 rows max.
+    const sparklinePromise = session.prepare(`
+      SELECT tai.threat_actor_id,
+             date(t.created_at) AS day,
+             COUNT(*) AS cnt
+      FROM threats t
+      JOIN threat_actor_infrastructure tai ON tai.asn = t.asn
+      WHERE t.created_at >= datetime('now', '-14 days')
+        AND t.asn IS NOT NULL
+      GROUP BY tai.threat_actor_id, date(t.created_at)
+    `).all<{ threat_actor_id: string; day: string; cnt: number }>().catch(() => ({ results: [] as { threat_actor_id: string; day: string; cnt: number }[] }));
+
+    const [countResult, rows, sparklineRows] = await Promise.all([countPromise, rowsPromise, sparklinePromise]);
+
+    // Pivot sparkline rows into per-actor 14-day arrays (oldest first)
+    const sparkMap = new Map<string, number[]>();
+    const today = new Date();
+    const days: string[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setUTCDate(d.getUTCDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const byActor = new Map<string, Map<string, number>>();
+    for (const row of (sparklineRows.results ?? [])) {
+      if (!byActor.has(row.threat_actor_id)) byActor.set(row.threat_actor_id, new Map());
+      byActor.get(row.threat_actor_id)!.set(row.day, row.cnt);
+    }
+    for (const [actorId, dayMap] of byActor) {
+      sparkMap.set(actorId, days.map(d => dayMap.get(d) ?? 0));
+    }
+
+    // Attach threat_history to each actor row
+    const enriched = (rows.results as Record<string, unknown>[]).map(r => ({
+      ...r,
+      threat_history: sparkMap.get(r.id as string) ?? [],
+    }));
 
     const data = {
       success: true,
-      data: rows.results,
+      data: enriched,
       total: countResult?.total ?? 0,
     };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
@@ -137,17 +177,17 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
       session.prepare("SELECT COUNT(*) AS n FROM threat_actors").first<{ n: number }>(),
       session.prepare("SELECT COUNT(*) AS n FROM threat_actors WHERE status = 'active'").first<{ n: number }>(),
       session.prepare(`
-        SELECT country, COUNT(*) AS count
+        SELECT country_code AS country, COUNT(*) AS count
         FROM threat_actors
-        GROUP BY country
+        GROUP BY country_code
         ORDER BY count DESC
         LIMIT 10
       `).all(),
       session.prepare(`
-        SELECT attribution, COUNT(*) AS count
+        SELECT affiliation AS attribution, COUNT(*) AS count
         FROM threat_actors
-        WHERE attribution IS NOT NULL
-        GROUP BY attribution
+        WHERE affiliation IS NOT NULL
+        GROUP BY affiliation
         ORDER BY count DESC
       `).all(),
       // These tables may not exist if migration 0063 partially failed
@@ -185,14 +225,15 @@ export async function handleGetThreatActor(request: Request, env: Env, id: strin
   try {
     const actor = await env.DB.prepare(`
       SELECT id, name, aliases,
-             attribution,
-             country,
-             ttps,
+             affiliation AS attribution,
+             country_code AS country,
+             primary_ttps AS ttps,
+             capability,
              description,
-             target_sectors,
-             active_campaigns,
-             first_seen, last_seen, status,
-             created_at, updated_at
+             first_seen, last_seen, status, attribution_confidence,
+             created_at, updated_at,
+             NULL AS target_sectors,
+             NULL AS active_campaigns
       FROM threat_actors WHERE id = ?
     `).bind(id).first();
     if (!actor) {
@@ -251,14 +292,15 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
     const rows = await safeQueryAll(env.DB,
       env.DB.prepare(`
         SELECT ta.id, ta.name, ta.aliases,
-               ta.attribution,
-               ta.country,
-               ta.ttps,
+               ta.affiliation AS attribution,
+               ta.country_code AS country,
+               ta.primary_ttps AS ttps,
+               ta.capability,
                ta.description,
-               ta.target_sectors,
-               ta.active_campaigns,
                ta.first_seen, ta.last_seen, ta.status,
                ta.created_at, ta.updated_at,
+               NULL AS target_sectors,
+               NULL AS active_campaigns,
                tat.context, tat.first_targeted, tat.last_targeted
         FROM threat_actors ta
         JOIN threat_actor_targets tat ON tat.threat_actor_id = ta.id

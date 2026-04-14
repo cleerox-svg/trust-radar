@@ -10,10 +10,13 @@ import {
   StatCard,
   StatGrid,
 } from '@/components/ui';
+import { EntityCard, MetricTile } from '@/design-system/components';
+import { TrendSparkline } from '@/components/ui/TrendSparkline';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';
+import { useCardStyle } from '@/hooks/useCardStyle';
 import { saasTechniquesForTtps } from '@/lib/saas-techniques';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -75,7 +78,216 @@ function ttpColor(ttp: string): string {
 
 // ─── Actor Card ───────────────────────────────────────────────
 
+// ─── ActorCard dispatcher: unified vs classic ────────────────
+
 function ActorCard({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
+  const style = useCardStyle();
+  return style === 'classic'
+    ? <ActorCardClassic actor={actor} onClick={onClick} />
+    : <ActorCardUnified actor={actor} onClick={onClick} />;
+}
+
+// ─── ActorCard (UNIFIED — matches Brands/Providers architecture) ──
+
+function ActorCardUnified({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
+  const aliases = parseJsonArray(actor.aliases);
+  const ttps = parseJsonArray(actor.ttps);
+  const flag = countryFlag(actor.country);
+  const accColor = attributionColor(actor.attribution);
+  const saasTechniques = saasTechniquesForTtps(ttps);
+  const sparkData = Array.isArray(actor.threat_history) ? actor.threat_history : [];
+
+  // Activity intensity drives the accent color
+  const totalRecent = sparkData.reduce((sum, v) => sum + v, 0);
+  const statusAccent =
+    actor.status === 'disrupted' ? 'var(--sev-info)'
+    : actor.status === 'dormant' ? 'var(--sev-medium)'
+    : totalRecent > 50 ? 'var(--sev-critical)'
+    : totalRecent > 10 ? 'var(--sev-high)'
+    : accColor;
+
+  // Human-friendly last seen
+  const lastSeenStr = actor.last_seen ? formatLastSeen(actor.last_seen) : null;
+
+  return (
+    <EntityCard accent={statusAccent} onClick={onClick}>
+      {/* ── HEADER: flag avatar + name/affiliation + status ────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        {/* Flag avatar with status dot (parallels Brands favicon) */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: `${accColor}15`,
+            border: `1px solid ${accColor}35`,
+            fontSize: 20, lineHeight: 1,
+          }}>
+            {flag || <span style={{ color: accColor, fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{actor.country ?? '?'}</span>}
+          </div>
+          <div style={{
+            position: 'absolute', bottom: -2, right: -2,
+            width: 10, height: 10, borderRadius: '50%',
+            background: statusAccent, border: '2px solid var(--bg-page)',
+            boxShadow: `0 0 6px ${statusAccent}80`,
+          }} />
+        </div>
+
+        {/* Name + aliases */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, fontWeight: 700, color: 'var(--text-primary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            fontFamily: 'var(--font-mono)', letterSpacing: -0.2,
+          }}>
+            {actor.name}
+          </div>
+          <div style={{
+            fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+            marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {actor.attribution && (
+              <span style={{ color: accColor, letterSpacing: '0.08em' }}>{actor.attribution}</span>
+            )}
+            {actor.attribution && aliases.length > 0 && ' \u00B7 '}
+            {aliases.length > 0 && (
+              <span>aka {aliases.slice(0, 2).join(', ')}{aliases.length > 2 && ` +${aliases.length - 2}`}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Status badge */}
+        <div style={{ flexShrink: 0 }}>
+          {actorStatusBadge(actor.status)}
+        </div>
+      </div>
+
+      {/* ── METRIC TILES ────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
+        <MetricTile
+          label="Infrastructure"
+          value={actor.infra_count ?? 0}
+          color="var(--blue)"
+          glow
+        />
+        <MetricTile
+          label="Targets"
+          value={actor.target_count ?? 0}
+          color="var(--amber)"
+          glow
+        />
+        <MetricTile
+          label="Activity 14d"
+          value={totalRecent}
+          color={totalRecent > 0 ? statusAccent : 'var(--text-secondary)'}
+          glow={totalRecent > 0}
+        />
+      </div>
+
+      {/* ── SPARKLINE ───────────────────────────────────────── */}
+      {sparkData.length > 1 && sparkData.some(v => v > 0) ? (
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <TrendSparkline
+            data={sparkData}
+            fill
+            height={36}
+            color={statusAccent}
+            animate={false}
+          />
+          <span style={{
+            position: 'absolute', bottom: 2, right: 4,
+            fontSize: 8, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', letterSpacing: '0.10em',
+            opacity: 0.6,
+          }}>14d</span>
+        </div>
+      ) : (
+        <div style={{
+          height: 36, marginBottom: 10,
+          background: 'rgba(255,255,255,0.02)', borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            no observed activity
+          </span>
+        </div>
+      )}
+
+      {/* ── TTP + SaaS technique pills (preserved from classic) ─ */}
+      {(ttps.length > 0 || saasTechniques.length > 0) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+          {ttps.slice(0, 4).map(ttp => {
+            const color = ttpColor(ttp);
+            return (
+              <span key={ttp} style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                fontWeight: 700, letterSpacing: '0.08em',
+                padding: '3px 7px', borderRadius: 5,
+                background: `${color}10`, border: `1px solid ${color}30`,
+                color,
+              }}>
+                {ttp}
+              </span>
+            );
+          })}
+          {ttps.length > 4 && (
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', padding: '3px 4px' }}>
+              +{ttps.length - 4}
+            </span>
+          )}
+          {saasTechniques.slice(0, 2).map(t => (
+            <SaasTechniqueBadge
+              key={t.id}
+              techniqueId={t.id}
+              techniqueName={t.name}
+              phase={t.phase}
+              phaseLabel={t.phase_label}
+              severity={t.severity}
+              size="xs"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── FOOTER: last seen / capability ─────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        paddingTop: 6,
+        borderTop: '1px solid var(--border-base)',
+        fontSize: 9, fontFamily: 'var(--font-mono)',
+        color: 'var(--text-muted)',
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+      }}>
+        {actor.capability && (
+          <span style={{ color: 'var(--text-tertiary)' }}>{actor.capability}</span>
+        )}
+        {lastSeenStr && (
+          <span style={{ marginLeft: 'auto' }}>
+            {actor.status === 'active' ? 'Last seen' : 'Active'} {lastSeenStr}
+          </span>
+        )}
+      </div>
+    </EntityCard>
+  );
+}
+
+// Format last_seen as relative string (today, 3d ago, 2mo ago, never)
+function formatLastSeen(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return 'recently';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return mins < 2 ? 'just now' : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+// ─── ActorCard (CLASSIC — preserved for rollback) ────────────
+
+function ActorCardClassic({ actor, onClick }: { actor: ThreatActor; onClick: () => void }) {
   const aliases       = parseJsonArray(actor.aliases);
   const ttps          = parseJsonArray(actor.ttps);
   const sectors       = parseJsonArray(actor.target_sectors);

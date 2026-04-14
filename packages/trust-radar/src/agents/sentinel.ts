@@ -95,7 +95,7 @@ export const sentinelAgent: AgentModule = {
 
     // Get unclassified threats (no confidence_score yet)
     const threats = await env.DB.prepare(
-      `SELECT id, malicious_url, malicious_domain, ip_address, asn, country_code, source_feed, ioc_value, threat_type
+      `SELECT id, malicious_url, malicious_domain, ip_address, asn, country_code, source_feed, ioc_value, threat_type, target_brand_id
        FROM threats
        WHERE confidence_score IS NULL
        ORDER BY created_at DESC LIMIT 50`
@@ -103,7 +103,7 @@ export const sentinelAgent: AgentModule = {
       id: string; malicious_url: string | null; malicious_domain: string | null;
       ip_address: string | null; asn: string | null; country_code: string | null;
       source_feed: string; ioc_value: string | null;
-      threat_type: string;
+      threat_type: string; target_brand_id: string | null;
     }>();
 
     // Also check total threat count for context
@@ -196,6 +196,34 @@ export const sentinelAgent: AgentModule = {
             iranian_apt_asn: true,
           },
         });
+
+        // Update threat actor activity tracking — last_seen + last_observed.
+        // Links this threat's ASN to any threat actor with matching infrastructure.
+        // Non-blocking: failures don't impact the classification path.
+        try {
+          const actorIdRow = await env.DB.prepare(
+            `SELECT threat_actor_id FROM threat_actor_infrastructure WHERE asn = ? LIMIT 1`
+          ).bind(threat.asn).first<{ threat_actor_id: string }>();
+          if (actorIdRow?.threat_actor_id) {
+            await env.DB.batch([
+              env.DB.prepare(
+                `UPDATE threat_actors SET last_seen = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+              ).bind(actorIdRow.threat_actor_id),
+              env.DB.prepare(
+                `UPDATE threat_actor_infrastructure SET last_observed = datetime('now') WHERE threat_actor_id = ? AND asn = ?`
+              ).bind(actorIdRow.threat_actor_id, threat.asn),
+            ]);
+            // Also update last_targeted if the threat hits a tracked brand
+            if (threat.target_brand_id) {
+              await env.DB.prepare(
+                `UPDATE threat_actor_targets SET last_targeted = datetime('now') WHERE threat_actor_id = ? AND brand_id = ?`
+              ).bind(actorIdRow.threat_actor_id, threat.target_brand_id).run();
+            }
+          }
+        } catch (err) {
+          // swallow: threat_actor_* tables optional, don't block Sentinel
+          console.error('[sentinel] threat_actor activity update failed:', err);
+        }
       }
 
       // Cross-reference with social profiles for coordinated attack detection
