@@ -119,8 +119,18 @@ function parseJsonArray(val: string | null): string[] {
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 // ─── TripsLayer data builder ────────────────────────────────
-const CYCLE_LENGTH = 600; // animation loop length
-const MOBILE_MAX_PARTICLES = 500;
+// CYCLE_LENGTH: time budget before the animation wraps (in animation units).
+// Longer = less frequent wrap, but more particles needed to fill it.
+// At 1.0 units/frame × 60fps = 60 units/sec, 1200 units = ~20 seconds per cycle.
+const CYCLE_LENGTH = 1200;
+
+// TRIP_SPAN: time it takes a single particle to traverse an arc.
+// 300 units = ~5 seconds per traversal. Decoupled from CYCLE_LENGTH so
+// multiple particles overlap instead of each spanning the full cycle.
+const TRIP_SPAN = 300;
+
+const MOBILE_MAX_PARTICLES = 800;
+const DESKTOP_MAX_PARTICLES = 6000;
 
 interface TripDatum {
   path: [number, number][];
@@ -135,7 +145,8 @@ function buildTripData(
 ): TripDatum[] {
   const trips: TripDatum[] = [];
   let totalParticles = 0;
-  const maxParticles = isMobile ? MOBILE_MAX_PARTICLES : 3000;
+  const maxParticles = isMobile ? MOBILE_MAX_PARTICLES : DESKTOP_MAX_PARTICLES;
+  const perArcCap = isMobile ? 10 : 20;
 
   for (const arc of arcs) {
     if (totalParticles >= maxParticles) break;
@@ -144,17 +155,21 @@ function buildTripData(
       arc.targetPosition[0], arc.targetPosition[1],
     );
     const color = getArcColor(arc, colorBy, 220);
+    // More generous volume tracking: 0.8 multiplier (was 0.4), higher cap
     const numParticles = Math.min(
-      Math.max(2, Math.ceil((arc.volume || 1) * 0.4)),
-      isMobile ? 3 : 6,
+      Math.max(3, Math.ceil((arc.volume || 1) * 0.8)),
+      perArcCap,
     );
 
     for (let j = 0; j < numParticles; j++) {
       if (totalParticles >= maxParticles) break;
+      // Stagger offsets evenly across CYCLE_LENGTH so particles flow continuously
       const offset = (j / numParticles) * CYCLE_LENGTH;
       trips.push({
         path,
-        timestamps: path.map((_, idx) => offset + (idx / (path.length - 1)) * CYCLE_LENGTH),
+        // Each particle's timestamps span TRIP_SPAN (not CYCLE_LENGTH)
+        // so trips are short and multiple particles are always in flight
+        timestamps: path.map((_, idx) => offset + (idx / (path.length - 1)) * TRIP_SPAN),
         color,
       });
       totalParticles++;
@@ -502,7 +517,8 @@ function ThreatMapV3Inner({
             getTimestamps: (d: TripDatum) => d.timestamps,
             getColor: (d: TripDatum) => d.color,
             currentTime: currentTimeRef.current,
-            trailLength: isMobile ? CYCLE_LENGTH * 0.03 : CYCLE_LENGTH * 0.05,
+            // Trail length tied to TRIP_SPAN — longer trail = more visible tail per particle
+            trailLength: isMobile ? TRIP_SPAN * 0.35 : TRIP_SPAN * 0.50,
             fadeTrail: true,
             widthMinPixels: isMobile ? 1.5 : 2,
             capRounded: true,
@@ -528,7 +544,10 @@ function ThreatMapV3Inner({
       const staticLayersRef = staticLayers; // stable for this effect lifecycle
 
       function animate() {
-        currentTimeRef.current = (currentTimeRef.current + 1.2) % CYCLE_LENGTH;
+        // 1.0 units per frame × 60fps = 60 units/sec
+        // With CYCLE_LENGTH=1200, full cycle takes ~20 seconds
+        // With TRIP_SPAN=300, each particle traversal takes ~5 seconds
+        currentTimeRef.current = (currentTimeRef.current + 1.0) % CYCLE_LENGTH;
 
         if (deckRef.current) {
           deckRef.current.setProps({
@@ -541,7 +560,8 @@ function ThreatMapV3Inner({
                 getTimestamps: (d: TripDatum) => d.timestamps,
                 getColor: (d: TripDatum) => d.color,
                 currentTime: currentTimeRef.current,  // Only this changes
-                trailLength: isMobile ? CYCLE_LENGTH * 0.03 : CYCLE_LENGTH * 0.05,
+                // Trail length tied to TRIP_SPAN — longer trail = more visible tail per particle
+            trailLength: isMobile ? TRIP_SPAN * 0.35 : TRIP_SPAN * 0.50,
                 fadeTrail: true,
                 widthMinPixels: isMobile ? 1.5 : 2,
                 capRounded: true,
