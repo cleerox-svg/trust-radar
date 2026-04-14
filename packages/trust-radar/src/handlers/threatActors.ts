@@ -83,32 +83,40 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
           ta.name`;
 
-    // Run count + list + sparkline data in parallel
+    // Run count + list + sparkline data in parallel — each with its own
+    // catch so one broken query doesn't take down the whole response.
     const countPromise = session.prepare(
       `SELECT COUNT(*) AS total FROM threat_actors ta ${where}`
-    ).bind(...params).first<{ total: number }>();
+    ).bind(...params).first<{ total: number }>().catch((err) => {
+      console.error('[threatActors] count query failed:', err);
+      return null;
+    });
 
-    // Try query with join table counts first; fall back to basic query if tables missing
-    let rowsPromise: Promise<D1Result>;
-    try {
-      rowsPromise = session.prepare(`
-        SELECT ${selectCols},
-          (SELECT COUNT(*) FROM threat_actor_infrastructure tai WHERE tai.threat_actor_id = ta.id) AS infra_count,
-          (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count
-        FROM threat_actors ta
-        ${where}
-        ${orderBy}
-        LIMIT ? OFFSET ?
-      `).bind(...params, limit, offset).all();
-    } catch {
-      rowsPromise = session.prepare(`
-        SELECT ${selectCols}, 0 AS infra_count, 0 AS target_count
-        FROM threat_actors ta
-        ${where}
-        ${orderBy}
-        LIMIT ? OFFSET ?
-      `).bind(...params, limit, offset).all();
-    }
+    // Main query. If the join-count subqueries fail (tables missing), fall
+    // back to a basic query with 0 counts.
+    const rowsPromise = session.prepare(`
+      SELECT ${selectCols},
+        (SELECT COUNT(*) FROM threat_actor_infrastructure tai WHERE tai.threat_actor_id = ta.id) AS infra_count,
+        (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count
+      FROM threat_actors ta
+      ${where}
+      ${orderBy}
+      LIMIT ? OFFSET ?
+    `).bind(...params, limit, offset).all().catch(async (err) => {
+      console.error('[threatActors] main query with joins failed, trying fallback:', err);
+      try {
+        return await session.prepare(`
+          SELECT ${selectCols}, 0 AS infra_count, 0 AS target_count
+          FROM threat_actors ta
+          ${where}
+          ${orderBy}
+          LIMIT ? OFFSET ?
+        `).bind(...params, limit, offset).all();
+      } catch (err2) {
+        console.error('[threatActors] fallback query also failed:', err2);
+        return { results: [] as Record<string, unknown>[], meta: undefined as unknown, success: false } as unknown as D1Result;
+      }
+    });
 
     // Sparkline: 14-day daily threat counts per actor via ASN infrastructure join.
     // Cheap: bounded by 7 actors × 14 days = ~98 rows max.
@@ -121,7 +129,10 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       WHERE t.created_at >= datetime('now', '-14 days')
         AND t.asn IS NOT NULL
       GROUP BY tai.threat_actor_id, date(t.created_at)
-    `).all<{ threat_actor_id: string; day: string; cnt: number }>().catch(() => ({ results: [] as { threat_actor_id: string; day: string; cnt: number }[] }));
+    `).all<{ threat_actor_id: string; day: string; cnt: number }>().catch((err) => {
+      console.error('[threatActors] sparkline query failed:', err);
+      return { results: [] as { threat_actor_id: string; day: string; cnt: number }[] };
+    });
 
     const [countResult, rows, sparklineRows] = await Promise.all([countPromise, rowsPromise, sparklinePromise]);
 
