@@ -138,6 +138,19 @@ interface TripDatum {
   color: [number, number, number, number];
 }
 
+// Deterministic hash of arc identity — same arc always gets same phase offset,
+// but different arcs are spread randomly across the animation cycle.
+// Result: arcs fire out of sync, avoiding the "bombardment" synchronized pulse.
+function hashArc(arc: ArcData): number {
+  const str = `${arc.threat_type ?? ''}|${arc.brand_name ?? arc.target_brand ?? ''}|${arc.sourcePosition[0].toFixed(1)},${arc.sourcePosition[1].toFixed(1)}`;
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0; // force int32
+  }
+  return Math.abs(h);
+}
+
 function buildTripData(
   arcs: ArcData[],
   colorBy: 'severity' | 'type',
@@ -161,15 +174,29 @@ function buildTripData(
       perArcCap,
     );
 
+    // Per-arc phase offset: rotate this arc's particle schedule within the
+    // animation cycle. Arcs with different identity get different phases,
+    // so they don't all fire at the same instant (no synchronized bombardment).
+    const arcPhase = hashArc(arc) % CYCLE_LENGTH;
+
+    // Slight per-arc speed variation (±15%) — high-severity arcs feel more
+    // urgent, low-severity arcs feel more relaxed. Also breaks sync rhythm.
+    const sevSpeedMultiplier =
+      arc.severity === 'critical' ? 1.15
+      : arc.severity === 'high' ? 1.05
+      : arc.severity === 'low' ? 0.90
+      : 1.0;
+    const tripSpan = TRIP_SPAN / sevSpeedMultiplier;
+
     for (let j = 0; j < numParticles; j++) {
       if (totalParticles >= maxParticles) break;
-      // Stagger offsets evenly across CYCLE_LENGTH so particles flow continuously
-      const offset = (j / numParticles) * CYCLE_LENGTH;
+      // Rotate evenly-spaced offsets by arcPhase so arcs are desynchronized
+      const offset = ((j / numParticles) * CYCLE_LENGTH + arcPhase) % CYCLE_LENGTH;
       trips.push({
         path,
         // Each particle's timestamps span TRIP_SPAN (not CYCLE_LENGTH)
         // so trips are short and multiple particles are always in flight
-        timestamps: path.map((_, idx) => offset + (idx / (path.length - 1)) * TRIP_SPAN),
+        timestamps: path.map((_, idx) => offset + (idx / (path.length - 1)) * tripSpan),
         color,
       });
       totalParticles++;
