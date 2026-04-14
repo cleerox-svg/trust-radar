@@ -309,7 +309,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         b.name AS target_brand,
         b.canonical_domain AS target_domain,
         b.sector AS target_sector,
-        COUNT(*) AS volume
+        COUNT(*) AS volume,
+        MIN(t.created_at) AS first_seen,
+        MAX(t.created_at) AS last_seen
       FROM threats t
       JOIN brands b ON b.id = t.target_brand_id
       WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
@@ -323,6 +325,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       severity: string | null; source_country: string | null;
       target_brand: string | null; target_domain: string | null;
       target_sector: string | null; volume: number;
+      first_seen: string; last_seen: string;
     }>();
 
     const resultRows = rows.results ?? [];
@@ -343,6 +346,8 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
           target_brand: row.target_brand ?? "Unknown",
           brand_name: row.target_brand ?? null,
           volume: row.volume,
+          first_seen: row.first_seen,
+          last_seen: row.last_seen,
         };
       })
       .filter((a): a is NonNullable<typeof a> => a !== null);

@@ -82,6 +82,7 @@ export function ObservatoryV3() {
           showNodes={showNodes}
           colorBy={colorBy}
           mapMode={mapMode}
+          period={period}
           operations={operations}
           heatmapData={heatmapData}
           onArcClick={handleArcClick}
