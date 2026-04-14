@@ -92,4 +92,6 @@ if(trips.fadeTrail) {
   }
 }
 
-export { TripsLayer };
+// Export as any to work around deck.gl v9 constructor typing issues
+const TripsLayerExport = TripsLayer as any;
+export { TripsLayerExport as TripsLayer };
