@@ -31,6 +31,8 @@ export interface ArcData {
   target_brand: string;
   brand_name: string | null;
   volume: number;
+  first_seen?: string;
+  last_seen?: string;
 }
 
 export interface HeatmapPoint {

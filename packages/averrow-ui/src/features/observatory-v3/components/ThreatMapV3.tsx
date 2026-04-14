@@ -119,15 +119,27 @@ function parseJsonArray(val: string | null): string[] {
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 // ─── TripsLayer data builder ────────────────────────────────
-// CYCLE_LENGTH: time budget before the animation wraps (in animation units).
-// Longer = less frequent wrap, but more particles needed to fill it.
-// At 1.0 units/frame × 60fps = 60 units/sec, 1200 units = ~20 seconds per cycle.
-const CYCLE_LENGTH = 1200;
+// Timeline replay model: the selected period (24h / 7d / 30d) is mapped
+// onto the animation CYCLE_LENGTH. Each arc has a "life window" within
+// the cycle, corresponding to when its threats actually occurred.
+// Arcs fade in when their window starts and fade out when it ends.
+//
+// Result: arcs appear/disappear organically across the timeline, with
+// only 15-25% of arcs active at any given moment. No more all-at-once
+// bombardment.
 
-// TRIP_SPAN: time it takes a single particle to traverse an arc.
-// 300 units = ~5 seconds per traversal. Decoupled from CYCLE_LENGTH so
-// multiple particles overlap instead of each spanning the full cycle.
-const TRIP_SPAN = 300;
+// CYCLE_LENGTH: one full "replay" of the selected period.
+// At 1.0 units/frame × 60fps = 60 units/sec, 3600 units = ~60 sec per cycle.
+const CYCLE_LENGTH = 3600;
+
+// TRIP_SPAN: time for one particle to traverse a single arc.
+// 180 units = ~3 seconds per traversal.
+const TRIP_SPAN = 180;
+
+// Minimum/maximum life window for an arc within the cycle (as fraction).
+// High-volume arcs "stay alive" longer; low-volume arcs appear as brief bursts.
+const MIN_LIFE_RATIO = 0.08;   // 8% of cycle = ~5 seconds
+const MAX_LIFE_RATIO = 0.35;   // 35% of cycle = ~21 seconds
 
 const MOBILE_MAX_PARTICLES = 800;
 const DESKTOP_MAX_PARTICLES = 6000;
@@ -138,9 +150,7 @@ interface TripDatum {
   color: [number, number, number, number];
 }
 
-// Deterministic hash of arc identity — same arc always gets same phase offset,
-// but different arcs are spread randomly across the animation cycle.
-// Result: arcs fire out of sync, avoiding the "bombardment" synchronized pulse.
+// Deterministic hash of arc identity — stable "random" value per arc
 function hashArc(arc: ArcData): number {
   const str = `${arc.threat_type ?? ''}|${arc.brand_name ?? arc.target_brand ?? ''}|${arc.sourcePosition[0].toFixed(1)},${arc.sourcePosition[1].toFixed(1)}`;
   let h = 0;
@@ -151,15 +161,59 @@ function hashArc(arc: ArcData): number {
   return Math.abs(h);
 }
 
+/**
+ * Compute the arc's life window within the animation cycle.
+ * If the arc has real timestamps, map them proportionally onto the cycle.
+ * If not, fall back to hash-based positioning.
+ */
+function computeLifeWindow(
+  arc: ArcData,
+  windowStartMs: number,
+  windowEndMs: number,
+): { start: number; duration: number } {
+  // Volume drives life duration — high-volume arcs feel more persistent
+  const volumeRatio = Math.min(1, Math.sqrt((arc.volume || 1)) / 10);
+  const lifeRatio = MIN_LIFE_RATIO + (MAX_LIFE_RATIO - MIN_LIFE_RATIO) * volumeRatio;
+  const duration = lifeRatio * CYCLE_LENGTH;
+
+  // If backend provided real timestamps, map them onto the cycle
+  if (arc.first_seen && arc.last_seen && windowEndMs > windowStartMs) {
+    const firstMs = new Date(arc.first_seen).getTime();
+    const lastMs = new Date(arc.last_seen).getTime();
+    const spanMs = windowEndMs - windowStartMs;
+
+    // Fraction of the window where this arc's threats occurred (0 to 1)
+    const startFrac = Math.max(0, Math.min(1, (firstMs - windowStartMs) / spanMs));
+    const endFrac = Math.max(0, Math.min(1, (lastMs - windowStartMs) / spanMs));
+
+    // Center the life window on the midpoint of this arc's activity
+    const activityCenter = (startFrac + endFrac) / 2;
+    const start = activityCenter * CYCLE_LENGTH - duration / 2;
+    return {
+      start: ((start % CYCLE_LENGTH) + CYCLE_LENGTH) % CYCLE_LENGTH,
+      duration,
+    };
+  }
+
+  // Fallback: use hash for stable "random" placement
+  const hash = hashArc(arc);
+  const maxStart = Math.max(1, CYCLE_LENGTH - duration);
+  return { start: hash % maxStart, duration };
+}
+
 function buildTripData(
   arcs: ArcData[],
   colorBy: 'severity' | 'type',
   isMobile: boolean,
+  periodMs: number,
 ): TripDatum[] {
   const trips: TripDatum[] = [];
   let totalParticles = 0;
   const maxParticles = isMobile ? MOBILE_MAX_PARTICLES : DESKTOP_MAX_PARTICLES;
-  const perArcCap = isMobile ? 10 : 20;
+  const perArcCap = isMobile ? 8 : 15;
+
+  const now = Date.now();
+  const windowStart = now - periodMs;
 
   for (const arc of arcs) {
     if (totalParticles >= maxParticles) break;
@@ -168,41 +222,52 @@ function buildTripData(
       arc.targetPosition[0], arc.targetPosition[1],
     );
     const color = getArcColor(arc, colorBy, 220);
-    // More generous volume tracking: 0.8 multiplier (was 0.4), higher cap
+
+    // Number of particles scales with volume, capped per-arc
     const numParticles = Math.min(
-      Math.max(3, Math.ceil((arc.volume || 1) * 0.8)),
+      Math.max(2, Math.ceil((arc.volume || 1) * 0.6)),
       perArcCap,
     );
 
-    // Per-arc phase offset: rotate this arc's particle schedule within the
-    // animation cycle. Arcs with different identity get different phases,
-    // so they don't all fire at the same instant (no synchronized bombardment).
-    const arcPhase = hashArc(arc) % CYCLE_LENGTH;
+    // Compute this arc's life window within the cycle
+    const { start, duration } = computeLifeWindow(arc, windowStart, now);
 
-    // Slight per-arc speed variation (±15%) — high-severity arcs feel more
-    // urgent, low-severity arcs feel more relaxed. Also breaks sync rhythm.
+    // Severity-based speed variation (still keep this — adds organic feel)
     const sevSpeedMultiplier =
-      arc.severity === 'critical' ? 1.15
-      : arc.severity === 'high' ? 1.05
-      : arc.severity === 'low' ? 0.90
+      arc.severity === 'critical' ? 1.20
+      : arc.severity === 'high' ? 1.08
+      : arc.severity === 'low' ? 0.85
       : 1.0;
     const tripSpan = TRIP_SPAN / sevSpeedMultiplier;
 
+    // Spread particles across the life window
+    // Leave TRIP_SPAN headroom at the end so the last particle completes before window ends
+    const effectiveDuration = Math.max(TRIP_SPAN, duration - tripSpan);
+
     for (let j = 0; j < numParticles; j++) {
       if (totalParticles >= maxParticles) break;
-      // Rotate evenly-spaced offsets by arcPhase so arcs are desynchronized
-      const offset = ((j / numParticles) * CYCLE_LENGTH + arcPhase) % CYCLE_LENGTH;
+      const offsetWithinLife = (j / Math.max(1, numParticles - 1)) * effectiveDuration;
+      const tripStart = start + offsetWithinLife;
       trips.push({
         path,
-        // Each particle's timestamps span TRIP_SPAN (not CYCLE_LENGTH)
-        // so trips are short and multiple particles are always in flight
-        timestamps: path.map((_, idx) => offset + (idx / (path.length - 1)) * tripSpan),
+        timestamps: path.map((_, idx) => tripStart + (idx / (path.length - 1)) * tripSpan),
         color,
       });
       totalParticles++;
     }
   }
   return trips;
+}
+
+// Map period string → duration in ms
+function periodToMs(period: string): number {
+  switch (period) {
+    case '24h': return 24 * 60 * 60 * 1000;
+    case '7d':  return 7 * 24 * 60 * 60 * 1000;
+    case '30d': return 30 * 24 * 60 * 60 * 1000;
+    case '90d': return 90 * 24 * 60 * 60 * 1000;
+    default: return 7 * 24 * 60 * 60 * 1000;
+  }
 }
 
 // ─── Props ──────────────────────────────────────────────────
@@ -214,6 +279,7 @@ interface ThreatMapV3Props {
   showNodes: boolean;
   colorBy: 'severity' | 'type';
   mapMode: MapMode;
+  period: string; // 24h, 7d, 30d, 90d — drives timeline replay mapping
   operations?: Operation[];
   heatmapData?: HeatmapPoint[];
   onArcClick?: (arc: ArcData, x: number, y: number) => void;
@@ -284,7 +350,7 @@ export function ThreatMapV3(props: ThreatMapV3Props) {
 
 function ThreatMapV3Inner({
   threats, arcs, showBeams, showParticles, showNodes, colorBy,
-  mapMode, operations = [], heatmapData = [],
+  mapMode, period, operations = [], heatmapData = [],
   onArcClick, onClusterClick, onContextLost,
 }: ThreatMapV3Props & { onContextLost: () => void }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -353,8 +419,8 @@ function ThreatMapV3Inner({
 
   // ─── Pre-compute trip data for TripsLayer (memoized on arcs change) ───
   const tripData = useMemo(
-    () => buildTripData(arcs, colorBy, isMobile),
-    [arcs, colorBy, isMobile],
+    () => buildTripData(arcs, colorBy, isMobile, periodToMs(period)),
+    [arcs, colorBy, isMobile, period],
   );
 
   // ─── Build static layers ──────────────────────────────────
