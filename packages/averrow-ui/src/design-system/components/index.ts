@@ -24,6 +24,13 @@ export type { AvatarProps, AvatarSeverity } from '../../components/ui/Avatar';
 export { StatCard, SimpleStatCard, DetailStatCard } from '../../components/ui/StatCard';
 export type { StatCardProps } from '../../components/ui/StatCard';
 
+// ── Entity cards (unified across Brands / Providers / Campaigns / Threat Actors)
+export { EntityCard } from '../../components/ui/EntityCard';
+export type { EntityCardProps } from '../../components/ui/EntityCard';
+
+export { MetricTile } from '../../components/ui/MetricTile';
+export type { MetricTileProps } from '../../components/ui/MetricTile';
+
 // ── Data display ───────────────────────────────────────────────────────────
 export { DataRow, SeverityDot } from '../../components/ui/DataRow';
 export type { DataRowProps, SeverityDotProps } from '../../components/ui/DataRow';
