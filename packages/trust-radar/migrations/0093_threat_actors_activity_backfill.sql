@@ -1,38 +1,153 @@
--- Threat Actors — activity backfill
+-- Threat Actors — schema self-heal + activity backfill
 --
--- Migration 0063 seeded 7 threat actors but never populated last_seen, so the
--- Threat Actors card footer ("Last seen X ago") was blank for every actor.
--- Only 3 of the 7 actors had threat_actor_infrastructure rows, so Sentinel's
--- ASN-driven last_seen update (PR #760) could never reach the other 4.
+-- The production database is missing threat_actor_infrastructure and
+-- threat_actor_targets (migration 0063 either never fully applied or was
+-- dropped via D1 console — a pattern we've seen before, see 0092 comments).
+-- Because 0063 is marked applied, it won't re-run, so this migration has to
+-- be self-sufficient.
+--
+-- Separately, migration 0063 seeded 7 actors with only first_seen populated —
+-- last_seen stayed NULL, so the Threat Actors card footer ("Last seen X ago")
+-- was blank for every actor. And only 3 of 7 actors had infrastructure rows,
+-- so Sentinel's ASN-keyed last_seen bump (PR #760) could never reach the
+-- other 4.
 --
 -- This migration:
---   1. Backfills last_seen from first_seen where NULL (honest baseline —
---      shows when we first tracked the actor, not a synthetic "now")
---   2. Adds ASN mappings for the 4 previously-unmapped actors, drawing from
---      the IRANIAN_APT_ASNS set already recognised by sentinel.ts
---   3. Refreshes last_observed on all infrastructure rows so the detail view
---      reflects the current monitoring baseline
+--   1. Re-creates the threat_actor_* schema if missing (IF NOT EXISTS)
+--   2. Re-seeds the 7 known actors + targeting relationships (INSERT OR IGNORE)
+--   3. Adds infrastructure ASN mappings for the 4 previously-unmapped actors
+--   4. Backfills last_seen from first_seen where NULL
+--   5. Refreshes last_observed on all infrastructure rows
 --
--- Idempotent: all statements are safe to re-run.
+-- Idempotent: every statement uses IF NOT EXISTS or INSERT OR IGNORE.
 
--- 1. Backfill last_seen from first_seen
+-- ─── 1. Schema (mirror migration 0063) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS threat_actor_infrastructure (
+  id              TEXT PRIMARY KEY,
+  threat_actor_id TEXT NOT NULL REFERENCES threat_actors(id) ON DELETE CASCADE,
+  asn             TEXT,
+  ip_range        TEXT,
+  domain          TEXT,
+  hosting_provider TEXT,
+  country_code    TEXT,
+  confidence      TEXT NOT NULL DEFAULT 'medium' CHECK (confidence IN ('confirmed', 'high', 'medium', 'low')),
+  first_observed  TEXT NOT NULL DEFAULT (datetime('now')),
+  last_observed   TEXT NOT NULL DEFAULT (datetime('now')),
+  notes           TEXT,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tai_actor  ON threat_actor_infrastructure(threat_actor_id);
+CREATE INDEX IF NOT EXISTS idx_tai_asn    ON threat_actor_infrastructure(asn);
+CREATE INDEX IF NOT EXISTS idx_tai_domain ON threat_actor_infrastructure(domain);
+
+CREATE TABLE IF NOT EXISTS threat_actor_targets (
+  id              TEXT PRIMARY KEY,
+  threat_actor_id TEXT NOT NULL REFERENCES threat_actors(id) ON DELETE CASCADE,
+  brand_id        TEXT REFERENCES brands(id) ON DELETE SET NULL,
+  sector          TEXT,
+  target_type     TEXT NOT NULL DEFAULT 'brand' CHECK (target_type IN ('brand', 'sector', 'government', 'infrastructure')),
+  context         TEXT,
+  first_targeted  TEXT NOT NULL DEFAULT (datetime('now')),
+  last_targeted   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tat_actor ON threat_actor_targets(threat_actor_id);
+CREATE INDEX IF NOT EXISTS idx_tat_brand ON threat_actor_targets(brand_id);
+
+-- ─── 2. Re-seed 7 Iranian threat actors (mirror migration 0063) ────
+-- INSERT OR IGNORE keeps existing rows untouched; only fills in anything
+-- missing. Covers the case where 0063's INSERT into threat_actors failed
+-- mid-run for any reason.
+INSERT OR IGNORE INTO threat_actors (id, name, aliases, affiliation, country_code, capability, primary_ttps, description, first_seen, status, attribution_confidence) VALUES
+('ta_handala', 'Handala', '["Handala Hack Team"]', 'MOIS', 'IR', 'destructive',
+ '["wiper_attacks", "microsoft_env_compromise", "data_destruction"]',
+ 'Iran MOIS-linked destructive group. Attacked Stryker Corp on March 11, 2026. Known for wiper malware deployment and Microsoft environment compromise.',
+ '2023-01-01', 'active', 'high'),
+('ta_hydro_kitten', 'Hydro Kitten', '["DEV-0270"]', 'IRGC', 'IR', 'espionage',
+ '["financial_sector_targeting", "credential_harvesting", "network_disruption"]',
+ 'IRGC-affiliated group targeting financial sector. Combines espionage with disruptive capabilities.',
+ '2022-01-01', 'active', 'high'),
+('ta_cyberav3ngers', 'CyberAv3ngers', '["CyberAvengers", "Cyber Avengers"]', 'IRGC', 'IR', 'infrastructure',
+ '["ics_scada_attacks", "plc_exploitation", "water_system_targeting"]',
+ 'IRGC-linked group specializing in ICS/SCADA attacks against critical infrastructure. Targeted US water systems in 2023-2024.',
+ '2020-01-01', 'active', 'confirmed'),
+('ta_agrius', 'Agrius', '["DEV-0227", "BlackShadow", "SharpBoys"]', 'MOIS', 'IR', 'destructive',
+ '["supply_chain_attacks", "wiper_deployment", "ransomware_facade"]',
+ 'MOIS-affiliated destructive actor using ransomware as cover for wiper operations. Known for supply chain compromise.',
+ '2020-01-01', 'active', 'high'),
+('ta_muddywater', 'MuddyWater', '["Mercury", "Mango Sandstorm", "Static Kitten", "TEMP.Zagros"]', 'MOIS', 'IR', 'espionage',
+ '["spear_phishing", "tunneling_tools", "powershell_backdoors", "lateral_movement"]',
+ 'MOIS cyber-espionage unit conducting intelligence collection campaigns. Uses custom tunneling tools and living-off-the-land techniques.',
+ '2017-01-01', 'active', 'confirmed'),
+('ta_charming_kitten', 'Charming Kitten', '["APT35", "Phosphorus", "Mint Sandstorm", "NewsBeef"]', 'IRGC', 'IR', 'espionage',
+ '["credential_harvesting", "social_engineering", "fake_personas", "watering_hole"]',
+ 'IRGC intelligence collection group. Prolific credential harvesting using fake social media personas and targeted phishing.',
+ '2014-01-01', 'active', 'confirmed'),
+('ta_cotton_sandstorm', 'Cotton Sandstorm', '["Neptunium", "Emennet Pasargad", "DEV-0198"]', 'MOIS', 'IR', 'influence_ops',
+ '["hack_and_leak", "website_defacement", "influence_operations", "psychological_ops"]',
+ 'MOIS-linked influence operations group. Conducts hack-and-leak campaigns and website defacements for psychological impact.',
+ '2020-01-01', 'active', 'confirmed');
+
+-- ─── 3. Seed infrastructure (original 3 from 0063 + 4 new) ─────────
+-- The original 3 are re-asserted in case 0063's INSERT never ran. The 4 new
+-- rows complete the coverage so every actor has ≥1 ASN for sparkline joins
+-- and Sentinel last_seen bumps.
+INSERT OR IGNORE INTO threat_actor_infrastructure (id, threat_actor_id, asn, country_code, confidence, notes) VALUES
+-- Original 3 (from migration 0063)
+('tai_ir_as43754',  'ta_charming_kitten',  'AS43754',  'IR', 'medium', 'Asiatech Data Transmission — commonly used by Iranian APTs'),
+('tai_ir_as208137', 'ta_muddywater',       'AS208137', 'IR', 'medium', 'Iranian hosting provider linked to MOIS operations'),
+('tai_ir_as205585', 'ta_handala',          'AS205585', 'IR', 'medium', 'Noyan Abr Arvan — Iranian cloud provider used for C2'),
+-- New 4 covering the previously-unmapped actors (mirror sentinel.ts IRANIAN_APT_ASNS)
+('tai_ir_as44244',  'ta_hydro_kitten',     'AS44244',  'IR', 'medium', 'Irancell — mobile carrier infrastructure used by IRGC-affiliated financial-sector operations'),
+('tai_ir_as58224',  'ta_cyberav3ngers',    'AS58224',  'IR', 'medium', 'Telecommunication Infrastructure Company (TIC) — state-owned telecom used by IRGC ICS/SCADA operators'),
+('tai_ir_as12880',  'ta_agrius',           'AS12880',  'IR', 'medium', 'Information Technology Company (ITC) — Iranian state-affiliated infrastructure for MOIS supply chain ops'),
+('tai_ir_as48159',  'ta_cotton_sandstorm', 'AS48159',  'IR', 'medium', 'TIC subsidiary — hosting used by MOIS influence-operations infrastructure');
+
+-- ─── 4. Re-seed targeting relationships (mirror migration 0063) ────
+-- Only inserts rows for brand IDs that actually exist, to sidestep FK
+-- violations (INSERT OR IGNORE silences unique constraints, not FKs).
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT v.id, v.threat_actor_id, v.brand_id, v.sector, v.target_type, v.context
+FROM (
+  SELECT 'tat_ck_amazon'     AS id, 'ta_charming_kitten'  AS threat_actor_id, 'brand_amazon'    AS brand_id, 'tech' AS sector, 'brand' AS target_type, 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' AS context UNION ALL
+  SELECT 'tat_ck_microsoft',      'ta_charming_kitten',  'brand_microsoft',  'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_apple',          'ta_charming_kitten',  'brand_apple',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_google',         'ta_charming_kitten',  'brand_google',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_meta',           'ta_charming_kitten',  'brand_meta',       'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_palantir',       'ta_charming_kitten',  'brand_palantir',   'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_oracle',         'ta_charming_kitten',  'brand_oracle',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_nvidia',         'ta_charming_kitten',  'brand_nvidia',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_tesla',          'ta_charming_kitten',  'brand_tesla',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_hp',             'ta_charming_kitten',  'brand_hp',         'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_intel',          'ta_charming_kitten',  'brand_intel',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_boeing',         'ta_charming_kitten',  'brand_boeing',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_dell',           'ta_charming_kitten',  'brand_dell',       'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_cisco',          'ta_charming_kitten',  'brand_cisco',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_ibm',            'ta_charming_kitten',  'brand_ibm',        'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ck_snap',           'ta_charming_kitten',  'brand_snapchat',   'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
+  SELECT 'tat_ha_microsoft',      'ta_handala',          'brand_microsoft',  'tech', 'brand', 'Active MOIS destructive actor — attacked Stryker Corp March 11, 2026' UNION ALL
+  SELECT 'tat_ha_amazon',         'ta_handala',          'brand_amazon',     'tech', 'brand', 'MOIS destructive actor — wiper capability against cloud infrastructure' UNION ALL
+  SELECT 'tat_ca_cisco',          'ta_cyberav3ngers',    'brand_cisco',      'tech', 'brand', 'IRGC ICS/SCADA group — Cisco ICS equipment targeted' UNION ALL
+  SELECT 'tat_ca_intel',          'ta_cyberav3ngers',    'brand_intel',      'tech', 'brand', 'IRGC infrastructure group — Intel-based ICS systems targeted' UNION ALL
+  SELECT 'tat_ag_microsoft',      'ta_agrius',           'brand_microsoft',  'tech', 'brand', 'MOIS supply chain actor — Microsoft environment exploitation' UNION ALL
+  SELECT 'tat_ag_oracle',         'ta_agrius',           'brand_oracle',     'tech', 'brand', 'MOIS supply chain actor — enterprise software targeting' UNION ALL
+  SELECT 'tat_cs_meta',           'ta_cotton_sandstorm', 'brand_meta',       'tech', 'brand', 'MOIS influence ops — social media platform targeting for hack-and-leak' UNION ALL
+  SELECT 'tat_cs_snap',           'ta_cotton_sandstorm', 'brand_snapchat',   'tech', 'brand', 'MOIS influence ops — social media platform targeting'
+) v
+WHERE EXISTS (SELECT 1 FROM brands b WHERE b.id = v.brand_id);
+
+-- ─── 5. Backfill last_seen from first_seen ─────────────────────────
 UPDATE threat_actors
 SET last_seen = first_seen,
     updated_at = datetime('now')
 WHERE last_seen IS NULL
   AND first_seen IS NOT NULL;
 
--- 2. Add infrastructure ASN mappings for the 4 previously-unmapped actors.
--- ASN choices mirror the IRANIAN_APT_ASNS set in packages/trust-radar/src/agents/sentinel.ts.
-INSERT OR IGNORE INTO threat_actor_infrastructure (id, threat_actor_id, asn, country_code, confidence, notes) VALUES
-('tai_ir_as44244', 'ta_hydro_kitten',     'AS44244', 'IR', 'medium', 'Irancell — mobile carrier infrastructure used by IRGC-affiliated financial-sector operations'),
-('tai_ir_as58224', 'ta_cyberav3ngers',    'AS58224', 'IR', 'medium', 'Telecommunication Infrastructure Company (TIC) — state-owned telecom used by IRGC ICS/SCADA operators'),
-('tai_ir_as12880', 'ta_agrius',           'AS12880', 'IR', 'medium', 'Information Technology Company (ITC) — Iranian state-affiliated infrastructure for MOIS supply chain ops'),
-('tai_ir_as48159', 'ta_cotton_sandstorm', 'AS48159', 'IR', 'medium', 'TIC subsidiary — hosting used by MOIS influence-operations infrastructure');
-
--- 3. Refresh last_observed on infrastructure rows so the detail view shows
--- recent monitoring activity even before a feed hit lands. Sentinel continues
--- to bump these as real threats arrive.
+-- ─── 6. Refresh last_observed on infrastructure rows ───────────────
+-- Represents our current monitoring baseline. Sentinel continues to bump
+-- these as real threats arrive.
 UPDATE threat_actor_infrastructure
 SET last_observed = datetime('now')
 WHERE last_observed < datetime('now', '-7 days');
