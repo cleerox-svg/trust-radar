@@ -611,11 +611,11 @@ export function ThreatActors() {
         onChange={(v) => setFilter(v as CountryFilter)}
       />
 
-      {/* Actor List */}
+      {/* Actor List — grid collapses to 1 col on narrow viewports via min(100%,…) */}
       {isLoading ? (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 480px), 1fr))',
           gap: 12,
         }}>
           {Array.from({ length: 6 }).map((_, i) => (
@@ -625,7 +625,7 @@ export function ThreatActors() {
       ) : actors && actors.length > 0 ? (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 480px), 1fr))',
           gap: 12,
         }}>
           {actors.map(actor => (
