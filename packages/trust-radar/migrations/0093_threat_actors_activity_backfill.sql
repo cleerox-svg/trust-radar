@@ -1,10 +1,19 @@
 -- Threat Actors — schema self-heal + activity backfill
 --
--- The production database is missing threat_actor_infrastructure and
--- threat_actor_targets (migration 0063 either never fully applied or was
--- dropped via D1 console — a pattern we've seen before, see 0092 comments).
--- Because 0063 is marked applied, it won't re-run, so this migration has to
--- be self-sufficient.
+-- Two compounding schema problems in production:
+--
+-- (A) threat_actors itself exists but with a divergent schema — it is missing
+--     the columns that migration 0063 defined (affiliation, country_code,
+--     capability, primary_ttps, attribution_confidence, source). The table
+--     was presumably created by an earlier or manually-run variant, so
+--     0063's `CREATE TABLE IF NOT EXISTS` was a no-op. The handler has
+--     bounced between the two naming schemes (commits 6212670 on Apr 2
+--     used attribution/country/ttps, then 51bc0fc on Apr 14 reverted to
+--     the 0063 names). CI now confirms the 0063 names don't exist:
+--     "table threat_actors has no column named affiliation".
+--
+-- (B) threat_actor_infrastructure and threat_actor_targets don't exist at
+--     all — same pattern as 0092 notes.
 --
 -- Separately, migration 0063 seeded 7 actors with only first_seen populated —
 -- last_seen stayed NULL, so the Threat Actors card footer ("Last seen X ago")
@@ -13,15 +22,35 @@
 -- other 4.
 --
 -- This migration:
---   1. Re-creates the threat_actor_* schema if missing (IF NOT EXISTS)
---   2. Re-seeds the 7 known actors + targeting relationships (INSERT OR IGNORE)
---   3. Adds infrastructure ASN mappings for the 4 previously-unmapped actors
---   4. Backfills last_seen from first_seen where NULL
---   5. Refreshes last_observed on all infrastructure rows
+--   1. Adds the missing columns to threat_actors via ALTER TABLE
+--   2. Creates threat_actor_infrastructure / threat_actor_targets if missing
+--   3. Upserts the 7 known actors (INSERT ON CONFLICT DO UPDATE so any
+--      pre-existing rows get the newly-added columns populated too)
+--   4. Seeds infrastructure (3 original + 4 new) and targeting relationships
+--   5. Backfills last_seen from first_seen
+--   6. Refreshes last_observed on infrastructure rows
 --
--- Idempotent: every statement uses IF NOT EXISTS or INSERT OR IGNORE.
+-- Non-idempotent bits: the ALTER TABLE ADD COLUMN statements will error if
+-- the columns already exist. Based on the CI evidence that affiliation is
+-- missing, we expect the others (set by the same original migration) to be
+-- missing too. If this migration fails on a later ALTER, we iterate.
 
--- ─── 1. Schema (mirror migration 0063) ─────────────────────────────
+-- ─── 1. Align threat_actors schema to 0063 canon ───────────────────
+-- Add the columns the handler expects (affiliation, country_code, etc.).
+-- Existing columns that diverge (attribution/country/ttps) are left in
+-- place — they're harmless extras the handler no longer references.
+ALTER TABLE threat_actors ADD COLUMN affiliation TEXT;
+ALTER TABLE threat_actors ADD COLUMN country_code TEXT;
+ALTER TABLE threat_actors ADD COLUMN capability TEXT;
+ALTER TABLE threat_actors ADD COLUMN primary_ttps TEXT;
+ALTER TABLE threat_actors ADD COLUMN attribution_confidence TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE threat_actors ADD COLUMN source TEXT DEFAULT 'manual';
+
+CREATE INDEX IF NOT EXISTS idx_threat_actors_country ON threat_actors(country_code);
+CREATE INDEX IF NOT EXISTS idx_threat_actors_status ON threat_actors(status);
+CREATE INDEX IF NOT EXISTS idx_threat_actors_affiliation ON threat_actors(affiliation);
+
+-- ─── 2. Ensure join tables exist (mirror migration 0063) ───────────
 CREATE TABLE IF NOT EXISTS threat_actor_infrastructure (
   id              TEXT PRIMARY KEY,
   threat_actor_id TEXT NOT NULL REFERENCES threat_actors(id) ON DELETE CASCADE,
@@ -56,11 +85,12 @@ CREATE TABLE IF NOT EXISTS threat_actor_targets (
 CREATE INDEX IF NOT EXISTS idx_tat_actor ON threat_actor_targets(threat_actor_id);
 CREATE INDEX IF NOT EXISTS idx_tat_brand ON threat_actor_targets(brand_id);
 
--- ─── 2. Re-seed 7 Iranian threat actors (mirror migration 0063) ────
--- INSERT OR IGNORE keeps existing rows untouched; only fills in anything
--- missing. Covers the case where 0063's INSERT into threat_actors failed
--- mid-run for any reason.
-INSERT OR IGNORE INTO threat_actors (id, name, aliases, affiliation, country_code, capability, primary_ttps, description, first_seen, status, attribution_confidence) VALUES
+-- ─── 3. Upsert the 7 Iranian threat actors ─────────────────────────
+-- INSERT inserts missing rows; ON CONFLICT DO UPDATE populates the
+-- newly-added columns on rows that already exist in prod (where the old
+-- schema left them NULL). We deliberately don't touch first_seen, last_seen,
+-- or status on existing rows — Sentinel may have updated those.
+INSERT INTO threat_actors (id, name, aliases, affiliation, country_code, capability, primary_ttps, description, first_seen, status, attribution_confidence) VALUES
 ('ta_handala', 'Handala', '["Handala Hack Team"]', 'MOIS', 'IR', 'destructive',
  '["wiper_attacks", "microsoft_env_compromise", "data_destruction"]',
  'Iran MOIS-linked destructive group. Attacked Stryker Corp on March 11, 2026. Known for wiper malware deployment and Microsoft environment compromise.',
@@ -88,24 +118,30 @@ INSERT OR IGNORE INTO threat_actors (id, name, aliases, affiliation, country_cod
 ('ta_cotton_sandstorm', 'Cotton Sandstorm', '["Neptunium", "Emennet Pasargad", "DEV-0198"]', 'MOIS', 'IR', 'influence_ops',
  '["hack_and_leak", "website_defacement", "influence_operations", "psychological_ops"]',
  'MOIS-linked influence operations group. Conducts hack-and-leak campaigns and website defacements for psychological impact.',
- '2020-01-01', 'active', 'confirmed');
+ '2020-01-01', 'active', 'confirmed')
+ON CONFLICT(id) DO UPDATE SET
+  affiliation            = COALESCE(threat_actors.affiliation,            excluded.affiliation),
+  country_code           = COALESCE(threat_actors.country_code,           excluded.country_code),
+  capability             = COALESCE(threat_actors.capability,             excluded.capability),
+  primary_ttps           = COALESCE(threat_actors.primary_ttps,           excluded.primary_ttps),
+  attribution_confidence = COALESCE(threat_actors.attribution_confidence, excluded.attribution_confidence),
+  aliases                = COALESCE(threat_actors.aliases,                excluded.aliases),
+  description            = COALESCE(threat_actors.description,            excluded.description),
+  updated_at             = datetime('now');
 
--- ─── 3. Seed infrastructure (original 3 from 0063 + 4 new) ─────────
--- The original 3 are re-asserted in case 0063's INSERT never ran. The 4 new
--- rows complete the coverage so every actor has ≥1 ASN for sparkline joins
--- and Sentinel last_seen bumps.
+-- ─── 4. Seed infrastructure (original 3 from 0063 + 4 new) ─────────
+-- Covers all 7 actors so every one has ≥1 ASN for sparkline joins and
+-- Sentinel last_seen bumps.
 INSERT OR IGNORE INTO threat_actor_infrastructure (id, threat_actor_id, asn, country_code, confidence, notes) VALUES
--- Original 3 (from migration 0063)
 ('tai_ir_as43754',  'ta_charming_kitten',  'AS43754',  'IR', 'medium', 'Asiatech Data Transmission — commonly used by Iranian APTs'),
 ('tai_ir_as208137', 'ta_muddywater',       'AS208137', 'IR', 'medium', 'Iranian hosting provider linked to MOIS operations'),
 ('tai_ir_as205585', 'ta_handala',          'AS205585', 'IR', 'medium', 'Noyan Abr Arvan — Iranian cloud provider used for C2'),
--- New 4 covering the previously-unmapped actors (mirror sentinel.ts IRANIAN_APT_ASNS)
 ('tai_ir_as44244',  'ta_hydro_kitten',     'AS44244',  'IR', 'medium', 'Irancell — mobile carrier infrastructure used by IRGC-affiliated financial-sector operations'),
 ('tai_ir_as58224',  'ta_cyberav3ngers',    'AS58224',  'IR', 'medium', 'Telecommunication Infrastructure Company (TIC) — state-owned telecom used by IRGC ICS/SCADA operators'),
 ('tai_ir_as12880',  'ta_agrius',           'AS12880',  'IR', 'medium', 'Information Technology Company (ITC) — Iranian state-affiliated infrastructure for MOIS supply chain ops'),
 ('tai_ir_as48159',  'ta_cotton_sandstorm', 'AS48159',  'IR', 'medium', 'TIC subsidiary — hosting used by MOIS influence-operations infrastructure');
 
--- ─── 4. Re-seed targeting relationships (mirror migration 0063) ────
+-- ─── 5. Seed targeting relationships (mirror migration 0063) ───────
 -- Only inserts rows for brand IDs that actually exist, to sidestep FK
 -- violations (INSERT OR IGNORE silences unique constraints, not FKs).
 INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
@@ -138,14 +174,14 @@ FROM (
 ) v
 WHERE EXISTS (SELECT 1 FROM brands b WHERE b.id = v.brand_id);
 
--- ─── 5. Backfill last_seen from first_seen ─────────────────────────
+-- ─── 6. Backfill last_seen from first_seen ─────────────────────────
 UPDATE threat_actors
 SET last_seen = first_seen,
     updated_at = datetime('now')
 WHERE last_seen IS NULL
   AND first_seen IS NOT NULL;
 
--- ─── 6. Refresh last_observed on infrastructure rows ───────────────
+-- ─── 7. Refresh last_observed on infrastructure rows ───────────────
 -- Represents our current monitoring baseline. Sentinel continues to bump
 -- these as real threats arrive.
 UPDATE threat_actor_infrastructure
