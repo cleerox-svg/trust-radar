@@ -67,13 +67,19 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     // Column names from actual DB schema (migration 0063), aliased to the
     // shape the frontend expects. target_sectors and active_campaigns are
     // derived/NULL for now (not stored as columns).
+    //
+    // last_seen falls back to first_seen so the card footer always has a
+    // date to render. Migration 0093 backfills last_seen in the DB, but this
+    // COALESCE keeps the API honest for any row where Sentinel hasn't bumped
+    // last_seen yet.
     const selectCols = `ta.id, ta.name, ta.aliases,
           ta.affiliation AS attribution,
           ta.country_code AS country,
           ta.primary_ttps AS ttps,
           ta.capability,
           ta.description,
-          ta.first_seen, ta.last_seen,
+          ta.first_seen,
+          COALESCE(ta.last_seen, ta.first_seen) AS last_seen,
           ta.status, ta.attribution_confidence,
           ta.created_at, ta.updated_at,
           NULL AS target_sectors,
@@ -241,7 +247,9 @@ export async function handleGetThreatActor(request: Request, env: Env, id: strin
              primary_ttps AS ttps,
              capability,
              description,
-             first_seen, last_seen, status, attribution_confidence,
+             first_seen,
+             COALESCE(last_seen, first_seen) AS last_seen,
+             status, attribution_confidence,
              created_at, updated_at,
              NULL AS target_sectors,
              NULL AS active_campaigns
@@ -308,7 +316,9 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
                ta.primary_ttps AS ttps,
                ta.capability,
                ta.description,
-               ta.first_seen, ta.last_seen, ta.status,
+               ta.first_seen,
+               COALESCE(ta.last_seen, ta.first_seen) AS last_seen,
+               ta.status,
                ta.created_at, ta.updated_at,
                NULL AS target_sectors,
                NULL AS active_campaigns,

@@ -198,7 +198,13 @@ export const sentinelAgent: AgentModule = {
         });
 
         // Update threat actor activity tracking — last_seen + last_observed.
-        // Links this threat's ASN to any threat actor with matching infrastructure.
+        // Tiered match, most specific first:
+        //   1. Exact ASN → bump that specific actor
+        //   2. No ASN match but threat country is known (e.g. 'IR') →
+        //      bump every active actor from that country. Coarser, but we
+        //      already know this threat came from Iranian APT infrastructure
+        //      (we're inside the IRANIAN_APT_ASNS branch), so it's a
+        //      meaningful signal that the whole cluster is live.
         // Non-blocking: failures don't impact the classification path.
         try {
           const actorIdRow = await env.DB.prepare(
@@ -219,6 +225,17 @@ export const sentinelAgent: AgentModule = {
                 `UPDATE threat_actor_targets SET last_targeted = datetime('now') WHERE threat_actor_id = ? AND brand_id = ?`
               ).bind(actorIdRow.threat_actor_id, threat.target_brand_id).run();
             }
+          } else if (threat.country_code) {
+            // Country-level fallback: bump every active actor from that
+            // country. Scoped to 'active' status so disrupted/dormant actors
+            // don't get falsely resurrected.
+            await env.DB.prepare(
+              `UPDATE threat_actors
+                  SET last_seen = datetime('now'),
+                      updated_at = datetime('now')
+                WHERE country_code = ?
+                  AND status = 'active'`
+            ).bind(threat.country_code).run();
           }
         } catch (err) {
           // swallow: threat_actor_* tables optional, don't block Sentinel
