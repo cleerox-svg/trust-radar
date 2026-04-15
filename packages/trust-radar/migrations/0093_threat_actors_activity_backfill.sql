@@ -145,54 +145,112 @@ INSERT OR IGNORE INTO threat_actor_infrastructure (id, threat_actor_id, asn, cou
 -- Only inserts rows for brand IDs that actually exist, to sidestep FK
 -- violations (INSERT OR IGNORE silences unique constraints, not FKs).
 --
--- Split into 3 batches of ≤10 rows each — D1's SQLITE_LIMIT_COMPOUND_SELECT
--- is much lower than standard SQLite's default 500, and rejected a single
--- 24-row UNION ALL with "too many terms in compound SELECT".
+-- One statement per row: D1's SQLITE_LIMIT_COMPOUND_SELECT rejects even
+-- 10-row UNION ALL blocks ("too many terms in compound SELECT"), so we
+-- avoid compound SELECTs entirely here. Multi-row VALUES in INSERT is
+-- fine (0024 uses 37-row VALUES successfully) — only explicit SELECT
+-- UNION SELECT chains trip the limit.
 
--- Batch 1: Charming Kitten targets (first 10 of 16)
+-- Charming Kitten (IRGC) — 16 targets
 INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
-SELECT v.id, v.threat_actor_id, v.brand_id, v.sector, v.target_type, v.context
-FROM (
-  SELECT 'tat_ck_amazon'     AS id, 'ta_charming_kitten' AS threat_actor_id, 'brand_amazon'    AS brand_id, 'tech' AS sector, 'brand' AS target_type, 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' AS context UNION ALL
-  SELECT 'tat_ck_microsoft',      'ta_charming_kitten', 'brand_microsoft',  'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_apple',          'ta_charming_kitten', 'brand_apple',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_google',         'ta_charming_kitten', 'brand_google',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_meta',           'ta_charming_kitten', 'brand_meta',       'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_palantir',       'ta_charming_kitten', 'brand_palantir',   'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_oracle',         'ta_charming_kitten', 'brand_oracle',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_nvidia',         'ta_charming_kitten', 'brand_nvidia',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_tesla',          'ta_charming_kitten', 'brand_tesla',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_hp',             'ta_charming_kitten', 'brand_hp',         'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
-) v
-WHERE EXISTS (SELECT 1 FROM brands b WHERE b.id = v.brand_id);
+SELECT 'tat_ck_amazon', 'ta_charming_kitten', 'brand_amazon', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_amazon');
 
--- Batch 2: Charming Kitten (last 6) + Handala + CyberAv3ngers (10 rows)
 INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
-SELECT v.id, v.threat_actor_id, v.brand_id, v.sector, v.target_type, v.context
-FROM (
-  SELECT 'tat_ck_intel'     AS id, 'ta_charming_kitten' AS threat_actor_id, 'brand_intel'    AS brand_id, 'tech' AS sector, 'brand' AS target_type, 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' AS context UNION ALL
-  SELECT 'tat_ck_boeing',        'ta_charming_kitten', 'brand_boeing',    'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_dell',          'ta_charming_kitten', 'brand_dell',      'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_cisco',         'ta_charming_kitten', 'brand_cisco',     'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_ibm',           'ta_charming_kitten', 'brand_ibm',       'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ck_snap',          'ta_charming_kitten', 'brand_snapchat',  'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline' UNION ALL
-  SELECT 'tat_ha_microsoft',     'ta_handala',         'brand_microsoft', 'tech', 'brand', 'Active MOIS destructive actor — attacked Stryker Corp March 11, 2026' UNION ALL
-  SELECT 'tat_ha_amazon',        'ta_handala',         'brand_amazon',    'tech', 'brand', 'MOIS destructive actor — wiper capability against cloud infrastructure' UNION ALL
-  SELECT 'tat_ca_cisco',         'ta_cyberav3ngers',   'brand_cisco',     'tech', 'brand', 'IRGC ICS/SCADA group — Cisco ICS equipment targeted' UNION ALL
-  SELECT 'tat_ca_intel',         'ta_cyberav3ngers',   'brand_intel',     'tech', 'brand', 'IRGC infrastructure group — Intel-based ICS systems targeted'
-) v
-WHERE EXISTS (SELECT 1 FROM brands b WHERE b.id = v.brand_id);
+SELECT 'tat_ck_microsoft', 'ta_charming_kitten', 'brand_microsoft', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_microsoft');
 
--- Batch 3: Agrius + Cotton Sandstorm (4 rows)
 INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
-SELECT v.id, v.threat_actor_id, v.brand_id, v.sector, v.target_type, v.context
-FROM (
-  SELECT 'tat_ag_microsoft' AS id, 'ta_agrius'           AS threat_actor_id, 'brand_microsoft' AS brand_id, 'tech' AS sector, 'brand' AS target_type, 'MOIS supply chain actor — Microsoft environment exploitation' AS context UNION ALL
-  SELECT 'tat_ag_oracle',        'ta_agrius',           'brand_oracle',    'tech', 'brand', 'MOIS supply chain actor — enterprise software targeting' UNION ALL
-  SELECT 'tat_cs_meta',          'ta_cotton_sandstorm', 'brand_meta',      'tech', 'brand', 'MOIS influence ops — social media platform targeting for hack-and-leak' UNION ALL
-  SELECT 'tat_cs_snap',          'ta_cotton_sandstorm', 'brand_snapchat',  'tech', 'brand', 'MOIS influence ops — social media platform targeting'
-) v
-WHERE EXISTS (SELECT 1 FROM brands b WHERE b.id = v.brand_id);
+SELECT 'tat_ck_apple', 'ta_charming_kitten', 'brand_apple', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_apple');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_google', 'ta_charming_kitten', 'brand_google', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_google');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_meta', 'ta_charming_kitten', 'brand_meta', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_meta');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_palantir', 'ta_charming_kitten', 'brand_palantir', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_palantir');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_oracle', 'ta_charming_kitten', 'brand_oracle', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_oracle');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_nvidia', 'ta_charming_kitten', 'brand_nvidia', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_nvidia');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_tesla', 'ta_charming_kitten', 'brand_tesla', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_tesla');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_hp', 'ta_charming_kitten', 'brand_hp', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_hp');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_intel', 'ta_charming_kitten', 'brand_intel', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_intel');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_boeing', 'ta_charming_kitten', 'brand_boeing', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_boeing');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_dell', 'ta_charming_kitten', 'brand_dell', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_dell');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_cisco', 'ta_charming_kitten', 'brand_cisco', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_cisco');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_ibm', 'ta_charming_kitten', 'brand_ibm', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_ibm');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ck_snap', 'ta_charming_kitten', 'brand_snapchat', 'tech', 'brand', 'IRGC Tasnim News Agency targeting list — April 2, 2026 deadline'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_snapchat');
+
+-- Handala (MOIS) — 2 targets
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ha_microsoft', 'ta_handala', 'brand_microsoft', 'tech', 'brand', 'Active MOIS destructive actor — attacked Stryker Corp March 11, 2026'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_microsoft');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ha_amazon', 'ta_handala', 'brand_amazon', 'tech', 'brand', 'MOIS destructive actor — wiper capability against cloud infrastructure'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_amazon');
+
+-- CyberAv3ngers (IRGC) — 2 targets
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ca_cisco', 'ta_cyberav3ngers', 'brand_cisco', 'tech', 'brand', 'IRGC ICS/SCADA group — Cisco ICS equipment targeted'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_cisco');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ca_intel', 'ta_cyberav3ngers', 'brand_intel', 'tech', 'brand', 'IRGC infrastructure group — Intel-based ICS systems targeted'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_intel');
+
+-- Agrius (MOIS) — 2 targets
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ag_microsoft', 'ta_agrius', 'brand_microsoft', 'tech', 'brand', 'MOIS supply chain actor — Microsoft environment exploitation'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_microsoft');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_ag_oracle', 'ta_agrius', 'brand_oracle', 'tech', 'brand', 'MOIS supply chain actor — enterprise software targeting'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_oracle');
+
+-- Cotton Sandstorm (MOIS) — 2 targets
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_cs_meta', 'ta_cotton_sandstorm', 'brand_meta', 'tech', 'brand', 'MOIS influence ops — social media platform targeting for hack-and-leak'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_meta');
+
+INSERT OR IGNORE INTO threat_actor_targets (id, threat_actor_id, brand_id, sector, target_type, context)
+SELECT 'tat_cs_snap', 'ta_cotton_sandstorm', 'brand_snapchat', 'tech', 'brand', 'MOIS influence ops — social media platform targeting'
+WHERE EXISTS (SELECT 1 FROM brands WHERE id = 'brand_snapchat');
 
 -- ─── 6. Backfill last_seen from first_seen ─────────────────────────
 UPDATE threat_actors
