@@ -85,8 +85,11 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
           NULL AS target_sectors,
           NULL AS active_campaigns`;
 
+    // Sort: active actors first, then by most recent signal (Sentinel
+    // bumps last_seen on ASN hits), alphabetical as a stable tiebreaker.
     const orderBy = `ORDER BY
           CASE ta.status WHEN 'active' THEN 0 ELSE 1 END,
+          COALESCE(ta.last_seen, ta.first_seen) DESC,
           ta.name`;
 
     // Run count + list + sparkline data in parallel — each with its own
