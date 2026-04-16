@@ -267,9 +267,12 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           trend: null,
           measured_at: row.recorded_at,
         };
-      } else if (row.rn === 2 && backlogTrends[row.backlog_name]) {
-        backlogTrends[row.backlog_name].previous = row.count;
-        backlogTrends[row.backlog_name].trend = backlogTrends[row.backlog_name].current - row.count;
+      } else if (row.rn === 2) {
+        const entry = backlogTrends[row.backlog_name];
+        if (entry) {
+          entry.previous = row.count;
+          entry.trend = entry.current - row.count;
+        }
       }
     }
 
