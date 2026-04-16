@@ -1,0 +1,14 @@
+name = "averrow-mcp"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set via `wrangler secret put` or Cloudflare dashboard):
+#   AVERROW_INTERNAL_SECRET  — the INTERNAL_SECRET from the trust-radar worker
+#   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
+
+# Deploy:
+#   cd packages/averrow-mcp
+#   wrangler deploy
+#
+# Or paste src/index.ts into Cloudflare Dashboard → Workers → Create → Quick Edit

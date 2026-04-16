@@ -272,15 +272,43 @@ export default {
         }
       }
 
-      // Platform diagnostics — programmatic access for Claude Code / monitoring
-      if (url.pathname === '/api/internal/platform-diagnostics' && request.method === 'GET') {
+      // ─── Internal GET endpoints (INTERNAL_SECRET auth, for MCP server) ──
+      if (url.pathname.startsWith('/api/internal/') && request.method === 'GET') {
         const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
         }
-        const { handlePlatformDiagnostics } = await import('./handlers/diagnostics');
-        return handlePlatformDiagnostics(request, env);
+
+        if (url.pathname === '/api/internal/platform-diagnostics') {
+          const { handlePlatformDiagnostics } = await import('./handlers/diagnostics');
+          return handlePlatformDiagnostics(request, env);
+        }
+        if (url.pathname === '/api/internal/system-health') {
+          const { handleSystemHealth } = await import('./handlers/admin');
+          return handleSystemHealth(request, env);
+        }
+        if (url.pathname === '/api/internal/pipeline-status') {
+          const { handlePipelineStatus } = await import('./handlers/admin');
+          return handlePipelineStatus(request, env);
+        }
+        if (url.pathname === '/api/internal/stats') {
+          const { handleAdminStats } = await import('./handlers/admin');
+          return handleAdminStats(request, env);
+        }
+        if (url.pathname === '/api/internal/budget/status') {
+          const { handleBudgetStatus } = await import('./handlers/budget');
+          return handleBudgetStatus(request, env);
+        }
+        if (url.pathname === '/api/internal/budget/ledger-health') {
+          const { handleBudgetLedgerHealth } = await import('./handlers/admin');
+          return handleBudgetLedgerHealth(request, env);
+        }
+        if (url.pathname.startsWith('/api/internal/agents/') && url.pathname.endsWith('/health')) {
+          const agentName = url.pathname.replace('/api/internal/agents/', '').replace('/health', '');
+          const { handleAgentHealth } = await import('./handlers/agents');
+          return handleAgentHealth(request, env, agentName);
+        }
       }
 
       // Manual briefing email trigger
