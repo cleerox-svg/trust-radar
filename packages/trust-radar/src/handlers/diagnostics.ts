@@ -1,0 +1,364 @@
+// Averrow — Platform Diagnostics Handler
+//
+// Comprehensive health check designed for programmatic consumption
+// (Claude Code, monitoring, incident triage). Returns enrichment pipeline
+// state, per-feed failure rates, per-agent run counts, backlog trends,
+// AI spend, and platform totals in a single response.
+
+import { json, corsHeaders } from "../lib/cors";
+import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
+import type { Env } from "../types";
+
+/** GET /api/admin/platform-diagnostics  (JWT admin auth)
+ *  GET /api/internal/platform-diagnostics (INTERNAL_SECRET auth) */
+export async function handlePlatformDiagnostics(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const url = new URL(request.url);
+  const hoursBack = Math.min(parseInt(url.searchParams.get("hours") ?? "6"), 48);
+
+  try {
+    // ─── 1. Database clock ──────────────────────────────────────────
+    const clockP = env.DB.prepare(
+      "SELECT datetime('now') AS utc_now"
+    ).first<{ utc_now: string }>();
+
+    // ─── 2. Enrichment pipeline ─────────────────────────────────────
+    const enrichmentP = env.DB.prepare(`
+      SELECT
+        COUNT(*) AS total_threats,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_threats,
+        SUM(CASE WHEN lat IS NOT NULL THEN 1 ELSE 0 END) AS total_enriched,
+        SUM(CASE WHEN lat IS NOT NULL AND enriched_at >= datetime('now', '-1 hour') THEN 1 ELSE 0 END) AS enriched_last_hour,
+        SUM(CASE WHEN lat IS NOT NULL AND enriched_at >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) AS enriched_last_24h,
+        SUM(CASE WHEN enriched_at IS NOT NULL AND lat IS NULL AND ip_address IS NOT NULL THEN 1 ELSE 0 END) AS stuck_pile,
+        SUM(CASE WHEN ip_address IS NULL AND malicious_domain IS NOT NULL THEN 1 ELSE 0 END) AS needs_dns
+      FROM threats
+    `).first<{
+      total_threats: number;
+      active_threats: number;
+      total_enriched: number;
+      enriched_last_hour: number;
+      enriched_last_24h: number;
+      stuck_pile: number;
+      needs_dns: number;
+    }>();
+
+    // Cartographer queue — matches actual Phase 0 query (private IPs excluded)
+    const cartoQueueP = env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM threats
+      WHERE enriched_at IS NULL
+        AND ip_address IS NOT NULL AND ip_address != ''
+        ${PRIVATE_IP_SQL_FILTER}
+    `).first<{ n: number }>();
+
+    // Cartographer queue WITHOUT private IP filter (for comparison — shows inflation)
+    const cartoQueueRawP = env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM threats
+      WHERE enriched_at IS NULL
+        AND ip_address IS NOT NULL AND ip_address != ''
+    `).first<{ n: number }>();
+
+    // ─── 3. Per-feed health ─────────────────────────────────────────
+    const feedHealthP = env.DB.prepare(`
+      SELECT
+        fph.feed_name,
+        fc.display_name,
+        fc.enabled,
+        fc.paused_reason,
+        COUNT(*) AS total_pulls,
+        SUM(CASE WHEN fph.status = 'success' THEN 1 ELSE 0 END) AS success,
+        SUM(CASE WHEN fph.status = 'partial' THEN 1 ELSE 0 END) AS partial,
+        SUM(CASE WHEN fph.status = 'failed' THEN 1 ELSE 0 END) AS failed,
+        COALESCE(SUM(fph.records_ingested), 0) AS total_ingested,
+        MAX(CASE WHEN fph.status = 'success' THEN fph.completed_at END) AS last_success_at,
+        MAX(CASE WHEN fph.status = 'failed' THEN fph.started_at END) AS last_failure_at
+      FROM feed_pull_history fph
+      LEFT JOIN feed_configs fc ON fc.feed_name = fph.feed_name
+      WHERE fph.started_at >= datetime('now', '-' || ? || ' hours')
+      GROUP BY fph.feed_name
+      ORDER BY failed DESC, fph.feed_name ASC
+    `).bind(hoursBack).all<{
+      feed_name: string;
+      display_name: string | null;
+      enabled: number | null;
+      paused_reason: string | null;
+      total_pulls: number;
+      success: number;
+      partial: number;
+      failed: number;
+      total_ingested: number;
+      last_success_at: string | null;
+      last_failure_at: string | null;
+    }>();
+
+    // Consecutive failures + auto-pause risk from feed_status
+    const feedStatusP = env.DB.prepare(`
+      SELECT fs.feed_name,
+             fs.consecutive_failures,
+             fs.health_status,
+             fs.last_error,
+             COALESCE(fc.consecutive_failure_threshold, 5) AS threshold
+      FROM feed_status fs
+      LEFT JOIN feed_configs fc ON fc.feed_name = fs.feed_name
+      WHERE fs.consecutive_failures > 0
+      ORDER BY fs.consecutive_failures DESC
+    `).all<{
+      feed_name: string;
+      consecutive_failures: number;
+      health_status: string;
+      last_error: string | null;
+      threshold: number;
+    }>();
+
+    // Recent feed errors (last 5 failed pulls with error messages)
+    const feedErrorsP = env.DB.prepare(`
+      SELECT feed_name, started_at, error_message
+      FROM feed_pull_history
+      WHERE status = 'failed' AND error_message IS NOT NULL
+        AND started_at >= datetime('now', '-' || ? || ' hours')
+      ORDER BY started_at DESC
+      LIMIT 20
+    `).bind(hoursBack).all<{
+      feed_name: string;
+      started_at: string;
+      error_message: string;
+    }>();
+
+    // ─── 4. Agent mesh ──────────────────────────────────────────────
+    const agentMeshP = env.DB.prepare(`
+      SELECT
+        agent_id,
+        COUNT(*) AS total_runs,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+        SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) AS partial,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running,
+        MAX(completed_at) AS last_completed_at,
+        MAX(CASE WHEN status = 'failed' THEN error_message END) AS last_error,
+        SUM(records_processed) AS total_records_processed,
+        AVG(duration_ms) AS avg_duration_ms
+      FROM agent_runs
+      WHERE started_at >= datetime('now', '-' || ? || ' hours')
+      GROUP BY agent_id
+      ORDER BY agent_id ASC
+    `).bind(hoursBack).all<{
+      agent_id: string;
+      total_runs: number;
+      success: number;
+      partial: number;
+      failed: number;
+      running: number;
+      last_completed_at: string | null;
+      last_error: string | null;
+      total_records_processed: number;
+      avg_duration_ms: number | null;
+    }>();
+
+    // Stalled agents — started but never completed in the last N hours
+    const stalledP = env.DB.prepare(`
+      SELECT agent_id, id AS run_id, started_at,
+             ROUND((julianday('now') - julianday(started_at)) * 24 * 60, 1) AS minutes_stalled
+      FROM agent_runs
+      WHERE status = 'running'
+        AND started_at < datetime('now', '-15 minutes')
+      ORDER BY started_at ASC
+      LIMIT 10
+    `).all<{
+      agent_id: string;
+      run_id: string;
+      started_at: string;
+      minutes_stalled: number;
+    }>();
+
+    // ─── 5. Backlog trends ──────────────────────────────────────────
+    const backlogP = env.DB.prepare(`
+      SELECT backlog_name, count, recorded_at,
+             ROW_NUMBER() OVER (PARTITION BY backlog_name ORDER BY recorded_at DESC) AS rn
+      FROM backlog_history
+      WHERE recorded_at > datetime('now', '-' || ? || ' hours')
+    `).bind(hoursBack).all<{
+      backlog_name: string;
+      count: number;
+      recorded_at: string;
+      rn: number;
+    }>();
+
+    // ─── 6. AI spend (last 24h) ─────────────────────────────────────
+    const aiSpendP = env.DB.prepare(`
+      SELECT
+        agent_id,
+        COUNT(*) AS calls,
+        SUM(input_tokens) AS input_tokens,
+        SUM(output_tokens) AS output_tokens,
+        ROUND(SUM(cost_usd), 4) AS cost_usd
+      FROM budget_ledger
+      WHERE created_at >= datetime('now', '-1 day')
+      GROUP BY agent_id
+      ORDER BY cost_usd DESC
+    `).all<{
+      agent_id: string;
+      calls: number;
+      input_tokens: number;
+      output_tokens: number;
+      cost_usd: number;
+    }>();
+
+    // ─── 7. Cron health (recent fast-tick + orchestrator) ───────────
+    const cronHealthP = env.DB.prepare(`
+      SELECT agent_id,
+             COUNT(*) AS runs,
+             SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+             SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS not_success,
+             MAX(completed_at) AS last_run_at,
+             AVG(duration_ms) AS avg_duration_ms
+      FROM agent_runs
+      WHERE agent_id IN ('fast_tick', 'flight_control', 'orchestrator')
+        AND started_at >= datetime('now', '-' || ? || ' hours')
+      GROUP BY agent_id
+    `).bind(hoursBack).all<{
+      agent_id: string;
+      runs: number;
+      success: number;
+      not_success: number;
+      last_run_at: string | null;
+      avg_duration_ms: number | null;
+    }>();
+
+    // ─── 8. Platform totals ─────────────────────────────────────────
+    const totalsP = env.DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM brands) AS brands,
+        (SELECT COUNT(*) FROM hosting_providers) AS providers,
+        (SELECT COUNT(*) FROM campaigns) AS campaigns,
+        (SELECT COUNT(*) FROM infrastructure_clusters) AS clusters,
+        (SELECT COUNT(*) FROM lookalike_domains) AS lookalike_domains,
+        (SELECT COUNT(*) FROM feed_configs WHERE enabled = 1) AS feeds_enabled,
+        (SELECT COUNT(*) FROM feed_configs WHERE enabled = 0) AS feeds_disabled
+    `).first<{
+      brands: number;
+      providers: number;
+      campaigns: number;
+      clusters: number;
+      lookalike_domains: number;
+      feeds_enabled: number;
+      feeds_disabled: number;
+    }>();
+
+    // ── Execute all in parallel ─────────────────────────────────────
+    const [
+      clock, enrichment, cartoQueue, cartoQueueRaw,
+      feedHealth, feedStatus, feedErrors,
+      agentMesh, stalled, backlog,
+      aiSpend, cronHealth, totals,
+    ] = await Promise.all([
+      clockP, enrichmentP, cartoQueueP, cartoQueueRawP,
+      feedHealthP, feedStatusP, feedErrorsP,
+      agentMeshP, stalledP, backlogP,
+      aiSpendP, cronHealthP, totalsP,
+    ]);
+
+    // ── Build backlog trend map ─────────────────────────────────────
+    const backlogTrends: Record<string, { current: number; previous: number | null; trend: number | null; measured_at: string | null }> = {};
+    for (const row of backlog.results) {
+      if (row.rn === 1) {
+        backlogTrends[row.backlog_name] = {
+          current: row.count,
+          previous: null,
+          trend: null,
+          measured_at: row.recorded_at,
+        };
+      } else if (row.rn === 2 && backlogTrends[row.backlog_name]) {
+        backlogTrends[row.backlog_name].previous = row.count;
+        backlogTrends[row.backlog_name].trend = backlogTrends[row.backlog_name].current - row.count;
+      }
+    }
+
+    // ── Build feeds-at-risk list ────────────────────────────────────
+    const feedsAtRisk = feedStatus.results
+      .filter(f => f.consecutive_failures >= Math.floor(f.threshold * 0.6))
+      .map(f => ({
+        feed_name: f.feed_name,
+        consecutive_failures: f.consecutive_failures,
+        threshold: f.threshold,
+        health_status: f.health_status,
+        last_error: f.last_error,
+        pct_to_auto_pause: Math.round((f.consecutive_failures / f.threshold) * 100),
+      }));
+
+    return json({
+      success: true,
+      data: {
+        _meta: {
+          generated_at: new Date().toISOString(),
+          db_clock_utc: clock?.utc_now ?? null,
+          window_hours: hoursBack,
+          endpoint_version: 1,
+        },
+
+        enrichment_pipeline: {
+          total_threats: enrichment?.total_threats ?? 0,
+          active_threats: enrichment?.active_threats ?? 0,
+          total_enriched: enrichment?.total_enriched ?? 0,
+          enriched_last_hour: enrichment?.enriched_last_hour ?? 0,
+          enriched_last_24h: enrichment?.enriched_last_24h ?? 0,
+          stuck_pile: enrichment?.stuck_pile ?? 0,
+          needs_dns: enrichment?.needs_dns ?? 0,
+          cartographer_queue: cartoQueue?.n ?? 0,
+          cartographer_queue_raw: cartoQueueRaw?.n ?? 0,
+          private_ip_inflation: (cartoQueueRaw?.n ?? 0) - (cartoQueue?.n ?? 0),
+        },
+
+        feeds: {
+          summary: {
+            total_feeds_with_activity: feedHealth.results.length,
+            total_pulls: feedHealth.results.reduce((s, f) => s + f.total_pulls, 0),
+            total_failures: feedHealth.results.reduce((s, f) => s + f.failed, 0),
+            total_ingested: feedHealth.results.reduce((s, f) => s + f.total_ingested, 0),
+          },
+          per_feed: feedHealth.results.map(f => ({
+            feed_name: f.feed_name,
+            display_name: f.display_name,
+            enabled: f.enabled === 1,
+            paused_reason: f.paused_reason,
+            pulls: f.total_pulls,
+            success: f.success,
+            partial: f.partial,
+            failed: f.failed,
+            failure_rate_pct: f.total_pulls > 0 ? Math.round((f.failed / f.total_pulls) * 100) : 0,
+            records_ingested: f.total_ingested,
+            last_success_at: f.last_success_at,
+            last_failure_at: f.last_failure_at,
+          })),
+          at_risk: feedsAtRisk,
+          recent_errors: feedErrors.results,
+        },
+
+        agent_mesh: {
+          summary: {
+            total_agents_active: agentMesh.results.length,
+            total_runs: agentMesh.results.reduce((s, a) => s + a.total_runs, 0),
+            total_failures: agentMesh.results.reduce((s, a) => s + a.failed, 0),
+            stalled_count: stalled.results.length,
+          },
+          per_agent: agentMesh.results,
+          stalled: stalled.results,
+        },
+
+        cron_health: cronHealth.results,
+
+        backlog_trends: backlogTrends,
+
+        ai_spend_24h: {
+          total_cost_usd: aiSpend.results.reduce((s, a) => s + (a.cost_usd ?? 0), 0),
+          total_calls: aiSpend.results.reduce((s, a) => s + a.calls, 0),
+          by_agent: aiSpend.results,
+        },
+
+        platform_totals: totals,
+      },
+    }, 200, origin);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return json({ success: false, error: message }, 500, origin);
+  }
+}

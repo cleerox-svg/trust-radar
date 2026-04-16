@@ -409,6 +409,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/admin/pipeline-status` | Admin | Pipeline backlog counts with trend direction, owning agent, last run time. Reads from pre-computed backlog_history + agent_runs — no COUNT queries on threats. 5-min KV cache. |
 | GET | `/api/admin/health` | Admin | System health |
 | GET | `/api/admin/budget/ledger-health` | Admin | Budget ledger fill diagnostic — surfaces per-call-site rows in the last 24h, flags any expected agentId that has not landed a row, and returns BudgetManager.getStatus() so operators can spot-check monthly_spend / throttle_level after the wrapper refactor. |
+| GET | `/api/admin/platform-diagnostics` | Super Admin | Comprehensive platform diagnostics for programmatic consumption. Returns enrichment pipeline state (stuck pile, cartographer queue, enriched counts), per-feed failure rates with auto-pause risk, per-agent run counts, backlog trends, AI spend, cron health, stalled agents. Accepts `?hours=N` (default 6, max 48). |
+| GET | `/api/internal/platform-diagnostics` | INTERNAL_SECRET | Same as above, accessible via `Authorization: Bearer $INTERNAL_SECRET` for programmatic/CLI access without JWT. |
 | GET | `/api/admin/users` | Admin | List users |
 | PATCH | `/api/admin/users/:id` | Admin | Update user |
 | GET | `/api/admin/sessions` | Admin | Active sessions |

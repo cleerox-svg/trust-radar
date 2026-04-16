@@ -272,6 +272,17 @@ export default {
         }
       }
 
+      // Platform diagnostics — programmatic access for Claude Code / monitoring
+      if (url.pathname === '/api/internal/platform-diagnostics' && request.method === 'GET') {
+        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const { handlePlatformDiagnostics } = await import('./handlers/diagnostics');
+        return handlePlatformDiagnostics(request, env);
+      }
+
       // Manual briefing email trigger
       if (url.pathname === '/api/internal/briefing/send' && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
