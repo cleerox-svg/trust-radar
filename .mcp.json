@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "averrow": {
+      "type": "http",
+      "url": "https://averrow-mcp.cleerox.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${AVERROW_MCP_TOKEN}"
+      }
+    }
+  }
+}
