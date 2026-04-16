@@ -411,6 +411,12 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/admin/budget/ledger-health` | Admin | Budget ledger fill diagnostic — surfaces per-call-site rows in the last 24h, flags any expected agentId that has not landed a row, and returns BudgetManager.getStatus() so operators can spot-check monthly_spend / throttle_level after the wrapper refactor. |
 | GET | `/api/admin/platform-diagnostics` | Super Admin | Comprehensive platform diagnostics for programmatic consumption. Returns enrichment pipeline state (stuck pile, cartographer queue, enriched counts), per-feed failure rates with auto-pause risk, per-agent run counts, backlog trends, AI spend, cron health, stalled agents. Accepts `?hours=N` (default 6, max 48). |
 | GET | `/api/internal/platform-diagnostics` | INTERNAL_SECRET | Same as above, accessible via `Authorization: Bearer $INTERNAL_SECRET` for programmatic/CLI access without JWT. |
+| GET | `/api/internal/system-health` | INTERNAL_SECRET | Internal mirror of `/api/admin/system-health` for MCP server access. |
+| GET | `/api/internal/pipeline-status` | INTERNAL_SECRET | Internal mirror of `/api/admin/pipeline-status` for MCP server access. |
+| GET | `/api/internal/stats` | INTERNAL_SECRET | Internal mirror of `/api/admin/stats` for MCP server access. |
+| GET | `/api/internal/budget/status` | INTERNAL_SECRET | Internal mirror of `/api/admin/budget/status` for MCP server access. |
+| GET | `/api/internal/budget/ledger-health` | INTERNAL_SECRET | Internal mirror of `/api/admin/budget/ledger-health` for MCP server access. |
+| GET | `/api/internal/agents/:name/health` | INTERNAL_SECRET | Internal mirror of `/api/agents/:name/health` for MCP server access. |
 | GET | `/api/admin/users` | Admin | List users |
 | PATCH | `/api/admin/users/:id` | Admin | Update user |
 | GET | `/api/admin/sessions` | Admin | Active sessions |
