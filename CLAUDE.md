@@ -380,7 +380,67 @@ docs(claude): update standing instructions for restructure
 
 ---
 
-## 10. What NOT to Build Without Explicit Instruction
+## 10. Platform Diagnostics (Live Health Checks)
+
+Claude Code can assess live platform health by calling the diagnostics endpoint.
+This replaces manual D1 queries and gives full visibility into feeds, agents,
+enrichment pipeline, and AI spend.
+
+### How to run
+
+```bash
+# Requires AVERROW_INTERNAL_SECRET in environment
+./scripts/platform-diagnostics.sh        # default 6-hour window
+./scripts/platform-diagnostics.sh 24     # 24-hour window
+```
+
+### What it returns
+
+The endpoint `GET /api/internal/platform-diagnostics?hours=N` returns:
+
+| Section | Key metrics |
+|---|---|
+| `enrichment_pipeline` | `stuck_pile` (enriched but no geo), `cartographer_queue` (Phase 0 backlog, private IPs excluded), `cartographer_queue_raw` (unfiltered, for comparison), `private_ip_inflation`, `enriched_last_hour`, `enriched_last_24h`, `needs_dns`, `total_enriched`, `total_threats`, `active_threats` |
+| `feeds.per_feed[]` | Per-feed: `pulls`, `success`, `partial`, `failed`, `failure_rate_pct`, `records_ingested`, `last_success_at`, `last_failure_at`, `enabled`, `paused_reason` |
+| `feeds.at_risk[]` | Feeds approaching auto-pause threshold (>=60% of consecutive failure limit). Shows `pct_to_auto_pause`. |
+| `feeds.recent_errors[]` | Last 20 failed pull error messages with timestamps |
+| `agent_mesh.per_agent[]` | Per-agent: `total_runs`, `success`, `partial`, `failed`, `running`, `last_completed_at`, `last_error`, `total_records_processed`, `avg_duration_ms` |
+| `agent_mesh.stalled[]` | Runs stuck in 'running' state >15 minutes |
+| `cron_health[]` | `fast_tick`, `flight_control`, `orchestrator` run counts + success rate |
+| `backlog_trends` | Per-pipeline: `current`, `previous`, `trend` (negative = draining) |
+| `ai_spend_24h` | Per-agent: `calls`, `input_tokens`, `output_tokens`, `cost_usd` |
+| `platform_totals` | `brands`, `providers`, `campaigns`, `clusters`, `feeds_enabled`, `feeds_disabled` |
+| `_meta` | `db_clock_utc` (verify timezone), `window_hours`, `generated_at` |
+
+### When the user asks for a health check
+
+If the user says **"run diagnostics"**, **"check platform health"**, **"how's the platform"**,
+or **"assess the platform"**:
+
+1. Run `./scripts/platform-diagnostics.sh` (or `./scripts/platform-diagnostics.sh 24` for a wider window)
+2. Parse the JSON response
+3. Report findings organized by priority:
+   - **Critical:** stuck_pile > 0, feeds at_risk with pct_to_auto_pause >= 80%, stalled agents, failed cron
+   - **Warning:** feeds with failure_rate > 50%, enriched_last_hour < 20, cartographer_queue growing
+   - **Healthy:** everything else — summarize briefly
+4. If enriched_last_hour looks suspiciously low, note it may be mid-cycle and suggest re-checking in 15 min
+5. Compare `cartographer_queue` vs `cartographer_queue_raw` to flag private IP inflation
+
+### Auth setup
+
+The script requires `AVERROW_INTERNAL_SECRET` in the environment. This is the same
+secret used by `/api/internal/agents/:name/run` and other internal endpoints. Set it:
+
+```bash
+export AVERROW_INTERNAL_SECRET="<from Cloudflare Worker secrets>"
+```
+
+The endpoint is also available at `/api/admin/platform-diagnostics` with super_admin JWT auth
+for browser access.
+
+---
+
+## 11. What NOT to Build Without Explicit Instruction
 
 - New npm packages without checking if existing ones cover the need
 - New API endpoints for data derivable client-side
@@ -393,7 +453,7 @@ docs(claude): update standing instructions for restructure
 
 ---
 
-## 11. Session Checklist (Before Marking Complete)
+## 12. Session Checklist (Before Marking Complete)
 
 - [ ] `npx tsc --noEmit` passes in `packages/averrow-ui`
 - [ ] No old SPA files touched (`public/`, `app.js`, `styles.css`)
@@ -407,7 +467,7 @@ docs(claude): update standing instructions for restructure
 
 ---
 
-## 12. Platform Context
+## 13. Platform Context
 
 Averrow is a **threat actor intelligence platform** — not just brand protection.
 
