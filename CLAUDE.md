@@ -225,7 +225,9 @@ Analyst       → [scores_updated]     → Pathfinder (new high-value leads)
 
 ### Cron schedule (wrangler.toml):
 ```
-fast-tick:    */5 * * * *    (every 5 min — DNS backfill, cube refresh, cache warming of 24 endpoints)
+navigator:    */5 * * * *    (every 5 min — DNS resolution, cube refresh, cache warming of 24 endpoints)
+                              (independent agent; FC monitors health but does not dispatch;
+                               historical agent_runs rows use agent_id='fast_tick')
 orchestrator: 7 * * * *     (hourly at :07 — feeds, agent dispatch, Workflows)
 cube-healer:  12 */6 * * *  (every 6 hours at :12 — 30-day bulk cube rebuild)
 ```
@@ -260,7 +262,7 @@ specific minute — any `minute === X` check that doesn't match that minute is
 dead code. This rule exists because Wave 1A shifted the orchestrator from `:00`
 to `:07` without updating minute gates, silently killing the entire agent mesh
 for 22 hours. All orchestrator gates now use hour-only checks. If sub-hourly
-scheduling is needed, use fast-tick (`*/5`) or add a dedicated cron trigger.
+scheduling is needed, use Navigator (`*/5`) or add a dedicated cron trigger.
 
 ### Execution patterns:
 - **Workflow dispatch:** Cartographer and NEXUS run as Cloudflare Workflows (durable, no CPU ceiling)
@@ -309,7 +311,7 @@ scheduling is needed, use fast-tick (`*/5`) or add a dedicated cron trigger.
 - **threat_cube_provider** — provider aggregates by hour (hosting_provider_id, threat_type, severity, source_feed)
 - **threat_cube_brand** — brand aggregates by hour (target_brand_id, threat_type, severity, source_feed)
 - For aggregate counts (by country, provider, brand, severity, type) **always query cubes instead of raw threats table**
-- Cubes are rebuilt every 5 min (current + prev hour) by fast-tick, and full 30-day rebuild every 6 hours by cube-healer
+- Cubes are rebuilt every 5 min (current + prev hour) by Navigator, and full 30-day rebuild every 6 hours by cube-healer
 - Cube builder: `src/lib/cube-builder.ts` — `buildGeoCubeForHour()`, `buildProviderCubeForHour()`, `buildBrandCubeForHour()`
 
 ### Pre-computed columns — use them, don't re-derive
@@ -320,7 +322,7 @@ scheduling is needed, use fast-tick (`*/5`) or add a dedicated cron trigger.
 ### KV Cache on page-load endpoints
 - Check `env.CACHE.get(cacheKey)` before querying D1 on any page-load GET endpoint
 - Store results with `env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 })` — 5-min TTL standard
-- fast-tick pre-warms 24 endpoints every 5 min across 3 phases:
+- Navigator pre-warms 24 endpoints every 5 min across 3 phases:
   - **A**: Observatory (7d/24h/30d nodes, arcs, stats + live + operations)
   - **B**: Dashboard overview + top-brands, Agents, Operations list + stats
   - **C**: Brands list + stats, Threat Actors list + stats, Breaches, ATO, Email Auth, Cloud Incidents
@@ -406,7 +408,7 @@ The endpoint `GET /api/internal/platform-diagnostics?hours=N` returns:
 | `feeds.recent_errors[]` | Last 20 failed pull error messages with timestamps |
 | `agent_mesh.per_agent[]` | Per-agent: `total_runs`, `success`, `partial`, `failed`, `running`, `last_completed_at`, `last_error`, `total_records_processed`, `avg_duration_ms` |
 | `agent_mesh.stalled[]` | Runs stuck in 'running' state >15 minutes |
-| `cron_health[]` | `fast_tick`, `flight_control`, `orchestrator` run counts + success rate |
+| `cron_health[]` | `navigator` (+ historical `fast_tick`), `flight_control`, `orchestrator` run counts + success rate |
 | `backlog_trends` | Per-pipeline: `current`, `previous`, `trend` (negative = draining) |
 | `ai_spend_24h` | Per-agent: `calls`, `input_tokens`, `output_tokens`, `cost_usd` |
 | `platform_totals` | `brands`, `providers`, `campaigns`, `clusters`, `feeds_enabled`, `feeds_disabled` |

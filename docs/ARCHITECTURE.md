@@ -119,7 +119,7 @@ Three pre-aggregated cube tables accelerate UI queries that would otherwise requ
 
 Each cube stores `threat_count` and `updated_at` per dimension combination per hour bucket. Cubes are maintained by:
 
-1. **fast-tick cron** (every 5 min) — rebuilds current + previous hour via `INSERT OR REPLACE ... SELECT ... GROUP BY`
+1. **Navigator agent** (every 5 min cron) — rebuilds current + previous hour via `INSERT OR REPLACE ... SELECT ... GROUP BY`
 2. **cube-healer agent** (every 6 hours) — full 30-day bulk rebuild to fix retroactive enrichment drift
 3. **admin cube-backfill** endpoint — manual backfill for new cubes or recovery
 
@@ -173,7 +173,7 @@ KV namespace bound as `CACHE` is used for:
 - **Rate limiting** — Per-IP counters for API rate limiting
 - **Honeypot site content** — `honeypot-site:{hostname}:{page}` stores generated honeypot HTML
 - **Session invalidation** — Forced logout flags checked during auth
-- **Page-load endpoint caching** — JSON responses for heavy page-load endpoints, pre-warmed by fast-tick cron every 5 minutes
+- **Page-load endpoint caching** — JSON responses for heavy page-load endpoints, pre-warmed by Navigator agent every 5 minutes
 
 ### KV Cache Strategy (Page-Load Endpoints)
 
@@ -204,9 +204,9 @@ All high-traffic page-load endpoints check KV before querying D1. Cache keys enc
 
 Default page loads (no search, no filter, page 1) use reduced-dimension cache keys for higher hit rates. Filtered/paginated views use full-dimension keys.
 
-### Cache Pre-Warming (fast-tick)
+### Cache Pre-Warming (Navigator)
 
-The fast-tick cron (every 5 minutes) pre-warms KV caches by calling handler functions with synthetic requests. This ensures users never hit a cold cache on the most critical pages (24 endpoints across 3 phases):
+The Navigator agent (every 5 minutes) pre-warms KV caches by calling handler functions with synthetic requests. This ensures users never hit a cold cache on the most critical pages (24 endpoints across 3 phases):
 
 - **Phase A** (always): Observatory nodes, arcs, stats for all 3 periods (7d, 24h, 30d) + live + operations (11 endpoints)
 - **Phase B** (if CPU budget allows): Dashboard overview + top-brands, Agents list, Operations list + stats (5 endpoints)
@@ -236,7 +236,7 @@ The Worker has multiple cron triggers configured in `wrangler.toml`:
 
 | Cron | Handler | Purpose |
 |------|---------|---------|
-| `*/5 * * * *` | `fast-tick` | DNS geo-backfill (200 domains), OLAP cube refresh (6 cubes), KV cache pre-warming (24 endpoints) |
+| `*/5 * * * *` | `navigator` | DNS geo-backfill (200 domains), OLAP cube refresh (6 cubes), KV cache pre-warming (24 endpoints) |
 | `*/15 * * * *` | `orchestrator` | Threat feed scan, Cartographer enrichment (dispatched as Workflow), agent scheduling |
 | `12 */6 * * *` | `cube-healer` | Full 30-day bulk rebuild of all 3 cube tables to fix retroactive drift |
 
@@ -251,9 +251,12 @@ Routes jobs by time of day:
 - Daily: Observer briefings, Pathfinder lead generation
 - Weekly: Prospector sales intelligence
 
-### fast-tick (`src/cron/fast-tick.ts`)
+### Navigator (`src/cron/navigator.ts`)
 
-Runs every 5 minutes with 5 phases:
+Independent agent — runs on the `*/5 * * * *` cron. Not managed by Flight Control
+(FC monitors its health but does not dispatch it). Previously known as `fast_tick`;
+historical `agent_runs` rows carry `agent_id='fast_tick'` while new runs write
+`agent_id='navigator'`. 5 phases per run:
 1. **Event drain** — Marks stale pending `agent_events` (>5 min old) as done (up to 50 events)
 2. **DNS backfill** — Runs domain geo-enrichment batch (200 domains, 8s timeout)
 3. **Cube refresh** — Rebuilds current + previous hour for `threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand` (6 builds total)

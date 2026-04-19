@@ -77,7 +77,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
 
     // KV cache: brand list is the heaviest query (JOINs + sparkline subquery).
     // Cache for 5 minutes. Default page loads (no search, no sector filter, page 1)
-    // use a short cache key that fast-tick pre-warms. Filtered/paginated views use a
+    // use a short cache key that Navigator pre-warms. Filtered/paginated views use a
     // full-dimension key — cache hit rate is lower but still avoids repeated cold queries.
     const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
     const isDefaultView = !search && !sector && offset === 0;

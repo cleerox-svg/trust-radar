@@ -1,14 +1,23 @@
-// Fast Tick — lightweight cron handler for the every-5-min schedule.
+// Navigator — lightweight agent on the every-5-min cron schedule.
+//
+// Navigator finds network coordinates (IP addresses) for domains before
+// Cartographer maps their physical coordinates (lat/lng). Navigator finds
+// the path; Cartographer maps the terrain.
+//
+// Previously known as `fast_tick` (implementation detail describing HOW it
+// runs, not WHAT it does). Historical agent_runs rows use 'fast_tick' —
+// both IDs are valid and queries spanning this transition should handle both.
 //
 // Cloudflare sub-hour crons have a 30-second CPU ceiling. This handler
 // must stay LEAN: no agent execution, no Haiku calls, no Flight Control.
 //
 // Current responsibilities:
 //   1. Drain pending agent_events (mark done, no routing — just housekeeping)
-//   2. Run one DNS backfill batch (200 domains, 8s soft cap)
+//   2. Run one DNS backfill batch (200 domains, 8s soft cap) — PRIMARY MISSION
 //   3. Refresh the three OLAP cubes (geo + provider + brand) for the current
 //      and previous UTC hour — catches retroactive cartographer enrichment
 //      and keeps Observatory aggregates in sync with raw threats.
+//   4. Pre-warm KV caches for heavy page-load endpoints.
 //
 // Budget: ~15s typical (DNS 13-18s + cube <1s), well under the 30s hard ceiling.
 
@@ -24,6 +33,16 @@ import { handleListBrands, handleBrandStats } from '../handlers/brands';
 import { handleListThreatActors, handleThreatActorStats } from '../handlers/threatActors';
 import { handleListBreaches, handleListATOEvents, handleListEmailAuth, handleListCloudIncidents } from '../handlers/intel';
 
+/** Canonical agent_id written to agent_runs / agent_outputs / agent_events. */
+export const NAVIGATOR_AGENT_ID = 'navigator';
+
+/**
+ * Historical agent_id used before the rename. agent_runs rows written prior
+ * to the transition still carry this ID — any query that needs the full run
+ * history for Navigator should filter on IN (NAVIGATOR_AGENT_ID, NAVIGATOR_LEGACY_AGENT_ID).
+ */
+export const NAVIGATOR_LEGACY_AGENT_ID = 'fast_tick';
+
 /** How many agent_events to drain per tick. */
 const EVENT_DRAIN_LIMIT = 50;
 
@@ -31,11 +50,11 @@ const EVENT_DRAIN_LIMIT = 50;
 const DNS_BATCH_SIZE = 200;
 
 /**
- * Fast-tick-wide soft cap (ms). If we've spent this long across all phases,
+ * Navigator-wide soft cap (ms). If we've spent this long across all phases,
  * skip any remaining cube refresh work. Leaves ~5s headroom under the 30s
  * Cloudflare sub-hour cron hard ceiling for the final agent_runs INSERT.
  */
-const FAST_TICK_SOFT_CAP_MS = 25_000;
+const NAVIGATOR_SOFT_CAP_MS = 25_000;
 
 /**
  * Format a Date as a 'YYYY-MM-DD HH:00:00' UTC hour bucket string, the exact
@@ -51,14 +70,14 @@ function formatHourBucketUTC(d: Date): string {
   return `${year}-${month}-${day} ${hour}:00:00`;
 }
 
-export async function runFastTick(
+export async function runNavigator(
   env: Env,
   _ctx: ExecutionContext,
   scheduledTime: Date,
 ): Promise<void> {
   const start = Date.now();
-  const isOverCap = () => Date.now() - start > FAST_TICK_SOFT_CAP_MS;
-  console.log(`[fast-tick] start ${scheduledTime.toISOString()}`);
+  const isOverCap = () => Date.now() - start > NAVIGATOR_SOFT_CAP_MS;
+  console.log(`[navigator] start ${scheduledTime.toISOString()}`);
 
   let eventsDrained = 0;
   let dnsResult = { processed: 0, resolved: 0, enriched: 0, durationMs: 0, softCapHit: false };
@@ -82,10 +101,10 @@ export async function runFastTick(
       // D1 .run() returns meta with changes count
       eventsDrained = stale.meta?.changes ?? 0;
       if (eventsDrained > 0) {
-        console.log(`[fast-tick] drained ${eventsDrained} stale agent_events`);
+        console.log(`[navigator] drained ${eventsDrained} stale agent_events`);
       }
     } catch (err) {
-      console.error('[fast-tick] event drain error:', err);
+      console.error('[navigator] event drain error:', err);
       // Non-fatal — continue to DNS backfill
     }
 
@@ -96,7 +115,7 @@ export async function runFastTick(
     });
 
     console.log(
-      `[fast-tick] dns-backfill: processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
+      `[navigator] dns-backfill: processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
     );
 
     if (dnsResult.softCapHit || dnsResult.enriched < dnsResult.resolved) {
@@ -105,7 +124,7 @@ export async function runFastTick(
   } catch (err) {
     status = 'failed';
     errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('[fast-tick] fatal error:', errorMessage);
+    console.error('[navigator] fatal error:', errorMessage);
   }
 
   // ── 3. Cube refresh ──
@@ -115,7 +134,7 @@ export async function runFastTick(
   // admin backfill endpoint handles historical rebuilds.
   //
   // cube-builder functions catch their own errors and return {error} results;
-  // the outer try is purely defensive. A cube failure never fails fast_tick
+  // the outer try is purely defensive. A cube failure never fails Navigator
   // overall — it just downgrades status from 'success' to 'partial'.
   const cubeResults: {
     currentHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null };
@@ -190,7 +209,7 @@ export async function runFastTick(
       }
     } catch (e) {
       // Defensive: cube-builder functions shouldn't throw, but if they do,
-      // log and continue — cube failures never fail fast_tick overall.
+      // log and continue — cube failures never fail Navigator overall.
       cubeResults.errors.push(`fatal: ${e instanceof Error ? e.message : String(e)}`);
     }
 
@@ -265,13 +284,16 @@ export async function runFastTick(
         cacheWarmed += moduleResults.filter(r => r.status === 'fulfilled').length;
       }
 
-      console.log(`[fast-tick] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms`);
+      console.log(`[navigator] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms`);
     } catch (e) {
-      console.error('[fast-tick] cache-warm error:', e instanceof Error ? e.message : String(e));
+      console.error('[navigator] cache-warm error:', e instanceof Error ? e.message : String(e));
     }
   }
 
   // ── 5. Log to agent_runs ──
+  // Written under agent_id='navigator'. Historical rows from before the
+  // rename use agent_id='fast_tick' — both IDs are valid for queries that
+  // span the transition period.
   const durationMs = Date.now() - start;
 
   // Concatenate DNS + cube errors into error_message so they surface in the
@@ -285,9 +307,10 @@ export async function runFastTick(
   try {
     await env.DB.prepare(`
       INSERT INTO agent_runs (id, agent_id, started_at, completed_at, duration_ms, status, records_processed, error_message)
-      VALUES (?, 'fast_tick', datetime('now', '-' || ? || ' seconds'), datetime('now'), ?, ?, ?, ?)
+      VALUES (?, ?, datetime('now', '-' || ? || ' seconds'), datetime('now'), ?, ?, ?, ?)
     `).bind(
       crypto.randomUUID(),
+      NAVIGATOR_AGENT_ID,
       Math.round(durationMs / 1000),
       durationMs,
       status,
@@ -297,10 +320,10 @@ export async function runFastTick(
       finalErrorMessage,
     ).run();
   } catch (err) {
-    console.error('[fast-tick] agent_runs insert failed:', err);
+    console.error('[navigator] agent_runs insert failed:', err);
   }
 
   console.log(
-    `[fast-tick] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
+    `[navigator] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
   );
 }

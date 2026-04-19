@@ -7,7 +7,7 @@
 //
 // Shared between:
 //   1. POST /api/admin/backfill-domain-geo  (admin UI button)
-//   2. The fast-tick cron (every 5 min)      (automated background drain)
+//   2. The Navigator cron (every 5 min)      (automated background drain)
 //
 // Never throws — always returns a structured result.
 

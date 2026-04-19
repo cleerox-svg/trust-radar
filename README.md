@@ -67,7 +67,7 @@ Averrow runs entirely on Cloudflare's edge network. There is no traditional back
 
 | Schedule | Handler | Purpose |
 |----------|---------|---------|
-| `*/5 * * * *` | fast-tick | OLAP cube refresh, KV cache pre-warming, provider stats |
+| `*/5 * * * *` | navigator | DNS resolution, OLAP cube refresh, KV cache pre-warming |
 | `7 * * * *` | orchestrator | Feed ingestion, agent dispatch, Workflow triggers |
 | `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
 

@@ -9,14 +9,14 @@
  *
  * Why this exists:
  *   Cartographer's candidate query has no time filter — it enriches threats
- *   retroactively from any point in the N-day window. Phase 3's fast_tick cube
+ *   retroactively from any point in the N-day window. Phase 3's Navigator cube
  *   refresh only rebuilds the current + previous hour, so any hour older than
  *   H-1 freezes in the cube while raw threats continues to grow, producing
  *   permanent drift that Phase 4.1's parity_checker first detected (3.64% on
  *   the 30-day geo cube, 2.88% on provider).
  *
  * Scope — EXCLUDES the current partial hour (Phase 3's territory). The "prev
- * hour" overlap with fast_tick is intentional and safe because INSERT OR
+ * hour" overlap with Navigator is intentional and safe because INSERT OR
  * REPLACE is idempotent. The bulk SQL is verbatim from the manual test that
  * proved exact parity against the raw threats table.
  *

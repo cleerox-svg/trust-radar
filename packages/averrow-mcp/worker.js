@@ -82,7 +82,8 @@ const TOOLS = [
           type: "string",
           description:
             "Agent ID: cartographer, analyst, sentinel, strategist, sparrow, " +
-            "observer, pathfinder, flight_control, fast_tick, nexus, curator, watchdog",
+            "observer, pathfinder, flight_control, navigator, nexus, curator, watchdog " +
+            "(legacy 'fast_tick' still accepted for historical rows)",
         },
       },
       required: ["agent_name"],

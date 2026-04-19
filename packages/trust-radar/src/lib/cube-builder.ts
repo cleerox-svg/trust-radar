@@ -11,7 +11,7 @@
 //
 // These functions are intentionally thin: they take a single hour_bucket, run
 // one grouped INSERT, and return a structured result. They do NOT log to
-// agent_runs. The caller (admin backfill endpoint now, fast_tick refresh in
+// agent_runs. The caller (admin backfill endpoint now, Navigator refresh in
 // Phase 3) owns logging and orchestration.
 //
 // NOTE on hour_bucket format: callers must pass 'YYYY-MM-DD HH:00:00'. The

@@ -12,17 +12,19 @@ interface CronJobResult {
 }
 
 export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-  // ─── Fast tick: lightweight sub-hour cron (*/5 * * * *, 30s CPU ceiling) ───
+  // ─── Navigator: lightweight sub-hour agent (*/5 * * * *, 30s CPU ceiling) ───
+  // Runs on its own cron — independent of Flight Control's dispatch. FC only
+  // observes Navigator's health, it does not manage when or how it runs.
   // Must branch BEFORE any heavy work — Flight Control, CertStream, etc.
   if (event.cron === '*/5 * * * *') {
-    const { runFastTick } = await import('./fast-tick');
-    return runFastTick(env, ctx, new Date(event.scheduledTime));
+    const { runNavigator } = await import('./navigator');
+    return runNavigator(env, ctx, new Date(event.scheduledTime));
   }
 
   // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───
-  // Heals retroactive enrichment drift that fast_tick's current+prev-hour
+  // Heals retroactive enrichment drift that Navigator's current+prev-hour
   // refresh can't catch. Demoted from */20 to 6-hourly in Wave 1A to reduce
-  // D1 writer contention. Overlaps "prev hour" with fast_tick — safe because
+  // D1 writer contention. Overlaps "prev hour" with Navigator — safe because
   // INSERT OR REPLACE is idempotent.
   if (event.cron === '12 */6 * * *') {
     await runCubeHealer(env, ctx);
@@ -31,7 +33,7 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
 
   // ─── Hourly tick: full agent mesh (7 * * * *, 15min CPU ceiling) ───
   // Shifted from :00 to :07 in Wave 1A so the hourly mesh no longer collides
-  // with the */5 fast-tick that fires at :00. Parity-checker was removed as a
+  // with the */5 Navigator that fires at :00. Parity-checker was removed as a
   // dedicated cron (demoted to daily in Wave 6); it no longer runs here.
   if (event.cron !== '7 * * * *') {
     console.log(`[cron] Unexpected cron in hourly fall-through: ${event.cron} — skipping mesh`);
@@ -294,11 +296,11 @@ async function runJob(name: string, fn: () => Promise<void>): Promise<CronJobRes
  * IMPORTANT: All time gates inside this function use hour-only checks.
  * Do NOT add minute-based gates — the cron fires at a single minute per hour
  * and any minute check that doesn't match that exact value silently kills
- * the gated code. If sub-hourly scheduling is needed, use fast-tick
+ * the gated code. If sub-hourly scheduling is needed, use Navigator
  * (every 5 min cron) or add a dedicated cron trigger.
  *
  * Bug history: The orchestrator was created with cron `0 * * * *` (hourly at :00).
- * On 2026-04-12 Wave 1A moved it to `7 * * * *` to decollide with fast-tick.
+ * On 2026-04-12 Wave 1A moved it to `7 * * * *` to decollide with Navigator.
  * The outer `minute === 0 || minute === 30` gate was not updated, silently
  * killing this function for ~22 hours until caught by static analysis.
  * Fix: all minute gates removed, hour-only gates retained (2026-04-12).
