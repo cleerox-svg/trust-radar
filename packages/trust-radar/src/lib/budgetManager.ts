@@ -200,6 +200,34 @@ export class BudgetManager {
     };
   }
 
+  /**
+   * Read the throttle level we last told the world about. Flight Control
+   * uses this as a transition guard so a persistent 'hard' state doesn't
+   * re-fire the notification every hourly tick — we only want to notify
+   * when the level actually changes. Returns null if no prior state has
+   * been written yet (first run after deploy).
+   */
+  async getLastThrottleLevel(): Promise<ThrottleLevel | null> {
+    const row = await this.db.prepare(
+      `SELECT value FROM system_config WHERE key = 'budget.last_throttle_level'`
+    ).first<{ value: string }>();
+    if (!row) return null;
+    const v = row.value;
+    if (v === 'none' || v === 'soft' || v === 'hard' || v === 'emergency') return v;
+    return null;
+  }
+
+  /** Persist the current throttle level so the next tick can diff against it. */
+  async setLastThrottleLevel(level: ThrottleLevel): Promise<void> {
+    await this.db.prepare(`
+      INSERT INTO system_config (key, value, updated_at)
+      VALUES ('budget.last_throttle_level', ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at
+    `).bind(level).run();
+  }
+
   /** Get agent-specific limits based on current throttle level. */
   async getAgentLimits(): Promise<AgentBudgetLimits> {
     const status = await this.getStatus();

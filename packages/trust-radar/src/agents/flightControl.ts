@@ -12,7 +12,8 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
-import type { BudgetStatus, AgentBudgetLimits } from "../lib/budgetManager";
+import type { BudgetStatus, AgentBudgetLimits, ThrottleLevel } from "../lib/budgetManager";
+import { createNotification } from "../lib/notifications";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -192,7 +193,7 @@ export const flightControlAgent: AgentModule = {
       `).all<TrippedAgent>(),
     ]);
 
-    // Log emergency budget state
+    // Log budget state every tick for the activity log (diagnostic trail).
     if (budgetStatus.throttle_level === 'emergency') {
       await logActivity(db, 'flight_control', 'critical', 'budget_emergency',
         `EMERGENCY: Budget exhausted — AI agents paused ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
@@ -207,6 +208,32 @@ export const flightControlAgent: AgentModule = {
       await logActivity(db, 'flight_control', 'info', 'budget_soft',
         `Budget soft limit — reduced batch sizes ($${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd})`,
         { budget: budgetStatus }
+      );
+    }
+
+    // Fire a user-facing notification only on state transitions so we
+    // don't spam the dashboard every hourly tick while the budget stays
+    // in a throttled state. The activity-log entries above run every
+    // tick regardless — they're the diagnostic trail, not the alert.
+    //
+    // Previously there was no createNotification() call at all for
+    // budget events: a budget-triggered throttle could silently starve
+    // Cartographer scaling (limits.pause_all_ai gates scaleAgents) with
+    // nothing but an agent_activity_log row for anyone to notice. That
+    // is the gap this block closes.
+    try {
+      const prevLevel = await budgetMgr.getLastThrottleLevel();
+      const currLevel = budgetStatus.throttle_level;
+      if (prevLevel !== currLevel) {
+        await notifyBudgetTransition(db, prevLevel, currLevel, budgetStatus);
+        await budgetMgr.setLastThrottleLevel(currLevel);
+      }
+    } catch (err) {
+      // Never let a notification failure break Flight Control — the
+      // activity log above already captured the state for diagnostics.
+      await logActivity(db, 'flight_control', 'warning', 'budget_notification_error',
+        `Failed to emit budget transition notification: ${err instanceof Error ? err.message : String(err)}`,
+        { throttle_level: budgetStatus.throttle_level }
       );
     }
 
@@ -787,6 +814,17 @@ async function scaleAgents(
         { agent: 'cartographer', instances, backlog: cartBacklog }
       );
     }
+  } else if (cartBacklog > 0 && limits.pause_all_ai) {
+    // Budget emergency gate. scaleAgents would otherwise silently skip
+    // with no trace — the budget-transition notification goes out once,
+    // but once you're already in 'emergency' each subsequent tick has
+    // nothing saying "and Cartographer did not run this tick either."
+    // Log it every tick so the activity trail explains the enrichment
+    // queue growth while the throttle is in effect.
+    await logActivity(db, 'flight_control', 'warning', 'scaling_skipped',
+      `Cartographer scaling skipped — AI budget in emergency (pause_all_ai). Backlog: ${cartBacklog}`,
+      { agent: 'cartographer', reason: 'budget_pause_all_ai', backlog: cartBacklog }
+    );
   }
 
   // Cartographer geo backlog — trigger geo enrichment if geo backlog is large
@@ -916,4 +954,82 @@ async function logActivity(
   } catch {
     // Don't let activity logging failures break Flight Control
   }
+}
+
+/**
+ * Fire a user-facing notification on budget throttle transitions.
+ *
+ * Severity mapping mirrors the operational consequences, not the raw
+ * percent used:
+ *   → emergency  critical  (all AI paused — Cartographer scaling stops)
+ *   → hard       high      (reduced AI batches, observer/curator skipped)
+ *   → soft       medium    (smaller batches, but everything still runs)
+ *   → none       info      (recovery — useful positive signal)
+ *
+ * Uses circuit_breaker_tripped as the notification type because
+ * semantically that's exactly what this is — the budget-based
+ * circuit breaker on AI spend has flipped. Keeping it on an existing
+ * type avoids touching the notifications CHECK constraint and reuses
+ * whatever routing / preferences users already have in place.
+ */
+async function notifyBudgetTransition(
+  db: D1Database,
+  prev: ThrottleLevel | null,
+  curr: ThrottleLevel,
+  status: BudgetStatus,
+): Promise<void> {
+  // On a clean deploy (no prior state in system_config) don't fire for
+  // 'none' — there's nothing to announce, we're just recording the
+  // baseline. But if we come up in a throttled state, do fire: the
+  // operator needs to know the deploy landed during a live incident.
+  if (prev === null && curr === 'none') return;
+
+  const spendLine = `$${status.spent_this_month}/$${status.config.monthly_limit_usd} (${status.pct_used}% used)`;
+  const prevLabel = prev ?? 'unknown';
+
+  let severity: 'critical' | 'high' | 'medium' | 'info';
+  let title: string;
+  let message: string;
+
+  if (curr === 'emergency') {
+    severity = 'critical';
+    title = 'AI budget exhausted — all AI agents paused';
+    message = `Budget crossed emergency threshold (${status.config.emergency_pct}%). ` +
+      `All AI agents are paused until spend resets or the limit is raised. ` +
+      `Current: ${spendLine}. Previous state: ${prevLabel}.`;
+  } else if (curr === 'hard') {
+    severity = 'high';
+    title = 'AI budget at hard limit — processing minimized';
+    message = `Budget crossed hard threshold (${status.config.hard_pct}%). ` +
+      `Observer and Curator are paused; Analyst and Cartographer are running at reduced batch sizes. ` +
+      `Current: ${spendLine}. Previous state: ${prevLabel}.`;
+  } else if (curr === 'soft') {
+    severity = 'medium';
+    title = 'AI budget at soft limit — batch sizes reduced';
+    message = `Budget crossed soft threshold (${status.config.soft_pct}%). ` +
+      `Batch sizes reduced; all agents still running. ` +
+      `Current: ${spendLine}. Previous state: ${prevLabel}.`;
+  } else {
+    severity = 'info';
+    title = 'AI budget back below thresholds — full processing resumed';
+    message = `Budget has dropped back to normal from ${prevLabel}. ` +
+      `All AI agents are running at full capacity. Current: ${spendLine}.`;
+  }
+
+  await createNotification(db, {
+    type: 'circuit_breaker_tripped',
+    severity,
+    title,
+    message,
+    link: '/admin/budget',
+    metadata: {
+      source: 'flight_control',
+      kind: 'budget_throttle',
+      from: prev,
+      to: curr,
+      pct_used: status.pct_used,
+      spent_this_month: status.spent_this_month,
+      monthly_limit_usd: status.config.monthly_limit_usd,
+    },
+  });
 }
