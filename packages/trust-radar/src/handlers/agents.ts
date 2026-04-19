@@ -36,6 +36,24 @@ const AGENT_SCHEDULES: Record<string, string> = {
   sparrow: "every 6h",
   nexus: "every 4h",
   architect: "manual",
+  navigator: "5m (cron)",
+};
+
+// ─── Navigator — synthetic agent definition ─────────────────────
+//
+// Navigator runs on its own */5 cron and is NOT in agentModules (it's a
+// cron handler, not an AgentModule instance — FC observes it but does
+// not dispatch). We synthesize its /api/agents row here so the UI grid
+// treats it like any other agent. Historical rows use agent_id='fast_tick';
+// new rows use 'navigator' — both are aggregated below.
+const NAVIGATOR_IDS = ['navigator', 'fast_tick'] as const;
+const NAVIGATOR_DEF = {
+  name: 'navigator',
+  displayName: 'Navigator',
+  description: 'DNS resolution and lightweight enrichment. Runs on an independent 5-minute cron.',
+  color: '#38BDF8',
+  trigger: 'scheduled' as const,
+  requiresApproval: false,
 };
 
 // ─── List all agent definitions + their latest run ──────────────
@@ -170,6 +188,75 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     };
   });
 
+  // Synthesize Navigator — aggregate rows from both the current and legacy
+  // agent_ids. Latest-run picks whichever ID has the most recent started_at.
+  // Navigator is not in agent_configs (no circuit breaker), so fields default
+  // to an always-enabled 'closed' state. deriveStatus uses whichever ID had
+  // the latest run.
+  const navLatest = (() => {
+    const candidates = NAVIGATOR_IDS.map(id => latestRunMap.get(id)).filter((r): r is NonNullable<typeof r> => !!r);
+    if (candidates.length === 0) return undefined;
+    return candidates.sort((a, b) => (a.started_at > b.started_at ? -1 : 1))[0];
+  })();
+  const navJobs = NAVIGATOR_IDS.reduce((sum, id) => sum + (statsMap.get(id)?.jobs_24h ?? 0), 0);
+  const navErrors = NAVIGATOR_IDS.reduce((sum, id) => sum + (statsMap.get(id)?.error_count_24h ?? 0), 0);
+  const navOutputs = NAVIGATOR_IDS.reduce((sum, id) => sum + (outputMap.get(id) ?? 0), 0);
+  const navActivity = new Array(24).fill(0);
+  for (const id of NAVIGATOR_IDS) {
+    const arr = activityMap.get(id);
+    if (!arr) continue;
+    for (let i = 0; i < 24; i++) navActivity[i] += arr[i] ?? 0;
+  }
+  const navLastOutput = NAVIGATOR_IDS
+    .map(id => lastOutputMap.get(id))
+    .filter((v): v is string => !!v)
+    .sort()
+    .pop() ?? null;
+  const navAvgDurs = NAVIGATOR_IDS.map(id => avgDurMap.get(id)).filter((v): v is number => typeof v === 'number');
+  const navAvgDur = navAvgDurs.length > 0 ? navAvgDurs.reduce((a, b) => a + b, 0) / navAvgDurs.length : null;
+  const navStatus = (() => {
+    if (!navLatest) return 'idle';
+    if (navLatest.status === 'failed') return 'error';
+    if (navLatest.status === 'partial') return 'degraded';
+    const ageMs = Date.now() - new Date(navLatest.started_at + 'Z').getTime();
+    // Navigator runs every 5 min — flag it degraded once it misses 2 cycles.
+    if (ageMs > 10 * 60 * 1000) return 'degraded';
+    return 'active';
+  })();
+  // Cast agent_id/name to AgentName: Navigator isn't in the canonical
+  // AgentName union (it's a cron handler, not an AgentModule), but the
+  // /api/agents response shape is decoupled from that union — downstream
+  // consumers treat agent_id as a string.
+  agents.push({
+    agent_id: NAVIGATOR_DEF.name as AgentName,
+    name: NAVIGATOR_DEF.name as AgentName,
+    display_name: NAVIGATOR_DEF.displayName,
+    description: NAVIGATOR_DEF.description,
+    color: NAVIGATOR_DEF.color,
+    trigger: NAVIGATOR_DEF.trigger,
+    requiresApproval: NAVIGATOR_DEF.requiresApproval,
+    status: navStatus,
+    schedule: AGENT_SCHEDULES.navigator ?? '5m (cron)',
+    jobs_24h: navJobs,
+    outputs_24h: navOutputs,
+    error_count_24h: navErrors,
+    activity: navActivity,
+    last_run_at: navLatest?.started_at ?? null,
+    last_run_status: navLatest?.status ?? null,
+    last_run_duration_ms: navLatest?.duration_ms ?? null,
+    last_run_error: navLatest?.error_message ?? null,
+    last_output_at: navLastOutput,
+    avg_duration_ms: navAvgDur,
+    // Navigator has no circuit breaker — FC observes, does not manage.
+    circuit_enabled: 1,
+    circuit_state: 'closed',
+    paused_reason: null,
+    consecutive_failures: 0,
+    consecutive_failure_threshold: null,
+    paused_at: null,
+    paused_after_n_failures: null,
+  });
+
   const responseData = { success: true, data: agents };
   await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
   return json(responseData, 200, ctx.origin);
@@ -179,22 +266,30 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
 export async function handleGetAgent(request: Request, env: Env, agentName: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const def = getAgentDefinitions().find((d) => d.name === agentName);
+    // Navigator special case: synthesize a definition and span both the
+    // current + legacy agent_ids so run history covers the rename transition.
+    const isNavigator = agentName === NAVIGATOR_DEF.name;
+    const def = isNavigator
+      ? NAVIGATOR_DEF
+      : getAgentDefinitions().find((d) => d.name === agentName);
     if (!def) return error("Agent not found", 404, origin);
+
+    const ids = isNavigator ? NAVIGATOR_IDS : [agentName];
+    const placeholders = ids.map(() => '?').join(',');
 
     const [runs, outputs, stats] = await Promise.all([
       env.DB.prepare(
-        `SELECT id, status, records_processed, outputs_generated,
+        `SELECT id, agent_id, status, records_processed, outputs_generated,
                 duration_ms, error_message, started_at, completed_at
-         FROM agent_runs WHERE agent_id = ?
+         FROM agent_runs WHERE agent_id IN (${placeholders})
          ORDER BY started_at DESC LIMIT 50`
-      ).bind(agentName).all(),
+      ).bind(...ids).all(),
       env.DB.prepare(
         `SELECT id, type, summary, severity, details, related_brand_ids,
                 related_campaign_id, related_provider_ids, created_at
-         FROM agent_outputs WHERE agent_id = ?
+         FROM agent_outputs WHERE agent_id IN (${placeholders})
          ORDER BY created_at DESC LIMIT 20`
-      ).bind(agentName).all(),
+      ).bind(...ids).all(),
       env.DB.prepare(
         `SELECT
            COUNT(*) as total_runs,
@@ -203,8 +298,8 @@ export async function handleGetAgent(request: Request, env: Env, agentName: stri
            SUM(records_processed) as total_processed,
            SUM(outputs_generated) as total_outputs,
            AVG(duration_ms) as avg_duration_ms
-         FROM agent_runs WHERE agent_id = ?`
-      ).bind(agentName).first(),
+         FROM agent_runs WHERE agent_id IN (${placeholders})`
+      ).bind(...ids).first(),
     ]);
 
     return success({ agent: def, runs: runs.results, outputs: outputs.results, stats }, origin);
@@ -340,12 +435,15 @@ export async function handleAgentOutputsByName(request: Request, env: Env, agent
   try {
     const { limit } = parsePagination(request, { limit: 10, maxLimit: 50 });
 
+    const ids = agentName === NAVIGATOR_DEF.name ? NAVIGATOR_IDS : [agentName];
+    const placeholders = ids.map(() => '?').join(',');
+
     const rows = await env.DB.prepare(
       `SELECT id, agent_id, type, summary, severity, details,
               related_brand_ids, related_campaign_id, related_provider_ids, created_at
-       FROM agent_outputs WHERE agent_id = ?
+       FROM agent_outputs WHERE agent_id IN (${placeholders})
        ORDER BY created_at DESC LIMIT ?`
-    ).bind(agentName, limit).all();
+    ).bind(...ids, limit).all();
 
     return success(rows.results, origin);
   } catch (err) {
@@ -362,6 +460,11 @@ export async function handleAgentHealth(request: Request, env: Env, agentName: s
     const errors: number[] = new Array(hoursBack).fill(0);
     const outputs: number[] = new Array(hoursBack).fill(0);
 
+    // Navigator spans both 'navigator' + legacy 'fast_tick' so recent history
+    // stays intact across the rename transition.
+    const ids = agentName === NAVIGATOR_DEF.name ? NAVIGATOR_IDS : [agentName];
+    const placeholders = ids.map(() => '?').join(',');
+
     const rows = await env.DB.prepare(
       `SELECT
          CAST(strftime('%H', started_at) AS INTEGER) AS hour,
@@ -369,9 +472,9 @@ export async function handleAgentHealth(request: Request, env: Env, agentName: s
          status,
          outputs_generated
        FROM agent_runs
-       WHERE agent_id = ? AND started_at >= datetime('now', '-24 hours')
+       WHERE agent_id IN (${placeholders}) AND started_at >= datetime('now', '-24 hours')
        ORDER BY started_at ASC`
-    ).bind(agentName).all();
+    ).bind(...ids).all();
 
     const currentHour = new Date().getUTCHours();
     for (const row of rows.results as { hour: number; duration_ms: number; status: string; outputs_generated: number }[]) {

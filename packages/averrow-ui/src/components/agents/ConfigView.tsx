@@ -30,6 +30,12 @@ const AGENT_CONFIG_EXTRAS: Partial<Record<AgentId, AgentConfigExtra>> = {
     scope: 'Monitors active brands via CT logs (crt.sh)',
     outputs: ['agent_outputs (classification)', 'threats', 'notifications'],
   },
+  navigator: {
+    schedule: 'Every 5 min (independent cron — not dispatched by FC)',
+    model: 'none (DNS + SQL only)',
+    scope: 'Resolves malicious domains to IPs, refreshes OLAP cubes, pre-warms KV caches',
+    outputs: ['threats (ip_address)', 'threat_cube_{geo,provider,brand}', 'KV cache'],
+  },
   analyst: {
     schedule: 'Every hour via Flight Control',
     model: 'claude-haiku-4-5',

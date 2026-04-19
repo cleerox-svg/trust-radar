@@ -61,6 +61,31 @@ function RunStatusBlocks({ activity }: { activity: number[] }) {
   );
 }
 
+// ─── Schedule Badge ──────────────────────────────────────────────
+//
+// Tiny schedule pill rendered beside the status/circuit badges. Navigator
+// runs on an independent 5-minute cron that FC observes but doesn't
+// dispatch, so it's rendered in the accent color instead of the muted
+// fill the rest use.
+function ScheduleBadge({ agent }: { agent: Agent }) {
+  const schedule = agent.schedule;
+  if (!schedule || schedule === '-') return null;
+  const isIndependent = agent.name === 'navigator';
+  return (
+    <span
+      className="inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[9px] font-medium uppercase tracking-wide"
+      style={
+        isIndependent
+          ? { background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', border: '1px solid rgba(56,189,248,0.3)' }
+          : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.08)' }
+      }
+      title={isIndependent ? 'Independent cron — Flight Control monitors but does not dispatch' : 'Dispatched by Flight Control'}
+    >
+      {schedule}
+    </span>
+  );
+}
+
 // ─── Circuit Breaker Badge ──────────────────────────────────────────
 function CircuitBadge({ agent }: { agent: Agent }) {
   if (agent.circuit_state === 'tripped') {
@@ -121,6 +146,7 @@ function AgentCard({
             </span>
             <AgentStatusBadge status={agent.status} />
             <CircuitBadge agent={agent} />
+            <ScheduleBadge agent={agent} />
           </div>
           <div className="font-mono text-[10px] text-white/40 leading-relaxed line-clamp-2">
             {meta?.subtitle ?? agent.description}
