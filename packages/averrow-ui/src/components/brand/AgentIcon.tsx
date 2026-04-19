@@ -127,6 +127,23 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M14 23H22" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
     </svg>
   ),
+  navigator: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* compass housing */}
+      <circle cx="18" cy="18" r="14" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="18" cy="18" r="10" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+      {/* cardinal tick marks (N/E/S/W) */}
+      <line x1="18" y1="4" x2="18" y2="7" stroke="currentColor" strokeWidth="1.2"/>
+      <line x1="18" y1="29" x2="18" y2="32" stroke="currentColor" strokeWidth="1.2"/>
+      <line x1="4" y1="18" x2="7" y2="18" stroke="currentColor" strokeWidth="1.2"/>
+      <line x1="29" y1="18" x2="32" y2="18" stroke="currentColor" strokeWidth="1.2"/>
+      {/* compass needle — solid north, faded south */}
+      <path d="M18 8L21 18L18 28L15 18Z" fill="currentColor" fillOpacity="0.85"/>
+      <path d="M18 8L15 18L18 18Z" fill="currentColor" fillOpacity="0.35"/>
+      {/* center pivot */}
+      <circle cx="18" cy="18" r="1.6" fill="currentColor"/>
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {

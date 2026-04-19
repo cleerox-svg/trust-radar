@@ -9,6 +9,7 @@
 export type AgentId =
   | 'flight_control'
   | 'sentinel'
+  | 'navigator'
   | 'analyst'
   | 'cartographer'
   | 'observer'
@@ -49,14 +50,23 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     category: 'intelligence',
     pipelinePosition: 1,
   },
+  navigator: {
+    id: 'navigator',
+    displayName: 'Navigator',
+    codename: null,
+    subtitle: 'DNS resolution — independent 5-min cron',
+    color: '#38BDF8',
+    category: 'intelligence',
+    pipelinePosition: 2,
+  },
   cartographer: {
     id: 'cartographer',
     displayName: 'Cartographer',
-    codename: 'Navigator',
+    codename: null,
     subtitle: 'Geo Enrichment & Infrastructure Mapping',
     color: '#78A0C8',
     category: 'intelligence',
-    pipelinePosition: 2,
+    pipelinePosition: 3,
   },
   nexus: {
     id: 'nexus',
@@ -65,7 +75,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Infrastructure correlation — clusters threats by ASN, subnet, and temporal patterns',
     color: '#00D4FF',
     category: 'intelligence',
-    pipelinePosition: 3,
+    pipelinePosition: 4,
   },
   analyst: {
     id: 'analyst',
@@ -74,7 +84,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Threat Classification & Brand Matching',
     color: '#FB923C',
     category: 'intelligence',
-    pipelinePosition: 4,
+    pipelinePosition: 5,
   },
   observer: {
     id: 'observer',
@@ -83,7 +93,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Strategic Intel & Daily Briefings',
     color: '#A78BFA',
     category: 'intelligence',
-    pipelinePosition: 5,
+    pipelinePosition: 6,
   },
   sparrow: {
     id: 'sparrow',
@@ -92,7 +102,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Automated Takedown Agent',
     color: '#4ADE80',
     category: 'response',
-    pipelinePosition: 6,
+    pipelinePosition: 7,
   },
   strategist: {
     id: 'strategist',
@@ -101,7 +111,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Campaign Correlation & Clustering Intelligence',
     color: '#FB7185',
     category: 'intelligence',
-    pipelinePosition: 7,
+    pipelinePosition: 8,
   },
   pathfinder: {
     id: 'pathfinder',
@@ -110,7 +120,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Sales Intelligence & Lead Generation',
     color: '#F97316',
     category: 'ops',
-    pipelinePosition: 8,
+    pipelinePosition: 9,
   },
   curator: {
     id: 'curator',
@@ -119,7 +129,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Platform Hygiene & Data Quality',
     color: '#2DD4BF',
     category: 'ops',
-    pipelinePosition: 9,
+    pipelinePosition: 10,
   },
   architect: {
     id: 'architect',
@@ -128,7 +138,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Meta-agent — audits agents, feeds, and the data layer',
     color: '#E5A832',
     category: 'meta',
-    pipelinePosition: 10,
+    pipelinePosition: 11,
   },
   watchdog: {
     id: 'watchdog',
@@ -137,7 +147,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     subtitle: 'Uptime Monitoring & Alert Escalation',
     color: '#60A5FA',
     category: 'ops',
-    pipelinePosition: 11,
+    pipelinePosition: 12,
   },
 };
 
