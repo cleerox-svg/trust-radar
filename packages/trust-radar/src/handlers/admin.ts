@@ -380,7 +380,7 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
 const PIPELINE_META: Record<string, { label: string; agent: string; schedule: string }> = {
   cartographer:  { label: 'Geo Enrichment',     agent: 'cartographer', schedule: 'hourly' },
   analyst:       { label: 'Brand Matching',      agent: 'analyst',     schedule: 'hourly' },
-  domain_geo:    { label: 'DNS Resolution',      agent: 'fast-tick',   schedule: '5 min' },
+  domain_geo:    { label: 'DNS Resolution',      agent: 'navigator',   schedule: '5 min' },
   brand_enrich:  { label: 'Brand Enrichment',    agent: 'enricher',    schedule: 'hourly' },
   surbl:         { label: 'SURBL',               agent: 'surbl',       schedule: 'hourly' },
   virustotal:    { label: 'VirusTotal',          agent: 'virustotal',  schedule: 'hourly' },
@@ -780,7 +780,7 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
 // (1.1.1.1), geo-enriches the resulting IPs via the existing ipinfo pipeline,
 // then bulk-updates every threat sharing each domain.
 //
-// Core batch logic lives in lib/dns-backfill.ts (shared with fast-tick cron).
+// Core batch logic lives in lib/dns-backfill.ts (shared with Navigator cron).
 // The frontend loops this endpoint until remaining === 0.
 export async function handleBackfillDomainGeo(
   request: Request,
@@ -1871,7 +1871,7 @@ export async function handleBackfillSocialConfig(request: Request, env: Env): Pr
 // Auth: admin-gated via the same requireAdmin() middleware every other admin
 // endpoint uses. Registration lives in routes/admin.ts.
 //
-// Phase 3 will wire cube refresh into fast_tick; Phase 5 will swap Observatory
+// Phase 3 will wire cube refresh into Navigator; Phase 5 will swap Observatory
 // reads over to the cube tables. Until then, nothing reads these tables.
 
 /** Snap a Date (treated as UTC) to the top of the hour and format as SQLite 'YYYY-MM-DD HH:00:00'. */

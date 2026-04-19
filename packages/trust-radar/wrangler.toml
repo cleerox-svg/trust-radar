@@ -23,14 +23,14 @@ not_found_handling = "404-page"
 
 # ─── Cron Triggers ───────────────────────────────────────────
 # Hourly tick  (15min CPU limit) — Flight Control + full agent mesh
-# Fast tick    (30s CPU limit)   — DNS backfill + cube refresh
+# Navigator    (30s CPU limit)   — DNS resolution + cube refresh + cache warming (agent, runs */5)
 # Cube healer  (30s CPU limit)   — 30-day retroactive cube rebuild (6-hourly)
 #
-# Wave 1A: staggered to eliminate the :00 collision where hourly + fast-tick +
+# Wave 1A: staggered to eliminate the :00 collision where hourly + Navigator +
 # cube-healer all fired simultaneously, saturating the D1 writer and blocking
 # user reads for 3-10s every hour.
 #
-# Schedule:     :00 fast-tick | :07 hourly mesh | :12/:18/... cube-healer (6-hourly)
+# Schedule:     :00 Navigator | :07 hourly mesh | :12/:18/... cube-healer (6-hourly)
 # Eliminated:   parity-checker dedicated cron (demoted to daily in Wave 6)
 [triggers]
 crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *"]

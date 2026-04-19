@@ -224,7 +224,7 @@ The Seed Strategist analyzes spam trap performance and identifies coverage gaps:
 
 The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube tables (`threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand`) via `INSERT OR REPLACE ... SELECT ... GROUP BY`. This bounds drift from Cartographer's retroactive enrichment to ≤6 hours.
 
-- **Scope** — Excludes the current partial hour (fast-tick's territory). The previous hour overlap is intentional and safe because `INSERT OR REPLACE` is idempotent.
+- **Scope** — Excludes the current partial hour (Navigator's territory). The previous hour overlap is intentional and safe because `INSERT OR REPLACE` is idempotent.
 - **Status semantics** — All cubes succeed → `success`; some fail → `partial`; first cube throws → `failed`
 - **agent_runs lifecycle** — Inserts a `partial` row at start (crash-safe), updates to final status on completion
 
@@ -238,7 +238,7 @@ The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube table
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/parity-checker.ts` |
-| **Trigger** | Called by fast-tick cron (every 5 minutes) |
+| **Trigger** | Called by Navigator cron (every 5 minutes) |
 | **Purpose** | Validate OLAP cube accuracy against raw threats table |
 
 The Parity Checker compares cube row counts against raw `threats` aggregates for the same time window. It reports drift percentage and logs results to `agent_runs`. If drift exceeds thresholds, the cube-healer's next run will correct it.
@@ -262,7 +262,8 @@ The Parity Checker compares cube row counts against raw `threats` aggregates for
 | Seed Strategist | Daily | Yes | No |
 | Nexus | Every 4 hours | No | No |
 | Cube Healer | Every 6 hours | No | No |
-| Parity Checker | Every 5 min (via fast-tick) | No | No |
+| Parity Checker | Every 5 min (via Navigator) | No | No |
+| Navigator | Every 5 min cron | No | No |
 
 ---
 
@@ -270,13 +271,21 @@ The Parity Checker compares cube row counts against raw `threats` aggregates for
 
 In addition to the AI-powered agents above, two infrastructure agents maintain the OLAP cube layer:
 
-### fast-tick (`src/cron/fast-tick.ts`)
+### Navigator (`src/cron/navigator.ts`)
 
-Runs every 5 minutes. Not an AI agent — pure SQL. Responsibilities:
-1. Rebuild current + previous hour for all 3 cube tables (6 cube builds)
-2. Run parity checker to validate cube accuracy
-3. Refresh `hosting_providers` pre-computed columns
+Runs every 5 minutes on its own cron. Independent of Flight Control's dispatch —
+FC monitors Navigator's health but does not manage it. Previously known as
+`fast_tick`; historical `agent_runs` rows use `agent_id='fast_tick'` and new
+runs write `agent_id='navigator'`. Not an AI agent — pure SQL. Responsibilities:
+
+1. **DNS resolution** (primary mission) — resolve malicious domains to IP
+   addresses so Cartographer can geo-enrich them (200 domains / 8s batch)
+2. Drain stale pending `agent_events` (housekeeping)
+3. Rebuild current + previous hour for all 3 cube tables (6 cube builds)
 4. Pre-warm KV caches for Observatory, Dashboard, Agents, Operations pages
+
+Navigator finds the path (IP addresses); Cartographer maps the terrain (lat/lng,
+country, provider).
 
 ### Cloudflare Workflows
 

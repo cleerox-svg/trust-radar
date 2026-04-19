@@ -108,7 +108,7 @@ export function getWriteDb(env: Env, ctx: DbContext): D1Database {
  * Return the D1Database for agent, cron, and orchestrator code.
  *
  * Agents (sentinel, cartographer, nexus, analyst, observer, parity_checker,
- * cube_healer, fast_tick, etc.) process global threat intelligence that is not
+ * cube_healer, navigator, etc.) process global threat intelligence that is not
  * partitioned by customer. They always hit the primary writer directly.
  *
  * This helper exists to make the distinction explicit and auditable: if a

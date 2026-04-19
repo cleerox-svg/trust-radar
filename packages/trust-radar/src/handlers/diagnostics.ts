@@ -203,7 +203,10 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       cost_usd: number;
     }>();
 
-    // ─── 7. Cron health (recent fast-tick + orchestrator) ───────────
+    // ─── 7. Cron health (recent Navigator + orchestrator) ───────────
+    // Navigator was renamed from 'fast_tick' — both IDs are queried so the
+    // window spans the transition. Historical rows keep 'fast_tick'; new
+    // rows land under 'navigator'.
     const cronHealthP = env.DB.prepare(`
       SELECT agent_id,
              COUNT(*) AS runs,
@@ -212,7 +215,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
              MAX(completed_at) AS last_run_at,
              AVG(duration_ms) AS avg_duration_ms
       FROM agent_runs
-      WHERE agent_id IN ('fast_tick', 'flight_control', 'orchestrator')
+      WHERE agent_id IN ('navigator', 'fast_tick', 'flight_control', 'orchestrator')
         AND started_at >= datetime('now', '-' || ? || ' hours')
       GROUP BY agent_id
     `).bind(hoursBack).all<{

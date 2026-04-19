@@ -92,7 +92,7 @@ Three cron schedules:
 
 | Schedule | Handler | Purpose |
 |----------|---------|---------|
-| `*/5 * * * *` | fast-tick | OLAP cube refresh, KV cache pre-warming, parity checks |
+| `*/5 * * * *` | navigator | DNS resolution, OLAP cube refresh, KV cache pre-warming |
 | `*/15 * * * *` | orchestrator | Feed scans, agent scheduling, Workflow dispatch |
 | `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
 
@@ -116,7 +116,7 @@ Configured in `wrangler.toml` under `[[workflows]]`.
 
 | Binding | Purpose |
 |---------|---------|
-| `CACHE` | Rate limiting, scan result caching, cron status, page-load endpoint caching (300s TTL, pre-warmed by fast-tick) |
+| `CACHE` | Rate limiting, scan result caching, cron status, page-load endpoint caching (300s TTL, pre-warmed by Navigator) |
 | `SESSIONS` | Session storage |
 
 ## D1 Databases

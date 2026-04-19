@@ -2,7 +2,7 @@
  * Parity Checker Agent — Phase 4 automated cube drift detection.
  *
  * Runs hourly from the orchestrator. Verifies that threat_cube_geo and
- * threat_cube_provider (populated by Phase 2 cube-builder + Phase 3 fast_tick
+ * threat_cube_provider (populated by Phase 2 cube-builder + Phase 3 Navigator
  * refresh) still match the raw threats table for every relevant time window.
  *
  * What it checks per run:
@@ -19,7 +19,7 @@
  *     sub-hour cube lag never causes false positives.
  *   - Hourly H-1 check (the most recently-closed hour): drift_abs <= 5 is
  *     considered tolerable, to account for cartographer retroactive updates
- *     landing between fast_tick refreshes.
+ *     landing between Navigator refreshes.
  *   - Hourly H-2 through H-24 checks: must match EXACTLY.
  *
  * Outputs:
@@ -101,9 +101,9 @@ function isWindowDriftTolerable(driftAbs: number, rawTotal: number): boolean {
 
 /**
  * Format a Date as a 'YYYY-MM-DD HH:00:00' UTC hour bucket string, matching
- * the format cube-builder.ts writes and fast-tick.ts reads.
+ * the format cube-builder.ts writes and navigator.ts reads.
  *
- * Duplicated locally from fast-tick.ts (which is in the Phase 3 stable-freeze
+ * Duplicated locally from navigator.ts (which is in the Phase 3 stable-freeze
  * zone). Consolidation into a shared lib module is deferred to a future phase.
  */
 function formatHourBucketUTC(d: Date): string {

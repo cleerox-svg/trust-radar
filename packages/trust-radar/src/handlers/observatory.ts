@@ -179,7 +179,7 @@ function periodToInterval(period: string): string {
 //
 // The snappedWindowStart helper is duplicated from parity-checker.ts by design
 // (Phase 5 design principle #4). Consolidation into a shared lib module is
-// deferred to a future cleanup phase — parity-checker and fast-tick are both
+// deferred to a future cleanup phase — parity-checker and Navigator are both
 // in a stability freeze and cannot be touched in this PR.
 
 /** Period → hours, matching periodToInterval() semantics. */

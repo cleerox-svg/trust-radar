@@ -31,6 +31,28 @@ interface AgentHealth {
   paused_at: string | null;
 }
 
+//
+// Navigator health report. Navigator is an independent agent on the every-
+// 5-minute cron, NOT part of the Flight Control dispatch mesh — FC observes
+// it, does not manage it. Produced once per FC tick and surfaced in the
+// diagnostic payload so the Agent Monitor UI can render Navigator alongside
+// managed agents.
+//
+// Status thresholds (doubled from Navigator's 5-minute cycle for latency):
+//   - healthy  : ran within last 10 min, success rate > 80%
+//   - degraded : ran within last 10 min, success rate <= 80%
+//   - stale    : last run was 10-30 min ago
+//   - dead     : no run in 30+ minutes
+//
+interface NavigatorHealth {
+  last_run_at: string | null;
+  runs_last_hour: number;
+  success_rate_last_hour: number; // 0-100, percent
+  avg_records_processed: number;  // per run, last hour
+  avg_duration_ms: number;
+  status: 'healthy' | 'degraded' | 'stale' | 'dead';
+}
+
 interface Backlog {
   cartographer: number;
   analyst: number;
@@ -140,9 +162,10 @@ export const flightControlAgent: AgentModule = {
     }
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds, trippedAgents] = await Promise.all([
+    const [backlogs, health, navigatorHealth, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds, trippedAgents] = await Promise.all([
       measureBacklogs(db),
       getAgentHealth(db),
+      getNavigatorHealth(db),
       budgetMgr.getStatus(anthropicReported),
       budgetMgr.getAgentLimits(),
       db.prepare(`
@@ -413,7 +436,31 @@ export const flightControlAgent: AgentModule = {
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
     const tripped = health.filter(h => h.circuit_state === 'tripped').map(h => h.agent_id);
     const healthyAgents = health.filter(h => !h.is_stalled && h.circuit_state === 'closed');
-    const overallStatus = tripped.length > 0 || stalled.length > 0 ? 'degraded'
+
+    // Navigator is independent — its stale/dead state contributes to overall
+    // platform status the same way a stalled managed agent does.
+    const navigatorDegraded = navigatorHealth.status === 'stale' || navigatorHealth.status === 'dead';
+    if (navigatorDegraded) {
+      await logActivity(
+        db,
+        'flight_control',
+        navigatorHealth.status === 'dead' ? 'critical' : 'warning',
+        'navigator_health',
+        `Navigator ${navigatorHealth.status} — last run: ${navigatorHealth.last_run_at ?? 'never'} (expected every 5 min)`,
+        navigatorHealth as unknown as Record<string, unknown>,
+      );
+    } else if (navigatorHealth.status === 'degraded') {
+      await logActivity(
+        db,
+        'flight_control',
+        'warning',
+        'navigator_health',
+        `Navigator degraded — success rate ${navigatorHealth.success_rate_last_hour}% over last hour`,
+        navigatorHealth as unknown as Record<string, unknown>,
+      );
+    }
+
+    const overallStatus = tripped.length > 0 || stalled.length > 0 || navigatorDegraded ? 'degraded'
       : Object.values(backlogs).some(b => b > 5000) ? 'busy'
       : 'healthy';
 
@@ -421,6 +468,7 @@ export const flightControlAgent: AgentModule = {
       timestamp: new Date().toISOString(),
       backlogs,
       agents: health,
+      navigator_health: navigatorHealth,
       budget: budgetStatus,
       overall_status: overallStatus,
       degraded_feeds: degradedFeeds.results,
@@ -433,8 +481,8 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} agents=[${agentHealthSummary}] feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
-      severity: tripped.length > 0 || stalled.length > 0 || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} agents=[${agentHealthSummary}] navigator=${navigatorHealth.status} feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      severity: tripped.length > 0 || stalled.length > 0 || navigatorDegraded || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
 
@@ -756,6 +804,85 @@ async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
       paused_at: config?.paused_at ?? null,
     };
   });
+}
+
+// ─── Navigator Health ────────────────────────────────────────────
+//
+// Navigator runs on its own */5 cron and is NOT part of agentModules, so
+// getAgentHealth never sees it. This function computes Navigator health
+// directly from agent_runs. Navigator was previously named 'fast_tick' —
+// historical rows still carry that ID, so queries span both IDs to get
+// the full recent history.
+
+async function getNavigatorHealth(db: D1Database): Promise<NavigatorHealth> {
+  const DEFAULT_EMPTY: NavigatorHealth = {
+    last_run_at: null,
+    runs_last_hour: 0,
+    success_rate_last_hour: 0,
+    avg_records_processed: 0,
+    avg_duration_ms: 0,
+    status: 'dead',
+  };
+
+  try {
+    // Two reads in parallel: last run (for status freshness) + last hour aggregates.
+    const [latestRow, hourAgg] = await Promise.all([
+      db.prepare(`
+        SELECT started_at, status
+        FROM agent_runs
+        WHERE agent_id IN ('navigator', 'fast_tick')
+        ORDER BY started_at DESC
+        LIMIT 1
+      `).first<{ started_at: string; status: string }>(),
+
+      db.prepare(`
+        SELECT
+          COUNT(*) AS runs,
+          SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
+          AVG(records_processed) AS avg_records,
+          AVG(duration_ms) AS avg_ms
+        FROM agent_runs
+        WHERE agent_id IN ('navigator', 'fast_tick')
+          AND started_at >= datetime('now', '-1 hour')
+      `).first<{ runs: number; successes: number; avg_records: number | null; avg_ms: number | null }>(),
+    ]);
+
+    if (!latestRow) return DEFAULT_EMPTY;
+
+    // SQLite datetime strings are UTC but lack the 'Z' suffix — add it so
+    // `new Date(...)` parses them as UTC rather than local time.
+    const lastRunMs = new Date(latestRow.started_at + 'Z').getTime();
+    const ageMs = Date.now() - lastRunMs;
+    const ageMin = ageMs / 60_000;
+
+    const runs = hourAgg?.runs ?? 0;
+    const successes = hourAgg?.successes ?? 0;
+    const successRate = runs > 0 ? Math.round((successes / runs) * 100) : 0;
+
+    // Status thresholds — doubled from the 5-min cycle for latency tolerance.
+    let status: NavigatorHealth['status'];
+    if (ageMin > 30) {
+      status = 'dead';
+    } else if (ageMin > 10) {
+      status = 'stale';
+    } else if (runs > 0 && successRate <= 80) {
+      status = 'degraded';
+    } else {
+      status = 'healthy';
+    }
+
+    return {
+      last_run_at: latestRow.started_at,
+      runs_last_hour: runs,
+      success_rate_last_hour: successRate,
+      avg_records_processed: Math.round(hourAgg?.avg_records ?? 0),
+      avg_duration_ms: Math.round(hourAgg?.avg_ms ?? 0),
+      status,
+    };
+  } catch {
+    // Never let a Navigator health read failure break Flight Control.
+    return DEFAULT_EMPTY;
+  }
 }
 
 // ─── Scaling ─────────────────────────────────────────────────────
