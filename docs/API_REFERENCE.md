@@ -12,6 +12,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/auth/refresh` | Cookie | Refresh access token |
 | POST | `/api/auth/logout` | Cookie | Logout and clear session |
 | GET | `/api/auth/me` | User | Get current user info |
+| GET | `/api/invites/:token` | — | Validate an invite token before acceptance |
+| GET | `/invite` | — | Invite landing page (HTML) |
 
 ## Public Endpoints (No Auth)
 
@@ -24,6 +26,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/observatory/live` | Live observatory feed |
 | GET | `/api/observatory/brand-arcs` | Brand-specific arcs |
 | GET | `/api/observatory/stats` | Observatory statistics |
+| GET | `/api/observatory/operations` | Observatory operations (active NEXUS clusters feed) |
 | POST | `/api/scan/public` | Public domain scan (rate-limited) |
 | POST | `/api/scan/report` | Generate brand exposure report |
 | POST | `/api/brand-scan/public` | Public brand exposure scan |
@@ -53,6 +56,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/dashboard/stats` | User | Dashboard statistics |
 | GET | `/api/dashboard/sources` | User | Threat source breakdown |
 | GET | `/api/dashboard/trend` | User | Threat trend data |
+| GET | `/api/dashboard/brand-admin` | User | Brand-scoped admin dashboard |
 
 ## Brands
 
@@ -79,6 +83,13 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/brands/:id/safe-domains` | User | Add safe domain |
 | POST | `/api/brands/:id/safe-domains/bulk` | User | Bulk add safe domains |
 | DELETE | `/api/brands/:id/safe-domains/:domainId` | User | Remove safe domain |
+| GET | `/api/brands/:id/social-config` | User | Get brand social-monitoring config |
+| PATCH | `/api/brands/:id/social-config` | User | Update brand social-monitoring config |
+| GET | `/api/brands/:id/social-profiles` | User | List discovered social profiles for the brand |
+| PATCH | `/api/brands/:id/social-profiles/:profileId` | User | Classify / update a discovered social profile |
+| POST | `/api/brands/:id/discover-social` | User | Trigger social-link discovery for the brand |
+| POST | `/api/brands/:id/social-profiles/:profileId/assess` | User | Re-assess a social profile |
+| POST | `/api/brands/:id/compute-score` | User | Recompute brand threat score |
 
 ## Brand Profiles (DEPRECATED)
 
@@ -113,6 +124,7 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/threats/correlations` | User | Threat correlations |
 | GET | `/api/threats/geo-clusters` | User | Geographic clusters |
 | GET | `/api/threats/attack-flows` | User | Attack flow visualization |
+| GET | `/api/threats/heatmap` | User | Paginated, KV-cached threat heatmap data |
 | GET | `/api/threats/:id` | User | Get threat detail |
 | PATCH | `/api/threats/:id` | User | Update threat status |
 | POST | `/api/threats/enrich-geo` | Admin | Enrich threats with geo data |
@@ -131,10 +143,11 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/feeds/:id/trigger` | Admin | Trigger single feed |
 | POST | `/api/feeds/:id/reset` | Admin | Reset feed state |
 | POST | `/api/feeds/:id/unpause` | Admin | Clear auto-pause: enabled=1, paused_reason=NULL, consecutive_failures=0, health_status='healthy' |
-| POST | `/api/feeds` | Admin | Create feed |
-| DELETE | `/api/feeds/:id` | Admin | Delete feed |
 | POST | `/api/feeds/trigger-all` | Admin | Trigger all feeds |
 | POST | `/api/feeds/trigger-tier/:tier` | Admin | Trigger feeds by tier |
+| GET | `/api/feeds/overview` | User | Aggregated feed-health overview (tier summary, last-run freshness) |
+| GET | `/api/feeds/aggregate-stats` | User | Aggregate statistics across all feeds |
+| GET | `/api/feeds/:id/history` | User | Per-feed run / pull history |
 
 ## AI Agents
 
@@ -156,6 +169,15 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/agents/token-usage` | User | Agent token usage breakdown |
 | POST | `/api/agents/:name/toggle` | Admin | Enable/disable agent |
 | POST | `/api/agents/:name/reset-circuit` | Admin | Reset agent circuit breaker |
+| PUT | `/api/agents/:name/threshold` | Admin | Set per-agent consecutive-failure threshold (circuit breaker) |
+
+### Flight Control (v1)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/agents/health` | User | Flight Control health snapshot (per-agent status + last run) |
+| GET | `/api/v1/agents/outputs` | User | Agent outputs ticker feed |
+| GET | `/api/v1/agents/activity` | User | Flight Control activity log (scaling decisions, circuit events) |
 
 ## Trustbot
 
@@ -289,6 +311,8 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/alerts/stats` | User | Alert statistics |
 | GET | `/api/alerts/:id` | User | Get alert detail |
 | PATCH | `/api/alerts/:id` | User | Update alert status |
+| POST | `/api/alerts/bulk-acknowledge` | User | Bulk acknowledge alerts |
+| POST | `/api/alerts/bulk-takedown` | User | Bulk create takedown requests from alerts |
 
 ## Notifications
 
@@ -379,17 +403,20 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/spam-trap/stats` | User | Spam trap statistics |
-| GET | `/api/spam-trap/captures` | User | Captured phishing emails |
+| GET | `/api/spam-trap/stats` | Admin | Spam trap statistics |
+| GET | `/api/spam-trap/captures` | Admin | Captured phishing emails |
 | GET | `/api/spam-trap/captures/brand/:brandId` | User | Brand-specific captures |
-| GET | `/api/spam-trap/sources` | User | Spam sources |
-| GET | `/api/spam-trap/campaigns` | User | Seed campaigns |
+| GET | `/api/spam-trap/captures/:id` | Admin | Single capture detail |
+| GET | `/api/spam-trap/sources` | Admin | Spam sources |
+| GET | `/api/spam-trap/campaigns` | Admin | Seed campaigns |
 | POST | `/api/spam-trap/campaigns` | Admin | Create seed campaign |
 | POST | `/api/spam-trap/campaigns/:id/execute` | Admin | Execute seed campaign |
 | PUT | `/api/spam-trap/campaigns/:id` | Admin | Update seed campaign |
-| GET | `/api/spam-trap/addresses` | User | Trap addresses |
+| GET | `/api/spam-trap/seeding-sources` | Admin | Seeding source inventory |
+| GET | `/api/spam-trap/addresses` | Admin | Trap addresses |
 | POST | `/api/spam-trap/seed/initial` | Admin | Initial trap seeding |
 | POST | `/api/spam-trap/strategist/run` | Admin | Run seed strategist |
+| POST | `/api/spam-trap/reparse-auth` | Admin | Re-parse DMARC / DKIM / SPF fields on existing captures |
 
 ## Data Export
 
@@ -456,8 +483,92 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/admin/system-health` | Admin | System health dashboard |
 | GET | `/api/admin/budget/status` | Admin | AI budget status and spend |
 | GET | `/api/admin/budget/breakdown` | Admin | Budget breakdown by agent |
+| GET | `/api/admin/organizations` | Super Admin | List all organizations |
+| POST | `/api/admin/organizations` | Super Admin | Create organization |
+| GET | `/api/admin/organizations/:orgId` | Super Admin | Get organization detail |
+| PATCH | `/api/admin/organizations/:orgId` | Super Admin | Update organization |
+| GET | `/api/admin/brands/search` | Super Admin | Search brands for org assignment |
+| GET | `/api/admin/leads` | Admin | List leads |
+| PATCH | `/api/admin/leads/:id` | Admin | Update lead |
+| GET | `/api/admin/takedowns` | Super Admin | List takedowns across orgs |
+| PATCH | `/api/admin/takedowns/:id` | Super Admin | Update takedown status |
+| POST | `/api/admin/discover-social-batch` | Super Admin | Run social discovery batch |
+| POST | `/api/admin/pathfinder-enrich` | Super Admin | Pathfinder AI enrichment batch |
 
 ARCHITECT is now a standard agent triggered via `POST /api/agents/architect/trigger` (Admin auth, see [Agents section](#agents)). The full audit pipeline (collect → analyze → synthesize) runs inline in one execute() call. The markdown report, computed scorecard, and per-section analyses are stored in the latest `agent_outputs.details` row for `agent_id='architect'`; read them via `GET /api/agents/architect/outputs?limit=5`.
+
+## Sparrow (Takedown Automation)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/admin/sparrow/scan-capture/:id` | Admin | Run Sparrow analysis on a single capture |
+| POST | `/api/admin/sparrow/scan-batch` | Admin | Batch scan captures |
+| GET | `/api/admin/sparrow/results/:captureId` | Admin | Get scan results for a capture |
+| GET | `/api/admin/sparrow/malicious` | Admin | List confirmed malicious scan results |
+| GET | `/api/admin/sparrow/providers` | Admin | Hosting/registrar providers discovered by Sparrow |
+| POST | `/api/admin/sparrow/assemble-evidence/:takedownId` | Admin | Assemble takedown evidence bundle |
+| GET | `/api/admin/sparrow/evidence/:takedownId` | Admin | Get assembled evidence bundle |
+| GET | `/api/admin/sparrow/resolve-provider/:domain` | Admin | Resolve hosting provider for a domain |
+| POST | `/api/admin/sparrow/generate-draft/:takedownId` | Admin | Generate AI takedown notice draft |
+
+## Organizations (Tenant-Scoped)
+
+All endpoints under `/api/orgs/:orgId/...` require the caller to be a member of the organization. Roles within the org gate specific actions (e.g. invite management requires `admin` or `owner`).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/orgs/:orgId` | Member | Get organization detail |
+| GET | `/api/orgs/:orgId/members` | Member | List organization members |
+| POST | `/api/orgs/:orgId/invite` | Admin (org) | Invite a user to the organization |
+| DELETE | `/api/orgs/:orgId/members/:userId` | Admin (org) | Remove a member |
+| PATCH | `/api/orgs/:orgId/members/:userId` | Admin (org) | Update a member role |
+| GET | `/api/orgs/:orgId/invites` | Admin (org) | List outstanding invites |
+| DELETE | `/api/orgs/:orgId/invites/:inviteId` | Admin (org) | Revoke an invite |
+| GET | `/api/orgs/:orgId/brands` | Member | List brands assigned to the org |
+| POST | `/api/orgs/:orgId/brands` | Admin (org) | Assign a brand to the org |
+| DELETE | `/api/orgs/:orgId/brands/:brandId` | Admin (org) | Unassign a brand |
+| GET | `/api/orgs/:orgId/api-keys` | Admin (org) | List API keys |
+| POST | `/api/orgs/:orgId/api-keys` | Admin (org) | Create API key |
+| DELETE | `/api/orgs/:orgId/api-keys/:keyId` | Admin (org) | Revoke API key |
+| GET | `/api/orgs/:orgId/integrations` | Admin (org) | List integrations (SIEM, SOAR, webhook) |
+| POST | `/api/orgs/:orgId/integrations` | Admin (org) | Create integration |
+| PATCH | `/api/orgs/:orgId/integrations/:integrationId` | Admin (org) | Update integration |
+| DELETE | `/api/orgs/:orgId/integrations/:integrationId` | Admin (org) | Delete integration |
+| POST | `/api/orgs/:orgId/integrations/:integrationId/test` | Admin (org) | Send a test event through an integration |
+| GET | `/api/orgs/:orgId/webhook` | Admin (org) | Get webhook config |
+| PATCH | `/api/orgs/:orgId/webhook` | Admin (org) | Update webhook |
+| POST | `/api/orgs/:orgId/webhook/regenerate-secret` | Admin (org) | Rotate webhook HMAC secret |
+| POST | `/api/orgs/:orgId/webhook/test` | Admin (org) | Send a test webhook delivery |
+| GET | `/api/orgs/:orgId/dashboard` | Member | Tenant-scoped dashboard |
+| GET | `/api/orgs/:orgId/alerts` | Member | Tenant alerts list |
+| PATCH | `/api/orgs/:orgId/alerts/:alertId` | Member | Update tenant alert |
+| GET | `/api/orgs/:orgId/brands/:brandId/detail` | Member | Tenant brand detail |
+| GET | `/api/orgs/:orgId/brands/:brandId/threats` | Member | Tenant brand threats |
+| GET | `/api/orgs/:orgId/brands/:brandId/social-profiles` | Member | Tenant brand social profiles |
+| GET | `/api/orgs/:orgId/brands/:brandId/monitoring-config` | Member | Get monitoring config |
+| PATCH | `/api/orgs/:orgId/brands/:brandId/monitoring-config` | Admin (org) | Update monitoring config |
+| POST | `/api/orgs/:orgId/takedowns` | Member | Create takedown request |
+| GET | `/api/orgs/:orgId/takedowns` | Member | List takedown requests |
+| GET | `/api/orgs/:orgId/takedowns/:id` | Member | Get takedown detail |
+| PATCH | `/api/orgs/:orgId/takedowns/:id` | Admin (org) | Update takedown |
+
+## Internal Endpoints
+
+All internal endpoints require `Authorization: Bearer $AVERROW_INTERNAL_SECRET`. They are used by the MCP server, CLI scripts, and platform diagnostics without a user JWT.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/debug/run-enrichment` | Manually trigger the enrichment pipeline |
+| POST | `/api/internal/agents/cartographer/run` | Trigger Cartographer agent inline |
+| POST | `/api/internal/agents/nexus/run` | Trigger NEXUS agent inline |
+| POST | `/api/internal/agents/cartographer/backfill` | Run Cartographer backfill inline |
+| POST | `/api/internal/agents/cartographer/backfill-workflow` | Dispatch Cartographer backfill as a durable Workflow |
+| GET | `/api/internal/agents/cartographer/backfill-workflow/:instanceId` | Check backfill workflow status |
+| POST | `/api/internal/agents/nexus/workflow` | Dispatch NEXUS as a durable Workflow |
+| GET | `/api/internal/agents/nexus/workflow/:instanceId` | Check NEXUS workflow status |
+| POST | `/api/internal/briefing/send` | Manually generate and email the daily briefing |
+| GET | `/api/certstream/stats` | CertStream Durable Object stats |
+| POST | `/api/certstream/reload-brands` | Reload brand watchlist in CertStream DO |
 
 ## WebSocket
 
