@@ -214,7 +214,7 @@ The migration is **incremental, not a rewrite**. The API layer stays exactly as-
 
 ### Component Library Design
 
-The Averrow design system (documented in `AVERROW_DESIGN_SYSTEM_BRIEF.md`) maps directly to React components:
+The Averrow design system (documented in `AVERROW_UI_STANDARD.md` and `RESTRUCTURE_SPEC.md`) maps directly to React components:
 
 ```
 src/components/

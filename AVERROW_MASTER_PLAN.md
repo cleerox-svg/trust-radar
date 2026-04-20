@@ -658,7 +658,7 @@ Built for strategic acquirer positioning (50x ARR target per T10 Ventures framew
 
 ## 11. API Reference Index {#api}
 
-### Existing Endpoints (240+ routes — see AVERROW_API_REFERENCE.md)
+### Existing Endpoints (see `docs/API_REFERENCE.md`)
 
 ### New Endpoints Required (Phase 1-2)
 
@@ -722,4 +722,4 @@ This document must be updated every time:
 
 **Owner:** Claude Leroux  
 **Update cadence:** End of each Claude Code build session  
-**Related docs:** AVERROW_DESIGN_SYSTEM_BRIEF.md, AVERROW_API_REFERENCE.md, PRODUCT_BOUNDARIES.md
+**Related docs:** `AVERROW_UI_STANDARD.md`, `docs/API_REFERENCE.md`, `LRX_PRODUCT_BOUNDARIES.md`
