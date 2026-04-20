@@ -247,9 +247,13 @@ NEXUS:                hour % 4 === 0 (dispatched as Workflow)
 Sparrow:              hour % 6 === 0 (ctx.waitUntil)
 Observer:             hour === 0 (inline await)
 Pathfinder:           hour === 3 (inline await, KV throttle ensures once per 7 days)
+Observer briefing:    hour === 6 (inline await — also runs Seed Strategist)
+Narrator:             hour === 6 (executeAgent, after Observer briefing)
+Briefing email:       hour === 13 (inline await, dedup against today's cron briefings)
 CT monitor:           every tick (inline await, in handleScheduled)
 Lookalike check:      every tick (inline await, in handleScheduled)
 Social discovery:     hour % 6 === 0 (in handleScheduled)
+Social monitor:       hour % 6 === 0 (in handleScheduled)
 Daily snapshots:      hour === 0, or if none exist today (inline await)
 ```
 
