@@ -36,17 +36,24 @@ grep -rn "TODO\|FIXME\|HACK" packages/averrow-ui/src/ --include="*.tsx" | head -
 │   │   │   ├── lib/              ← Shared utilities
 │   │   │   └── index.ts          ← Worker entry point
 │   │   └── wrangler.toml
-│   └── averrow-ui/               ← React frontend (the live platform)
-│       ├── src/
-│       │   ├── design-system/    ← [RESTRUCTURE TARGET] tokens + primitives
-│       │   ├── features/         ← [RESTRUCTURE TARGET] domain-driven features
-│       │   ├── layouts/          ← Shell, Sidebar, TopBar, MobileNav
-│       │   ├── mobile/           ← Mobile-specific views (CommandCenter only)
-│       │   ├── pages/            ← Migrating to features/ during restructure
-│       │   ├── components/       ← Migrating to features/ or design-system/
-│       │   ├── hooks/            ← TanStack Query hooks
-│       │   └── lib/              ← api.ts, auth.tsx, time.ts, cn.ts
-│       └── tailwind.config.ts
+│   ├── averrow-ui/               ← React frontend (the live platform)
+│   │   ├── src/
+│   │   │   ├── design-system/    ← [RESTRUCTURE TARGET] tokens + primitives
+│   │   │   ├── features/         ← [RESTRUCTURE TARGET] domain-driven features
+│   │   │   ├── layouts/          ← Shell, Sidebar, TopBar, MobileNav
+│   │   │   ├── mobile/           ← Mobile-specific views (CommandCenter only)
+│   │   │   ├── pages/            ← Migrating to features/ during restructure
+│   │   │   ├── components/       ← Migrating to features/ or design-system/
+│   │   │   ├── hooks/            ← TanStack Query hooks
+│   │   │   └── lib/              ← api.ts, auth.tsx, time.ts, cn.ts
+│   │   └── tailwind.config.ts
+│   ├── averrow-mcp/              ← MCP server exposing platform diagnostics to Claude Code
+│   │   ├── src/index.ts          ← Wraps `/api/internal/*` with MCP tool schemas
+│   │   └── wrangler.toml         ← Requires AVERROW_INTERNAL_SECRET + MCP_AUTH_TOKEN
+│   └── imprsn8/                  ← Separate Worker for imprsn8.com (digital-impression scoring)
+│       ├── src/                  ← handlers/, lib/, middleware/, templates/
+│       ├── migrations/           ← D1 migrations (imprsn8-db)
+│       └── wrangler.toml
 ├── docs/
 │   ├── API_REFERENCE.md          ← All API routes — update when adding endpoints
 │   ├── ARCHITECTURE.md           ← System architecture

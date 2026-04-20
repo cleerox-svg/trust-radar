@@ -1,6 +1,6 @@
 # Threat Feed Integrations
 
-Trust Radar ingests threat intelligence from 17 external feeds. This document covers the feed architecture, individual feed integrations, and operational patterns.
+Trust Radar ingests threat intelligence from ~38 external feeds split across three categories: **ingest feeds** (25) that create new threat records, **social feeds** (4) that populate `social_mentions`, and **enrichment feeds** (9) that annotate existing threats. This document covers the feed architecture, individual feed integrations, and operational patterns.
 
 ## Source Files
 
@@ -38,7 +38,7 @@ interface FeedResult {
 
 ### Execution Flow
 
-1. **Cron trigger** — The Worker's `scheduled` handler fires every 5 minutes
+1. **Cron trigger** — Ingest, social, and enrichment feeds run from the hourly orchestrator tick (`7 * * * *`) inside `runThreatFeedScan()`. The `*/5 * * * *` Navigator cron does not ingest feeds — it only owns DNS resolution, cube refresh, and KV cache warming. See `CLAUDE.md §6` for the full agent mesh schedule.
 2. **Feed selection** — `runAllFeeds()` reads `feed_configs` from D1 to determine which feeds are due based on their configured interval
 3. **Per-feed execution** — Each feed module's `ingest()` function is called
 4. **IOC deduplication** — Before inserting a threat, the runner checks KV (`dedup:{type}:{value}`) with 24-hour TTL
@@ -79,18 +79,19 @@ Each ingested threat is classified into one of these types:
 
 ## Feed Registry
 
-All feeds are registered in `packages/trust-radar/src/feeds/index.ts`:
+All feeds are registered in `packages/trust-radar/src/feeds/index.ts` into one of three maps: `feedModules` (ingest), `socialModules`, or `enrichmentModules`. The `feed_name` key must match the `feed_configs.feed_name` column.
 
-### Phishing Feeds
+### Ingest Feeds — Phishing
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
 | **PhishTank** | `phishtank.ts` | Community-sourced | Verified phishing URLs via CIRCL API |
 | **OpenPhish** | `openphish.ts` | Automated detection | Machine-detected phishing URLs |
-| **PhishStats** | `phishstats.ts` | Aggregator | Phishing URL statistics and history |
 | **PhishDestroy** | `phishdestroy.ts` | Takedown service | Active phishing sites |
 
-### Malware & Threat Feeds
+> **Removed 2026-03:** PhishStats (upstream dead — 522/404). Do not re-add.
+
+### Ingest Feeds — Malware
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
@@ -100,33 +101,74 @@ All feeds are registered in `packages/trust-radar/src/feeds/index.ts`:
 | **MalwareBazaar** | `malwarebazaar.ts` | abuse.ch | Malware sample metadata |
 | **SSL Blacklist** | `sslbl.ts` | abuse.ch | Malicious SSL certificates |
 
-### Infrastructure Feeds
+### Ingest Feeds — IP Reputation / Infrastructure
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
 | **DShield** | `dshield.ts` | SANS ISC | Top attacking IP addresses |
 | **CINS Army** | `cins_army.ts` | Sentinel IPS | Malicious IP blocklist |
-| **CISA KEV** | `cisa_kev.ts` | US CISA | Known exploited vulnerabilities |
+| **Blocklist.de** | `blocklistde.ts` | Blocklist.de | IPs attacking SSH/FTP/Web services |
+| **C2 Tracker** | `c2tracker.ts` | montysecurity | Known C2 infrastructure (Cobalt Strike, Sliver, etc.) |
+| **C2 Intel Feeds** | `c2intelfeeds.ts` | drb-ra | Aggregated C2 intel from multiple sources |
+| **Spamhaus DROP** | `spamhausDrop.ts` | Spamhaus | Bulk hijacked / criminal netblocks |
+| **Tor Exit Nodes** | `torExitNodes.ts` | Tor Project | Current exit node list (tagged, not inherently malicious) |
+| **Emerging Threats** | `emergingThreats.ts` | Proofpoint ET | Compromised IPs rule set |
 
-### Domain & Certificate Feeds
+### Ingest Feeds — Vulnerability / Campaign Intelligence
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
-| **CertStream** | `certstream.ts` | Certificate Transparency | Real-time CT log monitoring |
-| **NRD Hagezi** | `nrd_hagezi.ts` | Hagezi | Newly registered domains |
+| **CISA KEV** | `cisa_kev.ts` | US CISA | Known exploited vulnerabilities |
+| **CISA Iran IOCs** | `cisa_iran_iocs.ts` | US CISA | Iran-related campaign IOCs |
 
-### Cloudflare Feeds
+### Ingest Feeds — Domains / Certificates
+
+| Feed | File | Source | Description |
+|------|------|--------|-------------|
+| **CertStream** | `certstream.ts` | Certificate Transparency | Real-time CT log monitoring (Durable Object) |
+| **NRD Hagezi** | `nrd_hagezi.ts` | Hagezi | Newly registered domains |
+| **Typosquat Scanner** | `typosquat_scanner.ts` | Internal | Per-brand lookalike domain generator + registration check |
+| **Disposable Email** | `disposableEmail.ts` | disposable-email-domains | Disposable / throwaway email domain list |
+
+### Ingest Feeds — Cloudflare
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
 | **Cloudflare Scanner** | `cloudflare_scanner.ts` | Cloudflare Radar | URL scanner results |
 | **Cloudflare Email** | `cloudflare_email.ts` | Cloudflare Email | Email routing intelligence |
 
-### Third-Party Intelligence
+### Ingest Feeds — Third-Party Intelligence
 
 | Feed | File | Source | Description |
 |------|------|--------|-------------|
 | **OTX AlienVault** | `otx_alienvault.ts` | AlienVault | Open Threat Exchange pulses |
+
+### Social Feeds
+
+Social feeds insert into `social_mentions` (not `threats`). The Watchdog agent classifies and escalates.
+
+| Feed | File | Source | Description |
+|------|------|--------|-------------|
+| **Reddit** | `reddit.ts` | Reddit public API | Brand-keyword mentions across configured subreddits |
+| **GitHub** | `github.ts` | GitHub search API | Brand mentions in public repos / code / issues |
+| **Telegram** | `telegram.ts` | Telegram channels | Monitored channel posts for brand impersonation |
+| **Mastodon** | `mastodon.ts` | Mastodon public timelines | Federated brand mentions |
+
+### Enrichment Feeds
+
+Enrichment feeds run **after** ingest. They query existing threats and annotate — they never create new threats.
+
+| Feed | File | Source | Description |
+|------|------|--------|-------------|
+| **SURBL** | `surbl.ts` | SURBL DNS | Domain reputation DNSBL lookups |
+| **VirusTotal** | `virustotal.ts` | VT v3 API | Per-URL / per-domain scan verdicts |
+| **HIBP Stealer Logs** | `hibp.ts` | HaveIBeenPwned | Credential exposure from stealer log dumps |
+| **Google Safe Browsing** | `googleSafeBrowsing.ts` | GSB v4 | Phishing / malware URL classification |
+| **Spamhaus DBL** | `spamhausDbl.ts` | Spamhaus | Domain blocklist reputation |
+| **AbuseIPDB** | `abuseipdb.ts` | AbuseIPDB | IP abuse confidence score |
+| **CIRCL Passive DNS** | `circlPassiveDns.ts` | CIRCL | Historical DNS records for pivot analysis |
+| **GreyNoise** | `greynoise.ts` | GreyNoise | Internet-wide scanner / noise classification |
+| **SecLookup** | `seclookup.ts` | SecLookup | Domain / IP threat intelligence lookup |
 
 ## Circuit Breaker Pattern
 
@@ -149,16 +191,22 @@ The feed runner implements a circuit breaker to handle feed failures gracefully.
 
 ### API
 
+See `docs/API_REFERENCE.md` for the full feeds API. The operationally important endpoints are:
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/feeds` | User | List all feeds with status |
+| GET | `/api/feeds/overview` | User | Aggregate feed health overview |
+| GET | `/api/feeds/aggregate-stats` | User | Aggregate statistics across all feeds |
 | GET | `/api/feeds/stats` | User | Feed ingestion statistics |
 | GET | `/api/feeds/jobs` | User | Recent ingestion job history |
 | GET | `/api/feeds/quota` | User | Feed quota usage |
 | GET | `/api/feeds/:id` | User | Get single feed detail |
+| GET | `/api/feeds/:id/history` | User | Per-feed run / pull history |
 | PATCH | `/api/feeds/:id` | Admin | Update feed configuration |
 | POST | `/api/feeds/:id/trigger` | Admin | Manually trigger feed ingestion |
 | POST | `/api/feeds/:id/reset` | Admin | Reset circuit breaker |
+| POST | `/api/feeds/:id/unpause` | Admin | Clear auto-pause (reset enabled=1, paused_reason=NULL, consecutive_failures=0, health_status='healthy') |
 | POST | `/api/feeds/trigger-all` | Admin | Trigger all feeds |
 | POST | `/api/feeds/trigger-tier/:tier` | Admin | Trigger feeds by tier |
 
