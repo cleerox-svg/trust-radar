@@ -25,7 +25,8 @@ export type AgentName =
   | "flight_control"
   | "curator"
   | "watchdog"
-  | "architect";
+  | "architect"
+  | "narrator";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

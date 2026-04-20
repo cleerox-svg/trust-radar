@@ -233,21 +233,6 @@ The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube table
 
 ---
 
-### Parity Checker
-
-| Property | Value |
-|----------|-------|
-| **File** | `packages/trust-radar/src/agents/parity-checker.ts` |
-| **Trigger** | Called by Navigator cron (every 5 minutes) |
-| **Purpose** | Validate OLAP cube accuracy against raw threats table |
-
-The Parity Checker compares cube row counts against raw `threats` aggregates for the same time window. It reports drift percentage and logs results to `agent_runs`. If drift exceeds thresholds, the cube-healer's next run will correct it.
-
-**Inputs:** `threat_cube_geo`, `threat_cube_provider` row counts vs raw threats aggregates
-**Outputs:** Drift percentages logged to `agent_runs`
-
----
-
 ## Agent Scheduling Summary
 
 | Agent | Frequency | Cost Guard | Approval Required |
@@ -262,7 +247,6 @@ The Parity Checker compares cube row counts against raw `threats` aggregates for
 | Seed Strategist | Daily | Yes | No |
 | Nexus | Every 4 hours | No | No |
 | Cube Healer | Every 6 hours | No | No |
-| Parity Checker | Every 5 min (via Navigator) | No | No |
 | Navigator | Every 5 min cron | No | No |
 
 ---
