@@ -820,61 +820,15 @@ async function runLookalikeDomainCheck(env: Env): Promise<void> {
 }
 
 async function runThreatNarratives(env: Env): Promise<void> {
-  const { generateNarrativesForBrand } = await import('../agents/narrator');
+  const { narratorAgent } = await import('../agents/narrator');
+  const { executeAgent } = await import('../lib/agentRunner');
 
-  // Find active brands that have recent signals (last 7 days) from at least 2 sources
-  const brandsWithSignals = await env.DB.prepare(`
-    SELECT b.id, b.name,
-      (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.created_at >= datetime('now', '-7 days')) as threat_count,
-      (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.found_at >= datetime('now', '-7 days')) as social_count,
-      (SELECT COUNT(*) FROM lookalike_domains ld WHERE ld.brand_id = b.id AND ld.registered = 1 AND ld.created_at >= datetime('now', '-7 days')) as lookalike_count,
-      (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count
-    FROM brands b
-    WHERE b.threat_count > 0
-    ORDER BY b.threat_count DESC
-    LIMIT 20
-  `).all<{
-    id: string; name: string;
-    threat_count: number; social_count: number;
-    lookalike_count: number; ct_count: number;
-  }>();
-
-  let generated = 0;
-  for (const brand of brandsWithSignals.results) {
-    // Count distinct signal types
-    let signalTypes = 0;
-    if (brand.threat_count > 0) signalTypes++;
-    if (brand.social_count > 0) signalTypes++;
-    if (brand.lookalike_count > 0) signalTypes++;
-    if (brand.ct_count > 0) signalTypes++;
-
-    // Only generate if at least 2 signal types (email security is checked inside generateNarrativesForBrand)
-    if (signalTypes < 2) continue;
-
-    // Check if we already generated a narrative for this brand in the last 24 hours
-    const existing = await env.DB.prepare(
-      `SELECT id FROM threat_narratives WHERE brand_id = ? AND created_at >= datetime('now', '-24 hours') LIMIT 1`
-    ).bind(brand.id).first();
-    if (existing) continue;
-
-    try {
-      await generateNarrativesForBrand(env, brand.id);
-      generated++;
-    } catch (err) {
-      logger.error('threat_narrative_brand_error', {
-        brand_id: brand.id,
-        brand_name: brand.name,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    // Limit to 5 narrative generations per cron run to control API costs
-    if (generated >= 5) break;
-  }
+  const result = await executeAgent(env, narratorAgent, {}, 'cron', 'scheduled');
 
   logger.info('threat_narratives_complete', {
-    brands_checked: brandsWithSignals.results.length,
-    narratives_generated: generated,
+    status: result.status,
+    narratives_generated: result.result?.itemsCreated ?? 0,
+    brands_checked: (result.result?.output as { brands_checked?: number } | undefined)?.brands_checked ?? 0,
   });
 }
 

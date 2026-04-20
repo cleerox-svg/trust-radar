@@ -11,6 +11,7 @@ import { createAlert } from "../lib/alerts";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicJSON } from "../lib/anthropic";
 import { HOT_PATH_HAIKU } from "../lib/ai-models";
+import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -230,6 +231,106 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
     }
   }
 }
+
+// ─── Agent module: batch narrative generation across brands ─────
+
+export const narratorAgent: AgentModule = {
+  name: "narrator",
+  displayName: "Narrator",
+  description: "Threat narrative generation across brands with multi-signal correlation",
+  color: "#8A8F9C",
+  trigger: "scheduled",
+  requiresApproval: false,
+
+  async execute(ctx: AgentContext): Promise<AgentResult> {
+    const { env } = ctx;
+
+    const blocked = await checkCostGuard(env, false);
+    if (blocked) {
+      return {
+        itemsProcessed: 0,
+        itemsCreated: 0,
+        itemsUpdated: 0,
+        output: { skipped: true, reason: blocked },
+      };
+    }
+
+    const brandsWithSignals = await env.DB.prepare(`
+      SELECT b.id, b.name,
+        (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.created_at >= datetime('now', '-7 days')) as threat_count,
+        (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.found_at >= datetime('now', '-7 days')) as social_count,
+        (SELECT COUNT(*) FROM lookalike_domains ld WHERE ld.brand_id = b.id AND ld.registered = 1 AND ld.created_at >= datetime('now', '-7 days')) as lookalike_count,
+        (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count
+      FROM brands b
+      WHERE b.threat_count > 0
+      ORDER BY b.threat_count DESC
+      LIMIT 20
+    `).all<{
+      id: string; name: string;
+      threat_count: number; social_count: number;
+      lookalike_count: number; ct_count: number;
+    }>();
+
+    const outputs: AgentOutputEntry[] = [];
+    let itemsProcessed = 0;
+    let itemsCreated = 0;
+    const errors: string[] = [];
+    const MAX_PER_RUN = 5;
+
+    for (const brand of brandsWithSignals.results) {
+      let signalTypes = 0;
+      if (brand.threat_count > 0) signalTypes++;
+      if (brand.social_count > 0) signalTypes++;
+      if (brand.lookalike_count > 0) signalTypes++;
+      if (brand.ct_count > 0) signalTypes++;
+      if (signalTypes < 2) continue;
+
+      const existing = await env.DB.prepare(
+        `SELECT id FROM threat_narratives WHERE brand_id = ? AND created_at >= datetime('now', '-24 hours') LIMIT 1`
+      ).bind(brand.id).first();
+      if (existing) continue;
+
+      itemsProcessed++;
+      try {
+        const preCount = await env.DB.prepare(
+          `SELECT COUNT(*) as c FROM threat_narratives WHERE brand_id = ?`
+        ).bind(brand.id).first<{ c: number }>();
+        await generateNarrativesForBrand(env, brand.id);
+        const postCount = await env.DB.prepare(
+          `SELECT COUNT(*) as c FROM threat_narratives WHERE brand_id = ?`
+        ).bind(brand.id).first<{ c: number }>();
+        if ((postCount?.c ?? 0) > (preCount?.c ?? 0)) itemsCreated++;
+      } catch (err) {
+        errors.push(`${brand.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      if (itemsCreated >= MAX_PER_RUN) break;
+    }
+
+    outputs.push({
+      type: "insight",
+      summary: `Narrator processed ${itemsProcessed} brands, generated ${itemsCreated} narratives`,
+      severity: "info",
+      details: {
+        brands_checked: brandsWithSignals.results.length,
+        brands_eligible: itemsProcessed,
+        narratives_generated: itemsCreated,
+        errors: errors.slice(0, 5),
+      },
+    });
+
+    return {
+      itemsProcessed,
+      itemsCreated,
+      itemsUpdated: 0,
+      output: {
+        brands_checked: brandsWithSignals.results.length,
+        narratives_generated: itemsCreated,
+      },
+      agentOutputs: outputs,
+    };
+  },
+};
 
 // ─── Helper: Build signal summary for the AI prompt ──────────────
 

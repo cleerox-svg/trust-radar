@@ -85,24 +85,29 @@ npx wrangler deploy --env staging  # Deploy to staging
 Configured in `wrangler.toml`:
 ```toml
 [triggers]
-crons = ["*/5 * * * *", "*/15 * * * *", "12 */6 * * *"]
+crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *"]
 ```
 
-Three cron schedules:
+Three cron schedules (staggered to avoid D1 writer collisions at `:00`):
 
 | Schedule | Handler | Purpose |
 |----------|---------|---------|
-| `*/5 * * * *` | navigator | DNS resolution, OLAP cube refresh, KV cache pre-warming |
-| `*/15 * * * *` | orchestrator | Feed scans, agent scheduling, Workflow dispatch |
+| `*/5 * * * *` | navigator | DNS resolution, OLAP cube refresh (current + prev hour), KV cache pre-warming |
+| `7 * * * *` | orchestrator | Hourly mesh — feed scans, agent dispatch, Workflow dispatch |
 | `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
 
-The orchestrator (`src/cron/orchestrator.ts`) routes jobs by time:
-- Every 15 min: Threat feed scan (Sentinel) + Cartographer (via Workflow)
-- Every 30 min: Analyst brand attribution (via ctx.waitUntil)
-- Every 4 hours: NEXUS clustering (via Workflow)
-- Every 6 hours: Strategist campaign correlation (via ctx.waitUntil)
-- Daily 06:00 UTC: Observer briefing
-- Weekly: Prospector sales intelligence
+The orchestrator (`src/cron/orchestrator.ts`) routes jobs using hour-only gates on `event.scheduledTime.getUTCHours()` (no minute gates — see `CLAUDE.md §6`):
+
+| Cadence | Jobs |
+|---------|------|
+| Every hourly tick | Flight Control, CertStream ping, agent_events consumer, feed ingest, Enricher, Cartographer Workflow, Analyst (`waitUntil`), CT monitor, lookalike check, email security scan |
+| Event-dispatched | Sentinel (when `totalNew > 0`), Watchdog (when new social mentions land) |
+| Every 4 hours (0/4/8/12/16/20) | NEXUS Workflow |
+| Every 6 hours (0/6/12/18) | Strategist, Sparrow, Social discovery, Social monitor, Sentinel social assessment |
+| Hour 0 | Observer, daily brand assessments, daily snapshots |
+| Hour 3 | Pathfinder (KV throttle to 7 days) |
+| Hour 6 | Observer briefing (Tranco import + Seed Strategist), Narrator threat narratives |
+| Hour 13 | Daily briefing email |
 
 ### Cloudflare Workflows
 

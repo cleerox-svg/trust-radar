@@ -1,6 +1,6 @@
 # AI Agents
 
-Trust Radar uses a system of 8 AI agents plus 2 infrastructure agents powered by Claude Haiku via the Anthropic API. Agents are defined as modules in `packages/trust-radar/src/agents/` and orchestrated by the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`.
+Trust Radar uses a mesh of AI agents plus infrastructure agents (Navigator, Cube Healer) powered by Claude Haiku via the Anthropic API. Agents are defined as modules in `packages/trust-radar/src/agents/` and orchestrated by the agent runner in `packages/trust-radar/src/lib/agentRunner.ts`. The registry is `packages/trust-radar/src/agents/index.ts`.
 
 ## Agent Infrastructure
 
@@ -48,7 +48,7 @@ Non-critical agents (Observer, Strategist, Seed Strategist) check a cost guard b
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/sentinel.ts` |
-| **Trigger** | Every feed ingestion event (continuous) |
+| **Trigger** | Hourly tick — event-dispatched when the feed scan ingests new threats |
 | **Purpose** | Classify new threats, assign confidence scores and severity |
 
 The Sentinel runs on every feed ingestion cycle. It processes newly ingested threats that lack classification:
@@ -69,7 +69,7 @@ The Sentinel runs on every feed ingestion cycle. It processes newly ingested thr
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/analyst.ts` |
-| **Trigger** | Scheduled — every 15 minutes |
+| **Trigger** | Scheduled — every hourly tick (dispatched via `ctx.waitUntil`) |
 | **Purpose** | Brand attribution for threats that rule-based detection missed |
 
 The Analyst processes threats that have no `target_brand_id` assigned. It uses Claude Haiku to infer which brand is being targeted from domain and URL patterns, supplementing the rule-based detection in `packages/trust-radar/src/lib/brandDetect.ts`.
@@ -89,7 +89,7 @@ The Analyst processes threats that have no `target_brand_id` assigned. It uses C
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/observer.ts` |
-| **Trigger** | Scheduled — daily |
+| **Trigger** | Scheduled — daily at 00:00 UTC (inline await on the hourly mesh) |
 | **Purpose** | Generate intelligence briefings from trend analysis |
 
 The Observer synthesizes threat data from the last 24 hours into human-readable intelligence briefings. It gathers:
@@ -112,7 +112,7 @@ This context is sent to Claude Haiku, which generates 3-5 professional intellige
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/strategist.ts` |
-| **Trigger** | Scheduled — every 6 hours |
+| **Trigger** | Scheduled — every 6 hours (hours 0/6/12/18, via `ctx.waitUntil`) |
 | **Purpose** | Campaign correlation and clustering |
 
 The Strategist identifies coordinated threat campaigns by correlating shared infrastructure:
@@ -134,7 +134,7 @@ When clusters are found, Claude Haiku generates descriptive campaign names. New 
 | Property | Value |
 |----------|-------|
 | **File** | `packages/trust-radar/src/agents/cartographer.ts` |
-| **Trigger** | Scheduled — every 6 hours |
+| **Trigger** | Scheduled — every hourly tick (dispatched as `CartographerBackfillWorkflow`) |
 | **Purpose** | Infrastructure mapping and hosting provider reputation scoring |
 
 The Cartographer operates in two phases:
@@ -149,15 +149,15 @@ Also runs email security scans for monitored brands via `packages/trust-radar/sr
 
 ---
 
-### Prospector
+### Pathfinder
 
 | Property | Value |
 |----------|-------|
-| **File** | `packages/trust-radar/src/agents/prospector.ts` |
-| **Trigger** | Scheduled — weekly |
+| **File** | `packages/trust-radar/src/agents/pathfinder.ts` |
+| **Trigger** | Scheduled — daily at 03:00 UTC (KV throttle enforces ≤1 run per 7 days) |
 | **Purpose** | Sales intelligence and lead generation |
 
-The Prospector implements a three-stage pipeline:
+Pathfinder (formerly "Prospector") implements a three-stage pipeline:
 
 1. **Prospect identification** — Scores brands from platform data (threat count, email security grade, phishing URLs, spam trap catches) to identify high-value sales prospects
 2. **Company research** — Uses Claude Haiku to research the company and identify security leadership contacts
@@ -167,6 +167,51 @@ Processes up to 5 prospects per run. Results are stored in the `sales_leads` tab
 
 **Inputs:** Brand data with threat metrics, email security scores
 **Outputs:** `sales_leads` records with research and outreach drafts
+
+---
+
+### Sparrow
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/sparrow.ts` |
+| **Trigger** | Scheduled — every 6 hours (hours 0/6/12/18, via `ctx.waitUntil`) |
+| **Purpose** | Takedown automation — drafts and submits takedown requests for active phishing infrastructure |
+
+Sparrow identifies active threats with high confidence and drafts takedown notices routed to hosting provider abuse desks, registrars, and brand-protection platforms.
+
+**Inputs:** Active threats with resolved hosting/registrar attribution
+**Outputs:** Takedown submissions tracked in `takedowns` table; `agent_outputs` entries
+
+---
+
+### Nexus
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/nexus.ts` |
+| **Trigger** | Scheduled — every 4 hours (hours 0/4/8/12/16/20, dispatched as `NexusWorkflow`) |
+| **Purpose** | Infrastructure cluster detection — the operations layer |
+
+Nexus correlates shared infrastructure (IPs, ASNs, certificates, registrars, naming patterns) into `infrastructure_clusters` rows that represent distinct threat actor operations. Pivot detection emits immediate events for Observer.
+
+**Inputs:** Enriched threats, certificates, providers
+**Outputs:** `infrastructure_clusters` rows; `pivot_detected` / `cluster_detected` events
+
+---
+
+### Narrator
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/narrator.ts` |
+| **Trigger** | Scheduled — daily at 06:00 UTC (via `executeAgent`, after Observer briefing) |
+| **Purpose** | Multi-signal threat narrative generation per brand |
+
+Narrator correlates threats, email security posture, social impersonation, lookalike domains, and suspicious CT certificates into a coherent attack narrative. Generates a narrative only when a brand has ≥2 distinct signal types. Limits to 5 narratives per run for cost control. High-severity narratives also create alerts.
+
+**Inputs:** Per-brand signals from `threats`, `brands.email_security_*`, `social_monitor_results`, `lookalike_domains`, `ct_certificates`
+**Outputs:** `threat_narratives` rows; high/critical severity also creates `alerts` rows
 
 ---
 
@@ -233,37 +278,26 @@ The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube table
 
 ---
 
-### Parity Checker
-
-| Property | Value |
-|----------|-------|
-| **File** | `packages/trust-radar/src/agents/parity-checker.ts` |
-| **Trigger** | Called by Navigator cron (every 5 minutes) |
-| **Purpose** | Validate OLAP cube accuracy against raw threats table |
-
-The Parity Checker compares cube row counts against raw `threats` aggregates for the same time window. It reports drift percentage and logs results to `agent_runs`. If drift exceeds thresholds, the cube-healer's next run will correct it.
-
-**Inputs:** `threat_cube_geo`, `threat_cube_provider` row counts vs raw threats aggregates
-**Outputs:** Drift percentages logged to `agent_runs`
-
----
-
 ## Agent Scheduling Summary
 
-| Agent | Frequency | Cost Guard | Approval Required |
-|-------|-----------|------------|-------------------|
-| Sentinel | Every 5 min (with feeds) | No | No |
-| Analyst | Every 15 min | No | No |
-| Observer | Daily | Yes | No |
-| Strategist | Every 6 hours | Yes | No |
-| Cartographer | Every 6 hours | No | No |
-| Prospector | Weekly | No | No |
-| Trustbot | On demand | No | No |
-| Seed Strategist | Daily | Yes | No |
-| Nexus | Every 4 hours | No | No |
-| Cube Healer | Every 6 hours | No | No |
-| Parity Checker | Every 5 min (via Navigator) | No | No |
-| Navigator | Every 5 min cron | No | No |
+The hourly mesh cron is `7 * * * *`. All time gates below use hour-only checks on `event.scheduledTime.getUTCHours()` — never minute gates (see `CLAUDE.md §6 — Cron-audit rule`).
+
+| Agent | Frequency | Dispatch | Cost Guard | Approval Required |
+|-------|-----------|----------|------------|-------------------|
+| Sentinel | Hourly tick when feed ingest produces `totalNew > 0` | Inline await | No | No |
+| Analyst | Every hourly tick | `ctx.waitUntil` | No | No |
+| Cartographer | Every hourly tick | `CartographerBackfillWorkflow` | No | No |
+| Strategist | Every 6 hours (hours 0/6/12/18) | `ctx.waitUntil` | Yes | No |
+| Nexus | Every 4 hours (hours 0/4/8/12/16/20) | `NexusWorkflow` | No | No |
+| Sparrow | Every 6 hours (hours 0/6/12/18) | `ctx.waitUntil` | No | No |
+| Observer | Daily at 00:00 UTC | Inline await | Yes | No |
+| Pathfinder | Daily at 03:00 UTC (KV throttle to 7 days) | Inline await | No | No |
+| Seed Strategist | Daily at 06:00 UTC (inside Observer briefing job) | Inline await | Yes | No |
+| Narrator | Daily at 06:00 UTC (after Observer briefing) | `executeAgent` | Yes | No |
+| Trustbot | On demand (`/api/trustbot/chat`) | Manual | No | No |
+| Cube Healer | Every 6 hours (`12 */6 * * *`) | Dedicated cron | No | No |
+| Navigator | Every 5 minutes (`*/5 * * * *`) | Dedicated cron | No | No |
+| Flight Control | Every hourly tick (first) | Inline await | No | No |
 
 ---
 

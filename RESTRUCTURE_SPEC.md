@@ -543,6 +543,27 @@ No hook logic changes. No API changes. Pure file organization.
 Each session is a focused Claude Code task. Do not combine sessions.
 Commit after each session. Keep master green throughout.
 
+### Session completion tracker
+
+Status reflects what's landed in `packages/averrow-ui/` on `master`. Use this as the source of truth for which session to start next — individual session sub-headings below stay immutable so their specs remain readable.
+
+| Session | Status | Evidence / notes |
+|---------|--------|------------------|
+| R1 — Design system foundation | ✅ Landed | `design-system/tokens.css`, `design-system/hooks/useTheme.ts`, `design-system/hooks/useBreakpoint.ts` present |
+| R2 — Rebuild Card + Button + Badge | ✅ Landed | `components/ui/Card.tsx`, `Button.tsx`, `Badge.tsx` rebuilt; re-exported via `design-system/components/index.ts` |
+| R3 — Unify StatCard + Avatar + GlowNumber | ✅ Landed | `components/brands/StatCard.tsx` deleted; single `components/ui/StatCard.tsx` with `SimpleStatCard` / `DetailStatCard`; `DimensionalAvatar` is now an alias for `Avatar` |
+| R4 — Tabs + DataRow + FilterBar + Modal | 🟡 Partial | Tabs, DataRow, FilterBar all present; Modal not yet exported from the barrel — confirm whether a new Modal shipped or the need was absorbed by Dropdown removal |
+| R5 — PageHeader + StatGrid + barrel | ✅ Landed | `PageHeader`, `StatGrid`, `design-system/components/index.ts` all present |
+| R6 — Feature folder structure | ✅ Landed | `src/features/` exists with `admin`, `agents`, `alerts`, `brands`, `campaigns`, `feeds`, `leads`, `observatory`, `observatory-v3`, `providers`, `settings`, `spam-trap`, `takedowns`, `threat-actors`, `threats`, `trends` |
+| R7 — Shell responsive + MobileNav | ✅ Landed | `src/mobile/` folder removed; Shell handles responsive layout |
+| R8 — Apply DataRow + FilterBar to all pages | 🟡 In progress | Cross-cutting — verify per-page audit before marking complete |
+| R9 — Remove old tokens | ⏳ Not started | Old CSS classes (`glass-card`, `badge-glass`, etc.) still present in `index.css` until R9 runs |
+| R10 — Observatory chrome + Mobile polish | ⏳ Not started | Observatory tab chrome + `MobileCommandCenter` refresh pending |
+
+When a session lands, update this table in the same commit — do not wait for a batch "docs update" pass.
+
+
+
 ### Session R1 — Design System Foundation
 **What:** Create `design-system/tokens.css` + `design-system/hooks/useTheme.ts`
 **Files created:** tokens.css, useTheme.ts, useBreakpoint.ts (moved from hooks/)
