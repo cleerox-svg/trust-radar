@@ -15,6 +15,15 @@ import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits, ThrottleLevel } from "../lib/budgetManager";
 import { createNotification } from "../lib/notifications";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
+import { getOrComputeMetric } from "../lib/system-metrics";
+
+// TTLs for backlog counters. "Monitoring" backlogs (the broad _checked
+// queries that a partial index can't help with because the predicate
+// matches 50-70% of the table) get a longer TTL — one fresh recompute
+// per 4 ticks instead of every tick. "Live" backlogs used for scaling
+// decisions stay on the short TTL so Flight Control reacts quickly.
+const BACKLOG_TTL_LIVE_S = 3000;       // 50 min — refresh every tick
+const BACKLOG_TTL_MONITORING_S = 14400; // 4h   — refresh every ~4th tick
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -516,170 +525,184 @@ export const flightControlAgent: AgentModule = {
 // ─── Backlog Measurement ─────────────────────────────────────────
 
 async function measureBacklogs(db: D1Database): Promise<Backlog> {
-  // Run all backlog queries in parallel
-  const [cartResult, analystResult, totalUnlinkedResult, totalNoGeoResult, surblResult, vtResult, gsbResult, dblResult, abuseipdbResult, pdnsResult, greynoiseResult, seclookupResult, watchdogResult] = await Promise.all([
-    // Cartographer backlog: unenriched threats with public IPs
-    // Aligned with cartographer Phase 0 query (ip_address only, private IPs excluded)
-    db.prepare(`
+  // Each backlog is routed through system_metrics. The TTL picks whether
+  // this is a "live" counter (short TTL, ~every tick) or a "monitoring"
+  // counter (long TTL, ~every 4th tick). The stall-detection logic below
+  // writes to backlog_history only when wasCached === false, so detection
+  // still runs on fresh samples regardless of cadence.
+
+  const cacheCount = (key: string, ttl: number, sql: string, suppressErrors = false) =>
+    getOrComputeMetric(db, key, ttl, async () => {
+      try {
+        const r = await db.prepare(sql).first<{ count: number }>();
+        return r?.count ?? 0;
+      } catch (err) {
+        if (suppressErrors) return 0;
+        throw err;
+      }
+    });
+
+  const [
+    cartResult,
+    analystResult,
+    totalUnlinkedResult,
+    totalNoGeoResult,
+    surblResult,
+    vtResult,
+    gsbResult,
+    dblResult,
+    abuseipdbResult,
+    pdnsResult,
+    greynoiseResult,
+    seclookupResult,
+    watchdogResult,
+    domainGeoResult,
+    brandEnrichResult,
+  ] = await Promise.all([
+    // Live counters — used for scaling decisions, kept fresh every tick.
+    cacheCount('backlog.cartographer', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE enriched_at IS NULL
         AND ip_address IS NOT NULL AND ip_address != ''
         ${PRIVATE_IP_SQL_FILTER}
-    `).first<{ count: number }>(),
-
-    // Analyst backlog: brands with recent threats but no recent analyst output
-    db.prepare(`
+    `),
+    cacheCount('backlog.analyst', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(DISTINCT target_brand_id) as count
       FROM threats
       WHERE first_seen >= datetime('now', '-24 hours')
         AND target_brand_id IS NOT NULL
         AND status = 'active'
-    `).first<{ count: number }>(),
-
-    // Total unlinked threat backlog (not just recent)
-    db.prepare(`
+    `),
+    cacheCount('backlog.total_unlinked', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE target_brand_id IS NULL
       AND status = 'active'
-    `).first<{ count: number }>(),
-
-    // Total geo backlog
-    db.prepare(`
+    `),
+    cacheCount('backlog.total_no_geo', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE (lat IS NULL OR lng IS NULL)
       AND status = 'active'
-    `).first<{ count: number }>(),
+    `),
 
-    // SURBL enrichment backlog: unchecked domains from last 7 days
-    db.prepare(`
+    // Monitoring counters — broad _checked queries with no selective
+    // index. Refreshed every ~4 ticks; stall detection still works on
+    // fresh-recompute samples.
+    cacheCount('backlog.surbl', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE surbl_checked = 0
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // VT enrichment backlog: unchecked high-severity threats from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.vt', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE vt_checked = 0
         AND severity IN ('critical', 'high')
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // GSB enrichment backlog: unchecked URLs/domains from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.gsb', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE gsb_checked = 0
         AND (malicious_url IS NOT NULL OR malicious_domain IS NOT NULL)
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // DBL enrichment backlog: unchecked domains from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.dbl', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE dbl_checked = 0
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // AbuseIPDB enrichment backlog: unchecked IPs from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.abuseipdb', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE abuseipdb_checked = 0
         AND ip_address IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // PDNS enrichment backlog: unchecked high-severity domains from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.pdns', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE pdns_checked = 0
         AND severity IN ('critical', 'high')
         AND malicious_domain IS NOT NULL
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>(),
-
-    // GreyNoise enrichment backlog: unchecked high-severity IPs from last 7 days
-    db.prepare(`
+    `),
+    cacheCount('backlog.greynoise', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE greynoise_checked = 0
         AND ip_address IS NOT NULL
         AND severity IN ('critical', 'high')
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>().catch(() => ({ count: 0 })),
-
-    // SecLookup enrichment backlog: unchecked threats from last 7 days
-    db.prepare(`
+    `, true),
+    cacheCount('backlog.seclookup', BACKLOG_TTL_MONITORING_S, `
       SELECT COUNT(*) as count FROM threats
       WHERE seclookup_checked = 0
         AND (malicious_domain IS NOT NULL OR ip_address IS NOT NULL)
         AND first_seen >= datetime('now', '-7 days')
-    `).first<{ count: number }>().catch(() => ({ count: 0 })),
-
-    // Watchdog backlog: unclassified social mentions
-    db.prepare(`
+    `, true),
+    cacheCount('backlog.watchdog', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM social_mentions WHERE status = 'new'
-    `).first<{ count: number }>().catch(() => ({ count: 0 })),
+    `, true),
+    cacheCount('backlog.domain_geo', BACKLOG_TTL_LIVE_S, `
+      SELECT COUNT(*) as count FROM threats
+      WHERE (ip_address IS NULL OR ip_address = '')
+        AND malicious_domain IS NOT NULL
+        AND malicious_domain NOT LIKE '*%'
+        AND malicious_domain LIKE '%.%'
+    `),
+    cacheCount('backlog.brand_enrich', BACKLOG_TTL_LIVE_S, `
+      SELECT COUNT(*) as count FROM brands
+      WHERE enriched_at IS NULL AND canonical_domain IS NOT NULL
+    `),
   ]);
 
-  const domainGeoRow = await db.prepare(`
-    SELECT COUNT(*) as n FROM threats
-    WHERE (ip_address IS NULL OR ip_address = '')
-      AND malicious_domain IS NOT NULL
-      AND malicious_domain NOT LIKE '*%'
-      AND malicious_domain LIKE '%.%'
-  `).first<{ n: number }>();
-
-  const brandEnrichRow = await db.prepare(`
-    SELECT COUNT(*) as n FROM brands
-    WHERE enriched_at IS NULL AND canonical_domain IS NOT NULL
-  `).first<{ n: number }>();
-
   const backlog: Backlog = {
-    cartographer: cartResult?.count ?? 0,
-    analyst: analystResult?.count ?? 0,
-    totalUnlinked: totalUnlinkedResult?.count ?? 0,
-    totalNoGeo: totalNoGeoResult?.count ?? 0,
-    surblUnchecked: surblResult?.count ?? 0,
-    vtUnchecked: vtResult?.count ?? 0,
-    gsbUnchecked: gsbResult?.count ?? 0,
-    dblUnchecked: dblResult?.count ?? 0,
-    abuseipdbUnchecked: abuseipdbResult?.count ?? 0,
-    pdnsUnchecked: pdnsResult?.count ?? 0,
-    greynoiseUnchecked: greynoiseResult?.count ?? 0,
-    seclookupUnchecked: seclookupResult?.count ?? 0,
-    watchdog: watchdogResult?.count ?? 0,
-    domainGeoBacklog:   0,
-    brandEnrichBacklog: 0,
+    cartographer: cartResult.value,
+    analyst: analystResult.value,
+    totalUnlinked: totalUnlinkedResult.value,
+    totalNoGeo: totalNoGeoResult.value,
+    surblUnchecked: surblResult.value,
+    vtUnchecked: vtResult.value,
+    gsbUnchecked: gsbResult.value,
+    dblUnchecked: dblResult.value,
+    abuseipdbUnchecked: abuseipdbResult.value,
+    pdnsUnchecked: pdnsResult.value,
+    greynoiseUnchecked: greynoiseResult.value,
+    seclookupUnchecked: seclookupResult.value,
+    watchdog: watchdogResult.value,
+    domainGeoBacklog:   domainGeoResult.value,
+    brandEnrichBacklog: brandEnrichResult.value,
   };
-
-  backlog.domainGeoBacklog   = domainGeoRow?.n ?? 0;
-  backlog.brandEnrichBacklog = brandEnrichRow?.n ?? 0;
 
   // ── Persist backlog snapshots + run stall detection ────────────
   // Flight Control used to log the backlog count every tick but had no
   // memory of what it logged the previous tick. The Enricher could be
   // dead and FC would still happily report "domain geo backlog: 90852"
-  // hour after hour with no alarm. Now we keep a 5-tick rolling history
-  // and emit a critical event whenever a backlog fails to strictly
-  // decrease over 4 ticks.
-  const TRACKED: Array<{ name: string; count: number }> = [
-    { name: 'domain_geo',    count: backlog.domainGeoBacklog },
-    { name: 'brand_enrich',  count: backlog.brandEnrichBacklog },
-    { name: 'cartographer',  count: backlog.cartographer },
-    { name: 'analyst',       count: backlog.analyst },
-    { name: 'surbl',         count: backlog.surblUnchecked },
-    { name: 'virustotal',    count: backlog.vtUnchecked },
-    { name: 'gsb',           count: backlog.gsbUnchecked },
-    { name: 'dbl',           count: backlog.dblUnchecked },
-    { name: 'abuseipdb',     count: backlog.abuseipdbUnchecked },
-    { name: 'pdns',          count: backlog.pdnsUnchecked },
-    { name: 'greynoise',     count: backlog.greynoiseUnchecked },
-    { name: 'seclookup',     count: backlog.seclookupUnchecked },
+  // hour after hour with no alarm. Now we keep a rolling history and
+  // emit a critical event whenever a backlog fails to strictly decrease
+  // across samples.
+  //
+  // Samples are written ONLY for freshly computed metrics (wasCached ===
+  // false). If we wrote every tick, cached metrics would produce long
+  // runs of identical values and stall detection would fire falsely.
+  // Monitoring counters with the 4h TTL therefore write one sample per
+  // ~4 ticks and stall detection compares fresh samples, not cached
+  // reads.
+  const TRACKED: Array<{ name: string; count: number; cached: boolean }> = [
+    { name: 'domain_geo',    count: backlog.domainGeoBacklog,     cached: domainGeoResult.wasCached },
+    { name: 'brand_enrich',  count: backlog.brandEnrichBacklog,   cached: brandEnrichResult.wasCached },
+    { name: 'cartographer',  count: backlog.cartographer,         cached: cartResult.wasCached },
+    { name: 'analyst',       count: backlog.analyst,              cached: analystResult.wasCached },
+    { name: 'surbl',         count: backlog.surblUnchecked,       cached: surblResult.wasCached },
+    { name: 'virustotal',    count: backlog.vtUnchecked,          cached: vtResult.wasCached },
+    { name: 'gsb',           count: backlog.gsbUnchecked,         cached: gsbResult.wasCached },
+    { name: 'dbl',           count: backlog.dblUnchecked,         cached: dblResult.wasCached },
+    { name: 'abuseipdb',     count: backlog.abuseipdbUnchecked,   cached: abuseipdbResult.wasCached },
+    { name: 'pdns',          count: backlog.pdnsUnchecked,        cached: pdnsResult.wasCached },
+    { name: 'greynoise',     count: backlog.greynoiseUnchecked,   cached: greynoiseResult.wasCached },
+    { name: 'seclookup',     count: backlog.seclookupUnchecked,   cached: seclookupResult.wasCached },
   ];
 
   for (const t of TRACKED) {
+    if (t.cached) continue;
     try {
       await db.prepare(
         `INSERT INTO backlog_history (backlog_name, count) VALUES (?, ?)`
@@ -688,11 +711,14 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
   }
 
   // Stall detection: compare the current count (just inserted) to the
-  // value from 4 ticks ago. If the backlog is non-zero, has 5+ samples
-  // (so it isn't brand new), and is not strictly decreasing, log a
-  // critical event.
+  // value from 4 samples ago. Only runs on freshly computed metrics —
+  // cached reads skip detection to avoid false positives from identical
+  // consecutive values. For 4h-TTL metrics this means the comparison
+  // window is ~16 hours of real time, which is strictly more conservative
+  // than the previous 4-hour window.
   for (const t of TRACKED) {
     if (t.count === 0) continue;
+    if (t.cached) continue;
     try {
       const history = await db.prepare(`
         SELECT count FROM backlog_history
