@@ -198,6 +198,40 @@ export async function runCubeHealer(
     errorMessage = `${prevError}cube_healer brand heal failed (${rowsWritten} rows so far): ${errMsg}`;
   }
 
+  // ── Weekly ANALYZE ──────────────────────────────────────────
+  // D1 doesn't auto-run ANALYZE, so sqlite_stat1 only updates when we
+  // explicitly ask. Without fresh stats the query planner falls back to
+  // heuristics that can silently pick a worse index as the data shape
+  // drifts — we saw exactly this in PR #776 where partial indexes were
+  // only picked up after a manual ANALYZE.
+  //
+  // Gated once per 7 days via KV so it runs ~once/week regardless of
+  // which 6-hour tick happens to cross the boundary. Full-table scan
+  // during ANALYZE is cheap (a few hundred ms) but we don't need it
+  // more often than that — distribution changes are slow.
+  //
+  // Non-fatal: ANALYZE failure never changes finalStatus. The cube heal
+  // work has already committed; stale stats are worse than no stats but
+  // not a hard failure.
+  try {
+    const ANALYZE_LOCK_KEY = 'cube_healer:last_analyze_at';
+    const ANALYZE_INTERVAL_S = 7 * 24 * 60 * 60; // 7 days
+    const lastRun = await env.CACHE.get(ANALYZE_LOCK_KEY);
+    const lastRunMs = lastRun ? Number(lastRun) : 0;
+    const shouldAnalyze = !lastRunMs || (Date.now() - lastRunMs) > ANALYZE_INTERVAL_S * 1000;
+    if (shouldAnalyze) {
+      await env.DB.prepare('ANALYZE threats').run();
+      await env.DB.prepare('ANALYZE brands').run();
+      await env.CACHE.put(ANALYZE_LOCK_KEY, String(Date.now()), {
+        expirationTtl: ANALYZE_INTERVAL_S * 2,
+      });
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const prevError = errorMessage ? `${errorMessage} | ` : '';
+    errorMessage = `${prevError}ANALYZE failed (non-fatal): ${errMsg}`;
+  }
+
   // ── Finalize agent_runs row ─────────────────────────────────
   const durationMs = Date.now() - startMs;
   try {
