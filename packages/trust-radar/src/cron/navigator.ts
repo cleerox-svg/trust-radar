@@ -225,9 +225,30 @@ export async function runNavigator(
   // stores result in KV, returns response (discarded here). Next real user
   // request hits warm KV cache instead of cold DB queries.
   //
-  // Targets: Observatory (nodes, arcs, stats, live, operations) + dashboard
-  // overview + agents list + operations list/stats. These cover the 8 requests
-  // Observatory fires on mount and the heaviest page-load queries.
+  // Tiered by scheduled minute. Navigator fires every 5 min, but only the
+  // Observatory 7d hot path needs that cadence — it's what the landing
+  // page renders. Alternate-period toggles, dashboard, and deep-nav
+  // modules are kept warm on slower cadences so Navigator doesn't
+  // recompute the same page-load queries 288 times a day just because
+  // someone *might* visit.
+  //
+  //   Phase A   — every 5 min  (Observatory 7d + live + operations)
+  //   Phase A2  — every 15 min (Observatory 24h/30d alt periods)
+  //   Phase B   — every 15 min (Dashboard + agents + operations)
+  //   Phase C   — every 30 min (Brands + Threat Actors + Intelligence)
+  //
+  // Math at ~8,640 ticks/month if Navigator runs clean:
+  //   A:  43,200 warms (unchanged)
+  //   A2: 17,280 (was 51,840, -67%)
+  //   B:  14,400 (was 43,200, -67%)
+  //   C:  11,520 (was 69,120, -83%)
+  // Total: ~86K warms/month, down from ~207K (-58%). Landing-page UX
+  // unaffected because Phase A still runs every 5 min.
+  const minute = scheduledTime.getUTCMinutes();
+  const runPhaseA2 = minute % 15 === 0;  // :00, :15, :30, :45
+  const runPhaseB  = minute % 15 === 0;
+  const runPhaseC  = minute % 30 === 0;  // :00, :30
+
   let cacheWarmed = 0;
   if (!isOverCap() && status !== 'failed') {
     const warmStart = Date.now();
@@ -244,8 +265,8 @@ export async function runNavigator(
       ]);
       cacheWarmed += obsResults.filter(r => r.status === 'fulfilled').length;
 
-      // Phase A2: Observatory alternate periods (24h/30d) so toggles hit warm cache
-      if (!isOverCap()) {
+      // Phase A2: Observatory alternate periods (24h/30d) — every 15 min
+      if (runPhaseA2 && !isOverCap()) {
         const altResults = await Promise.allSettled([
           handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=24h'), env),
           handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=24h'), env),
@@ -257,8 +278,8 @@ export async function runNavigator(
         cacheWarmed += altResults.filter(r => r.status === 'fulfilled').length;
       }
 
-      // Phase B: Dashboard + agents + operations (if still under cap)
-      if (!isOverCap()) {
+      // Phase B: Dashboard + agents + operations — every 15 min
+      if (runPhaseB && !isOverCap()) {
         const pageResults = await Promise.allSettled([
           handleDashboardOverview(fakeReq('/api/dashboard/overview'), env),
           handleDashboardTopBrands(fakeReq('/api/dashboard/top-brands'), env),
@@ -269,8 +290,8 @@ export async function runNavigator(
         cacheWarmed += pageResults.filter(r => r.status === 'fulfilled').length;
       }
 
-      // Phase C: Brands, Threat Actors, Intelligence (if still under cap)
-      if (!isOverCap()) {
+      // Phase C: Brands, Threat Actors, Intelligence — every 30 min
+      if (runPhaseC && !isOverCap()) {
         const moduleResults = await Promise.allSettled([
           handleListBrands(fakeReq('/api/brands?limit=50&sort=threats'), env),
           handleBrandStats(fakeReq('/api/brands/stats'), env),
@@ -284,7 +305,7 @@ export async function runNavigator(
         cacheWarmed += moduleResults.filter(r => r.status === 'fulfilled').length;
       }
 
-      console.log(`[navigator] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms`);
+      console.log(`[navigator] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms (A2=${runPhaseA2} B=${runPhaseB} C=${runPhaseC})`);
     } catch (e) {
       console.error('[navigator] cache-warm error:', e instanceof Error ? e.message : String(e));
     }
