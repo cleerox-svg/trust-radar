@@ -1,127 +1,150 @@
 # Averrow
 
-**Threat Actor Intelligence Platform**
+**Brand Protection and Threat Actor Intelligence Platform**
 
-See your brand the way attackers do. Averrow monitors the internet for brand impersonation, phishing infrastructure, email security vulnerabilities, and social media abuse — then correlates signals to identify who is attacking, how they operate, and where they'll move next.
+Averrow monitors the internet for brand impersonation, phishing infrastructure, email security weaknesses, and domain abuse — then correlates those signals into threat actor profiles. The goal isn't just to find attacks. It's to identify who is running them, how they operate, and where they'll move next.
 
-> Built by [LRX Enterprises Inc.](https://averrow.com) | Canadian-incorporated, globally deployed
+> Built by [LRX Enterprises Inc.](https://averrow.com) — Canadian-incorporated, globally deployed
 
 ## What It Does
 
-- **Threat Actor Profiling** — Correlate shared infrastructure, registrars, and hosting patterns to identify the operators behind attacks, not just the attacks themselves
-- **AI Threat Intelligence** — 8+ AI agents powered by Claude Haiku that classify threats, attribute brands, cluster campaigns, and generate human-readable briefings
-- **Brand Exposure Scoring** — Composite risk score combining email security, active threats, domain lookalikes, social impersonation, and phishing activity
-- **Email Security Posture** — Outside-in SPF/DKIM/DMARC analysis with report card grading (A+ through F)
-- **Social Brand Monitoring** — Detect impersonation accounts, handle squatting, and brand abuse across Twitter/X, LinkedIn, Instagram, TikTok, GitHub, and YouTube
-- **Threat Feed Integration** — 25+ feeds including PhishTank, URLhaus, OpenPhish, ThreatFox, Certificate Transparency logs, Cloudflare Radar, NRD feeds, CISA KEV, and more
-- **Lookalike Domain Detection** — Automated permutation generation and DNS monitoring for typosquatting, homoglyph, and combosquatting attacks
-- **Spam Trap Network** — Honeypot-based phishing email capture and AI analysis
-- **OLAP Cubes** — Pre-aggregated hourly cubes for geographic, provider, and brand threat analytics
-- **Free Brand Exposure Report** — One-click public domain scan at [averrow.com](https://averrow.com)
+- **Threat actor profiling** — Correlate shared infrastructure, registrars, and hosting patterns into named operators (via the NEXUS clustering agent)
+- **Brand exposure scoring** — Composite risk from email posture, active threats, lookalike domains, and social impersonation
+- **Email security grading** — Outside-in SPF / DKIM / DMARC analysis with A+ through F report cards
+- **Lookalike domain detection** — Permutation generation + DNS monitoring for typosquats, homoglyphs, and combosquats
+- **Threat feed integration** — 38 feeds including Certificate Transparency logs, PhishTank, URLhaus, OpenPhish, ThreatFox, Cloudflare Radar, NRD feeds, CISA KEV, Spamhaus DBL/DROP, SURBL, Emerging Threats, and more
+- **OLAP analytics cubes** — Pre-aggregated hourly rollups by country, provider, and brand for sub-50ms dashboard queries
+- **Real-time event stream** — WebSocket push via Durable Objects for live threat notifications
+- **AI-generated intelligence** — Claude Haiku classifies and attributes; Claude Sonnet writes narrative briefings
+- **Free public brand scan** — One-click exposure report at [averrow.com](https://averrow.com)
+
+## Repository Layout
+
+```
+trust-radar/                         ← repo name kept for git history
+├── packages/
+│   ├── trust-radar/                 ← Averrow Worker (backend) — internal name
+│   ├── averrow-ui/                  ← Averrow React frontend (the live platform)
+│   ├── averrow-mcp/                 ← MCP server exposing platform diagnostics to Claude Code
+│   └── imprsn8/                     ← Sibling product (pending extraction to its own repo)
+├── docs/                            ← Platform documentation
+├── migrations/                      ← Legacy (per-package migrations live inside packages/)
+├── prototypes/                      ← HTML design prototypes
+└── scripts/                         ← Diagnostics + operational scripts
+```
+
+> **Note on `imprsn8`:** `imprsn8.com` is a separate product that currently lives in this monorepo for historical reasons. It will be extracted to its own repo, Worker, and D1 database — treat it as a sibling, not an Averrow component.
 
 ## Architecture
 
-```
-trust-radar/
-├── packages/
-│   ├── trust-radar/   → Cloudflare Worker (TypeScript) + D1 + KV + Durable Objects
-│   ├── averrow-ui/    → React frontend (Vite + TanStack Router)
-│   └── imprsn8/       → Independent social brand protection Worker + D1
-├── prototypes/         → UI design specifications (HTML)
-└── docs/               → Platform documentation
-```
-
-Averrow runs entirely on Cloudflare's edge network. There is no traditional backend server.
-
-## Tech Stack
+Averrow runs entirely on Cloudflare's edge. There is no traditional backend server.
 
 | Component | Technology |
-|-----------|-----------|
+|---|---|
 | Compute | Cloudflare Workers (TypeScript) |
 | Database | Cloudflare D1 (SQLite at the edge, read replicas via Sessions API) |
-| Cache | Cloudflare KV (dedup, rate limiting, page-load caching) |
-| Real-time | Durable Objects (WebSocket push via ThreatPushHub) |
-| Workflows | Cloudflare Workflows (Cartographer, NEXUS — durable execution) |
-| AI | Claude Haiku via Cloudflare AI Gateway |
-| DNS | Cloudflare DoH for DNS lookups |
+| Cache | Cloudflare KV (IOC dedup, rate limiting, page-load caching) |
+| Real-time | Durable Objects — `ThreatPushHub` (WebSocket), `CertStreamMonitor` |
+| Workflows | Cloudflare Workflows — Cartographer backfill + NEXUS clustering (durable, no CPU ceiling) |
+| AI | Claude Haiku + Sonnet via Cloudflare AI Gateway |
+| DNS | Cloudflare DoH |
 | Frontend | React + Vite + TanStack Router + Tailwind CSS |
-| Monorepo | Turborepo + pnpm |
-| CI/CD | GitHub Actions (path-filtered auto-deploy) |
+| Monorepo | pnpm workspaces + Turborepo |
+| CI/CD | Cloudflare Workers Git integration (auto-deploy on push to `master`) |
 
 ## AI Agents
 
-| Agent | Role | Schedule |
-|-------|------|----------|
-| **Flight Control** | Autonomous supervisor — load, budget, priority management | Every cron tick |
-| **Sentinel** | Threat classification, homoglyph/brand squatting detection | After feed ingestion |
-| **Cartographer** | Geo enrichment, hosting provider scoring (Workflow) | Every cron tick |
-| **Analyst** | AI brand attribution for unlinked threats | Every cron tick |
+15 agents coordinate through `agent_runs` / `agent_events` tables. SQL does correlation; AI does narrative.
+
+| Agent | Role | Cadence |
+|---|---|---|
+| **Navigator** | DNS resolution, OLAP cube refresh, KV cache pre-warming (24 endpoints) | Every 5 min |
+| **Flight Control** | Autonomous supervisor — load, AI budget, backlog throttle | Hourly (inside orchestrator) |
+| **Sentinel** | Threat classification + homoglyph detection | After feed ingest, if new records |
+| **Cartographer** | Geo / ASN / hosting enrichment (runs as a Workflow) | After Sentinel, or as fallback |
+| **Analyst** | AI brand attribution for unlinked threats | Hourly |
 | **NEXUS** | Infrastructure clustering and campaign detection (Workflow) | Every 4 hours |
 | **Strategist** | Campaign correlation from shared infrastructure | Every 6 hours |
 | **Sparrow** | Automated takedown request generation | Every 6 hours |
-| **Observer** | Daily intelligence briefings and trend analysis | Daily |
-| **Pathfinder** | Sales intelligence and lead generation | Weekly (KV-throttled) |
-| **Seed Strategist** | Spam trap seeding strategy | Daily |
+| **Seed Strategist** | Spam trap seeding strategy | Daily (06:00) |
+| **Observer** | Daily intelligence briefings + trend analysis | Daily (00:00, 06:00) |
+| **Narrator** | Natural-language briefing rendering | Daily (06:00) |
+| **Pathfinder** | Sales intelligence + lead generation | Weekly (KV-throttled) |
+| **Curator** | Library curation for the threat-actor corpus | On-demand |
+| **Watchdog** | Stale-run + enrichment-stall detection | Continuous |
+| **Cube Healer** | 30-day retroactive cube rebuild | Every 6 hours |
 
 ## Cron Triggers
 
+From `packages/trust-radar/wrangler.toml`:
+
 | Schedule | Handler | Purpose |
-|----------|---------|---------|
-| `*/5 * * * *` | navigator | DNS resolution, OLAP cube refresh, KV cache pre-warming |
-| `7 * * * *` | orchestrator | Feed ingestion, agent dispatch, Workflow triggers |
-| `12 */6 * * *` | cube-healer | 30-day bulk cube rebuild (drift remediation) |
+|---|---|---|
+| `*/5 * * * *` | Navigator | DNS backfill, cube refresh, cache warming |
+| `7 * * * *` | Orchestrator | Feed ingestion, agent mesh dispatch, Workflow triggers |
+| `12 */6 * * *` | Cube Healer | 30-day bulk cube rebuild (drift remediation) |
+
+The orchestrator's `:07` offset (rather than `:00`) exists to stop Navigator, cube-healer, and the hourly mesh from colliding on the D1 writer. When changing cron schedules, audit minute-based gates in the handler — see the cron-audit rule in `CLAUDE.md` §6.
+
+## Database
+
+- Primary: `trust-radar-v2` (D1, SQLite at the edge) — internal name kept
+- Audit: `trust-radar-v2-audit`
+- **95 migrations** in `packages/trust-radar/migrations/`
+- Key tables: `threats`, `brands`, `hosting_providers`, `campaigns`, `infrastructure_clusters`, `agent_runs`, `agent_events`, `feed_configs`, `feed_status`, OLAP cubes (`threat_cube_geo`, `threat_cube_provider`, `threat_cube_brand`)
 
 ## Development
 
 ```bash
 pnpm install
-pnpm dev            # Start worker locally via wrangler dev
-pnpm typecheck      # Type check all packages
-pnpm test           # Run test suite
+pnpm dev            # Run all packages in parallel (wrangler dev + vite)
+pnpm typecheck      # Type check every package
+pnpm lint           # Lint every package
+
+# Single package
+pnpm --filter trust-radar dev
+pnpm --filter averrow-ui build
+
+# Deploy manually (normally auto-deploys on push to master)
+pnpm deploy:radar
+pnpm deploy:imprsn8
 ```
 
-### Database Migrations
-
-88+ migration files in `packages/trust-radar/migrations/`.
+### Migrations
 
 ```bash
-# Run locally
-npx wrangler d1 execute trust-radar-v2 --local --file=migrations/XXXX_name.sql
+cd packages/trust-radar
 
-# Run in production
-npx wrangler d1 execute trust-radar-v2 --file=migrations/XXXX_name.sql
+# Local
+npx wrangler d1 execute trust-radar-v2 --local --file=migrations/NNNN_name.sql
+
+# Production (remote)
+npx wrangler d1 execute trust-radar-v2 --remote --file=migrations/NNNN_name.sql
 ```
 
 ### Deploy
 
-Automated via GitHub Actions on push to `master`. Path-filtered: only deploys when files in the relevant package change.
-
-```bash
-# Manual deploy
-cd packages/trust-radar && npx wrangler deploy
-```
+Automated via Cloudflare Workers Git integration. Push to `master` → Cloudflare builds and deploys the Worker automatically. Path-filtering keeps it scoped to the package that changed.
 
 ## Domains
 
 | Domain | Purpose |
-|--------|---------|
+|---|---|
 | `averrow.com` | Production (primary) |
-| `averrow.ca` | Canadian market (301 → averrow.com) |
-| `trustradar.ca` | Legacy domain (301 → averrow.com) |
+| `averrow.ca` | Canadian market |
+| `trustradar.ca` / `lrxradar.com` | Legacy — redirect to `averrow.com` |
 | `staging.averrow.com` | Staging |
 
 ## Pricing
 
 | Tier | Price | Brands |
-|------|-------|--------|
-| Free | — | One-time report |
+|---|---|---|
+| Free | — | One-time exposure report |
 | Professional | $1,499/mo | 1 brand |
 | Business | $3,999/mo | Up to 10 brands |
 | Enterprise | Custom | Custom |
 
 ## Documentation
-
-See `docs/` for detailed documentation:
 
 - [API Reference](docs/API_REFERENCE.md)
 - [Architecture](docs/ARCHITECTURE.md)
@@ -130,6 +153,7 @@ See `docs/` for detailed documentation:
 - [Email Security Engine](docs/EMAIL_SECURITY_ENGINE.md)
 - [Social Monitoring](docs/SOCIAL_MONITORING.md)
 - [Deployment](docs/DEPLOYMENT.md)
+- [Standing instructions for Claude Code sessions](CLAUDE.md)
 
 ## Security
 
