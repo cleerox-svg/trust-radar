@@ -244,16 +244,28 @@ function buildTripData(
     // Leave TRIP_SPAN headroom at the end so the last particle completes before window ends
     const effectiveDuration = Math.max(TRIP_SPAN, duration - tripSpan);
 
+    // Seamless loop: duplicate every arc's burst at +CYCLE_LENGTH/2 (wrapped).
+    // This guarantees activity uniformly distributed across the cycle regardless
+    // of where the arc's real-world timestamps placed its life window. Without
+    // this offset, arcs clustering at one end of the cycle (e.g. all in the last
+    // 6 hours of a 7-day window) leave the other half visibly empty — causing a
+    // pause at the wrap boundary.
+    const phaseOffsets = [0, CYCLE_LENGTH / 2];
+
     for (let j = 0; j < numParticles; j++) {
       if (totalParticles >= maxParticles) break;
       const offsetWithinLife = (j / Math.max(1, numParticles - 1)) * effectiveDuration;
-      const tripStart = start + offsetWithinLife;
-      trips.push({
-        path,
-        timestamps: path.map((_, idx) => tripStart + (idx / (path.length - 1)) * tripSpan),
-        color,
-      });
-      totalParticles++;
+
+      for (const phaseOffset of phaseOffsets) {
+        if (totalParticles >= maxParticles) break;
+        const tripStart = ((start + offsetWithinLife + phaseOffset) % CYCLE_LENGTH);
+        trips.push({
+          path,
+          timestamps: path.map((_, idx) => tripStart + (idx / (path.length - 1)) * tripSpan),
+          color,
+        });
+        totalParticles++;
+      }
     }
   }
   return trips;
