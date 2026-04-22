@@ -56,13 +56,15 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
           timeout: '5 minutes',
         },
         async () => {
-          // Fetch next batch of unenriched threats
+          // Fetch next batch of unenriched threats — newest first so live activity
+          // gets processed before ancient backlog of dead IPs.
           const threats = await this.env.DB.prepare(`
             SELECT id, ip_address, malicious_domain, hosting_provider_id, registration_date
             FROM threats
             WHERE enriched_at IS NULL
               AND ip_address IS NOT NULL AND ip_address != ''
               ${PRIVATE_IP_SQL_FILTER}
+            ORDER BY created_at DESC
             LIMIT ?
           `).bind(BATCH_SIZE).all();
 
@@ -129,8 +131,10 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
               providerId = provider?.id ?? null;
             }
 
-            // Update threat with enriched data
-            // Only stamp enriched_at when geo data was actually obtained.
+            // Update threat with enriched data. Stamp enriched_at whenever
+            // ip-api.com returned ANY data (status=success), not just when it
+            // returned a country — otherwise threats with partial geo recycle
+            // through the queue forever.
             await this.env.DB.prepare(`
               UPDATE threats SET
                 lat = COALESCE(lat, ?),
@@ -146,7 +150,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
               geo?.countryCode as string ?? null,
               geoAs?.split(' ')[0] ?? null,
               providerId,
-              geo?.countryCode as string ?? null,
+              geo ? 'attempted' : null,
               t.id as string
             ).run();
 
