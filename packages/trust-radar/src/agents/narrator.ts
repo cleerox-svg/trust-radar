@@ -118,10 +118,10 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
     ).bind(brandId).first(),
 
     env.DB.prepare(
-      `SELECT platform, username, display_name, similarity_score, status, found_at
+      `SELECT platform, suspicious_account_name, suspicious_account_url, impersonation_score, status, created_at
        FROM social_monitor_results
-       WHERE brand_id = ? AND found_at >= datetime('now', '-7 days')
-       ORDER BY found_at DESC LIMIT 30`
+       WHERE brand_id = ? AND created_at >= datetime('now', '-7 days')
+       ORDER BY created_at DESC LIMIT 30`
     ).bind(brandId).all().catch(() => ({ results: [] })),
 
     env.DB.prepare(
@@ -201,10 +201,16 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
   // 5. Create an alert if severity is HIGH or CRITICAL
   if (result.severity === "HIGH" || result.severity === "CRITICAL") {
     try {
-      // Find the brand owner for the alert
+      // Find the brand owner for the alert. brand_profiles has no brand_id
+      // column — link via brands.canonical_domain → brand_profiles.domain.
+      // Wrap in .catch so schema drift doesn't skip the alert (fall back
+      // to userId='system' which is the intended default).
       const brandOwner = await env.DB.prepare(
-        `SELECT user_id FROM brand_profiles WHERE brand_id = ? LIMIT 1`
-      ).bind(brandId).first<{ user_id: string }>();
+        `SELECT bp.user_id
+         FROM brand_profiles bp
+         JOIN brands b ON b.canonical_domain = bp.domain
+         WHERE b.id = ? LIMIT 1`
+      ).bind(brandId).first<{ user_id: string }>().catch(() => null);
 
       const userId = brandOwner?.user_id ?? "system";
 
@@ -258,7 +264,7 @@ export const narratorAgent: AgentModule = {
     const brandsWithSignals = await env.DB.prepare(`
       SELECT b.id, b.name,
         (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.created_at >= datetime('now', '-7 days')) as threat_count,
-        (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.found_at >= datetime('now', '-7 days')) as social_count,
+        (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.created_at >= datetime('now', '-7 days')) as social_count,
         (SELECT COUNT(*) FROM lookalike_domains ld WHERE ld.brand_id = b.id AND ld.registered = 1 AND ld.created_at >= datetime('now', '-7 days')) as lookalike_count,
         (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count
       FROM brands b
@@ -369,7 +375,7 @@ Last scanned: ${es.email_security_scanned_at ?? "Never"}`);
     parts.push(`## Social Impersonation
 Findings: ${context.socialFindings.length} (${active} active)
 Platforms: ${platforms.join(", ")}
-Accounts: ${context.socialFindings.slice(0, 10).map((s: any) => `@${s.username} on ${s.platform} (similarity: ${s.similarity_score}%)`).join(", ")}`);
+Accounts: ${context.socialFindings.slice(0, 10).map((s: any) => `@${s.suspicious_account_name ?? 'unknown'} on ${s.platform} (impersonation score: ${Math.round((Number(s.impersonation_score) || 0) * 100)}%)`).join(", ")}`);
   }
 
   // Lookalike domains
