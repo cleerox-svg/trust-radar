@@ -104,6 +104,16 @@ new_classes = ["ThreatPushHub"]
 tag = "v2-certstream-monitor"
 new_classes = ["CertStreamMonitor"]
 
+# ─── Subrequest limit ────────────────────────────────────────
+# Cloudflare's paid-plan default is 10,000 subrequests per invocation.
+# The hourly :07 tick runs the full agent mesh + all eligible feeds
+# concurrently and exceeds that ceiling, which silently auto-pauses
+# feeds (5 consecutive failures → enabled=0). Raised to 50,000 for
+# headroom; max allowed is 10,000,000. Subrequests are not billed —
+# this only affects the per-invocation cap.
+[limits]
+subrequests = 50_000
+
 # ─── Environment variables ────────────────────────────────────
 [vars]
 ENVIRONMENT = "production"
