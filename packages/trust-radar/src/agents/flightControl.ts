@@ -948,8 +948,15 @@ async function scaleAgents(
 
     const cartMod = agentModules['cartographer'];
     if (cartMod) {
+      // Offset stride must equal one instance's full row window so the three
+      // instances cover disjoint ranges. Each instance processes 5 batches ×
+      // 500 rows = 2,500 rows; a smaller stride (e.g. 500) makes every
+      // instance's later batches overlap with the next instance's earlier
+      // ones, wasting ip-api.com subrequests and D1 writes on idempotent
+      // re-enrichments of the same rows.
+      const CART_ROWS_PER_INSTANCE = 2500;
       for (let i = 0; i < instances; i++) {
-        const promise = executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * 500 }, 'flight_control', 'event');
+        const promise = executeAgent(env, cartMod, { trigger: 'flight_control', offset: i * CART_ROWS_PER_INSTANCE }, 'flight_control', 'event');
         if (execCtx) {
           // Fire-and-forget: cron keeps running, cartographer runs in background
           execCtx.waitUntil(promise.catch(() => { /* logged by agentRunner */ }));
