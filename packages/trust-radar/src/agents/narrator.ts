@@ -258,7 +258,7 @@ export const narratorAgent: AgentModule = {
     const brandsWithSignals = await env.DB.prepare(`
       SELECT b.id, b.name,
         (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.created_at >= datetime('now', '-7 days')) as threat_count,
-        (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.found_at >= datetime('now', '-7 days')) as social_count,
+        (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.created_at >= datetime('now', '-7 days')) as social_count,
         (SELECT COUNT(*) FROM lookalike_domains ld WHERE ld.brand_id = b.id AND ld.registered = 1 AND ld.created_at >= datetime('now', '-7 days')) as lookalike_count,
         (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count
       FROM brands b
