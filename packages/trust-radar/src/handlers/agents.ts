@@ -106,10 +106,17 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
        GROUP BY agent_id`
     ).all<{ agent_id: string; last_output_at: string }>(),
 
+    // Scope to last 24h so this doesn't scan all-time agent_runs history —
+    // the table grows unboundedly (~288 Navigator runs/day alone) and this
+    // aggregation was reading ~107K rows per call as of Apr 2026. With the
+    // 24h scope the existing idx_agent_runs_agent composite (agent_id,
+    // started_at DESC) + idx_agent_runs_success_duration partial index
+    // make this an index-only scan over a bounded window.
     env.DB.prepare(
       `SELECT agent_id, AVG(duration_ms) as avg_duration_ms
        FROM agent_runs
        WHERE status = 'success'
+         AND started_at >= datetime('now', '-1 day')
        GROUP BY agent_id`
     ).all<{ agent_id: string; avg_duration_ms: number }>(),
 
