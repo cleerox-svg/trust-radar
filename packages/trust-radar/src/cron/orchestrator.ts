@@ -618,16 +618,13 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
       logger.error('sentinel_event_write_error', { error: err instanceof Error ? err.message : String(err) });
     }
 
-    // After Sentinel feed pull, dispatch Cartographer as a durable workflow.
-    // Runs outside the cron CPU ceiling — retries automatically on failure.
-    try {
-      const instance = await env.CARTOGRAPHER_BACKFILL.create({
-        params: { batchSize: 500, startOffset: 0 }
-      });
-      logger.info('sentinel_triggered_cartographer_workflow', { instanceId: instance.id, newItems: feedResult.totalNew });
-    } catch (err) {
-      logger.error('sentinel_cartographer_workflow_error', { error: err instanceof Error ? err.message : String(err) });
-    }
+    // Cartographer — dispatched from Flight Control via scaleAgents
+    // (agent-module path). The Workflow dispatch that previously lived
+    // here stopped firing around Apr 19 (symptom: zero entries in
+    // agent_activity_log for cartographer/nexus from that date onward).
+    // Until the Workflow platform issue is root-caused, Flight Control's
+    // scaleAgents call keeps Cart backlog draining via the agent module;
+    // no additional orchestrator dispatch needed here.
   }
 
   // Analyst agent — runs every hourly tick.
@@ -647,19 +644,7 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
     }
   }
 
-  // Cartographer — every 15 minutes to clear enrichment backlog.
-  // Dispatched as a durable workflow — runs outside the cron CPU ceiling.
-  // Skip if Sentinel already triggered a workflow above.
-  if (!(feedResult.totalNew > 0)) {
-    try {
-      const instance = await env.CARTOGRAPHER_BACKFILL.create({
-        params: { batchSize: 500, startOffset: 0 }
-      });
-      logger.info('cartographer_workflow_dispatched', { instanceId: instance.id, trigger: 'scheduled' });
-    } catch (err) {
-      logger.error('cartographer_workflow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
-    }
-  }
+  // Cartographer: see note above. Flight Control handles it via scaleAgents.
 
   // Strategist — every 6 hours (0, 6, 12, 18).
   // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
@@ -679,15 +664,24 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   }
 
   // NEXUS — every 4 hours (0, 4, 8, 12, 16, 20).
-  // Dispatched as a durable workflow — runs outside the cron CPU ceiling
-  // with automatic retry on failure.
+  // Dispatched via the agent module (writes to agent_runs) rather than
+  // the Workflow path. The Workflow-based dispatch stopped firing around
+  // Apr 19 (1 start in 7 days vs expected ~42); the agent module runs
+  // the same core logic (runNexus) and takes ~60s which fits comfortably
+  // under the cron CPU ceiling. Wrapped in ctx.waitUntil so it doesn't
+  // block the rest of the agent mesh.
   if (hour % 4 === 0) {
     try {
-      const id = crypto.randomUUID();
-      const instance = await env.NEXUS_RUN.create({ id, params: {} });
-      logger.info('nexus_workflow_dispatched', { instanceId: instance.id, hour });
+      const mod = allAgents["nexus"];
+      if (mod) {
+        ctx.waitUntil(
+          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
+            logger.error('nexus_dispatch_error', { error: err instanceof Error ? err.message : String(err) })
+          )
+        );
+      }
     } catch (err) {
-      logger.error('nexus_workflow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('nexus_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
