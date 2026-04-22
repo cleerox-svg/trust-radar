@@ -21,8 +21,11 @@ import { getOrComputeMetric } from "../lib/system-metrics";
 // queries that a partial index can't help with because the predicate
 // matches 50-70% of the table) get a longer TTL — one fresh recompute
 // per 4 ticks instead of every tick. "Live" backlogs used for scaling
-// decisions stay on the short TTL so Flight Control reacts quickly.
-const BACKLOG_TTL_LIVE_S = 3000;       // 50 min — refresh every tick
+// decisions stay on a shorter TTL so Flight Control reacts quickly, but
+// must exceed the 3600s cron cadence so the cache is still fresh at the
+// next :07 tick — a 3000s TTL expired ~10min before each tick, making
+// every read a miss and silently defeating the cache for these metrics.
+const BACKLOG_TTL_LIVE_S = 3900;       // 65 min — survives to next hourly tick
 const BACKLOG_TTL_MONITORING_S = 14400; // 4h   — refresh every ~4th tick
 
 // ─── Types ───────────────────────────────────────────────────────
