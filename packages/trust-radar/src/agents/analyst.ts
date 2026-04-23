@@ -665,6 +665,139 @@ export const analystAgent: AgentModule = {
       }
     }
 
+    // ─── Phase 4.6: Dark-web + app-store cross-correlation ───────
+    // SQL-only correlation (no Haiku): ties confirmed paste mentions +
+    // app-store impersonations back to active phishing / social signals
+    // on the same brand. Surfaces exploit-in-progress and campaign
+    // convergence patterns. Wrapped in try/catch so missing tables in
+    // a given deployment gracefully skip the phase.
+    for (const bid of Array.from(matchedBrandIds).slice(0, 5)) {
+      try {
+        const dwStats = await env.DB.prepare(`
+          SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN classification = 'confirmed' AND status = 'active' THEN 1 ELSE 0 END) AS confirmed,
+            SUM(CASE WHEN classification = 'suspicious' AND status = 'active' THEN 1 ELSE 0 END) AS suspicious,
+            SUM(CASE WHEN severity IN ('CRITICAL','HIGH') AND status = 'active' THEN 1 ELSE 0 END) AS high_severity,
+            SUM(CASE WHEN match_type = 'executive' AND status = 'active' THEN 1 ELSE 0 END) AS executive_matches,
+            SUM(CASE WHEN match_type = 'domain' AND status = 'active' THEN 1 ELSE 0 END) AS domain_matches,
+            SUM(CASE WHEN classification_reason LIKE '%credential_dump%' AND status = 'active' THEN 1 ELSE 0 END) AS credential_dumps,
+            COUNT(DISTINCT source) AS sources
+          FROM dark_web_mentions
+          WHERE brand_id = ?
+            AND first_seen >= datetime('now', '-7 days')
+        `).bind(bid).first<{
+          total: number; confirmed: number; suspicious: number;
+          high_severity: number; executive_matches: number;
+          domain_matches: number; credential_dumps: number; sources: number;
+        }>().catch(() => null);
+
+        if (dwStats && dwStats.confirmed > 0) {
+          const brand = await getBrandById(env, bid);
+          const brandName = brand?.name ?? bid;
+
+          // Signal 1: credential exposure + active phishing = exploit in progress
+          const activePhishing = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM threats WHERE target_brand_id = ? AND status = 'active' AND threat_type = 'phishing'"
+          ).bind(bid).first<{ n: number }>();
+
+          if (dwStats.credential_dumps > 0 && (activePhishing?.n || 0) > 0) {
+            outputs.push({
+              type: "classification",
+              summary: `**Credential Exposure + Active Phishing** — ${brandName} has ${dwStats.credential_dumps} paste(s) with credential-dump signatures AND ${activePhishing?.n} active phishing campaigns. Treat as exploit-in-progress.`,
+              severity: "critical",
+              details: {
+                brand_id: bid,
+                dark_web_credential_dumps: dwStats.credential_dumps,
+                dark_web_confirmed_total: dwStats.confirmed,
+                dark_web_sources: dwStats.sources,
+                active_phishing_threats: activePhishing?.n,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+
+          // Signal 2: executive exposure — unique risk, raise even without phishing
+          if (dwStats.executive_matches > 0) {
+            outputs.push({
+              type: "classification",
+              summary: `**Executive Exposure** — ${brandName}: ${dwStats.executive_matches} confirmed dark-web mention(s) naming an executive${dwStats.credential_dumps > 0 ? ` alongside ${dwStats.credential_dumps} credential-dump paste(s)` : ''}. Targeted-attack precursor.`,
+              severity: dwStats.credential_dumps > 0 ? "critical" : "high",
+              details: {
+                brand_id: bid,
+                executive_matches: dwStats.executive_matches,
+                credential_dumps: dwStats.credential_dumps,
+                sources: dwStats.sources,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+
+          // Signal 3: bulk credential exposure without observed exploitation yet
+          // — lead indicator for expected phishing campaigns in the next 7–14d.
+          if (dwStats.confirmed >= 3 && (activePhishing?.n || 0) === 0 && dwStats.executive_matches === 0) {
+            outputs.push({
+              type: "classification",
+              summary: `**Pre-Exploitation Exposure** — ${brandName} has ${dwStats.confirmed} confirmed dark-web mention(s) across ${dwStats.sources} source(s) with no active phishing yet. Expect incoming phishing; pre-position defenses.`,
+              severity: "high",
+              details: {
+                brand_id: bid,
+                dark_web_confirmed: dwStats.confirmed,
+                dark_web_credential_dumps: dwStats.credential_dumps,
+                dark_web_domain_matches: dwStats.domain_matches,
+                dark_web_sources: dwStats.sources,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+        }
+
+        // Signal 4: app-store impersonation + active phishing / social = multichannel
+        const appStoreStats = await env.DB.prepare(`
+          SELECT
+            SUM(CASE WHEN classification = 'impersonation' AND status = 'active' THEN 1 ELSE 0 END) AS impersonations,
+            SUM(CASE WHEN severity IN ('CRITICAL','HIGH') AND status = 'active' AND classification = 'impersonation' THEN 1 ELSE 0 END) AS high_severity
+          FROM app_store_listings
+          WHERE brand_id = ?
+            AND first_seen >= datetime('now', '-30 days')
+        `).bind(bid).first<{ impersonations: number; high_severity: number }>().catch(() => null);
+
+        if (appStoreStats && appStoreStats.impersonations > 0) {
+          const brand = await getBrandById(env, bid);
+          const brandName = brand?.name ?? bid;
+
+          const otherChannels = await env.DB.prepare(`
+            SELECT
+              (SELECT COUNT(*) FROM threats WHERE target_brand_id = ? AND status = 'active' AND threat_type = 'phishing') AS phishing,
+              (SELECT COUNT(*) FROM social_profiles WHERE brand_id = ? AND status = 'active' AND classification = 'impersonation') AS social_imp
+          `).bind(bid, bid).first<{ phishing: number; social_imp: number }>();
+
+          const channelCount = (appStoreStats.impersonations > 0 ? 1 : 0)
+            + ((otherChannels?.phishing || 0) > 0 ? 1 : 0)
+            + ((otherChannels?.social_imp || 0) > 0 ? 1 : 0);
+
+          if (channelCount >= 2) {
+            outputs.push({
+              type: "classification",
+              summary: `**Multi-Channel Brand Attack** — ${brandName} targeted across ${channelCount} channels: ${appStoreStats.impersonations} app-store impersonation(s)${(otherChannels?.phishing || 0) > 0 ? `, ${otherChannels?.phishing} phishing threat(s)` : ''}${(otherChannels?.social_imp || 0) > 0 ? `, ${otherChannels?.social_imp} social impersonation(s)` : ''}. Coordinated campaign likely.`,
+              severity: appStoreStats.high_severity > 0 ? "critical" : "high",
+              details: {
+                brand_id: bid,
+                app_store_impersonations: appStoreStats.impersonations,
+                app_store_high_severity: appStoreStats.high_severity,
+                active_phishing: otherChannels?.phishing,
+                social_impersonations: otherChannels?.social_imp,
+                channel_count: channelCount,
+              },
+              relatedBrandIds: [bid],
+            });
+          }
+        }
+      } catch (correlationErr) {
+        console.error(`[analyst] dark-web/app-store correlation failed for brand ${bid}:`, correlationErr);
+      }
+    }
+
     // ─── Phase 5: Subdomain brand spoofing detection ─────────────
     // Checks BOTH subdomain and full domain for brand name impersonation.
     // Runs against all unclassified threats (no time window) to catch backlog.
