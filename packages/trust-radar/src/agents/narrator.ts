@@ -21,6 +21,8 @@ interface NarrativeContext {
   socialFindings: any[];
   lookalikes: any[];
   ctCertificates: any[];
+  appStoreListings: any[];
+  darkWebMentions: any[];
 }
 
 interface NarrativeResult {
@@ -104,7 +106,7 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
   }
 
   // 1. Gather recent signals (last 7 days)
-  const [threats, emailSecurity, socialFindings, lookalikes, ctCertificates] = await Promise.all([
+  const [threats, emailSecurity, socialFindings, lookalikes, ctCertificates, appStoreListings, darkWebMentions] = await Promise.all([
     env.DB.prepare(
       `SELECT id, threat_type, malicious_domain, malicious_url, severity, status, source_feed, created_at
        FROM threats
@@ -137,6 +139,29 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
        WHERE brand_id = ? AND suspicious = 1 AND not_before >= datetime('now', '-7 days')
        ORDER BY not_before DESC LIMIT 20`
     ).bind(brandId).all().catch(() => ({ results: [] })),
+
+    // App-store impersonations — confirmed 'impersonation' classification, or 'suspicious'
+    // promoted by Haiku — in the 7-day window. Indexed by (brand_id, severity) WHERE status='active'.
+    env.DB.prepare(
+      `SELECT store, app_name, developer_name, bundle_id, app_url, impersonation_score, severity, classification, last_checked
+       FROM app_store_listings
+       WHERE brand_id = ? AND status = 'active'
+         AND classification IN ('impersonation', 'suspicious')
+         AND COALESCE(last_checked, first_seen) >= datetime('now', '-7 days')
+       ORDER BY severity = 'CRITICAL' DESC, severity = 'HIGH' DESC, impersonation_score DESC
+       LIMIT 10`
+    ).bind(brandId).all().catch(() => ({ results: [] })),
+
+    // Dark-web mentions — confirmed or Haiku-promoted suspicious — in the 7-day window.
+    env.DB.prepare(
+      `SELECT source, source_url, match_type, matched_terms, severity, classification, first_seen, last_seen
+       FROM dark_web_mentions
+       WHERE brand_id = ? AND status = 'active'
+         AND classification IN ('confirmed', 'suspicious')
+         AND COALESCE(last_seen, first_seen) >= datetime('now', '-7 days')
+       ORDER BY severity = 'CRITICAL' DESC, severity = 'HIGH' DESC, last_seen DESC
+       LIMIT 10`
+    ).bind(brandId).all().catch(() => ({ results: [] })),
   ]);
 
   // 2. Count distinct signal types
@@ -148,6 +173,8 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
   if (socialFindings.results.length > 0) signalTypes.push("social_impersonation");
   if (lookalikes.results.length > 0) signalTypes.push("lookalike_domains");
   if (ctCertificates.results.length > 0) signalTypes.push("ct_certificates");
+  if (appStoreListings.results.length > 0) signalTypes.push("app_store_impersonation");
+  if (darkWebMentions.results.length > 0) signalTypes.push("dark_web_mention");
 
   // Only generate if there are at least 2 different signal types
   if (signalTypes.length < 2) {
@@ -161,6 +188,8 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
     socialFindings: socialFindings.results,
     lookalikes: lookalikes.results,
     ctCertificates: ctCertificates.results,
+    appStoreListings: appStoreListings.results,
+    darkWebMentions: darkWebMentions.results,
   };
 
   let result: NarrativeResult;
@@ -266,7 +295,13 @@ export const narratorAgent: AgentModule = {
         (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.created_at >= datetime('now', '-7 days')) as threat_count,
         (SELECT COUNT(*) FROM social_monitor_results smr WHERE smr.brand_id = b.id AND smr.created_at >= datetime('now', '-7 days')) as social_count,
         (SELECT COUNT(*) FROM lookalike_domains ld WHERE ld.brand_id = b.id AND ld.registered = 1 AND ld.created_at >= datetime('now', '-7 days')) as lookalike_count,
-        (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count
+        (SELECT COUNT(*) FROM ct_certificates ct WHERE ct.brand_id = b.id AND ct.suspicious = 1 AND ct.not_before >= datetime('now', '-7 days')) as ct_count,
+        (SELECT COUNT(*) FROM app_store_listings asl WHERE asl.brand_id = b.id AND asl.status = 'active'
+           AND asl.classification IN ('impersonation','suspicious')
+           AND COALESCE(asl.last_checked, asl.first_seen) >= datetime('now', '-7 days')) as appstore_count,
+        (SELECT COUNT(*) FROM dark_web_mentions dwm WHERE dwm.brand_id = b.id AND dwm.status = 'active'
+           AND dwm.classification IN ('confirmed','suspicious')
+           AND COALESCE(dwm.last_seen, dwm.first_seen) >= datetime('now', '-7 days')) as darkweb_count
       FROM brands b
       WHERE b.threat_count > 0
       ORDER BY b.threat_count DESC
@@ -275,6 +310,7 @@ export const narratorAgent: AgentModule = {
       id: string; name: string;
       threat_count: number; social_count: number;
       lookalike_count: number; ct_count: number;
+      appstore_count: number; darkweb_count: number;
     }>();
 
     const outputs: AgentOutputEntry[] = [];
@@ -392,6 +428,36 @@ Domains: ${context.lookalikes.slice(0, 15).map((d: any) => d.domain).join(", ")}
     parts.push(`## Suspicious CT Certificates
 Count: ${context.ctCertificates.length}
 Certificates: ${context.ctCertificates.slice(0, 10).map((c: any) => `${c.domain} (issuer: ${c.issuer}, SANs: ${c.san_count})`).join("; ")}`);
+  }
+
+  // App-store impersonations — iOS today; Google Play / 3rd-party stores later.
+  if (context.appStoreListings.length > 0) {
+    const confirmed = context.appStoreListings.filter((a: any) => a.classification === "impersonation").length;
+    const suspicious = context.appStoreListings.filter((a: any) => a.classification === "suspicious").length;
+    parts.push(`## App-Store Impersonations
+Count: ${context.appStoreListings.length} (${confirmed} confirmed impersonation, ${suspicious} suspicious)
+Apps: ${context.appStoreListings.slice(0, 5).map((a: any) =>
+  `"${a.app_name}" on ${a.store} by "${a.developer_name ?? "unknown dev"}" (severity ${a.severity}, score ${Math.round((Number(a.impersonation_score) || 0) * 100)}%)`
+).join("; ")}`);
+  }
+
+  // Dark-web mentions — paste archives today; Telegram / HIBP / Flare later.
+  if (context.darkWebMentions.length > 0) {
+    const bySource: Record<string, number> = {};
+    const byMatch: Record<string, number> = {};
+    for (const m of context.darkWebMentions) {
+      bySource[m.source] = (bySource[m.source] || 0) + 1;
+      if (m.match_type) byMatch[m.match_type] = (byMatch[m.match_type] || 0) + 1;
+    }
+    const srcStr = Object.entries(bySource).map(([k, v]) => `${k}: ${v}`).join(", ");
+    const matchStr = Object.entries(byMatch).map(([k, v]) => `${k}: ${v}`).join(", ");
+    parts.push(`## Dark-Web Mentions
+Count: ${context.darkWebMentions.length}
+Sources: ${srcStr}
+Match types: ${matchStr}
+Top: ${context.darkWebMentions.slice(0, 5).map((m: any) =>
+  `${m.source} ${m.match_type ?? "?"} match (severity ${m.severity}, ${m.classification})`
+).join("; ")}`);
   }
 
   return parts.join("\n\n");
