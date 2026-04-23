@@ -2,13 +2,18 @@
  * App Store Impersonation Monitoring
  *
  * Classifies candidate apps pulled from the iTunes Search API against a
- * brand's allowlist + name. Pure classification logic lives here; the
- * per-brand scanner, batch runner, and AI fallback are added in subsequent
- * slices.
+ * brand's allowlist + name. Pure classification logic + a per-brand scanner
+ * that upserts into `app_store_listings` and raises alerts on HIGH/CRITICAL
+ * findings. The Haiku fallback for ambiguous rows and the batch/cron runner
+ * are added in subsequent slices.
  */
 
 import { nameSimilarity } from "./impersonation-scorer";
-import type { ITunesApp } from "../feeds/itunes";
+import { searchITunesApps, type ITunesApp } from "../feeds/itunes";
+import { createAlert } from "../lib/alerts";
+import { deliverWebhook } from "../lib/webhooks";
+import { logger } from "../lib/logger";
+import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -211,4 +216,242 @@ export function classifyApp(
     reason: "No brand signal matched.",
     needs_ai_review: false,
   };
+}
+
+// ─── Single-Brand Scanner ───────────────────────────────────────
+
+export interface BrandRow {
+  id: string;
+  name: string;
+  domain: string | null;
+  aliases: string | null;         // JSON array
+  brand_keywords: string | null;  // JSON array
+  official_apps: string | null;   // JSON array of OfficialApp
+}
+
+export interface AppStoreScanResult {
+  listing_id: string;
+  store: string;
+  app_id: string;
+  app_name: string;
+  developer_name: string | null;
+  classification: AppClassification;
+  severity: Severity;
+  impersonation_score: number;
+  alert_id: string | null;
+}
+
+const STORE_IOS = "ios";
+const MAX_DESCRIPTION_CHARS = 1500;
+const SEARCH_LIMIT = 50;
+
+function parseJsonArray<T>(raw: string | null | undefined): T[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildBrandContext(brand: BrandRow): BrandContext {
+  return {
+    name: brand.name,
+    domain: brand.domain,
+    aliases: parseJsonArray<string>(brand.aliases),
+    brand_keywords: parseJsonArray<string>(brand.brand_keywords),
+    official_apps: parseJsonArray<OfficialApp>(brand.official_apps),
+  };
+}
+
+/**
+ * Run the iOS App Store monitor for a single brand.
+ * Searches iTunes for the brand name, classifies each hit, upserts into
+ * `app_store_listings`, and creates HIGH/CRITICAL alerts.
+ *
+ * Caller drives ownership checks; this function trusts the brand row.
+ */
+export async function runAppStoreMonitorForBrand(
+  env: Env,
+  brand: BrandRow,
+  opts: { userId?: string | null; triggeredBy?: string } = {},
+): Promise<AppStoreScanResult[]> {
+  const ctx = buildBrandContext(brand);
+  const results: AppStoreScanResult[] = [];
+
+  let apps: ITunesApp[] = [];
+  try {
+    apps = await searchITunesApps(brand.name, { limit: SEARCH_LIMIT });
+  } catch (err) {
+    logger.warn("app_store_monitor_search_error", {
+      brand_id: brand.id,
+      brand_name: brand.name,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return results;
+  }
+
+  // Resolve alert recipient once — same fallback as social-monitor.
+  let alertUserId = opts.userId ?? null;
+  if (!alertUserId) {
+    const monitoredBy = await env.DB.prepare(
+      "SELECT added_by FROM monitored_brands WHERE brand_id = ? LIMIT 1",
+    ).bind(brand.id).first<{ added_by: string }>();
+    alertUserId = monitoredBy?.added_by ?? null;
+  }
+
+  // Resolve org for webhooks.
+  const orgRow = await env.DB.prepare(
+    "SELECT org_id FROM org_brands WHERE brand_id = ? LIMIT 1",
+  ).bind(brand.id).first<{ org_id: number }>();
+
+  for (const app of apps) {
+    const verdict = classifyApp(ctx, app, STORE_IOS);
+    if (verdict.classification === "unknown") continue;
+
+    const listingId = crypto.randomUUID();
+    const description = app.description
+      ? app.description.slice(0, MAX_DESCRIPTION_CHARS)
+      : null;
+
+    // Upsert — preserve manual classifications and prior status transitions.
+    await env.DB.prepare(`
+      INSERT INTO app_store_listings (
+        id, brand_id, store, app_id, bundle_id, app_name, developer_name,
+        developer_id, seller_url, app_url, icon_url,
+        price, currency, rating, rating_count, release_date, store_updated_at,
+        version, categories, description,
+        classification, classified_by, classification_confidence, classification_reason,
+        impersonation_score, impersonation_signals, severity, status, last_checked
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
+        ?, ?, ?,
+        ?, 'system', ?, ?,
+        ?, ?, ?, 'active', datetime('now')
+      )
+      ON CONFLICT (brand_id, store, app_id) DO UPDATE SET
+        bundle_id         = excluded.bundle_id,
+        app_name          = excluded.app_name,
+        developer_name    = excluded.developer_name,
+        developer_id      = excluded.developer_id,
+        seller_url        = excluded.seller_url,
+        app_url           = excluded.app_url,
+        icon_url          = excluded.icon_url,
+        price             = excluded.price,
+        currency          = excluded.currency,
+        rating            = excluded.rating,
+        rating_count      = excluded.rating_count,
+        release_date      = excluded.release_date,
+        store_updated_at  = excluded.store_updated_at,
+        version           = excluded.version,
+        categories        = excluded.categories,
+        description       = excluded.description,
+        classification    = CASE
+          WHEN app_store_listings.classified_by = 'manual' THEN app_store_listings.classification
+          ELSE excluded.classification
+        END,
+        classified_by     = CASE
+          WHEN app_store_listings.classified_by = 'manual' THEN app_store_listings.classified_by
+          ELSE 'system'
+        END,
+        classification_confidence = CASE
+          WHEN app_store_listings.classified_by = 'manual' THEN app_store_listings.classification_confidence
+          ELSE excluded.classification_confidence
+        END,
+        classification_reason = CASE
+          WHEN app_store_listings.classified_by = 'manual' THEN app_store_listings.classification_reason
+          ELSE excluded.classification_reason
+        END,
+        impersonation_score   = excluded.impersonation_score,
+        impersonation_signals = excluded.impersonation_signals,
+        severity              = excluded.severity,
+        last_checked          = datetime('now'),
+        updated_at            = datetime('now')
+    `).bind(
+      listingId, brand.id, STORE_IOS, app.app_id, app.bundle_id, app.app_name, app.developer_name,
+      app.developer_id, app.seller_url, app.app_url, app.icon_url,
+      app.price, app.currency, app.rating, app.rating_count, app.release_date, app.store_updated_at,
+      app.version, JSON.stringify(app.categories), description,
+      verdict.classification, verdict.confidence, verdict.reason,
+      verdict.impersonation_score, JSON.stringify(verdict.signals), verdict.severity,
+    ).run();
+
+    // Alert on HIGH/CRITICAL impersonation findings.
+    let alertId: string | null = null;
+    if (
+      (verdict.severity === "HIGH" || verdict.severity === "CRITICAL") &&
+      verdict.classification === "impersonation" &&
+      alertUserId
+    ) {
+      try {
+        alertId = await createAlert(env.DB, {
+          brandId: brand.id,
+          userId: alertUserId,
+          alertType: "app_store_impersonation",
+          severity: verdict.severity,
+          title: `${verdict.severity === "CRITICAL" ? "Likely" : "Possible"} impersonation app on iOS App Store: "${app.app_name}"`,
+          summary: `App "${app.app_name}" by "${app.developer_name ?? "unknown developer"}" on the iOS App Store appears to impersonate ${brand.name}. Impersonation score: ${(verdict.impersonation_score * 100).toFixed(0)}%.`,
+          details: {
+            store: STORE_IOS,
+            app_id: app.app_id,
+            bundle_id: app.bundle_id,
+            app_name: app.app_name,
+            developer_name: app.developer_name,
+            app_url: app.app_url,
+            impersonation_score: verdict.impersonation_score,
+            signals: verdict.signals,
+            reason: verdict.reason,
+          },
+          sourceType: "app_store_monitor",
+          sourceId: listingId,
+        });
+
+        if (orgRow?.org_id) {
+          deliverWebhook(env, orgRow.org_id, "alert.created", {
+            alert_id: alertId,
+            brand_name: brand.name,
+            brand_domain: brand.domain,
+            severity: verdict.severity,
+            title: `Possible impersonation app: "${app.app_name}"`,
+            alert_type: "app_store_impersonation",
+            store: STORE_IOS,
+            app_id: app.app_id,
+            app_url: app.app_url,
+            impersonation_score: verdict.impersonation_score,
+          }).catch(() => {});
+        }
+      } catch (alertErr) {
+        logger.error("app_store_monitor_alert_error", {
+          brand_id: brand.id,
+          app_id: app.app_id,
+          error: alertErr instanceof Error ? alertErr.message : String(alertErr),
+        });
+      }
+    }
+
+    results.push({
+      listing_id: listingId,
+      store: STORE_IOS,
+      app_id: app.app_id,
+      app_name: app.app_name,
+      developer_name: app.developer_name,
+      classification: verdict.classification,
+      severity: verdict.severity,
+      impersonation_score: verdict.impersonation_score,
+      alert_id: alertId,
+    });
+  }
+
+  logger.info("app_store_monitor_brand_complete", {
+    brand_id: brand.id,
+    brand_name: brand.name,
+    apps_returned: apps.length,
+    rows_written: results.length,
+    triggered_by: opts.triggeredBy ?? "unknown",
+  });
+
+  return results;
 }
