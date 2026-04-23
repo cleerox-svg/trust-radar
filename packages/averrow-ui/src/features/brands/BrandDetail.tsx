@@ -51,6 +51,7 @@ const BRAND_TABS = [
   { id: 'typosquats',    label: 'Typosquats' },
   { id: 'email',         label: 'Email Security' },
   { id: 'social',        label: 'Social' },
+  { id: 'apps',          label: 'Apps' },
   { id: 'intelligence',  label: 'Intelligence' },
 ] as const;
 
@@ -1280,6 +1281,9 @@ export function BrandDetail() {
         </div>
       )}
 
+      {/* ── APPS TAB ── */}
+      {activeTab === 'apps' && <AppsTab brandId={id} />}
+
       {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
         <div className="space-y-6">
@@ -1499,6 +1503,17 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
           </div>
         )}
       </DeepCard>
+    </div>
+  );
+}
+
+// ─── APPS TAB (app-store impersonation monitoring) ───────────────
+
+function AppsTab({ brandId: _brandId }: { brandId: string }) {
+  // Placeholder — real implementation lands in the next slice.
+  return (
+    <div className="text-center text-white/40 font-mono text-xs py-12">
+      App-store monitoring coming online — populate the allowlist on the brand to start scanning iOS.
     </div>
   );
 }
