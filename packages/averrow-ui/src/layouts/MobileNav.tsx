@@ -33,6 +33,7 @@ const MORE_SECTIONS = [
       { icon: '🌐', label: 'Observatory',   path: '/observatory' },
       { icon: '🌐', label: 'Observatory v3', path: '/observatory-v3' },
       { icon: '🛡', label: 'Brands',        path: '/brands' },
+      { icon: '📱', label: 'Apps',          path: '/apps' },
       { icon: '⚡', label: 'Threats',       path: '/threats' },
       { icon: '🏭', label: 'Providers',     path: '/providers' },
       { icon: '🗺', label: 'Operations',    path: '/campaigns' },

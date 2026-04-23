@@ -4,6 +4,7 @@ import {
   Globe, Shield, Server, Activity, TrendingUp, Crosshair,
   Gavel, Bell, Inbox, Target,
   Cpu, Rss, LayoutDashboard, Users, ClipboardList, Building2,
+  Smartphone,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -99,6 +100,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Dashboard',   path: '/',              icon: LayoutDashboard },
         { label: 'Brands',      path: '/brands',        icon: Shield },
         { label: 'Threats',     path: '/threats',        icon: Crosshair },
+        { label: 'Apps',        path: '/apps',          icon: Smartphone },
       ],
     },
     {
@@ -123,6 +125,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Observatory',  path: '/observatory',  icon: Globe },
         { label: 'Observatory v3', path: '/observatory-v3', icon: Globe },
         { label: 'Brands',       path: '/brands',       icon: Shield },
+        { label: 'Apps',         path: '/apps',          icon: Smartphone },
         { label: 'Providers',    path: '/providers',     icon: Server },
         { label: 'Operations',   path: '/campaigns',     icon: Activity },
         { label: 'Threat Actors', path: '/threat-actors', icon: Crosshair },

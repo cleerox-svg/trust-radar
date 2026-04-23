@@ -13,6 +13,7 @@ import { NotFound } from '@/pages/NotFound';
 // needed immediately at startup.
 const Brands = React.lazy(() => import('@/features/brands/Brands').then(m => ({ default: m.Brands })));
 const BrandDetail = React.lazy(() => import('@/features/brands/BrandDetail').then(m => ({ default: m.BrandDetail })));
+const Apps = React.lazy(() => import('@/features/apps/Apps').then(m => ({ default: m.Apps })));
 const Agents = React.lazy(() => import('@/features/agents/Agents').then(m => ({ default: m.Agents })));
 const Takedowns = React.lazy(() => import('@/features/takedowns/Takedowns').then(m => ({ default: m.Takedowns })));
 const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m => ({ default: m.SpamTrap })));
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="observatory-v3" element={lazyRoute(<ObservatoryV3 />, <ObservatoryLoader />)} />
         <Route path="brands" element={lazyRoute(<Brands />)} />
         <Route path="brands/:brandId" element={lazyRoute(<BrandDetail />)} />
+        <Route path="apps" element={lazyRoute(<Apps />)} />
         <Route path="threats" element={lazyRoute(<Threats />)} />
         <Route path="providers" element={lazyRoute(<Providers />)} />
         <Route path="providers/:providerId" element={lazyRoute(<ProviderDetail />)} />

@@ -148,6 +148,65 @@ export interface OfficialAppInput {
   developer_id?: string;
 }
 
+export interface AppStoreOverviewRow {
+  id: string;
+  brand_name: string;
+  domain: string | null;
+  official_apps: string | null;
+  has_allowlist: boolean;
+  counts: {
+    total: number;
+    impersonation: number;
+    suspicious: number;
+    legitimate: number;
+    official: number;
+    critical: number;
+    high: number;
+  };
+  last_checked: string | null;
+  next_check: string | null;
+  created_at: string;
+}
+
+export interface AppStoreOverviewResponse {
+  data: AppStoreOverviewRow[];
+  total: number;
+  totals: {
+    total: number;
+    impersonation: number;
+    suspicious: number;
+    legitimate: number;
+    official: number;
+  };
+}
+
+export function useAppStoreOverview(params: { limit?: number; offset?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  if (params.offset !== undefined) qs.set('offset', String(params.offset));
+  const query = qs.toString();
+
+  return useQuery({
+    queryKey: ['app-store-overview', params],
+    queryFn: async () => {
+      const res = await api.get<AppStoreOverviewRow[]>(
+        `/api/appstore/overview${query ? `?${query}` : ''}`,
+      );
+      // api.get returns { success, data, total, ... } — overview wrapper
+      // carries a `totals` sibling that we need to surface.
+      const extras = res as unknown as { totals?: AppStoreOverviewResponse['totals'] };
+      return {
+        data: (res.data ?? []) as AppStoreOverviewRow[],
+        total: res.total ?? 0,
+        totals: extras.totals ?? {
+          total: 0, impersonation: 0, suspicious: 0, legitimate: 0, official: 0,
+        },
+      };
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useUpdateOfficialApps() {
   const qc = useQueryClient();
   return useMutation({

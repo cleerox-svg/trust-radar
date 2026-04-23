@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   useBrandFullDetail,
@@ -579,8 +579,16 @@ export function BrandDetail() {
   const navigate = useNavigate();
   const id = brandId || '';
 
+  // Deep-link tab via ?tab=apps (or any other valid id) — falls back to 'overview'.
+  const [searchParams] = useSearchParams();
+  const initialTab = (() => {
+    const raw = searchParams.get('tab');
+    const match = BRAND_TABS.find(t => t.id === raw);
+    return (match?.id ?? 'overview') as BrandTab;
+  })();
+
   // State
-  const [activeTab, setActiveTab] = useState<BrandTab>('overview');
+  const [activeTab, setActiveTab] = useState<BrandTab>(initialTab);
   const [socialFilter, setSocialFilter] = useState('all');
   const [timelinePeriod, setTimelinePeriod] = useState<string>('7d');
   const [threatSort, setThreatSort] = useState<{ key: string; asc: boolean }>({ key: 'severity', asc: false });

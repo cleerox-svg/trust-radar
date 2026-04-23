@@ -1,5 +1,6 @@
 // Averrow — App Store Impersonation Monitoring HTTP Handlers
 // Mirrors the lookalike-domains + social-monitor conventions:
+//   GET   /api/appstore/overview                — cross-brand dashboard
 //   GET   /api/appstore/monitor/:brandId        — list findings with filters
 //   POST  /api/appstore/scan/:brandId           — trigger immediate scan
 //   PATCH /api/appstore/:id                     — update classification / status
@@ -400,6 +401,138 @@ export async function handleUpdateOfficialApps(
     return json({
       success: true,
       data: { brand_id: brandId, official_apps: cleaned },
+    }, 200, origin);
+  } catch {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── GET /api/appstore/overview ──────────────────────────────────
+// Cross-brand dashboard: one row per monitored brand with per-severity
+// counts of active findings, plus last/next scan timestamps. Mirrors
+// the shape of handleSocialOverview so the UI can reuse patterns.
+
+export async function handleAppStoreOverview(
+  request: Request,
+  env: Env,
+  userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+    const userRow = await env.DB.prepare(
+      "SELECT role FROM users WHERE id = ?",
+    ).bind(userId).first<{ role: string }>();
+    const isAdmin = userRow?.role === "admin" || userRow?.role === "super_admin";
+
+    // Admins see all monitored brands; tenants see only their own.
+    const scope = isAdmin
+      ? `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`
+      : `INNER JOIN monitored_brands mb ON mb.brand_id = b.id AND mb.added_by = ?`;
+    const scopeParams: unknown[] = isAdmin ? [] : [userId];
+
+    const brands = await env.DB.prepare(`
+      SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,
+             b.official_apps, b.created_at
+      FROM brands b
+      ${scope}
+      ORDER BY b.name ASC
+      LIMIT ? OFFSET ?
+    `).bind(...scopeParams, limit, offset).all<{
+      id: string;
+      brand_name: string;
+      domain: string | null;
+      official_apps: string | null;
+      created_at: string;
+    }>();
+
+    const total = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM brands b ${scope}`,
+    ).bind(...scopeParams).first<{ n: number }>();
+
+    const brandsWithStats = await Promise.all(
+      brands.results.map(async (brand) => {
+        const classificationCounts = await env.DB.prepare(`
+          SELECT classification, severity, COUNT(*) AS count
+          FROM app_store_listings
+          WHERE brand_id = ? AND status = 'active'
+          GROUP BY classification, severity
+        `).bind(brand.id).all<{
+          classification: string;
+          severity: string;
+          count: number;
+        }>();
+
+        const counts = {
+          total: 0,
+          impersonation: 0,
+          suspicious: 0,
+          legitimate: 0,
+          official: 0,
+          critical: 0,
+          high: 0,
+        };
+
+        for (const row of classificationCounts.results) {
+          counts.total += row.count;
+          if (row.classification === "impersonation") counts.impersonation += row.count;
+          if (row.classification === "suspicious") counts.suspicious += row.count;
+          if (row.classification === "legitimate") counts.legitimate += row.count;
+          if (row.classification === "official") counts.official += row.count;
+          if (row.severity === "CRITICAL") counts.critical += row.count;
+          if (row.severity === "HIGH") counts.high += row.count;
+        }
+
+        const schedule = await env.DB.prepare(
+          `SELECT last_checked, next_check
+           FROM brand_monitor_schedule
+           WHERE brand_id = ? AND monitor_type = 'appstore' AND enabled = 1
+           LIMIT 1`,
+        ).bind(brand.id).first<{ last_checked: string | null; next_check: string | null }>();
+
+        return {
+          ...brand,
+          has_allowlist: Boolean(brand.official_apps && brand.official_apps !== "[]"),
+          counts,
+          last_checked: schedule?.last_checked ?? null,
+          next_check: schedule?.next_check ?? null,
+        };
+      }),
+    );
+
+    const totals = await env.DB.prepare(`
+      SELECT
+        SUM(CASE WHEN classification = 'impersonation' THEN 1 ELSE 0 END) AS impersonation,
+        SUM(CASE WHEN classification = 'suspicious' THEN 1 ELSE 0 END) AS suspicious,
+        SUM(CASE WHEN classification = 'legitimate' THEN 1 ELSE 0 END) AS legitimate,
+        SUM(CASE WHEN classification = 'official' THEN 1 ELSE 0 END) AS official,
+        COUNT(*) AS total
+      FROM app_store_listings asl
+      INNER JOIN brands b ON b.id = asl.brand_id
+      ${scope}
+      WHERE asl.status = 'active'
+    `).bind(...scopeParams).first<{
+      impersonation: number | null;
+      suspicious: number | null;
+      legitimate: number | null;
+      official: number | null;
+      total: number | null;
+    }>();
+
+    return json({
+      success: true,
+      data: brandsWithStats,
+      total: total?.n ?? 0,
+      totals: {
+        total: totals?.total ?? 0,
+        impersonation: totals?.impersonation ?? 0,
+        suspicious: totals?.suspicious ?? 0,
+        legitimate: totals?.legitimate ?? 0,
+        official: totals?.official ?? 0,
+      },
     }, 200, origin);
   } catch {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);

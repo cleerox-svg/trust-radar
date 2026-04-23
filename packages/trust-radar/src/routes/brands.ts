@@ -38,6 +38,7 @@ import {
 import {
   handleListAppStoreListings, handleTriggerAppStoreScan,
   handleUpdateAppStoreListing, handleUpdateOfficialApps,
+  handleAppStoreOverview,
 } from "../handlers/appStoreMonitor";
 import {
   handleListCertificates, handleCertStats,
@@ -294,6 +295,11 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   });
 
   // ─── App Store Impersonation Monitoring ──────────────────────────
+  router.get("/api/appstore/overview", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAppStoreOverview(request, env, ctx.userId);
+  });
   router.get("/api/appstore/monitor/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
