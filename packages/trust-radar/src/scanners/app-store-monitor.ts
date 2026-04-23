@@ -13,6 +13,9 @@ import { searchITunesApps, type ITunesApp } from "../feeds/itunes";
 import { createAlert } from "../lib/alerts";
 import { deliverWebhook } from "../lib/webhooks";
 import { logger } from "../lib/logger";
+import { checkCostGuard } from "../lib/haiku";
+import { callAnthropicText, AnthropicError } from "../lib/anthropic";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -454,4 +457,244 @@ export async function runAppStoreMonitorForBrand(
   });
 
   return results;
+}
+
+// ─── AI Fallback (Haiku) ────────────────────────────────────────
+
+type AiVerdict = "legitimate" | "suspicious" | "impersonation";
+type AiAction = "safe" | "review" | "escalate" | "takedown";
+
+interface AiAssessmentOutput {
+  verdict: AiVerdict;
+  confidence: number;
+  action: AiAction;
+  reasoning: string;
+}
+
+interface ListingAssessmentRow {
+  id: string;
+  brand_id: string;
+  app_id: string;
+  app_name: string;
+  developer_name: string | null;
+  bundle_id: string | null;
+  description: string | null;
+  categories: string | null;
+  price: number | null;
+  rating: number | null;
+  rating_count: number | null;
+  impersonation_signals: string | null;
+  impersonation_score: number | null;
+}
+
+const SEVERITY_FOR_AI_VERDICT: Record<AiVerdict, Severity> = {
+  legitimate: "LOW",
+  suspicious: "MEDIUM",
+  impersonation: "HIGH",
+};
+
+function buildAssessmentPrompt(
+  brand: BrandContext,
+  listing: ListingAssessmentRow,
+): string {
+  const description = (listing.description ?? "").slice(0, 800);
+  const categories = listing.categories ?? "[]";
+  const signals = listing.impersonation_signals ?? "[]";
+  const officials = brand.official_apps
+    .map((o) => `${o.platform}: ${o.developer_name ?? "?"} (${o.bundle_id ?? o.app_id ?? "?"})`)
+    .join("; ") || "none declared";
+
+  return `You are an app-store fraud analyst for the Averrow threat intelligence platform.
+
+Decide whether this iOS App Store listing is IMPERSONATING the brand below, is a LEGITIMATE unrelated app that happens to share a keyword, or is genuinely SUSPICIOUS and needs human review.
+
+BRAND:
+  name: ${brand.name}
+  domain: ${brand.domain ?? "?"}
+  aliases: ${JSON.stringify(brand.aliases)}
+  keywords: ${JSON.stringify(brand.brand_keywords)}
+  official apps (allowlist): ${officials}
+
+CANDIDATE APP:
+  app_name: ${listing.app_name}
+  developer: ${listing.developer_name ?? "unknown"}
+  bundle_id: ${listing.bundle_id ?? "unknown"}
+  price: ${listing.price == null ? "?" : listing.price}
+  rating: ${listing.rating == null ? "?" : listing.rating} (${listing.rating_count ?? 0} ratings)
+  categories: ${categories}
+  description (truncated): ${description || "[none]"}
+  rule-based signals: ${signals}
+
+Return ONLY a JSON object with this exact shape (no prose, no markdown):
+{"verdict":"legitimate|suspicious|impersonation","confidence":0.0,"action":"safe|review|escalate|takedown","reasoning":"one short sentence"}`;
+}
+
+function parseAiResponse(raw: string): AiAssessmentOutput | null {
+  // Haiku occasionally wraps JSON in a code fence or adds leading prose.
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]) as Partial<AiAssessmentOutput>;
+    const verdict = parsed.verdict;
+    const action = parsed.action;
+    if (!verdict || !["legitimate", "suspicious", "impersonation"].includes(verdict)) return null;
+    if (!action || !["safe", "review", "escalate", "takedown"].includes(action)) return null;
+    const confidence = typeof parsed.confidence === "number"
+      ? Math.max(0, Math.min(1, parsed.confidence))
+      : 0.5;
+    return {
+      verdict,
+      action,
+      confidence,
+      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning.slice(0, 500) : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Send one suspicious listing to Haiku for a verdict and persist the result.
+ * Preserves manual classifications. Caller should have already verified the
+ * row is in 'suspicious' state.
+ */
+export async function assessSuspiciousListingAI(
+  env: Env,
+  brand: BrandContext,
+  listing: ListingAssessmentRow,
+  runId: string | null = null,
+): Promise<{ updated: boolean; verdict: AiVerdict | null; error?: string }> {
+  const prompt = buildAssessmentPrompt(brand, listing);
+
+  let rawText = "";
+  try {
+    const { text } = await callAnthropicText(env, {
+      agentId: "app_store_monitor",
+      runId,
+      model: HOT_PATH_HAIKU,
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 300,
+    });
+    rawText = text;
+  } catch (err) {
+    const msg = err instanceof AnthropicError ? err.message
+      : err instanceof Error ? err.message : String(err);
+    logger.warn("app_store_ai_assess_call_failed", {
+      brand_id: listing.brand_id,
+      listing_id: listing.id,
+      error: msg,
+    });
+    return { updated: false, verdict: null, error: msg };
+  }
+
+  const verdict = parseAiResponse(rawText);
+  if (!verdict) {
+    logger.warn("app_store_ai_assess_parse_failed", {
+      brand_id: listing.brand_id,
+      listing_id: listing.id,
+      raw_snippet: rawText.slice(0, 200),
+    });
+    return { updated: false, verdict: null, error: "parse_failed" };
+  }
+
+  const newSeverity = SEVERITY_FOR_AI_VERDICT[verdict.verdict];
+
+  await env.DB.prepare(`
+    UPDATE app_store_listings SET
+      ai_assessment           = ?,
+      ai_confidence           = ?,
+      ai_action               = ?,
+      ai_assessed_at          = datetime('now'),
+      classification          = CASE WHEN classified_by = 'manual' THEN classification ELSE ? END,
+      classified_by           = CASE WHEN classified_by = 'manual' THEN classified_by ELSE 'ai' END,
+      classification_confidence = CASE WHEN classified_by = 'manual' THEN classification_confidence ELSE ? END,
+      classification_reason   = CASE WHEN classified_by = 'manual' THEN classification_reason ELSE ? END,
+      severity                = CASE WHEN classified_by = 'manual' THEN severity ELSE ? END,
+      updated_at              = datetime('now')
+    WHERE id = ?
+  `).bind(
+    verdict.reasoning,
+    verdict.confidence,
+    verdict.action,
+    verdict.verdict,
+    verdict.confidence,
+    verdict.reasoning,
+    newSeverity,
+    listing.id,
+  ).run();
+
+  return { updated: true, verdict: verdict.verdict };
+}
+
+/**
+ * Process a batch of `suspicious` listings that have not yet been AI-assessed
+ * (or were last assessed more than 7 days ago). Respects the global cost
+ * guard. Caller may scope to a single brand.
+ */
+export async function runAppStoreAIAssessmentBatch(
+  env: Env,
+  opts: { brandId?: string; limit?: number; runId?: string | null } = {},
+): Promise<{ processed: number; upgraded: number; errors: number }> {
+  const limit = Math.max(1, Math.min(50, opts.limit ?? 10));
+
+  const blocked = await checkCostGuard(env, false);
+  if (blocked) {
+    logger.info("app_store_ai_assess_cost_guard", { reason: blocked });
+    return { processed: 0, upgraded: 0, errors: 0 };
+  }
+
+  const where = opts.brandId
+    ? "WHERE asl.classification = 'suspicious' AND asl.status = 'active' AND asl.brand_id = ? AND (asl.ai_assessed_at IS NULL OR asl.ai_assessed_at < datetime('now','-7 days'))"
+    : "WHERE asl.classification = 'suspicious' AND asl.status = 'active' AND (asl.ai_assessed_at IS NULL OR asl.ai_assessed_at < datetime('now','-7 days'))";
+  const bindings: unknown[] = opts.brandId ? [opts.brandId, limit] : [limit];
+
+  const rows = await env.DB.prepare(`
+    SELECT asl.id, asl.brand_id, asl.app_id, asl.app_name, asl.developer_name,
+           asl.bundle_id, asl.description, asl.categories, asl.price, asl.rating,
+           asl.rating_count, asl.impersonation_signals, asl.impersonation_score,
+           b.name AS brand_name, b.canonical_domain AS domain,
+           b.aliases, b.brand_keywords, b.official_apps
+    FROM app_store_listings asl
+    JOIN brands b ON b.id = asl.brand_id
+    ${where}
+    ORDER BY asl.updated_at DESC
+    LIMIT ?
+  `).bind(...bindings).all<ListingAssessmentRow & {
+    brand_name: string;
+    domain: string | null;
+    aliases: string | null;
+    brand_keywords: string | null;
+    official_apps: string | null;
+  }>();
+
+  let processed = 0;
+  let upgraded = 0;
+  let errors = 0;
+
+  for (const row of rows.results) {
+    const brandCtx: BrandContext = {
+      name: row.brand_name,
+      domain: row.domain,
+      aliases: parseJsonArray<string>(row.aliases),
+      brand_keywords: parseJsonArray<string>(row.brand_keywords),
+      official_apps: parseJsonArray<OfficialApp>(row.official_apps),
+    };
+
+    const result = await assessSuspiciousListingAI(env, brandCtx, row, opts.runId ?? null);
+    processed++;
+    if (result.updated) {
+      if (result.verdict && result.verdict !== "suspicious") upgraded++;
+    } else {
+      errors++;
+    }
+  }
+
+  logger.info("app_store_ai_assess_batch_complete", {
+    brand_id: opts.brandId ?? "all",
+    processed,
+    upgraded,
+    errors,
+  });
+
+  return { processed, upgraded, errors };
 }
