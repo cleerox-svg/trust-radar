@@ -372,6 +372,97 @@ export const observerAgent: AgentModule = {
       }
     } catch { /* ct_certificates table may not exist yet */ }
 
+    // ─── App-store impersonations (iOS today; Play later) ───────
+    let appStoreContext = "";
+    try {
+      const appSummary = await env.DB.prepare(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(DISTINCT brand_id) as brands,
+          SUM(CASE WHEN classification = 'impersonation' AND status = 'active' THEN 1 ELSE 0 END) as impersonations,
+          SUM(CASE WHEN classification = 'suspicious' AND status = 'active' THEN 1 ELSE 0 END) as suspicious,
+          SUM(CASE WHEN severity IN ('CRITICAL','HIGH') AND status = 'active' THEN 1 ELSE 0 END) as high_severity,
+          SUM(CASE WHEN first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as new_24h
+        FROM app_store_listings
+        WHERE status = 'active'
+          AND classification IN ('impersonation', 'suspicious')
+      `).first<{
+        total: number; brands: number; impersonations: number; suspicious: number;
+        high_severity: number; new_24h: number;
+      }>();
+
+      if (appSummary && (appSummary.impersonations > 0 || appSummary.suspicious > 0)) {
+        const topApps = await env.DB.prepare(`
+          SELECT asl.store, asl.app_name, asl.developer_name, asl.severity,
+                 asl.impersonation_score, b.name AS brand_name
+          FROM app_store_listings asl
+          JOIN brands b ON b.id = asl.brand_id
+          WHERE asl.status = 'active'
+            AND asl.classification IN ('impersonation', 'suspicious')
+          ORDER BY
+            CASE asl.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+            asl.impersonation_score DESC
+          LIMIT 5
+        `).all<{
+          store: string; app_name: string; developer_name: string | null;
+          severity: string; impersonation_score: number | null; brand_name: string;
+        }>();
+
+        appStoreContext = `App-Store Impersonations: ${appSummary.impersonations} confirmed + ${appSummary.suspicious} suspicious across ${appSummary.brands} brands (${appSummary.high_severity} HIGH/CRITICAL, ${appSummary.new_24h} new in 24h).`;
+        if (topApps.results.length > 0) {
+          appStoreContext += ` Top: ${topApps.results.map(a =>
+            `"${a.app_name}" on ${a.store} by "${a.developer_name ?? "unknown"}" targeting ${a.brand_name} [${a.severity}]`
+          ).join('; ')}.`;
+        }
+      }
+    } catch { /* app_store_listings table may not exist yet */ }
+
+    // ─── Dark-web mentions (paste archives today; Telegram / HIBP / Flare later) ──
+    let darkWebContext = "";
+    try {
+      const dwSummary = await env.DB.prepare(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(DISTINCT brand_id) as brands,
+          COUNT(DISTINCT source) as sources,
+          SUM(CASE WHEN classification = 'confirmed' AND status = 'active' THEN 1 ELSE 0 END) as confirmed,
+          SUM(CASE WHEN classification = 'suspicious' AND status = 'active' THEN 1 ELSE 0 END) as suspicious,
+          SUM(CASE WHEN severity IN ('CRITICAL','HIGH') AND status = 'active' THEN 1 ELSE 0 END) as high_severity,
+          SUM(CASE WHEN first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as new_24h
+        FROM dark_web_mentions
+        WHERE status = 'active'
+          AND classification IN ('confirmed', 'suspicious')
+      `).first<{
+        total: number; brands: number; sources: number;
+        confirmed: number; suspicious: number; high_severity: number; new_24h: number;
+      }>();
+
+      if (dwSummary && (dwSummary.confirmed > 0 || dwSummary.suspicious > 0)) {
+        const topMentions = await env.DB.prepare(`
+          SELECT dwm.source, dwm.match_type, dwm.severity, dwm.classification,
+                 b.name AS brand_name
+          FROM dark_web_mentions dwm
+          JOIN brands b ON b.id = dwm.brand_id
+          WHERE dwm.status = 'active'
+            AND dwm.classification IN ('confirmed', 'suspicious')
+          ORDER BY
+            CASE dwm.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+            dwm.last_seen DESC
+          LIMIT 5
+        `).all<{
+          source: string; match_type: string | null; severity: string;
+          classification: string; brand_name: string;
+        }>();
+
+        darkWebContext = `Dark-Web Mentions: ${dwSummary.confirmed} confirmed + ${dwSummary.suspicious} suspicious across ${dwSummary.brands} brands via ${dwSummary.sources} sources (${dwSummary.high_severity} HIGH/CRITICAL, ${dwSummary.new_24h} new in 24h).`;
+        if (topMentions.results.length > 0) {
+          darkWebContext += ` Top: ${topMentions.results.map(m =>
+            `${m.source} ${m.match_type ?? "?"} on ${m.brand_name} [${m.severity}, ${m.classification}]`
+          ).join('; ')}.`;
+        }
+      }
+    } catch { /* dark_web_mentions table may not exist yet */ }
+
     // ─── Spam trap network summary ──────────────────────────────
     let spamTrapContext = "";
     try {
@@ -490,6 +581,8 @@ export const observerAgent: AgentModule = {
       enrichment_validation_summary: enrichmentContext,
       social_mentions_summary: socialMentionsContext,
       geopolitical_campaign_summary: geopoliticalContext,
+      app_store_summary: appStoreContext,
+      dark_web_summary: darkWebContext,
     });
 
     if (insightResult.success && insightResult.data?.items?.length) {
