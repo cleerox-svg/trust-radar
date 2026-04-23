@@ -41,6 +41,10 @@ import {
   handleAppStoreOverview,
 } from "../handlers/appStoreMonitor";
 import {
+  handleListDarkWebMentions, handleTriggerDarkWebScan,
+  handleUpdateDarkWebMention, handleDarkWebOverview,
+} from "../handlers/darkWebMonitor";
+import {
   handleListCertificates, handleCertStats,
   handleUpdateCertificate, handleTriggerCTScan,
 } from "../handlers/ctMonitor";
@@ -319,6 +323,28 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdateOfficialApps(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+
+  // ─── Dark-Web Mention Monitoring ─────────────────────────────────
+  router.get("/api/darkweb/overview", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleDarkWebOverview(request, env, ctx.userId);
+  });
+  router.get("/api/darkweb/mentions/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListDarkWebMentions(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+  router.post("/api/darkweb/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTriggerDarkWebScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+  router.patch("/api/darkweb/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateDarkWebMention(request, env, request.params["id"] ?? "", ctx.userId);
   });
 
   // ─── Certificate Transparency Monitoring ─────────────────────────
