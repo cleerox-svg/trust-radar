@@ -13,6 +13,13 @@ import {
   useDiscoverSocialProfiles,
 } from '@/hooks/useBrandDetail';
 import { useBrandThreats, type BrandThreatRow } from '@/hooks/useBrands';
+import {
+  useAppStoreMonitor,
+  useScanAppStore,
+  useClassifyAppStoreListing,
+  type AppClassification,
+  type AppStoreListing,
+} from '@/hooks/useAppStoreMonitor';
 import { DeepCard } from '@/components/ui/DeepCard';
 import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
 import { DimensionalButton } from '@/components/ui/DimensionalButton';
@@ -1509,11 +1516,275 @@ function TyposquatsTab({ brandId }: { brandId: string }) {
 
 // ─── APPS TAB (app-store impersonation monitoring) ───────────────
 
-function AppsTab({ brandId: _brandId }: { brandId: string }) {
-  // Placeholder — real implementation lands in the next slice.
+type AppsFilter = 'all' | 'impersonation' | 'suspicious' | 'legitimate' | 'official';
+
+const APP_CLASSIFICATION_BADGE: Record<AppClassification, 'critical' | 'high' | 'success' | 'default'> = {
+  impersonation: 'critical',
+  suspicious: 'high',
+  legitimate: 'success',
+  official: 'success',
+  unknown: 'default',
+};
+
+const APP_CLASSIFICATION_LABEL: Record<AppClassification, string> = {
+  impersonation: 'Impersonation',
+  suspicious: 'Suspicious',
+  legitimate: 'Legitimate',
+  official: 'Official',
+  unknown: 'Unknown',
+};
+
+function AppsTab({ brandId }: { brandId: string }) {
+  const [filter, setFilter] = useState<AppsFilter>('all');
+  const query = useAppStoreMonitor(brandId, { status: 'active', limit: 100 });
+  const scan = useScanAppStore();
+  const classify = useClassifyAppStoreListing();
+
+  const all = query.data?.results ?? [];
+  const total = query.data?.total ?? 0;
+  const schedule = query.data?.schedule?.[0];
+
+  const counts = useMemo(() => {
+    const c = { all: all.length, impersonation: 0, suspicious: 0, legitimate: 0, official: 0 };
+    for (const l of all) {
+      if (l.classification === 'impersonation') c.impersonation++;
+      else if (l.classification === 'suspicious') c.suspicious++;
+      else if (l.classification === 'legitimate') c.legitimate++;
+      else if (l.classification === 'official') c.official++;
+    }
+    return c;
+  }, [all]);
+
+  const rows = filter === 'all'
+    ? all
+    : all.filter((l) => l.classification === filter);
+
+  if (query.isLoading) {
+    return <div className="text-center text-white/40 font-mono text-xs py-12">Loading app-store listings...</div>;
+  }
+
+  if (total === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => scan.mutate(brandId)}
+            disabled={scan.isPending}
+          >
+            {scan.isPending ? 'Scanning…' : 'Scan iOS Now'}
+          </Button>
+        </div>
+        <EmptyState
+          title="No app-store listings scanned yet"
+          subtitle={schedule?.next_check
+            ? `Next automated scan: ${relativeTime(schedule.next_check)}`
+            : 'Click "Scan iOS Now" to search the App Store for impersonations of this brand.'}
+          variant="scanning"
+        />
+      </div>
+    );
+  }
+
+  const filterPills: Array<{ id: AppsFilter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'impersonation', label: 'Impersonation', count: counts.impersonation },
+    { id: 'suspicious', label: 'Suspicious', count: counts.suspicious },
+    { id: 'legitimate', label: 'Legitimate', count: counts.legitimate },
+    { id: 'official', label: 'Official', count: counts.official },
+  ];
+
   return (
-    <div className="text-center text-white/40 font-mono text-xs py-12">
-      App-store monitoring coming online — populate the allowlist on the brand to start scanning iOS.
+    <div className="space-y-6">
+      {/* STATS + RESCAN */}
+      <DeepCard variant="active" accent="#0A8AB5">
+        <div className="grid grid-cols-4 gap-6 p-2">
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Apps</div>
+            <div className="text-3xl font-bold text-instrument-white mt-1">{total}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Impersonation</div>
+            <div className="text-3xl font-bold text-[#f87171] mt-1">{counts.impersonation}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Suspicious</div>
+            <div className="text-3xl font-bold text-[#fb923c] mt-1">{counts.suspicious}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Legit / Official</div>
+            <div className="text-3xl font-bold text-[#3CB878] mt-1">{counts.legitimate + counts.official}</div>
+          </div>
+        </div>
+      </DeepCard>
+
+      {/* FILTER + SCAN */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {filterPills.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-1.5 rounded-md font-mono text-[10px] uppercase tracking-widest border transition-colors ${
+                filter === f.id
+                  ? 'bg-afterburner/20 text-[#E5A832] border-afterburner/40'
+                  : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              {f.label} <span className="opacity-60">({f.count})</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-white/40">
+            {schedule?.last_checked ? `Last scan: ${relativeTime(schedule.last_checked)}` : 'Never scanned'}
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => scan.mutate(brandId)}
+            disabled={scan.isPending}
+          >
+            {scan.isPending ? 'Scanning…' : 'Rescan'}
+          </Button>
+        </div>
+      </div>
+
+      {/* LISTINGS */}
+      {rows.length === 0 ? (
+        <DeepCard variant="base">
+          <div className="text-center text-white/40 font-mono text-xs py-10">
+            No apps match this filter.
+          </div>
+        </DeepCard>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {rows.map((listing) => (
+            <AppListingCard
+              key={listing.id}
+              listing={listing}
+              brandId={brandId}
+              onClassify={(classification) =>
+                classify.mutate({ listingId: listing.id, brandId, classification })
+              }
+              onResolve={(status) =>
+                classify.mutate({ listingId: listing.id, brandId, status })
+              }
+              disabled={classify.isPending}
+            />
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function AppListingCard({
+  listing,
+  onClassify,
+  onResolve,
+  disabled,
+}: {
+  listing: AppStoreListing;
+  brandId: string;
+  onClassify: (classification: AppClassification) => void;
+  onResolve: (status: 'resolved' | 'false_positive') => void;
+  disabled: boolean;
+}) {
+  const sev = (listing.severity || 'LOW').toLowerCase() as 'critical' | 'high' | 'medium' | 'low';
+  const badgeVariant = APP_CLASSIFICATION_BADGE[listing.classification];
+  const score = Math.round(listing.impersonation_score * 100);
+
+  return (
+    <Card>
+      <div className="flex items-start gap-3">
+        {listing.icon_url ? (
+          <img
+            src={listing.icon_url}
+            alt=""
+            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-lg bg-white/5 flex-shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-mono text-sm text-instrument-white truncate">{listing.app_name}</div>
+              <div className="font-mono text-[10px] text-white/50 truncate">
+                {listing.developer_name ?? 'unknown developer'}
+              </div>
+            </div>
+            <Badge variant={badgeVariant}>{APP_CLASSIFICATION_LABEL[listing.classification]}</Badge>
+          </div>
+
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-white/50 font-mono">
+            <span className="uppercase tracking-widest">{listing.store}</span>
+            {listing.bundle_id && <span className="truncate">{listing.bundle_id}</span>}
+            <span>{relativeTime(listing.last_checked ?? listing.created_at)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 mt-2">
+            <SeverityChip severity={sev} size="sm" />
+            {listing.classification === 'impersonation' || listing.classification === 'suspicious' ? (
+              <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${score}%`,
+                    background:
+                      score >= 70 ? '#f87171' :
+                      score >= 40 ? '#fb923c' : '#fbbf24',
+                  }}
+                />
+              </div>
+            ) : null}
+            {score > 0 && (
+              <span className="font-mono text-[10px] text-white/60 tabular-nums">{score}%</span>
+            )}
+          </div>
+
+          {listing.ai_assessment && (
+            <div className="mt-2 text-[11px] text-white/70 line-clamp-3">
+              {listing.ai_assessment}
+            </div>
+          )}
+
+          {listing.app_url && (
+            <a
+              href={listing.app_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-[10px] font-mono text-[#E5A832] hover:underline"
+            >
+              View on App Store →
+            </a>
+          )}
+
+          <div className="flex gap-1.5 mt-3 flex-wrap">
+            <button
+              onClick={() => onClassify('legitimate')}
+              disabled={disabled}
+              className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-[#3CB878]/40 text-[#3CB878] bg-[#3CB878]/10 hover:bg-[#3CB878]/20 disabled:opacity-50"
+            >
+              Confirm Safe
+            </button>
+            <button
+              onClick={() => onClassify('impersonation')}
+              disabled={disabled}
+              className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-[#C83C3C]/40 text-[#f87171] bg-[#C83C3C]/10 hover:bg-[#C83C3C]/20 disabled:opacity-50"
+            >
+              Impersonation
+            </button>
+            <button
+              onClick={() => onResolve('false_positive')}
+              disabled={disabled}
+              className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-white/10 text-white/60 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            >
+              False Positive
+            </button>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
