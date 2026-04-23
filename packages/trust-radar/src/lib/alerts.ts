@@ -8,6 +8,7 @@
 
 export type AlertType =
   | 'social_impersonation'
+  | 'app_store_impersonation'
   | 'phishing_detected'
   | 'email_grade_change'
   | 'lookalike_domain_active'

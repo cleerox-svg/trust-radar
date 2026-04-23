@@ -277,6 +277,26 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | POST | `/api/lookalikes/:brandId/scan` | User | Scan lookalike domains |
 | PATCH | `/api/lookalikes/:id` | User | Update lookalike status |
 
+## App Store Impersonation Monitoring
+
+iOS App Store impersonation scanner (Google Play + 3rd-party Android
+stores planned). Findings are upserted into `app_store_listings` and
+classified rule-based first; ambiguous rows are re-assessed by Haiku.
+HIGH/CRITICAL impersonation findings create `alerts` rows of type
+`app_store_impersonation` and fire an `alert.created` webhook.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/appstore/monitor/:brandId` | User | List app-store listings + schedule for a brand. Filters: `store`, `classification`, `severity`, `status`, `limit`, `offset`. |
+| POST | `/api/appstore/scan/:brandId` | User | Trigger an immediate iOS scan + AI drain for this brand. |
+| PATCH | `/api/appstore/:id` | User | Update a listing's `classification` or `status` (manual override, wins over AI/system). |
+| PATCH | `/api/brands/:brandId/official-apps` | User | Replace the brand's `official_apps` allowlist. Matching existing rows auto-flip to `classification='official'`. |
+
+**Takedown integration:** App-store findings can be escalated by creating
+a takedown with `target_type='mobile_app'` and `target_platform='ios_app_store'`
+or `'google_play_store'`. When `source_type='app_store_listing'` and
+`source_id` is a listing UUID, severity and evidence are auto-filled.
+
 ## Certificate Transparency
 
 | Method | Path | Auth | Description |

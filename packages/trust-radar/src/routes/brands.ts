@@ -36,6 +36,10 @@ import {
   handleUpdateLookalike, handleScanLookalikes,
 } from "../handlers/lookalikeDomains";
 import {
+  handleListAppStoreListings, handleTriggerAppStoreScan,
+  handleUpdateAppStoreListing, handleUpdateOfficialApps,
+} from "../handlers/appStoreMonitor";
+import {
   handleListCertificates, handleCertStats,
   handleUpdateCertificate, handleTriggerCTScan,
 } from "../handlers/ctMonitor";
@@ -287,6 +291,28 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+
+  // ─── App Store Impersonation Monitoring ──────────────────────────
+  router.get("/api/appstore/monitor/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListAppStoreListings(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+  router.post("/api/appstore/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleTriggerAppStoreScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+  router.patch("/api/appstore/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateAppStoreListing(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+  router.patch("/api/brands/:brandId/official-apps", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateOfficialApps(request, env, request.params["brandId"] ?? "", ctx.userId);
   });
 
   // ─── Certificate Transparency Monitoring ─────────────────────────

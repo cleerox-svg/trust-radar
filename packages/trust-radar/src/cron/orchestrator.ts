@@ -111,6 +111,13 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     const result = await runJob('social_monitor', () => runSocialMonitor(env));
     results.push(result);
 
+    // App-store impersonation monitor — iOS only for now (iTunes Search API).
+    // Runs after social so the two share the same per-brand rhythm. Capped at
+    // 20 brands/tick inside the scanner, iTunes is cached at the CF edge, so
+    // awaiting inline is safe.
+    const appStoreResult = await runJob('app_store_monitor', () => runAppStoreMonitor(env));
+    results.push(appStoreResult);
+
     // Run Sentinel AI assessment in the background — it doesn't need to block the
     // cron mesh, and moving it to waitUntil frees up the hourly CPU ceiling for
     // other jobs (CT monitor, lookalike check, etc.).
@@ -761,6 +768,11 @@ async function runSocialDiscovery(env: Env): Promise<void> {
 async function runSocialMonitor(env: Env): Promise<void> {
   const { runSocialMonitorBatch } = await import('../scanners/social-monitor');
   await runSocialMonitorBatch(env);
+}
+
+async function runAppStoreMonitor(env: Env): Promise<void> {
+  const { runAppStoreMonitorBatch } = await import('../scanners/app-store-monitor');
+  await runAppStoreMonitorBatch(env);
 }
 
 async function runObserverBriefing(env: Env): Promise<void> {

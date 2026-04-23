@@ -21,6 +21,9 @@ const PLATFORM_ABUSE_CONTACTS: Record<string, { name: string; url: string; metho
   tiktok: { name: "TikTok", url: "https://www.tiktok.com/legal/report/feedback", method: "form" },
   github: { name: "GitHub", url: "https://support.github.com/contact/dmca-takedown", method: "form" },
   youtube: { name: "YouTube", url: "https://www.youtube.com/reportabuse", method: "form" },
+  // App-store marketplaces — reported via each store's IP/abuse channel.
+  iosappstore: { name: "Apple App Store", url: "https://www.apple.com/legal/internet-services/itunes/appstorenotices/", method: "form" },
+  googleplaystore: { name: "Google Play Store", url: "https://support.google.com/legal/troubleshooter/1114905", method: "form" },
 };
 
 // ─── Constants ───────────────────────────────────────────────
@@ -51,7 +54,7 @@ export const handleCreateTakedown = orgHandler(async (request, env, orgId, ctx) 
 
   const { brand_id: brandId, target_type: targetType, target_value: targetValue, evidence_summary: evidenceSummary } = body;
 
-  const validTargetTypes = ["domain", "social_profile", "url", "email"];
+  const validTargetTypes = ["domain", "social_profile", "url", "email", "mobile_app"];
   if (!validTargetTypes.includes(targetType)) {
     return error(`Invalid target_type. Must be one of: ${validTargetTypes.join(", ")}`, 400, ctx.origin);
   }
@@ -88,13 +91,31 @@ export const handleCreateTakedown = orgHandler(async (request, env, orgId, ctx) 
     }
   }
 
+  if (body.source_type === "app_store_listing" && body.source_id) {
+    const listing = await env.DB.prepare(
+      "SELECT severity, ai_assessment, classification_reason, impersonation_signals FROM app_store_listings WHERE id = ? AND brand_id = ?"
+    ).bind(body.source_id, brandId).first<{
+      severity: string;
+      ai_assessment: string | null;
+      classification_reason: string | null;
+      impersonation_signals: string | null;
+    }>();
+    if (listing) {
+      severity = listing.severity || severity;
+      if (!evidenceDetail) {
+        evidenceDetail = [listing.ai_assessment, listing.classification_reason, listing.impersonation_signals]
+          .filter(Boolean).join("\n\n");
+      }
+    }
+  }
+
   // Auto-detect provider abuse contact
   let providerName: string | null = null;
   let providerAbuseContact: string | null = null;
   let providerMethod = "email";
   const targetPlatform = body.target_platform || null;
 
-  if (targetType === "social_profile" && targetPlatform) {
+  if ((targetType === "social_profile" || targetType === "mobile_app") && targetPlatform) {
     const platformKey = targetPlatform.toLowerCase().replace(/[^a-z]/g, "");
     const contact = PLATFORM_ABUSE_CONTACTS[platformKey];
     if (contact) {
