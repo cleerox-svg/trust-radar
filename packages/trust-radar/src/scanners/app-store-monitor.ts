@@ -16,6 +16,7 @@ import { logger } from "../lib/logger";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicText, AnthropicError } from "../lib/anthropic";
 import { HOT_PATH_HAIKU } from "../lib/ai-models";
+import { computeBrandExposureScore } from "../lib/brand-scoring";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -445,6 +446,19 @@ export async function runAppStoreMonitorForBrand(
       severity: verdict.severity,
       impersonation_score: verdict.impersonation_score,
       alert_id: alertId,
+    });
+  }
+
+  // Recompute brand exposure score so the Apps tab's new data reflects
+  // in the brand's headline risk score. Scoped to this brand only — pure
+  // SQL, no Haiku, ~7 D1 reads. Wrapped so a scoring bug can't fail the
+  // scan.
+  try {
+    await computeBrandExposureScore(env, brand.id);
+  } catch (scoreErr) {
+    logger.warn("app_store_monitor_score_error", {
+      brand_id: brand.id,
+      error: scoreErr instanceof Error ? scoreErr.message : String(scoreErr),
     });
   }
 
