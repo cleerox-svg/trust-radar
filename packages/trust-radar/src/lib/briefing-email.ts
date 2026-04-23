@@ -504,6 +504,16 @@ ${sectionHeader("Anomalies & Alerts")}
     } else if (b.newCapabilities.typosquat_total > 0) {
       rows.push(okRow(`Typosquat scanner active — ${fmt(b.newCapabilities.typosquat_total)} total domains`));
     }
+    if (b.newCapabilities.appstore_new > 0) {
+      rows.push(okRow(`App-store monitor active — ${fmt(b.newCapabilities.appstore_new)} new impersonations in 12h (${fmt(b.newCapabilities.appstore_total)} total active)`));
+    } else if (b.newCapabilities.appstore_total > 0) {
+      rows.push(okRow(`App-store monitor active — ${fmt(b.newCapabilities.appstore_total)} active impersonations`));
+    }
+    if (b.newCapabilities.darkweb_new > 0) {
+      rows.push(okRow(`Dark-web monitor active — ${fmt(b.newCapabilities.darkweb_new)} new mentions in 12h (${fmt(b.newCapabilities.darkweb_total)} total active)`));
+    } else if (b.newCapabilities.darkweb_total > 0) {
+      rows.push(okRow(`Dark-web monitor active — ${fmt(b.newCapabilities.darkweb_total)} active mentions`));
+    }
     return rows.join("");
   })()}
   ${cardEnd()}

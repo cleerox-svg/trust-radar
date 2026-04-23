@@ -64,6 +64,10 @@ export interface ComprehensiveBriefing {
     social_total: number;
     social_new: number;
     certstream: number;
+    appstore_total: number;
+    appstore_new: number;
+    darkweb_total: number;
+    darkweb_new: number;
   };
   spamTrap: {
     totalSeeds: number;
@@ -167,6 +171,7 @@ async function fetchComprehensiveBriefing(
     agentActivity,
     // G) New Capabilities
     newCapabilities,
+    newCapabilitiesExt,
     // H) Spam Trap
     spamTrapSeeds,
     spamTrapCaptures,
@@ -298,7 +303,8 @@ async function fetchComprehensiveBriefing(
       [],
     ),
 
-    // G) New Capabilities
+    // G) New Capabilities — legacy counts stay in their own query so a missing
+    //    app_store_listings / dark_web_mentions table can't zero them out.
     safeFirst(
       db,
       `SELECT
@@ -313,6 +319,22 @@ async function fetchComprehensiveBriefing(
         social_total: 0,
         social_new: 0,
         certstream: 0,
+      },
+    ),
+    // G2) App-store + dark-web capability counts — isolated so table drift
+    //     can't knock out the legacy capability section above.
+    safeFirst(
+      db,
+      `SELECT
+        (SELECT COUNT(*) FROM app_store_listings WHERE status = 'active' AND classification IN ('impersonation','suspicious')) as appstore_total,
+        (SELECT COUNT(*) FROM app_store_listings WHERE status = 'active' AND classification IN ('impersonation','suspicious') AND first_seen >= datetime('now', '-12 hours')) as appstore_new,
+        (SELECT COUNT(*) FROM dark_web_mentions WHERE status = 'active' AND classification IN ('confirmed','suspicious')) as darkweb_total,
+        (SELECT COUNT(*) FROM dark_web_mentions WHERE status = 'active' AND classification IN ('confirmed','suspicious') AND first_seen >= datetime('now', '-12 hours')) as darkweb_new`,
+      {
+        appstore_total: 0,
+        appstore_new: 0,
+        darkweb_total: 0,
+        darkweb_new: 0,
       },
     ),
 
@@ -556,6 +578,10 @@ async function fetchComprehensiveBriefing(
       social_total: Number(newCapabilities.social_total) || 0,
       social_new: Number(newCapabilities.social_new) || 0,
       certstream: Number(newCapabilities.certstream) || 0,
+      appstore_total: Number(newCapabilitiesExt.appstore_total) || 0,
+      appstore_new: Number(newCapabilitiesExt.appstore_new) || 0,
+      darkweb_total: Number(newCapabilitiesExt.darkweb_total) || 0,
+      darkweb_new: Number(newCapabilitiesExt.darkweb_new) || 0,
     },
     spamTrap: {
       totalSeeds: Number(spamTrapSeeds.total_seeds) || 0,
