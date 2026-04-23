@@ -20,6 +20,13 @@ import {
   type AppClassification,
   type AppStoreListing,
 } from '@/hooks/useAppStoreMonitor';
+import {
+  useDarkWebMentions,
+  useScanDarkWeb,
+  useClassifyDarkWebMention,
+  type DarkWebClassification,
+  type DarkWebMention,
+} from '@/hooks/useDarkWebMonitor';
 import { DeepCard } from '@/components/ui/DeepCard';
 import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
 import { DimensionalButton } from '@/components/ui/DimensionalButton';
@@ -59,6 +66,7 @@ const BRAND_TABS = [
   { id: 'email',         label: 'Email Security' },
   { id: 'social',        label: 'Social' },
   { id: 'apps',          label: 'Apps' },
+  { id: 'dark-web',      label: 'Dark Web' },
   { id: 'intelligence',  label: 'Intelligence' },
 ] as const;
 
@@ -1299,6 +1307,9 @@ export function BrandDetail() {
       {/* ── APPS TAB ── */}
       {activeTab === 'apps' && <AppsTab brandId={id} />}
 
+      {/* ── DARK WEB TAB ── */}
+      {activeTab === 'dark-web' && <DarkWebTab brandId={id} />}
+
       {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
         <div className="space-y-6">
@@ -1791,6 +1802,263 @@ function AppListingCard({
               False Positive
             </button>
           </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── DARK WEB TAB (paste-archive mention monitoring) ─────────────
+
+type DarkWebFilter = 'all' | 'confirmed' | 'suspicious';
+
+const DARK_WEB_BADGE: Record<DarkWebClassification, 'critical' | 'high' | 'default' | 'success'> = {
+  confirmed: 'critical',
+  suspicious: 'high',
+  false_positive: 'default',
+  resolved: 'success',
+  unknown: 'default',
+};
+
+const DARK_WEB_LABEL: Record<DarkWebClassification, string> = {
+  confirmed: 'Confirmed',
+  suspicious: 'Suspicious',
+  false_positive: 'False Positive',
+  resolved: 'Resolved',
+  unknown: 'Unknown',
+};
+
+function DarkWebTab({ brandId }: { brandId: string }) {
+  const [filter, setFilter] = useState<DarkWebFilter>('all');
+  const query = useDarkWebMentions(brandId, { status: 'active', limit: 100 });
+  const scan = useScanDarkWeb();
+  const classify = useClassifyDarkWebMention();
+
+  const all = query.data?.results ?? [];
+  const total = query.data?.total ?? 0;
+  const schedule = query.data?.schedule?.[0];
+
+  const counts = useMemo(() => {
+    const c = { all: all.length, confirmed: 0, suspicious: 0 };
+    for (const m of all) {
+      if (m.classification === 'confirmed') c.confirmed++;
+      else if (m.classification === 'suspicious') c.suspicious++;
+    }
+    return c;
+  }, [all]);
+
+  const rows = filter === 'all'
+    ? all
+    : all.filter((m) => m.classification === filter);
+
+  if (query.isLoading) {
+    return <div className="text-center text-white/40 font-mono text-xs py-12">Loading dark-web mentions...</div>;
+  }
+
+  if (total === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => scan.mutate(brandId)}
+            disabled={scan.isPending}
+          >
+            {scan.isPending ? 'Scanning…' : 'Scan Pastebin Now'}
+          </Button>
+        </div>
+        <EmptyState
+          title="No dark-web mentions yet"
+          subtitle={schedule?.next_check
+            ? `Next automated scan: ${relativeTime(schedule.next_check)}`
+            : 'Click "Scan Pastebin Now" to search paste archives for mentions of this brand.'}
+          variant="scanning"
+        />
+      </div>
+    );
+  }
+
+  const filterPills: Array<{ id: DarkWebFilter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'confirmed', label: 'Confirmed', count: counts.confirmed },
+    { id: 'suspicious', label: 'Suspicious', count: counts.suspicious },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <DeepCard variant="active" accent="#C83C3C">
+        <div className="grid grid-cols-3 gap-6 p-2">
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Total Mentions</div>
+            <div className="text-3xl font-bold text-instrument-white mt-1">{total}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Confirmed</div>
+            <div className="text-3xl font-bold text-[#f87171] mt-1">{counts.confirmed}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-white/50">Suspicious</div>
+            <div className="text-3xl font-bold text-[#fb923c] mt-1">{counts.suspicious}</div>
+          </div>
+        </div>
+      </DeepCard>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {filterPills.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-1.5 rounded-md font-mono text-[10px] uppercase tracking-widest border transition-colors ${
+                filter === f.id
+                  ? 'bg-afterburner/20 text-[#E5A832] border-afterburner/40'
+                  : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              {f.label} <span className="opacity-60">({f.count})</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-white/40">
+            {schedule?.last_checked ? `Last scan: ${relativeTime(schedule.last_checked)}` : 'Never scanned'}
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => scan.mutate(brandId)}
+            disabled={scan.isPending}
+          >
+            {scan.isPending ? 'Scanning…' : 'Rescan'}
+          </Button>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <DeepCard variant="base">
+          <div className="text-center text-white/40 font-mono text-xs py-10">
+            No mentions match this filter.
+          </div>
+        </DeepCard>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((mention) => (
+            <MentionCard
+              key={mention.id}
+              mention={mention}
+              onClassify={(classification) =>
+                classify.mutate({ mentionId: mention.id, brandId, classification })
+              }
+              onResolve={(status) =>
+                classify.mutate({ mentionId: mention.id, brandId, status })
+              }
+              disabled={classify.isPending}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MentionCard({
+  mention,
+  onClassify,
+  onResolve,
+  disabled,
+}: {
+  mention: DarkWebMention;
+  onClassify: (classification: DarkWebClassification) => void;
+  onResolve: (status: 'resolved' | 'false_positive') => void;
+  disabled: boolean;
+}) {
+  const sev = (mention.severity || 'LOW').toLowerCase() as 'critical' | 'high' | 'medium' | 'low';
+  const badgeVariant = DARK_WEB_BADGE[mention.classification];
+
+  let matchedTerms: string[] = [];
+  try {
+    matchedTerms = mention.matched_terms ? JSON.parse(mention.matched_terms) : [];
+  } catch { /* malformed JSON — render empty */ }
+
+  return (
+    <Card>
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-white/50">
+                {mention.source}
+              </span>
+              {mention.match_type && (
+                <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">
+                  · {mention.match_type.replace(/_/g, ' ')}
+                </span>
+              )}
+              <span className="font-mono text-[9px] text-white/40">
+                · {relativeTime(mention.last_seen ?? mention.first_seen)}
+              </span>
+            </div>
+            <a
+              href={mention.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-sm text-[#E5A832] hover:underline truncate block mt-0.5"
+            >
+              {mention.source_url}
+            </a>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <SeverityChip severity={sev} size="sm" />
+            <Badge variant={badgeVariant}>{DARK_WEB_LABEL[mention.classification]}</Badge>
+          </div>
+        </div>
+
+        {matchedTerms.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {matchedTerms.map((t, i) => (
+              <span
+                key={`${t}-${i}`}
+                className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 font-mono text-[9px] text-white/60"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {mention.content_snippet && (
+          <pre className="font-mono text-[10px] text-white/60 whitespace-pre-wrap break-all bg-black/30 rounded px-3 py-2 border border-white/5 max-h-32 overflow-y-auto">
+            {mention.content_snippet}
+          </pre>
+        )}
+
+        {mention.ai_assessment && (
+          <div className="text-[11px] text-white/70 italic border-l-2 border-[#E5A832]/40 pl-3">
+            AI: {mention.ai_assessment}
+          </div>
+        )}
+
+        <div className="flex gap-1.5 flex-wrap pt-1">
+          <button
+            onClick={() => onClassify('confirmed')}
+            disabled={disabled}
+            className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-[#C83C3C]/40 text-[#f87171] bg-[#C83C3C]/10 hover:bg-[#C83C3C]/20 disabled:opacity-50"
+          >
+            Confirm Threat
+          </button>
+          <button
+            onClick={() => onResolve('false_positive')}
+            disabled={disabled}
+            className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-white/10 text-white/60 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+          >
+            False Positive
+          </button>
+          <button
+            onClick={() => onResolve('resolved')}
+            disabled={disabled}
+            className="px-2 py-1 rounded font-mono text-[9px] uppercase tracking-widest border border-[#3CB878]/40 text-[#3CB878] bg-[#3CB878]/10 hover:bg-[#3CB878]/20 disabled:opacity-50"
+          >
+            Resolve
+          </button>
         </div>
       </div>
     </Card>

@@ -118,6 +118,14 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     const appStoreResult = await runJob('app_store_monitor', () => runAppStoreMonitor(env));
     results.push(appStoreResult);
 
+    // Dark-web mention monitor — pastebin archives (PSBDMP) only for now.
+    // Capped at 15 brands/tick inside the scanner; paste bodies are fetched
+    // sequentially so the walk is bounded. Future Telegram / HIBP / Flare
+    // sources add their own brand_monitor_schedule platform rows without
+    // touching this call site.
+    const darkWebResult = await runJob('dark_web_monitor', () => runDarkWebMonitor(env));
+    results.push(darkWebResult);
+
     // Run Sentinel AI assessment in the background — it doesn't need to block the
     // cron mesh, and moving it to waitUntil frees up the hourly CPU ceiling for
     // other jobs (CT monitor, lookalike check, etc.).
@@ -773,6 +781,11 @@ async function runSocialMonitor(env: Env): Promise<void> {
 async function runAppStoreMonitor(env: Env): Promise<void> {
   const { runAppStoreMonitorBatch } = await import('../scanners/app-store-monitor');
   await runAppStoreMonitorBatch(env);
+}
+
+async function runDarkWebMonitor(env: Env): Promise<void> {
+  const { runDarkWebMonitorBatch } = await import('../scanners/dark-web-monitor');
+  await runDarkWebMonitorBatch(env);
 }
 
 async function runObserverBriefing(env: Env): Promise<void> {
