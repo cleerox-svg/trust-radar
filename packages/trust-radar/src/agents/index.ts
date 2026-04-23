@@ -21,6 +21,8 @@ import { curatorAgent } from "./curator";
 import { watchdogAgent } from "./watchdog";
 import { architectAgent } from "./architect";
 import { narratorAgent } from "./narrator";
+import { appStoreMonitorAgent } from "./appStoreMonitor";
+import { darkWebMonitorAgent } from "./darkWebMonitor";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -39,4 +41,6 @@ export const agentModules: Record<string, AgentModule> = {
   "watchdog": watchdogAgent,
   "architect": architectAgent,
   "narrator": narratorAgent,
+  "app_store_monitor": appStoreMonitorAgent,
+  "dark_web_monitor": darkWebMonitorAgent,
 };

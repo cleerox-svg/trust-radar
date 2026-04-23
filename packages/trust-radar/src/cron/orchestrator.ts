@@ -779,13 +779,19 @@ async function runSocialMonitor(env: Env): Promise<void> {
 }
 
 async function runAppStoreMonitor(env: Env): Promise<void> {
-  const { runAppStoreMonitorBatch } = await import('../scanners/app-store-monitor');
-  await runAppStoreMonitorBatch(env);
+  // Dispatch via executeAgent so every run lands in agent_runs / agent_outputs,
+  // respects the circuit breaker, and surfaces in Flight Control + the Agents UI.
+  const { executeAgent } = await import('../lib/agentRunner');
+  const { appStoreMonitorAgent } = await import('../agents/appStoreMonitor');
+  await executeAgent(env, appStoreMonitorAgent, {}, 'orchestrator', 'scheduled');
 }
 
 async function runDarkWebMonitor(env: Env): Promise<void> {
-  const { runDarkWebMonitorBatch } = await import('../scanners/dark-web-monitor');
-  await runDarkWebMonitorBatch(env);
+  // Dispatch via executeAgent so every run lands in agent_runs / agent_outputs,
+  // respects the circuit breaker, and surfaces in Flight Control + the Agents UI.
+  const { executeAgent } = await import('../lib/agentRunner');
+  const { darkWebMonitorAgent } = await import('../agents/darkWebMonitor');
+  await executeAgent(env, darkWebMonitorAgent, {}, 'orchestrator', 'scheduled');
 }
 
 async function runObserverBriefing(env: Env): Promise<void> {

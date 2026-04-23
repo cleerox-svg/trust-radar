@@ -26,7 +26,9 @@ export type AgentName =
   | "curator"
   | "watchdog"
   | "architect"
-  | "narrator";
+  | "narrator"
+  | "app_store_monitor"
+  | "dark_web_monitor";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
