@@ -756,3 +756,139 @@ export async function runDarkWebAIAssessmentBatch(
 
   return { processed, upgraded, errors };
 }
+
+// ─── Batch Runner (Cron) ────────────────────────────────────────
+
+const BATCH_LIMIT = 15;
+const DEFAULT_CHECK_INTERVAL_HOURS = 24;
+const MONITOR_TYPE = "darkweb";
+const SCHEDULE_PLATFORM = "pastebin";
+
+/**
+ * Ensure a brand_monitor_schedule row exists for (brand, 'darkweb', 'pastebin').
+ * Idempotent — relies on the unique index on (brand_id, monitor_type, platform).
+ */
+async function ensureDarkWebSchedule(env: Env, brandId: string): Promise<void> {
+  await env.DB.prepare(`
+    INSERT INTO brand_monitor_schedule
+      (id, brand_id, monitor_type, platform, check_interval_hours, enabled, next_check)
+    VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+    ON CONFLICT (brand_id, monitor_type, platform) DO NOTHING
+  `).bind(
+    crypto.randomUUID(),
+    brandId,
+    MONITOR_TYPE,
+    SCHEDULE_PLATFORM,
+    DEFAULT_CHECK_INTERVAL_HOURS,
+  ).run();
+}
+
+/**
+ * Run the dark-web monitor for every monitored brand due for a check.
+ * Called from the cron orchestrator on the `hour % 6 === 0` tick, after
+ * the app-store monitor.
+ */
+export async function runDarkWebMonitorBatch(env: Env): Promise<{
+  brands_processed: number;
+  rows_upserted: number;
+  alerts_created: number;
+  ai_processed: number;
+  ai_upgraded: number;
+}> {
+  const now = new Date().toISOString();
+
+  // Seed schedule rows for every monitored brand that lacks one.
+  const needsSeed = await env.DB.prepare(`
+    SELECT DISTINCT mb.brand_id
+    FROM monitored_brands mb
+    LEFT JOIN brand_monitor_schedule bms
+      ON bms.brand_id = mb.brand_id
+     AND bms.monitor_type = ?
+     AND bms.platform = ?
+    WHERE bms.id IS NULL
+    LIMIT 200
+  `).bind(MONITOR_TYPE, SCHEDULE_PLATFORM).all<{ brand_id: string }>();
+  for (const row of needsSeed.results) {
+    await ensureDarkWebSchedule(env, row.brand_id);
+  }
+
+  // Select due brands for this tick.
+  const dueBrands = await env.DB.prepare(`
+    SELECT DISTINCT b.id, b.name, b.canonical_domain AS domain,
+           b.aliases, b.executive_names
+    FROM brands b
+    INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+    INNER JOIN brand_monitor_schedule bms ON bms.brand_id = b.id
+    WHERE bms.monitor_type = ?
+      AND bms.platform = ?
+      AND bms.enabled = 1
+      AND (bms.next_check IS NULL OR bms.next_check <= ?)
+    ORDER BY bms.next_check ASC
+    LIMIT ?
+  `).bind(MONITOR_TYPE, SCHEDULE_PLATFORM, now, BATCH_LIMIT).all<BrandRow>();
+
+  if (dueBrands.results.length === 0) {
+    logger.info("dark_web_monitor_batch", { message: "No brands due", checked_at: now });
+    return {
+      brands_processed: 0, rows_upserted: 0, alerts_created: 0,
+      ai_processed: 0, ai_upgraded: 0,
+    };
+  }
+
+  logger.info("dark_web_monitor_batch_start", { brands_count: dueBrands.results.length });
+
+  let brandsProcessed = 0;
+  let rowsUpserted = 0;
+  let alertsCreated = 0;
+
+  for (const brand of dueBrands.results) {
+    try {
+      const results = await runDarkWebMonitorForBrand(env, brand, { triggeredBy: "cron" });
+      rowsUpserted += results.length;
+      alertsCreated += results.filter((r) => r.alert_id !== null).length;
+
+      await env.DB.prepare(`
+        UPDATE brand_monitor_schedule
+        SET last_checked = ?,
+            next_check = datetime(?, '+' || check_interval_hours || ' hours'),
+            updated_at = datetime('now')
+        WHERE brand_id = ? AND monitor_type = ? AND platform = ? AND enabled = 1
+      `).bind(now, now, brand.id, MONITOR_TYPE, SCHEDULE_PLATFORM).run();
+
+      brandsProcessed++;
+    } catch (err) {
+      logger.error("dark_web_monitor_batch_brand_error", {
+        brand_id: brand.id,
+        brand_name: brand.name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Advance the schedule even on error so one broken brand can't block the queue.
+      await env.DB.prepare(`
+        UPDATE brand_monitor_schedule
+        SET last_checked = ?,
+            next_check = datetime(?, '+' || check_interval_hours || ' hours'),
+            updated_at = datetime('now')
+        WHERE brand_id = ? AND monitor_type = ? AND platform = ? AND enabled = 1
+      `).bind(now, now, brand.id, MONITOR_TYPE, SCHEDULE_PLATFORM).run().catch(() => {});
+    }
+  }
+
+  // Drain AI queue after the deterministic scan — gated by cost guard.
+  const ai = await runDarkWebAIAssessmentBatch(env, { limit: 15 });
+
+  logger.info("dark_web_monitor_batch_complete", {
+    brands_processed: brandsProcessed,
+    rows_upserted: rowsUpserted,
+    alerts_created: alertsCreated,
+    ai_processed: ai.processed,
+    ai_upgraded: ai.upgraded,
+  });
+
+  return {
+    brands_processed: brandsProcessed,
+    rows_upserted: rowsUpserted,
+    alerts_created: alertsCreated,
+    ai_processed: ai.processed,
+    ai_upgraded: ai.upgraded,
+  };
+}
