@@ -13,6 +13,9 @@ import { searchPastes, fetchPasteContent, type PasteMention } from "../feeds/psb
 import { createAlert } from "../lib/alerts";
 import { deliverWebhook } from "../lib/webhooks";
 import { logger } from "../lib/logger";
+import { checkCostGuard } from "../lib/haiku";
+import { callAnthropicText, AnthropicError } from "../lib/anthropic";
+import { HOT_PATH_HAIKU } from "../lib/ai-models";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -520,4 +523,236 @@ export async function runDarkWebMonitorForBrand(
   });
 
   return results;
+}
+
+// ─── AI Fallback (Haiku) ────────────────────────────────────────
+
+type AiVerdict = "confirmed" | "suspicious" | "false_positive";
+type AiAction = "safe" | "review" | "escalate" | "takedown";
+
+interface AiAssessmentOutput {
+  verdict: AiVerdict;
+  confidence: number;
+  action: AiAction;
+  reasoning: string;
+}
+
+interface MentionAssessmentRow {
+  id: string;
+  brand_id: string;
+  source: string;
+  source_url: string;
+  content_snippet: string | null;
+  matched_terms: string | null;
+  match_type: string | null;
+  impersonation_signals?: string | null; // unused here; kept for symmetry
+}
+
+const SEVERITY_FOR_AI_VERDICT: Record<AiVerdict, Severity> = {
+  confirmed: "HIGH",
+  suspicious: "MEDIUM",
+  false_positive: "LOW",
+};
+
+function buildAssessmentPrompt(
+  brand: DarkWebBrandContext,
+  mention: MentionAssessmentRow,
+): string {
+  const snippet = (mention.content_snippet ?? "").slice(0, 800);
+  const matched = mention.matched_terms ?? "[]";
+
+  return `You are a dark-web analyst for the Averrow threat intelligence platform.
+
+Decide whether this paste genuinely references the BRAND below, or whether the brand keyword appears coincidentally (common word, unrelated topic, different company with a similar name).
+
+BRAND:
+  name: ${brand.name}
+  domain: ${brand.domain ?? "?"}
+  aliases: ${JSON.stringify(brand.aliases)}
+  known executives: ${JSON.stringify(brand.executives.slice(0, 10))}
+
+PASTE:
+  source: ${mention.source}
+  source_url: ${mention.source_url}
+  match_type: ${mention.match_type ?? "?"}
+  matched_terms: ${matched}
+  snippet (truncated): ${snippet || "[no content available]"}
+
+Consider: credential dumps and combolists that include the brand's domain or employee emails are ALWAYS confirmed. A paste that just contains the brand name in passing (joke, unrelated sentence, different company) is a false_positive. When unsure, return "suspicious".
+
+Return ONLY a JSON object with this exact shape (no prose, no markdown):
+{"verdict":"confirmed|suspicious|false_positive","confidence":0.0,"action":"safe|review|escalate|takedown","reasoning":"one short sentence"}`;
+}
+
+function parseAiResponse(raw: string): AiAssessmentOutput | null {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]) as Partial<AiAssessmentOutput>;
+    const verdict = parsed.verdict;
+    const action = parsed.action;
+    if (!verdict || !["confirmed", "suspicious", "false_positive"].includes(verdict)) return null;
+    if (!action || !["safe", "review", "escalate", "takedown"].includes(action)) return null;
+    const confidence = typeof parsed.confidence === "number"
+      ? Math.max(0, Math.min(1, parsed.confidence))
+      : 0.5;
+    return {
+      verdict,
+      action,
+      confidence,
+      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning.slice(0, 500) : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Send one suspicious mention to Haiku for a verdict and persist the
+ * result. Preserves manual classifications. Caller should have already
+ * verified the row is in 'suspicious' state.
+ */
+export async function assessSuspiciousMentionAI(
+  env: Env,
+  brand: DarkWebBrandContext,
+  mention: MentionAssessmentRow,
+  runId: string | null = null,
+): Promise<{ updated: boolean; verdict: AiVerdict | null; error?: string }> {
+  const prompt = buildAssessmentPrompt(brand, mention);
+
+  let rawText = "";
+  try {
+    const { text } = await callAnthropicText(env, {
+      agentId: "dark_web_monitor",
+      runId,
+      model: HOT_PATH_HAIKU,
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 300,
+    });
+    rawText = text;
+  } catch (err) {
+    const msg = err instanceof AnthropicError ? err.message
+      : err instanceof Error ? err.message : String(err);
+    logger.warn("dark_web_ai_assess_call_failed", {
+      brand_id: mention.brand_id,
+      mention_id: mention.id,
+      error: msg,
+    });
+    return { updated: false, verdict: null, error: msg };
+  }
+
+  const verdict = parseAiResponse(rawText);
+  if (!verdict) {
+    logger.warn("dark_web_ai_assess_parse_failed", {
+      brand_id: mention.brand_id,
+      mention_id: mention.id,
+      raw_snippet: rawText.slice(0, 200),
+    });
+    return { updated: false, verdict: null, error: "parse_failed" };
+  }
+
+  const newSeverity = SEVERITY_FOR_AI_VERDICT[verdict.verdict];
+  const newStatus = verdict.verdict === "false_positive" ? "false_positive" : "active";
+
+  await env.DB.prepare(`
+    UPDATE dark_web_mentions SET
+      ai_assessment           = ?,
+      ai_confidence           = ?,
+      ai_action               = ?,
+      ai_assessed_at          = datetime('now'),
+      classification          = CASE WHEN classified_by = 'manual' THEN classification ELSE ? END,
+      classified_by           = CASE WHEN classified_by = 'manual' THEN classified_by ELSE 'ai' END,
+      classification_confidence = CASE WHEN classified_by = 'manual' THEN classification_confidence ELSE ? END,
+      classification_reason   = CASE WHEN classified_by = 'manual' THEN classification_reason ELSE ? END,
+      severity                = CASE WHEN classified_by = 'manual' THEN severity ELSE ? END,
+      status                  = CASE WHEN classified_by = 'manual' THEN status ELSE ? END,
+      updated_at              = datetime('now')
+    WHERE id = ?
+  `).bind(
+    verdict.reasoning,
+    verdict.confidence,
+    verdict.action,
+    verdict.verdict,
+    verdict.confidence,
+    verdict.reasoning,
+    newSeverity,
+    newStatus,
+    mention.id,
+  ).run();
+
+  return { updated: true, verdict: verdict.verdict };
+}
+
+/**
+ * Process a batch of 'suspicious' mentions that have not yet been
+ * AI-assessed (or were last assessed >7 days ago). Respects the global
+ * cost guard. Caller may scope to a single brand.
+ */
+export async function runDarkWebAIAssessmentBatch(
+  env: Env,
+  opts: { brandId?: string; limit?: number; runId?: string | null } = {},
+): Promise<{ processed: number; upgraded: number; errors: number }> {
+  const limit = Math.max(1, Math.min(50, opts.limit ?? 15));
+
+  const blocked = await checkCostGuard(env, false);
+  if (blocked) {
+    logger.info("dark_web_ai_assess_cost_guard", { reason: blocked });
+    return { processed: 0, upgraded: 0, errors: 0 };
+  }
+
+  const where = opts.brandId
+    ? "WHERE dwm.classification = 'suspicious' AND dwm.status = 'active' AND dwm.brand_id = ? AND (dwm.ai_assessed_at IS NULL OR dwm.ai_assessed_at < datetime('now','-7 days'))"
+    : "WHERE dwm.classification = 'suspicious' AND dwm.status = 'active' AND (dwm.ai_assessed_at IS NULL OR dwm.ai_assessed_at < datetime('now','-7 days'))";
+  const bindings: unknown[] = opts.brandId ? [opts.brandId, limit] : [limit];
+
+  const rows = await env.DB.prepare(`
+    SELECT dwm.id, dwm.brand_id, dwm.source, dwm.source_url,
+           dwm.content_snippet, dwm.matched_terms, dwm.match_type,
+           b.name AS brand_name, b.canonical_domain AS domain,
+           b.aliases, b.executive_names
+    FROM dark_web_mentions dwm
+    JOIN brands b ON b.id = dwm.brand_id
+    ${where}
+    ORDER BY dwm.updated_at DESC
+    LIMIT ?
+  `).bind(...bindings).all<MentionAssessmentRow & {
+    brand_name: string;
+    domain: string | null;
+    aliases: string | null;
+    executive_names: string | null;
+  }>();
+
+  // Actor aliases are global — load once for the batch.
+  const actorAliases = await loadActorAliases(env);
+
+  let processed = 0;
+  let upgraded = 0;
+  let errors = 0;
+
+  for (const row of rows.results) {
+    const brandCtx: DarkWebBrandContext = {
+      name: row.brand_name,
+      domain: row.domain,
+      aliases: parseJsonArray<string>(row.aliases),
+      executives: parseJsonArray<string>(row.executive_names),
+      actor_aliases: actorAliases,
+    };
+
+    const result = await assessSuspiciousMentionAI(env, brandCtx, row, opts.runId ?? null);
+    processed++;
+    if (result.updated) {
+      if (result.verdict && result.verdict !== "suspicious") upgraded++;
+    } else {
+      errors++;
+    }
+  }
+
+  logger.info("dark_web_ai_assess_batch_complete", {
+    brand_id: opts.brandId ?? "all",
+    processed,
+    upgraded,
+    errors,
+  });
+
+  return { processed, upgraded, errors };
 }
