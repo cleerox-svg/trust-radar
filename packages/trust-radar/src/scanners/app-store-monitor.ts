@@ -698,3 +698,136 @@ export async function runAppStoreAIAssessmentBatch(
 
   return { processed, upgraded, errors };
 }
+
+// ─── Batch Runner (Cron) ────────────────────────────────────────
+
+const BATCH_LIMIT = 20;
+const DEFAULT_CHECK_INTERVAL_HOURS = 24;
+
+/**
+ * Ensure a brand_monitor_schedule row exists for (brand, 'appstore', 'ios').
+ * Idempotent — relies on the unique index on (brand_id, monitor_type, platform).
+ */
+async function ensureAppStoreSchedule(env: Env, brandId: string): Promise<void> {
+  await env.DB.prepare(`
+    INSERT INTO brand_monitor_schedule
+      (id, brand_id, monitor_type, platform, check_interval_hours, enabled, next_check)
+    VALUES (?, ?, 'appstore', 'ios', ?, 1, datetime('now'))
+    ON CONFLICT (brand_id, monitor_type, platform) DO NOTHING
+  `).bind(
+    crypto.randomUUID(),
+    brandId,
+    DEFAULT_CHECK_INTERVAL_HOURS,
+  ).run();
+}
+
+/**
+ * Run the app-store monitor for every monitored brand that is due for a
+ * check. Called from the cron orchestrator on the `hour % 6 === 0` tick,
+ * after the social monitor.
+ */
+export async function runAppStoreMonitorBatch(env: Env): Promise<{
+  brands_processed: number;
+  rows_upserted: number;
+  alerts_created: number;
+  ai_processed: number;
+  ai_upgraded: number;
+}> {
+  const now = new Date().toISOString();
+
+  // Seed schedule rows for every monitored brand that lacks one. Cheap
+  // because of the unique index — no-ops for existing rows.
+  const needsSeed = await env.DB.prepare(`
+    SELECT DISTINCT mb.brand_id
+    FROM monitored_brands mb
+    LEFT JOIN brand_monitor_schedule bms
+      ON bms.brand_id = mb.brand_id
+     AND bms.monitor_type = 'appstore'
+     AND bms.platform = 'ios'
+    WHERE bms.id IS NULL
+    LIMIT 200
+  `).all<{ brand_id: string }>();
+  for (const row of needsSeed.results) {
+    await ensureAppStoreSchedule(env, row.brand_id);
+  }
+
+  // Select due brands for this tick.
+  const dueBrands = await env.DB.prepare(`
+    SELECT DISTINCT b.id, b.name, b.canonical_domain AS domain,
+           b.aliases, b.brand_keywords, b.official_apps
+    FROM brands b
+    INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+    INNER JOIN brand_monitor_schedule bms ON bms.brand_id = b.id
+    WHERE bms.monitor_type = 'appstore'
+      AND bms.platform = 'ios'
+      AND bms.enabled = 1
+      AND (bms.next_check IS NULL OR bms.next_check <= ?)
+    ORDER BY bms.next_check ASC
+    LIMIT ?
+  `).bind(now, BATCH_LIMIT).all<BrandRow>();
+
+  if (dueBrands.results.length === 0) {
+    logger.info("app_store_monitor_batch", { message: "No brands due", checked_at: now });
+    return {
+      brands_processed: 0, rows_upserted: 0, alerts_created: 0,
+      ai_processed: 0, ai_upgraded: 0,
+    };
+  }
+
+  logger.info("app_store_monitor_batch_start", { brands_count: dueBrands.results.length });
+
+  let brandsProcessed = 0;
+  let rowsUpserted = 0;
+  let alertsCreated = 0;
+
+  for (const brand of dueBrands.results) {
+    try {
+      const results = await runAppStoreMonitorForBrand(env, brand, { triggeredBy: "cron" });
+      rowsUpserted += results.length;
+      alertsCreated += results.filter((r) => r.alert_id !== null).length;
+
+      await env.DB.prepare(`
+        UPDATE brand_monitor_schedule
+        SET last_checked = ?,
+            next_check = datetime(?, '+' || check_interval_hours || ' hours'),
+            updated_at = datetime('now')
+        WHERE brand_id = ? AND monitor_type = 'appstore' AND platform = 'ios' AND enabled = 1
+      `).bind(now, now, brand.id).run();
+
+      brandsProcessed++;
+    } catch (err) {
+      logger.error("app_store_monitor_batch_brand_error", {
+        brand_id: brand.id,
+        brand_name: brand.name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Still advance the schedule so one broken brand doesn't block the queue.
+      await env.DB.prepare(`
+        UPDATE brand_monitor_schedule
+        SET last_checked = ?,
+            next_check = datetime(?, '+' || check_interval_hours || ' hours'),
+            updated_at = datetime('now')
+        WHERE brand_id = ? AND monitor_type = 'appstore' AND platform = 'ios' AND enabled = 1
+      `).bind(now, now, brand.id).run().catch(() => {});
+    }
+  }
+
+  // Drain AI queue after the deterministic scan — gated by cost guard.
+  const ai = await runAppStoreAIAssessmentBatch(env, { limit: 15 });
+
+  logger.info("app_store_monitor_batch_complete", {
+    brands_processed: brandsProcessed,
+    rows_upserted: rowsUpserted,
+    alerts_created: alertsCreated,
+    ai_processed: ai.processed,
+    ai_upgraded: ai.upgraded,
+  });
+
+  return {
+    brands_processed: brandsProcessed,
+    rows_upserted: rowsUpserted,
+    alerts_created: alertsCreated,
+    ai_processed: ai.processed,
+    ai_upgraded: ai.upgraded,
+  };
+}
