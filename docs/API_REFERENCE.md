@@ -297,6 +297,28 @@ a takedown with `target_type='mobile_app'` and `target_platform='ios_app_store'`
 or `'google_play_store'`. When `source_type='app_store_listing'` and
 `source_id` is a listing UUID, severity and evidence are auto-filled.
 
+## Dark-Web Mention Monitoring
+
+Paste-archive mention scanner (PSBDMP initially; Telegram, HIBP, Flare,
+and DarkOwl land in future slices via the `source` column without schema
+changes). Per-brand scanner fans out watch terms (brand name, aliases,
+domain, executive names from `brands.executive_names`) against the paste
+archive, fetches candidate bodies, and classifies each. Threat-actor
+aliases from the `threat_actors` table are cross-referenced as a
+severity boost. HIGH/CRITICAL confirmed findings create `alerts` rows
+of type `dark_web_mention` and fire an `alert.created` webhook.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/darkweb/overview` | User | Cross-brand dashboard: one row per monitored brand with severity-bucketed counts and schedule info. Admin scope sees all; tenant scope sees `monitored_brands.added_by = :userId`. |
+| GET | `/api/darkweb/mentions/:brandId` | User | List mentions + schedule for a brand. Filters: `source`, `classification`, `severity`, `match_type`, `status`, `limit`, `offset`. |
+| POST | `/api/darkweb/scan/:brandId` | User | Trigger an immediate scan + AI drain for this brand. |
+| PATCH | `/api/darkweb/:id` | User | Update a mention's `classification` or `status` (manual override, wins over AI/system). |
+
+**Classification values:** `confirmed`, `suspicious`, `false_positive`, `resolved`, `unknown`.
+**Status values:** `active`, `resolved`, `false_positive`, `investigating`.
+**Match types:** `brand_name`, `domain`, `executive`, `actor_alias`, `mixed`.
+
 ## Certificate Transparency
 
 | Method | Path | Auth | Description |
