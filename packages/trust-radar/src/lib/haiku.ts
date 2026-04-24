@@ -97,6 +97,37 @@ export async function checkCostGuard(env: Env, critical: boolean): Promise<strin
 // ─── Internal call helpers ──────────────────────────────────────
 
 /**
+ * Returns true when AI should be skipped for non-critical callers.
+ *
+ * Caches the throttle decision in KV (60s TTL) so that callers on the hot
+ * path don't each run the budget_ledger SUM aggregation. The BudgetManager
+ * query is the expensive part; this wrapper makes it effectively free for
+ * the next minute once computed.
+ *
+ * When the budget is in hard/emergency throttle, every AI call site should
+ * skip to the rule-based fallback. Without this gate, agents like Sentinel,
+ * Cartographer Phase 2, and Analyst call Haiku in per-item loops and blow
+ * past the configured monthly_limit_usd unchecked.
+ */
+async function isAiThrottled(env: Env): Promise<string | null> {
+  try {
+    const cached = await env.CACHE.get("ai:throttle_reason");
+    if (cached !== null) {
+      return cached === "" ? null : cached;
+    }
+  } catch { /* fall through to recompute */ }
+
+  const blocked = await checkCostGuard(env, false);
+
+  try {
+    // Cache the decision for 60s. Empty string = not throttled. Non-empty = throttled reason.
+    await env.CACHE.put("ai:throttle_reason", blocked ?? "", { expirationTtl: 60 });
+  } catch { /* non-fatal */ }
+
+  return blocked;
+}
+
+/**
  * Convert thrown wrapper errors / parse failures into the legacy
  * { success, data, error } envelope every public helper here returns.
  */
@@ -107,6 +138,12 @@ async function callJsonSafe<T>(
   userMessage: string,
   maxTokens = 1024,
 ): Promise<HaikuResponse<T>> {
+  // Global AI throttle gate — covers every agent on the hot path.
+  const throttled = await isAiThrottled(env);
+  if (throttled) {
+    return { success: false, error: `throttled: ${throttled}` };
+  }
+
   try {
     const { parsed, response } = await callAnthropicJSON<T>(env, {
       agentId: ctx.agentId,
@@ -137,6 +174,12 @@ export async function callHaikuRaw(
   userMessage: string,
   maxTokens = 16,
 ): Promise<{ success: boolean; text?: string; error?: string; tokens_used?: number }> {
+  // Global AI throttle gate — same path as callJsonSafe.
+  const throttled = await isAiThrottled(env);
+  if (throttled) {
+    return { success: false, error: `throttled: ${throttled}` };
+  }
+
   try {
     const response = await callAnthropic(env, {
       agentId: ctx.agentId,
