@@ -37,6 +37,7 @@ import { handleListAuditLog, handleExportAuditLog } from "../handlers/audit";
 import { handleEnrichGeo, handleEnrichAll, handleDailySnapshots } from "../handlers/threats";
 import { handleBudgetStatus, handleBudgetBreakdown, handleBudgetConfigPatch } from "../handlers/budget";
 import { handlePlatformDiagnostics } from "../handlers/diagnostics";
+import { handleCartographerHealth } from "../handlers/cartographer-health";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -69,6 +70,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handlePlatformDiagnostics(request, env);
+  });
+  router.get("/api/admin/cartographer-health", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleCartographerHealth(request, env);
   });
 
   // ─── Admin Users ──────────────────────────────────────────────────

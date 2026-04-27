@@ -284,6 +284,10 @@ export default {
           const { handlePlatformDiagnostics } = await import('./handlers/diagnostics');
           return handlePlatformDiagnostics(request, env);
         }
+        if (url.pathname === '/api/internal/cartographer-health') {
+          const { handleCartographerHealth } = await import('./handlers/cartographer-health');
+          return handleCartographerHealth(request, env);
+        }
         if (url.pathname === '/api/internal/system-health') {
           const { handleSystemHealth } = await import('./handlers/admin');
           return handleSystemHealth(request, env);
