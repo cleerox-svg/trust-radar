@@ -3,10 +3,31 @@
  *
  * Broadcasts to all users when userId is null.
  * Respects per-user notification preferences.
+ *
+ * The event list, dedup windows, and which events are user-toggleable all
+ * live in `notification-events.ts` — that module is the single source of
+ * truth. Add new events there, never here.
  */
 
-type NotificationType = 'brand_threat' | 'campaign_escalation' | 'feed_health' | 'intelligence_digest' | 'agent_milestone' | 'email_security_change' | 'spam_trap_capture' | 'spam_trap_campaign' | 'circuit_breaker_tripped';
-type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+import {
+  NOTIFICATION_EVENT_DEDUP,
+  NOTIFICATION_EVENTS,
+  USER_TOGGLEABLE_EVENTS,
+  type NotificationEventKey,
+  type NotificationSeverity,
+} from './notification-events';
+
+// Re-exported for callers that already imported these names.
+export type NotificationType = NotificationEventKey;
+export type Severity = NotificationSeverity;
+
+const KNOWN_EVENT_KEYS: ReadonlySet<NotificationEventKey> = new Set(
+  NOTIFICATION_EVENTS.map((e) => e.key)
+);
+
+const USER_TOGGLEABLE_EVENT_KEYS: ReadonlySet<NotificationEventKey> = new Set(
+  USER_TOGGLEABLE_EVENTS.map((e) => e.key)
+);
 
 interface CreateNotificationOpts {
   userId?: string | null;
@@ -18,26 +39,21 @@ interface CreateNotificationOpts {
   metadata?: Record<string, unknown>;
 }
 
-// Rate limit windows per type
-const RATE_LIMITS: Record<NotificationType, string> = {
-  brand_threat: '-1 hour',
-  campaign_escalation: '-6 hours',
-  feed_health: '-1 hour',
-  intelligence_digest: '-24 hours',
-  agent_milestone: '-1 hour',
-  email_security_change: '-6 hours',
-  spam_trap_capture: '-1 hour',
-  spam_trap_campaign: '-6 hours',
-  circuit_breaker_tripped: '-1 hour',
-};
-
 export async function createNotification(db: D1Database, opts: CreateNotificationOpts): Promise<number> {
+  // Defense-in-depth: if a caller passes an event key that isn't in the
+  // registry (e.g. someone added a string literal in a new agent without
+  // updating notification-events.ts), refuse rather than silently INSERT
+  // a row the schema CHECK will reject.
+  if (!KNOWN_EVENT_KEYS.has(opts.type)) {
+    return 0;
+  }
+
   const metadataJson = opts.metadata ? JSON.stringify(opts.metadata) : null;
 
-  // Rate limit check — use metadata key for dedup (brand_id, campaign_id, feed_name)
+  // Rate limit check — use metadata key for dedup (brand_id, campaign_id, feed_name, agent_id)
   const rateKey = getRateKey(opts);
   if (rateKey) {
-    const window = RATE_LIMITS[opts.type];
+    const window = NOTIFICATION_EVENT_DEDUP[opts.type];
     const existing = await db.prepare(
       `SELECT COUNT(*) as c FROM notifications
        WHERE type = ? AND created_at > datetime('now', ?)
@@ -57,12 +73,15 @@ export async function createNotification(db: D1Database, opts: CreateNotificatio
 
   let created = 0;
   for (const uid of userIds) {
-    // Check user preference
-    const pref = await db.prepare(
-      `SELECT ${opts.type} as enabled FROM notification_preferences WHERE user_id = ?`
-    ).bind(uid).first<{ enabled: number }>();
-    // Default to enabled if no preference row exists
-    if (pref && !pref.enabled) continue;
+    // Only events with a column in `notification_preferences` get a per-user
+    // opt-out check. System events (userToggleable: false) always send.
+    if (USER_TOGGLEABLE_EVENT_KEYS.has(opts.type)) {
+      const pref = await db.prepare(
+        `SELECT ${opts.type} as enabled FROM notification_preferences WHERE user_id = ?`
+      ).bind(uid).first<{ enabled: number }>();
+      // Default to enabled if no preference row exists
+      if (pref && !pref.enabled) continue;
+    }
 
     await db.prepare(
       `INSERT INTO notifications (id, user_id, type, severity, title, message, link, metadata)
