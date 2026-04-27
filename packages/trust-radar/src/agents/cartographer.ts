@@ -220,16 +220,19 @@ export const cartographerAgent: AgentModule = {
           }
 
           // Queue threat update — flushed in batch below.
-          // Stamp enriched_at whenever ip-api.com returned ANY data (status=success),
-          // not just when it returned a country. Otherwise threats with partial geo
-          // (e.g. ASN-only responses) recycle through the queue forever, blocking the
-          // backlog from draining and burning subrequests on the same dead IPs.
           //
-          // enrichment_attempts is incremented on every batch attempt (success or
-          // failure). Threats hit the cap (5) and exit the queue via the partial
-          // index filter — see migrations/0110. This prevents the 429/status='fail'
-          // case (where geo is null and enriched_at would not be stamped) from
-          // recycling the same dead-IP threats indefinitely.
+          // enriched_at is stamped only when ip-api returned actual coordinates
+          // (geo.lat is non-null). Earlier behavior stamped enriched_at on any
+          // status='success' response — but ip-api returns success with empty
+          // lat/lng for ~93% of IPs (ASN-only or no-country responses). That
+          // funneled most "successful" threats into the stuck pile (lat NULL
+          // but enriched_at set), keeping them out of the queue forever despite
+          // having no usable geo data.
+          //
+          // Recycling protection comes from enrichment_attempts (capped at 5
+          // via migrations/0110's partial index filter). Threats that ip-api
+          // can't geolocate retry up to 5 times then exit via the cap, instead
+          // of graduating to the stuck pile on the first partial-success response.
           pendingWrites.push(env.DB.prepare(`
             UPDATE threats SET
               lat = COALESCE(lat, ?),
@@ -246,7 +249,7 @@ export const cartographerAgent: AgentModule = {
             geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
             geo?.as?.split(' ')[0] ?? null, providerId,
             registrar, registration_date,
-            geo ? 'attempted' : null,
+            geo?.lat ?? null,
             threat.id
           ));
           if (geo) batchEnriched++;
