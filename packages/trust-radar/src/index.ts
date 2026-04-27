@@ -180,7 +180,7 @@ export default {
 
       // ─── Debug: manual enrichment/social runner trigger ────────────
       if (url.pathname === '/api/debug/run-enrichment' && request.method === 'POST') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -215,7 +215,7 @@ export default {
 
       // ─── Internal agent trigger endpoints ─────────────────────────
       if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -272,9 +272,9 @@ export default {
         }
       }
 
-      // ─── Internal GET endpoints (INTERNAL_SECRET auth, for MCP server) ──
+      // ─── Internal GET endpoints (AVERROW_INTERNAL_SECRET auth, for MCP server) ──
       if (url.pathname.startsWith('/api/internal/') && request.method === 'GET') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -313,7 +313,7 @@ export default {
 
       // Manual briefing email trigger
       if (url.pathname === '/api/internal/briefing/send' && request.method === 'POST') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -326,7 +326,7 @@ export default {
       // Get workflow status (GET, still requires auth)
       if (url.pathname.startsWith('/api/internal/agents/cartographer/backfill-workflow/')
           && request.method === 'GET') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -340,7 +340,7 @@ export default {
       // NEXUS workflow status (GET, requires auth)
       if (url.pathname.startsWith('/api/internal/agents/nexus/workflow/')
           && request.method === 'GET') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -353,7 +353,7 @@ export default {
 
       // ─── CertStream Durable Object endpoints ────────────────────
       if (url.pathname === '/api/certstream/stats' && request.method === 'GET') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });
@@ -364,7 +364,7 @@ export default {
       }
 
       if (url.pathname === '/api/certstream/reload-brands' && request.method === 'POST') {
-        const internalSecret = (env as unknown as Record<string, unknown>).INTERNAL_SECRET as string | undefined;
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
         if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
           return new Response('Unauthorized', { status: 401 });

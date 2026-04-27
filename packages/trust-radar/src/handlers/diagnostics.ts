@@ -10,7 +10,7 @@ import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import type { Env } from "../types";
 
 /** GET /api/admin/platform-diagnostics  (JWT admin auth)
- *  GET /api/internal/platform-diagnostics (INTERNAL_SECRET auth) */
+ *  GET /api/internal/platform-diagnostics (AVERROW_INTERNAL_SECRET auth) */
 export async function handlePlatformDiagnostics(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const url = new URL(request.url);

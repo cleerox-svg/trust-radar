@@ -286,7 +286,7 @@ scheduling is needed, use Navigator (`*/5`) or add a dedicated cron trigger.
 
 - User endpoints: `/api/...` (JWT Bearer auth)
 - Admin endpoints: `/api/admin/...` (JWT + admin role)
-- Internal agent triggers: `/api/internal/agents/:name/run` (INTERNAL_SECRET header)
+- Internal agent triggers: `/api/internal/agents/:name/run` (AVERROW_INTERNAL_SECRET header)
 - **Every new endpoint must be added to `docs/API_REFERENCE.md`**
 - Never duplicate an existing endpoint — check the reference first
 

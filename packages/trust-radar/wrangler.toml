@@ -138,13 +138,16 @@ subrequests = 50_000
 ENVIRONMENT = "production"
 
 # ─── Secrets (set via: wrangler secret put <NAME>) ────────────
-# ANTHROPIC_API_KEY    — Anthropic API key for Claude Haiku AI analysis
-# ANTHROPIC_ADMIN_KEY  — Anthropic Admin API key (optional — budget verification)
+# ANTHROPIC_API_KEY        — Anthropic API key for Claude Haiku AI analysis
+# ANTHROPIC_ADMIN_KEY      — Anthropic Admin API key (optional — budget verification)
 # JWT_SECRET
 # VIRUSTOTAL_API_KEY
 # GOOGLE_CLIENT_ID
 # GOOGLE_CLIENT_SECRET
-# RESEND_API_KEY       — Resend API key for briefing email delivery
+# RESEND_API_KEY           — Resend API key for briefing email delivery
+# AVERROW_INTERNAL_SECRET  — bearer token for /api/internal/* endpoints
+#                            (must match the value used by averrow-mcp +
+#                            scripts/platform-diagnostics.sh)
 
 # ─── Staging environment ─────────────────────────────────────
 [env.staging]

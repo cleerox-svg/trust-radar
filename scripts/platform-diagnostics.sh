@@ -9,7 +9,8 @@
 #   AVERROW_HOURS=12 ./scripts/platform-diagnostics.sh
 #
 # Required env vars:
-#   AVERROW_INTERNAL_SECRET  — the INTERNAL_SECRET from wrangler.toml / CF secrets
+#   AVERROW_INTERNAL_SECRET  — must match the secret of the same name on the
+#                              trust-radar Cloudflare Worker
 #   AVERROW_API_URL          — (optional) defaults to https://averrow.com
 #
 # Exit codes:
