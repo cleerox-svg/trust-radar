@@ -3,36 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import {
+  USER_TOGGLEABLE_EVENTS,
+  NOTIFICATION_CHANNELS,
+} from '@/lib/notification-events';
 
-interface Preferences {
-  brand_threat: boolean;
-  campaign_escalation: boolean;
-  feed_health: boolean;
-  intelligence_digest: boolean;
-  agent_milestone: boolean;
-  browser_notifications: boolean;
-  push_notifications: boolean;
-}
+// All user-facing pref keys (events + channels). Both halves of the matrix
+// derive from the registry, so adding a new toggleable event there auto-
+// renders here and the API contract stays consistent with the worker.
+const PREF_KEYS = [
+  ...USER_TOGGLEABLE_EVENTS.map((e) => e.key),
+  ...NOTIFICATION_CHANNELS.map((c) => c.key),
+] as const;
+type PrefKey = (typeof PREF_KEYS)[number];
+type Preferences = Record<PrefKey, boolean>;
 
-const PREF_LABELS: Record<keyof Preferences, string> = {
-  brand_threat: 'Brand Threats',
-  campaign_escalation: 'Campaign Escalations',
-  feed_health: 'Feed Health Alerts',
-  intelligence_digest: 'Intelligence Digests',
-  agent_milestone: 'Agent Milestones',
-  browser_notifications: 'Browser Notifications',
-  push_notifications: 'Push Notifications',
-};
-
-const PREF_DESCRIPTIONS: Record<keyof Preferences, string> = {
-  brand_threat: 'New threats targeting your monitored brands',
-  campaign_escalation: 'When campaigns escalate in severity',
-  feed_health: 'Feed degradation and health warnings',
-  intelligence_digest: 'Daily and weekly intelligence summaries',
-  agent_milestone: 'Agent completion and milestone events',
-  browser_notifications: 'Show browser push notifications',
-  push_notifications: 'Mobile push notifications',
-};
+const PREF_DEFAULTS: Preferences = (() => {
+  const out = {} as Preferences;
+  for (const e of USER_TOGGLEABLE_EVENTS) out[e.key] = e.defaultEnabled;
+  for (const c of NOTIFICATION_CHANNELS) out[c.key] = c.defaultEnabled;
+  return out;
+})();
 
 export function NotificationPreferences() {
   const navigate = useNavigate();
@@ -42,15 +33,7 @@ export function NotificationPreferences() {
     queryKey: ['notification-preferences'],
     queryFn: async () => {
       const res = await api.get<Preferences>('/api/notifications/preferences');
-      return res.data ?? {
-        brand_threat: true,
-        campaign_escalation: true,
-        feed_health: true,
-        intelligence_digest: true,
-        agent_milestone: true,
-        browser_notifications: false,
-        push_notifications: false,
-      };
+      return res.data ?? { ...PREF_DEFAULTS };
     },
   });
 
@@ -96,15 +79,15 @@ export function NotificationPreferences() {
       <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <span className="section-label">Alert Types</span>
         <div className="mt-3 space-y-1">
-          {(['brand_threat', 'campaign_escalation', 'feed_health', 'intelligence_digest', 'agent_milestone'] as const).map(key => (
+          {USER_TOGGLEABLE_EVENTS.map(({ key, label, description }) => (
             <button
               key={key}
               onClick={() => handleToggle(key)}
               className="w-full flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 touch-target"
             >
               <div>
-                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{PREF_LABELS[key]}</p>
-                <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{label}</p>
+                <p className="text-[11px] text-white/50 text-left mt-0.5">{description}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
                 currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
@@ -123,15 +106,15 @@ export function NotificationPreferences() {
       <div className="rounded-xl p-5" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <span className="section-label">Delivery</span>
         <div className="mt-3 space-y-1">
-          {(['browser_notifications', 'push_notifications'] as const).map(key => (
+          {NOTIFICATION_CHANNELS.map(({ key, label, description }) => (
             <button
               key={key}
               onClick={() => handleToggle(key)}
               className="w-full flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 touch-target"
             >
               <div>
-                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{PREF_LABELS[key]}</p>
-                <p className="text-[11px] text-white/50 text-left mt-0.5">{PREF_DESCRIPTIONS[key]}</p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{label}</p>
+                <p className="text-[11px] text-white/50 text-left mt-0.5">{description}</p>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ml-3 flex items-center ${
                 currentPrefs?.[key] ? 'bg-afterburner/30' : 'bg-white/10'
