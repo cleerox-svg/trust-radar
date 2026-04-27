@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
 import { Badge } from '@/design-system/components';
 
@@ -83,8 +84,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   useEffect(() => {
     const fetchAlerts = () => {
-      fetch('/api/v1/alerts?status=open&limit=1')
-        .then(r => r.json())
+      api.get<unknown>('/api/alerts?status=open&limit=1')
         .then(d => setAlertCount(d.total ?? 0))
         .catch(() => {});
     };
