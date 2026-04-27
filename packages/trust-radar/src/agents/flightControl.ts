@@ -125,14 +125,59 @@ const SCALING = {
   analyst:      { low: 50,  medium: 200,  high: 500,  max_parallel: 1 },
 } as const;
 
-// Minutes before an agent is considered stalled
+// Minutes before an agent is considered stalled by Flight Control's
+// stall-recovery loop (recoverStalledAgents).
+//
+// CRITICAL: this constant must contain an entry for every agent in
+// `agentModules` — anything missing falls back to the 60-minute default
+// (see `?? 60` in getAgentHealth). For agents with intended cadences
+// longer than 1 hour, the default short-circuits their schedule:
+//   - FC ticks every hour (orchestrator cron `7 * * * *`)
+//   - At each tick, FC sees `lastRunAge > 60min` for the slow agent
+//   - FC dispatches it via executeAgent(..., 'flight_control_recovery')
+//   - The orchestrator's hour gates (e.g. `hour % 6 === 0`) are bypassed
+//
+// Choose threshold ≈ (intended interval × 1.2) so a single skipped tick
+// or jittered run timing doesn't trigger spurious recovery, but a
+// genuinely-hung agent still gets recovered within one extra interval.
+//
+// History: prior to PR #814 only six agents were listed here; the
+// other 10+ defaulted to 60 minutes and were re-dispatched every hour
+// regardless of their actual schedule, producing platform-wide
+// cadence drift visible in agent_runs (e.g. sparrow running every 3h
+// instead of every 6h, pathfinder running every 1-2h instead of daily).
 const STALL_THRESHOLDS: Record<string, number> = {
-  sentinel:      35,
-  cartographer:  75,
-  nexus:         260,
-  analyst:       35,
-  observer:      1500,
-  sparrow:       120,
+  // ─── Per-tick agents (every hour, orchestrator cron) ─────────────
+  sentinel:           75,
+  analyst:            75,
+  cartographer:       75,
+  flight_control:     75,    // self — FC runs every tick, never stalls in practice
+
+  // ─── Every 4 hours (hour % 4 === 0) ──────────────────────────────
+  nexus:              300,   // 5h
+
+  // ─── Every 6 hours (hour % 6 === 0) ──────────────────────────────
+  strategist:         420,   // 7h
+  sparrow:            420,   // 7h (was 120 — too tight, caused FC to re-dispatch sparrow every 3h)
+  social_monitor:     420,
+  social_discovery:   420,
+  app_store_monitor:  420,
+  dark_web_monitor:   420,
+
+  // ─── Daily (hour === 0/3/6) ──────────────────────────────────────
+  observer:           1500,  // 25h — fires at hour===0 in runThreatFeedScan
+  narrator:           1500,  // 25h — fires at hour===6 inside runObserverBriefing
+  pathfinder:         1500,  // 25h — fires at hour===3
+  seed_strategist:    1500,  // 25h — fires at hour===6 inside runObserverBriefing
+                             //       (currently auto-paused via agent_configs anyway)
+
+  // ─── Event-driven (no cron schedule) ─────────────────────────────
+  // FC dispatches these when conditions warrant. The stall-recovery
+  // loop should NOT auto-fire them — that defeats the event-driven
+  // dispatch model. High threshold so they're effectively excluded
+  // from recovery without needing a separate skip-list.
+  curator:            1500,
+  watchdog:           1500,
 };
 
 /**
