@@ -12,6 +12,7 @@ import {
   runDarkWebAIAssessmentBatch,
 } from "../scanners/dark-web-monitor";
 import type { Env } from "../types";
+import type { AuthContext } from "../middleware/auth";
 
 const VALID_CLASSIFICATIONS = [
   "confirmed",
@@ -296,11 +297,12 @@ export async function handleUpdateDarkWebMention(
 }
 
 // ─── GET /api/darkweb/overview ───────────────────────────────────
+// Scope rules match handleAppStoreOverview — see the comment block there.
 
 export async function handleDarkWebOverview(
   request: Request,
   env: Env,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -308,15 +310,26 @@ export async function handleDarkWebOverview(
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
-    const userRow = await env.DB.prepare(
-      "SELECT role FROM users WHERE id = ?",
-    ).bind(userId).first<{ role: string }>();
-    const isAdmin = userRow?.role === "admin" || userRow?.role === "super_admin";
+    const isAdmin = ctx.role === "admin" || ctx.role === "super_admin";
 
-    const scope = isAdmin
-      ? `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`
-      : `INNER JOIN monitored_brands mb ON mb.brand_id = b.id AND mb.added_by = ?`;
-    const scopeParams: unknown[] = isAdmin ? [] : [userId];
+    let scope: string;
+    let scopeParams: unknown[];
+
+    if (isAdmin) {
+      scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`;
+      scopeParams = [];
+    } else if (ctx.orgId) {
+      scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+               INNER JOIN org_brands ob ON ob.brand_id = b.id AND ob.org_id = ?`;
+      scopeParams = [ctx.orgId];
+    } else {
+      return json({
+        success: true,
+        data: [],
+        total: 0,
+        totals: { total: 0, confirmed: 0, suspicious: 0, critical: 0, high: 0 },
+      }, 200, origin);
+    }
 
     const brands = await env.DB.prepare(`
       SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,

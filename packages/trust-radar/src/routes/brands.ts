@@ -302,7 +302,7 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   router.get("/api/appstore/overview", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleAppStoreOverview(request, env, ctx.userId);
+    return handleAppStoreOverview(request, env, ctx);
   });
   router.get("/api/appstore/monitor/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
@@ -329,7 +329,7 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   router.get("/api/darkweb/overview", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleDarkWebOverview(request, env, ctx.userId);
+    return handleDarkWebOverview(request, env, ctx);
   });
   router.get("/api/darkweb/mentions/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
