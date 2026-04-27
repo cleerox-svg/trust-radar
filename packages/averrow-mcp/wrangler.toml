@@ -19,7 +19,7 @@ persist = true
 head_sampling_rate = 1
 
 # Secrets (set via `wrangler secret put` or Cloudflare dashboard):
-#   AVERROW_INTERNAL_SECRET  — the INTERNAL_SECRET from the trust-radar worker
+#   AVERROW_INTERNAL_SECRET  — must match the value set on the trust-radar worker
 #   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
 
 # Deploy:
