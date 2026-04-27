@@ -149,6 +149,7 @@ export const cartographerAgent: AgentModule = {
           FROM threats
           WHERE enriched_at IS NULL
             AND ip_address IS NOT NULL AND ip_address != ''
+            AND enrichment_attempts < 5
             ${PRIVATE_IP_SQL_FILTER}
           ORDER BY created_at DESC
           LIMIT ? OFFSET ?
@@ -223,6 +224,12 @@ export const cartographerAgent: AgentModule = {
           // not just when it returned a country. Otherwise threats with partial geo
           // (e.g. ASN-only responses) recycle through the queue forever, blocking the
           // backlog from draining and burning subrequests on the same dead IPs.
+          //
+          // enrichment_attempts is incremented on every batch attempt (success or
+          // failure). Threats hit the cap (5) and exit the queue via the partial
+          // index filter — see migrations/0110. This prevents the 429/status='fail'
+          // case (where geo is null and enriched_at would not be stamped) from
+          // recycling the same dead-IP threats indefinitely.
           pendingWrites.push(env.DB.prepare(`
             UPDATE threats SET
               lat = COALESCE(lat, ?),
@@ -232,7 +239,8 @@ export const cartographerAgent: AgentModule = {
               hosting_provider_id = COALESCE(hosting_provider_id, ?),
               registrar = COALESCE(registrar, ?),
               registration_date = COALESCE(registration_date, ?),
-              enriched_at = CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE enriched_at END
+              enriched_at = CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE enriched_at END,
+              enrichment_attempts = enrichment_attempts + 1
             WHERE id = ?
           `).bind(
             geo?.lat ?? null, geo?.lon ?? null, geo?.countryCode ?? null,
