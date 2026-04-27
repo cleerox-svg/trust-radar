@@ -1,4 +1,4 @@
-/* Averrow service worker — PWA shell + runtime caching.
+/* Averrow service worker — PWA shell + runtime caching + Web Push.
  *
  * Scope: /v2/  (set by registration; matches the SPA's vite `base`).
  * Old SPA at / and /legacy is unaffected — its pages are not in scope.
@@ -12,10 +12,19 @@
  * Cross-origin (Google Fonts, etc.) is not intercepted — browser handles it.
  * Non-GET methods are not intercepted — the network sees them directly.
  *
+ * Web Push (added in PR 3b):
+ *   - `push` event: decodes the dispatcher's JSON payload and shows an OS
+ *     notification with severity-aware icon + tag-based dedup.
+ *   - `notificationclick`: focuses an existing /v2/ tab if open, otherwise
+ *     opens a new one at the deep-link URL from the payload. Best-effort
+ *     marks the in-app row read by POSTing /api/notifications/:id/read
+ *     with the cookie-based session — no auth header needed because the
+ *     SW inherits the user's first-party cookies.
+ *
  * Bump VERSION on any change here so old caches are evicted on activate.
  */
 
-const VERSION = '2026-04-27.1';
+const VERSION = '2026-04-27.2';
 const SHELL_CACHE   = `averrow-shell-${VERSION}`;
 const API_CACHE     = `averrow-api-${VERSION}`;
 const RUNTIME_CACHE = `averrow-runtime-${VERSION}`;
@@ -162,3 +171,73 @@ async function staleWhileRevalidate(req, cacheName) {
     .catch(() => null);
   return cached || (await network) || new Response('', { status: 504 });
 }
+
+// ─── Web Push ───────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  // Payload shape comes from src/lib/push.ts on the worker:
+  //   { title, body, url?, tag?, notificationId?, severity?, type? }
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'Averrow', body: 'New notification' };
+  }
+
+  const title = data.title || 'Averrow';
+  const options = {
+    body: data.body || '',
+    icon: '/v2/icon-192.svg',
+    badge: '/v2/icon-192.svg',
+    tag: data.tag || `averrow-${data.type || 'generic'}`,
+    renotify: true,
+    // Stash the click target + in-app id on the notification itself so the
+    // notificationclick handler can read it back without another fetch.
+    data: {
+      url: data.url || '/v2/',
+      notificationId: data.notificationId || null,
+      severity: data.severity || 'info',
+      type: data.type || null,
+    },
+    // High severity gets a vibration cue on Android; iOS ignores this.
+    vibrate: data.severity === 'critical' ? [200, 100, 200, 100, 200] : [120, 80, 120],
+    requireInteraction: data.severity === 'critical',
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetPath = (event.notification.data && event.notification.data.url) || '/v2/';
+  const notificationId = event.notification.data && event.notification.data.notificationId;
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
+  event.waitUntil((async () => {
+    // Best-effort mark-read against the in-app row. Cookies are first-party
+    // so the SW inherits the user's session.
+    if (notificationId) {
+      fetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
+    }
+
+    // If a /v2/ tab is already open, focus it and navigate; otherwise open new.
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of all) {
+      try {
+        const url = new URL(client.url);
+        if (url.origin === self.location.origin && url.pathname.startsWith('/v2/')) {
+          if ('focus' in client) await client.focus();
+          if ('navigate' in client) await client.navigate(targetUrl);
+          return;
+        }
+      } catch {
+        // ignore mis-formed client URLs
+      }
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+  })());
+});
