@@ -3,7 +3,11 @@ import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
 import { requireAuth, isAuthContext } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
-import { handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback, handleRefreshToken, handleLogout, handleMe } from "../handlers/auth";
+import {
+  handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback,
+  handleRefreshToken, handleLogout, handleMe,
+  handleMagicLinkRequest, handleMagicLinkVerify,
+} from "../handlers/auth";
 import { handleValidateInvite } from "../handlers/invites";
 import { handleInviteLanding } from "../handlers/invite-landing";
 
@@ -47,6 +51,24 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleMe(request, env, ctx.userId);
+  });
+
+  // ─── Magic-link sign-in (public — no auth required) ─────────────
+  // POST /api/auth/magic-link/request — body: { email, return_to? }
+  // GET  /api/auth/magic-link/:token  — clicked from the email body;
+  //   on success, mints a session and 302s to the SPA exactly like the
+  //   OAuth callback does, so the React shell hydrates the session
+  //   without any new client-side code path.
+  router.post("/api/auth/magic-link/request", async (request: Request, env: Env) => {
+    const limited = await rateLimit(request, env, "auth");
+    if (limited) return limited;
+    return handleMagicLinkRequest(request, env);
+  });
+
+  router.get("/api/auth/magic-link/:token", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const limited = await rateLimit(request, env, "auth");
+    if (limited) return limited;
+    return handleMagicLinkVerify(request, env, request.params["token"] ?? "");
   });
 
   // Invite token validation (public — no auth required)
