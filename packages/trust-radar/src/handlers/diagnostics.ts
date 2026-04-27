@@ -125,12 +125,20 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
     }>();
 
     // ─── 4. Agent mesh ──────────────────────────────────────────────
+    // killed_runs = status='partial' AND completed_at IS NULL. The agentRunner
+    // INSERTs new rows with status='partial' and only UPDATEs to 'success' (or
+    // back to 'partial' with completed_at set if the agent returned approvals)
+    // when execute() returns. A row stuck at status='partial' with completed_at
+    // NULL means the Worker was killed mid-run (CPU ceiling, OOM, etc.). The
+    // 'stalled' query only sees status='running', so without this metric these
+    // mid-execution kills are invisible.
     const agentMeshP = env.DB.prepare(`
       SELECT
         agent_id,
         COUNT(*) AS total_runs,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
         SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) AS partial,
+        SUM(CASE WHEN status = 'partial' AND completed_at IS NULL THEN 1 ELSE 0 END) AS killed_runs,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
         SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running,
         MAX(completed_at) AS last_completed_at,
@@ -146,6 +154,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       total_runs: number;
       success: number;
       partial: number;
+      killed_runs: number;
       failed: number;
       running: number;
       last_completed_at: string | null;
@@ -298,7 +307,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           generated_at: new Date().toISOString(),
           db_clock_utc: clock?.utc_now ?? null,
           window_hours: hoursBack,
-          endpoint_version: 1,
+          endpoint_version: 2,
         },
 
         enrichment_pipeline: {
@@ -344,6 +353,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
             total_agents_active: agentMesh.results.length,
             total_runs: agentMesh.results.reduce((s, a) => s + a.total_runs, 0),
             total_failures: agentMesh.results.reduce((s, a) => s + a.failed, 0),
+            total_killed: agentMesh.results.reduce((s, a) => s + (a.killed_runs ?? 0), 0),
             stalled_count: stalled.results.length,
           },
           per_agent: agentMesh.results,
