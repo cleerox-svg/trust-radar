@@ -3,6 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
 # Secrets (set via `wrangler secret put` or Cloudflare dashboard):
 #   AVERROW_INTERNAL_SECRET  — the INTERNAL_SECRET from the trust-radar worker
 #   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
