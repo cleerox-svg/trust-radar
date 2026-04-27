@@ -1,4 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
+import { api } from '@/lib/api';
+
+type ActivityRow = { created_at: string; agent_id: string; message: string; severity: string };
+type OutputRow = { created_at: string; agent_id: string; summary: string; severity: string };
 
 interface TickerEvent {
   id: string;
@@ -51,15 +55,12 @@ export function EventTicker() {
 
   async function fetchEvents() {
     try {
-      const [actRes, outRes] = await Promise.all([
-        fetch('/api/v1/agents/activity?limit=15'),
-        fetch('/api/v1/agents/outputs?limit=10&severity=high,critical'),
+      const [actData, outData] = await Promise.all([
+        api.get<ActivityRow[]>('/api/v1/agents/activity?limit=15').catch(() => ({ data: [] as ActivityRow[] })),
+        api.get<OutputRow[]>('/api/v1/agents/outputs?limit=10&severity=high,critical').catch(() => ({ data: [] as OutputRow[] })),
       ]);
 
-      const actData = actRes.ok ? await actRes.json() : { data: [] };
-      const outData = outRes.ok ? await outRes.json() : { data: [] };
-
-      const actEvents: TickerEvent[] = ((actData as { data: Array<{ created_at: string; agent_id: string; message: string; severity: string }> }).data ?? []).map((e) => ({
+      const actEvents: TickerEvent[] = (actData.data ?? []).map((e) => ({
         id: `act-${e.created_at}-${e.agent_id}`,
         agent_id: e.agent_id,
         message: e.message,
@@ -69,7 +70,7 @@ export function EventTicker() {
         type: 'activity' as const,
       }));
 
-      const outEvents: TickerEvent[] = ((outData as { data: Array<{ created_at: string; agent_id: string; summary: string; severity: string }> }).data ?? []).map((e) => ({
+      const outEvents: TickerEvent[] = (outData.data ?? []).map((e) => ({
         id: `out-${e.created_at}-${e.agent_id}`,
         agent_id: e.agent_id,
         message: e.summary,
