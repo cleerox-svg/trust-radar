@@ -52,21 +52,19 @@ export async function collectOpsTelemetry(env: Env): Promise<OpsTelemetry> {
 
   const telemetryWarnings: string[] = [];
 
-  // budget_ledger is the source for AI cost metrics, but nothing writes
-  // to it today — BudgetManager.recordCost() exists but is never called
-  // from the AI Gateway wrapper. Detect the gap up front so the two
-  // cost-aggregating queries below return honest zeros and ARCHITECT
-  // knows to treat them as "missing", not "no spend".
-  //
-  // TODO(phase-4): wire budget_ledger writes from AI Gateway
+  // budget_ledger writes are wired through lib/anthropic.ts:238 — every
+  // successful Anthropic call (direct or via lib/haiku.ts) records a row
+  // via BudgetManager.recordCost(). An empty ledger today means call
+  // sites are short-circuiting (cost guards, no eligible work, gated AI
+  // paths), not that logging is missing.
   const budgetLedgerHasRows = await ledgerHasRows(env);
   if (!budgetLedgerHasRows) {
     telemetryWarnings.push(
-      "budget_ledger is empty — AI cost metrics (ai_cost_usd_7d, " +
-        "ai_gateway.total_cost_usd_7d, ai_gateway.model_mix) are not " +
-        "being captured. BudgetManager.recordCost() is defined but no " +
-        "AI call site invokes it; wire it from the AI Gateway wrapper " +
-        "in phase 4.",
+      "budget_ledger has no rows in the window — AI cost metrics " +
+        "(ai_cost_usd_7d, ai_gateway.total_cost_usd_7d, ai_gateway.model_mix) " +
+        "will report zero. Logging is wired (lib/anthropic.ts → " +
+        "BudgetManager.recordCost), so this means AI call sites are " +
+        "short-circuiting via cost guards or gated AI paths.",
     );
   }
 
