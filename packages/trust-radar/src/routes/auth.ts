@@ -8,6 +8,11 @@ import {
   handleRefreshToken, handleLogout, handleMe,
   handleMagicLinkRequest, handleMagicLinkVerify,
 } from "../handlers/auth";
+import {
+  handlePasskeyRegisterBegin, handlePasskeyRegisterFinish,
+  handlePasskeyAuthBegin, handlePasskeyAuthFinish,
+  handleListPasskeys, handleDeletePasskey,
+} from "../handlers/passkeys";
 import { handleValidateInvite } from "../handlers/invites";
 import { handleInviteLanding } from "../handlers/invite-landing";
 
@@ -69,6 +74,40 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
     const limited = await rateLimit(request, env, "auth");
     if (limited) return limited;
     return handleMagicLinkVerify(request, env, request.params["token"] ?? "");
+  });
+
+  // ─── Passkeys (WebAuthn) ────────────────────────────────────────
+  // Registration is auth-required (passkey is added to a signed-in user).
+  // Authentication is public (it produces a fresh session).
+  router.post("/api/passkeys/register/begin", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handlePasskeyRegisterBegin(request, env, ctx.userId);
+  });
+  router.post("/api/passkeys/register/finish", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handlePasskeyRegisterFinish(request, env, ctx.userId);
+  });
+  router.post("/api/passkeys/auth/begin", async (request: Request, env: Env) => {
+    const limited = await rateLimit(request, env, "auth");
+    if (limited) return limited;
+    return handlePasskeyAuthBegin(request, env);
+  });
+  router.post("/api/passkeys/auth/finish", async (request: Request, env: Env) => {
+    const limited = await rateLimit(request, env, "auth");
+    if (limited) return limited;
+    return handlePasskeyAuthFinish(request, env);
+  });
+  router.get("/api/passkeys", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListPasskeys(request, env, ctx.userId);
+  });
+  router.delete("/api/passkeys/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleDeletePasskey(request, env, request.params["id"] ?? "", ctx.userId);
   });
 
   // Invite token validation (public — no auth required)

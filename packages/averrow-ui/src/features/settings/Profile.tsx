@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Clock, Monitor } from 'lucide-react';
+import { ArrowLeft, Shield, Clock, Monitor, Key, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/time';
 import { Button, Input } from '@/design-system/components';
+import {
+  isPasskeySupported, registerPasskey, listPasskeys, removePasskey,
+  type PasskeyDevice,
+} from '@/lib/passkeys';
 
 const readonlyField: React.CSSProperties = {
   background: 'var(--bg-input)',
@@ -26,8 +30,42 @@ interface SessionData {
 export function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState(user?.name ?? '');
   const [saved, setSaved] = useState(false);
+
+  // ─── Passkey state ─────────────────────────────────────────────
+  const passkeySupported = isPasskeySupported();
+  const { data: passkeys } = useQuery({
+    queryKey: ['passkeys'],
+    queryFn: listPasskeys,
+    enabled: passkeySupported,
+  });
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
+  const handleAddPasskey = async () => {
+    setPasskeyBusy(true);
+    setPasskeyError(null);
+    try {
+      await registerPasskey();
+      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+    } catch (err) {
+      // DOMException with NotAllowedError = user cancelled prompt — silent.
+      if (!(err instanceof DOMException) || (err.name !== 'NotAllowedError' && err.name !== 'AbortError')) {
+        setPasskeyError(err instanceof Error ? err.message : 'Failed to add passkey.');
+      }
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
+  const handleRemovePasskey = async (id: string) => {
+    try {
+      await removePasskey(id);
+      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+    } catch { /* swallow */ }
+  };
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -188,6 +226,16 @@ export function Profile() {
         </div>
       </div>
 
+      {/* ─── Passkeys ───────────────────────────── */}
+      <PasskeysCard
+        supported={passkeySupported}
+        passkeys={passkeys ?? []}
+        busy={passkeyBusy}
+        error={passkeyError}
+        onAdd={handleAddPasskey}
+        onRemove={handleRemovePasskey}
+      />
+
       <div className="rounded-xl p-5" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 mb-4">
           <Clock size={14} style={{ color: 'var(--amber)' }} />
@@ -237,6 +285,92 @@ export function Profile() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Passkeys section ────────────────────────────────────────────────
+
+interface PasskeysCardProps {
+  supported: boolean;
+  passkeys: PasskeyDevice[];
+  busy: boolean;
+  error: string | null;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+}
+
+function PasskeysCard({ supported, passkeys, busy, error, onAdd, onRemove }: PasskeysCardProps) {
+  const cardStyle: React.CSSProperties = {
+    background: 'rgba(15,23,42,0.50)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '0.75rem',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+  };
+
+  return (
+    <div className="rounded-xl p-5 mb-4" style={cardStyle}>
+      <div className="flex items-center gap-2 mb-4">
+        <Key size={14} style={{ color: 'var(--amber)' }} />
+        <span className="section-label">Passkeys</span>
+      </div>
+
+      {!supported ? (
+        <p className="text-[12px] text-white/55">
+          Your browser doesn't support passkeys. Try Safari 16+, Chrome 108+, or Firefox 122+.
+        </p>
+      ) : (
+        <>
+          <p className="text-[12px] text-white/55 mb-3">
+            Sign in with Touch ID, Face ID, or a security key — no password to remember.
+            Adding a passkey on this device makes future sign-ins one tap.
+          </p>
+
+          {passkeys.length > 0 && (
+            <div className="space-y-1 mb-3">
+              {passkeys.map((p) => (
+                <div key={p.id} className="flex items-center justify-between py-2 px-1 border-b border-white/5 last:border-0">
+                  <div className="min-w-0">
+                    <p className="text-[13px] text-[rgba(255,255,255,0.74)] truncate">
+                      {p.device_label || 'Unknown device'}
+                      {p.backed_up ? <span className="ml-2 text-[10px] text-white/40">·  synced</span> : null}
+                    </p>
+                    <p className="text-[10px] text-white/40 truncate font-mono">
+                      Added {new Date(p.created_at).toLocaleDateString()}
+                      {p.last_used_at ? ` · last used ${new Date(p.last_used_at).toLocaleDateString()}` : ' · never used'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onRemove(p.id)}
+                    className="p-1.5 rounded touch-target ml-3"
+                    style={{ color: 'rgba(248,113,113,0.7)' }}
+                    aria-label="Remove passkey"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={onAdd}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+            style={{
+              background: 'rgba(229,168,50,0.10)',
+              border: '1px solid rgba(229,168,50,0.30)',
+              color: 'var(--amber)',
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            {busy ? 'Adding…' : passkeys.length === 0 ? 'Set up a passkey' : 'Add another passkey'}
+          </button>
+          {error && <p className="text-[11px] mt-2" style={{ color: '#f87171' }}>{error}</p>}
+        </>
+      )}
     </div>
   );
 }

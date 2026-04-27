@@ -276,7 +276,7 @@ async function streamDecompress(
     const writer = ds.writable.getWriter();
     const reader = ds.readable.getReader();
 
-    writer.write(bytes).catch(() => {});
+    writer.write(bytes as BufferSource).catch(() => {});
     writer.close().catch(() => {});
 
     const chunks: Uint8Array[] = [];
