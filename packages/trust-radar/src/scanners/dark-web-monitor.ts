@@ -16,6 +16,7 @@ import { logger } from "../lib/logger";
 import { checkCostGuard } from "../lib/haiku";
 import { callAnthropicText, AnthropicError } from "../lib/anthropic";
 import { HOT_PATH_HAIKU } from "../lib/ai-models";
+import { computeBrandExposureScore } from "../lib/brand-scoring";
 import type { Env } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -511,6 +512,18 @@ export async function runDarkWebMonitorForBrand(
       classification: verdict.classification,
       score: verdict.score,
       alert_id: alertId,
+    });
+  }
+
+  // Recompute brand exposure score so the Dark Web tab's new data reflects
+  // in the brand's headline risk score. Pure SQL, no Haiku. Wrapped so a
+  // scoring bug can't fail the scan.
+  try {
+    await computeBrandExposureScore(env, brand.id);
+  } catch (scoreErr) {
+    logger.warn("dark_web_monitor_score_error", {
+      brand_id: brand.id,
+      error: scoreErr instanceof Error ? scoreErr.message : String(scoreErr),
     });
   }
 
