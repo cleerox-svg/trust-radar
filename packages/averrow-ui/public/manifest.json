@@ -1,0 +1,17 @@
+{
+  "name": "Averrow — Threat Interceptor",
+  "short_name": "Averrow",
+  "description": "Threat actor intelligence platform — identify who, how, and where.",
+  "id": "/v2/",
+  "start_url": "/v2/",
+  "scope": "/v2/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060A14",
+  "theme_color": "#E5A832",
+  "icons": [
+    { "src": "/v2/icon-192.svg",  "sizes": "192x192", "type": "image/svg+xml" },
+    { "src": "/v2/icon-512.svg",  "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/v2/favicon.svg",   "sizes": "any",     "type": "image/svg+xml" }
+  ]
+}
