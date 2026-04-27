@@ -48,12 +48,26 @@ export const sparrowAgent: AgentModule = {
     const socialTakedowns = await createTakedownsFromImpersonations(env);
     itemsCreated += socialTakedowns;
 
-    if (urlTakedowns > 0 || socialTakedowns > 0) {
+    // ── Phase C2: Auto-create takedowns from app-store impersonations ──
+    const appStoreTakedowns = await createTakedownsFromAppStoreImpersonations(env);
+    itemsCreated += appStoreTakedowns;
+
+    // ── Phase C3: Auto-create takedowns from confirmed dark-web mentions ──
+    const darkWebTakedowns = await createTakedownsFromDarkWebMentions(env);
+    itemsCreated += darkWebTakedowns;
+
+    if (urlTakedowns > 0 || socialTakedowns > 0 || appStoreTakedowns > 0 || darkWebTakedowns > 0) {
+      const totalNew = urlTakedowns + socialTakedowns + appStoreTakedowns + darkWebTakedowns;
       outputs.push({
         type: "insight",
-        summary: `Created ${urlTakedowns + socialTakedowns} takedown drafts (${urlTakedowns} from URLs, ${socialTakedowns} from impersonation profiles)`,
-        severity: urlTakedowns + socialTakedowns > 5 ? "high" : "medium",
-        details: { url_takedowns: urlTakedowns, social_takedowns: socialTakedowns },
+        summary: `Created ${totalNew} takedown drafts (${urlTakedowns} URL, ${socialTakedowns} social, ${appStoreTakedowns} app-store, ${darkWebTakedowns} dark-web)`,
+        severity: totalNew > 5 ? "high" : "medium",
+        details: {
+          url_takedowns: urlTakedowns,
+          social_takedowns: socialTakedowns,
+          app_store_takedowns: appStoreTakedowns,
+          dark_web_takedowns: darkWebTakedowns,
+        },
       });
     }
 
@@ -311,6 +325,8 @@ export const sparrowAgent: AgentModule = {
         malicious_found: scanResults.malicious_found,
         url_takedowns: urlTakedowns,
         social_takedowns: socialTakedowns,
+        app_store_takedowns: appStoreTakedowns,
+        dark_web_takedowns: darkWebTakedowns,
         evidence_assembled: evidenceAssembled,
         social_evidence_attached: socialEvidenceAttached,
         providers_resolved: providersResolved,
@@ -480,6 +496,215 @@ async function createTakedownsFromImpersonations(env: Env): Promise<number> {
         confidence_score: confidenceScore,
         classification: profile.classification,
         brand_name: brandName,
+      }),
+    ).run();
+
+    created++;
+  }
+
+  return created;
+}
+
+// ─── Phase C2: App-Store Impersonations → Takedown ────────────────
+
+async function createTakedownsFromAppStoreImpersonations(env: Env): Promise<number> {
+  let impersonations: { results: Record<string, unknown>[] };
+  try {
+    impersonations = await env.DB.prepare(`
+      SELECT asl.*, b.name as brand_name
+      FROM app_store_listings asl
+      JOIN brands b ON b.id = asl.brand_id
+      WHERE asl.classification = 'impersonation'
+        AND asl.status = 'active'
+        AND asl.severity IN ('HIGH', 'CRITICAL')
+        AND asl.id NOT IN (
+          SELECT source_id FROM takedown_requests
+          WHERE source_type = 'app_store' AND source_id IS NOT NULL
+        )
+      ORDER BY
+        CASE asl.severity WHEN 'CRITICAL' THEN 1 ELSE 2 END,
+        asl.impersonation_score DESC
+      LIMIT 10
+    `).all<Record<string, unknown>>();
+  } catch {
+    // app_store_listings may not exist in a given deployment — gracefully skip.
+    return 0;
+  }
+
+  let created = 0;
+
+  for (const row of impersonations.results) {
+    const store = ((row.store as string) || "").toLowerCase();
+    const appName = (row.app_name as string) || "unknown app";
+    const devName = (row.developer_name as string) || "unknown developer";
+    const bundleId = (row.bundle_id as string) || null;
+    const appUrl = (row.app_url as string) || null;
+    const score = (row.impersonation_score as number) || 0;
+    const severity = ((row.severity as string) || "HIGH").toUpperCase() as "HIGH" | "CRITICAL";
+    const brandName = (row.brand_name as string) || "unknown brand";
+    const signalsJson = (row.impersonation_signals as string) || "[]";
+    const classificationReason = (row.classification_reason as string) || null;
+
+    // Provider lookup: app-store abuse contact. Free-text match on provider_name.
+    // Example seed rows: "Apple App Store", "Google Play Store".
+    const provider = await env.DB.prepare(
+      "SELECT * FROM takedown_providers WHERE provider_type = 'app_store' AND LOWER(provider_name) LIKE ? LIMIT 1"
+    ).bind(`%${store}%`).first();
+
+    // Evidence text: prefer AI assessment (populated by the scanner's Haiku
+    // review for suspicious rows that got promoted), fall back to the rule-
+    // based classification reason, then to a templated summary.
+    const aiAssessment = (row.ai_assessment as string) || null;
+    const evidenceText = aiAssessment
+      ?? classificationReason
+      ?? `App "${appName}" on ${store} by "${devName}" is impersonating ${brandName}${bundleId ? ` (bundle ID: ${bundleId})` : ""}. Impersonation score: ${Math.round(score * 100)}%.`;
+
+    const takedownId = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO takedown_requests (
+        id, org_id, brand_id, target_type, target_value, target_platform, target_url,
+        source_type, source_id, evidence_summary, evidence_detail,
+        provider_name, provider_abuse_contact, provider_method,
+        status, severity, priority_score, requested_by, created_at, updated_at
+      ) VALUES (?, NULL, ?, 'mobile_app', ?, ?, ?, 'app_store', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, null, datetime('now'), datetime('now'))
+    `).bind(
+      takedownId,
+      row.brand_id as string,
+      bundleId ?? appName,
+      store,
+      appUrl,
+      String(row.id),
+      `App-store impersonation "${appName}" on ${store} by "${devName}" targeting ${brandName}. Confidence: ${Math.round(score * 100)}%.`,
+      evidenceText,
+      (provider?.provider_name as string) || (store === "ios" ? "Apple App Store" : store),
+      (provider?.abuse_url as string) || (provider?.abuse_email as string) || null,
+      (provider?.abuse_api_type as string) || "form",
+      severity,
+      severity === "CRITICAL" ? 85 : 70,
+    ).run();
+
+    // Evidence record mirrors the pattern used for social profiles.
+    await env.DB.prepare(`
+      INSERT INTO takedown_evidence (id, takedown_id, evidence_type, title, content_text, metadata_json, created_at)
+      VALUES (?, ?, 'app_store_listing', 'App-Store Listing Assessment', ?, ?, datetime('now'))
+    `).bind(
+      crypto.randomUUID(),
+      takedownId,
+      evidenceText,
+      JSON.stringify({
+        store,
+        app_name: appName,
+        app_id: row.app_id,
+        bundle_id: bundleId,
+        developer_name: devName,
+        developer_id: row.developer_id ?? null,
+        app_url: appUrl,
+        impersonation_score: score,
+        classification: row.classification,
+        severity,
+        brand_name: brandName,
+        signals: signalsJson,
+      }),
+    ).run();
+
+    created++;
+  }
+
+  return created;
+}
+
+// ─── Phase C3: Dark-Web Confirmed Mentions → Takedown ─────────────
+
+async function createTakedownsFromDarkWebMentions(env: Env): Promise<number> {
+  let mentions: { results: Record<string, unknown>[] };
+  try {
+    mentions = await env.DB.prepare(`
+      SELECT dwm.*, b.name as brand_name
+      FROM dark_web_mentions dwm
+      JOIN brands b ON b.id = dwm.brand_id
+      WHERE dwm.classification = 'confirmed'
+        AND dwm.status = 'active'
+        AND dwm.severity IN ('HIGH', 'CRITICAL')
+        AND dwm.id NOT IN (
+          SELECT source_id FROM takedown_requests
+          WHERE source_type = 'dark_web_mention' AND source_id IS NOT NULL
+        )
+      ORDER BY
+        CASE dwm.severity WHEN 'CRITICAL' THEN 1 ELSE 2 END,
+        dwm.last_seen DESC
+      LIMIT 10
+    `).all<Record<string, unknown>>();
+  } catch {
+    // dark_web_mentions may not exist in a given deployment — gracefully skip.
+    return 0;
+  }
+
+  let created = 0;
+
+  for (const row of mentions.results) {
+    const source = ((row.source as string) || "").toLowerCase();
+    const sourceUrl = (row.source_url as string) || "";
+    const brandName = (row.brand_name as string) || "unknown brand";
+    const matchType = (row.match_type as string) || "unknown";
+    const matchedTermsJson = (row.matched_terms as string) || "[]";
+    const snippet = (row.content_snippet as string) || "";
+    const severity = ((row.severity as string) || "HIGH").toUpperCase() as "HIGH" | "CRITICAL";
+    const classificationReason = (row.classification_reason as string) || null;
+
+    // Provider lookup: paste-host abuse contact. Free-text match.
+    // Example seed rows: "Pastebin", "Doxbin", "Telegram".
+    const provider = await env.DB.prepare(
+      "SELECT * FROM takedown_providers WHERE provider_type = 'paste_host' AND LOWER(provider_name) LIKE ? LIMIT 1"
+    ).bind(`%${source}%`).first();
+
+    const aiAssessment = (row.ai_assessment as string) || null;
+    const evidenceText = aiAssessment
+      ?? classificationReason
+      ?? `Confirmed ${source} mention of ${brandName} via ${matchType} match.${snippet ? `\n\nExcerpt:\n${snippet}` : ""}`;
+
+    const takedownId = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO takedown_requests (
+        id, org_id, brand_id, target_type, target_value, target_platform, target_url,
+        source_type, source_id, evidence_summary, evidence_detail,
+        provider_name, provider_abuse_contact, provider_method,
+        status, severity, priority_score, requested_by, created_at, updated_at
+      ) VALUES (?, NULL, ?, 'paste', ?, ?, ?, 'dark_web_mention', ?, ?, ?, ?, ?, ?, 'draft', ?, ?, null, datetime('now'), datetime('now'))
+    `).bind(
+      takedownId,
+      row.brand_id as string,
+      sourceUrl,
+      source,
+      sourceUrl,
+      String(row.id),
+      `Confirmed dark-web mention of ${brandName} on ${source} (${matchType} match, ${severity}).`,
+      evidenceText,
+      (provider?.provider_name as string) || source,
+      (provider?.abuse_email as string) || (provider?.abuse_url as string) || null,
+      (provider?.abuse_api_type as string) || "email",
+      severity,
+      severity === "CRITICAL" ? 85 : 65,
+    ).run();
+
+    await env.DB.prepare(`
+      INSERT INTO takedown_evidence (id, takedown_id, evidence_type, title, content_text, metadata_json, created_at)
+      VALUES (?, ?, 'dark_web_mention', 'Dark-Web Mention Evidence', ?, ?, datetime('now'))
+    `).bind(
+      crypto.randomUUID(),
+      takedownId,
+      evidenceText,
+      JSON.stringify({
+        source,
+        source_url: sourceUrl,
+        source_channel: row.source_channel ?? null,
+        source_author: row.source_author ?? null,
+        posted_at: row.posted_at ?? null,
+        match_type: matchType,
+        matched_terms: matchedTermsJson,
+        classification: row.classification,
+        severity,
+        brand_name: brandName,
+        snippet_length: snippet.length,
       }),
     ).run();
 
