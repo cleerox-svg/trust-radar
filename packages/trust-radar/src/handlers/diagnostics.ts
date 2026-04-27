@@ -43,11 +43,13 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       needs_dns: number;
     }>();
 
-    // Cartographer queue — matches actual Phase 0 query (private IPs excluded)
+    // Cartographer queue — matches actual Phase 0 query (private IPs and
+    // attempts-exhausted threats excluded — see migration 0110)
     const cartoQueueP = env.DB.prepare(`
       SELECT COUNT(*) AS n FROM threats
       WHERE enriched_at IS NULL
         AND ip_address IS NOT NULL AND ip_address != ''
+        AND enrichment_attempts < 5
         ${PRIVATE_IP_SQL_FILTER}
     `).first<{ n: number }>();
 
@@ -56,6 +58,18 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       SELECT COUNT(*) AS n FROM threats
       WHERE enriched_at IS NULL
         AND ip_address IS NOT NULL AND ip_address != ''
+        AND enrichment_attempts < 5
+    `).first<{ n: number }>();
+
+    // Threats exhausted by cartographer — hit the attempts cap with no geo.
+    // These exit the active queue but stay in `threats`. A growing exhausted
+    // count means ip-api can't enrich a meaningful share of the new threat
+    // mix; consider adding a fallback geo source.
+    const cartoExhaustedP = env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM threats
+      WHERE enriched_at IS NULL
+        AND ip_address IS NOT NULL AND ip_address != ''
+        AND enrichment_attempts >= 5
     `).first<{ n: number }>();
 
     // ─── 3. Per-feed health ─────────────────────────────────────────
@@ -258,12 +272,12 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
 
     // ── Execute all in parallel ─────────────────────────────────────
     const [
-      clock, enrichment, cartoQueue, cartoQueueRaw,
+      clock, enrichment, cartoQueue, cartoQueueRaw, cartoExhausted,
       feedHealth, feedStatus, feedErrors,
       agentMesh, stalled, backlog,
       aiSpend, cronHealth, totals,
     ] = await Promise.all([
-      clockP, enrichmentP, cartoQueueP, cartoQueueRawP,
+      clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP,
       feedHealthP, feedStatusP, feedErrorsP,
       agentMeshP, stalledP, backlogP,
       aiSpendP, cronHealthP, totalsP,
@@ -307,7 +321,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           generated_at: new Date().toISOString(),
           db_clock_utc: clock?.utc_now ?? null,
           window_hours: hoursBack,
-          endpoint_version: 2,
+          endpoint_version: 3,
         },
 
         enrichment_pipeline: {
@@ -320,6 +334,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           needs_dns: enrichment?.needs_dns ?? 0,
           cartographer_queue: cartoQueue?.n ?? 0,
           cartographer_queue_raw: cartoQueueRaw?.n ?? 0,
+          cartographer_exhausted: cartoExhausted?.n ?? 0,
           private_ip_inflation: (cartoQueueRaw?.n ?? 0) - (cartoQueue?.n ?? 0),
         },
 
