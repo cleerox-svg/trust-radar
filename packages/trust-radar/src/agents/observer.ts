@@ -787,7 +787,7 @@ export const observerAgent: AgentModule = {
       const firstInsight = outputs[0]!;
       const summaryText = firstInsight.summary.replace(/\*\*/g, '').substring(0, 100);
       try {
-        await createNotification(env.DB, {
+        await createNotification(env, {
           type: 'intelligence_digest',
           severity: 'info',
           title: 'New intelligence briefing',

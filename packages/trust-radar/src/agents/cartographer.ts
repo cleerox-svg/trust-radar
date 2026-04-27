@@ -471,7 +471,7 @@ export const cartographerAgent: AgentModule = {
             const brandName = await env.DB.prepare('SELECT name FROM brands WHERE id = ?')
               .bind(brand.id).first<{ name: string }>();
             try {
-              await createNotification(env.DB, {
+              await createNotification(env, {
                 type: 'email_security_change',
                 title: `${brandName?.name ?? brand.domain} email security ${dropped ? 'degraded' : 'improved'}`,
                 message: `Grade changed from ${brand.existing_grade} to ${result.grade}`,

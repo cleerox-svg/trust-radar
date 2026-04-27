@@ -67,7 +67,7 @@ export async function handleDmarcEmail(message: EmailMessage, env: Env): Promise
       return;
     }
 
-    await saveDmarcReport(env.DB, report, message.from, xmlData);
+    await saveDmarcReport(env, report, message.from, xmlData);
   } catch (err) {
     // Never reject/bounce — always accept silently
     console.error("[dmarc] Processing error:", err);
@@ -390,11 +390,13 @@ function parseDmarcXml(xml: string): DmarcReport | null {
 // ─── D1 persistence ───────────────────────────────────────────────
 
 async function saveDmarcReport(
-  db: D1Database,
+  env: Env,
   report: DmarcReport,
   senderEmail: string,
   rawXml: string,
 ): Promise<void> {
+  // Helper local for the existing db-flavored statements below.
+  const db = env.DB;
   // Match brand by canonical_domain or name
   const brand = await db
     .prepare(
@@ -504,7 +506,7 @@ async function saveDmarcReport(
     if (failRate > 0.1) {
       const failPct = Math.round(failRate * 100);
       try {
-        await createNotification(db, {
+        await createNotification(env, {
           type: "brand_threat",
           severity: failRate > 0.5 ? "critical" : "high",
           title: `DMARC failures detected for ${report.domain}`,

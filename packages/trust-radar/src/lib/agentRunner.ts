@@ -308,7 +308,7 @@ async function tripCircuitIfNeeded(
   // Fire critical notification — one per transition (rate-limited via
   // the agent_id metadata key in notifications.ts).
   try {
-    await createNotification(env.DB, {
+    await createNotification(env, {
       type: "circuit_breaker_tripped",
       severity: "critical",
       title: `Agent circuit breaker tripped: ${agentId}`,

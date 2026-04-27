@@ -23,6 +23,9 @@ import {
 import {
   handleAdminListTakedowns, handleAdminUpdateTakedown,
 } from "../handlers/takedowns";
+import {
+  handleGenerateVapidKeys, handleGetPushConfig, handleUpdatePushConfig, handlePushTest,
+} from "../handlers/adminPush";
 import { handleListLeads, handleUpdateLead } from "../handlers/brandScan";
 import {
   handleListSalesLeads, handleGetSalesLead, handleUpdateSalesLead,
@@ -462,5 +465,29 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
       console.error("[honeypot-generate] error:", err);
       return Response.json({ success: false, error: "An internal error occurred" }, { status: 500 });
     }
+  });
+
+  // ─── Web Push admin (super_admin only) ───────────────────────────
+  // Bootstrap + ops endpoints for the Web Push backend introduced in PR 3a.
+  // See handlers/adminPush.ts for the operator runbook in the file header.
+  router.post("/api/admin/push/generate-vapid-keys", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGenerateVapidKeys(request, env);
+  });
+  router.get("/api/admin/push/config", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetPushConfig(request, env);
+  });
+  router.put("/api/admin/push/config", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdatePushConfig(request, env);
+  });
+  router.post("/api/admin/push/test", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handlePushTest(request, env, ctx.userId);
   });
 }

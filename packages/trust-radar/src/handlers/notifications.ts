@@ -102,20 +102,51 @@ export async function handleUnreadCount(request: Request, env: Env, userId: stri
   }
 }
 
+/** Quiet-hours fields layered onto the existing flat-bool preferences.
+ *  Added in PR 3a (migration 0106). Optional in the API payload — a request
+ *  that doesn't include them leaves them unchanged. */
+interface QuietHoursPayload {
+  quiet_hours_start?: string | null;   // 'HH:MM' or null to clear
+  quiet_hours_end?: string | null;
+  quiet_hours_tz?: string | null;
+  critical_breakthrough?: boolean;
+}
+
+interface PreferencesGetResponse extends Record<PrefColumn, boolean>, QuietHoursPayload {}
+
 // GET /api/notifications/preferences
 export async function handleGetPreferences(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    const colsWithQuiet = `${PREF_COLUMNS.join(', ')}, quiet_hours_start, quiet_hours_end, quiet_hours_tz, critical_breakthrough`;
     const row = await env.DB.prepare(
-      `SELECT ${PREF_COLUMNS.join(', ')} FROM notification_preferences WHERE user_id = ?`
-    ).bind(userId).first<Record<PrefColumn, number | null>>();
+      `SELECT ${colsWithQuiet} FROM notification_preferences WHERE user_id = ?`
+    ).bind(userId).first<Record<PrefColumn, number | null> & {
+      quiet_hours_start: string | null;
+      quiet_hours_end: string | null;
+      quiet_hours_tz: string | null;
+      critical_breakthrough: number | null;
+    }>();
 
-    if (!row) return json({ success: true, data: { ...PREF_DEFAULTS } }, 200, origin);
+    if (!row) {
+      const defaults: PreferencesGetResponse = {
+        ...PREF_DEFAULTS,
+        quiet_hours_start: null,
+        quiet_hours_end: null,
+        quiet_hours_tz: null,
+        critical_breakthrough: false,
+      };
+      return json({ success: true, data: defaults }, 200, origin);
+    }
 
-    const data = {} as Record<PrefColumn, boolean>;
+    const data = {} as PreferencesGetResponse;
     for (const col of PREF_COLUMNS) {
       data[col] = row[col] === null ? PREF_DEFAULTS[col] : !!row[col];
     }
+    data.quiet_hours_start = row.quiet_hours_start;
+    data.quiet_hours_end = row.quiet_hours_end;
+    data.quiet_hours_tz = row.quiet_hours_tz;
+    data.critical_breakthrough = !!row.critical_breakthrough;
     return json({ success: true, data }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
@@ -126,7 +157,7 @@ export async function handleGetPreferences(request: Request, env: Env, userId: s
 export async function handleUpdatePreferences(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const body = await request.json() as Partial<Record<PrefColumn, boolean>>;
+    const body = await request.json() as Partial<Record<PrefColumn, boolean>> & QuietHoursPayload;
 
     // SQL columns + placeholders + UPDATE clauses are all derived from the
     // registry — no hand-maintained list to drift from the column set.
@@ -141,11 +172,42 @@ export async function handleUpdatePreferences(request: Request, env: Env, userId
       return value ? 1 : 0;
     });
 
+    // Step 1: upsert the flat-bool columns (existing behavior — unchanged
+    // contract for the still-deployed UI).
     await env.DB.prepare(
       `INSERT INTO notification_preferences (user_id, ${colList})
        VALUES (?, ${placeholders})
        ON CONFLICT(user_id) DO UPDATE SET ${updateClauses}`
     ).bind(userId, ...values).run();
+
+    // Step 2: if the body included quiet-hours fields, update them. Done as
+    // a separate UPDATE so omitting these fields doesn't accidentally clear
+    // them (additive contract — clients that don't know about quiet hours
+    // continue to work exactly as before).
+    const quietUpdates: string[] = [];
+    const quietBindings: unknown[] = [];
+    if ('quiet_hours_start' in body) {
+      quietUpdates.push('quiet_hours_start = ?');
+      quietBindings.push(body.quiet_hours_start ?? null);
+    }
+    if ('quiet_hours_end' in body) {
+      quietUpdates.push('quiet_hours_end = ?');
+      quietBindings.push(body.quiet_hours_end ?? null);
+    }
+    if ('quiet_hours_tz' in body) {
+      quietUpdates.push('quiet_hours_tz = ?');
+      quietBindings.push(body.quiet_hours_tz ?? null);
+    }
+    if ('critical_breakthrough' in body) {
+      quietUpdates.push('critical_breakthrough = ?');
+      quietBindings.push(body.critical_breakthrough ? 1 : 0);
+    }
+    if (quietUpdates.length > 0) {
+      quietBindings.push(userId);
+      await env.DB.prepare(
+        `UPDATE notification_preferences SET ${quietUpdates.join(', ')} WHERE user_id = ?`
+      ).bind(...quietBindings).run();
+    }
 
     return json({ success: true }, 200, origin);
   } catch (err) {

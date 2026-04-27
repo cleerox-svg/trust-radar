@@ -167,7 +167,7 @@ export const certstream: FeedModule = {
         const message = info.count === 1
           ? `${info.name} typosquat detected: ${info.lastDomain}`
           : `${info.count} new typosquats detected targeting ${info.name}`;
-        await createNotification(ctx.env.DB, {
+        await createNotification(ctx.env, {
           type: 'brand_threat',
           severity: 'high',
           title,
