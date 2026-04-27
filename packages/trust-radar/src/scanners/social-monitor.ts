@@ -93,6 +93,7 @@ export async function runSocialMonitorForBrand(
 
   // Generate permutations from the brand name
   const permutations = generateHandlePermutations(brand.brand_name);
+  const permsToCheck = permutations.slice(0, MAX_PERMUTATIONS_PER_PLATFORM);
 
   // Extract brand keywords for impersonation signal detection
   const brandKeywords = [
@@ -101,13 +102,44 @@ export async function runSocialMonitorForBrand(
     brand.brand_name.toLowerCase().replace(/\s+/g, ''),
   ];
 
+  // ─── Batch + dedupe network checks ───────────────────────────────
+  // checkSocialHandles internally does 6 platforms in parallel (each
+  // with its own 2s timeout, see lib/social-check.ts). Previously this
+  // was called 6 × (1 + N permutations) = 66 times per brand because
+  // the outer platform loop re-invoked it per platform and threw away
+  // 5/6 of each result via .find(). That made worst-case wall-clock
+  // 132s/brand, which at the previous BATCH_LIMIT=50 blew past the
+  // Workers cron 15-min CPU ceiling — runs were killed mid-execution
+  // and stuck at status='partial' (see Bug B writeup).
+  //
+  // Now we collect the unique handles ONCE, do one network call per
+  // handle (which already covers all 6 platforms), then build the
+  // results array from the cached lookup. ~16 calls per brand instead
+  // of 66 — same exact result shape and scoring as before.
+  const officialByPlatform: Record<string, string | null> = {};
+  const uniqueHandles = new Set<string>();
   for (const platform of SUPPORTED_PLATFORMS) {
-    const officialHandle = officialHandles[platform]?.replace(/^@/, '') ?? null;
+    const oh = officialHandles[platform]?.replace(/^@/, '') ?? null;
+    officialByPlatform[platform] = oh;
+    if (oh) uniqueHandles.add(oh);
+  }
+  for (const perm of permsToCheck) {
+    uniqueHandles.add(perm.handle);
+  }
+
+  const handleResultsByHandle = new Map<string, SocialCheckResult[]>();
+  for (const handle of uniqueHandles) {
+    const result = await checkSocialHandles(handle);
+    handleResultsByHandle.set(handle.toLowerCase(), result);
+  }
+
+  for (const platform of SUPPORTED_PLATFORMS) {
+    const officialHandle = officialByPlatform[platform];
 
     // 1. Check official handle status
     if (officialHandle) {
-      const checkResults = await checkSocialHandles(officialHandle);
-      const platformResult = checkResults.find((r) => r.platform === platform);
+      const platformResult = handleResultsByHandle.get(officialHandle.toLowerCase())
+        ?.find((r) => r.platform === platform);
 
       if (platformResult) {
         results.push({
@@ -124,58 +156,46 @@ export async function runSocialMonitorForBrand(
     }
 
     // 2. Check top permutations for squatting / impersonation
-    const permutationsToCheck = permutations.slice(0, MAX_PERMUTATIONS_PER_PLATFORM);
-
-    for (const perm of permutationsToCheck) {
+    for (const perm of permsToCheck) {
       // Skip if this permutation IS the official handle
       if (officialHandle && perm.handle.toLowerCase() === officialHandle.toLowerCase()) {
         continue;
       }
 
-      try {
-        const checkResults = await checkSocialHandles(perm.handle);
-        const platformResult = checkResults.find((r) => r.platform === platform);
+      const platformResult = handleResultsByHandle.get(perm.handle.toLowerCase())
+        ?.find((r) => r.platform === platform);
 
-        if (!platformResult || platformResult.available !== false) {
-          // Handle is available or couldn't check — not a threat
-          continue;
-        }
+      if (!platformResult || platformResult.available !== false) {
+        // Handle is available or couldn't check — not a threat
+        continue;
+      }
 
-        // Handle exists — score impersonation risk
-        const signals: ImpersonationSignals = {
-          name_similarity: nameSimilarity(brand.brand_name, perm.handle),
-          uses_brand_keywords: brandKeywords.some((kw) => perm.handle.toLowerCase().includes(kw)),
-          account_age_suspicious: false,  // Cannot determine from HEAD request
-          low_followers: false,           // Cannot determine from HEAD request
-          verified: false,               // Assume not verified (conservative)
-          handle_is_permutation: true,    // By definition
-        };
+      // Handle exists — score impersonation risk
+      const signals: ImpersonationSignals = {
+        name_similarity: nameSimilarity(brand.brand_name, perm.handle),
+        uses_brand_keywords: brandKeywords.some((kw) => perm.handle.toLowerCase().includes(kw)),
+        account_age_suspicious: false,  // Cannot determine from HEAD request
+        low_followers: false,           // Cannot determine from HEAD request
+        verified: false,               // Assume not verified (conservative)
+        handle_is_permutation: true,    // By definition
+      };
 
-        const impersonationResult = scoreImpersonation(signals);
+      const impersonationResult = scoreImpersonation(signals);
 
-        // Only report if score indicates at least MEDIUM risk
-        if (impersonationResult.score >= 0.3) {
-          const urlTemplate = PLATFORM_URL_TEMPLATES[platform];
-          results.push({
-            brandId: brand.id,
-            platform,
-            checkType: 'impersonation_scan',
-            handleChecked: perm.handle,
-            handleAvailable: false,
-            suspiciousAccountUrl: urlTemplate ? urlTemplate(perm.handle) : undefined,
-            suspiciousAccountName: perm.handle,
-            impersonationScore: impersonationResult.score,
-            impersonationSignals: impersonationResult.reasons,
-            severity: impersonationResult.severity,
-          });
-        }
-      } catch (err) {
-        // Network errors for individual checks — skip and continue
-        logger.warn('social_monitor_permutation_error', {
-          brand_id: brand.id,
+      // Only report if score indicates at least MEDIUM risk
+      if (impersonationResult.score >= 0.3) {
+        const urlTemplate = PLATFORM_URL_TEMPLATES[platform];
+        results.push({
+          brandId: brand.id,
           platform,
-          handle: perm.handle,
-          error: err instanceof Error ? err.message : String(err),
+          checkType: 'impersonation_scan',
+          handleChecked: perm.handle,
+          handleAvailable: false,
+          suspiciousAccountUrl: urlTemplate ? urlTemplate(perm.handle) : undefined,
+          suspiciousAccountName: perm.handle,
+          impersonationScore: impersonationResult.score,
+          impersonationSignals: impersonationResult.reasons,
+          severity: impersonationResult.severity,
         });
       }
     }
@@ -328,7 +348,14 @@ export async function runSocialMonitorBatch(env: Env): Promise<{
 }> {
   const now = new Date().toISOString();
 
-  // 1. Query brands that are due for social monitoring via brand_monitor_schedule
+  // 1. Query brands that are due for social monitoring via brand_monitor_schedule.
+  //
+  // BATCH_LIMIT=10 (was 50). Even after the dedupe in runSocialMonitorForBrand,
+  // each brand is ~16 sequential checkSocialHandles calls × up to 2s timeout
+  // = ~32s wall-clock worst case. 10 brands = ~5min wall clock — comfortable
+  // headroom under Workers' 15-min cron CPU ceiling for the social_monitor
+  // agent. Larger batches risked the run getting killed mid-execution before
+  // any schedule rows were updated.
   const brands = await env.DB.prepare(`
     SELECT DISTINCT b.id, b.name AS brand_name, b.canonical_domain AS domain,
            b.official_handles
@@ -339,7 +366,7 @@ export async function runSocialMonitorBatch(env: Env): Promise<{
       AND (bms.next_check IS NULL OR bms.next_check <= ?)
       AND b.official_handles IS NOT NULL
     ORDER BY bms.next_check ASC
-    LIMIT 50
+    LIMIT 10
   `).bind(now).all<{
     id: string;
     brand_name: string;
