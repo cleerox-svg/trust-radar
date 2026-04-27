@@ -203,6 +203,220 @@ export async function runNexus(db: D1Database, _env: Env): Promise<{
     console.error('[nexus] provider trend update error:', err);
   }
 
+  // --- Correlation 3: App-store developer clusters ---
+  // Same developer_id (or developer_name when dev_id is null) pushing
+  // impersonations against multiple brands = campaign. Skip silently if
+  // the table is absent in this deployment.
+  let appStoreClustersWritten = 0;
+  try {
+    const devClusters = await db.prepare(`
+      SELECT
+        store,
+        COALESCE(developer_id, LOWER(TRIM(developer_name))) AS dev_key,
+        MAX(developer_name) AS developer_name,
+        MAX(developer_id) AS developer_id,
+        COUNT(DISTINCT brand_id) AS brands,
+        COUNT(*) AS rows_,
+        GROUP_CONCAT(DISTINCT brand_id) AS brand_ids,
+        MIN(first_seen) AS first_seen,
+        MAX(COALESCE(last_checked, first_seen)) AS last_seen
+      FROM app_store_listings
+      WHERE status = 'active'
+        AND classification IN ('impersonation', 'suspicious')
+        AND COALESCE(developer_id, developer_name) IS NOT NULL
+      GROUP BY store, dev_key
+      HAVING brands >= 2 AND rows_ >= 2
+      ORDER BY brands DESC, rows_ DESC
+      LIMIT 50
+    `).all<{
+      store: string;
+      dev_key: string;
+      developer_name: string | null;
+      developer_id: string | null;
+      brands: number;
+      rows_: number;
+      brand_ids: string | null;
+      first_seen: string | null;
+      last_seen: string | null;
+    }>();
+
+    for (const cluster of devClusters.results) {
+      const clusterId = crypto.randomUUID();
+      const devLabel = cluster.developer_name ?? cluster.dev_key;
+      const clusterName = `${cluster.store} dev "${devLabel}" (${cluster.brands} brands targeted)`;
+
+      // Confidence scales with brands + row count — brand diversity matters most.
+      const confidence = Math.min(100,
+        (cluster.brands * 15) +
+        (cluster.rows_ > 10 ? 20 : cluster.rows_ > 5 ? 10 : 5)
+      );
+
+      try {
+        await db.prepare(`
+          INSERT INTO infrastructure_clusters (
+            id, cluster_name, asns, countries, attack_types, brand_ids,
+            campaign_ids, hosting_provider_ids, threat_count, confidence_score,
+            first_detected, last_seen, status, agent_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+          ON CONFLICT(id) DO NOTHING
+        `).bind(
+          clusterId,
+          clusterName,
+          JSON.stringify([]),
+          JSON.stringify([]),
+          JSON.stringify(['app_store_impersonation']),
+          JSON.stringify((cluster.brand_ids ?? '').split(',').filter(Boolean)),
+          JSON.stringify([]),
+          JSON.stringify([]),
+          cluster.rows_,
+          confidence,
+          cluster.first_seen,
+          cluster.last_seen,
+          JSON.stringify({
+            cluster_type: 'app_store_developer',
+            store: cluster.store,
+            developer_id: cluster.developer_id,
+            developer_name: cluster.developer_name,
+            dev_key: cluster.dev_key,
+            brands_targeted: cluster.brands,
+            listings_count: cluster.rows_,
+          }),
+        ).run();
+        appStoreClustersWritten++;
+        clustersWritten++;
+      } catch (err) {
+        console.error(`[nexus] app-store cluster write error for ${clusterName}:`, err);
+        continue;
+      }
+
+      outputs.push({
+        type: "correlation",
+        summary: `App-store campaign: ${clusterName} — ${cluster.rows_} listing(s) across ${cluster.brands} brands on ${cluster.store}.`,
+        severity: cluster.brands >= 4 ? "high" : "medium",
+        details: {
+          cluster_id: clusterId,
+          cluster_type: 'app_store_developer',
+          store: cluster.store,
+          developer_id: cluster.developer_id,
+          developer_name: cluster.developer_name,
+          brands_targeted: cluster.brands,
+          listings: cluster.rows_,
+          confidence,
+        },
+      });
+    }
+  } catch (err) {
+    // app_store_listings missing → skip silently
+    console.warn('[nexus] app-store cluster pass skipped:', err instanceof Error ? err.message : String(err));
+  }
+
+  // --- Correlation 4: Dark-web actor clusters ---
+  // Same source_author (or source_channel) posting brand mentions across
+  // multiple brands = organized threat actor. Same structural approach.
+  let darkWebClustersWritten = 0;
+  try {
+    const actorClusters = await db.prepare(`
+      SELECT
+        source,
+        COALESCE(source_author, source_channel) AS actor_key,
+        MAX(source_author) AS source_author,
+        MAX(source_channel) AS source_channel,
+        COUNT(DISTINCT brand_id) AS brands,
+        COUNT(*) AS mentions,
+        GROUP_CONCAT(DISTINCT brand_id) AS brand_ids,
+        MIN(first_seen) AS first_seen,
+        MAX(COALESCE(last_seen, first_seen)) AS last_seen
+      FROM dark_web_mentions
+      WHERE status = 'active'
+        AND classification IN ('confirmed', 'suspicious')
+        AND COALESCE(source_author, source_channel) IS NOT NULL
+      GROUP BY source, actor_key
+      HAVING brands >= 2 AND mentions >= 2
+      ORDER BY brands DESC, mentions DESC
+      LIMIT 50
+    `).all<{
+      source: string;
+      actor_key: string;
+      source_author: string | null;
+      source_channel: string | null;
+      brands: number;
+      mentions: number;
+      brand_ids: string | null;
+      first_seen: string | null;
+      last_seen: string | null;
+    }>();
+
+    for (const cluster of actorClusters.results) {
+      const clusterId = crypto.randomUUID();
+      const actorLabel = cluster.source_author
+        ?? cluster.source_channel
+        ?? cluster.actor_key;
+      const clusterName = `${cluster.source} actor "${actorLabel}" (${cluster.brands} brands)`;
+
+      const confidence = Math.min(100,
+        (cluster.brands * 15) +
+        (cluster.mentions > 10 ? 20 : cluster.mentions > 5 ? 10 : 5)
+      );
+
+      try {
+        await db.prepare(`
+          INSERT INTO infrastructure_clusters (
+            id, cluster_name, asns, countries, attack_types, brand_ids,
+            campaign_ids, hosting_provider_ids, threat_count, confidence_score,
+            first_detected, last_seen, status, agent_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+          ON CONFLICT(id) DO NOTHING
+        `).bind(
+          clusterId,
+          clusterName,
+          JSON.stringify([]),
+          JSON.stringify([]),
+          JSON.stringify(['dark_web_actor']),
+          JSON.stringify((cluster.brand_ids ?? '').split(',').filter(Boolean)),
+          JSON.stringify([]),
+          JSON.stringify([]),
+          cluster.mentions,
+          confidence,
+          cluster.first_seen,
+          cluster.last_seen,
+          JSON.stringify({
+            cluster_type: 'dark_web_actor',
+            source: cluster.source,
+            source_author: cluster.source_author,
+            source_channel: cluster.source_channel,
+            actor_key: cluster.actor_key,
+            brands_targeted: cluster.brands,
+            mentions_count: cluster.mentions,
+          }),
+        ).run();
+        darkWebClustersWritten++;
+        clustersWritten++;
+      } catch (err) {
+        console.error(`[nexus] dark-web cluster write error for ${clusterName}:`, err);
+        continue;
+      }
+
+      outputs.push({
+        type: "correlation",
+        summary: `Dark-web actor: ${clusterName} — ${cluster.mentions} mention(s) across ${cluster.brands} brands on ${cluster.source}.`,
+        severity: cluster.brands >= 4 ? "high" : "medium",
+        details: {
+          cluster_id: clusterId,
+          cluster_type: 'dark_web_actor',
+          source: cluster.source,
+          source_author: cluster.source_author,
+          source_channel: cluster.source_channel,
+          brands_targeted: cluster.brands,
+          mentions: cluster.mentions,
+          confidence,
+        },
+      });
+    }
+  } catch (err) {
+    // dark_web_mentions missing → skip silently
+    console.warn('[nexus] dark-web cluster pass skipped:', err instanceof Error ? err.message : String(err));
+  }
+
   // --- Emit completion event ---
   try {
     await db.prepare(`
@@ -210,7 +424,13 @@ export async function runNexus(db: D1Database, _env: Env): Promise<{
       VALUES (?, 'nexus_complete', 'nexus', ?)
     `).bind(
       crypto.randomUUID(),
-      JSON.stringify({ clusters_written: clustersWritten, providers_updated: providersUpdated, pivots_detected: pivotsDetected })
+      JSON.stringify({
+        clusters_written: clustersWritten,
+        providers_updated: providersUpdated,
+        pivots_detected: pivotsDetected,
+        app_store_clusters: appStoreClustersWritten,
+        dark_web_clusters: darkWebClustersWritten,
+      })
     ).run();
   } catch (err) {
     console.error('[nexus] completion event error:', err);
@@ -218,13 +438,15 @@ export async function runNexus(db: D1Database, _env: Env): Promise<{
 
   outputs.push({
     type: "diagnostic",
-    summary: `NEXUS: ${clustersWritten} clusters written, ${providersUpdated} providers trend-updated, ${pivotsDetected} pivots detected`,
+    summary: `NEXUS: ${clustersWritten} clusters written (${asnClusters.results.length} ASN groups analyzed, ${appStoreClustersWritten} app-store dev clusters, ${darkWebClustersWritten} dark-web actor clusters), ${providersUpdated} providers trend-updated, ${pivotsDetected} pivots detected`,
     severity: pivotsDetected > 0 ? "high" : "info",
     details: {
       clusters_written: clustersWritten,
       providers_updated: providersUpdated,
       pivots_detected: pivotsDetected,
       asn_clusters_analyzed: asnClusters.results.length,
+      app_store_clusters: appStoreClustersWritten,
+      dark_web_clusters: darkWebClustersWritten,
     },
   });
 
