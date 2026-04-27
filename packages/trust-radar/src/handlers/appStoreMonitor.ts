@@ -459,7 +459,7 @@ export async function handleAppStoreOverview(
 
     const brands = await env.DB.prepare(`
       SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,
-             b.official_apps, b.created_at
+             b.official_apps, b.first_seen AS created_at
       FROM brands b
       ${scope}
       ORDER BY b.name ASC
