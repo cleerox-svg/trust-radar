@@ -321,7 +321,11 @@ export async function runSocialDiscoveryBatch(env: Env, limit: number = 10): Pro
  * Called by the cron orchestrator every 6 hours.
  * Now queries from brands + brand_monitor_schedule instead of brand_profiles.
  */
-export async function runSocialMonitorBatch(env: Env): Promise<void> {
+export async function runSocialMonitorBatch(env: Env): Promise<{
+  brands_processed: number;
+  total_results: number;
+  total_alerts: number;
+}> {
   const now = new Date().toISOString();
 
   // 1. Query brands that are due for social monitoring via brand_monitor_schedule
@@ -345,7 +349,7 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
 
   if (brands.results.length === 0) {
     logger.info('social_monitor_batch', { message: 'No brands due for monitoring', checked_at: now });
-    return;
+    return { brands_processed: 0, total_results: 0, total_alerts: 0 };
   }
 
   logger.info('social_monitor_batch_start', { brands_count: brands.results.length });
@@ -624,4 +628,6 @@ export async function runSocialMonitorBatch(env: Env): Promise<void> {
     total_results: totalResults,
     total_alerts: totalAlerts,
   });
+
+  return { brands_processed: brandsProcessed, total_results: totalResults, total_alerts: totalAlerts };
 }

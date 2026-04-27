@@ -769,13 +769,19 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
 }
 
 async function runSocialDiscovery(env: Env): Promise<void> {
-  const { runSocialDiscoveryBatch } = await import('../scanners/social-monitor');
-  await runSocialDiscoveryBatch(env);
+  // Dispatch via executeAgent so every run lands in agent_runs / agent_outputs,
+  // respects the circuit breaker, and surfaces in Flight Control + the Agents UI.
+  const { executeAgent } = await import('../lib/agentRunner');
+  const { socialDiscoveryAgent } = await import('../agents/socialDiscovery');
+  await executeAgent(env, socialDiscoveryAgent, {}, 'orchestrator', 'scheduled');
 }
 
 async function runSocialMonitor(env: Env): Promise<void> {
-  const { runSocialMonitorBatch } = await import('../scanners/social-monitor');
-  await runSocialMonitorBatch(env);
+  // Dispatch via executeAgent so every run lands in agent_runs / agent_outputs,
+  // respects the circuit breaker, and surfaces in Flight Control + the Agents UI.
+  const { executeAgent } = await import('../lib/agentRunner');
+  const { socialMonitorAgent } = await import('../agents/socialMonitor');
+  await executeAgent(env, socialMonitorAgent, {}, 'orchestrator', 'scheduled');
 }
 
 async function runAppStoreMonitor(env: Env): Promise<void> {
