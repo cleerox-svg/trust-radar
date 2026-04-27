@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
+import {
+  isPasskeySupported, signInWithPasskey, startConditionalUI,
+} from '@/lib/passkeys';
 
 type MagicLinkState =
   | { kind: 'idle' }
@@ -16,13 +19,47 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [magicLink, setMagicLink] = useState<MagicLinkState>({ kind: 'idle' });
 
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const conditionalStarted = useRef(false);
+
+  useEffect(() => {
+    setPasskeySupported(isPasskeySupported());
+    // Conditional UI: starts the WebAuthn ceremony in the background so
+    // the OS credential picker appears in the email field's autofill
+    // dropdown. Only fire once per page load — re-firing aborts the
+    // prior ceremony and looks broken to the user.
+    if (!conditionalStarted.current && isPasskeySupported()) {
+      conditionalStarted.current = true;
+      startConditionalUI('/v2/observatory');
+    }
+  }, []);
+
+  const handlePasskey = async () => {
+    setPasskeyBusy(true);
+    setPasskeyError(null);
+    try {
+      const ok = await signInWithPasskey({
+        email: email.trim() || undefined,
+        returnTo: '/v2/observatory',
+      });
+      if (!ok) {
+        // User dismissed the OS prompt — silent return.
+        setPasskeyBusy(false);
+      }
+      // On success, signInWithPasskey navigates the page; this component unmounts.
+    } catch (err) {
+      setPasskeyError(err instanceof Error ? err.message : 'Passkey sign-in failed.');
+      setPasskeyBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setMagicLink({ kind: 'sending' });
     try {
-      // Pass return_to so the post-verify redirect lands the user where they
-      // expect to be. Default to /v2/observatory.
       const res = await api.post<{ message?: string; expires_in_minutes?: number; error?: string }>(
         '/api/auth/magic-link/request',
         { email: email.trim(), return_to: '/v2/observatory' },
@@ -55,12 +92,37 @@ export function Login() {
           </p>
         </div>
 
-        {/* ─── Primary: Google ─────────────────────────── */}
-        <Button onClick={login} size="lg" className="w-full">
+        {/* ─── Primary: Passkey (when supported) ─────── */}
+        {passkeySupported && (
+          <div className="space-y-2">
+            <Button
+              onClick={handlePasskey}
+              size="lg"
+              variant="primary"
+              disabled={passkeyBusy}
+              className="w-full"
+            >
+              {passkeyBusy ? 'Verifying…' : 'Sign in with passkey'}
+            </Button>
+            {passkeyError && (
+              <p className="text-[11px]" style={{ color: '#f87171' }}>
+                {passkeyError}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── Google ─────────────────────────────────── */}
+        <Button
+          onClick={login}
+          size={passkeySupported ? 'md' : 'lg'}
+          variant={passkeySupported ? 'secondary' : 'primary'}
+          className="w-full"
+        >
           Sign in with Google
         </Button>
 
-        {/* ─── Divider ─────────────────────────────────── */}
+        {/* ─── Divider ────────────────────────────────── */}
         <div className="flex items-center gap-3" aria-hidden>
           <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
           <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>
@@ -69,7 +131,7 @@ export function Login() {
           <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
         </div>
 
-        {/* ─── Magic-link form ─────────────────────────── */}
+        {/* ─── Magic-link form ────────────────────────── */}
         {magicLink.kind === 'sent' ? (
           <div
             className="text-left p-4 rounded-lg space-y-2"
@@ -101,7 +163,10 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                autoComplete="email"
+                /* `username webauthn` enables the OS credential picker
+                   to surface passkey suggestions inline in this field
+                   (browser autofill / Conditional UI). */
+                autoComplete="username webauthn"
                 autoFocus
                 required
                 disabled={magicLink.kind === 'sending'}

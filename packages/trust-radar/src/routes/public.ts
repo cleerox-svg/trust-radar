@@ -220,7 +220,8 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
     return new Response(htmlResponse.body, {
       status: htmlResponse.status,
       headers: {
-        ...Object.fromEntries(htmlResponse.headers.entries()),
+        // The Workers Headers type doesn't declare .entries() but the runtime supports it.
+        ...Object.fromEntries((htmlResponse.headers as unknown as { entries(): IterableIterator<[string, string]> }).entries()),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',

@@ -386,9 +386,16 @@ async function handleInviteAcceptance(
   return issueSession(request, env, userId, googleUser.email, invite.role as UserRole, siteOrigin);
 }
 
-type AuthMethod = "google_oauth" | "magic_link" | "passkey";
+export type AuthMethod = "google_oauth" | "magic_link" | "passkey";
 
-async function issueSession(
+/** Mode controls the response shape:
+ *   - 'redirect': 302 to siteOrigin + returnToPath + #token (used by OAuth
+ *     callback + magic-link verify — both are top-level browser navigations).
+ *   - 'json':     200 { success, data: { access_token, expires_in, return_to } }
+ *     (used by passkey auth/finish — XHR caller navigates manually). */
+export type IssueSessionMode = 'redirect' | 'json';
+
+export async function issueSession(
   request: Request,
   env: Env,
   userId: string,
@@ -397,6 +404,7 @@ async function issueSession(
   siteOrigin: string,
   returnToPath?: string,
   method: AuthMethod = "google_oauth",
+  mode: IssueSessionMode = "redirect",
 ): Promise<Response> {
   // Look up org membership (user might belong to one org)
   const membership = await env.DB.prepare(`
@@ -440,23 +448,30 @@ async function issueSession(
 
   await audit(env, { action: "login", userId, details: { method }, request });
 
-  // Redirect to frontend with access token as hash fragment (never hits server)
   const returnTo = returnToPath || '/observatory';
 
-  // If returning to React app, redirect directly there with token in hash — bypass old SPA
-  if (returnTo.startsWith('/v2')) {
-    const redirectUrl = `${siteOrigin}${returnTo}#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
-    const response = new Response(null, { status: 302, headers: { Location: redirectUrl } });
+  if (mode === 'json') {
+    // For AJAX callers (passkeys.ts on the SPA): JSON envelope, refresh
+    // cookie still set via Set-Cookie. Caller does the navigation.
+    const response = json({
+      success: true,
+      data: {
+        access_token: accessToken,
+        expires_in: ACCESS_TOKEN_TTL,
+        return_to: returnTo,
+      },
+    }, 200, request.headers.get("Origin"));
     return setRefreshCookie(response, refreshToken, request);
   }
 
-  // Otherwise use old SPA callback flow
-  const redirectUrl = `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
-  const response = new Response(null, {
-    status: 302,
-    headers: { Location: redirectUrl },
-  });
-
+  // Redirect mode — browser-navigation entrypoints (OAuth callback,
+  // magic-link verify). Drop the token in the URL hash so it never
+  // hits an HTTP log.
+  const isV2 = returnTo.startsWith('/v2');
+  const redirectUrl = isV2
+    ? `${siteOrigin}${returnTo}#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`
+    : `${siteOrigin}/auth/callback#token=${accessToken}&expires_in=${ACCESS_TOKEN_TTL}`;
+  const response = new Response(null, { status: 302, headers: { Location: redirectUrl } });
   return setRefreshCookie(response, refreshToken, request);
 }
 
