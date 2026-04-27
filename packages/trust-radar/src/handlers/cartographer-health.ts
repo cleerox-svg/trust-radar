@@ -91,13 +91,20 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       error_message: string | null;
     }>();
 
-    // ─── Recent Phase 0 batches (yield = batch_enriched / batch_size) ─
+    // ─── Recent Phase 0 batches ───────────────────────────────────
     // The diagnostic agent_outputs row pushed at the end of Phase 0 carries
-    // batch_enriched, rdap_enriched, batch_size, and max_batches. Surfacing
-    // batch_enriched lets us calculate ip-api yield without scraping logs.
+    // batch_enriched (legacy alias for batch_geo_responded — counts any
+    // ip-api status='success' response), batch_geo_located (lat populated;
+    // post-PR-#824 only), batch_size, and max_batches.
+    //
+    // Yield is computed from batch_geo_located when present (the honest
+    // metric — actual usable enrichments / theoretical max). Legacy rows
+    // fall back to batch_enriched, which overstates yield because ip-api
+    // returns status='success' with empty geo for ~93% of IPs.
     const batchOutputsP = env.DB.prepare(`
       SELECT created_at, summary,
              json_extract(details, '$.batch_enriched') AS batch_enriched,
+             json_extract(details, '$.batch_geo_located') AS batch_geo_located,
              json_extract(details, '$.rdap_enriched') AS rdap_enriched,
              json_extract(details, '$.batch_size') AS batch_size,
              json_extract(details, '$.max_batches') AS max_batches
@@ -109,6 +116,7 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       created_at: string;
       summary: string;
       batch_enriched: number | null;
+      batch_geo_located: number | null;
       rdap_enriched: number | null;
       batch_size: number | null;
       max_batches: number | null;
@@ -120,21 +128,40 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       columnP, indexP, attemptsHistP, queueP, stuckP, throughputP, recentRunsP, batchOutputsP,
     ]);
 
-    // ─── Compute ip-api yield from recent batches ─────────────────
-    // Yield = avg(batch_enriched / max_theoretical) where max_theoretical
-    // = batch_size × max_batches. This is the headline number that drives
-    // the "do we need a fallback geo source?" decision.
-    const validYields = batchOutputs.results
-      .filter(r => r.batch_enriched != null && r.batch_size != null && r.max_batches != null)
-      .map(r => {
-        const max = (r.batch_size ?? 0) * (r.max_batches ?? 0);
-        return max > 0 ? (r.batch_enriched ?? 0) / max : null;
-      })
-      .filter((v): v is number => v != null);
+    // ─── Compute ip-api yields from recent batches ────────────────
+    // Two yields surfaced separately:
+    //   geo_located_yield = batch_geo_located / max_theoretical
+    //     The honest metric — fraction of attempted threats that received
+    //     coordinates and will actually advance the platform's geo data.
+    //     This is the headline that drives the "do we need a fallback geo
+    //     source?" decision.
+    //   geo_responded_yield = batch_geo_responded (legacy batch_enriched)
+    //     / max_theoretical. ip-api status='success' rate, including
+    //     the empty / ASN-only responses. Always ≥ geo_located_yield;
+    //     the gap shows how often ip-api responds but with no usable geo.
+    //
+    // Legacy rows (pre-PR-#824) lack batch_geo_located. They contribute
+    // to geo_responded_yield only — geo_located_yield averages just the
+    // post-fix rows so the metric stays clean.
+    const calcAvg = (values: number[]): number | null =>
+      values.length > 0
+        ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 1000) / 10
+        : null;
 
-    const avgYieldPct = validYields.length > 0
-      ? Math.round((validYields.reduce((a, b) => a + b, 0) / validYields.length) * 1000) / 10
-      : null;
+    const respondedYields: number[] = [];
+    const locatedYields: number[] = [];
+    for (const r of batchOutputs.results) {
+      const max = (r.batch_size ?? 0) * (r.max_batches ?? 0);
+      if (max <= 0) continue;
+      if (r.batch_enriched != null) respondedYields.push((r.batch_enriched ?? 0) / max);
+      if (r.batch_geo_located != null) locatedYields.push((r.batch_geo_located ?? 0) / max);
+    }
+
+    const geoRespondedYieldPct = calcAvg(respondedYields);
+    const geoLocatedYieldPct = calcAvg(locatedYields);
+    // Headline yield prefers the honest metric; falls back to legacy if
+    // no post-fix data exists yet.
+    const avgYieldPct = geoLocatedYieldPct ?? geoRespondedYieldPct;
 
     // ─── Migration status flag ────────────────────────────────────
     const migration0110Applied = column != null;
@@ -145,7 +172,7 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       data: {
         _meta: {
           generated_at: new Date().toISOString(),
-          endpoint_version: 1,
+          endpoint_version: 2,
         },
 
         migration: {
@@ -173,8 +200,19 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
 
         ip_api_yield: {
           recent_batches: batchOutputs.results,
+          // avg_yield_pct = the lat-populated rate (honest), or the
+          // status='success' rate when no post-fix rows are available
+          // (legacy fallback, overstates).
           avg_yield_pct: avgYieldPct,
-          // Threshold guidance for the consumer:
+          // Both fields surfaced separately so consumers can reason about
+          // ip-api's response rate vs its actual coverage.
+          //  geo_located_yield_pct  → coords actually returned (the metric
+          //    that matters for the platform's geo data quality)
+          //  geo_responded_yield_pct → status='success' rate (always
+          //    >= located; the gap shows partial-success leakage)
+          geo_located_yield_pct: geoLocatedYieldPct,
+          geo_responded_yield_pct: geoRespondedYieldPct,
+          // Threshold guidance applies to geo_located_yield_pct:
           //  >= 50%  → ip-api is healthy, no fallback needed
           //  20-50% → degraded but functional, monitor
           //  <  20% → fallback geo source likely needed (Cloudflare Radar, MaxMind)

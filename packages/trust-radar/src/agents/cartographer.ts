@@ -138,7 +138,8 @@ export const cartographerAgent: AgentModule = {
     const BATCH_SIZE = 500;
     const MAX_BATCHES_PER_RUN = 5;
     const startOffset = typeof ctx.input.offset === 'number' ? ctx.input.offset : 0;
-    let batchEnriched = 0;
+    let batchGeoResponded = 0;
+    let batchGeoLocated = 0;
     let rdapEnriched = 0;
 
     try {
@@ -252,7 +253,14 @@ export const cartographerAgent: AgentModule = {
             geo?.lat ?? null,
             threat.id
           ));
-          if (geo) batchEnriched++;
+          // geo_responded: ip-api returned status='success' for this IP
+          //   (geo object exists in the result Map). Counts threats whose
+          //   enrichment_attempts will increment regardless of usefulness.
+          // geo_located:  ip-api actually returned coordinates (geo.lat is
+          //   non-null). This is the only count that matches enriched_at
+          //   stamping under the post-#823 logic — the headline yield metric.
+          if (geo) batchGeoResponded++;
+          if (geo?.lat != null) batchGeoLocated++;
           itemsUpdated++;
 
           // ─── Geopolitical campaign escalation ───
@@ -290,7 +298,7 @@ export const cartographerAgent: AgentModule = {
             VALUES (?, 'threats_enriched', 'cartographer', ?, 3)
           `).bind(
             crypto.randomUUID(),
-            JSON.stringify({ count: unenriched.results.length, enriched: batchEnriched, batch: batchIndex + 1, batch_complete: true })
+            JSON.stringify({ count: unenriched.results.length, enriched: batchGeoResponded, geo_located: batchGeoLocated, batch: batchIndex + 1, batch_complete: true })
           ).run();
         } catch (err) {
           console.error('[cartographer] agent_event emit error:', err);
@@ -302,12 +310,22 @@ export const cartographerAgent: AgentModule = {
         }
       }
 
-      if (batchEnriched > 0) {
+      if (batchGeoResponded > 0) {
         outputs.push({
           type: "diagnostic",
-          summary: `ip-api.com batch: ${batchEnriched} threats enriched across up to ${MAX_BATCHES_PER_RUN} batches, ${rdapEnriched} RDAP lookups`,
+          summary: `ip-api.com batch: ${batchGeoResponded} responses, ${batchGeoLocated} geo-located across up to ${MAX_BATCHES_PER_RUN} batches, ${rdapEnriched} RDAP lookups`,
           severity: "info",
-          details: { batch_enriched: batchEnriched, rdap_enriched: rdapEnriched, batch_size: BATCH_SIZE, max_batches: MAX_BATCHES_PER_RUN },
+          // batch_enriched preserved as legacy alias for batch_geo_responded
+          // — historical agent_outputs rows depend on it. New rows carry the
+          // honest pair so consumers can compute the real lat-yield.
+          details: {
+            batch_enriched: batchGeoResponded,
+            batch_geo_responded: batchGeoResponded,
+            batch_geo_located: batchGeoLocated,
+            rdap_enriched: rdapEnriched,
+            batch_size: BATCH_SIZE,
+            max_batches: MAX_BATCHES_PER_RUN,
+          },
         });
       }
     } catch (err) {
@@ -554,10 +572,11 @@ export const cartographerAgent: AgentModule = {
     // Emit diagnostic output so cartographer never shows 0 outputs silently
     outputs.push({
       type: "diagnostic",
-      summary: `Cartographer: ${batchEnriched} ip-api enriched, ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
+      summary: `Cartographer: ${batchGeoResponded} ip-api responses (${batchGeoLocated} geo-located), ${providers.results.length} providers scored (${haikuSuccessCount} AI, ${haikuFailCount} heuristic), ${statsCreated} stat entries, ${emailScanned} email security scans, ${dmarcGeoEnriched} DMARC IPs geo-enriched, ${threatsWithProvider?.n ?? 0}/${threatsTotal?.n ?? 0} threats have provider`,
       severity: providers.results.length === 0 ? "medium" : "info",
       details: {
-        ip_api_enriched: batchEnriched,
+        ip_api_enriched: batchGeoResponded,
+        ip_api_geo_located: batchGeoLocated,
         rdap_enriched: rdapEnriched,
         providers_with_threats: providers.results.length,
         total_providers: totalProviders?.n ?? 0,
@@ -577,7 +596,7 @@ export const cartographerAgent: AgentModule = {
       itemsProcessed,
       itemsCreated,
       itemsUpdated,
-      output: { providersScored: providers.results.length, statsEntries: statsCreated, ipApiBatchEnriched: batchEnriched },
+      output: { providersScored: providers.results.length, statsEntries: statsCreated, ipApiBatchEnriched: batchGeoResponded, ipApiGeoLocated: batchGeoLocated },
       model,
       tokensUsed: totalTokens,
       agentOutputs: outputs,
