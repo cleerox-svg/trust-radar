@@ -13,6 +13,7 @@ import {
   runAppStoreAIAssessmentBatch,
 } from "../scanners/app-store-monitor";
 import type { Env } from "../types";
+import type { AuthContext } from "../middleware/auth";
 
 const VALID_CLASSIFICATIONS = [
   "official",
@@ -411,11 +412,22 @@ export async function handleUpdateOfficialApps(
 // Cross-brand dashboard: one row per monitored brand with per-severity
 // counts of active findings, plus last/next scan timestamps. Mirrors
 // the shape of handleSocialOverview so the UI can reuse patterns.
+//
+// Scope rules:
+//   - super_admin / admin → see all monitored brands (platform-wide view)
+//   - any other role with an org → see brands assigned to their org via org_brands
+//   - any other role without an org → see nothing
+//
+// Replaces the legacy `monitored_brands.added_by = userId` filter, which only
+// surfaced brands the logged-in user personally added. Bulk-seeded or
+// org-assigned brands were invisible to non-admin users even when their org
+// owned them. The org_brands join is the canonical multi-tenant scope used
+// elsewhere in the codebase (see handlers/tenantData.ts).
 
 export async function handleAppStoreOverview(
   request: Request,
   env: Env,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -423,16 +435,27 @@ export async function handleAppStoreOverview(
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
-    const userRow = await env.DB.prepare(
-      "SELECT role FROM users WHERE id = ?",
-    ).bind(userId).first<{ role: string }>();
-    const isAdmin = userRow?.role === "admin" || userRow?.role === "super_admin";
+    const isAdmin = ctx.role === "admin" || ctx.role === "super_admin";
 
-    // Admins see all monitored brands; tenants see only their own.
-    const scope = isAdmin
-      ? `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`
-      : `INNER JOIN monitored_brands mb ON mb.brand_id = b.id AND mb.added_by = ?`;
-    const scopeParams: unknown[] = isAdmin ? [] : [userId];
+    let scope: string;
+    let scopeParams: unknown[];
+
+    if (isAdmin) {
+      scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`;
+      scopeParams = [];
+    } else if (ctx.orgId) {
+      scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id
+               INNER JOIN org_brands ob ON ob.brand_id = b.id AND ob.org_id = ?`;
+      scopeParams = [ctx.orgId];
+    } else {
+      // Non-admin user without an org membership has no brands to show.
+      return json({
+        success: true,
+        data: [],
+        total: 0,
+        totals: { total: 0, impersonation: 0, suspicious: 0, legitimate: 0, official: 0 },
+      }, 200, origin);
+    }
 
     const brands = await env.DB.prepare(`
       SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,
