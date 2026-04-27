@@ -19,8 +19,8 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 
 export const socialMonitorAgent: AgentModule = {
   name: "social_monitor",
-  displayName: "Social Monitor",
-  description: "Per-brand social impersonation detection across Twitter / LinkedIn / Instagram / TikTok / GitHub / YouTube",
+  displayName: "Mockingbird",
+  description: "Catches social impersonators by their mimicry — checks every monitored brand across Twitter / LinkedIn / Instagram / TikTok / GitHub / YouTube",
   color: "#3CB878",
   trigger: "scheduled",
   requiresApproval: false,

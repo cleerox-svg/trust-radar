@@ -18,8 +18,8 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 
 export const appStoreMonitorAgent: AgentModule = {
   name: "app_store_monitor",
-  displayName: "App Store Monitor",
-  description: "Mobile-app impersonation detection across iOS (Play + 3rd-party stores later)",
+  displayName: "Marshal",
+  description: "App-store impersonation detection — checks every monitored brand's apps for spoofed listings (iOS today; Google Play + 3rd-party stores later)",
   color: "#0A8AB5",
   trigger: "scheduled",
   requiresApproval: false,

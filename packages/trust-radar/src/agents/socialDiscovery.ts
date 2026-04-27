@@ -19,8 +19,8 @@ const DISCOVERY_BATCH_LIMIT = 10;
 
 export const socialDiscoveryAgent: AgentModule = {
   name: "social_discovery",
-  displayName: "Social Discovery",
-  description: "Discovers official social handles for brands with none on file (precursor to social monitoring)",
+  displayName: "Outrider",
+  description: "Scout that rides ahead — discovers official social handles for brands with none on file so Mockingbird has terrain to monitor",
   color: "#3CB878",
   trigger: "scheduled",
   requiresApproval: false,

@@ -144,6 +144,68 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <circle cx="18" cy="18" r="1.6" fill="currentColor"/>
     </svg>
   ),
+  // Marshal — App Store Monitor. Sheriff/marshal star badge: catches imposter apps.
+  app_store_monitor: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* badge ring */}
+      <circle cx="18" cy="18" r="13" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="18" cy="18" r="9.5" stroke="currentColor" strokeWidth="1" opacity="0.35"/>
+      {/* 5-point star */}
+      <path d="M18 8.5L20.4 14.3L26.7 14.6L21.7 18.4L23.4 24.5L18 21L12.6 24.5L14.3 18.4L9.3 14.6L15.6 14.3Z"
+            stroke="currentColor" strokeWidth="1.3" fill="currentColor" fillOpacity="0.18" strokeLinejoin="round"/>
+      {/* center pip */}
+      <circle cx="18" cy="18.4" r="1.2" fill="currentColor"/>
+    </svg>
+  ),
+  // Sounder — Dark Web Monitor. Sonar pulse echolocating into the deep.
+  dark_web_monitor: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* depth horizon line */}
+      <line x1="4" y1="11" x2="32" y2="11" stroke="currentColor" strokeWidth="0.8" opacity="0.25"/>
+      {/* sonar emitter */}
+      <circle cx="18" cy="11" r="2" fill="currentColor"/>
+      {/* downward concentric arcs (sonar pings going into the dark) */}
+      <path d="M11 18C13 16 15.5 15 18 15C20.5 15 23 16 25 18"
+            stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M8 23C11 20 14.5 18.5 18 18.5C21.5 18.5 25 20 28 23"
+            stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.7"/>
+      <path d="M5 28C9 24 13.5 22 18 22C22.5 22 27 24 31 28"
+            stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
+      {/* return blip — what the sonar found in the depth */}
+      <circle cx="22" cy="26" r="1.5" fill="currentColor" opacity="0.7"/>
+    </svg>
+  ),
+  // Mockingbird — Social Monitor. Songbird with sound waves; mimicry detector.
+  social_monitor: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* bird body */}
+      <path d="M9 22C9 17 13 14 18 14C21 14 23 15.5 24 17L28 14L26 19C26 23 23 26 18 26C13 26 9 24 9 22Z"
+            stroke="currentColor" strokeWidth="1.4" fill="currentColor" fillOpacity="0.15" strokeLinejoin="round"/>
+      {/* eye */}
+      <circle cx="22" cy="18" r="0.9" fill="currentColor"/>
+      {/* perch */}
+      <line x1="11" y1="26" x2="11" y2="31" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="14" y1="26" x2="14" y2="31" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      {/* song / mimic waves */}
+      <path d="M30 18C31 17 31 15 30 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
+      <path d="M32.5 19.5C34 18 34 13 32.5 11.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
+    </svg>
+  ),
+  // Outrider — Social Discovery. Scout arrow pushing forward, breadcrumb dots behind.
+  social_discovery: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* breadcrumbs trailing behind */}
+      <circle cx="6" cy="22" r="1.4" fill="currentColor" opacity="0.35"/>
+      <circle cx="11" cy="20" r="1.6" fill="currentColor" opacity="0.55"/>
+      <circle cx="16" cy="18" r="1.8" fill="currentColor" opacity="0.75"/>
+      {/* leading arrow / scout */}
+      <path d="M20 16L29 12L26 21L23 19L20 22Z"
+            stroke="currentColor" strokeWidth="1.4" fill="currentColor" fillOpacity="0.2" strokeLinejoin="round"/>
+      {/* horizon line / direction */}
+      <line x1="29" y1="12" x2="33" y2="9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+      <line x1="26" y1="21" x2="30" y2="25" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {
