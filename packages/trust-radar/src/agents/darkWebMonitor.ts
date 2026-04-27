@@ -1,0 +1,51 @@
+/**
+ * Dark-Web Monitor Agent — wraps the per-brand dark-web scanner as a
+ * first-class AgentModule so every run lands in agent_runs / agent_outputs
+ * and surfaces in Flight Control + platform-diagnostics + the Agents UI.
+ *
+ * The scanner batch (`runDarkWebMonitorBatch`) already handles:
+ *   - brand-monitor-schedule seeding
+ *   - due-brand selection
+ *   - per-brand alerts on HIGH / CRITICAL findings
+ *   - Haiku AI review promotion of ambiguous rows
+ *   - post-scan brand exposure score recompute
+ *
+ * This wrapper just converts the batch return into an AgentResult and
+ * emits a single insight-level agent_outputs row when the tick did work.
+ */
+
+import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+
+export const darkWebMonitorAgent: AgentModule = {
+  name: "dark_web_monitor",
+  displayName: "Dark Web Monitor",
+  description: "Paste-archive + leak-forum brand mention detection (Pastebin today; Telegram / HIBP / Flare later)",
+  color: "#C83C3C",
+  trigger: "scheduled",
+  requiresApproval: false,
+
+  async execute(ctx: AgentContext): Promise<AgentResult> {
+    const { env } = ctx;
+    const { runDarkWebMonitorBatch } = await import("../scanners/dark-web-monitor");
+
+    const stats = await runDarkWebMonitorBatch(env);
+
+    const outputs: AgentOutputEntry[] = [];
+    if (stats.brands_processed > 0) {
+      outputs.push({
+        type: "diagnostic",
+        summary: `Dark-web scan: ${stats.brands_processed} brands, ${stats.rows_upserted} mentions upserted, ${stats.alerts_created} alerts, ${stats.ai_processed} AI-reviewed (${stats.ai_upgraded} promoted)`,
+        severity: stats.alerts_created > 0 ? "medium" : "info",
+        details: stats,
+      });
+    }
+
+    return {
+      itemsProcessed: stats.brands_processed,
+      itemsCreated: stats.rows_upserted,
+      itemsUpdated: 0,
+      output: stats,
+      agentOutputs: outputs,
+    };
+  },
+};
