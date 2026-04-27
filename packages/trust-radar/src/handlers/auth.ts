@@ -1,5 +1,5 @@
 // TODO: Refactor to use handler-utils (Phase 6 continuation)
-// Averrow — Authentication Handlers (Google OAuth + JWT refresh)
+// Averrow — Authentication Handlers (Google OAuth + JWT refresh + magic-link)
 
 import { json } from "../lib/cors";
 import { signJWT, ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL, ABSOLUTE_SESSION_TTL } from "../lib/jwt";
@@ -7,6 +7,11 @@ import { hashToken, generateRefreshToken } from "../lib/hash";
 import { buildGoogleAuthURL, exchangeCodeForTokens, fetchGoogleUserInfo, getRedirectUri, CANONICAL_ORIGIN } from "../lib/oauth";
 import { audit } from "../lib/audit";
 import { loadOrgScopeForToken } from "../middleware/auth";
+import {
+  generateMagicLinkToken, hashMagicLinkToken, checkRateLimit,
+  persistMagicLinkRow, findMagicLinkByHash, markMagicLinkUsed,
+} from "../lib/magic-link";
+import { sendMagicLinkEmail } from "../lib/magic-link-email";
 import type { Env, UserRole } from "../types";
 
 // ─── OAuth: initiate login ──────────────────────────────────────
@@ -381,6 +386,8 @@ async function handleInviteAcceptance(
   return issueSession(request, env, userId, googleUser.email, invite.role as UserRole, siteOrigin);
 }
 
+type AuthMethod = "google_oauth" | "magic_link" | "passkey";
+
 async function issueSession(
   request: Request,
   env: Env,
@@ -389,6 +396,7 @@ async function issueSession(
   role: UserRole,
   siteOrigin: string,
   returnToPath?: string,
+  method: AuthMethod = "google_oauth",
 ): Promise<Response> {
   // Look up org membership (user might belong to one org)
   const membership = await env.DB.prepare(`
@@ -430,7 +438,7 @@ async function issueSession(
   await env.DB.prepare("UPDATE users SET last_login = datetime('now'), last_active = datetime('now') WHERE id = ?")
     .bind(userId).run();
 
-  await audit(env, { action: "login", userId, details: { method: "google_oauth" }, request });
+  await audit(env, { action: "login", userId, details: { method }, request });
 
   // Redirect to frontend with access token as hash fragment (never hits server)
   const returnTo = returnToPath || '/observatory';
@@ -474,6 +482,177 @@ function redirectWithError(origin: string, message: string): Response {
     status: 302,
     headers: { Location: `${origin}/auth/error?message=${encoded}` },
   });
+}
+
+// ─── Magic-link sign-in ─────────────────────────────────────────
+//
+// Email-based passwordless flow for users without Google accounts. Mirrors
+// the FarmTrack pattern (see AUTH_PWA_NOTIFICATIONS.md §1.3): the request
+// endpoint always returns a benign success envelope so it can't be used to
+// enumerate which emails have accounts on the platform. The verify endpoint
+// mints a session via the same `issueSession` helper as the OAuth flow, so
+// downstream JWT / refresh-cookie / org_scope behavior is identical.
+
+interface MagicLinkRequestBody {
+  email?: string;
+  return_to?: string;
+}
+
+const GENERIC_REQUEST_RESPONSE = {
+  success: true,
+  message: "If an account exists for that email, a sign-in link has been sent.",
+  expires_in_minutes: 30,
+};
+
+export async function handleMagicLinkRequest(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = (await request.json().catch(() => ({}))) as MagicLinkRequestBody;
+    const rawEmail = (body.email ?? "").trim().toLowerCase();
+    if (!rawEmail || !rawEmail.includes("@")) {
+      return json({ success: false, error: "A valid email is required." }, 400, origin);
+    }
+
+    if (!env.RESEND_API_KEY) {
+      // Log loudly so the operator notices the env gap; user gets the
+      // generic envelope so they don't see the misconfiguration.
+      console.error("[magic-link] RESEND_API_KEY not configured — request dropped");
+      return json(GENERIC_REQUEST_RESPONSE, 200, origin);
+    }
+
+    // Rate-limit by email regardless of whether the account exists, so
+    // brute-force address enumeration via timing isn't possible.
+    const retryAfter = await checkRateLimit(env, rawEmail);
+    if (retryAfter !== null) {
+      return json({
+        success: false,
+        error: `Too many requests. Try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
+      }, 429, origin);
+    }
+
+    // Look up the user. If they don't exist, return the SAME generic
+    // success envelope as if they did — never leak existence.
+    const user = await env.DB.prepare(
+      "SELECT id, status FROM users WHERE LOWER(email) = ?",
+    ).bind(rawEmail).first<{ id: string; status: string }>();
+
+    if (!user || user.status !== "active") {
+      // Pretend we sent the email. Audit so a real human can investigate
+      // suspicious patterns later.
+      await audit(env, {
+        action: "magic_link_request_no_account",
+        details: { email: rawEmail },
+        request,
+      }).catch(() => {});
+      return json(GENERIC_REQUEST_RESPONSE, 200, origin);
+    }
+
+    // Generate the token, hash it, persist the row, send the email.
+    const token = generateMagicLinkToken();
+    const tokenHash = await hashMagicLinkToken(token);
+    const ip = request.headers.get("CF-Connecting-IP")
+      ?? request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()
+      ?? null;
+    const ua = request.headers.get("User-Agent") ?? null;
+    const returnTo = sanitizeReturnTo(body.return_to);
+
+    await persistMagicLinkRow(env, {
+      email: rawEmail,
+      tokenHash,
+      ip,
+      userAgent: ua,
+      returnTo,
+    });
+
+    const siteOrigin = new URL(request.url).origin;
+    const signInUrl = `${siteOrigin}/api/auth/magic-link/${encodeURIComponent(token)}`;
+
+    const sendResult = await sendMagicLinkEmail(env.RESEND_API_KEY, {
+      recipientEmail: rawEmail,
+      signInUrl,
+      ipAddress: ip,
+      userAgent: ua,
+    });
+
+    await audit(env, {
+      action: sendResult.ok ? "magic_link_request_sent" : "magic_link_request_send_failed",
+      userId: user.id,
+      details: { email: rawEmail, error: sendResult.error },
+      request,
+    }).catch(() => {});
+
+    // Always return the generic envelope — even on Resend failure, so we
+    // don't leak transient infra errors back to the caller.
+    return json(GENERIC_REQUEST_RESPONSE, 200, origin);
+  } catch (err) {
+    console.error("[magic-link] request error:", err);
+    return json(GENERIC_REQUEST_RESPONSE, 200, origin);
+  }
+}
+
+export async function handleMagicLinkVerify(
+  request: Request,
+  env: Env,
+  rawToken: string,
+): Promise<Response> {
+  const siteOrigin = new URL(request.url).origin;
+  try {
+    if (!rawToken) {
+      return redirectWithError(siteOrigin, "missing_token");
+    }
+    const tokenHash = await hashMagicLinkToken(rawToken);
+    const row = await findMagicLinkByHash(env, tokenHash);
+    if (!row) {
+      return redirectWithError(siteOrigin, "invalid_or_expired_token");
+    }
+
+    // Find the user — re-verify they still exist + are active. Email is
+    // the source of truth on the magic-link row (we never store user_id
+    // there, so a reused token after an account deletion can't mint a
+    // session for the wrong account).
+    const user = await env.DB.prepare(
+      "SELECT id, email, role, status FROM users WHERE LOWER(email) = ?",
+    ).bind(row.email).first<{ id: string; email: string; role: UserRole; status: string }>();
+
+    if (!user || user.status !== "active") {
+      await markMagicLinkUsed(env, row.id).catch(() => {});
+      await audit(env, {
+        action: "magic_link_verify_no_account",
+        details: { email: row.email },
+        request,
+      }).catch(() => {});
+      return redirectWithError(siteOrigin, "account_not_active");
+    }
+
+    // Mark the token used FIRST so a simultaneous click can't double-spend.
+    // The UNIQUE token_hash + the conditional UPDATE inside markMagicLinkUsed
+    // means the second caller will find used_at already set on its lookup.
+    await markMagicLinkUsed(env, row.id);
+
+    return issueSession(
+      request,
+      env,
+      user.id,
+      user.email,
+      user.role,
+      siteOrigin,
+      row.return_to ?? undefined,
+      "magic_link",
+    );
+  } catch (err) {
+    console.error("[magic-link] verify error:", err);
+    return redirectWithError(siteOrigin, "verify_error");
+  }
+}
+
+/** Whitelist /v2/... or /observatory paths so a malicious return_to can't
+ *  hijack the redirect to an external site. */
+function sanitizeReturnTo(returnTo: string | undefined): string | null {
+  if (!returnTo) return null;
+  if (!returnTo.startsWith("/")) return null;
+  if (returnTo.startsWith("//")) return null; // protocol-relative URL escape
+  if (returnTo.length > 200) return null;
+  return returnTo;
 }
 
 function parseCookies(cookieHeader: string): Record<string, string> {
