@@ -130,7 +130,7 @@ export const strategistAgent: AgentModule = {
         const addedThreats = (newCount?.threat_count ?? 0) - (oldCount?.threat_count ?? 0);
         if (addedThreats > 0 && newCount) {
           try {
-            await createNotification(env.DB, {
+            await createNotification(env, {
               type: 'campaign_escalation',
               severity: 'medium',
               title: `Campaign growing: ${newCount.name}`,
@@ -194,7 +194,7 @@ export const strategistAgent: AgentModule = {
 
         // Notify: new campaign identified
         try {
-          await createNotification(env.DB, {
+          await createNotification(env, {
             type: 'agent_milestone',
             severity: 'medium',
             title: 'New campaign identified',

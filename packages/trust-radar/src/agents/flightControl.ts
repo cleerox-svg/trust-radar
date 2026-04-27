@@ -11,6 +11,7 @@
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+import type { Env } from "../types";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits, ThrottleLevel } from "../lib/budgetManager";
 import { createNotification } from "../lib/notifications";
@@ -260,7 +261,7 @@ export const flightControlAgent: AgentModule = {
       const prevLevel = await budgetMgr.getLastThrottleLevel();
       const currLevel = budgetStatus.throttle_level;
       if (prevLevel !== currLevel) {
-        await notifyBudgetTransition(db, prevLevel, currLevel, budgetStatus);
+        await notifyBudgetTransition(env, prevLevel, currLevel, budgetStatus);
         await budgetMgr.setLastThrottleLevel(currLevel);
       }
     } catch (err) {
@@ -1136,7 +1137,7 @@ async function logActivity(
  * whatever routing / preferences users already have in place.
  */
 async function notifyBudgetTransition(
-  db: D1Database,
+  env: Env,
   prev: ThrottleLevel | null,
   curr: ThrottleLevel,
   status: BudgetStatus,
@@ -1179,7 +1180,7 @@ async function notifyBudgetTransition(
       `All AI agents are running at full capacity. Current: ${spendLine}.`;
   }
 
-  await createNotification(db, {
+  await createNotification(env, {
     type: 'circuit_breaker_tripped',
     severity,
     title,

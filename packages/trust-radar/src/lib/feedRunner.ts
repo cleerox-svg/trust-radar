@@ -231,7 +231,7 @@ export async function runFeed(
     // Notify only on status CHANGE (healthy → degraded)
     if (prevStatus?.health_status === 'healthy') {
       try {
-        await createNotification(env.DB, {
+        await createNotification(env, {
           type: 'feed_health',
           severity: 'high',
           title: `Feed degraded: ${config.display_name}`,
@@ -311,7 +311,7 @@ async function autoPauseFeed(
   const truncatedError = lastError.slice(0, 500);
 
   try {
-    await createNotification(env.DB, {
+    await createNotification(env, {
       type: 'feed_health',
       severity: 'critical',
       title: `Feed auto-paused: ${config.display_name}`,

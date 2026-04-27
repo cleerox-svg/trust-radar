@@ -16,6 +16,10 @@ import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
 } from "../handlers/notifications";
+import {
+  handleSubscribePush, handleUnsubscribePush,
+  handleGetVapidPublicKey, handleListPushSubscriptions,
+} from "../handlers/push";
 import { handleLatestInsights } from "../handlers/insights";
 import {
   handleTrendVolume, handleTrendBrands, handleTrendProviders,
@@ -143,6 +147,30 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdatePreferences(request, env, ctx.userId);
+  });
+
+  // ─── Web Push subscriptions ──────────────────────────────────────
+  // The SPA's PushManager.subscribe call POSTs the resulting endpoint +
+  // p256dh + auth here so the dispatcher in lib/notifications.ts knows
+  // where to send pushes for this user. See lib/push.ts for the
+  // encryption + VAPID details.
+  router.get("/api/push/vapid-public-key", async (request: Request, env: Env) => {
+    return handleGetVapidPublicKey(request, env);
+  });
+  router.get("/api/push/subscriptions", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListPushSubscriptions(request, env, ctx.userId);
+  });
+  router.post("/api/push/subscribe", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSubscribePush(request, env, ctx.userId);
+  });
+  router.delete("/api/push/subscribe/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUnsubscribePush(request, env, request.params["id"] ?? "", ctx.userId);
   });
 
   // ─── Insights ─────────────────────────────────────────────────────
