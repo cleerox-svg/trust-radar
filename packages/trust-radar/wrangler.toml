@@ -3,6 +3,25 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# ─── Observability (Workers Logs) ────────────────────────────
+# Enables Workers Logs so we can tail invocations and capture errors like
+# the `503 DNS cache overflow` that surfaced on /api/internal/platform-diagnostics.
+# Top-level + traces stay disabled; only logs are persisted.
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
 # ─── Routes ──────────────────────────────────────────────────
 routes = [
   { pattern = "averrow.com", custom_domain = true },
