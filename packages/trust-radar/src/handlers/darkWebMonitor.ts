@@ -11,6 +11,7 @@ import {
   runDarkWebMonitorForBrand,
   runDarkWebAIAssessmentBatch,
 } from "../scanners/dark-web-monitor";
+import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -84,6 +85,21 @@ export async function handleListDarkWebMentions(
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
+    // KV cache — page-load endpoint convention (CLAUDE.md §8). Reduced-
+    // dimension key for default views (no filters, page 1) so the typical
+    // brand-detail page load hits the same cache slot regardless of user.
+    const isDefaultView = !source && !classification && !severity && !matchType
+      && status === "active" && offset === 0 && limit === 50;
+    const cacheKey = isDefaultView
+      ? `darkweb_mentions:${brandId}:default`
+      : `darkweb_mentions:${brandId}:${status}:${source ?? ""}:${classification ?? ""}:${severity ?? ""}:${matchType ?? ""}:${limit}:${offset}`;
+
+    const dbCtx = getDbContext(request);
+    const session = getReadSession(env, dbCtx);
+
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
     let where = "WHERE brand_id = ?";
     const params: unknown[] = [brandId];
 
@@ -93,31 +109,32 @@ export async function handleListDarkWebMentions(
     if (matchType) { where += " AND match_type = ?"; params.push(matchType); }
     if (status) { where += " AND status = ?"; params.push(status); }
 
-    const rows = await env.DB.prepare(`
-      SELECT * FROM dark_web_mentions
-      ${where}
-      ORDER BY
-        CASE severity
-          WHEN 'CRITICAL' THEN 1
-          WHEN 'HIGH' THEN 2
-          WHEN 'MEDIUM' THEN 3
-          WHEN 'LOW' THEN 4
-        END,
-        classification = 'confirmed' DESC,
-        classification = 'suspicious' DESC,
-        COALESCE(last_seen, first_seen) DESC
-      LIMIT ? OFFSET ?
-    `).bind(...params, limit, offset).all();
+    // Parallelize the three reads — independent queries, no need to serialize.
+    const [rows, countRow, schedule] = await Promise.all([
+      session.prepare(`
+        SELECT * FROM dark_web_mentions
+        ${where}
+        ORDER BY
+          CASE severity
+            WHEN 'CRITICAL' THEN 1
+            WHEN 'HIGH' THEN 2
+            WHEN 'MEDIUM' THEN 3
+            WHEN 'LOW' THEN 4
+          END,
+          classification = 'confirmed' DESC,
+          classification = 'suspicious' DESC,
+          COALESCE(last_seen, first_seen) DESC
+        LIMIT ? OFFSET ?
+      `).bind(...params, limit, offset).all(),
+      session.prepare(
+        `SELECT COUNT(*) AS n FROM dark_web_mentions ${where}`,
+      ).bind(...params).first<{ n: number }>(),
+      session.prepare(
+        "SELECT platform, last_checked, next_check, check_interval_hours, enabled FROM brand_monitor_schedule WHERE brand_id = ? AND monitor_type = 'darkweb'",
+      ).bind(brandId).all(),
+    ]);
 
-    const countRow = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM dark_web_mentions ${where}`,
-    ).bind(...params).first<{ n: number }>();
-
-    const schedule = await env.DB.prepare(
-      "SELECT platform, last_checked, next_check, check_interval_hours, enabled FROM brand_monitor_schedule WHERE brand_id = ? AND monitor_type = 'darkweb'",
-    ).bind(brandId).all();
-
-    return json({
+    const responseBody = {
       success: true,
       data: {
         brand: access.brand,
@@ -125,7 +142,10 @@ export async function handleListDarkWebMentions(
         total: countRow?.n ?? 0,
         schedule: schedule.results,
       },
-    }, 200, origin);
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(responseBody), { expirationTtl: 300 });
+    return attachBookmark(json(responseBody, 200, origin), session);
   } catch {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
@@ -314,14 +334,17 @@ export async function handleDarkWebOverview(
 
     let scope: string;
     let scopeParams: unknown[];
+    let scopeKey: string;
 
     if (isAdmin) {
       scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id`;
       scopeParams = [];
+      scopeKey = "admin";
     } else if (ctx.orgId) {
       scope = `INNER JOIN monitored_brands mb ON mb.brand_id = b.id
                INNER JOIN org_brands ob ON ob.brand_id = b.id AND ob.org_id = ?`;
       scopeParams = [ctx.orgId];
+      scopeKey = `org:${ctx.orgId}`;
     } else {
       return json({
         success: true,
@@ -331,95 +354,122 @@ export async function handleDarkWebOverview(
       }, 200, origin);
     }
 
-    const brands = await env.DB.prepare(`
-      SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,
-             b.executive_names, b.first_seen AS created_at
-      FROM brands b
-      ${scope}
-      ORDER BY b.name ASC
-      LIMIT ? OFFSET ?
-    `).bind(...scopeParams, limit, offset).all<{
-      id: string;
-      brand_name: string;
-      domain: string | null;
-      executive_names: string | null;
-      created_at: string;
-    }>();
+    // KV cache — page-load convention. Default view (page 1, limit 50) gets
+    // a tighter key so all admins / all members of the same org share a slot.
+    const isDefaultView = limit === 50 && offset === 0;
+    const cacheKey = isDefaultView
+      ? `darkweb_overview:${scopeKey}:default`
+      : `darkweb_overview:${scopeKey}:${limit}:${offset}`;
 
-    const total = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM brands b ${scope}`,
-    ).bind(...scopeParams).first<{ n: number }>();
+    const dbCtx = getDbContext(request);
+    const session = getReadSession(env, dbCtx);
 
-    const brandsWithStats = await Promise.all(
-      brands.results.map(async (brand) => {
-        const classificationCounts = await env.DB.prepare(`
-          SELECT classification, severity, COUNT(*) AS count
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+
+    // Stage 1: list brands + total count + cross-brand totals — three
+    // independent reads, run in parallel.
+    const [brands, total, totals] = await Promise.all([
+      session.prepare(`
+        SELECT b.id, b.name AS brand_name, b.canonical_domain AS domain,
+               b.executive_names, b.first_seen AS created_at
+        FROM brands b
+        ${scope}
+        ORDER BY b.name ASC
+        LIMIT ? OFFSET ?
+      `).bind(...scopeParams, limit, offset).all<{
+        id: string;
+        brand_name: string;
+        domain: string | null;
+        executive_names: string | null;
+        created_at: string;
+      }>(),
+      session.prepare(
+        `SELECT COUNT(*) AS n FROM brands b ${scope}`,
+      ).bind(...scopeParams).first<{ n: number }>(),
+      session.prepare(`
+        SELECT
+          SUM(CASE WHEN classification = 'confirmed' THEN 1 ELSE 0 END) AS confirmed,
+          SUM(CASE WHEN classification = 'suspicious' THEN 1 ELSE 0 END) AS suspicious,
+          SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) AS critical,
+          SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
+          COUNT(*) AS total
+        FROM dark_web_mentions dwm
+        INNER JOIN brands b ON b.id = dwm.brand_id
+        ${scope}
+        WHERE dwm.status = 'active'
+      `).bind(...scopeParams).first<{
+        confirmed: number | null;
+        suspicious: number | null;
+        critical: number | null;
+        high: number | null;
+        total: number | null;
+      }>(),
+    ]);
+
+    // Stage 2: bulk per-brand stats. Two queries instead of 2 × N — collapse
+    // the previous Promise.all loop (one classification + one schedule per
+    // brand) into single GROUP BY + single IN-list lookup. For 50 brands this
+    // drops 100 round-trips to 2.
+    const brandIds = brands.results.map(b => b.id);
+    const placeholders = brandIds.map(() => "?").join(",");
+
+    let classificationByBrand = new Map<string, Array<{ classification: string; severity: string; count: number }>>();
+    let scheduleByBrand = new Map<string, { last_checked: string | null; next_check: string | null }>();
+
+    if (brandIds.length > 0) {
+      const [classRows, schedRows] = await Promise.all([
+        session.prepare(`
+          SELECT brand_id, classification, severity, COUNT(*) AS count
           FROM dark_web_mentions
-          WHERE brand_id = ? AND status = 'active'
-          GROUP BY classification, severity
-        `).bind(brand.id).all<{
-          classification: string;
-          severity: string;
-          count: number;
-        }>();
+          WHERE brand_id IN (${placeholders}) AND status = 'active'
+          GROUP BY brand_id, classification, severity
+        `).bind(...brandIds).all<{ brand_id: string; classification: string; severity: string; count: number }>(),
+        session.prepare(`
+          SELECT brand_id, last_checked, next_check
+          FROM brand_monitor_schedule
+          WHERE brand_id IN (${placeholders})
+            AND monitor_type = 'darkweb'
+            AND enabled = 1
+        `).bind(...brandIds).all<{ brand_id: string; last_checked: string | null; next_check: string | null }>(),
+      ]);
 
-        const counts = {
-          total: 0,
-          confirmed: 0,
-          suspicious: 0,
-          critical: 0,
-          high: 0,
-          medium: 0,
-          low: 0,
-        };
+      classificationByBrand = classRows.results.reduce((m, r) => {
+        const arr = m.get(r.brand_id) ?? [];
+        arr.push({ classification: r.classification, severity: r.severity, count: r.count });
+        m.set(r.brand_id, arr);
+        return m;
+      }, new Map<string, Array<{ classification: string; severity: string; count: number }>>());
 
-        for (const row of classificationCounts.results) {
-          counts.total += row.count;
-          if (row.classification === "confirmed") counts.confirmed += row.count;
-          if (row.classification === "suspicious") counts.suspicious += row.count;
-          if (row.severity === "CRITICAL") counts.critical += row.count;
-          if (row.severity === "HIGH") counts.high += row.count;
-          if (row.severity === "MEDIUM") counts.medium += row.count;
-          if (row.severity === "LOW") counts.low += row.count;
-        }
+      scheduleByBrand = schedRows.results.reduce((m, r) => {
+        m.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
+        return m;
+      }, new Map<string, { last_checked: string | null; next_check: string | null }>());
+    }
 
-        const schedule = await env.DB.prepare(
-          `SELECT last_checked, next_check
-           FROM brand_monitor_schedule
-           WHERE brand_id = ? AND monitor_type = 'darkweb' AND enabled = 1
-           LIMIT 1`,
-        ).bind(brand.id).first<{ last_checked: string | null; next_check: string | null }>();
+    const brandsWithStats = brands.results.map((brand) => {
+      const classRows = classificationByBrand.get(brand.id) ?? [];
+      const counts = { total: 0, confirmed: 0, suspicious: 0, critical: 0, high: 0, medium: 0, low: 0 };
+      for (const row of classRows) {
+        counts.total += row.count;
+        if (row.classification === "confirmed") counts.confirmed += row.count;
+        if (row.classification === "suspicious") counts.suspicious += row.count;
+        if (row.severity === "CRITICAL") counts.critical += row.count;
+        if (row.severity === "HIGH") counts.high += row.count;
+        if (row.severity === "MEDIUM") counts.medium += row.count;
+        if (row.severity === "LOW") counts.low += row.count;
+      }
+      const sched = scheduleByBrand.get(brand.id);
+      return {
+        ...brand,
+        has_executives: Boolean(brand.executive_names && brand.executive_names !== "[]"),
+        counts,
+        last_checked: sched?.last_checked ?? null,
+        next_check: sched?.next_check ?? null,
+      };
+    });
 
-        return {
-          ...brand,
-          has_executives: Boolean(brand.executive_names && brand.executive_names !== "[]"),
-          counts,
-          last_checked: schedule?.last_checked ?? null,
-          next_check: schedule?.next_check ?? null,
-        };
-      }),
-    );
-
-    const totals = await env.DB.prepare(`
-      SELECT
-        SUM(CASE WHEN classification = 'confirmed' THEN 1 ELSE 0 END) AS confirmed,
-        SUM(CASE WHEN classification = 'suspicious' THEN 1 ELSE 0 END) AS suspicious,
-        SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) AS critical,
-        SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
-        COUNT(*) AS total
-      FROM dark_web_mentions dwm
-      INNER JOIN brands b ON b.id = dwm.brand_id
-      ${scope}
-      WHERE dwm.status = 'active'
-    `).bind(...scopeParams).first<{
-      confirmed: number | null;
-      suspicious: number | null;
-      critical: number | null;
-      high: number | null;
-      total: number | null;
-    }>();
-
-    return json({
+    const responseBody = {
       success: true,
       data: brandsWithStats,
       total: total?.n ?? 0,
@@ -430,7 +480,10 @@ export async function handleDarkWebOverview(
         critical: totals?.critical ?? 0,
         high: totals?.high ?? 0,
       },
-    }, 200, origin);
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(responseBody), { expirationTtl: 300 });
+    return attachBookmark(json(responseBody, 200, origin), session);
   } catch {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

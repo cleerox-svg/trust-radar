@@ -9,6 +9,162 @@ import { json, corsHeaders } from "../lib/cors";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import type { Env } from "../types";
 
+// ─── D1 metrics via Cloudflare GraphQL Analytics API ──────────────
+// Pulls rows_read / rows_written / query counts from the past 24h. Used
+// to track progress against the 25B rows_read/month plan ceiling
+// ($25/mo at $0.001/M reads). Requires two secrets configured on the
+// worker via wrangler.toml or `wrangler secret put`:
+//   CF_API_TOKEN     — token with "Account Analytics: Read" scope
+//   CF_ACCOUNT_ID    — your account's account_id (visible in CF dash)
+// If either is missing, the diagnostic returns a setup_required: true
+// stub instead of throwing — the rest of the diagnostic stays usable.
+
+interface D1Metrics {
+  rows_read_24h: number | null;
+  rows_written_24h: number | null;
+  read_queries_24h: number | null;
+  write_queries_24h: number | null;
+  monthly_rows_read_projection: number | null;
+  pct_of_25b_plan_ceiling: number | null;
+  setup_required: boolean;
+  setup_instructions?: string;
+  error?: string;
+}
+
+async function fetchD1Metrics(env: Env, databaseId: string): Promise<D1Metrics> {
+  const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
+  const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
+
+  if (!token || !accountId) {
+    return {
+      rows_read_24h: null,
+      rows_written_24h: null,
+      read_queries_24h: null,
+      write_queries_24h: null,
+      monthly_rows_read_projection: null,
+      pct_of_25b_plan_ceiling: null,
+      setup_required: true,
+      setup_instructions:
+        "Set CF_API_TOKEN (Account Analytics: Read scope) and CF_ACCOUNT_ID via " +
+        "`wrangler secret put` to enable D1 row-read tracking. Without these, " +
+        "check the Cloudflare D1 dashboard manually.",
+    };
+  }
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const query = `
+    query {
+      viewer {
+        accounts(filter: { accountTag: "${accountId}" }) {
+          d1AnalyticsAdaptiveGroups(
+            filter: { datetimeHour_geq: "${since}", databaseId: "${databaseId}" }
+            limit: 1000
+          ) {
+            sum {
+              readQueries
+              writeQueries
+              rowsRead
+              rowsWritten
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!res.ok) {
+      return {
+        rows_read_24h: null,
+        rows_written_24h: null,
+        read_queries_24h: null,
+        write_queries_24h: null,
+        monthly_rows_read_projection: null,
+        pct_of_25b_plan_ceiling: null,
+        setup_required: false,
+        error: `CF GraphQL HTTP ${res.status}`,
+      };
+    }
+
+    const json = (await res.json()) as {
+      data?: {
+        viewer?: {
+          accounts?: Array<{
+            d1AnalyticsAdaptiveGroups?: Array<{
+              sum: {
+                readQueries: number;
+                writeQueries: number;
+                rowsRead: number;
+                rowsWritten: number;
+              };
+            }>;
+          }>;
+        };
+      };
+      errors?: Array<{ message: string }>;
+    };
+
+    if (json.errors?.length) {
+      return {
+        rows_read_24h: null,
+        rows_written_24h: null,
+        read_queries_24h: null,
+        write_queries_24h: null,
+        monthly_rows_read_projection: null,
+        pct_of_25b_plan_ceiling: null,
+        setup_required: false,
+        error: json.errors.map((e) => e.message).join("; "),
+      };
+    }
+
+    const groups = json.data?.viewer?.accounts?.[0]?.d1AnalyticsAdaptiveGroups ?? [];
+    const totals = groups.reduce(
+      (acc, g) => ({
+        rowsRead: acc.rowsRead + g.sum.rowsRead,
+        rowsWritten: acc.rowsWritten + g.sum.rowsWritten,
+        readQueries: acc.readQueries + g.sum.readQueries,
+        writeQueries: acc.writeQueries + g.sum.writeQueries,
+      }),
+      { rowsRead: 0, rowsWritten: 0, readQueries: 0, writeQueries: 0 },
+    );
+
+    // Monthly projection assumes the past 24h is representative.
+    const monthlyProjection = totals.rowsRead * 30;
+    const planCeiling = 25_000_000_000; // 25B rows_read/month plan
+    const pctOfCeiling = Math.round((monthlyProjection / planCeiling) * 1000) / 10;
+
+    return {
+      rows_read_24h: totals.rowsRead,
+      rows_written_24h: totals.rowsWritten,
+      read_queries_24h: totals.readQueries,
+      write_queries_24h: totals.writeQueries,
+      monthly_rows_read_projection: monthlyProjection,
+      pct_of_25b_plan_ceiling: pctOfCeiling,
+      setup_required: false,
+    };
+  } catch (err) {
+    return {
+      rows_read_24h: null,
+      rows_written_24h: null,
+      read_queries_24h: null,
+      write_queries_24h: null,
+      monthly_rows_read_projection: null,
+      pct_of_25b_plan_ceiling: null,
+      setup_required: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 /** GET /api/admin/platform-diagnostics  (JWT admin auth)
  *  GET /api/internal/platform-diagnostics (AVERROW_INTERNAL_SECRET auth) */
 export async function handlePlatformDiagnostics(request: Request, env: Env): Promise<Response> {
@@ -270,17 +426,25 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       feeds_disabled: number;
     }>();
 
+    // D1 metrics from Cloudflare GraphQL Analytics API. Awaited in
+    // parallel with the D1 queries so it doesn't extend the diagnostic.
+    // Database id matches wrangler.toml's [[d1_databases]] entry — kept
+    // as a literal to avoid passing it through env (which would require
+    // additional secret config).
+    const D1_DATABASE_ID = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6";
+    const d1MetricsP = fetchD1Metrics(env, D1_DATABASE_ID);
+
     // ── Execute all in parallel ─────────────────────────────────────
     const [
       clock, enrichment, cartoQueue, cartoQueueRaw, cartoExhausted,
       feedHealth, feedStatus, feedErrors,
       agentMesh, stalled, backlog,
-      aiSpend, cronHealth, totals,
+      aiSpend, cronHealth, totals, d1Metrics,
     ] = await Promise.all([
       clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP,
       feedHealthP, feedStatusP, feedErrorsP,
       agentMeshP, stalledP, backlogP,
-      aiSpendP, cronHealthP, totalsP,
+      aiSpendP, cronHealthP, totalsP, d1MetricsP,
     ]);
 
     // ── Build backlog trend map ─────────────────────────────────────
@@ -321,7 +485,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           generated_at: new Date().toISOString(),
           db_clock_utc: clock?.utc_now ?? null,
           window_hours: hoursBack,
-          endpoint_version: 3,
+          endpoint_version: 4,
         },
 
         enrichment_pipeline: {
@@ -386,6 +550,11 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         },
 
         platform_totals: totals,
+
+        // D1 row-read tracking against the 25B/month plan ceiling.
+        // setup_required: true when CF_API_TOKEN / CF_ACCOUNT_ID aren't
+        // configured — set them via `wrangler secret put` to enable.
+        d1_metrics_24h: d1Metrics,
       },
     }, 200, origin);
   } catch (err) {
