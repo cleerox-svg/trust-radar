@@ -106,15 +106,16 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
       `).first(),
       env.DB.prepare(`SELECT COUNT(*) AS total FROM campaigns WHERE status = 'active'`).first<{ total: number }>(),
       env.DB.prepare(`
-        SELECT COUNT(DISTINCT target_brand_id) AS brands_targeted
-        FROM threats WHERE status = 'active' AND target_brand_id IS NOT NULL
+        SELECT COUNT(DISTINCT target_brand_id) AS brands_targeted FROM threat_cube_brand
       `).first<{ brands_targeted: number }>(),
       env.DB.prepare(`
-        SELECT COUNT(DISTINCT threat_type) AS threat_types FROM threats WHERE status = 'active'
+        SELECT COUNT(DISTINCT threat_type) AS threat_types FROM threat_cube_status
+        WHERE status = 'active' AND threat_type != 'unknown'
       `).first<{ threat_types: number }>(),
     ]);
-    // 4 .first() queries — meta unavailable, but the brands_targeted
-    // + threat_types counts scan the threats table (200K+ rows).
+    // 4 .first() queries — meta unavailable, all cube-served.
+    // brands_targeted reads brand cube (already filters status='active');
+    // threat_types reads status cube with explicit status='active' filter.
     tally.queries += 4;
 
     const responseData = {

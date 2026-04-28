@@ -107,6 +107,29 @@ const BRAND_HEAL_SQL = `
   GROUP BY 1, 2, 3, 4, 5
 `;
 
+// Status cube heal — captures every threat (no status filter, no
+// dimension NOT NULL filter). The 6-hourly cadence here is the lag
+// window for status transitions (active → down → remediated): an
+// hour bucket carries stale numbers for at most 6 hours before this
+// SQL replays it from the source of truth.
+const STATUS_HEAL_SQL = `
+  INSERT OR REPLACE INTO threat_cube_status
+    (hour_bucket, threat_type, severity, source_feed, status,
+     threat_count, updated_at)
+  SELECT
+    strftime('%Y-%m-%d %H:00:00', created_at),
+    COALESCE(threat_type, 'unknown'),
+    COALESCE(severity, 'unknown'),
+    COALESCE(source_feed, 'unknown'),
+    COALESCE(status, 'unknown'),
+    COUNT(*),
+    datetime('now')
+  FROM threats
+  WHERE created_at >= datetime('now', '-30 days')
+    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+  GROUP BY 1, 2, 3, 4, 5
+`;
+
 // ─── Main entry ──────────────────────────────────────────────────
 
 export async function runCubeHealer(
@@ -196,6 +219,21 @@ export async function runCubeHealer(
     if (finalStatus === 'success') finalStatus = 'partial';
     const prevError = errorMessage ? `${errorMessage} | ` : '';
     errorMessage = `${prevError}cube_healer brand heal failed (${rowsWritten} rows so far): ${errMsg}`;
+  }
+
+  // ── Status heal ─────────────────────────────────────────────
+  // Same partial/error pattern. Status cube has no dimension filter and
+  // no status filter, so this is the only path that reconciles status
+  // mutations (active → down → remediated) for older hour buckets.
+  try {
+    const statusResult = await env.DB.prepare(STATUS_HEAL_SQL).run();
+    const statusChanges = statusResult.meta?.changes ?? 0;
+    rowsWritten += statusChanges;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (finalStatus === 'success') finalStatus = 'partial';
+    const prevError = errorMessage ? `${errorMessage} | ` : '';
+    errorMessage = `${prevError}cube_healer status heal failed (${rowsWritten} rows so far): ${errMsg}`;
   }
 
   // ── Dark web + app store brand summaries ───────────────────

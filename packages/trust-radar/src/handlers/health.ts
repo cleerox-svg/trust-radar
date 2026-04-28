@@ -62,7 +62,7 @@ export async function handleHealthCheck(request: Request, env: Env): Promise<Res
   try {
     const [brands, threats, feeds] = await Promise.all([
       env.DB.prepare("SELECT COUNT(*) as cnt FROM monitored_brands").first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
-      env.DB.prepare("SELECT COUNT(*) as cnt FROM threats WHERE status = 'active'").first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
+      env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS cnt FROM threat_cube_status WHERE status = 'active'").first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
       env.DB.prepare("SELECT COUNT(*) as cnt FROM feeds WHERE enabled = 1").first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
     ]);
     brandsMonitored = brands?.cnt ?? 0;

@@ -555,13 +555,13 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
         `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
       ).first<{ n: number }>(),
       session.prepare(
-        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
-      ).bind(interval, ...sf.params).first<{ n: number }>(),
+        `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threat_cube_brand WHERE hour_bucket >= ?${sf.sql}`
+      ).bind(windowStart, ...sf.params).first<{ n: number }>(),
     ]);
     // .first() doesn't expose meta — count queries but not rows_read.
-    // The biggest of these (DISTINCT target_brand_id over threats) can
-    // touch tens of thousands of rows; flagged for future migration to
-    // a cube or pre-computed counter.
+    // All four reads are now cube-served (geo cube × 2, campaigns table,
+    // brand cube). DISTINCT target_brand_id moved from threats →
+    // threat_cube_brand to kill the last full-table-scan path.
     tally.queries += 4;
 
     const data = {
