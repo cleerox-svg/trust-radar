@@ -141,6 +141,16 @@ export const cartographerAgent: AgentModule = {
     let batchGeoResponded = 0;
     let batchGeoLocated = 0;
     let rdapEnriched = 0;
+    // Surface env.DB.batch() failures so we can diagnose without wrangler tail.
+    // Pre-PR-#825 these went only to console.error and were invisible. The
+    // 2026-04-27 cartographer-health snapshot revealed ~90% of threat UPDATEs
+    // weren't persisting (geo_located counter said 2,397 but enriched_last_hour
+    // showed 243). This counter + first-error capture surfaces the root cause
+    // in agent_outputs.details so cartographer-health can read it.
+    let batchFlushFailures = 0;
+    let batchFlushSuccesses = 0;
+    let firstFlushError: string | null = null;
+    let firstFlushErrorChunk: number | null = null;
 
     try {
       for (let batchIndex = 0; batchIndex < MAX_BATCHES_PER_RUN; batchIndex++) {
@@ -285,7 +295,14 @@ export const cartographerAgent: AgentModule = {
             const slice = pendingWrites.slice(i, i + FLUSH_CHUNK);
             try {
               await env.DB.batch(slice);
+              batchFlushSuccesses++;
             } catch (err) {
+              batchFlushFailures++;
+              const msg = err instanceof Error ? err.message : String(err);
+              if (firstFlushError === null) {
+                firstFlushError = msg;
+                firstFlushErrorChunk = i;
+              }
               console.error(`[cartographer] batch flush error (chunk ${i}-${i + slice.length}):`, err);
             }
           }
@@ -310,14 +327,22 @@ export const cartographerAgent: AgentModule = {
         }
       }
 
-      if (batchGeoResponded > 0) {
+      if (batchGeoResponded > 0 || batchFlushFailures > 0) {
+        const totalChunks = batchFlushSuccesses + batchFlushFailures;
+        const flushFailurePct = totalChunks > 0
+          ? Math.round((batchFlushFailures / totalChunks) * 1000) / 10
+          : 0;
         outputs.push({
           type: "diagnostic",
-          summary: `ip-api.com batch: ${batchGeoResponded} responses, ${batchGeoLocated} geo-located across up to ${MAX_BATCHES_PER_RUN} batches, ${rdapEnriched} RDAP lookups`,
-          severity: "info",
+          summary: `ip-api.com batch: ${batchGeoResponded} responses, ${batchGeoLocated} geo-located across up to ${MAX_BATCHES_PER_RUN} batches, ${rdapEnriched} RDAP lookups${batchFlushFailures > 0 ? ` — ${batchFlushFailures}/${totalChunks} D1 batch chunks FAILED` : ''}`,
+          severity: batchFlushFailures > 0 ? "high" : "info",
           // batch_enriched preserved as legacy alias for batch_geo_responded
           // — historical agent_outputs rows depend on it. New rows carry the
           // honest pair so consumers can compute the real lat-yield.
+          //
+          // batch_flush_failures / first_flush_error surface the silent D1
+          // batch rollback failures that PR #825 made visible. Read via
+          // /api/internal/cartographer-health to diagnose without wrangler tail.
           details: {
             batch_enriched: batchGeoResponded,
             batch_geo_responded: batchGeoResponded,
@@ -325,6 +350,11 @@ export const cartographerAgent: AgentModule = {
             rdap_enriched: rdapEnriched,
             batch_size: BATCH_SIZE,
             max_batches: MAX_BATCHES_PER_RUN,
+            batch_flush_successes: batchFlushSuccesses,
+            batch_flush_failures: batchFlushFailures,
+            batch_flush_failure_pct: flushFailurePct,
+            first_flush_error: firstFlushError,
+            first_flush_error_chunk: firstFlushErrorChunk,
           },
         });
       }

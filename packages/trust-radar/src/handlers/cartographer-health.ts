@@ -107,7 +107,12 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
              json_extract(details, '$.batch_geo_located') AS batch_geo_located,
              json_extract(details, '$.rdap_enriched') AS rdap_enriched,
              json_extract(details, '$.batch_size') AS batch_size,
-             json_extract(details, '$.max_batches') AS max_batches
+             json_extract(details, '$.max_batches') AS max_batches,
+             json_extract(details, '$.batch_flush_successes') AS batch_flush_successes,
+             json_extract(details, '$.batch_flush_failures') AS batch_flush_failures,
+             json_extract(details, '$.batch_flush_failure_pct') AS batch_flush_failure_pct,
+             json_extract(details, '$.first_flush_error') AS first_flush_error,
+             json_extract(details, '$.first_flush_error_chunk') AS first_flush_error_chunk
       FROM agent_outputs
       WHERE agent_id = 'cartographer' AND type = 'diagnostic'
       ORDER BY created_at DESC
@@ -120,6 +125,11 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       rdap_enriched: number | null;
       batch_size: number | null;
       max_batches: number | null;
+      batch_flush_successes: number | null;
+      batch_flush_failures: number | null;
+      batch_flush_failure_pct: number | null;
+      first_flush_error: string | null;
+      first_flush_error_chunk: number | null;
     }>();
 
     const [
@@ -167,12 +177,34 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
     const migration0110Applied = column != null;
     const indexHasAttemptsFilter = (indexRow?.sql ?? "").includes("enrichment_attempts < 5");
 
+    // ─── D1 batch flush health ────────────────────────────────────
+    // Aggregate flush failures across recent batches so the consumer can
+    // see at a glance whether cartographer's threat UPDATEs are actually
+    // persisting. Phase 0 inflated counters (batch_geo_located) report
+    // what ip-api returned, NOT what got written — the gap with
+    // throughput.enriched_last_hour is the symptom; this is the cause.
+    const batchesWithFlushData = batchOutputs.results.filter(
+      r => r.batch_flush_successes != null || r.batch_flush_failures != null,
+    );
+    const totalFlushSuccesses = batchesWithFlushData.reduce(
+      (s, r) => s + (r.batch_flush_successes ?? 0), 0,
+    );
+    const totalFlushFailures = batchesWithFlushData.reduce(
+      (s, r) => s + (r.batch_flush_failures ?? 0), 0,
+    );
+    const totalFlushChunks = totalFlushSuccesses + totalFlushFailures;
+    const aggFlushFailurePct = totalFlushChunks > 0
+      ? Math.round((totalFlushFailures / totalFlushChunks) * 1000) / 10
+      : null;
+    const mostRecentError = batchesWithFlushData
+      .find(r => r.first_flush_error != null);
+
     return json({
       success: true,
       data: {
         _meta: {
           generated_at: new Date().toISOString(),
-          endpoint_version: 2,
+          endpoint_version: 3,
         },
 
         migration: {
@@ -216,6 +248,29 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
           //  >= 50%  → ip-api is healthy, no fallback needed
           //  20-50% → degraded but functional, monitor
           //  <  20% → fallback geo source likely needed (Cloudflare Radar, MaxMind)
+        },
+
+        // ip-api yield being high while throughput.enriched_last_hour stays
+        // low means the writes aren't persisting. This block surfaces the
+        // root cause directly — env.DB.batch() failures get caught and the
+        // first error message is captured per Phase 0 run; this aggregates
+        // across recent batches so the issue is visible in one place.
+        d1_batch_health: {
+          // Across all recent Phase 0 batches with flush data:
+          total_chunks: totalFlushChunks,
+          total_successes: totalFlushSuccesses,
+          total_failures: totalFlushFailures,
+          // Overall failure rate. >0 means threat UPDATEs are silently
+          // rolling back due to D1 batch atomicity — atomic per-call,
+          // any failed statement loses all 100 statements in the chunk.
+          aggregate_failure_pct: aggFlushFailurePct,
+          // Most recent captured error message + which chunk it failed on.
+          // Chunks of 100 are mixed UPDATE threats / INSERT hosting_providers
+          // / campaign escalation INSERTs, so the chunk index narrows the
+          // statement type without needing wrangler tail.
+          most_recent_error: mostRecentError?.first_flush_error ?? null,
+          most_recent_error_chunk: mostRecentError?.first_flush_error_chunk ?? null,
+          most_recent_error_at: mostRecentError?.created_at ?? null,
         },
 
         recent_runs: recentRuns.results,
