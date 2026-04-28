@@ -15,6 +15,7 @@
 // closing the modal.
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Card, Button, Badge, PageHeader, SectionLabel } from '@/design-system/components';
@@ -326,23 +327,40 @@ function PrivateKeyRevealSheet({
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="fixed inset-0 bg-black/60" onClick={attemptClose} />
+  // Portal to document.body — Card uses backdrop-filter + overflow:hidden,
+  // which creates a stacking context that traps `position: fixed` to the
+  // Card's bounds and clips the sheet. Mounting on body escapes that.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+      onClick={attemptClose}
+    >
       <div
-        className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-xl p-6 max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full sm:max-w-xl rounded-t-2xl sm:rounded-xl p-6 max-h-[90vh] overflow-y-auto"
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-base)',
+          background: 'var(--bg-card, #161E30)',
+          border: '1px solid var(--border-base, rgba(255,255,255,0.08))',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="push-vapid-reveal-title"
       >
         <div className="flex items-center justify-between mb-4">
-          <div className="font-mono text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--amber)' }}>
+          <div
+            id="push-vapid-reveal-title"
+            className="font-mono text-xs font-bold uppercase tracking-wider"
+            style={{ color: 'var(--amber)' }}
+          >
             VAPID private key — save now
           </div>
           <button
             onClick={attemptClose}
-            className="text-lg"
+            className="text-2xl leading-none px-2"
             style={{ color: 'var(--text-tertiary)' }}
             aria-label="Close"
           >
@@ -351,7 +369,8 @@ function PrivateKeyRevealSheet({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
