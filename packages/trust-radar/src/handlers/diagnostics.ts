@@ -683,9 +683,10 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         // CF's d1QueriesAdaptiveGroups GraphQL endpoint. Complements
         // the AE-based d1_attribution_24h by showing reads from
         // uninstrumented code paths (cron crons, internal /agents/run
-        // calls, etc.). Each entry: query_hash, query_sample,
-        // rows_read, query_count, avg_rows_per_query.
-        d1_top_queries_24h: d1TopQueries ?? [],
+        // calls, etc.). Returns { queries, error } so we can debug
+        // when the fetch fails without grepping worker logs.
+        d1_top_queries_24h: d1TopQueries.queries,
+        d1_top_queries_error: d1TopQueries.error,
       },
     }, 200, origin);
   } catch (err) {
