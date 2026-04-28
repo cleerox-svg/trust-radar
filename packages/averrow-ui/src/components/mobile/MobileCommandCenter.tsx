@@ -178,9 +178,35 @@ export function MobileCommandCenter() {
           <StatTile label="Brands"  value={brandStats?.total_tracked ?? 0}  sub={`${brandStats?.new_this_week ?? 0} new this week`} accent={M.AMBER} onClick={() => navigate('/brands')} />
           <StatTile label="Threats · 7d" value={obsStats?.threats_mapped ?? 0}    sub={`${obsStats?.countries ?? 0} countries`}           accent={M.RED}   onClick={() => navigate('/threats')} />
           <StatTile label="Alerts"  value={alertStats?.total ?? 0}           sub={`${criticalCount} critical · ${alertStats?.new_count ?? 0} new`}                       accent={M.RED}   critical={criticalCount} onClick={() => navigate('/alerts')} />
-          <StatTile label="Agents"  value={agents.filter((a) => a.status === 'healthy' || a.status === 'running' || a.status === 'active').length} sub={`of ${agents.length || 11} online`} accent={M.BLUE}  onClick={() => navigate('/agents')} />
+          {/* Agents — headline shows registered count (the platform's
+              configured fleet size), sub shows runtime status. The
+              previous version put runtime-running count as the headline
+              with "of N online" sub, which read as "13 are offline" when
+              really 13 are just idle between scheduled runs. */}
+          <StatTile
+            label="Agents"
+            value={agents.length || 0}
+            sub={(() => {
+              const running = agents.filter((a) => a.status === 'healthy' || a.status === 'running' || a.status === 'active').length;
+              const errored = agents.filter((a) => a.status === 'error' || a.status === 'failed' || a.status === 'paused').length;
+              if (errored > 0) return `${running} running · ${errored} paused`;
+              return `${running} running`;
+            })()}
+            accent={M.BLUE}
+            onClick={() => navigate('/agents')}
+          />
           <StatTile label="Feeds"   value={feedStats?.active ?? 0}           sub={`of ${((feedStats?.active ?? 0) + (feedStats?.disabled ?? 0)) || 34} active`}             accent={M.GREEN} onClick={() => navigate('/feeds')} />
-          <StatTile label="Campaigns" value={opsStats?.active_operations ?? 0} sub={`${opsStats?.campaigns_tracked ?? 0} tracked`} accent={M.BLUE} onClick={() => navigate('/campaigns')} />
+          {/* Campaigns — headline is the registered count (matches the
+              tile label), sub shows the live active-ops slice. The
+              previous version flipped these, so the headline read as a
+              count of active operations under a "Campaigns" label. */}
+          <StatTile
+            label="Campaigns"
+            value={opsStats?.campaigns_tracked ?? 0}
+            sub={`${opsStats?.active_operations ?? 0} active ops`}
+            accent={M.BLUE}
+            onClick={() => navigate('/campaigns')}
+          />
         </div>
 
         {/* BRANDS AT RISK */}
