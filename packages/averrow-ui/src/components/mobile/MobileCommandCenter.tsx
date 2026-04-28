@@ -5,6 +5,8 @@ import {
 } from './MobileUIKit';
 import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
 
+import { useAuth } from '@/lib/auth';
+import { parseInitials, SELF_AVATAR_COLOR } from '@/lib/avatar';
 import { useBrands, useBrandStats } from '@/hooks/useBrands';
 import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
@@ -32,6 +34,12 @@ const BRAND_COLORS = [
 
 export function MobileCommandCenter() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Greet by first word of display_name; falls back to "there" if
+  // we don't have a name yet (e.g. first paint before /me settles).
+  const firstName = (user?.display_name ?? user?.name ?? '').trim().split(/\s+/)[0] || 'there';
+  const initials = parseInitials(user?.display_name ?? user?.name, user?.email);
 
   const { data: brandStats }  = useBrandStats();
   const { data: obsStats }    = useObservatoryStats();
@@ -90,7 +98,7 @@ export function MobileCommandCenter() {
             </div>
             <div style={{ fontSize:22, fontWeight:900, lineHeight:1.1, letterSpacing:-0.8 }}>
               {greeting},{' '}
-              <span style={{ color:M.AMBER, textShadow:`0 0 20px ${M.AMBER}50` }}>Claude</span>
+              <span style={{ color:M.AMBER, textShadow:`0 0 20px ${M.AMBER}50` }}>{firstName}</span>
             </div>
             <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:5 }}>
               {new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })}
@@ -105,9 +113,27 @@ export function MobileCommandCenter() {
               <span style={{ fontSize:8, fontFamily:'monospace', color:'var(--text-muted)', letterSpacing:'0.18em' }}>LIVE</span>
             </div>
             <NotificationBell />
-            <div style={{ width:36, height:36, borderRadius:11, background:`linear-gradient(145deg,${M.RED},${M.RED_DIM})`, border:`1px solid ${M.RED}60`, boxShadow:`0 4px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,120,120,0.35),inset 0 -1px 0 rgba(0,0,0,0.4),0 0 16px ${M.RED}25`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.6)' }}>
-              CL
-            </div>
+            {/* Profile pill — taps to /v2/profile. Uses the
+                standardized initials-only-amber rule (lib/avatar.ts);
+                replaces the previous static "CL" red gradient div
+                that wasn't wired to anything. */}
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              aria-label={`Open profile — ${user?.display_name ?? user?.name ?? user?.email ?? 'user'}`}
+              style={{
+                width: 36, height: 36, borderRadius: 11,
+                background: SELF_AVATAR_COLOR,
+                color: 'var(--text-on-amber, #0A0F1E)',
+                border: '1px solid rgba(255,255,255,0.20)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(0,0,0,0.30)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 900,
+                cursor: 'pointer', padding: 0,
+              }}
+            >
+              {initials}
+            </button>
           </div>
         </div>
 
