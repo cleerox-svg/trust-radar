@@ -288,6 +288,10 @@ export default {
           const { handleCartographerHealth } = await import('./handlers/cartographer-health');
           return handleCartographerHealth(request, env);
         }
+        if (url.pathname === '/api/internal/d1-health') {
+          const { handleD1Health } = await import('./handlers/d1-health');
+          return handleD1Health(request, env);
+        }
         if (url.pathname === '/api/internal/system-health') {
           const { handleSystemHealth } = await import('./handlers/admin');
           return handleSystemHealth(request, env);
