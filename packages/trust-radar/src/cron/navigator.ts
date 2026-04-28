@@ -238,13 +238,16 @@ export async function runNavigator(
   //   Phase C   — every 30 min (Brands + Threat Actors + Intelligence)
   //
   // Math at ~8,640 ticks/month if Navigator runs clean:
-  //   A:  43,200 warms (unchanged)
+  //   A:  21,600 warms (was 43,200 before throttle, -50%)
   //   A2: 17,280 (was 51,840, -67%)
   //   B:  14,400 (was 43,200, -67%)
   //   C:  11,520 (was 69,120, -83%)
-  // Total: ~86K warms/month, down from ~207K (-58%). Landing-page UX
-  // unaffected because Phase A still runs every 5 min.
+  // Total: ~65K warms/month, down from ~207K (-69%). Phase A throttled
+  // from every-5-min to every-10-min as part of the D1-budget cleanup;
+  // pairs with the 15-min KV TTL on Observatory endpoints so cold-load
+  // UX stays well under the cache-miss window.
   const minute = scheduledTime.getUTCMinutes();
+  const runPhaseA  = minute % 10 === 0;  // :00, :10, :20, :30, :40, :50
   const runPhaseA2 = minute % 15 === 0;  // :00, :15, :30, :45
   const runPhaseB  = minute % 15 === 0;
   const runPhaseC  = minute % 30 === 0;  // :00, :30
@@ -256,14 +259,18 @@ export async function runNavigator(
     try {
       // Phase A: Observatory endpoints (highest impact — 10-15s cold load)
       // Run the 5 Observatory queries in parallel for maximum throughput.
-      const obsResults = await Promise.allSettled([
-        handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=7d'), env),
-        handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=7d'), env),
-        handleObservatoryStats(fakeReq('/api/observatory/stats?period=7d'), env),
-        handleObservatoryLive(fakeReq('/api/observatory/live?limit=20'), env),
-        handleObservatoryOperations(fakeReq('/api/observatory/operations?limit=5'), env),
-      ]);
-      cacheWarmed += obsResults.filter(r => r.status === 'fulfilled').length;
+      // Throttled to every 10 min — endpoints cache for 15 min so the
+      // landing page still hits warm cache on every visit.
+      if (runPhaseA) {
+        const obsResults = await Promise.allSettled([
+          handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=7d'), env),
+          handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=7d'), env),
+          handleObservatoryStats(fakeReq('/api/observatory/stats?period=7d'), env),
+          handleObservatoryLive(fakeReq('/api/observatory/live?limit=20'), env),
+          handleObservatoryOperations(fakeReq('/api/observatory/operations?limit=5'), env),
+        ]);
+        cacheWarmed += obsResults.filter(r => r.status === 'fulfilled').length;
+      }
 
       // Phase A2: Observatory alternate periods (24h/30d) — every 15 min
       if (runPhaseA2 && !isOverCap()) {
@@ -305,7 +312,7 @@ export async function runNavigator(
         cacheWarmed += moduleResults.filter(r => r.status === 'fulfilled').length;
       }
 
-      console.log(`[navigator] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms (A2=${runPhaseA2} B=${runPhaseB} C=${runPhaseC})`);
+      console.log(`[navigator] cache-warm: ${cacheWarmed} endpoints warmed in ${Date.now() - warmStart}ms (A=${runPhaseA} A2=${runPhaseA2} B=${runPhaseB} C=${runPhaseC})`);
     } catch (e) {
       console.error('[navigator] cache-warm error:', e instanceof Error ? e.message : String(e));
     }
