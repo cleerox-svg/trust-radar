@@ -12,6 +12,7 @@ import {
   runDarkWebAIAssessmentBatch,
 } from "../scanners/dark-web-monitor";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
+import { getCacheVersion, bumpCacheVersion } from "../lib/cache-version";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -88,11 +89,14 @@ export async function handleListDarkWebMentions(
     // KV cache — page-load endpoint convention (CLAUDE.md §8). Reduced-
     // dimension key for default views (no filters, page 1) so the typical
     // brand-detail page load hits the same cache slot regardless of user.
+    // Cache version baked into the key so PATCH/POST writes can invalidate
+    // by bumping `cache_version:darkweb`.
+    const cacheVersion = await getCacheVersion(env, "darkweb");
     const isDefaultView = !source && !classification && !severity && !matchType
       && status === "active" && offset === 0 && limit === 50;
     const cacheKey = isDefaultView
-      ? `darkweb_mentions:${brandId}:default`
-      : `darkweb_mentions:${brandId}:${status}:${source ?? ""}:${classification ?? ""}:${severity ?? ""}:${matchType ?? ""}:${limit}:${offset}`;
+      ? `darkweb_mentions:v${cacheVersion}:${brandId}:default`
+      : `darkweb_mentions:v${cacheVersion}:${brandId}:${status}:${source ?? ""}:${classification ?? ""}:${severity ?? ""}:${matchType ?? ""}:${limit}:${offset}`;
 
     const dbCtx = getDbContext(request);
     const session = getReadSession(env, dbCtx);
@@ -196,6 +200,9 @@ export async function handleTriggerDarkWebScan(
     // Drain AI queue for this brand so the caller sees verdicts in the response.
     const ai = await runDarkWebAIAssessmentBatch(env, { brandId, limit: 10 });
 
+    // Manual scan introduced new mentions — invalidate the domain cache.
+    await bumpCacheVersion(env, "darkweb");
+
     await audit(env, {
       action: "dark_web_scan_triggered",
       userId,
@@ -297,6 +304,11 @@ export async function handleUpdateDarkWebMention(
       `UPDATE dark_web_mentions SET ${updates.join(", ")} WHERE id = ?`,
     ).bind(...values).run();
 
+    // Invalidate cached dark-web responses — overview + brand list both
+    // depend on the mention's classification / status / severity, so any
+    // PATCH bumps the domain-wide version. See lib/cache-version.ts.
+    await bumpCacheVersion(env, "darkweb");
+
     const updated = await env.DB.prepare(
       "SELECT * FROM dark_web_mentions WHERE id = ?",
     ).bind(mentionId).first();
@@ -356,10 +368,12 @@ export async function handleDarkWebOverview(
 
     // KV cache — page-load convention. Default view (page 1, limit 50) gets
     // a tighter key so all admins / all members of the same org share a slot.
+    // Version-tagged for PATCH/POST invalidation (see lib/cache-version.ts).
+    const cacheVersion = await getCacheVersion(env, "darkweb");
     const isDefaultView = limit === 50 && offset === 0;
     const cacheKey = isDefaultView
-      ? `darkweb_overview:${scopeKey}:default`
-      : `darkweb_overview:${scopeKey}:${limit}:${offset}`;
+      ? `darkweb_overview:v${cacheVersion}:${scopeKey}:default`
+      : `darkweb_overview:v${cacheVersion}:${scopeKey}:${limit}:${offset}`;
 
     const dbCtx = getDbContext(request);
     const session = getReadSession(env, dbCtx);

@@ -13,6 +13,7 @@ import {
   runAppStoreAIAssessmentBatch,
 } from "../scanners/app-store-monitor";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
+import { getCacheVersion, bumpCacheVersion } from "../lib/cache-version";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -92,11 +93,13 @@ export async function handleListAppStoreListings(
 
     // KV cache — page-load endpoint convention. Default view (page 1, limit
     // 50, no filters) shares a slot across users for the same brand.
+    // Version-tagged so PATCH/POST writes can invalidate domain-wide.
+    const cacheVersion = await getCacheVersion(env, "appstore");
     const isDefaultView = !store && !classification && !severity
       && status === "active" && offset === 0 && limit === 50;
     const cacheKey = isDefaultView
-      ? `appstore_listings:${brandId}:default`
-      : `appstore_listings:${brandId}:${status}:${store ?? ""}:${classification ?? ""}:${severity ?? ""}:${limit}:${offset}`;
+      ? `appstore_listings:v${cacheVersion}:${brandId}:default`
+      : `appstore_listings:v${cacheVersion}:${brandId}:${status}:${store ?? ""}:${classification ?? ""}:${severity ?? ""}:${limit}:${offset}`;
 
     const dbCtx = getDbContext(request);
     const session = getReadSession(env, dbCtx);
@@ -198,6 +201,9 @@ export async function handleTriggerAppStoreScan(
 
     // Drain AI queue for this brand only so the caller sees AI verdicts in the response window.
     const ai = await runAppStoreAIAssessmentBatch(env, { brandId, limit: 10 });
+
+    // Manual scan introduced new listings — invalidate the domain cache.
+    await bumpCacheVersion(env, "appstore");
 
     await audit(env, {
       action: "app_store_scan_triggered",
@@ -306,6 +312,10 @@ export async function handleUpdateAppStoreListing(
       `UPDATE app_store_listings SET ${updates.join(", ")} WHERE id = ?`,
     ).bind(...values).run();
 
+    // Invalidate domain-wide cache — overview + per-brand list both depend
+    // on the listing's classification / status / severity. See cache-version.ts.
+    await bumpCacheVersion(env, "appstore");
+
     const updated = await env.DB.prepare(
       "SELECT * FROM app_store_listings WHERE id = ?",
     ).bind(listingId).first();
@@ -408,6 +418,10 @@ export async function handleUpdateOfficialApps(
       }
     }
 
+    // Allowlist edit may have re-classified many existing listings — invalidate
+    // the cache so users immediately see the updated classifications.
+    await bumpCacheVersion(env, "appstore");
+
     await audit(env, {
       action: "official_apps_update",
       userId,
@@ -478,11 +492,13 @@ export async function handleAppStoreOverview(
       }, 200, origin);
     }
 
-    // KV cache + read replica — page-load convention.
+    // KV cache + read replica — page-load convention. Version-tagged for
+    // PATCH/POST invalidation (see lib/cache-version.ts).
+    const cacheVersion = await getCacheVersion(env, "appstore");
     const isDefaultView = limit === 50 && offset === 0;
     const cacheKey = isDefaultView
-      ? `appstore_overview:${scopeKey}:default`
-      : `appstore_overview:${scopeKey}:${limit}:${offset}`;
+      ? `appstore_overview:v${cacheVersion}:${scopeKey}:default`
+      : `appstore_overview:v${cacheVersion}:${scopeKey}:${limit}:${offset}`;
 
     const dbCtx = getDbContext(request);
     const session = getReadSession(env, dbCtx);
