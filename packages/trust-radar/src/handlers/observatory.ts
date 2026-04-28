@@ -296,9 +296,11 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
 
-    // Single time-filtered query — no fallback, no LIMIT. Return the truth of the
-    // data for the selected period. If 24H has zero arcs, the globe shows zero arcs.
-    // If 30D has 15,000 arcs, the globe shows 15,000 arcs.
+    // Cap at 10K corridors. The globe can't visualize more than that
+    // legibly anyway (overdraw collapses individual arcs into a blob),
+    // and removing the cap was burning ~50M D1 row-reads per day on
+    // pre-warmed cache populates. The original query had no LIMIT —
+    // fine when threats was small, expensive at 200K+ active rows.
     const rows = await session.prepare(`
       SELECT
         ROUND(t.lat, 1) AS source_lat,
@@ -320,6 +322,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         AND t.created_at > datetime('now', ?)${sourceFilter.sql}
       GROUP BY t.country_code, t.target_brand_id, t.threat_type
       ORDER BY volume DESC
+      LIMIT 10000
     `).bind(interval, ...sourceFilter.params).all<{
       source_lat: number; source_lng: number; threat_type: string;
       severity: string | null; source_country: string | null;
