@@ -55,6 +55,39 @@ const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "d1_health",
+    description:
+      "Database-level D1 health: size (page_count × page_size), per-table " +
+      "row counts (top N), index counts (incl. partial), schema version, " +
+      "FK enforcement state, applied migrations, sample query latency. " +
+      "Optional check_fk runs PRAGMA foreign_key_check for orphan-row " +
+      "detection (slow). Use when investigating storage growth, query " +
+      "slowness, or schema drift.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        check_fk: {
+          type: "boolean",
+          description:
+            "Run PRAGMA foreign_key_check (slow — O(rows × FKs)). Default false.",
+          default: false,
+        },
+        top_n: {
+          type: "number",
+          description: "Number of largest tables to return (default 20, max 50)",
+          default: 20,
+        },
+      },
+    },
+    handler: async (args, env) => {
+      const params = new URLSearchParams();
+      if (args.check_fk) params.set("check_fk", "true");
+      if (args.top_n != null) params.set("top_n", String(args.top_n));
+      const qs = params.toString();
+      return apiGet(`/api/internal/d1-health${qs ? `?${qs}` : ""}`, env);
+    },
+  },
+  {
     name: "system_health",
     description:
       "High-level system health: total threats (today/week), agent run success/error " +

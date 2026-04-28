@@ -482,6 +482,8 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | GET | `/api/internal/platform-diagnostics` | AVERROW_INTERNAL_SECRET | Same as above, accessible via `Authorization: Bearer $AVERROW_INTERNAL_SECRET` for programmatic/CLI access without JWT. |
 | GET | `/api/admin/cartographer-health` | Super Admin | Focused Phase 0 enrichment diagnostic. Returns migration sanity (column + index for migration 0110), attempts histogram, queue / exhausted / stuck-pile counts, throughput (1h / 6h / 24h), recent runs, and ip-api yield per recent batch with computed avg_yield_pct. |
 | GET | `/api/internal/cartographer-health` | AVERROW_INTERNAL_SECRET | Same as above, accessible via `Authorization: Bearer $AVERROW_INTERNAL_SECRET` for programmatic/CLI access (used by `scripts/cartographer-health.sh`). |
+| GET | `/api/admin/d1-health` | Super Admin | Database-level D1 diagnostic. Returns DB size (page_count × page_size), per-table row counts (top N, default 20), index counts (incl. partial), schema version, FK enforcement state, applied migrations, sample query latency. Accepts `?check_fk=true` to run `PRAGMA foreign_key_check` (slow — gated). Accepts `?top_n=N` (max 50). |
+| GET | `/api/internal/d1-health` | AVERROW_INTERNAL_SECRET | Same as above for programmatic/CLI access (used by `scripts/d1-health.sh` and the `d1_health` MCP tool). |
 | GET | `/api/internal/system-health` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/admin/system-health` for MCP server access. |
 | GET | `/api/internal/pipeline-status` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/admin/pipeline-status` for MCP server access. |
 | GET | `/api/internal/stats` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/admin/stats` for MCP server access. |
