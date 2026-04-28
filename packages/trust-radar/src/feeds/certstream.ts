@@ -54,8 +54,23 @@ export const certstream: FeedModule = {
 
     const url = `${ctx.feedUrl}?q=%25${keyword}%25&output=json&limit=100`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
+
+    // crt.sh has had recurring upstream HTTP 502s (observed 2026-04-27,
+    // tripped this feed's auto-pause threshold of 5 consecutive failures).
+    // Treat transient upstream issues (5xx) and rate-limits (429) as
+    // skip-this-tick: log + return empty, don't throw. The feed runner
+    // counts thrown errors as failed pulls toward auto-pause; a transient
+    // crt.sh outage shouldn't pause our entire CT monitoring path.
+    //
+    // Genuine request bugs (4xx other than 429) still throw — those
+    // indicate our query is malformed and should be surfaced.
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      const isTransient = res.status >= 500 || res.status === 429;
+      if (isTransient) {
+        console.warn(`[ct_logs] transient upstream HTTP ${res.status} — skipping tick (body: ${body.slice(0, 200)})`);
+        return { itemsFetched: 0, itemsNew: 0, itemsDuplicate: 0, itemsError: 0 };
+      }
       console.error(`[ct_logs] error body: ${body.slice(0, 500)}`);
       throw new Error(`CertStream/crt.sh HTTP ${res.status}`);
     }

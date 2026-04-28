@@ -643,19 +643,18 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   }
 
   // Analyst agent — runs every hourly tick.
-  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
+  // Inline await for the same reason as sparrow / strategist (PR #832):
+  // ctx.waitUntil silently drops runs when the orchestrator invocation
+  // is killed first. Analyst's avg duration is ~40-60s — fits comfortably
+  // under the 15-min cron CPU ceiling alongside the other inline awaits.
   {
     try {
       const mod = allAgents["analyst"];
       if (mod) {
-        ctx.waitUntil(
-          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
-            logger.error('threat_feed_scan_analyst_error', { error: err instanceof Error ? err.message : String(err) })
-          )
-        );
+        await executeAgent(env, mod, {}, "cron", "scheduled");
       }
     } catch (err) {
-      logger.error('threat_feed_scan_analyst_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_analyst_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -684,17 +683,16 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   // the Workflow path. The Workflow-based dispatch stopped firing around
   // Apr 19 (1 start in 7 days vs expected ~42); the agent module runs
   // the same core logic (runNexus) and takes ~60s which fits comfortably
-  // under the cron CPU ceiling. Wrapped in ctx.waitUntil so it doesn't
-  // block the rest of the agent mesh.
+  // under the cron CPU ceiling.
+  //
+  // Inline await for the same reason as sparrow / strategist (PR #832) —
+  // ctx.waitUntil silently drops runs when the orchestrator invocation
+  // is killed first.
   if (hour % 4 === 0) {
     try {
       const mod = allAgents["nexus"];
       if (mod) {
-        ctx.waitUntil(
-          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
-            logger.error('nexus_dispatch_error', { error: err instanceof Error ? err.message : String(err) })
-          )
-        );
+        await executeAgent(env, mod, {}, "cron", "scheduled");
       }
     } catch (err) {
       logger.error('nexus_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
