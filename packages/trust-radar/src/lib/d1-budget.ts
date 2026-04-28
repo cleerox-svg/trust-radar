@@ -22,6 +22,15 @@ import type { Env } from "../types";
 /** Plan ceiling: 25B reads/month. */
 const PLAN_CEILING_PER_MONTH = 25_000_000_000;
 
+/**
+ * D1 database id — same literal used in `handlers/diagnostics.ts`
+ * and matches `database_id` in `wrangler.toml`. Hardcoded here too
+ * because there's no `D1_DATABASE_ID` env var configured on the
+ * worker (the binding is named `DB`); we need the literal to query
+ * CF GraphQL by databaseId.
+ */
+const D1_DATABASE_ID = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6";
+
 /** Daily budget (1/30 of the monthly ceiling). */
 export const DAILY_BUDGET = Math.round(PLAN_CEILING_PER_MONTH / 30);
 
@@ -58,8 +67,8 @@ interface CachedBudget {
 export async function getBudgetState(env: Env): Promise<BudgetState | null> {
   const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
   const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
-  const databaseId = (env as unknown as Record<string, string | undefined>).D1_DATABASE_ID;
-  if (!token || !accountId || !databaseId) return null;
+  if (!token || !accountId) return null;
+  const databaseId = D1_DATABASE_ID;
 
   const cachedRaw = await env.CACHE.get(KV_KEY);
   if (cachedRaw) {
@@ -198,13 +207,26 @@ export interface D1QueryStat {
  * even on uninstrumented endpoints. Complements our AE-based
  * recordD1Reads attribution which only covers handlers we've wired.
  */
-export async function fetchD1TopQueries(env: Env, limit = 20): Promise<D1QueryStat[] | null> {
+export interface TopQueriesResult {
+  /** Stats array; empty when no data (or when error is set). */
+  queries: D1QueryStat[];
+  /** Diagnostic message — surfaces what blocked the fetch when
+   *  `queries` is empty, so the operator can debug from
+   *  /api/internal/platform-diagnostics output without grepping logs. */
+  error: string | null;
+}
+
+export async function fetchD1TopQueries(env: Env, limit = 20): Promise<TopQueriesResult> {
   const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
   const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
-  const databaseId = (env as unknown as Record<string, string | undefined>).D1_DATABASE_ID;
-  if (!token || !accountId || !databaseId) return null;
+  if (!token || !accountId) {
+    return { queries: [], error: "CF_API_TOKEN or CF_ACCOUNT_ID not configured" };
+  }
+  const databaseId = D1_DATABASE_ID;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Cloudflare's per-query analytics dataset. Field names per
+  // https://developers.cloudflare.com/d1/observability/queries-analytics/
   const query = `
     query {
       viewer {
@@ -217,7 +239,7 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<D1QuerySt
             sum {
               rowsRead
               rowsWritten
-              queryCount: queries
+              queries
             }
             dimensions {
               query
@@ -237,14 +259,17 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<D1QuerySt
       },
       body: JSON.stringify({ query }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { queries: [], error: `CF GraphQL HTTP ${res.status}: ${body.slice(0, 200)}` };
+    }
 
     const json = (await res.json()) as {
       data?: {
         viewer?: {
           accounts?: Array<{
             d1QueriesAdaptiveGroups?: Array<{
-              sum: { rowsRead: number; rowsWritten: number; queryCount: number };
+              sum: { rowsRead: number; rowsWritten: number; queries: number };
               dimensions: { query: string };
             }>;
           }>;
@@ -252,21 +277,34 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<D1QuerySt
       };
       errors?: Array<{ message: string }>;
     };
-    if (json.errors?.length) return null;
+    if (json.errors?.length) {
+      return {
+        queries: [],
+        error: json.errors.map((e) => e.message).slice(0, 3).join("; "),
+      };
+    }
 
     const groups = json.data?.viewer?.accounts?.[0]?.d1QueriesAdaptiveGroups ?? [];
-    return groups.map((g) => ({
+    if (groups.length === 0) {
+      return { queries: [], error: "CF returned 0 query groups (no d1QueriesAdaptiveGroups data?)" };
+    }
+
+    const queries = groups.map((g) => ({
       query_hash: g.dimensions.query,
       query_sample: g.dimensions.query,
       rows_read: g.sum.rowsRead,
       rows_written: g.sum.rowsWritten,
-      query_count: g.sum.queryCount,
-      avg_rows_per_query: g.sum.queryCount > 0
-        ? Math.round(g.sum.rowsRead / g.sum.queryCount)
+      query_count: g.sum.queries,
+      avg_rows_per_query: g.sum.queries > 0
+        ? Math.round(g.sum.rowsRead / g.sum.queries)
         : 0,
     }));
-  } catch {
-    return null;
+    return { queries, error: null };
+  } catch (err) {
+    return {
+      queries: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
