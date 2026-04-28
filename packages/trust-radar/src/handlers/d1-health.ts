@@ -42,14 +42,27 @@ export async function handleD1Health(request: Request, env: Env): Promise<Respon
 
   try {
     // ─── Page geometry → database size ────────────────────────────
+    // D1 restricts some PRAGMAs (returns SQLITE_AUTH). Wrap each in its
+    // own try so one disallowed PRAGMA doesn't take the whole endpoint
+    // down — non-fatal, just returns null for that field.
+    const safeFirst = async <T>(sql: string): Promise<T | null> => {
+      try {
+        return await env.DB.prepare(sql).first<T>();
+      } catch {
+        return null;
+      }
+    };
+
     const [pageSize, pageCount, schemaVersion, fkPragma] = await Promise.all([
-      env.DB.prepare("PRAGMA page_size").first<{ page_size: number }>(),
-      env.DB.prepare("PRAGMA page_count").first<{ page_count: number }>(),
-      env.DB.prepare("PRAGMA schema_version").first<{ schema_version: number }>(),
-      env.DB.prepare("PRAGMA foreign_keys").first<{ foreign_keys: number }>(),
+      safeFirst<{ page_size: number }>("PRAGMA page_size"),
+      safeFirst<{ page_count: number }>("PRAGMA page_count"),
+      safeFirst<{ schema_version: number }>("PRAGMA schema_version"),
+      safeFirst<{ foreign_keys: number }>("PRAGMA foreign_keys"),
     ]);
 
-    const sizeBytes = (pageSize?.page_size ?? 0) * (pageCount?.page_count ?? 0);
+    const sizeBytes = pageSize?.page_size && pageCount?.page_count
+      ? pageSize.page_size * pageCount.page_count
+      : null;
 
     // ─── Table + index inventory ──────────────────────────────────
     const [tables, indexes, partialIndexes] = await Promise.all([
@@ -114,12 +127,12 @@ export async function handleD1Health(request: Request, env: Env): Promise<Respon
 
     // ─── FK violations (optional, gated) ─────────────────────────
     let fkCheck: {
-      enabled: boolean;
+      enabled: boolean | null;
       checked: boolean;
       violations: number;
       sample: Array<{ table: string; rowid: number; parent: string; fkid: number }>;
     } = {
-      enabled: (fkPragma?.foreign_keys ?? 0) === 1,
+      enabled: fkPragma != null ? (fkPragma.foreign_keys ?? 0) === 1 : null,
       checked: false,
       violations: 0,
       sample: [],
@@ -160,12 +173,14 @@ export async function handleD1Health(request: Request, env: Env): Promise<Respon
           endpoint_version: 1,
         },
         database: {
+          // Some fields may be null when D1 restricts the PRAGMA — that's
+          // expected, not an error.
           size_bytes: sizeBytes,
-          size_mb: Math.round((sizeBytes / 1024 / 1024) * 10) / 10,
+          size_mb: sizeBytes != null ? Math.round((sizeBytes / 1024 / 1024) * 10) / 10 : null,
           page_size_bytes: pageSize?.page_size ?? null,
           page_count: pageCount?.page_count ?? null,
           schema_version: schemaVersion?.schema_version ?? null,
-          fk_enforcement_on: (fkPragma?.foreign_keys ?? 0) === 1,
+          fk_enforcement_on: fkPragma != null ? (fkPragma.foreign_keys ?? 0) === 1 : null,
         },
         inventory: {
           table_count: tableRows.length,
@@ -178,7 +193,10 @@ export async function handleD1Health(request: Request, env: Env): Promise<Respon
           applied_count: migrationCount?.n ?? 0,
           latest: latestMigration?.name ?? null,
         },
-        fk_check: fkCheck,
+        fk_check: {
+          ...fkCheck,
+          enabled: fkCheck.enabled ?? false,
+        },
         query_latency: {
           trivial_select_1_ms: trivialMs,
           brands_count_ms: brandsCountMs,
