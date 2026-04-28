@@ -67,7 +67,21 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
   // The React app at /v2 handles its own auth. We don't redirect based
   // on cookies here because stale/expired cookies send users into the
   // app login screen instead of showing the public marketing site.
-  router.get("/", htmlPage(renderHomepage));
+  //
+  // Stats are server-rendered so the marketing numbers track the
+  // platform's actual state. lib/public-stats.ts caches the underlying
+  // D1 reads in KV (10min TTL) — homepage cache (5min) sits in front
+  // of that, so most loads cost zero D1 reads.
+  router.get("/", async (_request: Request, env: Env) => {
+    const { getPublicStats } = await import("../lib/public-stats");
+    const stats = await getPublicStats(env);
+    return new Response(renderHomepage(stats), {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=300, s-maxage=600",
+      },
+    });
+  });
 
   // ─── Legacy redirects (old admin routes → /v2) ──────────────────
   for (const [oldPath, newPath] of Object.entries(LEGACY_REDIRECTS)) {
