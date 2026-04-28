@@ -449,16 +449,23 @@ function TestPanel() {
           showToast('Test sent — no response body', 'info');
           return;
         }
-        const { attempted, delivered } = res;
+        const attempted = res.sent + res.failed + res.expired;
         if (attempted === 0) {
           showToast('No subscribed devices found for your account — subscribe in the UI first.', 'info');
         } else {
-          showToast(`Test push: ${delivered}/${attempted} devices delivered`, delivered === attempted ? 'success' : 'error');
+          showToast(
+            `Test push: ${res.sent}/${attempted} devices delivered`,
+            res.sent === attempted ? 'success' : 'error',
+          );
         }
       },
       onError: (e) => showToast(`Test failed: ${(e as Error).message}`, 'error'),
     });
   }
+
+  // Only show the result line after a real send (test.data is set on success).
+  const result = test.data;
+  const attempted = result ? result.sent + result.failed + result.expired : 0;
 
   return (
     <Card>
@@ -472,18 +479,18 @@ function TestPanel() {
       <Button variant="secondary" onClick={handleTest} disabled={test.isPending}>
         {test.isPending ? 'Sending…' : 'Send test push'}
       </Button>
-      {test.data && test.data.results.length > 0 && (
-        <div className="mt-4 space-y-1.5">
-          {test.data.results.map((r) => (
-            <div key={r.device_id} className="flex items-center justify-between gap-2 text-xs">
-              <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                {r.device_label || r.device_id}
-              </span>
-              <Badge variant={r.delivered ? 'success' : 'critical'}>
-                {r.delivered ? 'delivered' : (r.error ?? `HTTP ${r.status_code ?? '?'}`)}
-              </Badge>
-            </div>
-          ))}
+
+      {/* Aggregate counters — dispatchPush() returns aggregate only, no
+          per-device breakdown. If a single device fails, "failed" goes
+          up; we surface it but don't try to invent which device. */}
+      {result && attempted > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+          <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+            Attempted: <strong style={{ color: 'var(--text-primary)' }}>{attempted}</strong>
+          </span>
+          <Badge variant="success">Delivered {result.sent}</Badge>
+          {result.failed > 0 && <Badge variant="critical">Failed {result.failed}</Badge>}
+          {result.expired > 0 && <Badge variant="medium">Expired {result.expired}</Badge>}
         </div>
       )}
     </Card>

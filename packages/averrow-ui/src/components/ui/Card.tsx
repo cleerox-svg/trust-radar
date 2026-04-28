@@ -84,7 +84,11 @@ export function Card({
         position:             'relative',
         overflow:             'hidden',
         cursor:               onClick ? 'pointer' : 'default',
-        padding:              padding,
+        // Default to 20px so callers that don't pass a `padding` prop
+        // or inline `style.padding` don't have content sitting flush
+        // against the rounded corners (which clips section labels).
+        // The trailing `...style` spread still wins for explicit overrides.
+        padding:              padding ?? '20px',
         boxShadow: [
           shadow,
           `inset 0 1px 0 ${rim}`,
