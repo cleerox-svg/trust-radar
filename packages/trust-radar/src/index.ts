@@ -229,6 +229,24 @@ export default {
           return Response.json({ triggered: true, agent: 'cartographer' });
         }
 
+        // Focused on-demand rebuild of just the brand summary cubes
+        // (dark_web_brand_summary + app_store_brand_summary). Cheap and
+        // idempotent — INSERT OR REPLACE keyed on brand_id. Use this
+        // when you don't want to wait for the next cube_healer tick at
+        // hour:12 every 6h. Skips the heavier 30-day rebuild entirely.
+        if (url.pathname === '/api/internal/cubes/brand-summaries/rebuild') {
+          const { buildDarkWebBrandSummary, buildAppStoreBrandSummary } = await import('./lib/cube-builder');
+          const [dw, as] = await Promise.all([
+            buildDarkWebBrandSummary(env),
+            buildAppStoreBrandSummary(env),
+          ]);
+          return Response.json({
+            triggered: true,
+            dark_web_brand_summary: dw,
+            app_store_brand_summary: as,
+          });
+        }
+
         if (url.pathname === '/api/internal/agents/nexus/run') {
           const { agentModules } = await import('./agents/index');
           const { executeAgent } = await import('./lib/agentRunner');
