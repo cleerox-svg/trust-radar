@@ -193,18 +193,22 @@ async function checkLookalikeRegistration(domains: string[]): Promise<Array<{
 
 async function crossReferenceFeedData(domain: string, db: D1Database): Promise<{
   mentions: number;
-  matches: Array<{ id: string; type: string; title: string; severity: string; source: string; created_at: string }>;
+  matches: Array<{ id: string; threat_type: string; severity: string | null; source_feed: string; created_at: string }>;
 }> {
-  const name = domain.split(".")[0];
-
+  // Column names match the actual `threats` schema (migrations 0001 + 0013):
+  // malicious_domain, threat_type, source_feed. The previous version queried
+  // non-existent `domain`, `type`, `title`, `source` columns and the SQL
+  // exception was being caught by the outer handler as a generic "internal
+  // error" — making the homepage scan widget appear broken.
   const rows = await db.prepare(`
-    SELECT id, type, title, severity, source, created_at
+    SELECT id, threat_type, severity, source_feed, created_at
     FROM threats
-    WHERE domain LIKE ? OR ioc_value LIKE ? OR title LIKE ?
+    WHERE (malicious_domain = ? OR malicious_domain LIKE ?)
+      AND status = 'active'
     ORDER BY created_at DESC
     LIMIT 50
-  `).bind(`%${domain}%`, `%${domain}%`, `%${name}%`).all<{
-    id: string; type: string; title: string; severity: string; source: string; created_at: string;
+  `).bind(domain, `%.${domain}`).all<{
+    id: string; threat_type: string; severity: string | null; source_feed: string; created_at: string;
   }>();
 
   return { mentions: rows.results.length, matches: rows.results };
