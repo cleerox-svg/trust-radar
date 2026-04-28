@@ -44,6 +44,10 @@ export interface PasskeyDevice {
   device_label: string | null;
   user_agent: string | null;
   backed_up: number;
+  /** Authenticator transport hints. ["internal"] = Touch ID / Face ID
+   *  / Windows Hello / Android fingerprint → drives the BIOMETRIC
+   *  badge on the Profile page. */
+  transports: string[];
   created_at: string;
   last_used_at: string | null;
 }

@@ -13,6 +13,7 @@ import {
   handlePasskeyAuthBegin, handlePasskeyAuthFinish,
   handleListPasskeys, handleDeletePasskey,
 } from "../handlers/passkeys";
+import { handleGetProfile, handleUpdateProfile } from "../handlers/profile";
 import { handleValidateInvite } from "../handlers/invites";
 import { handleInviteLanding } from "../handlers/invite-landing";
 
@@ -56,6 +57,22 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleMe(request, env, ctx.userId);
+  });
+
+  // ─── /api/profile (user-editable surface) ──────────────────────
+  // GET returns the editable profile (display_name, timezone,
+  // theme_preference). PATCH updates a partial set; pass null to
+  // clear a field back to its default. Distinct from /api/auth/me
+  // which is the read-only session bootstrap.
+  router.get("/api/profile", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetProfile(request, env, ctx.userId);
+  });
+  router.patch("/api/profile", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateProfile(request, env, ctx.userId);
   });
 
   // ─── Magic-link sign-in (public — no auth required) ─────────────

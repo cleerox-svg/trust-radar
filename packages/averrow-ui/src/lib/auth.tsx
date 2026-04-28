@@ -12,8 +12,17 @@ interface UserOrganization {
 interface User {
   id: string;
   email: string;
+  /** Computed by the backend as `display_name ?? name`. */
   name: string;
   role: string;
+  /** Editable in Profile; falls back to Google name when null. */
+  display_name?: string | null;
+  /** IANA timezone; null means "auto-detect from browser." */
+  timezone?: string | null;
+  /** 'dark' | 'light' | null. Null means "follow OS / app default." */
+  theme_preference?: 'dark' | 'light' | null;
+  /** Drives FirstSignInPasskeyPrompt — auto-prompts when 0. */
+  passkey_count?: number;
   avatar_url?: string;
   organization?: UserOrganization | null;
 }
@@ -26,6 +35,8 @@ interface AuthState {
   isBrandAdmin: boolean;
   login: () => void;
   logout: () => void;
+  /** Re-fetch /api/auth/me. Call after profile edits or passkey changes. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -164,6 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isBrandAdmin: !!user && user.role !== 'super_admin' && !!user.organization,
       login,
       logout,
+      refreshUser: checkAuth,
     }}>
       {children}
     </AuthContext.Provider>

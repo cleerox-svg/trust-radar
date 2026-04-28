@@ -79,8 +79,16 @@ export async function getPushStatus(): Promise<PushStatus> {
 // ─── Backend bootstrap ──────────────────────────────────────────────────
 
 export async function fetchPushBootstrap(): Promise<PushBootstrap> {
-  const res = await api.get<PushBootstrap>('/api/push/vapid-public-key');
-  return res.data ?? { public_key: '', push_enabled: false };
+  // Backend now exposes both fields under a single endpoint
+  // (vapid_public_key + push_enabled). Map to our existing
+  // PushBootstrap shape so callers don't have to change.
+  const res = await api.get<{ vapid_public_key: string; push_enabled: boolean }>(
+    '/api/notifications/config',
+  );
+  return {
+    public_key: res.data?.vapid_public_key ?? '',
+    push_enabled: res.data?.push_enabled ?? false,
+  };
 }
 
 // ─── Subscribe / unsubscribe ────────────────────────────────────────────
@@ -115,10 +123,16 @@ export async function subscribePush(): Promise<PushStatus> {
     applicationServerKey: base64UrlToBytes(public_key) as unknown as BufferSource,
   });
 
-  await api.post('/api/push/subscribe', {
-    endpoint: subscription.endpoint,
-    p256dh: arrayBufferToBase64Url(subscription.getKey('p256dh')),
-    auth: arrayBufferToBase64Url(subscription.getKey('auth')),
+  // FarmTrack-aligned payload — matches PushSubscription.toJSON()
+  // exactly. Backend rejects the legacy flat shape now.
+  await api.post('/api/notifications/subscribe', {
+    subscription: {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: arrayBufferToBase64Url(subscription.getKey('p256dh')),
+        auth: arrayBufferToBase64Url(subscription.getKey('auth')),
+      },
+    },
     device_label: deriveDeviceLabel(),
   });
 
@@ -143,10 +157,10 @@ export async function unsubscribePush(): Promise<PushStatus> {
   // PWA install on the same device. Cleaning all of them avoids ghost
   // entries showing up in the device list UI.
   try {
-    const list = await api.get<PushDevice[]>('/api/push/subscriptions');
+    const list = await api.get<PushDevice[]>('/api/notifications/subscriptions');
     const devices = list.data ?? [];
     await Promise.all(
-      devices.map((d) => api.delete(`/api/push/subscribe/${d.id}`).catch(() => {})),
+      devices.map((d) => api.delete(`/api/notifications/subscribe/${d.id}`).catch(() => {})),
     );
   } catch {
     // ignore — best-effort cleanup
@@ -156,12 +170,21 @@ export async function unsubscribePush(): Promise<PushStatus> {
 }
 
 export async function listPushDevices(): Promise<PushDevice[]> {
-  const res = await api.get<PushDevice[]>('/api/push/subscriptions');
+  const res = await api.get<PushDevice[]>('/api/notifications/subscriptions');
   return res.data ?? [];
 }
 
 export async function removePushDevice(id: string): Promise<void> {
-  await api.delete(`/api/push/subscribe/${id}`);
+  await api.delete(`/api/notifications/subscribe/${id}`);
+}
+
+/** Send a test push to the current user's subscribed devices. */
+export async function sendTestPush(): Promise<{ attempted: number; delivered: number }> {
+  const res = await api.post<{ attempted: number; delivered: number }>(
+    '/api/notifications/test',
+    {},
+  );
+  return res.data ?? { attempted: 0, delivered: 0 };
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
