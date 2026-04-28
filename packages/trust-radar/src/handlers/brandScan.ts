@@ -529,6 +529,25 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
       correlatedBrandId,
     ).run();
 
+    // Fire-and-forget alert email to sales@averrow.com. Wrapped in
+    // try/catch so the prospect's submission isn't impacted by an alert
+    // pipeline hiccup. Logged on failure (lib/logger).
+    try {
+      const { notifySalesOfNewLead } = await import("../lib/scan-lead-notify");
+      const url = new URL(request.url);
+      await notifySalesOfNewLead(env, {
+        leadId: id,
+        email: body.email,
+        name: body.name ?? null,
+        company: body.company ?? null,
+        domain: body.domain ?? null,
+        phone: body.phone ?? null,
+        message: body.message ?? null,
+        correlatedBrandId,
+        adminUrlBase: url.origin,
+      });
+    } catch { /* swallow — lead capture is the priority */ }
+
     return json({ success: true, data: { id, message: "Thank you! Our team will contact you shortly." } }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
