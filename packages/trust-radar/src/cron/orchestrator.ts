@@ -662,19 +662,20 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   // Cartographer: see note above. Flight Control handles it via scaleAgents.
 
   // Strategist — every 6 hours (0, 6, 12, 18).
-  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
+  // Inline await so missed runs are visible in agent_runs. Was previously
+  // ctx.waitUntil() which silently dropped runs when the orchestrator
+  // invocation was killed before waitUntil resolved (observed 2026-04-27:
+  // 18:07 cron tick fired but strategist's run never appeared, even though
+  // adjacent agents like social_monitor did). Strategist's avg duration
+  // is 264ms — negligible against the cron's 15-min CPU ceiling.
   if (hour % 6 === 0) {
     try {
       const mod = allAgents["strategist"];
       if (mod) {
-        ctx.waitUntil(
-          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
-            logger.error('threat_feed_scan_strategist_error', { error: err instanceof Error ? err.message : String(err) })
-          )
-        );
+        await executeAgent(env, mod, {}, "cron", "scheduled");
       }
     } catch (err) {
-      logger.error('threat_feed_scan_strategist_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('threat_feed_scan_strategist_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -701,19 +702,19 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   }
 
   // Sparrow (takedown agent) — every 6 hours (0, 6, 12, 18).
-  // Moved to ctx.waitUntil() so it doesn't block the cron mesh.
+  // Inline await for the same reason as strategist above — ctx.waitUntil
+  // silently dropped runs when the orchestrator invocation was killed
+  // before waitUntil resolved. Sparrow's avg duration is ~30s, well
+  // under the 15-min cron CPU ceiling. Same shape as the analyst dispatch
+  // pattern (which is the next conversion candidate).
   if (hour % 6 === 0) {
     try {
       const mod = allAgents["sparrow"];
       if (mod) {
-        ctx.waitUntil(
-          executeAgent(env, mod, {}, "cron", "scheduled").catch(err =>
-            logger.error('cron_sparrow_error', { error: err instanceof Error ? err.message : String(err) })
-          )
-        );
+        await executeAgent(env, mod, {}, "cron", "scheduled");
       }
     } catch (err) {
-      logger.error('cron_sparrow_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('cron_sparrow_error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
