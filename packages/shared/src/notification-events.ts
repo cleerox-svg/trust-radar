@@ -2,8 +2,9 @@
  * Notification event registry — SINGLE SOURCE OF TRUTH.
  *
  * Every event the platform can fire must appear here. The dispatcher
- * (`src/lib/notifications.ts`), the preference handlers
- * (`src/handlers/notifications.ts`), and the UI matrix
+ * (`packages/trust-radar/src/lib/notifications.ts`), the preference
+ * handlers (`packages/trust-radar/src/handlers/notifications.ts`), and
+ * the UI matrix
  * (`packages/averrow-ui/src/features/settings/NotificationPreferences.tsx`)
  * all derive their event list, dedup windows, default state, and labels
  * from this module.
@@ -17,11 +18,8 @@
  *      a CHECK).
  *   4. The UI matrix and the handler defaults pick it up automatically.
  *
- * NOTE: This file is duplicated at
- *   packages/averrow-ui/src/lib/notification-events.ts
- * because the monorepo doesn't yet have a shared package. Keep the two
- * copies byte-identical — diffs WILL drift the dispatcher and the UI.
- * A future PR can extract this to `packages/shared/`.
+ * Both the worker and the UI import from `@averrow/shared` so the
+ * registry exists once and only once.
  */
 
 export type NotificationEventKey =

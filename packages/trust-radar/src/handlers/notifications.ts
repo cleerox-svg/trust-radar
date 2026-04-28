@@ -16,7 +16,7 @@ import type { Env } from "../types";
 import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_CHANNELS,
-} from "../lib/notification-events";
+} from "@averrow/shared";
 
 // Combined list of preference column names — events first, then channels.
 // SQL columns in `notification_preferences` use these exact names.

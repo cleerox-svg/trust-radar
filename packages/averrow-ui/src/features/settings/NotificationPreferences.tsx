@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_CHANNELS,
-} from '@/lib/notification-events';
+} from '@averrow/shared';
 import {
   getPushStatus, subscribePush, unsubscribePush,
   listPushDevices, removePushDevice,

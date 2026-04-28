@@ -23,6 +23,11 @@ import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 import { createNotification } from "../lib/notifications";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
+// Alert-type registry — single source of truth for alert_type column
+// values. Importing the key here means any future rename of the
+// 'geopolitical_threat' string changes in one place; the CHECK
+// constraint in migration 0121 enforces match at the DB level.
+import { ALERT_TYPES } from "@averrow/shared";
 
 // ─── ip-api.com batch types ───────────────────────────────────────
 
@@ -779,12 +784,18 @@ function buildGeopoliticalEscalationStatements(
          WHERE id = ?`
       ).bind(campaign.id, threatId));
 
-      // Create geopolitical alert
+      // Create geopolitical alert. alert_type + severity values come
+      // from the registry and CHECK constraint (migration 0121) — no
+      // string literals at the call site. Severity is lowercase per
+      // the migration 0120 convention.
+      const geoTypeDef = ALERT_TYPES.find((t) => t.key === 'geopolitical_threat')!;
       stmts.push(db.prepare(
         `INSERT INTO alerts (id, brand_id, user_id, alert_type, severity, title, summary, source_type, source_id, created_at, updated_at)
-         VALUES (?, '__system__', '__system__', 'geopolitical_threat', 'CRITICAL', ?, ?, 'geopolitical_campaign', ?, datetime('now'), datetime('now'))`
+         VALUES (?, '__system__', '__system__', ?, ?, ?, ?, 'geopolitical_campaign', ?, datetime('now'), datetime('now'))`
       ).bind(
         crypto.randomUUID(),
+        geoTypeDef.key,
+        geoTypeDef.defaultSeverity,
         `Nation-state threat: ${campaign.name}`,
         `Threat from ${countryCode ?? 'unknown'} infrastructure (ASN: ${asn ?? 'unknown'}) detected. Campaign: ${campaign.conflict}`,
         campaign.id,
