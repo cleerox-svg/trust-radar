@@ -15,6 +15,11 @@ Before writing any code, read:
 If the task touches agents or backend:
 4. `docs/AI_AGENTS.md` — agent architecture and rules
 
+If the task touches login, profile, push, biometric, or PWA install:
+5. `docs/SHARED_LOGIN_SPEC.md` — the canonical Averrow ↔ FarmTrack
+   login spec. Both products must stay structurally identical; only
+   the per-product deltas listed in §1 may differ.
+
 ```bash
 # Always check for TODOs before starting
 grep -rn "TODO\|FIXME\|HACK" packages/averrow-ui/src/ --include="*.tsx" | head -20
@@ -200,10 +205,55 @@ import {
 <Badge severity="high" />
 <Badge status="active" pulse />
 
-// Avatar
+// Avatar (brand/entity — favicon + initial fallback, not for users)
 <Avatar name="Acme Corp" color="var(--red)" />
 <Avatar name="Google" faviconUrl="https://..." severity="critical" />
 ```
+
+### User avatars — initials only, never Google profile picture
+
+Source-of-truth helpers in `packages/averrow-ui/src/lib/avatar.ts`:
+
+```typescript
+import { parseInitials, colorForUserId, SELF_AVATAR_COLOR } from '@/lib/avatar';
+
+parseInitials("Claude Leroux", null)        // "CL"
+parseInitials("Claude Marc Leroux", null)   // "CL"  (first + last word, drops middle)
+parseInitials("Claude", null)               // "C"
+parseInitials(null, "you@example.com")      // "Y"
+parseInitials(null, null)                   // "?"
+
+colorForUserId("usr_abc123")                // deterministic palette pick
+SELF_AVATAR_COLOR                           // var(--amber)
+```
+
+**Color rule:**
+- Self-avatar (top bar, profile dropdown, profile identity card) → always `SELF_AVATAR_COLOR` (static amber).
+- Non-self avatars (admin user lists, attribution rows, comment authors) → `colorForUserId(user.id)` so the same user gets the same color across the app.
+
+**Never render `user.avatar_url` / Google profile picture.** Drop the prop from any `<img>` or Avatar call site that previously rendered it. Initials only. See `docs/SHARED_LOGIN_SPEC.md` §3.
+
+### Login + Profile composition
+
+Don't redesign the Login or Profile pages without checking
+`docs/SHARED_LOGIN_SPEC.md` first. Both must stay structurally
+identical to FarmTrack. Per-product deltas are limited to:
+- Brand tile letters (`AV` here, `FT` on FarmTrack)
+- Tagline (`AI-FIRST THREAT INTELLIGENCE` here, `AN AVERROW PRODUCT` on FarmTrack)
+- Footer pillars (`DETECT · ANALYZE · CORRELATE · RESPOND` here)
+- OAuth `return_to` target
+
+### PWA install + biometric prompt
+
+Two install affordances + one biometric auto-prompt:
+
+| Component | Where | When |
+|---|---|---|
+| `<InstallAppBanner />` | Top of `Home.tsx` | Visible to non-installed users; dismissible per-device |
+| `<InstallAppCard />` | Profile page | Always visible (when not installed); not dismissible |
+| `<FirstSignInPasskeyPrompt />` | Mounted at `Shell.tsx` root | Auto-fires when `passkey_count === 0` + WebAuthn supported |
+
+All three self-gate internally. Don't add per-route logic to control them.
 
 ---
 
