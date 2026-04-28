@@ -17,6 +17,7 @@ const Apps = React.lazy(() => import('@/features/apps/Apps').then(m => ({ defaul
 const DarkWeb = React.lazy(() => import('@/features/dark-web/DarkWeb').then(m => ({ default: m.DarkWeb })));
 const Agents = React.lazy(() => import('@/features/agents/Agents').then(m => ({ default: m.Agents })));
 const AgentMesh = React.lazy(() => import('@/features/agents/AgentMesh').then(m => ({ default: m.AgentMesh })));
+const ScanLeads = React.lazy(() => import('@/features/scan-leads/ScanLeads').then(m => ({ default: m.ScanLeads })));
 const Takedowns = React.lazy(() => import('@/features/takedowns/Takedowns').then(m => ({ default: m.Takedowns })));
 const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m => ({ default: m.SpamTrap })));
 const Alerts = React.lazy(() => import('@/features/alerts/Alerts').then(m => ({ default: m.Alerts })));
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="leads" element={lazyRoute(<Leads />)} />
         <Route path="feeds" element={lazyRoute(<Feeds />)} />
         <Route path="admin" element={lazyRoute(<AdminDashboard />)} />
+        <Route path="admin/scan-leads" element={lazyRoute(<ScanLeads />)} />
         <Route path="admin/takedowns" element={lazyRoute(<Takedowns />)} />
         <Route path="admin/spam-trap" element={lazyRoute(<SpamTrap />)} />
         <Route path="admin/users" element={lazyRoute(<Organization />)} />
