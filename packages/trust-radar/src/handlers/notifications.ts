@@ -34,30 +34,91 @@ const PREF_DEFAULTS: Record<PrefColumn, boolean> = (() => {
 })();
 
 // GET /api/notifications
+//
+// Powers both the bell dropdown (no filters) and the /v2/notifications
+// archive page (filtered + searched + cursor-paginated).
+//
+// Query params:
+//   limit       — page size, capped at 50
+//   unread      — 'true' to filter unread only (bell uses this)
+//   type        — filter by notification type (matches registry keys)
+//   severity    — filter by severity (lowercase: critical/high/medium/low/info)
+//   q           — case-insensitive LIKE search across title + message
+//   cursor      — ISO timestamp from the last item's created_at;
+//                 returns rows STRICTLY OLDER than this. Cursor-based
+//                 pagination is stable across new inserts (offset
+//                 pagination would shift rows under the user as new
+//                 events arrive).
+//
+// Response also includes `next_cursor` (the oldest row's created_at
+// in the current page), or null if fewer rows than `limit` were
+// returned (= last page).
 export async function handleListNotificationsV2(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const url = new URL(request.url);
     const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const unreadOnly = url.searchParams.get("unread") === "true";
+    const type = url.searchParams.get("type");
+    const severity = url.searchParams.get("severity");
+    const q = url.searchParams.get("q")?.trim();
+    const cursor = url.searchParams.get("cursor");
 
     let sql = `SELECT id, type, severity, title, message, link, read_at, created_at, metadata
                FROM notifications WHERE user_id = ?`;
     const params: unknown[] = [userId];
+
     if (unreadOnly) {
       sql += ` AND read_at IS NULL`;
     }
+    if (type) {
+      sql += ` AND type = ?`;
+      params.push(type);
+    }
+    if (severity) {
+      sql += ` AND severity = ?`;
+      params.push(severity);
+    }
+    if (q) {
+      sql += ` AND (LOWER(title) LIKE ? OR LOWER(message) LIKE ?)`;
+      const needle = `%${q.toLowerCase()}%`;
+      params.push(needle, needle);
+    }
+    if (cursor) {
+      sql += ` AND created_at < ?`;
+      params.push(cursor);
+    }
+
     sql += ` ORDER BY created_at DESC LIMIT ?`;
     params.push(limit);
 
-    const rows = await env.DB.prepare(sql).bind(...params).all();
+    const rows = await env.DB.prepare(sql).bind(...params).all<{
+      id: string; type: string; severity: string; title: string;
+      message: string; link: string | null; read_at: string | null;
+      created_at: string; metadata: string | null;
+    }>();
+    const results = rows.results;
 
-    // Get unread count
+    // next_cursor is the oldest row's created_at (so the next page
+    // can ask for rows older than this). null when we got fewer than
+    // `limit` rows = last page.
+    const nextCursor = results.length === limit
+      ? results[results.length - 1]!.created_at
+      : null;
+
+    // Get unread count (always reflects the unfiltered total — the
+    // bell badge cares about all unread, not just ones matching the
+    // current page's filters).
     const countRow = await env.DB.prepare(
       `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND read_at IS NULL`
     ).bind(userId).first<{ c: number }>();
 
-    return json({ success: true, data: rows.results, unread_count: countRow?.c ?? 0 }, 200, origin);
+    return json({
+      success: true,
+      data: results,
+      unread_count: countRow?.c ?? 0,
+      next_cursor: nextCursor,
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
