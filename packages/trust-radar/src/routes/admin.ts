@@ -40,6 +40,7 @@ import { handlePlatformDiagnostics } from "../handlers/diagnostics";
 import { handleCartographerHealth } from "../handlers/cartographer-health";
 import { handleD1Health } from "../handlers/d1-health";
 import { handleGenerateQualifiedReport } from "../handlers/qualifiedReport";
+import { handleSendLeadOutreach, handleConvertLeadToTenant } from "../handlers/leadConversion";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -91,6 +92,23 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGenerateQualifiedReport(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+
+  // Send templated outreach email with the qualified-report share URL.
+  // Requires a previously-generated qualified report (404s otherwise).
+  router.post("/api/admin/leads/:id/outreach", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSendLeadOutreach(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+
+  // Convert a qualified lead to a tenant organization. Creates org +
+  // adds super_admin as owner-role member + auto-creates/links the
+  // brand for monitoring. Independent of outreach (deals close on calls).
+  router.post("/api/admin/leads/:id/convert-to-tenant", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleConvertLeadToTenant(request, env, request.params["id"] ?? "", ctx.userId);
   });
 
   // ─── Admin Users ──────────────────────────────────────────────────

@@ -505,12 +505,28 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
     }
 
     const id = crypto.randomUUID();
+
+    // Brand correlation: if a brands row already exists for this domain,
+    // attach its id to the lead so sales can see "this prospect is asking
+    // about a brand we already monitor" without a JOIN at read time.
+    // Column is nullable so platforms scanning brand-new domains still
+    // capture cleanly.
+    let correlatedBrandId: string | null = null;
+    if (body.domain) {
+      const dom = body.domain.toLowerCase().trim();
+      const existing = await env.DB.prepare(
+        "SELECT id FROM brands WHERE canonical_domain = ?",
+      ).bind(dom).first<{ id: string }>();
+      if (existing) correlatedBrandId = existing.id;
+    }
+
     await env.DB.prepare(`
-      INSERT INTO scan_leads (id, email, name, company, phone, domain, form_type, source, message, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'brand_scan', 'public_scan', ?, 'new', datetime('now'), datetime('now'))
+      INSERT INTO scan_leads (id, email, name, company, phone, domain, form_type, source, message, status, correlated_brand_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'brand_scan', 'public_scan', ?, 'new', ?, datetime('now'), datetime('now'))
     `).bind(
       id, body.email, body.name, body.company ?? null,
       body.phone ?? null, body.domain ?? null, body.message ?? null,
+      correlatedBrandId,
     ).run();
 
     return json({ success: true, data: { id, message: "Thank you! Our team will contact you shortly." } }, 200, origin);
