@@ -14,6 +14,7 @@ import {
 } from "../scanners/app-store-monitor";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
 import { getCacheVersion, bumpCacheVersion } from "../lib/cache-version";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -105,7 +106,12 @@ export async function handleListAppStoreListings(
     const session = getReadSession(env, dbCtx);
 
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "appstore_listings", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+
+    const tally = newTally();
 
     let where = "WHERE brand_id = ?";
     const params: unknown[] = [brandId];
@@ -138,6 +144,11 @@ export async function handleListAppStoreListings(
         "SELECT platform, last_checked, next_check, check_interval_hours, enabled FROM brand_monitor_schedule WHERE brand_id = ? AND monitor_type = 'appstore'",
       ).bind(brandId).all(),
     ]);
+
+    addToTally(tally, rows.meta);
+    addToTally(tally, schedule.meta);
+    tally.queries += 1; // countRow .first()
+    recordD1Reads(env, "appstore_listings", tally);
 
     const responseBody = {
       success: true,
@@ -504,7 +515,12 @@ export async function handleAppStoreOverview(
     const session = getReadSession(env, dbCtx);
 
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "appstore_overview", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+
+    const tally = newTally();
 
     // Stage 1: brand list + count + cross-brand totals — all parallel.
     const [brands, total, totals] = await Promise.all([
@@ -582,9 +598,16 @@ export async function handleAppStoreOverview(
         `).bind(...brandIds).all<{ brand_id: string; last_checked: string | null; next_check: string | null }>(),
       ]);
 
+      addToTally(tally, summaryRows.meta);
+      addToTally(tally, schedRows.meta);
+
       for (const r of summaryRows.results) summaryByBrand.set(r.brand_id, r);
       for (const r of schedRows.results) scheduleByBrand.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
     }
+
+    addToTally(tally, brands.meta);
+    tally.queries += 2; // total + totals .first()
+    recordD1Reads(env, "appstore_overview", tally);
 
     const brandsWithStats = brands.results.map((brand) => {
       const s = summaryByBrand.get(brand.id);

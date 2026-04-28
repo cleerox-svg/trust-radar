@@ -13,6 +13,7 @@ import {
 } from "../scanners/dark-web-monitor";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
 import { getCacheVersion, bumpCacheVersion } from "../lib/cache-version";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 
@@ -102,7 +103,12 @@ export async function handleListDarkWebMentions(
     const session = getReadSession(env, dbCtx);
 
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      // Cache hit — record zero D1 reads so AE attribution reflects
+      // actual database load, not request volume.
+      recordD1Reads(env, "darkweb_mentions", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
     let where = "WHERE brand_id = ?";
     const params: unknown[] = [brandId];
@@ -112,6 +118,8 @@ export async function handleListDarkWebMentions(
     if (severity) { where += " AND severity = ?"; params.push(severity); }
     if (matchType) { where += " AND match_type = ?"; params.push(matchType); }
     if (status) { where += " AND status = ?"; params.push(status); }
+
+    const tally = newTally();
 
     // Parallelize the three reads — independent queries, no need to serialize.
     const [rows, countRow, schedule] = await Promise.all([
@@ -137,6 +145,13 @@ export async function handleListDarkWebMentions(
         "SELECT platform, last_checked, next_check, check_interval_hours, enabled FROM brand_monitor_schedule WHERE brand_id = ? AND monitor_type = 'darkweb'",
       ).bind(brandId).all(),
     ]);
+
+    addToTally(tally, rows.meta);
+    addToTally(tally, schedule.meta);
+    // countRow comes from .first() which doesn't expose meta directly;
+    // count is small (1-2 rows read) and approximated as 1 for the tally.
+    tally.queries += 1;
+    recordD1Reads(env, "darkweb_mentions", tally);
 
     const responseBody = {
       success: true,
@@ -379,7 +394,12 @@ export async function handleDarkWebOverview(
     const session = getReadSession(env, dbCtx);
 
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "darkweb_overview", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+
+    const tally = newTally();
 
     // Stage 1: list brands + total count + cross-brand totals — three
     // independent reads, run in parallel.
@@ -458,9 +478,17 @@ export async function handleDarkWebOverview(
         `).bind(...brandIds).all<{ brand_id: string; last_checked: string | null; next_check: string | null }>(),
       ]);
 
+      addToTally(tally, summaryRows.meta);
+      addToTally(tally, schedRows.meta);
+
       for (const r of summaryRows.results) summaryByBrand.set(r.brand_id, r);
       for (const r of schedRows.results) scheduleByBrand.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
     }
+
+    addToTally(tally, brands.meta);
+    // total + totals come from .first() — count both as 1 query each
+    tally.queries += 2;
+    recordD1Reads(env, "darkweb_overview", tally);
 
     const brandsWithStats = brands.results.map((brand) => {
       const s = summaryByBrand.get(brand.id);

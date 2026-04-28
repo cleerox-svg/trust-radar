@@ -101,6 +101,14 @@ migrations_dir = "migrations-audit"
 binding = "CACHE"
 id = "2f168effdbf54d3b913a1070524d6cc1"
 
+# ─── Workers Analytics Engine (per-endpoint D1 read attribution) ──
+# Cheap high-cardinality counter sink — each handler that opts in
+# writes its rows_read total per request. Surfaced via the GraphQL
+# Analytics API in platform-diagnostics's d1_metrics_24h block.
+[[analytics_engine_datasets]]
+binding = "AE"
+dataset = "trust_radar_d1_reads"
+
 # ─── R2 Storage (evidence archives, feed snapshots) ──────────
 # [[r2_buckets]]
 # binding = "EVIDENCE"
