@@ -35,6 +35,17 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       "SELECT COUNT(*) AS n FROM hosting_providers WHERE asn IS NOT NULL AND asn != '' AND id != 'hp_' || asn"
     ).first<{ n: number }>();
 
+    // Sample of legacy rows for diagnosis. Kept tight (10 rows) since the
+    // expected steady-state count is 0 after cleanup. The id format gives
+    // away which insert path created the row — UUID-shaped means the
+    // cartographerBackfill workflow path; hp_<slug> means the legacy
+    // upsertHostingProvider helper in lib/geoip.ts.
+    const legacyHpSampleP = env.DB.prepare(
+      `SELECT id, asn, name FROM hosting_providers
+       WHERE asn IS NOT NULL AND asn != '' AND id != 'hp_' || asn
+       ORDER BY id LIMIT 10`
+    ).all<{ id: string; asn: string; name: string }>();
+
     // ─── Attempts distribution ────────────────────────────────────
     // Histogram across the full 0..5 range so the consumer can see the
     // shape of the queue: heavy at 0 = fresh ingest dominating, heavy at
@@ -142,9 +153,9 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
     }>();
 
     const [
-      column, indexRow, legacyHpIds, attemptsHist, queue, stuck, throughput, recentRuns, batchOutputs,
+      column, indexRow, legacyHpIds, legacyHpSample, attemptsHist, queue, stuck, throughput, recentRuns, batchOutputs,
     ] = await Promise.all([
-      columnP, indexP, legacyHpIdsP, attemptsHistP, queueP, stuckP, throughputP, recentRunsP, batchOutputsP,
+      columnP, indexP, legacyHpIdsP, legacyHpSampleP, attemptsHistP, queueP, stuckP, throughputP, recentRunsP, batchOutputsP,
     ]);
 
     // ─── Compute ip-api yields from recent batches ────────────────
@@ -229,6 +240,7 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
           // >0 = migration still pending or failed (cartographer's
           // pre-resolve continues to handle these correctly).
           legacy_hosting_provider_ids: legacyHpIds?.n ?? 0,
+          legacy_hosting_provider_sample: legacyHpSample.results,
         },
 
         queue: {

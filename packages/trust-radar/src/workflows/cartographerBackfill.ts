@@ -111,24 +111,30 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
             const ipAddress = t.ip_address as string | null;
             const geo = ipAddress ? geoMap.get(ipAddress) : null;
 
-            // Upsert hosting provider if we got ASN data
+            // Upsert hosting provider if we got ASN data.
+            // Uses canonical hp_${asn} id form (matches PR #826's cartographer
+            // convention). The ON CONFLICT(asn) handler still merges in case
+            // a legacy row exists with a different id for the same asn —
+            // pre-resolve via SELECT below returns the actual id either way.
             let providerId = t.hosting_provider_id as string | null;
             const geoAs = geo?.as as string | undefined;
             if (!providerId && geoAs) {
               const asn = geoAs.split(' ')[0];
-              const providerName = geoAs.replace(/^AS\d+\s*/, '').trim() || (geo?.isp as string) || (geo?.org as string);
-              await this.env.DB.prepare(`
-                INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
-                VALUES (?, ?, ?, ?, datetime('now'))
-                ON CONFLICT(asn) DO UPDATE SET
-                  last_enriched = datetime('now'),
-                  country = COALESCE(country, excluded.country)
-              `).bind(crypto.randomUUID(), providerName, asn, geo?.countryCode as string ?? null).run();
+              if (asn) {
+                const providerName = geoAs.replace(/^AS\d+\s*/, '').trim() || (geo?.isp as string) || (geo?.org as string);
+                await this.env.DB.prepare(`
+                  INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
+                  VALUES (?, ?, ?, ?, datetime('now'))
+                  ON CONFLICT(asn) DO UPDATE SET
+                    last_enriched = datetime('now'),
+                    country = COALESCE(country, excluded.country)
+                `).bind(`hp_${asn}`, providerName, asn, geo?.countryCode as string ?? null).run();
 
-              const provider = await this.env.DB.prepare(
-                'SELECT id FROM hosting_providers WHERE asn = ?'
-              ).bind(asn).first<{ id: string }>();
-              providerId = provider?.id ?? null;
+                const provider = await this.env.DB.prepare(
+                  'SELECT id FROM hosting_providers WHERE asn = ?'
+                ).bind(asn).first<{ id: string }>();
+                providerId = provider?.id ?? null;
+              }
             }
 
             // Update threat with enriched data. Stamp enriched_at whenever

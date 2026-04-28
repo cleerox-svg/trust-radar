@@ -345,7 +345,13 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
 
 /**
  * Upsert a hosting provider record. Returns the provider ID.
- * Uses deterministic IDs based on provider name.
+ *
+ * Prefers the canonical hp_${asn} id form (matches PR #826's
+ * cartographer convention: ASN is the unique identity for a provider
+ * because UNIQUE(asn) enforces it at the schema level). Falls back to
+ * the name-derived form only when asn is unknown — rare in modern
+ * usage, but kept so this helper still works for callers that haven't
+ * resolved ASN yet.
  */
 export async function upsertHostingProvider(
   db: D1Database,
@@ -353,14 +359,40 @@ export async function upsertHostingProvider(
   asn: string | null,
   country: string | null,
 ): Promise<string> {
-  const id = `hp_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+  // Strip optional "AS" prefix and any trailing whitespace/description
+  // to match cartographer's canonicalization. ip-api returns asn as
+  // "AS4837 China Unicom" — we want just "AS4837" for the id.
+  const asnPrefix = asn?.split(' ')[0]?.trim() ?? null;
+  const id = asnPrefix
+    ? `hp_${asnPrefix}`
+    : `hp_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+
+  // Existing rows may carry legacy ids; pre-resolve by asn so we update
+  // them in place rather than creating a duplicate that would trip
+  // UNIQUE(asn). Returns the existing id when found, otherwise we
+  // INSERT with the canonical form above.
+  if (asnPrefix) {
+    const existing = await db.prepare(
+      "SELECT id FROM hosting_providers WHERE asn = ?"
+    ).bind(asnPrefix).first<{ id: string }>();
+    if (existing) {
+      await db.prepare(
+        `UPDATE hosting_providers SET
+           name = COALESCE(name, ?),
+           country = COALESCE(country, ?)
+         WHERE id = ?`
+      ).bind(name, country, existing.id).run();
+      return existing.id;
+    }
+  }
+
   await db.prepare(
     `INSERT INTO hosting_providers (id, name, asn, country)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        asn = COALESCE(hosting_providers.asn, excluded.asn),
        country = COALESCE(hosting_providers.country, excluded.country)`
-  ).bind(id, name, asn, country).run();
+  ).bind(id, name, asnPrefix, country).run();
   return id;
 }
 
