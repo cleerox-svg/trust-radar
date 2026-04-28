@@ -81,18 +81,13 @@ export function useUpdatePushConfig() {
   });
 }
 
-export interface PushTestResult {
-  device_id: string;
-  device_label: string | null;
-  delivered: boolean;
-  status_code?: number;
-  error?: string;
-}
-
+// Matches the dispatchPush() return shape the admin handler relays back
+// (handlers/adminPush.ts:188 returns the result object directly).
+// No per-device breakdown — dispatchPush gives aggregate counts only.
 export interface PushTestResponse {
-  attempted: number;
-  delivered: number;
-  results: PushTestResult[];
+  sent: number;
+  expired: number;
+  failed: number;
 }
 
 export function useTestPush() {
