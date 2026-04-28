@@ -185,9 +185,46 @@ export const cartographerAgent: AgentModule = {
         // (3 writes × 500 threats) to a small number of batched round-trips, freeing
         // the writer for user-facing reads.
         const pendingWrites: D1PreparedStatement[] = [];
-        // Track provider upserts within this batch so we don't queue duplicates
-        // for threats that share the same ASN.
-        const queuedProviderIds = new Set<string>();
+
+        // ─── Pre-resolve hosting providers by ASN ─────────────────────
+        // hosting_providers.asn has UNIQUE — but cartographer historically
+        // derived the row id from the provider NAME (e.g. hp_china_unicom_beijing),
+        // which let two threats with different name variants ("AS4837 China
+        // Unicom Beijing" vs "AS4837 China Unicom") generate different ids
+        // for the same ASN. Result: ON CONFLICT(id) didn't fire, UNIQUE(asn)
+        // tripped, the entire 100-statement batch chunk rolled back atomically.
+        // The 2026-04-28 cartographer-health snapshot showed this killing
+        // ~90% of threat UPDATEs in production.
+        //
+        // Fix: look up existing providers by ASN once per batch, reuse those
+        // ids when threats share an ASN with a known row. For genuinely-new
+        // ASNs (not in DB), derive id deterministically as hp_${asn} so that
+        // concurrent cartographer instances generate the same id and
+        // ON CONFLICT(id) handles the cross-instance race naturally.
+        const asnsInBatch = new Set<string>();
+        for (const t of unenriched.results) {
+          const g = t.ip_address ? geoResults.get(t.ip_address) : null;
+          const a = g?.as?.split(' ')[0];
+          if (a) asnsInBatch.add(a);
+        }
+
+        const asnToProviderId = new Map<string, string>();
+        if (asnsInBatch.size > 0) {
+          const asnList = [...asnsInBatch];
+          const placeholders = asnList.map(() => '?').join(',');
+          const existing = await env.DB.prepare(
+            `SELECT id, asn FROM hosting_providers WHERE asn IN (${placeholders})`
+          ).bind(...asnList).all<{ id: string; asn: string }>();
+          for (const row of existing.results) {
+            asnToProviderId.set(row.asn, row.id);
+          }
+        }
+
+        // Track provider upserts queued in this batch so we don't queue
+        // duplicates for threats that share the same ASN. Tracked by ASN
+        // (not generated id) since the deterministic-id derivation makes
+        // ASN the canonical identifier.
+        const queuedAsns = new Set<string>();
 
         // Pre-load geopolitical campaigns once per batch (cached after first call)
         const activeCampaigns = await getActiveGeoCampaigns(env.DB);
@@ -198,15 +235,39 @@ export const cartographerAgent: AgentModule = {
 
           // Match or create hosting provider from ASN — queue upsert, don't await
           let providerId = threat.hosting_provider_id;
-          if (!providerId && geo?.as) {
-            const asn = geo.as.split(' ')[0]; // "AS4837"
+          if (!providerId && geo?.as && geo.as.split(' ')[0]) {
+            const asn = geo.as.split(' ')[0]!;
             const providerName = geo.as.replace(/^AS\d+\s*/, '').trim() || geo.isp || geo.org;
 
-            if (providerName) {
-              const hpId = `hp_${providerName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+            // Prefer the existing provider's id (legacy or new shape).
+            // This preserves FK integrity for threats already pointing
+            // to the legacy name-derived id.
+            const existingId = asnToProviderId.get(asn);
+
+            if (existingId) {
+              providerId = existingId;
+              // Queue a touch-update so last_enriched reflects this run,
+              // unless we've already queued for this ASN in this batch.
+              if (providerName && !queuedAsns.has(asn)) {
+                queuedAsns.add(asn);
+                pendingWrites.push(env.DB.prepare(`
+                  INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
+                  VALUES (?, ?, ?, ?, datetime('now'))
+                  ON CONFLICT(id) DO UPDATE SET
+                    last_enriched = datetime('now'),
+                    asn = COALESCE(hosting_providers.asn, excluded.asn),
+                    country = COALESCE(hosting_providers.country, excluded.country)
+                `).bind(existingId, providerName, asn, geo.countryCode));
+              }
+            } else if (providerName) {
+              // Genuinely-new ASN — derive id from ASN so concurrent
+              // cartographer instances both produce hp_${asn} and the
+              // ON CONFLICT(id) DO UPDATE merges them cleanly.
+              const hpId = `hp_${asn}`;
               providerId = hpId;
-              if (!queuedProviderIds.has(hpId)) {
-                queuedProviderIds.add(hpId);
+              asnToProviderId.set(asn, hpId);  // remember within this batch
+              if (!queuedAsns.has(asn)) {
+                queuedAsns.add(asn);
                 pendingWrites.push(env.DB.prepare(`
                   INSERT INTO hosting_providers (id, name, asn, country, last_enriched)
                   VALUES (?, ?, ?, ?, datetime('now'))
