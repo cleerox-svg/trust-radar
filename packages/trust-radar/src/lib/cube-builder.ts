@@ -350,3 +350,87 @@ export async function countBrandCubeForHour(
     };
   }
 }
+
+// ─── Brand-keyed summary tables ──────────────────────────────────
+//
+// Different shape from the hour-bucketed cubes above: dark-web and app-store
+// handlers query "all active mentions per brand" with no time slice, so the
+// summary table holds one row per brand (not per hour × brand) — minimum-
+// work answer for the read pattern. INSERT OR REPLACE on brand_id keeps
+// rebuilds idempotent.
+
+export async function buildDarkWebBrandSummary(env: Env): Promise<CubeBuildResult> {
+  const start = Date.now();
+  try {
+    const result = await env.DB.prepare(`
+      INSERT OR REPLACE INTO dark_web_brand_summary
+        (brand_id, total_active,
+         confirmed_active, suspicious_active,
+         critical_active, high_active, medium_active, low_active,
+         updated_at)
+      SELECT
+        brand_id,
+        COUNT(*),
+        SUM(CASE WHEN classification = 'confirmed' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN classification = 'suspicious' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'MEDIUM' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'LOW' THEN 1 ELSE 0 END),
+        datetime('now')
+      FROM dark_web_mentions
+      WHERE status = 'active' AND brand_id IS NOT NULL
+      GROUP BY brand_id
+    `).run();
+
+    return {
+      rowsWritten: extractRowsWritten(result.meta),
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+export async function buildAppStoreBrandSummary(env: Env): Promise<CubeBuildResult> {
+  const start = Date.now();
+  try {
+    const result = await env.DB.prepare(`
+      INSERT OR REPLACE INTO app_store_brand_summary
+        (brand_id, total_active,
+         impersonation_active, suspicious_active, legitimate_active, official_active,
+         critical_active, high_active,
+         updated_at)
+      SELECT
+        brand_id,
+        COUNT(*),
+        SUM(CASE WHEN classification = 'impersonation' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN classification = 'suspicious'   THEN 1 ELSE 0 END),
+        SUM(CASE WHEN classification = 'legitimate'   THEN 1 ELSE 0 END),
+        SUM(CASE WHEN classification = 'official'     THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN severity = 'HIGH'     THEN 1 ELSE 0 END),
+        datetime('now')
+      FROM app_store_listings
+      WHERE status = 'active' AND brand_id IS NOT NULL
+      GROUP BY brand_id
+    `).run();
+
+    return {
+      rowsWritten: extractRowsWritten(result.meta),
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}

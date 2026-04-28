@@ -407,24 +407,34 @@ export async function handleDarkWebOverview(
       }>(),
     ]);
 
-    // Stage 2: bulk per-brand stats. Two queries instead of 2 × N — collapse
-    // the previous Promise.all loop (one classification + one schedule per
-    // brand) into single GROUP BY + single IN-list lookup. For 50 brands this
-    // drops 100 round-trips to 2.
+    // Stage 2: per-brand stats from the dark_web_brand_summary cube +
+    // monitor schedule. Two IN-list reads instead of GROUP BY against the
+    // raw mentions table. Cube is rebuilt every 6h by cube_healer; the
+    // 5-min KV cache above absorbs short-term staleness. For 50 brands,
+    // this drops the previous 2 × N (100 sub-requests) plus the GROUP BY
+    // scan over all active mentions to ~2 small indexed reads.
     const brandIds = brands.results.map(b => b.id);
     const placeholders = brandIds.map(() => "?").join(",");
 
-    let classificationByBrand = new Map<string, Array<{ classification: string; severity: string; count: number }>>();
+    let summaryByBrand = new Map<string, {
+      total_active: number; confirmed_active: number; suspicious_active: number;
+      critical_active: number; high_active: number; medium_active: number; low_active: number;
+    }>();
     let scheduleByBrand = new Map<string, { last_checked: string | null; next_check: string | null }>();
 
     if (brandIds.length > 0) {
-      const [classRows, schedRows] = await Promise.all([
+      const [summaryRows, schedRows] = await Promise.all([
         session.prepare(`
-          SELECT brand_id, classification, severity, COUNT(*) AS count
-          FROM dark_web_mentions
-          WHERE brand_id IN (${placeholders}) AND status = 'active'
-          GROUP BY brand_id, classification, severity
-        `).bind(...brandIds).all<{ brand_id: string; classification: string; severity: string; count: number }>(),
+          SELECT brand_id, total_active,
+                 confirmed_active, suspicious_active,
+                 critical_active, high_active, medium_active, low_active
+          FROM dark_web_brand_summary
+          WHERE brand_id IN (${placeholders})
+        `).bind(...brandIds).all<{
+          brand_id: string;
+          total_active: number; confirmed_active: number; suspicious_active: number;
+          critical_active: number; high_active: number; medium_active: number; low_active: number;
+        }>(),
         session.prepare(`
           SELECT brand_id, last_checked, next_check
           FROM brand_monitor_schedule
@@ -434,31 +444,21 @@ export async function handleDarkWebOverview(
         `).bind(...brandIds).all<{ brand_id: string; last_checked: string | null; next_check: string | null }>(),
       ]);
 
-      classificationByBrand = classRows.results.reduce((m, r) => {
-        const arr = m.get(r.brand_id) ?? [];
-        arr.push({ classification: r.classification, severity: r.severity, count: r.count });
-        m.set(r.brand_id, arr);
-        return m;
-      }, new Map<string, Array<{ classification: string; severity: string; count: number }>>());
-
-      scheduleByBrand = schedRows.results.reduce((m, r) => {
-        m.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
-        return m;
-      }, new Map<string, { last_checked: string | null; next_check: string | null }>());
+      for (const r of summaryRows.results) summaryByBrand.set(r.brand_id, r);
+      for (const r of schedRows.results) scheduleByBrand.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
     }
 
     const brandsWithStats = brands.results.map((brand) => {
-      const classRows = classificationByBrand.get(brand.id) ?? [];
-      const counts = { total: 0, confirmed: 0, suspicious: 0, critical: 0, high: 0, medium: 0, low: 0 };
-      for (const row of classRows) {
-        counts.total += row.count;
-        if (row.classification === "confirmed") counts.confirmed += row.count;
-        if (row.classification === "suspicious") counts.suspicious += row.count;
-        if (row.severity === "CRITICAL") counts.critical += row.count;
-        if (row.severity === "HIGH") counts.high += row.count;
-        if (row.severity === "MEDIUM") counts.medium += row.count;
-        if (row.severity === "LOW") counts.low += row.count;
-      }
+      const s = summaryByBrand.get(brand.id);
+      const counts = {
+        total: s?.total_active ?? 0,
+        confirmed: s?.confirmed_active ?? 0,
+        suspicious: s?.suspicious_active ?? 0,
+        critical: s?.critical_active ?? 0,
+        high: s?.high_active ?? 0,
+        medium: s?.medium_active ?? 0,
+        low: s?.low_active ?? 0,
+      };
       const sched = scheduleByBrand.get(brand.id);
       return {
         ...brand,
