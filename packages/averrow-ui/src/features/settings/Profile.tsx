@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/time';
 import { Button, Input } from '@/design-system/components';
+import { parseInitials, SELF_AVATAR_COLOR } from '@/lib/avatar';
 import {
   isPasskeySupported, registerPasskey, listPasskeys, removePasskey,
   type PasskeyDevice,
@@ -67,9 +68,7 @@ export function Profile() {
     } catch { /* swallow */ }
   };
 
-  const initials = user?.name
-    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
+  const initials = parseInitials(user?.name, user?.email);
 
   const roleName = user?.role === 'super_admin' ? 'Super Admin'
     : user?.role === 'admin' ? 'Admin'
@@ -118,7 +117,14 @@ export function Profile() {
 
       <div className="rounded-xl p-6 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-[#C83C3C] flex items-center justify-center text-lg font-bold text-white ring-2 ring-white/20 flex-shrink-0">
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+            style={{
+              background: SELF_AVATAR_COLOR,
+              color: 'var(--text-on-amber, #0A0F1E)',
+              border: '2px solid rgba(255,255,255,0.20)',
+            }}
+          >
             {initials}
           </div>
           <div>

@@ -91,10 +91,15 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
     });
   }
 
-  // ─── /login redirect → OAuth flow ────────────────────────────────
+  // ─── /login → React /v2/login ────────────────────────────────────
+  // Previously this redirected straight to /api/auth/login (Google
+  // OAuth). That short-circuited the React Login page so users only
+  // ever saw Google as an option — passkey + magic-link were
+  // unreachable. Send them to /v2/login instead so the React page
+  // surfaces all three auth methods.
   router.get("/login", (request: Request) => {
     const url = new URL(request.url);
-    return Response.redirect(`${url.origin}/api/auth/login?return_to=/v2`, 302);
+    return Response.redirect(`${url.origin}/v2/login`, 302);
   });
 
   // ─── Legacy escape hatch — old homepage at /legacy ──────────────
