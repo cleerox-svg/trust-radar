@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Bell, AlertTriangle } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowWidth';
 import { useUnreadCount, useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
+import { useAlertTriageSummary } from '@/hooks/useAlerts';
 import type { Notification } from '@/hooks/useNotifications';
 import { relativeTime } from '@/lib/time';
 import { Badge } from '@/design-system/components';
@@ -100,6 +101,7 @@ function NotificationList({
 }) {
   const navigate = useNavigate();
   const { data } = useNotifications(true);
+  const { data: triage } = useAlertTriageSummary();
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
 
@@ -123,8 +125,73 @@ function NotificationList({
     markRead.mutate(id);
   };
 
+  // Triage row — surfaces unresolved alerts at the most-discoverable
+  // surface (the bell). Hidden when there are no `status='new'`
+  // alerts. Critical-only count gets a red pulse dot. Tap navigates
+  // to /v2/alerts?status=new so the operator lands on the same
+  // filter that produced the count.
+  const newCount = triage?.new_count ?? 0;
+  const criticalCount = triage?.critical_count ?? 0;
+  const showTriage = newCount > 0;
+
+  const handleTriageClick = () => {
+    navigate('/alerts?status=new');
+    onClose();
+  };
+
   return (
     <div className="flex flex-col max-h-[520px] md:max-h-[520px]">
+      {showTriage && (
+        <button
+          onClick={handleTriageClick}
+          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 transition-colors touch-target"
+          style={{
+            background: criticalCount > 0
+              ? 'var(--sev-critical-bg)'
+              : 'var(--sev-medium-bg)',
+            borderBottom: '1px solid var(--border-base)',
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle
+              className="w-3.5 h-3.5 flex-shrink-0"
+              style={{
+                color: criticalCount > 0 ? 'var(--sev-critical)' : 'var(--sev-medium)',
+              }}
+            />
+            <span
+              className="font-mono text-[11px] font-semibold uppercase tracking-wider truncate"
+              style={{
+                color: criticalCount > 0 ? 'var(--sev-critical)' : 'var(--sev-medium)',
+              }}
+            >
+              {newCount} alert{newCount === 1 ? '' : 's'} need{newCount === 1 ? 's' : ''} triage
+            </span>
+            {criticalCount > 0 && (
+              <span
+                className="dot-pulse-red flex-shrink-0"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: 'var(--sev-critical)',
+                }}
+                aria-label={`${criticalCount} critical`}
+              />
+            )}
+          </div>
+          <span
+            className="font-mono text-[12px] flex-shrink-0"
+            style={{
+              color: criticalCount > 0 ? 'var(--sev-critical)' : 'var(--sev-medium)',
+            }}
+            aria-hidden
+          >
+            →
+          </span>
+        </button>
+      )}
+
       <div className="px-4 pt-4 pb-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-secondary)' }}>
@@ -138,7 +205,7 @@ function NotificationList({
             Mark all read
           </button>
         </div>
-        <p className="text-[11px] text-white/40 font-mono">
+        <p className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
           {data?.unread_count ?? 0} unread
         </p>
       </div>

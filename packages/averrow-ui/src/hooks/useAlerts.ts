@@ -96,6 +96,27 @@ export function useAlertStats() {
   });
 }
 
+// Lightweight count for the bell-dropdown "X alerts need triage" row.
+// Status='new' alerts only — fresh things to look at, not the full
+// open workload (acknowledged + investigating). Cached server-side
+// in KV for 60s; the client refetches every 60s too.
+export interface AlertTriageSummary {
+  new_count: number;
+  critical_count: number;
+}
+
+export function useAlertTriageSummary() {
+  return useQuery({
+    queryKey: ['alert-triage-summary'],
+    queryFn: async () => {
+      const res = await api.get<AlertTriageSummary>('/api/alerts/triage-summary');
+      return res.data ?? { new_count: 0, critical_count: 0 };
+    },
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useUpdateAlert() {
   const qc = useQueryClient();
   return useMutation({
