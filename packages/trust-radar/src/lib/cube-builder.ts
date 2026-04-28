@@ -351,6 +351,102 @@ export async function countBrandCubeForHour(
   }
 }
 
+/**
+ * Build (or rebuild) a single hour of the status cube.
+ *
+ * Window: [hourBucket, hourBucket + 1 hour)
+ * Source: threats — NO status filter, NO dimension NOT NULL filter.
+ * Grain : (hour, threat_type, severity, source_feed, status)
+ *
+ * This is the "no exclusions" cube: every threats row in the window
+ * appears here. Used by Group 3 callers that need true totals
+ * (COUNT(*), COUNT(*) WHERE status='active', COUNT(DISTINCT threat_type),
+ * GROUP BY threat_type) without paying the read cost of scanning
+ * the threats OLTP table.
+ *
+ * Status is mutable, so the rolling 5-min refresh keeps the most-recent
+ * 2 hours fresh and the 6h cube-healer rebuild reconciles the 30-day
+ * tail. Lag for older hours is up to 6 hours.
+ */
+export async function buildStatusCubeForHour(
+  env: Env,
+  hourBucket: string,
+): Promise<CubeBuildResult> {
+  const start = Date.now();
+  try {
+    const windowEnd = nextHour(hourBucket);
+    const result = await env.DB.prepare(`
+      INSERT OR REPLACE INTO threat_cube_status
+        (hour_bucket, threat_type, severity, source_feed, status,
+         threat_count, updated_at)
+      SELECT
+        ?1,
+        COALESCE(threat_type, 'unknown'),
+        COALESCE(severity, 'unknown'),
+        COALESCE(source_feed, 'unknown'),
+        COALESCE(status, 'unknown'),
+        COUNT(*),
+        datetime('now')
+      FROM threats
+      WHERE created_at >= ?2
+        AND created_at < ?3
+      GROUP BY 2, 3, 4, 5
+    `).bind(hourBucket, hourBucket, windowEnd).run();
+
+    return {
+      rowsWritten: extractRowsWritten(result.meta),
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Dry-run equivalent of buildStatusCubeForHour — see countGeoCubeForHour.
+ */
+export async function countStatusCubeForHour(
+  env: Env,
+  hourBucket: string,
+): Promise<CubeBuildResult & { groupedRows: number }> {
+  const start = Date.now();
+  try {
+    const windowEnd = nextHour(hourBucket);
+    const row = await env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM (
+        SELECT 1
+        FROM threats
+        WHERE created_at >= ?1
+          AND created_at < ?2
+        GROUP BY
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COALESCE(status, 'unknown')
+      )
+    `).bind(hourBucket, windowEnd).first<{ n: number }>();
+
+    return {
+      rowsWritten: 0,
+      groupedRows: row?.n ?? 0,
+      durationMs: Date.now() - start,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      rowsWritten: 0,
+      groupedRows: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 // ─── Brand-keyed summary tables ──────────────────────────────────
 //
 // Different shape from the hour-bucketed cubes above: dark-web and app-store

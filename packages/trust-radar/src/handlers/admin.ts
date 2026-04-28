@@ -18,9 +18,11 @@ import {
   buildGeoCubeForHour,
   buildProviderCubeForHour,
   buildBrandCubeForHour,
+  buildStatusCubeForHour,
   countGeoCubeForHour,
   countProviderCubeForHour,
   countBrandCubeForHour,
+  countStatusCubeForHour,
 } from "../lib/cube-builder";
 
 // Every agentId the canonical Anthropic wrapper is supposed to attribute
@@ -1888,15 +1890,23 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
 
   // ── Parse + validate query params ──
   const cube = url.searchParams.get("cube");
-  if (cube !== "geo" && cube !== "provider" && cube !== "brand" && cube !== "both" && cube !== "all") {
+  if (
+    cube !== "geo" &&
+    cube !== "provider" &&
+    cube !== "brand" &&
+    cube !== "status" &&
+    cube !== "both" &&
+    cube !== "all"
+  ) {
     return json({
       success: false,
-      error: "cube query param is required and must be 'geo' | 'provider' | 'brand' | 'both' | 'all'",
+      error: "cube query param is required and must be 'geo' | 'provider' | 'brand' | 'status' | 'both' | 'all'",
     }, 400, origin);
   }
   const buildGeo = cube === "geo" || cube === "both" || cube === "all";
   const buildProvider = cube === "provider" || cube === "both" || cube === "all";
   const buildBrand = cube === "brand" || cube === "all";
+  const buildStatus = cube === "status" || cube === "all";
 
   const daysRaw = parseInt(url.searchParams.get("days") ?? "30", 10);
   const days = Math.min(Math.max(Number.isFinite(daysRaw) ? daysRaw : 30, 1), 365);
@@ -1953,6 +1963,7 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
           let geoRows = 0;
           let providerRows = 0;
           let brandRows = 0;
+          let statusRows = 0;
           const errParts: string[] = [];
 
           try {
@@ -1972,6 +1983,11 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
                 brandRows = r.groupedRows;
                 if (r.error) errParts.push(`brand: ${r.error}`);
               }
+              if (buildStatus) {
+                const r = await countStatusCubeForHour(env, hour);
+                statusRows = r.groupedRows;
+                if (r.error) errParts.push(`status: ${r.error}`);
+              }
             } else {
               if (buildGeo) {
                 const r = await buildGeoCubeForHour(env, hour);
@@ -1988,13 +2004,18 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
                 brandRows = r.rowsWritten;
                 if (r.error) errParts.push(`brand: ${r.error}`);
               }
+              if (buildStatus) {
+                const r = await buildStatusCubeForHour(env, hour);
+                statusRows = r.rowsWritten;
+                if (r.error) errParts.push(`status: ${r.error}`);
+              }
             }
           } catch (err) {
             errParts.push(err instanceof Error ? err.message : String(err));
           }
 
           const errMsg = errParts.length > 0 ? errParts.join("; ") : null;
-          totalRows += geoRows + providerRows + brandRows;
+          totalRows += geoRows + providerRows + brandRows + statusRows;
           processed++;
           // Advance cursor regardless of error so we don't infinite-loop on a single
           // poison hour. The error is surfaced per-line so operators can see it.
@@ -2005,6 +2026,7 @@ export async function handleCubeBackfill(request: Request, env: Env): Promise<Re
             geo_rows: geoRows,
             provider_rows: providerRows,
             brand_rows: brandRows,
+            status_rows: statusRows,
             ms: Date.now() - hourStart,
             error: errMsg,
             dry_run: dryRun,

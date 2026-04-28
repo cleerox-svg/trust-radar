@@ -23,7 +23,7 @@
 
 import type { Env } from '../types';
 import { runDomainGeoBackfillBatch } from '../lib/dns-backfill';
-import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour } from '../lib/cube-builder';
+import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour, buildStatusCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
 import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
 import { handleDashboardOverview, handleDashboardTopBrands } from '../handlers/dashboard';
@@ -138,14 +138,14 @@ export async function runNavigator(
   // the outer try is purely defensive. A cube failure never fails Navigator
   // overall — it just downgrades status from 'success' to 'partial'.
   const cubeResults: {
-    currentHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null };
-    prevHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null };
+    currentHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null; status: CubeBuildResult | null };
+    prevHour: { geo: CubeBuildResult | null; provider: CubeBuildResult | null; brand: CubeBuildResult | null; status: CubeBuildResult | null };
     totalRows: number;
     totalMs: number;
     errors: string[];
   } = {
-    currentHour: { geo: null, provider: null, brand: null },
-    prevHour: { geo: null, provider: null, brand: null },
+    currentHour: { geo: null, provider: null, brand: null, status: null },
+    prevHour: { geo: null, provider: null, brand: null, status: null },
     totalRows: 0,
     totalMs: 0,
     errors: [],
@@ -181,6 +181,14 @@ export async function runNavigator(
           if (r.error) cubeResults.errors.push(`brand ${currentHourBucket}: ${r.error}`);
           else cubeResults.totalRows += r.rowsWritten;
         }
+        // Current hour — status
+        if (!isOverCap()) {
+          const r = await buildStatusCubeForHour(env, currentHourBucket);
+          cubeResults.currentHour.status = r;
+          cubeResults.totalMs += r.durationMs;
+          if (r.error) cubeResults.errors.push(`status ${currentHourBucket}: ${r.error}`);
+          else cubeResults.totalRows += r.rowsWritten;
+        }
         // Previous hour — geo
         if (!isOverCap()) {
           const r = await buildGeoCubeForHour(env, prevHourBucket);
@@ -203,6 +211,14 @@ export async function runNavigator(
           cubeResults.prevHour.brand = r;
           cubeResults.totalMs += r.durationMs;
           if (r.error) cubeResults.errors.push(`brand ${prevHourBucket}: ${r.error}`);
+          else cubeResults.totalRows += r.rowsWritten;
+        }
+        // Previous hour — status
+        if (!isOverCap()) {
+          const r = await buildStatusCubeForHour(env, prevHourBucket);
+          cubeResults.prevHour.status = r;
+          cubeResults.totalMs += r.durationMs;
+          if (r.error) cubeResults.errors.push(`status ${prevHourBucket}: ${r.error}`);
           else cubeResults.totalRows += r.rowsWritten;
         }
       } else {

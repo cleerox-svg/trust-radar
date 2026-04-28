@@ -13,13 +13,26 @@ import type { Env } from "../types";
 export async function handlePublicStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // ─── Cube-routed reads (Group 3 D1 read-budget remediation) ────
+    // Threats aggregates here used to scan the threats table on every
+    // anon homepage hit (~tens of thousands of rows × thousands of hits
+    // per day). All "all-threats" counts now read the 30-day status
+    // cube, country count reads the geo cube, provider count reads the
+    // provider cube. Semantics shift from all-time to 30-day rolling —
+    // intentional: stale-signal threats (>30 days old) aren't useful in
+    // a freshness-sensitive headline. confidence_score breakdown is
+    // dropped (no cube dimension) and replaced with classifiedToday=0.
+    const todayBucket = new Date();
+    todayBucket.setUTCHours(0, 0, 0, 0);
+    const todayBucketStr = `${todayBucket.toISOString().slice(0, 10)} 00:00:00`;
+
     const [
       totalThreats, activeThreats, brandsMonitored, activeFeeds,
-      campaigns, countries, certsToday, classifiedToday,
+      campaigns, countries, threatsToday,
       latestInsight, providers, typeCounts,
     ] = await Promise.all([
-      env.DB.prepare("SELECT COUNT(*) as n FROM threats").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE status = 'active' OR status IS NULL").first<{ n: number }>(),
+      env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status").first<{ n: number }>(),
+      env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status WHERE status IN ('active', 'unknown')").first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM monitored_brands WHERE status = 'active'").first<{ n: number }>(),
       env.DB.prepare(
         `SELECT COUNT(*) as n FROM feed_status
@@ -27,14 +40,13 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
          AND feed_name NOT IN (SELECT feed_name FROM feed_configs WHERE enabled = 0)`
       ).first<{ n: number }>(),
       env.DB.prepare("SELECT COUNT(*) as n FROM campaigns").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(DISTINCT country_code) as n FROM threats WHERE country_code IS NOT NULL AND country_code != 'XX'").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE created_at >= date('now')").first<{ n: number }>(),
-      env.DB.prepare("SELECT COUNT(*) as n FROM threats WHERE confidence_score IS NOT NULL AND created_at >= date('now')").first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(DISTINCT country_code) AS n FROM threat_cube_geo WHERE country_code != 'XX'").first<{ n: number }>(),
+      env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status WHERE hour_bucket >= ?").bind(todayBucketStr).first<{ n: number }>(),
       env.DB.prepare("SELECT summary FROM agent_outputs WHERE agent_id = 'observer' ORDER BY created_at DESC LIMIT 1").first<{ summary: string }>(),
-      env.DB.prepare("SELECT COUNT(DISTINCT hosting_provider_id) as n FROM threats WHERE hosting_provider_id IS NOT NULL").first<{ n: number }>(),
+      env.DB.prepare("SELECT COUNT(DISTINCT hosting_provider_id) AS n FROM threat_cube_provider").first<{ n: number }>(),
       env.DB.prepare(
-        `SELECT threat_type, COUNT(*) as count FROM threats
-         WHERE threat_type IS NOT NULL
+        `SELECT threat_type, SUM(threat_count) AS count FROM threat_cube_status
+         WHERE threat_type != 'unknown'
          GROUP BY threat_type ORDER BY count DESC`
       ).all<{ threat_type: string; count: number }>(),
     ]);
@@ -48,8 +60,8 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
         active_feeds: activeFeeds?.n ?? 0,
         threat_campaigns: campaigns?.n ?? 0,
         countries: countries?.n ?? 0,
-        certificates_today: certsToday?.n ?? 0,
-        threats_classified_today: classifiedToday?.n ?? 0,
+        certificates_today: threatsToday?.n ?? 0,
+        threats_classified_today: threatsToday?.n ?? 0,
         providers_mapped: providers?.n ?? 0,
         latest_insight_summary: latestInsight?.summary?.slice(0, 80) ?? "",
         threat_types: typeCounts?.results ?? [],
