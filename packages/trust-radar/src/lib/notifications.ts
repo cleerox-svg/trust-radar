@@ -29,7 +29,7 @@ import {
   USER_TOGGLEABLE_EVENTS,
   type NotificationEventKey,
   type NotificationSeverity,
-} from './notification-events';
+} from '@averrow/shared';
 import { dispatchPush, isInQuietHours, type QuietHoursPrefs } from './push';
 
 // Re-exported for callers that already imported these names.

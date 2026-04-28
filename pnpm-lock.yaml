@@ -17,6 +17,9 @@ importers:
 
   packages/averrow-ui:
     dependencies:
+      '@averrow/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@deck.gl/aggregation-layers':
         specifier: ^9.1.0
         version: 9.2.11(@deck.gl/core@9.2.11)(@deck.gl/layers@9.2.11(@deck.gl/core@9.2.11)(@loaders.gl/core@4.3.4)(@luma.gl/core@9.2.6)(@luma.gl/engine@9.2.6(@luma.gl/core@9.2.6)(@luma.gl/shadertools@9.2.6(@luma.gl/core@9.2.6))))(@luma.gl/core@9.2.6)(@luma.gl/engine@9.2.6(@luma.gl/core@9.2.6)(@luma.gl/shadertools@9.2.6(@luma.gl/core@9.2.6)))
@@ -146,8 +149,17 @@ importers:
         specifier: ^4.0.0
         version: 4.70.0(@cloudflare/workers-types@4.20260301.1)
 
+  packages/shared:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/trust-radar:
     dependencies:
+      '@averrow/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@simplewebauthn/server':
         specifier: ^11.0.0
         version: 11.0.0
