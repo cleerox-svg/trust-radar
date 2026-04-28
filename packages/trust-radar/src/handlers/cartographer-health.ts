@@ -26,6 +26,15 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
       "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_threats_carto_phase0'"
     ).first<{ sql: string | null }>();
 
+    // Migration 0112 status: how many hosting_providers rows still carry a
+    // legacy (non-canonical) id. After the migration applies successfully,
+    // this should be 0. The platform works correctly without it (cartographer's
+    // pre-resolve handles legacy ids transparently — see PR #826), so this is
+    // purely a "did the cleanup migration run?" signal.
+    const legacyHpIdsP = env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM hosting_providers WHERE asn IS NOT NULL AND asn != '' AND id != 'hp_' || asn"
+    ).first<{ n: number }>();
+
     // ─── Attempts distribution ────────────────────────────────────
     // Histogram across the full 0..5 range so the consumer can see the
     // shape of the queue: heavy at 0 = fresh ingest dominating, heavy at
@@ -133,9 +142,9 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
     }>();
 
     const [
-      column, indexRow, attemptsHist, queue, stuck, throughput, recentRuns, batchOutputs,
+      column, indexRow, legacyHpIds, attemptsHist, queue, stuck, throughput, recentRuns, batchOutputs,
     ] = await Promise.all([
-      columnP, indexP, attemptsHistP, queueP, stuckP, throughputP, recentRunsP, batchOutputsP,
+      columnP, indexP, legacyHpIdsP, attemptsHistP, queueP, stuckP, throughputP, recentRunsP, batchOutputsP,
     ]);
 
     // ─── Compute ip-api yields from recent batches ────────────────
@@ -215,6 +224,11 @@ export async function handleCartographerHealth(request: Request, env: Env): Prom
           index_has_attempts_filter: indexHasAttemptsFilter,
           column_def: column,
           index_sql: indexRow?.sql ?? null,
+          // Migration 0112 cleanup: count of hosting_providers rows still
+          // carrying legacy non-canonical ids. 0 = migration applied;
+          // >0 = migration still pending or failed (cartographer's
+          // pre-resolve continues to handle these correctly).
+          legacy_hosting_provider_ids: legacyHpIds?.n ?? 0,
         },
 
         queue: {
