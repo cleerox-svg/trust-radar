@@ -12,6 +12,7 @@
 
 import { json } from "../lib/cors";
 import { getAlerts, updateAlertStatus } from "../lib/alerts";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { AlertStatus, Severity } from "../lib/alerts";
 import type { Env } from "../types";
 import type { OrgScope } from "../middleware/auth";
@@ -65,11 +66,15 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
       params.push(`%${search}%`, `%${search}%`);
     }
 
+    const tally = newTally();
+
     // Count
     const countRow = await env.DB.prepare(
       `SELECT COUNT(*) as c FROM alerts a ${where}`
     ).bind(...params).first<{ c: number }>();
     const total = countRow?.c ?? 0;
+    // .first() doesn't expose meta — count the query without rows.
+    tally.queries += 1;
 
     // Get paginated results with brand join + SaaS technique (joined via threat).
     // Wrapped in try/catch so alerts keep loading if the saas_techniques
@@ -96,6 +101,7 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
            a.created_at DESC
          LIMIT ? OFFSET ?`
       ).bind(...params, Math.min(200, limit), offset).all();
+      addToTally(tally, rows.meta);
     } catch {
       rows = await env.DB.prepare(
         `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain,
@@ -113,8 +119,10 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
            a.created_at DESC
          LIMIT ? OFFSET ?`
       ).bind(...params, Math.min(200, limit), offset).all();
+      addToTally(tally, rows.meta);
     }
 
+    recordD1Reads(env, "alerts_list", tally);
     return json({ success: true, data: rows.results, total }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
@@ -169,9 +177,15 @@ export async function handleUpdateAlert(request: Request, env: Env, alertId: str
 }
 
 // GET /api/alerts/stats
+//
+// Severity comparisons are LOWERCASE (post-migration 0120). The
+// previous version checked `severity='CRITICAL'` etc. which always
+// returned 0 after the migration normalized rows to lowercase —
+// the by-severity breakdown was silently broken.
 export async function handleAlertStats(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    const tally = newTally();
     const stats = await env.DB.prepare(
       `SELECT
         COUNT(*) as total,
@@ -179,12 +193,13 @@ export async function handleAlertStats(request: Request, env: Env, userId: strin
         SUM(CASE WHEN status='acknowledged' THEN 1 ELSE 0 END) as acknowledged,
         SUM(CASE WHEN status='resolved' THEN 1 ELSE 0 END) as resolved,
         SUM(CASE WHEN status='false_positive' THEN 1 ELSE 0 END) as dismissed,
-        SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity='HIGH' THEN 1 ELSE 0 END) as high,
-        SUM(CASE WHEN severity='MEDIUM' THEN 1 ELSE 0 END) as medium,
-        SUM(CASE WHEN severity='LOW' THEN 1 ELSE 0 END) as low
+        SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) as critical,
+        SUM(CASE WHEN severity='high' THEN 1 ELSE 0 END) as high,
+        SUM(CASE WHEN severity='medium' THEN 1 ELSE 0 END) as medium,
+        SUM(CASE WHEN severity='low' THEN 1 ELSE 0 END) as low
        FROM alerts WHERE user_id = ?`
     ).bind(userId).first<Record<string, number>>();
+    tally.queries += 1;
 
     const byBrand = await env.DB.prepare(
       `SELECT a.brand_id, b.name as brand_name, b.canonical_domain as brand_domain,
@@ -196,7 +211,9 @@ export async function handleAlertStats(request: Request, env: Env, userId: strin
        GROUP BY a.brand_id
        ORDER BY alert_count DESC`
     ).bind(userId).all();
+    addToTally(tally, byBrand.meta);
 
+    recordD1Reads(env, "alerts_stats", tally);
     return json({
       success: true,
       data: {
@@ -341,13 +358,16 @@ export async function handleAlertTriageSummary(
   const cacheKey = `alerts_triage:${userId}`;
 
   try {
-    // KV cache check
+    // KV cache check — record an empty tally so cache hits still
+    // surface as request volume in attribution.
     const cached = await env.CACHE.get(cacheKey);
     if (cached) {
+      recordD1Reads(env, "alerts_triage", newTally());
       return json({ success: true, data: JSON.parse(cached) }, 200, origin);
     }
 
     // Single SQL with conditional aggregates — one round-trip vs two.
+    const tally = newTally();
     const row = await env.DB.prepare(
       `SELECT
          COUNT(*) AS new_count,
@@ -355,6 +375,7 @@ export async function handleAlertTriageSummary(
        FROM alerts
        WHERE user_id = ? AND status = 'new'`,
     ).bind(userId).first<{ new_count: number; critical_count: number }>();
+    tally.queries += 1;
 
     const data = {
       new_count: row?.new_count ?? 0,
@@ -362,6 +383,7 @@ export async function handleAlertTriageSummary(
     };
 
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 60 });
+    recordD1Reads(env, "alerts_triage", tally);
     return json({ success: true, data }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);

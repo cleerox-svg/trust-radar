@@ -32,6 +32,8 @@ export const WARN_THRESHOLD = Math.round(DAILY_BUDGET * 0.85);
 export const SKIP_THRESHOLD = Math.round(DAILY_BUDGET * 0.95);
 
 const KV_KEY = "d1_budget:rows_read_24h";
+const KV_KEY_LAST_SKIP = "d1_budget:last_skip_at";
+const KV_KEY_SKIP_COUNT_24H = "d1_budget:skip_count_24h";
 /** Cached for 65 min so a single-tick failure doesn't blow the cache. */
 const KV_TTL_SECONDS = 65 * 60;
 
@@ -96,6 +98,176 @@ export async function getBudgetState(env: Env): Promise<BudgetState | null> {
 export function shouldSkipNonEssentialWarms(state: BudgetState | null): boolean {
   if (!state) return false;
   return state.rowsRead24h >= SKIP_THRESHOLD;
+}
+
+/**
+ * Record that Navigator just skipped a non-essential pre-warm tick.
+ * Increments a 24h-windowed counter + bumps `last_skip_at` so the
+ * diagnostics endpoint can prove the soft-cap is actually firing.
+ *
+ * Counter expires on a 24h KV TTL, so it self-resets after a day
+ * of no skips. We don't try to atomically increment — KV doesn't
+ * support that — so under heavy contention the count is approximate
+ * (off by a few). Acceptable for a "is the cap working" signal.
+ */
+export async function recordNavigatorSkip(env: Env): Promise<void> {
+  const now = Date.now();
+  try {
+    await env.CACHE.put(KV_KEY_LAST_SKIP, String(now), { expirationTtl: 7 * 24 * 60 * 60 });
+
+    const prev = await env.CACHE.get(KV_KEY_SKIP_COUNT_24H);
+    const prevCount = prev ? parseInt(prev, 10) || 0 : 0;
+    await env.CACHE.put(KV_KEY_SKIP_COUNT_24H, String(prevCount + 1), {
+      expirationTtl: 24 * 60 * 60,
+    });
+  } catch {
+    // KV failure shouldn't kill the cron tick.
+  }
+}
+
+/**
+ * Diagnostics surface for the soft-cap. Returns everything the operator
+ * needs to answer "is the cap working and how aggressively?"
+ */
+export interface BudgetDiagnostics {
+  /** CF-reported rows_read in the last 24h. */
+  rows_read_24h: number | null;
+  /** When that value was fetched (ISO). */
+  fetched_at: string | null;
+  /** True when KV had a value but CF GraphQL is currently failing. */
+  stale: boolean;
+  /** Plain-language thresholds for the operator's mental model. */
+  daily_budget: number;
+  warn_threshold: number;
+  skip_threshold: number;
+  /** Where we sit relative to the budget. */
+  pct_of_daily_budget: number | null;
+  threshold_state: 'ok' | 'warn' | 'skip' | 'unknown';
+  /** When Navigator last skipped a pre-warm (ISO), if ever. */
+  last_skip_at: string | null;
+  /** Approximate count of skipped ticks in the last 24h. */
+  skip_count_24h: number;
+}
+
+export async function getBudgetDiagnostics(env: Env): Promise<BudgetDiagnostics> {
+  const state = await getBudgetState(env);
+  const lastSkipRaw = await env.CACHE.get(KV_KEY_LAST_SKIP).catch(() => null);
+  const skipCountRaw = await env.CACHE.get(KV_KEY_SKIP_COUNT_24H).catch(() => null);
+
+  const rowsRead = state?.rowsRead24h ?? null;
+  const pct = rowsRead != null
+    ? Math.round((rowsRead / DAILY_BUDGET) * 1000) / 10
+    : null;
+
+  let thresholdState: BudgetDiagnostics['threshold_state'] = 'unknown';
+  if (rowsRead != null) {
+    if (rowsRead >= SKIP_THRESHOLD) thresholdState = 'skip';
+    else if (rowsRead >= WARN_THRESHOLD) thresholdState = 'warn';
+    else thresholdState = 'ok';
+  }
+
+  return {
+    rows_read_24h: rowsRead,
+    fetched_at: state ? new Date(state.fetchedAtMs).toISOString() : null,
+    stale: state?.stale ?? false,
+    daily_budget: DAILY_BUDGET,
+    warn_threshold: WARN_THRESHOLD,
+    skip_threshold: SKIP_THRESHOLD,
+    pct_of_daily_budget: pct,
+    threshold_state: thresholdState,
+    last_skip_at: lastSkipRaw ? new Date(parseInt(lastSkipRaw, 10)).toISOString() : null,
+    skip_count_24h: skipCountRaw ? parseInt(skipCountRaw, 10) || 0 : 0,
+  };
+}
+
+/** Per-query stat from CF d1QueriesAdaptiveGroups. */
+export interface D1QueryStat {
+  /** Stable hash CF assigns to the SQL text (after parameter normalization). */
+  query_hash: string;
+  /** Truncated sample of the SQL text. May be null when CF doesn't surface it. */
+  query_sample: string | null;
+  rows_read: number;
+  rows_written: number;
+  query_count: number;
+  avg_rows_per_query: number;
+}
+
+/**
+ * Top-N queries by rows_read in the last 24h. Hits CF's per-query
+ * analytics endpoint (d1QueriesAdaptiveGroups) so we get visibility
+ * even on uninstrumented endpoints. Complements our AE-based
+ * recordD1Reads attribution which only covers handlers we've wired.
+ */
+export async function fetchD1TopQueries(env: Env, limit = 20): Promise<D1QueryStat[] | null> {
+  const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
+  const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
+  const databaseId = (env as unknown as Record<string, string | undefined>).D1_DATABASE_ID;
+  if (!token || !accountId || !databaseId) return null;
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const query = `
+    query {
+      viewer {
+        accounts(filter: { accountTag: "${accountId}" }) {
+          d1QueriesAdaptiveGroups(
+            filter: { datetimeHour_geq: "${since}", databaseId: "${databaseId}" }
+            orderBy: [sum_rowsRead_DESC]
+            limit: ${limit}
+          ) {
+            sum {
+              rowsRead
+              rowsWritten
+              queryCount: queries
+            }
+            dimensions {
+              query
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      data?: {
+        viewer?: {
+          accounts?: Array<{
+            d1QueriesAdaptiveGroups?: Array<{
+              sum: { rowsRead: number; rowsWritten: number; queryCount: number };
+              dimensions: { query: string };
+            }>;
+          }>;
+        };
+      };
+      errors?: Array<{ message: string }>;
+    };
+    if (json.errors?.length) return null;
+
+    const groups = json.data?.viewer?.accounts?.[0]?.d1QueriesAdaptiveGroups ?? [];
+    return groups.map((g) => ({
+      query_hash: g.dimensions.query,
+      query_sample: g.dimensions.query,
+      rows_read: g.sum.rowsRead,
+      rows_written: g.sum.rowsWritten,
+      query_count: g.sum.queryCount,
+      avg_rows_per_query: g.sum.queryCount > 0
+        ? Math.round(g.sum.rowsRead / g.sum.queryCount)
+        : 0,
+    }));
+  } catch {
+    return null;
+  }
 }
 
 async function fetchRowsRead24h(token: string, accountId: string, databaseId: string): Promise<number | null> {

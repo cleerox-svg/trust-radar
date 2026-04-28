@@ -2,6 +2,7 @@
 
 import { json } from "../lib/cors";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 
 // Helper: safely query a table that may not exist, returning a fallback
@@ -39,7 +40,11 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     // KV cache — 5 min TTL. Key includes all filter dimensions.
     const cacheKey = `threat_actors:${limit}:${offset}:${country ?? ""}:${status ?? ""}:${attribution ?? ""}:${search ?? ""}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "threat_actors_list", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+    const tally = newTally();
 
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -144,6 +149,10 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     });
 
     const [countResult, rows, sparklineRows] = await Promise.all([countPromise, rowsPromise, sparklinePromise]);
+    // .first() doesn't expose meta on countResult; .all() rows have meta.
+    if (rows && 'meta' in rows) addToTally(tally, rows.meta);
+    if (sparklineRows && 'meta' in sparklineRows) addToTally(tally, sparklineRows.meta);
+    tally.queries += 1; // count query
 
     // Pivot sparkline rows into per-actor 14-day arrays (oldest first)
     const sparkMap = new Map<string, number[]>();
@@ -175,6 +184,7 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       total: countResult?.total ?? 0,
     };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    recordD1Reads(env, "threat_actors_list", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "Failed to list threat actors" }, 500, origin), session);
@@ -190,7 +200,11 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
     // KV cache — 5 min TTL.
     const cacheKey = "threat_actor_stats";
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "threat_actor_stats", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+    const tally = newTally();
 
     // Run all 6 queries in parallel
     const [total, active, byCountry, byAttribution, totalInfra, totalTargets] = await Promise.all([
@@ -220,6 +234,9 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
         { n: 0 }
       ),
     ]);
+    addToTally(tally, byCountry.meta);
+    addToTally(tally, byAttribution.meta);
+    tally.queries += 4; // total, active, totalInfra, totalTargets via .first()/safeQuery
 
     const data = {
       success: true,
@@ -233,6 +250,7 @@ export async function handleThreatActorStats(request: Request, env: Env): Promis
       },
     };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    recordD1Reads(env, "threat_actor_stats", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "Failed to get threat actor stats" }, 500, origin), session);

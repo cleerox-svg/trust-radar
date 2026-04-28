@@ -12,6 +12,7 @@
  */
 
 import { json } from "../lib/cors";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 import {
   USER_TOGGLEABLE_EVENTS,
@@ -92,11 +93,13 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
     sql += ` ORDER BY created_at DESC LIMIT ?`;
     params.push(limit);
 
+    const tally = newTally();
     const rows = await env.DB.prepare(sql).bind(...params).all<{
       id: string; type: string; severity: string; title: string;
       message: string; link: string | null; read_at: string | null;
       created_at: string; metadata: string | null;
     }>();
+    addToTally(tally, rows.meta);
     const results = rows.results;
 
     // next_cursor is the oldest row's created_at (so the next page
@@ -112,7 +115,9 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
     const countRow = await env.DB.prepare(
       `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND read_at IS NULL`
     ).bind(userId).first<{ c: number }>();
+    tally.queries += 1;
 
+    recordD1Reads(env, "notifications_feed", tally);
     return json({
       success: true,
       data: results,

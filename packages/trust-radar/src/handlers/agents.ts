@@ -1,4 +1,5 @@
 import { json } from "../lib/cors";
+import { newTally, recordD1Reads } from "../lib/analytics";
 import { executeAgent, resolveApproval, PROTECTED_FROM_CIRCUIT_BREAKER } from "../lib/agentRunner";
 import type { AgentName, TriggerType } from "../lib/agentRunner";
 import { agentModules, trustbotAgent } from "../agents";
@@ -61,7 +62,11 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
   // KV cache: 7 parallel queries — cache for 5 minutes.
   const cacheKey = 'agents_list';
   const cached = await env.CACHE.get(cacheKey);
-  if (cached) return json(JSON.parse(cached), 200, ctx.origin);
+  if (cached) {
+    recordD1Reads(env, "agents_list", newTally());
+    return json(JSON.parse(cached), 200, ctx.origin);
+  }
+  const tally = newTally();
 
   const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations, agentConfigs] = await Promise.all([
     env.DB.prepare(
@@ -264,8 +269,16 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     paused_after_n_failures: null,
   });
 
+  // 7 .all() queries, but `addToTally` would require threading `tally`
+  // through each. The agent_runs scans dominate this handler's cost
+  // (~107K rows pre-24h-scope, much less after). Approximate the
+  // tally with query count — CF's d1_top_queries_24h covers the
+  // exact rows_read attribution.
+  tally.queries += 7;
+
   const responseData = { success: true, data: agents };
   await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+  recordD1Reads(env, "agents_list", tally);
   return json(responseData, 200, ctx.origin);
 });
 

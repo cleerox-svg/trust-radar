@@ -7,6 +7,7 @@
 
 import { json, corsHeaders } from "../lib/cors";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
+import { getBudgetDiagnostics, fetchD1TopQueries } from "../lib/d1-budget";
 import type { Env } from "../types";
 
 // ─── D1 metrics via Cloudflare GraphQL Analytics API ──────────────
@@ -535,6 +536,12 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
     const D1_DATABASE_ID = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6";
     const d1MetricsP = fetchD1Metrics(env, D1_DATABASE_ID);
     const d1AttributionP = fetchD1EndpointAttribution(env);
+    // Soft-cap state (Navigator skip tracking + thresholds) and the
+    // per-query top-N from CF's d1QueriesAdaptiveGroups. Both fail
+    // gracefully — diagnostics endpoint stays usable when CF GraphQL
+    // is down or CF_API_TOKEN isn't configured.
+    const d1BudgetStateP = getBudgetDiagnostics(env);
+    const d1TopQueriesP = fetchD1TopQueries(env, 20);
 
     // ── Execute all in parallel ─────────────────────────────────────
     const [
@@ -542,11 +549,13 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       feedHealth, feedStatus, feedErrors,
       agentMesh, stalled, backlog,
       aiSpend, cronHealth, totals, d1Metrics, d1Attribution,
+      d1BudgetState, d1TopQueries,
     ] = await Promise.all([
       clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP,
       feedHealthP, feedStatusP, feedErrorsP,
       agentMeshP, stalledP, backlogP,
       aiSpendP, cronHealthP, totalsP, d1MetricsP, d1AttributionP,
+      d1BudgetStateP, d1TopQueriesP,
     ]);
 
     // ── Build backlog trend map ─────────────────────────────────────
@@ -660,10 +669,23 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
 
         // Per-endpoint D1 read attribution from Workers Analytics Engine.
         // Reads from the trust_radar_d1_reads dataset that opt-in handlers
-        // (dark-web + app-store today) populate via lib/analytics.ts.
-        // Endpoints not yet instrumented don't appear here — coverage will
-        // grow as more handlers are migrated to the same pattern.
+        // populate via lib/analytics.ts.
         d1_attribution_24h: d1Attribution,
+
+        // Soft-cap state — proves the Navigator daily budget cap is
+        // actually firing (or not). threshold_state goes ok → warn → skip
+        // as rows_read_24h crosses 85% / 95% of the daily budget. The
+        // skip_count_24h + last_skip_at fields show whether Navigator
+        // has been actively dropping non-essential pre-warms.
+        d1_budget_state: d1BudgetState,
+
+        // Top 20 D1 queries by rows_read in the last 24h, pulled from
+        // CF's d1QueriesAdaptiveGroups GraphQL endpoint. Complements
+        // the AE-based d1_attribution_24h by showing reads from
+        // uninstrumented code paths (cron crons, internal /agents/run
+        // calls, etc.). Each entry: query_hash, query_sample,
+        // rows_read, query_count, avg_rows_per_query.
+        d1_top_queries_24h: d1TopQueries ?? [],
       },
     }, 200, origin);
   } catch (err) {

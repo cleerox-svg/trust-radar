@@ -32,7 +32,7 @@ import { handleListOperations, handleOperationsStats } from '../handlers/operati
 import { handleListBrands, handleBrandStats } from '../handlers/brands';
 import { handleListThreatActors, handleThreatActorStats } from '../handlers/threatActors';
 import { handleListBreaches, handleListATOEvents, handleListEmailAuth, handleListCloudIncidents } from '../handlers/intel';
-import { getBudgetState, shouldSkipNonEssentialWarms, DAILY_BUDGET, WARN_THRESHOLD } from '../lib/d1-budget';
+import { getBudgetState, shouldSkipNonEssentialWarms, recordNavigatorSkip, DAILY_BUDGET, WARN_THRESHOLD } from '../lib/d1-budget';
 
 /** Canonical agent_id written to agent_runs / agent_outputs / agent_events. */
 export const NAVIGATOR_AGENT_ID = 'navigator';
@@ -266,6 +266,10 @@ export async function runNavigator(
       `daily=${DAILY_BUDGET.toLocaleString()} pct=${((budgetState!.rowsRead24h / DAILY_BUDGET) * 100).toFixed(1)}% — ` +
       `skipping Phase A2/B/C this tick`,
     );
+    // Diagnostics signal — bump the 24h skip counter + last_skip_at
+    // so platform-diagnostics can prove the soft-cap is actually
+    // firing (not just configured).
+    await recordNavigatorSkip(env);
   } else if (budgetState && budgetState.rowsRead24h >= WARN_THRESHOLD) {
     console.warn(
       `[navigator] D1 budget in WARN zone — read=${budgetState.rowsRead24h.toLocaleString()} ` +
