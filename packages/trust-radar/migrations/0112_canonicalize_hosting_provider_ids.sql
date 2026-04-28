@@ -9,24 +9,35 @@
 --
 -- After PR #826, new providers use the canonical hp_${asn} form. This
 -- migration backfills existing rows so the legacy/new dichotomy goes away
--- permanently. After this migration, every active row in hosting_providers
--- has id = hp_${asn} (only rows with NULL asn keep their original id —
--- those are the rare cases where cartographer never resolved the ASN).
+-- permanently.
 --
--- Order matters: threats and threat_cube_provider must be updated FIRST
--- because they look up the BEFORE state of hosting_providers via subquery.
--- Once hosting_providers.id is renamed, the old ids no longer exist and
--- the lookup returns NULL.
+-- ─── FK strategy ─────────────────────────────────────────────────────
+-- D1 enforces FOREIGN KEY constraints by default. The first attempt at
+-- this migration (commit 901f94b) failed because UPDATE threats SET
+-- hosting_provider_id = 'hp_' || asn ran while hosting_providers.id was
+-- still in the legacy form — the FK check on each updated row found no
+-- matching parent and aborted the migration.
 --
--- Before running, verify the count:
---   SELECT COUNT(*) FROM hosting_providers
---   WHERE asn IS NOT NULL AND asn != '' AND id != 'hp_' || asn;
--- Expected: a few thousand. If 0, this migration is a no-op (already canonical).
--- If dramatically larger than expected, STOP and investigate.
+-- PRAGMA defer_foreign_keys = ON defers FK checks to commit time. Within
+-- the migration's transaction we can update threats, threat_cube_provider,
+-- and hosting_providers in any order; SQLite verifies all FKs resolve
+-- when the migration commits. Since the END STATE is consistent (all
+-- threats reference canonical ids that all exist in hosting_providers),
+-- the commit succeeds.
+--
+-- This is distinct from `PRAGMA foreign_keys = OFF` which CANNOT be
+-- toggled inside a transaction and would silently no-op here. The
+-- defer_foreign_keys pragma is auto-cleared on COMMIT/ROLLBACK so it
+-- doesn't leak past this migration.
+--
+-- Order within the deferred block doesn't matter for correctness, but
+-- I've kept the threats / cube updates first because they reference the
+-- BEFORE state of hosting_providers via subquery — running them after
+-- the rename would lose the mapping.
+
+PRAGMA defer_foreign_keys = ON;
 
 -- ─── Step 1: Update threats.hosting_provider_id ──────────────────────
--- Uses the BEFORE state of hosting_providers to map each threat's FK
--- from the legacy id to the canonical hp_${asn} form.
 UPDATE threats
 SET hosting_provider_id = 'hp_' || (
   SELECT asn FROM hosting_providers hp
@@ -58,8 +69,7 @@ WHERE hosting_provider_id IN (
 
 -- ─── Step 3: Rename hosting_providers.id to canonical form ───────────
 -- Safe because UNIQUE(asn) guarantees one row per asn — no destination
--- id collisions are possible. Done last so steps 1 and 2 could resolve
--- the old-to-new mapping via subquery.
+-- id collisions are possible.
 UPDATE hosting_providers
 SET id = 'hp_' || asn
 WHERE asn IS NOT NULL AND asn != '' AND id != 'hp_' || asn;
