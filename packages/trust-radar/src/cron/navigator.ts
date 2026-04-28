@@ -32,6 +32,7 @@ import { handleListOperations, handleOperationsStats } from '../handlers/operati
 import { handleListBrands, handleBrandStats } from '../handlers/brands';
 import { handleListThreatActors, handleThreatActorStats } from '../handlers/threatActors';
 import { handleListBreaches, handleListATOEvents, handleListEmailAuth, handleListCloudIncidents } from '../handlers/intel';
+import { getBudgetState, shouldSkipNonEssentialWarms, DAILY_BUDGET, WARN_THRESHOLD } from '../lib/d1-budget';
 
 /** Canonical agent_id written to agent_runs / agent_outputs / agent_events. */
 export const NAVIGATOR_AGENT_ID = 'navigator';
@@ -252,6 +253,26 @@ export async function runNavigator(
   const runPhaseB  = minute % 15 === 0;
   const runPhaseC  = minute % 30 === 0;  // :00, :30
 
+  // ── D1 read-budget soft-cap ──────────────────────────────────────
+  // If we're already over 95% of the daily ceiling, skip Phase A2/B/C.
+  // Phase A still runs because it's the user-facing landing page; the
+  // optional warms (alt periods, deep-nav modules) get dropped first.
+  // Hourly-cached, so this costs at most one CF GraphQL call/hour.
+  const budgetState = await getBudgetState(env);
+  const skipNonEssential = shouldSkipNonEssentialWarms(budgetState);
+  if (skipNonEssential) {
+    console.warn(
+      `[navigator] D1 budget over SKIP threshold — read=${budgetState!.rowsRead24h.toLocaleString()} ` +
+      `daily=${DAILY_BUDGET.toLocaleString()} pct=${((budgetState!.rowsRead24h / DAILY_BUDGET) * 100).toFixed(1)}% — ` +
+      `skipping Phase A2/B/C this tick`,
+    );
+  } else if (budgetState && budgetState.rowsRead24h >= WARN_THRESHOLD) {
+    console.warn(
+      `[navigator] D1 budget in WARN zone — read=${budgetState.rowsRead24h.toLocaleString()} ` +
+      `daily=${DAILY_BUDGET.toLocaleString()} pct=${((budgetState.rowsRead24h / DAILY_BUDGET) * 100).toFixed(1)}%`,
+    );
+  }
+
   let cacheWarmed = 0;
   if (!isOverCap() && status !== 'failed') {
     const warmStart = Date.now();
@@ -273,7 +294,7 @@ export async function runNavigator(
       }
 
       // Phase A2: Observatory alternate periods (24h/30d) — every 15 min
-      if (runPhaseA2 && !isOverCap()) {
+      if (runPhaseA2 && !isOverCap() && !skipNonEssential) {
         const altResults = await Promise.allSettled([
           handleObservatoryNodes(fakeReq('/api/observatory/nodes?period=24h'), env),
           handleObservatoryArcs(fakeReq('/api/observatory/arcs?period=24h'), env),
@@ -286,7 +307,7 @@ export async function runNavigator(
       }
 
       // Phase B: Dashboard + agents + operations — every 15 min
-      if (runPhaseB && !isOverCap()) {
+      if (runPhaseB && !isOverCap() && !skipNonEssential) {
         const pageResults = await Promise.allSettled([
           handleDashboardOverview(fakeReq('/api/dashboard/overview'), env),
           handleDashboardTopBrands(fakeReq('/api/dashboard/top-brands'), env),
@@ -298,7 +319,7 @@ export async function runNavigator(
       }
 
       // Phase C: Brands, Threat Actors, Intelligence — every 30 min
-      if (runPhaseC && !isOverCap()) {
+      if (runPhaseC && !isOverCap() && !skipNonEssential) {
         const moduleResults = await Promise.allSettled([
           handleListBrands(fakeReq('/api/brands?limit=50&sort=threats'), env),
           handleBrandStats(fakeReq('/api/brands/stats'), env),
@@ -352,6 +373,6 @@ export async function runNavigator(
   }
 
   console.log(
-    `[navigator] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
+    `[navigator] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} d1_skip=${skipNonEssential} d1_read24h=${budgetState?.rowsRead24h ?? 'unknown'} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
   );
 }
