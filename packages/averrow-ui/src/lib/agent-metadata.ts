@@ -19,7 +19,13 @@ export type AgentId =
   | 'pathfinder'
   | 'curator'
   | 'architect'
-  | 'watchdog';
+  | 'watchdog'
+  | 'cube_healer'
+  | 'narrator'
+  | 'social_discovery'
+  | 'social_monitor'
+  | 'app_store_monitor'
+  | 'dark_web_monitor';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -148,6 +154,60 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#60A5FA',
     category: 'ops',
     pipelinePosition: 12,
+  },
+  cube_healer: {
+    id: 'cube_healer',
+    displayName: 'Cube Healer',
+    codename: null,
+    subtitle: 'OLAP cube maintenance — periodic 30-day rebuild + brand summaries',
+    color: '#0EA5E9',
+    category: 'ops',
+    pipelinePosition: 13,
+  },
+  narrator: {
+    id: 'narrator',
+    displayName: 'Narrator',
+    codename: null,
+    subtitle: 'Threat narrative generation — AI-written briefings for active brands',
+    color: '#A855F7',
+    category: 'intelligence',
+    pipelinePosition: 14,
+  },
+  social_discovery: {
+    id: 'social_discovery',
+    displayName: 'Social Discovery',
+    codename: null,
+    subtitle: 'Discovers brand-owned social handles before monitoring them',
+    color: '#EC4899',
+    category: 'intelligence',
+    pipelinePosition: 15,
+  },
+  social_monitor: {
+    id: 'social_monitor',
+    displayName: 'Mockingbird',
+    codename: 'social_monitor',
+    subtitle: 'Catches social impersonators by their mimicry — Twitter/LinkedIn/Instagram/TikTok/GitHub/YouTube',
+    color: '#3CB878',
+    category: 'intelligence',
+    pipelinePosition: 16,
+  },
+  app_store_monitor: {
+    id: 'app_store_monitor',
+    displayName: 'App Store Monitor',
+    codename: null,
+    subtitle: 'iOS App Store impersonation scanner — bundle ID + name similarity',
+    color: '#FBBF24',
+    category: 'intelligence',
+    pipelinePosition: 17,
+  },
+  dark_web_monitor: {
+    id: 'dark_web_monitor',
+    displayName: 'Dark Web Monitor',
+    codename: null,
+    subtitle: 'Pastebin and breach archive monitoring for brand mentions',
+    color: '#94A3B8',
+    category: 'intelligence',
+    pipelinePosition: 18,
   },
 };
 

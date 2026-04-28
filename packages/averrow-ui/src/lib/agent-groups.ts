@@ -21,7 +21,8 @@ import type { AgentId } from "./agent-metadata";
 
 export type AgentGroupKey =
   | "orchestration"
-  | "detection"
+  | "network_detection"
+  | "surface_detection"
   | "intelligence"
   | "action"
   | "platform"
@@ -39,6 +40,11 @@ export interface AgentGroup {
   agentIds: readonly AgentId[];
 }
 
+// 7 themed groups covering all 18 deployed agents (17 active + architect
+// which only runs manually). Detection is split into "network" (the
+// threat-feed/cert/DNS layer) and "surface" (per-brand social, app-store,
+// and dark-web monitoring) since they have different cadences and
+// shipping rules.
 export const AGENT_GROUPS: Record<AgentGroupKey, AgentGroup> = {
   orchestration: {
     key: "orchestration",
@@ -48,28 +54,36 @@ export const AGENT_GROUPS: Record<AgentGroupKey, AgentGroup> = {
     order: 1,
     agentIds: ["flight_control"] as const,
   },
-  detection: {
-    key: "detection",
-    label: "Detection",
-    tagline: "Surfaces signals — certs, feeds, infrastructure, social mentions.",
+  network_detection: {
+    key: "network_detection",
+    label: "Network Detection",
+    tagline: "Surfaces signals from threat feeds, certificate transparency, and infrastructure.",
     accentVar: "var(--red, #C83C3C)",
     order: 2,
     agentIds: ["sentinel", "cartographer", "navigator"] as const,
+  },
+  surface_detection: {
+    key: "surface_detection",
+    label: "Surface Detection",
+    tagline: "Per-brand monitoring across social platforms, app stores, and dark web.",
+    accentVar: "var(--sev-medium, #fbbf24)",
+    order: 3,
+    agentIds: ["social_discovery", "social_monitor", "app_store_monitor", "dark_web_monitor"] as const,
   },
   intelligence: {
     key: "intelligence",
     label: "Intelligence",
     tagline: "Classifies, correlates, and reasons over the signal stream.",
     accentVar: "var(--amber, #E5A832)",
-    order: 3,
-    agentIds: ["analyst", "strategist", "nexus", "observer"] as const,
+    order: 4,
+    agentIds: ["analyst", "strategist", "nexus", "observer", "narrator"] as const,
   },
   action: {
     key: "action",
     label: "Action",
     tagline: "Takes outbound action — takedowns, lead generation, brand pursuit.",
     accentVar: "var(--green, #3CB878)",
-    order: 4,
+    order: 5,
     agentIds: ["sparrow", "pathfinder"] as const,
   },
   platform: {
@@ -77,15 +91,15 @@ export const AGENT_GROUPS: Record<AgentGroupKey, AgentGroup> = {
     label: "Platform Health",
     tagline: "Keeps the mesh and its data layer healthy.",
     accentVar: "var(--blue, #0A8AB5)",
-    order: 5,
-    agentIds: ["curator", "watchdog"] as const,
+    order: 6,
+    agentIds: ["curator", "watchdog", "cube_healer"] as const,
   },
   meta: {
     key: "meta",
     label: "Meta",
     tagline: "Reasons about the platform itself.",
     accentVar: "var(--text-secondary, rgba(255,255,255,0.60))",
-    order: 6,
+    order: 7,
     agentIds: ["architect"] as const,
   },
 };
