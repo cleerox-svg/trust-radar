@@ -1,12 +1,17 @@
 // Admin view for the public-scan funnel — `scan_leads` table.
 //
-// Distinct from /v2/leads which targets `sales_leads` (Pathfinder).
-// This page shows leads coming in from the homepage scan widget,
-// with full sales-funnel actions: generate qualified report,
-// send outreach email, convert to tenant.
+// Distinct from sales_leads (Pathfinder). This page shows leads
+// coming in from the homepage scan widget, with full sales-funnel
+// actions: generate qualified report, send outreach email, convert
+// to tenant.
 //
 // Mobile + desktop responsive — table on desktop, stacked cards
 // on mobile so the action buttons remain reachable.
+//
+// Composition: `ScanLeadsView` is the inner content (stats +
+// filters + table/cards). `ScanLeads` wraps it with the standalone
+// PageHeader. Both are exported so the Leads page can drop the
+// view in as a tab without the duplicate header.
 
 import { useMemo, useState } from "react";
 import {
@@ -36,7 +41,9 @@ const STATUS_BADGE: Record<ScanLead["status"], "info" | "high" | "medium" | "low
   closed_lost: "critical",
 };
 
-export function ScanLeads() {
+// ─── Inner content (reusable as a tab in Leads page) ─────────────
+
+export function ScanLeadsView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const { data, isLoading } = useScanLeads(
     statusFilter === "all" ? undefined : { status: statusFilter },
@@ -46,11 +53,6 @@ export function ScanLeads() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Scan Leads"
-        subtitle="Public scan funnel — leads from the homepage scan widget. Generate the Brand Risk Plan, send outreach, then convert to a tenant once qualified."
-      />
-
       {stats ? (
         <StatGrid>
           <StatCard label="Total" value={stats.total ?? 0} />
@@ -117,6 +119,22 @@ export function ScanLeads() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ─── Standalone page wrapper (kept so the legacy /admin/scan-leads
+// route still resolves). The Leads page imports `ScanLeadsView`
+// directly, without this header.
+
+export function ScanLeads() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Scan Leads"
+        subtitle="Public scan funnel — leads from the homepage scan widget. Generate the Brand Risk Plan, send outreach, then convert to a tenant once qualified."
+      />
+      <ScanLeadsView />
     </div>
   );
 }

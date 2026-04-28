@@ -141,7 +141,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Alerts',       path: '/alerts',           icon: Bell, badge: alertCount },
         { label: 'Spam Trap',    path: '/admin/spam-trap',  icon: Inbox },
         { label: 'Leads',       path: '/leads',            icon: Target },
-        { label: 'Scan Leads',  path: '/admin/scan-leads', icon: ClipboardList },
       ],
     },
     {

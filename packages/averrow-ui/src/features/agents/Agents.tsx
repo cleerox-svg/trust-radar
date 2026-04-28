@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { Fragment, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus } from '@/hooks/useAgents';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, PipelineEntry } from '@/hooks/useAgents';
@@ -16,7 +16,7 @@ import { HistoryView } from '@/components/agents/HistoryView';
 import { ConfigView } from '@/components/agents/ConfigView';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
-import { getAgentMetadata, AGENT_IDS } from '@/lib/agent-metadata';
+import { getAgentMetadata, type AgentId } from '@/lib/agent-metadata';
 import { AgentStatusBadge } from '@/components/AgentStatusBadge';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -24,8 +24,58 @@ import {
 
 type AgentTab = 'MONITOR' | 'HISTORY' | 'CONFIG';
 
-// Grid order — flight_control is rendered separately as the supervisor card
-const AGENT_ORDER = AGENT_IDS.filter((id) => id !== 'flight_control');
+// ─── Visual grouping ────────────────────────────────────────────────
+//
+// Flight Control sits above as the supervisor card. Everything else is
+// grouped here by role — Detection (eyes & ears), Intelligence (analysis
+// & narrative), Response (taking action), Operations (platform health
+// & growth), and Meta (auditing the platform itself).
+//
+// Listing agent ids explicitly keeps the order deterministic and lets us
+// move agents between groups without touching agent-metadata.ts.
+interface AgentGroup {
+  id: string;
+  label: string;
+  agentIds: AgentId[];
+}
+
+const AGENT_GROUPS: AgentGroup[] = [
+  {
+    id: 'detection',
+    label: 'Detection & Surveillance',
+    agentIds: [
+      'sentinel',
+      'navigator',
+      'cartographer',
+      'nexus',
+      'analyst',
+      'social_discovery',
+      'social_monitor',
+      'app_store_monitor',
+      'dark_web_monitor',
+    ],
+  },
+  {
+    id: 'intelligence',
+    label: 'Intelligence & Analysis',
+    agentIds: ['observer', 'strategist', 'narrator'],
+  },
+  {
+    id: 'response',
+    label: 'Response',
+    agentIds: ['sparrow'],
+  },
+  {
+    id: 'operations',
+    label: 'Platform Operations',
+    agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer'],
+  },
+  {
+    id: 'meta',
+    label: 'Meta',
+    agentIds: ['architect'],
+  },
+];
 
 // ─── Status helpers ─────────────────────────────────────────────────
 function pipelineDotClass(status: string): string {
@@ -597,6 +647,30 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
   );
 }
 
+// ─── Group section header ──────────────────────────────────────────
+function GroupHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className="font-mono text-[10px] font-bold uppercase tracking-[0.22em]"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        {label}
+      </span>
+      <div
+        className="flex-1 h-px"
+        style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.10), transparent)' }}
+      />
+      <span
+        className="font-mono text-[10px]"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
 // ─── Monitor View (existing content, wrapped) ─────────────────
 function MonitorView() {
   const { data: agents } = useAgents();
@@ -604,12 +678,29 @@ function MonitorView() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const flightControl = agents?.find(a => a.name === 'flight_control') ?? null;
-  const gridAgents = useMemo(() => {
+
+  // Map each grouped agent id to its live Agent payload, dropping
+  // any agent that hasn't surfaced from the API yet.
+  const groupedAgents = useMemo(() => {
+    if (!agents) return [] as { group: AgentGroup; items: Agent[] }[];
+    return AGENT_GROUPS.map(group => ({
+      group,
+      items: group.agentIds
+        .map(id => agents.find(a => a.name === id))
+        .filter((a): a is Agent => !!a),
+    })).filter(g => g.items.length > 0);
+  }, [agents]);
+
+  // Anything coming back from the API that isn't in a known group
+  // (new agent shipped before metadata catches up) — surface it under
+  // a fallback "Unclassified" group instead of silently dropping it.
+  const unclassifiedAgents = useMemo(() => {
     if (!agents) return [];
-    return AGENT_ORDER
-      .map(name => agents.find(a => a.name === name))
-      .filter((a): a is Agent => !!a)
-      .concat(agents.filter(a => !(AGENT_ORDER as readonly string[]).includes(a.name) && a.name !== 'flight_control'));
+    const known = new Set<string>([
+      'flight_control',
+      ...AGENT_GROUPS.flatMap(g => g.agentIds),
+    ]);
+    return agents.filter(a => !known.has(a.name));
   }, [agents]);
 
   const operational = agents?.filter(a => a.status !== 'error').length ?? 0;
@@ -619,6 +710,16 @@ function MonitorView() {
   const totalErrors = agents?.reduce((sum, a) => sum + a.error_count_24h, 0) ?? 0;
 
   const selectedAgentData = agents?.find(a => a.name === selectedAgent) ?? null;
+
+  function handleSelect(agentName: string) {
+    if (agentName === 'architect') {
+      // Architect has its own dedicated detail view (Run button +
+      // report viewer); the rest use the inline health panel.
+      navigate('/agents/architect');
+      return;
+    }
+    setSelectedAgent(prev => (prev === agentName ? null : agentName));
+  }
 
   return (
     <div className="space-y-6">
@@ -634,62 +735,81 @@ function MonitorView() {
         />
       </StatGrid>
 
-      {/* AGENT CARDS GRID */}
-      <div>
-        <SectionLabel className="mb-3">Squadron Status</SectionLabel>
+      {agents && agents.length > 0 ? (
+        <div className="space-y-6">
+          <div>
+            <SectionLabel className="mb-3">Squadron Status</SectionLabel>
 
-        {agents && agents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Flight Control — full width supervisor card */}
+            {/* Flight Control — full-width supervisor card + its panel */}
             {flightControl && (
-              <FlightControlCard
-                agent={flightControl}
-                allAgents={agents}
-                isSelected={selectedAgent === 'flight_control'}
-                onSelect={() =>
-                  setSelectedAgent(prev => prev === 'flight_control' ? null : 'flight_control')
-                }
-              />
-            )}
-
-            {/* Selected detail panel if FC selected */}
-            {selectedAgent === 'flight_control' && selectedAgentData && (
-              <AgentDetailPanel agent={selectedAgentData} />
-            )}
-
-            {/* Regular agent cards */}
-            {gridAgents.map(agent => (
-              <AgentCard
-                key={agent.agent_id}
-                agent={agent}
-                isSelected={selectedAgent === agent.name}
-                onSelect={() => {
-                  // Architect has its own dedicated detail view (Run
-                  // button + report viewer); the rest use the inline
-                  // health panel.
-                  if (agent.name === 'architect') {
-                    navigate('/agents/architect');
-                    return;
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FlightControlCard
+                  agent={flightControl}
+                  allAgents={agents}
+                  isSelected={selectedAgent === 'flight_control'}
+                  onSelect={() =>
+                    setSelectedAgent(prev => prev === 'flight_control' ? null : 'flight_control')
                   }
-                  setSelectedAgent(prev => prev === agent.name ? null : agent.name);
-                }}
-              />
-            ))}
-
-            {/* Selected detail panel (below grid, full width) */}
-            {selectedAgent && selectedAgent !== 'flight_control' && selectedAgentData && (
-              <AgentDetailPanel agent={selectedAgentData} />
+                />
+                {selectedAgent === 'flight_control' && selectedAgentData && (
+                  <AgentDetailPanel agent={selectedAgentData} />
+                )}
+              </div>
             )}
           </div>
-        ) : (
-          <EmptyState
-            icon={<Bot />}
-            title="Squadron offline"
-            subtitle="No AI agents are currently registered. Check your worker deployment and agent configuration."
-            variant="error"
-          />
-        )}
-      </div>
+
+          {/* Grouped agents — each group gets its own header + grid so
+              the inline detail panel stays scoped to its own group's row. */}
+          {groupedAgents.map(({ group, items }) => (
+            <div key={group.id} className="space-y-3">
+              <GroupHeader label={group.label} count={items.length} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items.map(agent => (
+                  <Fragment key={agent.agent_id}>
+                    <AgentCard
+                      agent={agent}
+                      isSelected={selectedAgent === agent.name}
+                      onSelect={() => handleSelect(agent.name)}
+                    />
+                    {selectedAgent === agent.name && selectedAgentData && (
+                      <AgentDetailPanel agent={selectedAgentData} />
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Fallback bucket for agents the API knows about but
+              metadata hasn't grouped yet — keeps them visible. */}
+          {unclassifiedAgents.length > 0 && (
+            <div className="space-y-3">
+              <GroupHeader label="Unclassified" count={unclassifiedAgents.length} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {unclassifiedAgents.map(agent => (
+                  <Fragment key={agent.agent_id}>
+                    <AgentCard
+                      agent={agent}
+                      isSelected={selectedAgent === agent.name}
+                      onSelect={() => handleSelect(agent.name)}
+                    />
+                    {selectedAgent === agent.name && selectedAgentData && (
+                      <AgentDetailPanel agent={selectedAgentData} />
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <EmptyState
+          icon={<Bot />}
+          title="Squadron offline"
+          subtitle="No AI agents are currently registered. Check your worker deployment and agent configuration."
+          variant="error"
+        />
+      )}
 
       {/* PIPELINE AUTOMATION STRIP */}
       {agents && agents.length > 0 && (
