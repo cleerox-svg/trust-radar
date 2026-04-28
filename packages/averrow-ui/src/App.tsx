@@ -12,11 +12,13 @@ import { NotFound } from '@/pages/NotFound';
 // to that route. Login and NotFound stay eager because they're tiny and
 // needed immediately at startup.
 const Brands = React.lazy(() => import('@/features/brands/Brands').then(m => ({ default: m.Brands })));
+// Scan Leads now lives as a tab inside /leads. Old /admin/scan-leads
+// links (sidebar history, sales notification emails, bookmarks) keep
+// working through a redirect — see the route definition below.
 const BrandDetail = React.lazy(() => import('@/features/brands/BrandDetail').then(m => ({ default: m.BrandDetail })));
 const Apps = React.lazy(() => import('@/features/apps/Apps').then(m => ({ default: m.Apps })));
 const DarkWeb = React.lazy(() => import('@/features/dark-web/DarkWeb').then(m => ({ default: m.DarkWeb })));
 const Agents = React.lazy(() => import('@/features/agents/Agents').then(m => ({ default: m.Agents })));
-const ScanLeads = React.lazy(() => import('@/features/scan-leads/ScanLeads').then(m => ({ default: m.ScanLeads })));
 const Takedowns = React.lazy(() => import('@/features/takedowns/Takedowns').then(m => ({ default: m.Takedowns })));
 const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m => ({ default: m.SpamTrap })));
 const Alerts = React.lazy(() => import('@/features/alerts/Alerts').then(m => ({ default: m.Alerts })));
@@ -137,7 +139,7 @@ export default function App() {
         <Route path="leads" element={lazyRoute(<Leads />)} />
         <Route path="feeds" element={lazyRoute(<Feeds />)} />
         <Route path="admin" element={lazyRoute(<AdminDashboard />)} />
-        <Route path="admin/scan-leads" element={lazyRoute(<ScanLeads />)} />
+        <Route path="admin/scan-leads" element={<Navigate to="/leads?view=scan" replace />} />
         <Route path="admin/takedowns" element={lazyRoute(<Takedowns />)} />
         <Route path="admin/spam-trap" element={lazyRoute(<SpamTrap />)} />
         <Route path="admin/users" element={lazyRoute(<Organization />)} />

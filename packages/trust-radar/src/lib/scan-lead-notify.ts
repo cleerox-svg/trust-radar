@@ -49,7 +49,11 @@ export async function notifySalesOfNewLead(
     ? `New scan lead — ${params.email} (already-monitored brand)`
     : `New scan lead — ${params.email}`;
 
-  const adminLink = `${params.adminUrlBase}/v2/admin/scan-leads`;
+  // Scan Leads now lives as a tab inside the Leads page; deep-link
+  // straight into it via `?view=scan`. The legacy /v2/admin/scan-leads
+  // route still resolves (it redirects here) so older emails keep
+  // working.
+  const adminLink = `${params.adminUrlBase}/v2/leads?view=scan`;
   const html = buildHtml({ ...params, adminLink });
   const text = buildText({ ...params, adminLink });
 

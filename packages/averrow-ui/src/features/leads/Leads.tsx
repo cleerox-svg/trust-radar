@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLeads, useLeadStats, useEnrichLead, useUpdateLead } from '@/hooks/useLeads';
 import type { SalesLead, LeadStats } from '@/hooks/useLeads';
+import { ScanLeadsView } from '@/features/scan-leads/ScanLeads';
 import {
   Card,
   Badge,
@@ -605,50 +607,90 @@ function EnrichView({ leads }: { leads: SalesLead[] }) {
 
 // ─── Main Leads Page ────────────────────────────────────────────
 
+// Views available on the Leads page. `scan` is the public-scan
+// funnel (scan_leads table) — distinct from kanban/pipeline/enrich
+// which all read from sales_leads (Pathfinder).
+type LeadsView = 'kanban' | 'pipeline' | 'enrich' | 'scan';
+
+const LEADS_VIEW_VALUES: readonly LeadsView[] = ['kanban', 'pipeline', 'enrich', 'scan'] as const;
+
+function isLeadsView(v: string | null): v is LeadsView {
+  return v != null && (LEADS_VIEW_VALUES as readonly string[]).includes(v);
+}
+
 export function Leads() {
-  const [activeView, setActiveView] = useState<'kanban' | 'pipeline' | 'enrich'>('kanban');
+  // `?view=scan` opens the Scan Leads tab directly — used by the
+  // sales notification email and the legacy /admin/scan-leads
+  // redirect so deep links land in the right place.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialView = isLeadsView(searchParams.get('view')) ? (searchParams.get('view') as LeadsView) : 'kanban';
+  const [activeView, setActiveView] = useState<LeadsView>(initialView);
   const [selectedLead, setSelectedLead] = useState<SalesLead | null>(null);
   const { data: leadsRes, isLoading } = useLeads();
   const { data: stats } = useLeadStats();
 
   const leads = useMemo(() => leadsRes?.data || [], [leadsRes]);
 
-  if (isLoading) return <TableLoader rows={8} />;
+  function selectView(view: LeadsView) {
+    setActiveView(view);
+    // Keep the URL in sync so reload + share-link both work.
+    // `kanban` is the default — strip the param to keep URLs clean.
+    const next = new URLSearchParams(searchParams);
+    if (view === 'kanban') next.delete('view');
+    else next.set('view', view);
+    setSearchParams(next, { replace: true });
+  }
 
-  // Detail view
+  // Sales-leads loader covers kanban/pipeline/enrich. The Scan
+  // Leads tab loads its own data via useScanLeads(), so we don't
+  // gate that view on this loader.
+  if (isLoading && activeView !== 'scan') return <TableLoader rows={8} />;
+
+  // Detail view (sales-leads only)
   if (selectedLead) {
     // Find fresh version of lead from data (in case it was updated)
     const freshLead = leads.find(l => l.id === selectedLead.id) ?? selectedLead;
     return <LeadDetail lead={freshLead} onBack={() => setSelectedLead(null)} />;
   }
 
+  const subtitle = activeView === 'scan'
+    ? 'Public scan funnel — leads from the homepage scan widget. Generate the Brand Risk Plan, send outreach, then convert to a tenant once qualified.'
+    : 'Prospect pipeline powered by Pathfinder';
+
   return (
     <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Leads"
-        subtitle="Prospect pipeline powered by Pathfinder"
+        subtitle={subtitle}
         actions={
           <>
             <Button
               variant={activeView === 'kanban' ? 'primary' : 'secondary'}
               size="sm"
-              onClick={() => setActiveView('kanban')}
+              onClick={() => selectView('kanban')}
             >
               Kanban
             </Button>
             <Button
               variant={activeView === 'pipeline' ? 'primary' : 'secondary'}
               size="sm"
-              onClick={() => setActiveView('pipeline')}
+              onClick={() => selectView('pipeline')}
             >
               Sales Pipeline
             </Button>
             <Button
               variant={activeView === 'enrich' ? 'primary' : 'secondary'}
               size="sm"
-              onClick={() => setActiveView('enrich')}
+              onClick={() => selectView('enrich')}
             >
               Enrich Leads
+            </Button>
+            <Button
+              variant={activeView === 'scan' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => selectView('scan')}
+            >
+              Scan Leads
             </Button>
           </>
         }
@@ -662,6 +704,9 @@ export function Leads() {
       )}
       {activeView === 'enrich' && (
         <EnrichView leads={leads} />
+      )}
+      {activeView === 'scan' && (
+        <ScanLeadsView />
       )}
     </div>
   );

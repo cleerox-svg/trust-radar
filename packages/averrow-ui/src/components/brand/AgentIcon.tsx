@@ -191,6 +191,32 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M32.5 19.5C34 18 34 13 32.5 11.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
     </svg>
   ),
+  // Cube Healer — OLAP cube maintenance. Stacked cube with a healing chevron sweep.
+  cube_healer: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* isometric cube */}
+      <path d="M18 6L29 12V24L18 30L7 24V12Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M18 6L18 18L7 12" stroke="currentColor" strokeWidth="1.1" opacity="0.6" strokeLinejoin="round"/>
+      <path d="M18 18L29 12" stroke="currentColor" strokeWidth="1.1" opacity="0.6" strokeLinejoin="round"/>
+      <path d="M18 18L18 30" stroke="currentColor" strokeWidth="1.1" opacity="0.4" strokeLinejoin="round"/>
+      {/* healing pulse — diagonal sweep */}
+      <path d="M11 19L14 22L21 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  // Narrator — AI-written threat briefings. Document with a voice/word-mark glyph.
+  narrator: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* document outline */}
+      <path d="M9 6H21L27 12V30H9V6Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M21 6V12H27" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" opacity="0.6"/>
+      {/* lines of narrative */}
+      <line x1="13" y1="17" x2="23" y2="17" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.55"/>
+      <line x1="13" y1="21" x2="23" y2="21" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.55"/>
+      <line x1="13" y1="25" x2="20" y2="25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.55"/>
+      {/* voice / quote mark — AI flourish */}
+      <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
+    </svg>
+  ),
   // Outrider — Social Discovery. Scout arrow pushing forward, breadcrumb dots behind.
   social_discovery: (s) => (
     <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
