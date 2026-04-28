@@ -165,6 +165,107 @@ async function fetchD1Metrics(env: Env, databaseId: string): Promise<D1Metrics> 
   }
 }
 
+// ─── Per-endpoint D1 read attribution via Workers Analytics Engine ──
+// Companion to fetchD1Metrics (database-wide) — surfaces which
+// endpoints are eating the rows-read budget. Reads from the
+// `trust_radar_d1_reads` AE dataset that lib/analytics.ts writes to.
+// Uses AE's SQL API (separate from GraphQL — same auth though).
+
+interface D1EndpointAttribution {
+  endpoint: string;
+  total_rows_read: number;
+  total_queries: number;
+  request_count: number;
+  avg_rows_per_request: number;
+}
+
+async function fetchD1EndpointAttribution(env: Env): Promise<{
+  by_endpoint: D1EndpointAttribution[];
+  setup_required: boolean;
+  setup_instructions?: string;
+  error?: string;
+}> {
+  const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
+  const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
+
+  if (!token || !accountId) {
+    return {
+      by_endpoint: [],
+      setup_required: true,
+      setup_instructions:
+        "Set CF_API_TOKEN + CF_ACCOUNT_ID via `wrangler secret put` to enable " +
+        "per-endpoint D1 read attribution.",
+    };
+  }
+
+  // AE SQL API: blob1 is the endpoint label (set by recordD1Reads),
+  // double1 = rowsRead, double2 = rowsWritten, double3 = queries.
+  // Aggregate over the past 24h, top 20 endpoints by rows_read.
+  const sql = `
+    SELECT
+      blob1 AS endpoint,
+      SUM(double1) AS total_rows_read,
+      SUM(double3) AS total_queries,
+      COUNT() AS request_count
+    FROM trust_radar_d1_reads
+    WHERE timestamp > NOW() - INTERVAL '1' DAY
+    GROUP BY blob1
+    ORDER BY total_rows_read DESC
+    LIMIT 20
+  `;
+
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/analytics_engine/sql`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "text/plain",
+        },
+        body: sql,
+      },
+    );
+
+    if (!res.ok) {
+      return {
+        by_endpoint: [],
+        setup_required: false,
+        error: `AE SQL HTTP ${res.status}`,
+      };
+    }
+
+    const json = (await res.json()) as {
+      data?: Array<{
+        endpoint: string;
+        total_rows_read: number;
+        total_queries: number;
+        request_count: number;
+      }>;
+    };
+
+    const rows = json.data ?? [];
+    return {
+      by_endpoint: rows.map((r) => ({
+        endpoint: r.endpoint,
+        total_rows_read: r.total_rows_read,
+        total_queries: r.total_queries,
+        request_count: r.request_count,
+        avg_rows_per_request: r.request_count > 0
+          ? Math.round(r.total_rows_read / r.request_count)
+          : 0,
+      })),
+      setup_required: false,
+    };
+  } catch (err) {
+    return {
+      by_endpoint: [],
+      setup_required: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 /** GET /api/admin/platform-diagnostics  (JWT admin auth)
  *  GET /api/internal/platform-diagnostics (AVERROW_INTERNAL_SECRET auth) */
 export async function handlePlatformDiagnostics(request: Request, env: Env): Promise<Response> {
@@ -433,18 +534,19 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
     // additional secret config).
     const D1_DATABASE_ID = "a3776a5f-c07c-4e20-9f3b-8d7f8c7f90c6";
     const d1MetricsP = fetchD1Metrics(env, D1_DATABASE_ID);
+    const d1AttributionP = fetchD1EndpointAttribution(env);
 
     // ── Execute all in parallel ─────────────────────────────────────
     const [
       clock, enrichment, cartoQueue, cartoQueueRaw, cartoExhausted,
       feedHealth, feedStatus, feedErrors,
       agentMesh, stalled, backlog,
-      aiSpend, cronHealth, totals, d1Metrics,
+      aiSpend, cronHealth, totals, d1Metrics, d1Attribution,
     ] = await Promise.all([
       clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP,
       feedHealthP, feedStatusP, feedErrorsP,
       agentMeshP, stalledP, backlogP,
-      aiSpendP, cronHealthP, totalsP, d1MetricsP,
+      aiSpendP, cronHealthP, totalsP, d1MetricsP, d1AttributionP,
     ]);
 
     // ── Build backlog trend map ─────────────────────────────────────
@@ -485,7 +587,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           generated_at: new Date().toISOString(),
           db_clock_utc: clock?.utc_now ?? null,
           window_hours: hoursBack,
-          endpoint_version: 4,
+          endpoint_version: 5,
         },
 
         enrichment_pipeline: {
@@ -555,6 +657,13 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         // setup_required: true when CF_API_TOKEN / CF_ACCOUNT_ID aren't
         // configured — set them via `wrangler secret put` to enable.
         d1_metrics_24h: d1Metrics,
+
+        // Per-endpoint D1 read attribution from Workers Analytics Engine.
+        // Reads from the trust_radar_d1_reads dataset that opt-in handlers
+        // (dark-web + app-store today) populate via lib/analytics.ts.
+        // Endpoints not yet instrumented don't appear here — coverage will
+        // grow as more handlers are migrated to the same pattern.
+        d1_attribution_24h: d1Attribution,
       },
     }, 200, origin);
   } catch (err) {

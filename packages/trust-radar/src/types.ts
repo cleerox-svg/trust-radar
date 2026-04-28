@@ -10,6 +10,10 @@ export interface Env {
   CERTSTREAM_MONITOR: DurableObjectNamespace;
   CARTOGRAPHER_BACKFILL: Workflow;
   NEXUS_RUN: Workflow;
+  // Workers Analytics Engine — per-endpoint D1 read attribution.
+  // Optional so non-instrumented Worker entry points (tests, scripts)
+  // don't have to bind it.
+  AE?: AnalyticsEngineDataset;
   // ARCHITECT meta-agent — bundle storage (optional; only bound where needed)
   ARCHITECT_BUNDLES?: R2Bucket;
   // Environment variables
