@@ -1,6 +1,7 @@
 // Averrow — Operations API Endpoints (NEXUS infrastructure clusters)
 
 import { json } from "../lib/cors";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 
 // GET /api/v1/operations — List infrastructure_clusters with sort/filter
@@ -26,7 +27,11 @@ export async function handleListOperations(request: Request, env: Env): Promise<
     // KV cache: operations list with 14-day subquery — cache for 5 minutes.
     const cacheKey = `operations_list:${status ?? "all"}:${limit}:${offset}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return json(JSON.parse(cached), 200, origin);
+    if (cached) {
+      recordD1Reads(env, "operations_list", newTally());
+      return json(JSON.parse(cached), 200, origin);
+    }
+    const tally = newTally();
 
     const rows = await env.DB.prepare(`
       SELECT ic.id, ic.cluster_name, ic.asns, ic.countries, ic.threat_count,
@@ -54,10 +59,12 @@ export async function handleListOperations(request: Request, env: Env): Promise<
         ic.threat_count DESC
       LIMIT ? OFFSET ?
     `).bind(...params).all();
+    addToTally(tally, rows.meta);
 
     const total = await env.DB.prepare(
       `SELECT COUNT(*) AS n FROM infrastructure_clusters ic ${where}`
     ).bind(...params.slice(0, -2)).first<{ n: number }>();
+    tally.queries += 1;
 
     const data = (rows.results as Array<Record<string, unknown>>).map(row => ({
       ...row,
@@ -69,6 +76,7 @@ export async function handleListOperations(request: Request, env: Env): Promise<
 
     const responseData = { success: true, data, total: total?.n ?? 0 };
     await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    recordD1Reads(env, "operations_list", tally);
     return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
@@ -82,7 +90,11 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
     // KV cache: 4 parallel queries — cache for 5 minutes.
     const cacheKey = 'operations_stats';
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return json(JSON.parse(cached), 200, origin);
+    if (cached) {
+      recordD1Reads(env, "operations_stats", newTally());
+      return json(JSON.parse(cached), 200, origin);
+    }
+    const tally = newTally();
 
     const [clusterStats, campaignStats, brandStats, typeStats] = await Promise.all([
       env.DB.prepare(`
@@ -101,6 +113,9 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
         SELECT COUNT(DISTINCT threat_type) AS threat_types FROM threats WHERE status = 'active'
       `).first<{ threat_types: number }>(),
     ]);
+    // 4 .first() queries — meta unavailable, but the brands_targeted
+    // + threat_types counts scan the threats table (200K+ rows).
+    tally.queries += 4;
 
     const responseData = {
       success: true,
@@ -114,6 +129,7 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
       },
     };
     await env.CACHE.put(cacheKey, JSON.stringify(responseData), { expirationTtl: 300 });
+    recordD1Reads(env, "operations_stats", tally);
     return json(responseData, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
