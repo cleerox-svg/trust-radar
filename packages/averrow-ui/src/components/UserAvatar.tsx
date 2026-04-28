@@ -4,6 +4,7 @@ import { User, Bell, Building2, Key, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/useWindowWidth';
 import { useTheme } from '@/design-system/hooks';
+import { parseInitials, SELF_AVATAR_COLOR } from '@/lib/avatar';
 import { Dropdown } from './Dropdown';
 import { BottomSheet } from './BottomSheet';
 
@@ -20,9 +21,7 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { toggle, isDark } = useTheme();
 
-  const initials = user?.name
-    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : user?.email?.charAt(0).toUpperCase() ?? '?';
+  const initials = parseInitials(user?.name, user?.email);
 
   const roleName = user?.role === 'super_admin' ? 'Super Admin'
     : user?.role === 'admin' ? 'Admin'
@@ -49,7 +48,14 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   return (
     <div>
       <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-white/5">
-        <div className="w-10 h-10 rounded-full bg-[#C83C3C] flex items-center justify-center text-sm font-bold text-white ring-1 ring-white/20 flex-shrink-0">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+          style={{
+            background: SELF_AVATAR_COLOR,
+            color: 'var(--text-on-amber, #0A0F1E)',
+            border: '1px solid rgba(255,255,255,0.20)',
+          }}
+        >
           {initials}
         </div>
         <div className="min-w-0">
@@ -99,9 +105,7 @@ export function UserAvatar() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const initials = user?.name
-    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : user?.email?.charAt(0).toUpperCase() ?? '?';
+  const initials = parseInitials(user?.name, user?.email);
 
   const handleClose = useCallback(() => setOpen(false), []);
 
@@ -109,7 +113,12 @@ export function UserAvatar() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="w-8 h-8 rounded-full bg-[#C83C3C] flex items-center justify-center text-xs font-bold text-white ring-1 ring-white/20 hover:ring-[#00D4FF]/50 transition-all duration-150 touch-target"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-150 touch-target"
+        style={{
+          background: SELF_AVATAR_COLOR,
+          color: 'var(--text-on-amber, #0A0F1E)',
+          border: '1px solid rgba(255,255,255,0.20)',
+        }}
         aria-label="User menu"
       >
         {initials}
