@@ -782,13 +782,15 @@ async function runScan() {
   loadingEl.classList.add('visible');
 
   try {
-    const payload = { domain };
-    if (brandName) payload.brand_name = brandName;
-
-    const res = await fetch('/api/scan/report', {
+    // Public scan: call /api/brand-scan/public so the /scan page returns the
+    // same brief score+risk shape as the homepage widget (templates/homepage.ts).
+    // Single source of truth: lead capture is required for the full report.
+    // Previous behavior rendered a full BrandExposureReport here, which exposed
+    // far more detail than the public flow is meant to show.
+    const res = await fetch('/api/brand-scan/public', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ domain }),
     });
 
     const json = await res.json();
@@ -797,7 +799,7 @@ async function runScan() {
       throw new Error(json.error || 'Scan failed');
     }
 
-    renderReport(json.data, !!json.cached);
+    renderReport(json.data, brandName);
   } catch (err) {
     errEl.textContent = err.message || 'Something went wrong. Please try again.';
     errEl.classList.add('visible');
@@ -808,136 +810,107 @@ async function runScan() {
   }
 }
 
-// ── Render Report ──
-function renderReport(data, cached) {
-  const el = document.getElementById('report');
-  const r = 60; // radius
-  const c = 2 * Math.PI * r;
-  const offset = c - (data.exposure_score / 100) * c;
-  const color = scoreColor(data.exposure_score);
+// Free-email providers blocked from the lead-capture form. Mirrors the
+// list in templates/homepage.ts — keep them in sync if that one changes.
+var FREEMAIL_DOMAINS = ['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','mail.com','protonmail.com','proton.me','yandex.com','zoho.com','gmx.com','fastmail.com','tutanota.com','hey.com','live.com','msn.com','me.com','qq.com','163.com'];
 
-  // Registered lookalikes only
-  const registered = (data.domain_risk.lookalikes || []).filter(l => l.registered);
-  const unregistered = (data.domain_risk.lookalikes || []).filter(l => !l.registered);
+// ── Render Report ──
+// Brief render matching templates/homepage.ts's scan widget. Public flow:
+// shows score + risk pills + a lead-capture form; full report is gated
+// behind a business email submission (POSTed to /api/leads).
+function renderReport(data, brandName) {
+  const el = document.getElementById('report');
+  const score = data.trustScore;
+  const color = scoreColor(score);
+  const grade = score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : score >= 20 ? 'D' : 'F';
+  const summary = score >= 80
+    ? 'Strong defensive posture. Continue monitoring.'
+    : score >= 60
+    ? 'Moderate exposure detected. Review below.'
+    : score >= 40
+    ? 'Significant exposure. Brand impersonation likely possible.'
+    : 'Critical exposure. Active brand abuse risk.';
+
+  const risks = [];
+  if (data.riskLevel === 'critical' || data.riskLevel === 'high') {
+    risks.push({ text: 'Risk: ' + data.riskLevel.toUpperCase(), cls: 'bad' });
+  } else if (data.riskLevel === 'medium') {
+    risks.push({ text: 'Risk: MEDIUM', cls: 'warn' });
+  } else {
+    risks.push({ text: 'Risk: LOW', cls: 'ok' });
+  }
+  if (data.feedMentions) {
+    risks.push({ text: 'Active threats detected', cls: 'bad' });
+  } else {
+    risks.push({ text: 'No active threats', cls: 'ok' });
+  }
+  if (data.lookalikesPossible > 50) {
+    risks.push({ text: data.lookalikesPossible + ' lookalike domains possible', cls: 'warn' });
+  }
 
   el.innerHTML = \`
-    <!-- Header & Score -->
-    <div class="report-header">
-      <h2>\${esc(data.brand_name)}</h2>
-      <div class="report-domain">\${esc(data.domain)}\${cached ? ' (cached)' : ''}</div>
+    <div class="result-card">
+      <div class="result-domain">\${esc(brandName || data.domain)}</div>
       <div class="score-ring">
         <svg viewBox="0 0 140 140">
-          <circle class="track" cx="70" cy="70" r="\${r}"/>
-          <circle class="value" cx="70" cy="70" r="\${r}"
-            stroke="\${color}"
-            stroke-dasharray="\${c}"
-            stroke-dashoffset="\${offset}"/>
+          <circle cx="70" cy="70" r="60" fill="none" stroke="var(--bg-tertiary)" stroke-width="6"/>
+          <circle cx="70" cy="70" r="60" fill="none" stroke="\${color}" stroke-width="6" stroke-dasharray="377" stroke-dashoffset="\${377 * (1 - score / 100)}" stroke-linecap="round" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1.5s ease"/>
         </svg>
-        <div class="score-number">
-          <div class="num" style="color:\${color}">\${data.exposure_score}</div>
-          <div class="label">Exposure</div>
-        </div>
+        <div class="score-val" style="color:\${color}">\${score}</div>
       </div>
-      <div class="risk-badge risk-\${data.risk_level}">\${data.risk_level} RISK</div>
-    </div>
-
-    <!-- Email Security -->
-    <div class="report-section">
-      <div class="section-title"><span class="section-icon">&#9993;</span> Email Security &mdash; Grade \${esc(data.email_security.grade)}</div>
-      <div class="email-grid">
-        <div class="email-item">
-          <div class="email-item-label">SPF</div>
-          <div class="email-item-value \${statusClass(data.email_security.spf.status)}">\${esc(data.email_security.spf.status)}</div>
-        </div>
-        <div class="email-item">
-          <div class="email-item-label">DKIM</div>
-          <div class="email-item-value \${statusClass(data.email_security.dkim.status)}">\${esc(data.email_security.dkim.status)}</div>
-        </div>
-        <div class="email-item">
-          <div class="email-item-label">DMARC</div>
-          <div class="email-item-value \${statusClass(data.email_security.dmarc.status)}">\${esc(data.email_security.dmarc.status)}\${data.email_security.dmarc.policy ? ' (' + esc(data.email_security.dmarc.policy) + ')' : ''}</div>
-        </div>
-        <div class="email-item">
-          <div class="email-item-label">MX Provider</div>
-          <div class="email-item-value" style="color:var(--text-primary);font-size:0.82rem">\${esc(data.email_security.mx_provider)}</div>
-        </div>
+      <div class="score-grade" style="color:\${color}">Defense Grade: \${grade}</div>
+      <div class="score-summary">\${summary}</div>
+      <div class="risk-pills">\${risks.map(function(r) { return '<span class="risk-p ' + r.cls + '">' + esc(r.text) + '</span>'; }).join('')}</div>
+      <div class="gate-divider">
+        <div class="gate-title">Get the Full Intercept Report</div>
+        <div class="gate-sub">Detailed assessment with threat actor analysis, infrastructure mapping, and specific remediation steps.</div>
+        <form class="gate-form" id="gateForm">
+          <input class="gate-input" id="emailInput" name="email" placeholder="Business email address" type="email" required>
+          <button class="gate-btn" type="submit" id="gateBtn">Get Report</button>
+        </form>
+        <div class="gate-note" id="gateNote">Business email required &middot; Free &middot; No credit card</div>
       </div>
-    </div>
-
-    <!-- Domain Risk / Lookalikes -->
-    <div class="report-section">
-      <div class="section-title"><span class="section-icon">&#127760;</span> Lookalike Domains</div>
-      <div class="lookalike-summary">
-        <strong>\${data.domain_risk.similar_domains_found}</strong> registered lookalike domain\${data.domain_risk.similar_domains_found !== 1 ? 's' : ''} detected out of \${(data.domain_risk.lookalikes || []).length} checked.
-      </div>
-      \${registered.length > 0 ? '<ul class="lookalike-list">' + registered.map(l => \`
-        <li class="lookalike-item">
-          <span class="lookalike-domain">\${esc(l.domain)}</span>
-          <span class="lookalike-type">\${esc(l.type)}</span>
-          <span class="lookalike-status lookalike-registered">REGISTERED</span>
-        </li>\`).join('') + '</ul>' : '<p style="color:var(--green);font-size:0.85rem">No registered lookalike domains found.</p>'}
-      \${unregistered.length > 0 ? '<details style="margin-top:0.75rem"><summary style="font-size:0.78rem;color:var(--text-tertiary);cursor:pointer">Show ' + unregistered.length + ' unregistered permutations</summary><ul class="lookalike-list" style="margin-top:0.5rem">' + unregistered.map(l => \`
-        <li class="lookalike-item">
-          <span class="lookalike-domain">\${esc(l.domain)}</span>
-          <span class="lookalike-type">\${esc(l.type)}</span>
-          <span class="lookalike-status lookalike-safe">NOT FOUND</span>
-        </li>\`).join('') + '</ul></details>' : ''}
-    </div>
-
-    <!-- Threat Feeds -->
-    <div class="report-section">
-      <div class="section-title"><span class="section-icon">&#128681;</span> Threat Feed Mentions</div>
-      <div class="feed-grid">
-        <div class="feed-item">
-          <div class="feed-name">Total</div>
-          <div class="feed-count \${data.threat_feeds.total_hits > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.total_hits}</div>
-        </div>
-        <div class="feed-item">
-          <div class="feed-name">Phishing Database</div>
-          <div class="feed-count \${data.threat_feeds.phishtank > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.phishtank}</div>
-        </div>
-        <div class="feed-item">
-          <div class="feed-name">Malware URL Feed</div>
-          <div class="feed-count \${data.threat_feeds.urlhaus > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.urlhaus}</div>
-        </div>
-        <div class="feed-item">
-          <div class="feed-name">Phishing Intelligence</div>
-          <div class="feed-count \${data.threat_feeds.openphish > 0 ? 'feed-hits' : 'feed-zero'}">\${data.threat_feeds.openphish}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Social Presence -->
-    <div class="report-section">
-      <div class="section-title"><span class="section-icon">&#128101;</span> Social Handle Check &mdash; \${data.social_presence.issues} issue\${data.social_presence.issues !== 1 ? 's' : ''}</div>
-      <div class="social-grid">
-        \${(data.social_presence.platforms || []).map(p => {
-          const s = socialStatusText(p.available);
-          return \`<div class="social-item">
-            <span class="social-platform">\${esc(p.platform)}</span>
-            <span class="social-status \${s.cls}">\${s.text}</span>
-          </div>\`;
-        }).join('')}
-      </div>
-    </div>
-
-    <!-- AI Assessment -->
-    <div class="report-section">
-      <div class="section-title"><span class="section-icon">&#129302;</span> AI Assessment</div>
-      <div class="ai-assessment">\${esc(data.ai_assessment)}</div>
-    </div>
-
-    <!-- Actions -->
-    <div class="report-actions">
-      <button class="btn-secondary" onclick="shareReport()">&#128279; Share Report</button>
-      <button class="btn-secondary" onclick="window.print()">&#128424; Print / PDF</button>
-      <a href="/register" class="btn-cta">&#128737; Monitor This Brand</a>
     </div>
   \`;
+
+  document.getElementById('gateForm').addEventListener('submit', function(ev) {
+    ev.preventDefault();
+    const email = document.getElementById('emailInput').value.trim();
+    const emailDomain = (email.split('@')[1] || '').toLowerCase();
+    if (!email || !email.includes('@')) return;
+    if (FREEMAIL_DOMAINS.indexOf(emailDomain) !== -1) {
+      document.getElementById('emailInput').style.borderColor = 'var(--accent)';
+      const note = document.getElementById('gateNote');
+      note.textContent = 'Please use a business email address (no free email providers)';
+      note.className = 'gate-note gate-error';
+      return;
+    }
+    const gbtn = document.getElementById('gateBtn');
+    gbtn.textContent = 'Sending...';
+    gbtn.disabled = true;
+    fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, name: email.split('@')[0], domain: data.domain, company: emailDomain }),
+    })
+    .then(function() {
+      gbtn.textContent = '\\u2713 Sent!';
+      gbtn.style.background = 'var(--green)';
+      const note = document.getElementById('gateNote');
+      note.textContent = 'Check your inbox. Full intercept report delivered within 2 minutes.';
+      note.style.color = 'var(--green)';
+      note.className = 'gate-note';
+    })
+    .catch(function() {
+      gbtn.textContent = 'Get Report';
+      gbtn.disabled = false;
+    });
+  });
 
   el.classList.add('visible');
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
 
 // ── Escape HTML ──
 function esc(s) {
